@@ -1,0 +1,217 @@
+const MICROSOFT_TOKEN_ENDPOINT_HOSTS: Set<string> = new Set([
+  "login.microsoftonline.com",
+  "login.microsoft.com",
+  "login.windows.net",
+]);
+
+const DEFAULT_REGION: string = "us-east-1";
+const DEFAULT_EXPIRES_IN: number = 3600;
+
+function normalizeString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function validateMicrosoftTokenEndpoint(rawEndpoint: string): string {
+  const tokenEndpoint: string = normalizeString(rawEndpoint);
+  if (!tokenEndpoint) throw new Error("token_endpoint is required");
+
+  let parsed: URL;
+  try {
+    parsed = new URL(tokenEndpoint);
+  } catch {
+    throw new Error("token_endpoint must be a valid URL");
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error("token_endpoint must use https");
+  }
+
+  const host: string = parsed.hostname.toLowerCase();
+  if (!MICROSOFT_TOKEN_ENDPOINT_HOSTS.has(host)) {
+    throw new Error("token_endpoint must be a Microsoft login endpoint");
+  }
+
+  return parsed.toString();
+}
+
+export function normalizeScope(scopes: string | string[]): string {
+  if (Array.isArray(scopes)) {
+    return scopes.map(normalizeString).filter(Boolean).join(" ");
+  }
+  return normalizeString(scopes);
+}
+
+interface JwtPayload {
+  email?: string;
+  preferred_username?: string;
+  upn?: string;
+  sub?: string;
+  exp?: number;
+  [key: string]: unknown;
+}
+
+export function decodeJwtPayload(jwt: string): JwtPayload | null {
+  try {
+    if (!jwt || typeof jwt !== "string") return null;
+    const parts: string[] = jwt.split(".");
+    if (parts.length !== 3) return null;
+    const base64: string = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padding: number = (4 - (base64.length % 4)) % 4;
+    return JSON.parse(Buffer.from(`${base64}${"=".repeat(padding)}`, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+interface ExpiresAtInput {
+  expired?: string;
+  expires_at?: string;
+  expiresAt?: string;
+  expires_in?: number;
+  expiresIn?: number;
+  access_token?: string;
+  accessToken?: string;
+  [key: string]: unknown;
+}
+
+function resolveExpiresAt(input: ExpiresAtInput): string {
+  const explicit: string | undefined = input.expired || input.expires_at || input.expiresAt;
+  if (explicit) {
+    const ms: number = new Date(explicit).getTime();
+    if (Number.isFinite(ms)) return new Date(ms).toISOString();
+  }
+
+  const expiresIn: number = Number(input.expires_in || input.expiresIn || 0);
+  if (Number.isFinite(expiresIn) && expiresIn > 0) {
+    return new Date(Date.now() + expiresIn * 1000).toISOString();
+  }
+
+  const payload: JwtPayload | null = decodeJwtPayload(input.access_token || input.accessToken || "");
+  if (payload?.exp) {
+    return new Date(payload.exp * 1000).toISOString();
+  }
+
+  return new Date(Date.now() + DEFAULT_EXPIRES_IN * 1000).toISOString();
+}
+
+interface KiroExternalIdpAuth {
+  auth_method?: string;
+  authMethod?: string;
+  access_token?: string;
+  accessToken?: string;
+  refresh_token?: string;
+  refreshToken?: string;
+  client_id?: string;
+  clientId?: string;
+  token_endpoint?: string;
+  tokenEndpoint?: string;
+  profile_arn?: string;
+  profileArn?: string;
+  region?: string;
+  scopes?: string | string[];
+  scope?: string | string[];
+  email?: string;
+  [key: string]: unknown;
+}
+
+interface NormalizedKiroAuth {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  email: string | null;
+  providerSpecificData: {
+    profileArn: string;
+    region: string;
+    authMethod: string;
+    provider: string;
+    clientId: string;
+    tokenEndpoint: string;
+    scope: string;
+  };
+}
+
+export function normalizeKiroExternalIdpAuth(rawAuth: string | KiroExternalIdpAuth): NormalizedKiroAuth {
+  let input: KiroExternalIdpAuth = rawAuth as KiroExternalIdpAuth;
+  if (typeof input === "string") {
+    try {
+      input = JSON.parse(input);
+    } catch {
+      throw new Error("CLIProxyAPI auth JSON is invalid");
+    }
+  }
+
+  if (!input || typeof input !== "object") {
+    throw new Error("CLIProxyAPI auth JSON is required");
+  }
+
+  const authMethod: string = normalizeString(input.auth_method || input.authMethod);
+  if (authMethod && authMethod !== "external_idp") {
+    throw new Error("Only external_idp Kiro auth is supported by this importer");
+  }
+
+  const accessToken: string = normalizeString(input.access_token || input.accessToken);
+  const refreshToken: string = normalizeString(input.refresh_token || input.refreshToken);
+  const clientId: string = normalizeString(input.client_id || input.clientId);
+  const tokenEndpoint: string = validateMicrosoftTokenEndpoint(input.token_endpoint || input.tokenEndpoint);
+  const profileArn: string = normalizeString(input.profile_arn || input.profileArn);
+  const region: string = normalizeString(input.region) || DEFAULT_REGION;
+  const scope: string = normalizeScope(input.scopes || input.scope);
+
+  if (!accessToken) throw new Error("access_token is required");
+  if (!refreshToken) throw new Error("refresh_token is required");
+  if (!clientId) throw new Error("client_id is required");
+  if (!scope) throw new Error("scopes is required");
+  if (!profileArn) throw new Error("profile_arn is required");
+
+  const payload: JwtPayload | null = decodeJwtPayload(accessToken);
+  const email: string | null = input.email || payload?.email || payload?.preferred_username || payload?.upn || payload?.sub || null;
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresAt: resolveExpiresAt(input),
+    email,
+    providerSpecificData: {
+      profileArn,
+      region,
+      authMethod: "external_idp",
+      provider: "CLIProxyAPI",
+      clientId,
+      tokenEndpoint,
+      scope,
+    },
+  };
+}
+
+interface RefreshParams {
+  tokenEndpoint: string;
+  body: URLSearchParams;
+  providerSpecificData: Record<string, unknown>;
+}
+
+export function buildExternalIdpRefreshParams(refreshToken: string, providerSpecificData: Record<string, unknown> = {}): RefreshParams {
+  const clientId: string = normalizeString(providerSpecificData.clientId || providerSpecificData.client_id);
+  const tokenEndpoint: string = validateMicrosoftTokenEndpoint((providerSpecificData.tokenEndpoint || providerSpecificData.token_endpoint) as string);
+  const scope: string = normalizeScope((providerSpecificData.scope || providerSpecificData.scopes) as string | string[]);
+
+  if (!refreshToken) throw new Error("refresh token is required");
+  if (!clientId) throw new Error("clientId is required for external_idp refresh");
+  if (!scope) throw new Error("scope is required for external_idp refresh");
+
+  return {
+    tokenEndpoint,
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: clientId,
+      refresh_token: refreshToken,
+      scope,
+    }),
+    providerSpecificData: {
+      ...providerSpecificData,
+      authMethod: "external_idp",
+      clientId,
+      tokenEndpoint,
+      scope,
+    },
+  };
+}

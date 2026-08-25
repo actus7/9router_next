@@ -39,3 +39,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+node_modules/
+dist/
+.env
+
+# build artifacts
+build-output.txt
+build-output2.txt
+cleanup3.ps1
+convert-to-ts.cjs
+fix-params.cjs
+error-files.txt
+prisma-next.md
+
+# old files
+custom-server.js
+open-sse/
+
+# AI agent configs
+.agents/
+.claude/
+.cursor/
+.devin/
