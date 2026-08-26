@@ -4,10 +4,14 @@
 import { useState, useEffect, useCallback } from "react";
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button as UIButton } from "@/components/ui/button";
 import Drawer from "@/shared/components/Drawer";
 import Pagination from "@/shared/components/Pagination";
 import { cn } from "@/shared/utils/cn";
+import { Label } from "@/components/ui/label";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
+import { Input } from "@/components/ui/input";
 
 let providerNameCache = null;
 let providerNodesCache = null;
@@ -57,10 +61,11 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
   
   return (
     <div className="border border-black/5 dark:border-white/5 rounded-lg overflow-hidden">
-      <button 
+      <UIButton
         type="button"
+        variant="ghost"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
+        className="w-full justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
       >
         <div className="flex items-center gap-2">
           {icon && <span className="material-symbols-outlined text-[18px] text-text-muted">{icon}</span>}
@@ -72,7 +77,7 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
         )}>
           chevron_right
         </span>
-      </button>
+      </UIButton>
       
       {isOpen && (
         <div className="p-4 border-t border-black/5 dark:border-white/5">
@@ -185,7 +190,7 @@ export default function RequestDetailsTab() {
       <Card padding="md">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="provider-filter" className="text-sm font-medium text-text-main">Provider</label>
+            <Label htmlFor="provider-filter" className="text-text-main">Provider</Label>
             <select
               id="provider-filter"
               value={filters.provider}
@@ -207,30 +212,24 @@ export default function RequestDetailsTab() {
           </div>
           
           <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="start-date-filter" className="text-sm font-medium text-text-main">Start Date</label>
-            <input
+            <Label htmlFor="start-date-filter" className="text-text-main">Start Date</Label>
+            <Input
               id="start-date-filter"
               type="datetime-local"
               value={filters.startDate}
               onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-              className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "w-full min-w-0 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
-              )}
+              className="h-9 px-3 w-full min-w-0 text-sm text-text-main"
             />
           </div>
 
           <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="end-date-filter" className="text-sm font-medium text-text-main">End Date</label>
-            <input
+            <Label htmlFor="end-date-filter" className="text-text-main">End Date</Label>
+            <Input
               id="end-date-filter"
               type="datetime-local"
               value={filters.endDate}
               onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-              className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "w-full min-w-0 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
-              )}
+              className="h-9 px-3 w-full min-w-0 text-sm text-text-main"
             />
           </div>
           
@@ -249,73 +248,72 @@ export default function RequestDetailsTab() {
       </Card>
 
       <Card padding="none">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px]">
-            <thead>
-              <tr className="border-b border-black/5 dark:border-white/5">
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Timestamp</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Model</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Provider</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Input Tokens</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Cached</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Cache Creation</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Output Tokens</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Latency</th>
-                <th className="text-center p-4 text-sm font-semibold text-text-main">Action</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="min-w-[880px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="p-4 text-sm font-semibold text-text-main">Timestamp</TableHead>
+                <TableHead className="p-4 text-sm font-semibold text-text-main">Model</TableHead>
+                <TableHead className="p-4 text-sm font-semibold text-text-main">Provider</TableHead>
+                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Input Tokens</TableHead>
+                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Cached</TableHead>
+                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Cache Creation</TableHead>
+                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Output Tokens</TableHead>
+                <TableHead className="p-4 text-sm font-semibold text-text-main">Latency</TableHead>
+                <TableHead className="p-4 text-center text-sm font-semibold text-text-main">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading ? (
-                <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted">
+                <TableRow>
+                  <TableCell colSpan={7} className="p-8 text-center text-text-muted">
                     <div className="flex items-center justify-center gap-2">
                       <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
                       Loading...
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : details.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted">
+                <TableRow>
+                  <TableCell colSpan={7} className="p-8 text-center text-text-muted">
                     No request details found
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 details.map((detail, index) => (
-                  <tr
+                  <TableRow
                     key={`${detail.id}-${index}`}
-                    className="border-b border-black/5 dark:border-white/5 last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                    className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
                   >
-                    <td className="whitespace-nowrap p-4 text-sm text-text-main">
+                    <TableCell className="p-4 text-sm text-text-main">
                       {new Date(detail.timestamp).toLocaleString()}
-                    </td>
-                    <td className="max-w-[260px] truncate p-4 font-mono text-sm text-text-main">
+                    </TableCell>
+                    <TableCell className="max-w-[260px] truncate p-4 font-mono text-sm text-text-main">
                       {detail.model}
-                    </td>
-                    <td className="max-w-[180px] truncate p-4 text-sm text-text-main">
+                    </TableCell>
+                    <TableCell className="max-w-[180px] truncate p-4 text-sm text-text-main">
                        <span className="font-medium">
                          {getProviderName(detail.provider, providerNameCache)}
                        </span>
-                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                     </TableCell>
+                    <TableCell className="p-4 text-sm text-text-main text-right font-mono">
                       {getInputTokens(detail.tokens).toLocaleString()}
-                    </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    </TableCell>
+                    <TableCell className="p-4 text-sm text-text-main text-right font-mono">
                       {getCachedTokens(detail.tokens) > 0 ? getCachedTokens(detail.tokens).toLocaleString() : "—"}
-                    </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    </TableCell>
+                    <TableCell className="p-4 text-sm text-text-main text-right font-mono">
                       {getCacheCreationTokens(detail.tokens) > 0 ? getCacheCreationTokens(detail.tokens).toLocaleString() : "—"}
-                    </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    </TableCell>
+                    <TableCell className="p-4 text-sm text-text-main text-right font-mono">
                       {detail.tokens?.completion_tokens?.toLocaleString() || 0}
-                    </td>
-                    <td className="p-4 text-sm text-text-muted">
+                    </TableCell>
+                    <TableCell className="p-4 text-sm text-text-muted">
                       <div className="flex flex-col gap-0.5">
                         <div>TTFT: <span className="font-mono">{detail.latency?.ttft || 0}ms</span></div>
                         <div>Total: <span className="font-mono">{detail.latency?.total || 0}ms</span></div>
                       </div>
-                    </td>
-                    <td className="p-4 text-center">
+                    </TableCell>
+                    <TableCell className="p-4 text-center">
                       <Button
                         variant="outline"
                         size="sm"
@@ -323,13 +321,12 @@ export default function RequestDetailsTab() {
                       >
                         Detail
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
 
         {!loading && details.length > 0 && (
           <div className="border-t border-black/5 dark:border-white/5">

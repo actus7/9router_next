@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, Button, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
+import { Label } from "@/components/ui/label";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
 import {
@@ -578,7 +579,7 @@ export default function TokenSaverClient() {
                 }
 
                 return (
-                  <label
+                  <Label
                     key={extra}
                     className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded border cursor-pointer transition-colors ${
                       pending
@@ -595,7 +596,7 @@ export default function TokenSaverClient() {
                     />
                     <span className="font-medium">[{extra}]</span>
                     <span className="opacity-70">not installed</span>
-                  </label>
+                  </Label>
                 );
               })}
               {pendingExtras.length > 0 && (

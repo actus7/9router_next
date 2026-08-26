@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 
 const NONE_PROXY_POOL_VALUE = "__none__";
 const STRATEGIES = [
@@ -99,7 +100,7 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-text-main">Proxy Pool</label>
+          <Label className="text-text-main">Proxy Pool</Label>
           <Select value={proxyPoolId} onValueChange={(val) => handlePoolChange(val)} disabled={saving || isRotation}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select a pool" />
@@ -115,7 +116,7 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
         </div>
 
         <div className="flex flex-col gap-2 mt-4">
-          <label className="text-sm font-medium text-text-main">Rotation Strategy</label>
+          <Label className="text-text-main">Rotation Strategy</Label>
           <select
             value={rotateStrategy}
             onChange={(e) => handleStrategyChange(e.target.value)}

@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { AI_PROVIDERS, getProviderAlias } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -258,16 +261,18 @@ export function TtsExampleCard({ providerId }) {
                 {endpoint}/v1/audio/speech
               </span>
               {tunnelEndpoint && (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setUseTunnel((v) => !v)}
                   title={useTunnel ? "Using tunnel" : "Using local"}
-                  className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border shrink-0 transition-colors ${
-                    useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-text-muted hover:text-primary"
+                  className={`flex items-center gap-1 shrink-0 ${
+                    useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "text-text-muted hover:text-primary"
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
                   Tunnel
-                </button>
+                </Button>
               )}
             </div>
           </Row>
@@ -321,21 +326,24 @@ export function TtsExampleCard({ providerId }) {
           {config.hasBrowseButton && (
             <Row label="Language">
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <button
+                <Button
+                  variant="outline"
                   onClick={openModal}
-                  className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-background font-mono truncate text-left hover:border-primary/40 transition-colors"
+                  className="w-full min-w-0 flex-1 px-3 py-1.5 font-mono truncate text-left justify-start"
                 >
                   {selectedLang
                     ? <span className="text-text-main">{languages.find((l) => l.code === selectedLang)?.name || selectedLang}</span>
                     : <span className="text-text-muted">No language selected</span>}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={openModal}
-                  className="flex w-full items-center justify-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border text-text-muted hover:text-primary hover:border-primary/40 transition-colors sm:w-auto sm:shrink-0"
+                  className="flex w-full items-center justify-center gap-1 sm:w-auto sm:shrink-0"
                 >
                   <span className="material-symbols-outlined text-[14px]">language</span>
                   Select language
-                </button>
+                </Button>
               </div>
             </Row>
           )}
@@ -345,17 +353,19 @@ export function TtsExampleCard({ providerId }) {
             <Row label="Voice">
               <div className="flex flex-wrap gap-1.5">
                 {countryVoices.map((v) => (
-                  <button
+                  <Button
                     key={v.id}
+                    variant={selectedVoice === v.id ? "default" : "outline"}
+                    size="sm"
                     onClick={() => {
                       setSelectedVoice(v.id);
                       setSelectedVoiceName(v.name);
                       if (config.hasVoiceIdInput) setVoiceId(v.id);
                     }}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                    className={`rounded-full ${
                       selectedVoice === v.id
                         ? "bg-primary/15 border-primary/40 text-primary font-medium"
-                        : "border-border text-text-muted hover:text-primary hover:border-primary/40"
+                        : "text-text-muted hover:text-primary hover:border-primary/40"
                     }`}
                   >
                     {v.name}
@@ -367,7 +377,7 @@ export function TtsExampleCard({ providerId }) {
                     {v.free_users_allowed === false && (
                       <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-600 border border-amber-500/20">Paid</span>
                     )}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </Row>
@@ -378,23 +388,25 @@ export function TtsExampleCard({ providerId }) {
             <Row label="Voice ID">
               <div className="flex flex-col gap-1">
                 <div className="relative">
-                  <input
+                  <Input
                     value={voiceId}
                     onChange={(e) => {
                       setVoiceId(e.target.value);
                       setSelectedVoice(e.target.value);
                     }}
                     placeholder="e.g. CwhRBWXzGAHq8TQ4Fs17"
-                    className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+                    className="w-full px-3 py-1.5 pr-7 text-sm font-mono"
                   />
                   {voiceId && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
                       type="button"
                       onClick={() => { setVoiceId(""); setSelectedVoice(""); }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                     >
                       <span className="material-symbols-outlined text-[14px]">close</span>
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -423,19 +435,21 @@ export function TtsExampleCard({ providerId }) {
           {/* Input */}
           <Row label="Input">
             <div className="relative">
-              <input
+              <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                className="w-full px-3 py-1.5 pr-7 text-sm"
               />
               {input && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   type="button"
                   onClick={() => setInput("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                 >
                   <span className="material-symbols-outlined text-[14px]">close</span>
-                </button>
+                </Button>
               )}
             </div>
           </Row>
@@ -444,21 +458,23 @@ export function TtsExampleCard({ providerId }) {
           {config.hasStyleInput && (
             <Row label={translate("Style")}>
               <div className="relative">
-                <textarea
+                <Textarea
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
                   placeholder={translate("e.g. a warm, gentle voice, speaking slowly with a British accent")}
                   rows={2}
-                  className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary resize-none"
+                  className="pr-7 resize-none"
                 />
                 {style && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     type="button"
                     onClick={() => setStyle("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                   >
                     <span className="material-symbols-outlined text-[14px]">close</span>
-                  </button>
+                  </Button>
                 )}
               </div>
             </Row>
@@ -481,23 +497,26 @@ export function TtsExampleCard({ providerId }) {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
               <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Request</span>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => copyCurl(curlSnippet)}
-                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                  className="inline-flex items-center gap-1 text-text-muted hover:text-primary"
                 >
                   <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
                   {copiedCurl ? "Copied" : "Copy"}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleRun}
                   disabled={running || !input.trim() || !modelFull}
-                  className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex w-full sm:w-auto items-center justify-center gap-1.5"
+                  size="sm"
                 >
                   <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
                     play_arrow
                   </span>
                   {running ? "Generating..." : "Run"}
-                </button>
+                </Button>
               </div>
             </div>
             <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">{curlSnippet}</pre>
@@ -558,19 +577,19 @@ export function TtsExampleCard({ providerId }) {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0 rounded-t-xl">
               <h3 className="text-sm font-semibold">Select Language</h3>
-              <button onClick={() => setModalOpen(false)} className="text-text-muted hover:text-primary transition-colors">
+              <Button variant="ghost" size="icon" onClick={() => setModalOpen(false)} className="text-text-muted hover:text-primary">
                 <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+              </Button>
             </div>
 
             {/* Search */}
             <div className="px-4 py-2.5 border-b border-border shrink-0">
-              <input
+              <Input
                 autoFocus
                 value={modalSearch}
                 onChange={(e) => setModalSearch(e.target.value)}
                 placeholder="Search language..."
-                className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                className="w-full px-3 py-1.5 text-sm"
               />
             </div>
 
@@ -582,10 +601,11 @@ export function TtsExampleCard({ providerId }) {
               ) : (
                 <div className="flex flex-col gap-0.5">
                   {filteredLanguages.map((c) => (
-                    <button
+                    <Button
                       key={c.code}
+                      variant="ghost"
                       onClick={() => handlePickLanguage(c)}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-left hover:bg-sidebar transition-colors ${
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-left justify-start ${
                         selectedLang === c.code ? "bg-primary/10 text-primary" : ""
                       }`}
                     >
@@ -596,7 +616,7 @@ export function TtsExampleCard({ providerId }) {
                           <span className="material-symbols-outlined text-[16px] text-primary">check</span>
                         )}
                       </div>
-                    </button>
+                    </Button>
                   ))}
                   {filteredLanguages.length === 0 && (
                     <p className="text-xs text-text-muted px-2 py-3">No languages found.</p>

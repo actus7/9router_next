@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Card, Button, ModelSelectModal, ManualConfigModal, ComboFormModal, McpMarketplaceModal } from "@/shared/components";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -319,14 +321,14 @@ export default function CoworkToolCard({
                         selectedModels.map((m) => (
                           <span key={m} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-black/5 dark:bg-white/5 text-text-muted border border-transparent hover:border-border">
                             {m}
-                            <button onClick={() => handleRemoveModel(m)} className="ml-0.5 hover:text-red-500">
+                            <Button variant="ghost" size="sm" onClick={() => handleRemoveModel(m)} className="ml-0.5 hover:text-red-500 p-0 h-auto">
                               <span className="material-symbols-outlined text-[12px]">close</span>
-                            </button>
+                            </Button>
                           </span>
                         ))
                       )}
                     </div>
-                    <button onClick={() => setComboModalOpen(true)} disabled={!hasActiveProviders} className={`shrink-0 px-2 py-1.5 rounded border text-xs whitespace-nowrap transition-colors ${hasActiveProviders ? "bg-primary/10 border-primary/40 text-primary hover:bg-primary/20 cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}>+ Combo</button>
+                    <Button variant="outline" size="sm" onClick={() => setComboModalOpen(true)} disabled={!hasActiveProviders} className="shrink-0">+ Combo</Button>
                   </div>
                 </div>
 
@@ -346,9 +348,9 @@ export default function CoworkToolCard({
                             <span className="text-[9px] px-1 py-0.5 rounded bg-black/5 dark:bg-white/5 text-text-muted whitespace-nowrap">+{p.toolNames.length - 6}</span>
                           )}
                         </div>
-                        <button onClick={() => removePlugin(p.name)} className="shrink-0 hover:text-red-500 ml-auto">
+                        <Button variant="ghost" size="sm" onClick={() => removePlugin(p.name)} className="shrink-0 hover:text-red-500 ml-auto p-0 h-auto">
                           <span className="material-symbols-outlined text-[12px]">close</span>
-                        </button>
+                        </Button>
                       </div>
                     ))}
                     {customPlugins.map((p) => (
@@ -356,21 +358,21 @@ export default function CoworkToolCard({
                         <span className="text-xs font-medium min-w-0 truncate flex-shrink-0">{p.name}</span>
                         <span className="text-[8px] px-1 py-0.5 rounded bg-blue-500/10 text-blue-500 shrink-0">custom</span>
                         <span className="flex-1 text-[9px] text-text-muted truncate">{p.url}</span>
-                        <button onClick={() => setCustomPlugins(customPlugins.filter((x) => x.name !== p.name))} className="shrink-0 hover:text-red-500 ml-auto">
+                        <Button variant="ghost" size="sm" onClick={() => setCustomPlugins(customPlugins.filter((x) => x.name !== p.name))} className="shrink-0 hover:text-red-500 ml-auto p-0 h-auto">
                           <span className="material-symbols-outlined text-[12px]">close</span>
-                        </button>
+                        </Button>
                       </div>
                     ))}
                     {plugins.filter((p) => p.name !== "exa").length === 0 && customPlugins.length === 0 && (
                       <div className="px-2 py-1.5 bg-surface rounded border border-border text-xs text-text-muted">No MCPs added</div>
                     )}
                     <div className="flex items-center gap-2 mt-0.5">
-                      <button onClick={() => setMarketplaceOpen(true)} className="px-2 py-1 rounded border text-xs bg-primary/10 border-primary/40 text-primary hover:bg-primary/20 cursor-pointer whitespace-nowrap">
+                      <Button variant="outline" size="sm" onClick={() => setMarketplaceOpen(true)}>
                         + Browse
-                      </button>
-                      <button onClick={() => { setAddMcpForm({ name: "", url: "" }); setAddMcpOpen(true); }} className="px-2 py-1 rounded border text-xs bg-surface border-border text-text-muted hover:border-primary hover:text-primary cursor-pointer whitespace-nowrap">
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => { setAddMcpForm({ name: "", url: "" }); setAddMcpOpen(true); }}>
                         + Custom
-                      </button>
+                      </Button>
                       <a href="https://mcp.so" target="_blank" rel="noopener noreferrer" className="text-[10px] text-text-muted hover:text-primary underline ml-auto">Find MCPs →</a>
                     </div>
                   </div>
@@ -384,7 +386,7 @@ export default function CoworkToolCard({
                       const exaEnabled = plugins.some((p) => p.name === "exa");
                       const exaDef = (status?.defaultPlugins || []).find((d) => d.name === "exa");
                       return (
-                        <label className="flex items-start gap-2 cursor-pointer px-2 py-1.5 bg-surface rounded border border-border">
+                        <Label className="flex items-start gap-2 cursor-pointer px-2 py-1.5 bg-surface rounded border border-border">
                           <input
                             type="checkbox"
                             checked={exaEnabled}
@@ -398,7 +400,7 @@ export default function CoworkToolCard({
                             <div className="text-xs font-medium">Web Search & Fetch (Exa)</div>
                             <p className="text-[10px] text-text-muted leading-snug">Replaces built-in WebSearch/WebFetch. Auto-strips duplicates from tool list.</p>
                           </div>
-                        </label>
+                        </Label>
                       );
                     })()}
                     {(() => {
@@ -406,7 +408,7 @@ export default function CoworkToolCard({
                       if (!browserDef) return null;
                       const browserEnabled = localPlugins.includes("browsermcp");
                       return (
-                        <label className="flex items-start gap-2 cursor-pointer px-2 py-1.5 bg-surface rounded border border-border">
+                        <Label className="flex items-start gap-2 cursor-pointer px-2 py-1.5 bg-surface rounded border border-border">
                           <input
                             type="checkbox"
                             checked={browserEnabled}
@@ -420,7 +422,7 @@ export default function CoworkToolCard({
                               <a href={browserDef.extensionUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Install Chrome extension</a>
                             </p>
                           </div>
-                        </label>
+                        </Label>
                       );
                     })()}
                   </div>
@@ -435,7 +437,7 @@ export default function CoworkToolCard({
                         {status.localStdioPlugins.filter((p) => p.name !== "browsermcp").map((p) => {
                           const enabled = localPlugins.includes(p.name);
                           return (
-                            <label key={p.name} className="flex items-start gap-2 cursor-pointer">
+                            <Label key={p.name} className="flex items-start gap-2 cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={enabled}
@@ -452,7 +454,7 @@ export default function CoworkToolCard({
                                   <a href={p.extensionUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary underline">Install Chrome extension</a>
                                 )}
                               </div>
-                            </label>
+                            </Label>
                           );
                         })}
                       </div>
@@ -504,45 +506,45 @@ export default function CoworkToolCard({
           <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-sm mx-4 p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">Add Custom MCP</h3>
-              <button onClick={() => setAddMcpOpen(false)} className="text-text-muted hover:text-text-main">
+              <Button variant="ghost" size="icon-sm" onClick={() => setAddMcpOpen(false)} className="text-text-muted hover:text-text-main">
                 <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
+              </Button>
             </div>
 
             <div className="flex flex-col gap-2">
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-text-muted font-medium">Name</label>
-                <input
+                <Label className="text-[11px] text-text-muted">Name</Label>
+                <Input
                   type="text"
                   placeholder="my-mcp"
                   value={addMcpForm.name}
                   onChange={(e) => setAddMcpForm((f) => ({ ...f, name: e.target.value.replace(/\s+/g, "-").toLowerCase() }))}
-                  className="px-2 py-1.5 rounded border border-border bg-surface text-xs outline-none focus:border-primary"
+                  className="px-2 py-1.5 text-xs"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-text-muted font-medium">SSE URL</label>
-                <input
+                <Label className="text-[11px] text-text-muted">SSE URL</Label>
+                <Input
                   type="text"
                   placeholder="https://your-mcp-server.com/sse"
                   value={addMcpForm.url}
                   onChange={(e) => setAddMcpForm((f) => ({ ...f, url: e.target.value }))}
-                  className="px-2 py-1.5 rounded border border-border bg-surface text-xs outline-none focus:border-primary"
+                  className="px-2 py-1.5 text-xs"
                 />
               </div>
             </div>
 
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setAddMcpOpen(false)} className="px-3 py-1.5 rounded border border-border text-xs text-text-muted hover:bg-surface cursor-pointer">Cancel</button>
-              <button
+              <Button variant="outline" size="sm" onClick={() => setAddMcpOpen(false)}>Cancel</Button>
+              <Button
                 onClick={() => {
                   const name = addMcpForm.name.trim();
                   if (!name || !addMcpForm.url.trim()) return;
                   setCustomPlugins((prev) => [...prev.filter((x) => x.name !== name), { name, url: addMcpForm.url.trim(), transport: "sse", custom: true }]);
                   setAddMcpOpen(false);
                 }}
-                className="px-3 py-1.5 rounded bg-primary text-white text-xs font-medium hover:opacity-90 cursor-pointer"
-              >Add</button>
+                size="sm"
+              >Add</Button>
             </div>
           </div>
         </div>

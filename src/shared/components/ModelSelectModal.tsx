@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import ProviderIcon from "./ProviderIcon";
 import CapacityBadges from "./CapacityBadges";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
@@ -501,9 +503,9 @@ export default function ModelSelectModal({
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             {title}
           </DialogTitle>
-          <button onClick={() => { onClose(); setSearchQuery(""); }} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+          <Button onClick={() => { onClose(); setSearchQuery(""); }} aria-label="Close" variant="ghost" size="icon-sm">
             <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
+          </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
       {/* Info bar */}
@@ -518,12 +520,12 @@ export default function ModelSelectModal({
           <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[16px]">
             search
           </span>
-          <input
+          <Input
             type="text"
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-surface border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="w-full pl-8 pr-3 py-1.5 text-xs"
           />
         </div>
       </div>
@@ -542,16 +544,18 @@ export default function ModelSelectModal({
               {filteredCombos.map((combo) => {
                 const isSelected = selectedModel === combo.name;
                 return (
-                  <button
+                  <Button
                     key={combo.id}
                     onClick={() => handleSelect({ id: combo.name, name: combo.name, value: combo.name })}
+                    variant={isSelected || addedModelValues.includes(combo.name) ? "default" : "outline"}
+                    size="sm"
                     className={`
-                      px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer flex items-center gap-1
+                      px-2 py-1 rounded-xl text-xs font-medium hover:cursor-pointer flex items-center gap-1
                       ${isSelected
                         ? "bg-primary text-white border-primary"
                         : addedModelValues.includes(combo.name)
                           ? "bg-primary border-primary text-white hover:bg-primary-hover"
-                          : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
+                          : ""
                       }
                     `}
                   >
@@ -559,7 +563,7 @@ export default function ModelSelectModal({
                       <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
                     )}
                     {combo.name}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -591,19 +595,21 @@ export default function ModelSelectModal({
                 const isSelected = selectedModel === model.value;
                 const isPlaceholder = model.isPlaceholder;
                 return (
-                  <button
+                  <Button
                     key={model.value}
                     onClick={() => handleSelect(model)}
                     title={isPlaceholder ? "Select to pre-fill, then edit model ID in the input" : undefined}
+                    variant={isPlaceholder ? "outline" : isSelected || addedModelValues.includes(model.value) ? "default" : "outline"}
+                    size="sm"
                     className={`
-                      px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer
+                      px-2 py-1 rounded-xl text-xs font-medium hover:cursor-pointer
                       ${isPlaceholder
                         ? "border-dashed border-border text-text-muted hover:border-primary/50 hover:text-primary bg-surface italic"
                         : isSelected
                           ? "bg-primary text-white border-primary"
                           : addedModelValues.includes(model.value)
                             ? "bg-primary border-primary text-white hover:bg-primary-hover"
-                            : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
+                            : ""
                       }
                     `}
                   >
@@ -629,7 +635,7 @@ export default function ModelSelectModal({
                         </>
                       )}
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

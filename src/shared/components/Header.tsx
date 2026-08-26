@@ -8,6 +8,7 @@ import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 import DonateModal from "@/shared/components/DonateModal";
+import { Input } from "@/components/ui/input";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
@@ -365,12 +366,12 @@ function HeaderSearch() {
       <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
         search
       </span>
-      <input
+      <Input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+        className="w-full h-8 pl-7 pr-7 text-sm"
       />
       {query && (
         <button

@@ -69,16 +69,18 @@ export default function Modal({
               {showTrafficLights && (
                 <div className="hidden md:flex items-center gap-2 mr-4 ml-2">
                   <Tooltip text="Close" position="top" color="#FF5F56">
-                    <button
+                    <Button
                       onClick={onClose}
                       aria-label="Close"
                       title="Close"
+                      variant="ghost"
+                      size="icon-xs"
                       className="w-4 h-4 rounded-full bg-[#FF5F56] hover:brightness-90 transition-all cursor-pointer flex items-center justify-center group/dot"
                     >
                       <span className="text-[9px] font-bold text-white opacity-0 group-hover/dot:opacity-100 transition-opacity leading-none">
                         ✕
                       </span>
-                    </button>
+                    </Button>
                   </Tooltip>
                   <div className="w-4 h-4 rounded-full bg-[#3a3a3a]/20 dark:bg-white/15 cursor-not-allowed" />
                   <div className="w-4 h-4 rounded-full bg-[#3a3a3a]/20 dark:bg-white/15 cursor-not-allowed" />
@@ -91,15 +93,17 @@ export default function Modal({
               )}
             </div>
             {/* X button — mobile only */}
-            <button
+            <Button
               onClick={onClose}
               aria-label="Close"
-              className="md:hidden p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors"
+              variant="ghost"
+              size="sm"
+              className="md:hidden p-1.5"
             >
               <span className="material-symbols-outlined text-[20px]">
                 close
               </span>
-            </button>
+            </Button>
           </div>
         )}
 

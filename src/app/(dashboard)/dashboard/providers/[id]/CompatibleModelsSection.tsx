@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/shared/components";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 
 interface CompatibleModelRowProps {
@@ -205,15 +207,15 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
 
       <div className="flex items-end gap-2 flex-wrap">
         <div className="flex-1 min-w-[240px]">
-          <label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">Model ID</label>
-          <input
+          <Label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">Model ID</Label>
+          <Input
             id="new-compatible-model-input"
             type="text"
             value={newModel}
             onChange={(e) => setNewModel(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder={isAnthropic ? "claude-3-opus-20240229" : "gpt-4o"}
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+            className="w-full px-3 py-2 text-sm"
           />
         </div>
         <Button size="sm" icon="add" onClick={handleAdd} disabled={!newModel.trim() || adding}>

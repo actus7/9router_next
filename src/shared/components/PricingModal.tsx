@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { getDefaultPricing, formatCost } from "@/lib/open-sse/providers/pricing";
+import { Input } from "@/components/ui/input";
 
 interface PricingData {
   [provider: string]: {
@@ -141,24 +143,23 @@ export default function PricingModal({ isOpen, onClose, onSave }: PricingModalPr
                     <div className="bg-bg-subtle px-4 py-2 font-semibold text-sm">
                       {provider.toUpperCase()}
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-bg-hover text-text-muted uppercase text-xs">
-                          <tr>
-                            <th className="px-3 py-2 text-left">Model</th>
-                            <th className="px-3 py-2 text-right">Input</th>
-                            <th className="px-3 py-2 text-right">Output</th>
-                            <th className="px-3 py-2 text-right">Cached</th>
-                            <th className="px-3 py-2 text-right">Reasoning</th>
-                            <th className="px-3 py-2 text-right">Cache Creation</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
+                      <Table>
+                        <TableHeader className="bg-bg-hover text-text-muted uppercase text-xs">
+                          <TableRow>
+                            <TableHead className="px-3 py-2 text-left">Model</TableHead>
+                            <TableHead className="px-3 py-2 text-right">Input</TableHead>
+                            <TableHead className="px-3 py-2 text-right">Output</TableHead>
+                            <TableHead className="px-3 py-2 text-right">Cached</TableHead>
+                            <TableHead className="px-3 py-2 text-right">Reasoning</TableHead>
+                            <TableHead className="px-3 py-2 text-right">Cache Creation</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                           {models.map(model => (
-                            <tr key={model} className="hover:bg-bg-subtle/50">
-                              <td className="px-3 py-2 font-medium">{model}</td>
+                            <TableRow key={model} className="hover:bg-bg-subtle/50">
+                              <TableCell className="px-3 py-2 font-medium">{model}</TableCell>
                               {pricingFields.map(field => (
-                                <td key={field} className="px-3 py-2">
+                                <TableCell key={field} className="px-3 py-2">
                                   <input
                                     type="number"
                                     step="0.01"
@@ -167,13 +168,12 @@ export default function PricingModal({ isOpen, onClose, onSave }: PricingModalPr
                                     onChange={(e) => handlePricingChange(provider, model, field, e.target.value)}
                                     className="w-20 px-2 py-1 text-right bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
                                   />
-                                </td>
+                                </TableCell>
                               ))}
-                            </tr>
+                            </TableRow>
                           ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        </TableBody>
+                      </Table>
                   </div>
                 );
               })}

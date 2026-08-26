@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 export default function HeroSection() {
   return (
     <section className="relative pt-32 pb-20 px-6 min-h-[90vh] flex flex-col items-center justify-center overflow-hidden">
@@ -26,10 +28,10 @@ export default function HeroSection() {
 
         {/* CTA Buttons */}
         <div className="flex flex-wrap items-center justify-center gap-4 w-full">
-          <button className="h-12 px-8 rounded-lg bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-base font-bold transition-all shadow-[0_0_15px_rgba(249,120,21,0.4)] flex items-center gap-2">
+          <Button className="h-12 px-8 rounded-lg bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-base font-bold shadow-[0_0_15px_rgba(249,120,21,0.4)]">
             <span className="material-symbols-outlined">rocket_launch</span>
             Get Started
-          </button>
+          </Button>
           <a 
             href="https://github.com/decolua/9router" 
             target="_blank" 

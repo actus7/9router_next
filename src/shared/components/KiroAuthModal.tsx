@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input } from "@/shared/components";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 
 interface IdcCredentials {
   clientId: string;
@@ -211,9 +213,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             Connect Kiro
           </DialogTitle>
-          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+          <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
             <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
+          </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-4">
@@ -225,9 +227,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             </p>
 
             {/* AWS Builder ID */}
-            <button
+            <Button
               onClick={() => onMethodSelect("builder-id")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              variant="outline"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">shield</span>
@@ -238,12 +241,13 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                   </p>
                 </div>
               </div>
-            </button>
+            </Button>
 
             {/* AWS IAM Identity Center (IDC) */}
-            <button
+            <Button
               onClick={() => handleMethodSelect("idc")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              variant="outline"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">business</span>
@@ -254,12 +258,13 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                   </p>
                 </div>
               </div>
-            </button>
+            </Button>
 
             {/* AWS API Key */}
-            <button
+            <Button
               onClick={() => handleMethodSelect("api-key")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              variant="outline"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">key</span>
@@ -270,12 +275,13 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                   </p>
                 </div>
               </div>
-            </button>
+            </Button>
 
             {/* Google Social Login - HIDDEN */}
-            <button
+            <Button
               onClick={() => handleMethodSelect("social-google")}
-              className="hidden w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              variant="outline"
+              className="hidden w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">account_circle</span>
@@ -286,12 +292,13 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                   </p>
                 </div>
               </div>
-            </button>
+            </Button>
 
             {/* GitHub Social Login - HIDDEN */}
-            <button
+            <Button
               onClick={() => handleMethodSelect("social-github")}
-              className="hidden w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              variant="outline"
+              className="hidden w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">code</span>
@@ -302,12 +309,13 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                   </p>
                 </div>
               </div>
-            </button>
+            </Button>
 
             {/* Import Token */}
-            <button
+            <Button
               onClick={() => handleMethodSelect("import")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              variant="outline"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">file_upload</span>
@@ -318,12 +326,13 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                   </p>
                 </div>
               </div>
-            </button>
+            </Button>
 
             {/* Import CLIProxyAPI JSON */}
-            <button
+            <Button
               onClick={() => handleMethodSelect("import-cli-proxy")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              variant="outline"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">data_object</span>
@@ -334,7 +343,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                   </p>
                 </div>
               </div>
-            </button>
+            </Button>
           </div>
         )}
 
@@ -342,9 +351,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
         {selectedMethod === "idc" && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <Label className="block mb-2">
                 IDC Start URL <span className="text-red-500">*</span>
-              </label>
+              </Label>
               <Input
                 value={idcStartUrl}
                 onChange={(e) => setIdcStartUrl(e.target.value)}
@@ -357,9 +366,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <Label className="block mb-2">
                 AWS Region
-              </label>
+              </Label>
               <Input
                 value={idcRegion}
                 onChange={(e) => setIdcRegion(e.target.value)}
@@ -400,9 +409,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <Label className="block mb-2">
                 API Key <span className="text-red-500">*</span>
-              </label>
+              </Label>
               <Input
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -412,9 +421,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <Label className="block mb-2">
                 AWS Region
-              </label>
+              </Label>
               <Input
                 value={apiKeyRegion}
                 onChange={(e) => setApiKeyRegion(e.target.value)}
@@ -545,9 +554,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">
+                  <Label className="block mb-2">
                     Refresh Token <span className="text-red-500">*</span>
-                  </label>
+                  </Label>
                   <Input
                     value={refreshToken}
                     onChange={(e) => setRefreshToken(e.target.value)}
@@ -588,14 +597,14 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <Label className="block mb-2">
                 CLIProxyAPI Auth JSON <span className="text-red-500">*</span>
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 value={cliProxyJson}
                 onChange={(e) => setCliProxyJson(e.target.value)}
                 placeholder={'{"auth_method":"external_idp","access_token":"...","refresh_token":"...","client_id":"...","token_endpoint":"https://login.microsoftonline.com/.../oauth2/v2.0/token","profile_arn":"...","scopes":"..."}'}
-                className="min-h-40 w-full rounded-md border border-border bg-background p-3 font-mono text-sm outline-none focus:border-primary"
+                className="min-h-40 font-mono"
               />
             </div>
 

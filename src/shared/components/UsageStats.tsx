@@ -11,6 +11,7 @@ function isLLMProvider(id: string): boolean {
   return (p.serviceKinds as string[]).includes("llm");
 }
 import { Badge } from "@/components/ui/badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
 import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
@@ -68,35 +69,35 @@ function RecentRequests({ requests = [] }: RecentRequestsProps) {
         <div className="flex-1 flex items-center justify-center text-text-muted text-sm">No requests yet.</div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full min-w-[300px] border-collapse text-xs">
-            <thead className="sticky top-0 bg-bg z-10">
-              <tr className="border-b border-border">
-                <th className="py-1.5 text-left font-semibold text-text-muted w-2"></th>
-                <th className="py-1.5 text-left font-semibold text-text-muted">Model</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted whitespace-nowrap">In / Out</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted">When</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
+          <Table className="min-w-[300px] text-xs">
+            <TableHeader className="sticky top-0 bg-bg z-10">
+              <TableRow>
+                <TableHead className="py-1.5 font-semibold text-text-muted w-2"></TableHead>
+                <TableHead className="py-1.5 font-semibold text-text-muted">Model</TableHead>
+                <TableHead className="py-1.5 text-right font-semibold text-text-muted">In / Out</TableHead>
+                <TableHead className="py-1.5 text-right font-semibold text-text-muted">When</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {requests.map((r, i) => {
                 const ok = !r.status || r.status === "ok" || r.status === "success";
                 return (
-                  <tr key={i} className="hover:bg-bg-subtle transition-colors">
-                    <td className="py-1.5">
+                  <TableRow key={i} className="hover:bg-bg-subtle">
+                    <TableCell className="py-1.5">
                       <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-success" : "bg-error"}`} />
-                    </td>
-                    <td className="py-1.5 font-mono truncate max-w-[120px]" title={r.model}>{r.model}</td>
-                    <td className="py-1.5 text-right whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="py-1.5 font-mono truncate max-w-[120px]" title={r.model}>{r.model}</TableCell>
+                    <TableCell className="py-1.5 text-right">
                       <span className="text-primary">{fmt(r.promptTokens || 0)}↑</span>
                       {" "}
                       <span className="text-success">{fmt(r.completionTokens || 0)}↓</span>
-                    </td>
-                    <td className="py-1.5 text-right text-text-muted whitespace-nowrap"><TimeAgo timestamp={r.timestamp || ""} /></td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="py-1.5 text-right text-text-muted"><TimeAgo timestamp={r.timestamp || ""} /></TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </Card>
@@ -391,17 +392,17 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No usage recorded yet.",
           renderSummaryCells: (group: GroupedData) => (
             <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
+              <TableCell className="px-6 py-3 text-right">{fmt(group.summary.requests)}</TableCell>
+              <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</TableCell>
             </>
           ),
           renderDetailCells: (item: SortedItem) => (
             <>
-              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "default" : "secondary"} className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests || 0)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <TableCell className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</TableCell>
+              <TableCell className="px-6 py-3"><Badge variant={item.pending > 0 ? "default" : "secondary"} className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></TableCell>
+              <TableCell className="px-6 py-3 text-right">{fmt(item.requests || 0)}</TableCell>
+              <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</TableCell>
             </>
           ),
         };
@@ -424,19 +425,19 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No account-specific usage recorded yet.",
           renderSummaryCells: (group: GroupedData) => (
             <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
+              <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
+              <TableCell className="px-6 py-3 text-right">{fmt(group.summary.requests)}</TableCell>
+              <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</TableCell>
             </>
           ),
           renderDetailCells: (item: SortedItem) => (
             <>
-              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}</td>
-              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "default" : "secondary"} className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests || 0)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <TableCell className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}</TableCell>
+              <TableCell className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</TableCell>
+              <TableCell className="px-6 py-3"><Badge variant={item.pending > 0 ? "default" : "secondary"} className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></TableCell>
+              <TableCell className="px-6 py-3 text-right">{fmt(item.requests || 0)}</TableCell>
+              <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</TableCell>
             </>
           ),
         };
@@ -449,19 +450,19 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No API key usage recorded yet.",
           renderSummaryCells: (group: GroupedData) => (
             <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
+              <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
+              <TableCell className="px-6 py-3 text-right">{fmt(group.summary.requests)}</TableCell>
+              <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</TableCell>
             </>
           ),
           renderDetailCells: (item: SortedItem) => (
             <>
-              <td className="px-6 py-3 font-medium">{item.keyName}</td>
-              <td className="px-6 py-3">{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant="secondary" className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests || 0)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <TableCell className="px-6 py-3 font-medium">{item.keyName}</TableCell>
+              <TableCell className="px-6 py-3">{item.rawModel}</TableCell>
+              <TableCell className="px-6 py-3"><Badge variant="secondary" className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></TableCell>
+              <TableCell className="px-6 py-3 text-right">{fmt(item.requests || 0)}</TableCell>
+              <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</TableCell>
             </>
           ),
         };
@@ -475,19 +476,19 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No endpoint usage recorded yet.",
           renderSummaryCells: (group: GroupedData) => (
             <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
+              <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
+              <TableCell className="px-6 py-3 text-right">{fmt(group.summary.requests)}</TableCell>
+              <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</TableCell>
             </>
           ),
           renderDetailCells: (item: SortedItem) => (
             <>
-              <td className="px-6 py-3 font-medium font-mono text-sm">{item.endpoint}</td>
-              <td className="px-6 py-3">{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant="secondary" className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests || 0)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <TableCell className="px-6 py-3 font-medium font-mono text-sm">{item.endpoint}</TableCell>
+              <TableCell className="px-6 py-3">{item.rawModel}</TableCell>
+              <TableCell className="px-6 py-3"><Badge variant="secondary" className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></TableCell>
+              <TableCell className="px-6 py-3 text-right">{fmt(item.requests || 0)}</TableCell>
+              <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</TableCell>
             </>
           ),
         };

@@ -6,6 +6,9 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { Card, Button, Modal, Input, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
+import { Input as ShadcnInput } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
@@ -342,22 +345,26 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
             {isFusion && (
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="text-[11px] font-medium text-text-muted">Judge</span>
-                <button
+                <UIButton
+                  variant="outline"
+                  size="sm"
                   onClick={() => setShowJudgeSelect(true)}
-                  className="inline-flex max-w-full items-center gap-1 rounded border border-dashed border-primary/40 px-1.5 py-0.5 font-mono text-[11px] text-primary hover:border-primary hover:bg-primary/5 transition-colors"
+                  className="max-w-full gap-1 border-dashed border-primary/40 font-mono text-[11px]"
                   title="Pick the model that fuses panel answers"
                 >
                   <span className="material-symbols-outlined text-[13px]">gavel</span>
                   <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
-                </button>
+                </UIButton>
                 {judge && (
-                  <button
+                  <UIButton
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => onSetStrategy({ judgeModel: "" })}
-                    className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                    className="text-red-500"
                     title="Reset judge to Auto"
                   >
                     <span className="material-symbols-outlined text-[13px]">close</span>
-                  </button>
+                  </UIButton>
                 )}
               </div>
             )}
@@ -377,32 +384,35 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
           </div>
 
           <div className="grid grid-cols-3 gap-1 sm:flex">
-            <button
+            <UIButton
+              variant="ghost"
               onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+              className="flex-col"
               title="Copy combo name"
             >
               <span className="material-symbols-outlined text-[18px]">
                 {copied === `combo-${combo.id}` ? "check" : "content_copy"}
               </span>
               <span className="text-[10px] leading-tight">Copy</span>
-            </button>
-            <button
+            </UIButton>
+            <UIButton
+              variant="ghost"
               onClick={onEdit}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+              className="flex-col"
               title="Edit"
             >
               <span className="material-symbols-outlined text-[18px]">edit</span>
               <span className="text-[10px] leading-tight">Edit</span>
-            </button>
-            <button
+            </UIButton>
+            <UIButton
+              variant="destructive"
               onClick={onDelete}
-              className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
+              className="flex-col"
               title="Delete"
             >
               <span className="material-symbols-outlined text-[18px]">delete</span>
               <span className="text-[10px] leading-tight">Delete</span>
-            </button>
+            </UIButton>
           </div>
         </div>
       </div>
@@ -518,15 +528,15 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
                   >
                     <span>{model}</span>
                     <CapacityBadges caps={getCaps?.(model)} />
-                    <button onClick={() => handleMove(index, -1)} disabled={index === 0} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
+                    <UIButton variant="ghost" size="icon-xs" onClick={() => handleMove(index, -1)} disabled={index === 0} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === 0 ? "text-text-muted/20" : ""}`}>
                       <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
-                    </button>
-                    <button onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === models.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary"}`}>
+                    </UIButton>
+                    <UIButton variant="ghost" size="icon-xs" onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === models.length - 1 ? "text-text-muted/20" : ""}`}>
                       <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
-                    </button>
-                    <button onClick={() => handleRemove(index)} className="leading-none opacity-0 group-hover/chip:opacity-100 text-text-muted hover:text-red-500">
+                    </UIButton>
+                    <UIButton variant="ghost" size="icon-xs" onClick={() => handleRemove(index)} className="leading-none opacity-0 group-hover/chip:opacity-100 text-red-500">
                       <span className="material-symbols-outlined text-[12px]">close</span>
-                    </button>
+                    </UIButton>
                   </code>
                 ))
               )}
@@ -539,7 +549,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
 
         {/* Actions: Round-robin toggle + Add Model */}
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none">
+          <Label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none">
             <Toggle
               checked={roundRobin}
               onChange={(v: boolean) => patch({ roundRobin: v })}
@@ -547,7 +557,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
               aria-label={`Round-robin ${cap.label} adapter`}
             />
             <span>Round</span>
-          </label>
+          </Label>
           <Button
             icon="add"
             variant="ghost"
@@ -615,11 +625,13 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
       className={`group flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-colors ${isDragging ? "shadow-md ring-1 ring-primary/30" : ""}`}
     >
       {/* Drag handle */}
-      <button
+      <UIButton
         {...attributes}
         {...listeners}
+        variant="ghost"
+        size="icon-sm"
         type="button"
-        className="cursor-grab touch-none p-0.5 rounded text-text-muted hover:text-primary active:cursor-grabbing shrink-0"
+        className="cursor-grab touch-none active:cursor-grabbing"
         title="Drag to reorder"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -627,20 +639,20 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
           <circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/>
           <circle cx="9" cy="20" r="2"/><circle cx="15" cy="20" r="2"/>
         </svg>
-      </button>
+      </UIButton>
 
       {/* Index badge */}
       <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
 
       {/* Inline editable model value */}
       {editing ? (
-        <input
+        <ShadcnInput
           autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={handleKeyDown}
-          className="min-w-0 flex-1 rounded border border-primary/40 bg-white px-1.5 py-0.5 font-mono text-xs text-text-main outline-none dark:bg-black/20"
+          className="min-w-0 flex-1 px-1.5 py-0.5 font-mono text-xs text-text-main"
         />
       ) : (
         <div
@@ -654,32 +666,38 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
 
       {/* Priority arrows */}
       <div className="flex shrink-0 items-center gap-0.5">
-        <button
+        <UIButton
+          variant="ghost"
+          size="icon-xs"
           onClick={onMoveUp}
           disabled={isFirst}
-          className={`p-0.5 rounded ${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`}
+          className={isFirst ? "text-text-muted/20" : ""}
           title="Move up"
         >
           <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
-        </button>
-        <button
+        </UIButton>
+        <UIButton
+          variant="ghost"
+          size="icon-xs"
           onClick={onMoveDown}
           disabled={isLast}
-          className={`p-0.5 rounded ${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`}
+          className={isLast ? "text-text-muted/20" : ""}
           title="Move down"
         >
           <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
-        </button>
+        </UIButton>
       </div>
 
       {/* Remove */}
-      <button
+      <UIButton
+        variant="ghost"
+        size="icon-xs"
         onClick={onRemove}
-        className="p-0.5 hover:bg-red-500/10 rounded text-text-muted hover:text-red-500 transition-all"
+        className="text-red-500"
         title="Remove"
       >
         <span className="material-symbols-outlined text-[12px]">close</span>
-      </button>
+      </UIButton>
     </div>
   );
 }
@@ -800,7 +818,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
 
           {/* Models */}
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Models</label>
+            <Label className="mb-1.5 block">Models</Label>
 
             {models.length === 0 ? (
               <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
@@ -835,13 +853,15 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
             )}
 
             {/* Add Model button */}
-            <button
+            <UIButton
+              variant="outline"
+              size="sm"
               onClick={() => setShowModelSelect(true)}
-              className="w-full mt-2 py-2 border border-dashed border-black/10 dark:border-white/10 rounded-lg text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1"
+              className="w-full mt-2 border-dashed text-xs"
             >
               <span className="material-symbols-outlined text-[16px]">add</span>
               Add Model
-            </button>
+            </UIButton>
           </div>
 
           {/* Actions */}

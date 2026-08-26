@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card } from "@/shared/components";
+import { Input } from "@/components/ui/input";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { getModelKind } from "@/shared/constants/models";
 import { getModelsByProviderId } from "@/shared/constants/models";
@@ -124,11 +125,11 @@ export function SttExampleCard({ providerId }) {
           </Row>
         ) : (
           <Row label="Model">
-            <input
+            <Input
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               placeholder="Enter model id"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              className="w-full px-3 py-1.5 text-sm font-mono"
             />
           </Row>
         )}
@@ -181,11 +182,11 @@ export function SttExampleCard({ providerId }) {
         {/* Language (if model supports) */}
         {allowedParams.includes("language") && (
           <Row label="Language">
-            <input
+            <Input
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               placeholder="e.g. en, vi, ja (auto-detect if empty)"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              className="w-full px-3 py-1.5 text-sm font-mono"
             />
           </Row>
         )}
@@ -193,11 +194,11 @@ export function SttExampleCard({ providerId }) {
         {/* Prompt (if model supports) */}
         {allowedParams.includes("prompt") && (
           <Row label="Prompt">
-            <input
+            <Input
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="optional context to improve accuracy"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-1.5 text-sm"
             />
           </Row>
         )}
@@ -205,7 +206,7 @@ export function SttExampleCard({ providerId }) {
         {/* Temperature (if model supports) */}
         {allowedParams.includes("temperature") && (
           <Row label="Temperature">
-            <input
+            <Input
               type="number"
               step="0.1"
               min="0"
@@ -213,7 +214,7 @@ export function SttExampleCard({ providerId }) {
               value={temperature}
               onChange={(e) => setTemperature(e.target.value)}
               placeholder="0 - 1 (default 0)"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-1.5 text-sm"
             />
           </Row>
         )}

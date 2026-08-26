@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 const REGISTRY_ENDPOINT = "/api/cli-tools/cowork-mcp-registry";
 const TOOLS_ENDPOINT = "/api/cli-tools/cowork-mcp-tools";
@@ -152,19 +155,19 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             Browse MCP Marketplace
           </DialogTitle>
-          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+          <Button onClick={onClose} aria-label="Close" variant="ghost" size="icon-sm">
             <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
+          </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <input
+          <Input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or description..."
-            className="flex-1 px-2 py-1.5 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="flex-1 px-2 py-1.5 text-xs"
           />
           <select
             value={filter}
@@ -226,19 +229,19 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                         <p className="text-[10px] text-text-muted line-clamp-2 mt-0.5">{s.description}</p>
                       )}
                     </div>
-                    <button
+                    <Button
                       onClick={() => added ? null : expandServer(s)}
                       disabled={added}
-                      className={`shrink-0 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                      variant={added ? "ghost" : expanded ? "outline" : "default"}
+                      size="sm"
+                      className={`shrink-0 px-2 py-1 rounded text-[10px] font-medium ${
                         added
                           ? "bg-green-500/10 text-green-600 cursor-default"
-                          : expanded
-                          ? "bg-surface border border-border text-text-muted hover:bg-surface-2/50"
-                          : "bg-primary/10 border border-primary/40 text-primary hover:bg-primary/20"
+                          : ""
                       }`}
                     >
                       {added ? "Added" : expanded ? "Cancel" : "+ Add"}
-                    </button>
+                    </Button>
                   </div>
                   {expanded && (
                     <div className="px-3 py-2 bg-surface/40 border-t border-border flex flex-col gap-2">
@@ -264,14 +267,14 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-text-muted">{selectedCount}/{toolKeys.length} tools enabled</span>
                             <div className="flex gap-1">
-                              <button onClick={() => setAllTools(s.url, true)} className="text-[10px] text-primary hover:underline">All</button>
+                              <Button onClick={() => setAllTools(s.url, true)} variant="ghost" size="xs" className="text-[10px] text-primary hover:underline">All</Button>
                               <span className="text-[10px] text-text-muted">·</span>
-                              <button onClick={() => setAllTools(s.url, false)} className="text-[10px] text-primary hover:underline">None</button>
+                              <Button onClick={() => setAllTools(s.url, false)} variant="ghost" size="xs" className="text-[10px] text-primary hover:underline">None</Button>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto">
                             {toolKeys.map((t) => (
-                              <label key={t} className="flex items-center gap-1.5 text-[10px] cursor-pointer hover:bg-surface-2/50 px-1 rounded">
+                              <Label key={t} className="gap-1.5 text-[10px] cursor-pointer hover:bg-surface-2/50 px-1 rounded">
                                 <input
                                   type="checkbox"
                                   checked={!!sel[t]}
@@ -279,17 +282,19 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                                   className="size-3"
                                 />
                                 <span className="truncate">{t}</span>
-                              </label>
+                              </Label>
                             ))}
                           </div>
                         </>
                       )}
-                      <button
+                      <Button
                         onClick={() => confirmAdd(s)}
-                        className="self-end px-2 py-1 rounded text-[10px] font-medium bg-primary text-white hover:bg-primary/90"
+                        variant="default"
+                        size="sm"
+                        className="self-end px-2 py-1 rounded text-[10px] font-medium"
                       >
                         ✓ Confirm Add
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>

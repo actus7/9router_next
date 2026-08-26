@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input } from "@/shared/components";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 
 interface IFlowCookieModalProps {
   isOpen: boolean;
@@ -76,9 +78,9 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             iFlow Cookie Authentication
           </DialogTitle>
-          <button onClick={handleClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+          <Button onClick={handleClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
             <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
+          </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="space-y-4">
@@ -115,14 +117,14 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-text-primary">
+              <Label className="block text-text-primary">
                 Cookie String
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 value={cookie}
                 onChange={(e) => setCookie(e.target.value)}
                 placeholder="BXAuth=xxx; ..."
-                className="w-full px-3 py-2 bg-surface-secondary border border-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                className="resize-none"
                 rows={4}
                 disabled={loading}
               />

@@ -1,5 +1,3 @@
-"use server";
-
 import { NextRequest, NextResponse  } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";

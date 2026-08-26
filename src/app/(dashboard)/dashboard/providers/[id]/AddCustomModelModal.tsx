@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Button, Modal } from "@/shared/components";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface AddCustomModelModalProps {
   isOpen: boolean;
@@ -67,15 +69,15 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
     <Modal isOpen={isOpen} onClose={onClose} title="Add Custom Model">
       <div className="flex flex-col gap-4">
         <div>
-          <label className="text-sm font-medium mb-1.5 block">Model ID</label>
+          <Label className="mb-1.5 block">Model ID</Label>
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={modelId}
               onChange={(e) => { setModelId(e.target.value); setTestStatus(null); setTestError(""); }}
               onKeyDown={handleKeyDown}
               placeholder="e.g. claude-opus-4-5"
-              className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="flex-1 px-3 py-2 text-sm"
               autoFocus
             />
             <Button

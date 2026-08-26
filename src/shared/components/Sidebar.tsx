@@ -139,21 +139,25 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 ↑ New version available: v{updateInfo.latestVersion}
               </span>
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   onClick={() => setShowUpdateModal(true)}
-                  className="px-2 py-1 rounded bg-green-600 hover:bg-green-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white text-[11px] font-semibold transition-colors cursor-pointer"
+                  variant="default"
+                  size="sm"
+                  className="px-2 py-1 rounded bg-green-600 hover:bg-green-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white text-[11px] font-semibold"
                 >
                   Update now
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => copy(INSTALL_CMD)}
                   title="Copy install command"
-                  className="flex-1 text-left hover:opacity-80 transition-opacity cursor-pointer min-w-0"
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 text-left hover:opacity-80 transition-opacity cursor-pointer min-w-0 p-0 h-auto"
                 >
                   <code className="block text-[10px] text-green-600/80 dark:text-amber-400/70 font-mono truncate">
                     {copied ? "✓ copied!" : INSTALL_CMD}
                   </code>
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -193,12 +197,14 @@ export default function Sidebar({ onClose }: SidebarProps) {
             </p>
 
             {/* Media Providers accordion */}
-            <button
+            <Button
               onClick={() => setMediaOpen((v) => !v)}
               aria-expanded={mediaOpen}
               aria-controls="media-providers-submenu"
+              variant="ghost"
+              size="sm"
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
+                "w-full flex items-center gap-3 px-3 py-1 rounded-lg transition-all group justify-start h-auto",
                 pathname.startsWith("/dashboard/media-providers")
                   ? "bg-primary/10 text-primary"
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
@@ -209,7 +215,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
               <span className="material-symbols-outlined text-[14px] transition-transform" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
                 expand_more
               </span>
-            </button>
+            </Button>
             {mediaOpen && (
               <div id="media-providers-submenu" className="pl-4" role="group">
                 {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
@@ -299,10 +305,12 @@ export default function Sidebar({ onClose }: SidebarProps) {
             })}
 
             {/* Remote */}
-            <button
+            <Button
               onClick={() => setShowRemoteModal(true)}
+              variant="ghost"
+              size="sm"
               className={cn(
-                "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group w-full",
+                "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group w-full justify-start h-auto",
                 "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
@@ -310,7 +318,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 computer
               </span>
               <span className="text-[13px] font-medium">9Remote</span>
-            </button>
+            </Button>
 
             {/* 9English */}
             <a

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, Button, Badge, Input } from "@/shared/components";
+import { Input as ShadcnInput } from "@/components/ui/input";
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 
@@ -184,26 +185,26 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             <div className="grid gap-1 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
               <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">9Router Base URL</span>
               <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-              <input
+              <ShadcnInput
                 type="text"
                 value={mitmRouterBaseUrl}
                 onChange={(e) => setMitmRouterBaseUrl(e.target.value)}
                 placeholder={DEFAULT_MITM_ROUTER_BASE}
                 disabled={isRunning}
-                className="flex-1 min-w-0 px-2 py-1.5 bg-surface rounded border border-border text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
+                className="flex-1 min-w-0 px-2 py-1.5 text-xs text-text-main disabled:opacity-50"
               />
             </div>
             {!isRunning && (
               <div className="grid gap-1 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
                 <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">API Key</span>
                 <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                <input
+                <ShadcnInput
                   type="text"
                   list="mitm-api-keys"
                   value={selectedApiKey}
                   onChange={(e) => setSelectedApiKey(e.target.value)}
                   placeholder={cloudEnabled ? "Enter or pick API key" : "sk_9router (default)"}
-                  className="flex-1 min-w-0 px-2 py-1.5 bg-surface rounded border border-border text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="flex-1 min-w-0 px-2 py-1.5 text-xs text-text-main"
                 />
                 {apiKeys?.length > 0 && (
                   <datalist id="mitm-api-keys">

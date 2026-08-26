@@ -4,8 +4,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import QuotaTable from "./QuotaTable";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import Toggle from "@/shared/components/Toggle";
 import Tooltip from "@/shared/components/Tooltip";
+import { Input } from "@/components/ui/input";
 import {
   parseQuotaData,
   calculatePercentage,
@@ -1319,7 +1321,7 @@ export default function ProviderLimits() {
                 ))}
                 <option value="custom">Custom</option>
               </select>
-              <input
+              <Input
                 type="number"
                 min="1"
                 max={String(ACCOUNT_PAGE_SIZE_MAX)}
@@ -1349,7 +1351,7 @@ export default function ProviderLimits() {
                   setPageSize(nextPageSize);
                   setCustomPageSizeInput(String(nextPageSize));
                 }}
-                className="h-8 w-20 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary outline-none transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
+                className="h-8 w-20 px-2 text-xs"
                 aria-label="Custom accounts per page"
                 placeholder="Custom"
               />
@@ -1471,31 +1473,31 @@ export default function ProviderLimits() {
                     <span>{resetCreditsState.data.credits.length} reset credit{resetCreditsState.data.credits.length === 1 ? "" : "s"}</span>
                     <span>{resetCreditsState.data.availableCount ?? 0} available</span>
                   </div>
-                  <div className="overflow-x-auto rounded-xl border border-black/10 dark:border-white/10">
-                    <table className="w-full min-w-[560px] text-left text-sm">
-                      <thead className="bg-black/[0.03] text-xs uppercase tracking-wide text-text-muted dark:bg-white/[0.04]">
-                        <tr>
-                          <th className="px-3 py-2 font-medium">Status</th>
-                          <th className="px-3 py-2 font-medium">Granted At</th>
-                          <th className="px-3 py-2 font-medium">Expires At</th>
-                          <th className="px-3 py-2 font-medium">Remaining</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                  <div className="rounded-xl border border-black/10 dark:border-white/10">
+                    <Table className="min-w-[560px] text-left">
+                      <TableHeader className="bg-black/[0.03] text-xs uppercase tracking-wide text-text-muted dark:bg-white/[0.04]">
+                        <TableRow>
+                          <TableHead className="px-3 py-2 font-medium">Status</TableHead>
+                          <TableHead className="px-3 py-2 font-medium">Granted At</TableHead>
+                          <TableHead className="px-3 py-2 font-medium">Expires At</TableHead>
+                          <TableHead className="px-3 py-2 font-medium">Remaining</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {resetCreditsState.data.credits.map((credit, index) => (
-                          <tr key={`${credit.status}-${credit.expiresAt || index}`} className="border-t border-black/5 dark:border-white/5">
-                            <td className="px-3 py-2">
+                          <TableRow key={`${credit.status}-${credit.expiresAt || index}`}>
+                            <TableCell className="px-3 py-2">
                               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                                 {credit.status || "unknown"}
                               </span>
-                            </td>
-                            <td className="px-3 py-2 text-text-muted">{formatCreditDate(credit.grantedAt)}</td>
-                            <td className="px-3 py-2 text-text-primary">{formatCreditDate(credit.expiresAt)}</td>
-                            <td className="px-3 py-2 font-medium text-text-primary">{formatTimeRemaining(credit.expiresAt)}</td>
-                          </tr>
+                            </TableCell>
+                            <TableCell className="px-3 py-2 text-text-muted">{formatCreditDate(credit.grantedAt)}</TableCell>
+                            <TableCell className="px-3 py-2 text-text-primary">{formatCreditDate(credit.expiresAt)}</TableCell>
+                            <TableCell className="px-3 py-2 font-medium text-text-primary">{formatTimeRemaining(credit.expiresAt)}</TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               ) : (

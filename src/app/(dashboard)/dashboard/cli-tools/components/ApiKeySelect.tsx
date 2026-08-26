@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 
 const CUSTOM_VALUE = "__custom__";
 
@@ -67,12 +68,12 @@ export default function ApiKeySelect({ value, onChange, apiKeys = [], cloudEnabl
         <option value={CUSTOM_VALUE}>Custom...</option>
       </select>
       {mode === CUSTOM_VALUE && (
-        <input
+        <Input
           type="text"
           value={customInput}
           onChange={handleCustomInput}
           placeholder="sk-..."
-          className="w-full min-w-0 px-2 py-2 bg-surface rounded border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
+          className="w-full min-w-0 px-2 py-2 text-xs sm:py-1.5"
         />
       )}
     </div>

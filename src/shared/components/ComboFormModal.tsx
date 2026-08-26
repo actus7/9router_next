@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { Input as ShadcnInput } from "@/components/ui/input";
 import Input from "./Input";
 import Button from "./Button";
 import ModelSelectModal from "./ModelSelectModal";
@@ -39,25 +41,25 @@ function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown
     <div className="group flex min-w-0 items-center gap-1.5 rounded-md bg-black/[0.02] px-2 py-1 transition-colors hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]">
       <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
       {editing ? (
-        <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={handleKeyDown}
-          className="min-w-0 flex-1 rounded border border-primary/40 bg-white px-1.5 py-0.5 font-mono text-xs text-text-main outline-none dark:bg-black/20" />
+        <ShadcnInput autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={handleKeyDown}
+          className="min-w-0 flex-1 px-1.5 py-0.5 font-mono text-xs text-text-main" />
       ) : (
         <div className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-surface-2/50"
           onClick={() => setEditing(true)} title="Click to edit">{model}</div>
       )}
       <div className="flex shrink-0 items-center gap-0.5">
-        <button onClick={onMoveUp} disabled={isFirst}
-          className={`p-0.5 rounded ${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title="Move up">
+        <Button onClick={onMoveUp} disabled={isFirst} variant="ghost" size="icon-xs"
+          className={`${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title="Move up">
           <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
-        </button>
-        <button onClick={onMoveDown} disabled={isLast}
-          className={`p-0.5 rounded ${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title="Move down">
+        </Button>
+        <Button onClick={onMoveDown} disabled={isLast} variant="ghost" size="icon-xs"
+          className={`${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title="Move down">
           <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
-        </button>
+        </Button>
       </div>
-      <button onClick={onRemove} className="p-0.5 hover:bg-red-500/10 rounded text-text-muted hover:text-red-500 transition-all" title="Remove">
+      <Button onClick={onRemove} variant="ghost" size="icon-xs" className="hover:bg-red-500/10 text-text-muted hover:text-red-500 transition-all" title="Remove">
         <span className="material-symbols-outlined text-[12px]">close</span>
-      </button>
+      </Button>
     </div>
   );
 }
@@ -152,20 +154,20 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
             <DialogTitle className="text-lg font-semibold text-text-main ml-2">
               {title || (isEdit ? "Edit Combo" : "Create Combo")}
             </DialogTitle>
-            <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+            <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
               <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
+            </Button>
           </div>
           <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
             <div className="flex flex-col gap-3">
               <div>
                 {forcePrefix ? (
                   <>
-                    <label className="text-sm font-medium mb-1 block">Combo Name</label>
+                    <Label className="mb-1 block">Combo Name</Label>
                     <div className="flex items-stretch">
                       <span className="inline-flex items-center px-2 rounded-l border border-r-0 border-black/10 dark:border-white/10 bg-black/[0.04] dark:bg-white/[0.04] text-text-muted font-mono text-sm">{forcePrefix}</span>
-                      <input value={name} onChange={handleNameChange} placeholder="my-combo"
-                        className="flex-1 min-w-0 rounded-r border border-black/10 dark:border-white/10 bg-white dark:bg-black/20 px-2 py-1.5 font-mono text-sm outline-none focus:border-primary" />
+                      <ShadcnInput value={name} onChange={handleNameChange} placeholder="my-combo"
+                        className="flex-1 min-w-0 rounded-l-none px-2 py-1.5 font-mono text-sm" />
                     </div>
                     {nameError && <p className="text-[11px] text-red-500 mt-0.5">{nameError}</p>}
                   </>
@@ -178,7 +180,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Models</label>
+                <Label className="mb-1.5 block">Models</Label>
                 {models.length === 0 ? (
                   <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
                     <span className="material-symbols-outlined text-text-muted text-xl mb-1">layers</span>
@@ -196,11 +198,11 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
                     ))}
                   </div>
                 )}
-                <button onClick={() => setShowModelSelect(true)}
-                  className="w-full mt-2 py-2 border border-dashed border-black/10 dark:border-white/10 rounded-lg text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1">
+                <Button onClick={() => setShowModelSelect(true)} variant="outline" size="sm"
+                  className="w-full mt-2 py-2 border-dashed text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1">
                   <span className="material-symbols-outlined text-[16px]">add</span>
                   Add Model
-                </button>
+                </Button>
               </div>
 
               <div className="flex flex-col gap-2 pt-1 sm:flex-row">

@@ -6,12 +6,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
+import { Input as ShadcnInput } from "@/components/ui/input";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "@/lib/open-sse/providers/thinkingLevels";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { translate } from "@/i18n/runtime";
+import { Label } from "@/components/ui/label";
 import { fetchSuggestedModels } from "@/shared/utils/providerModelsFetcher";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 import ModelRow from "./ModelRow";
@@ -1108,35 +1111,38 @@ export default function ProviderDetailClient({
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col">
-          <button
+          <UIButton
+            variant="ghost"
             onClick={handleApplyOneToOne}
             disabled={bulkUpdatingProxy || activePools.length === 0}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+            className="justify-start gap-2"
           >
             <span className="material-symbols-outlined text-text-muted text-[18px]">sync_alt</span>
             <span className="text-sm text-text-main">One-to-one (rotate)</span>
-          </button>
-          <button
+          </UIButton>
+          <UIButton
+            variant="ghost"
             onClick={() => handleApplySinglePool(null)}
             disabled={bulkUpdatingProxy}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+            className="justify-start gap-2"
           >
             <span className="material-symbols-outlined text-text-muted text-[18px]">link_off</span>
             <span className="text-sm text-text-main">None (unbind all)</span>
-          </button>
+          </UIButton>
           {proxyPools.map((pool) => (
-            <button
+            <UIButton
               key={pool.id}
+              variant="ghost"
               onClick={() => handleApplySinglePool(pool.id)}
               disabled={bulkUpdatingProxy || pool.isActive !== true}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+              className="justify-start gap-2"
             >
               <span className="material-symbols-outlined text-text-muted text-[18px]">lan</span>
               <span className="truncate text-sm text-text-main">{pool.name}</span>
               {pool.isActive !== true && (
                 <span className="text-[10px] text-text-muted">(inactive)</span>
               )}
-            </button>
+            </UIButton>
           ))}
         </div>
 
@@ -1262,26 +1268,30 @@ export default function ProviderDetailClient({
         })}
 
         {/* Add model button — inline, same style as model chips */}
-        <button
+        <UIButton
+          variant="outline"
+          size="sm"
           onClick={() => setShowAddCustomModel(true)}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2 text-xs text-primary transition-colors hover:border-primary hover:bg-primary/5 sm:w-auto"
+          className="w-full border-dashed border-primary/40 text-xs sm:w-auto"
         >
           <span className="material-symbols-outlined text-sm">add</span>
           Add Model
-        </button>
+        </UIButton>
 
         {/* Import Qoder models button — only show for qoder provider */}
         {providerId === "qoder" && connections.some((conn) => conn.isActive !== false) && (
-          <button
+          <UIButton
+            variant="outline"
+            size="sm"
             onClick={handleImportQoderModels}
             disabled={importingQoderModels}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full border-dashed border-blue-500/40 text-xs text-blue-600 dark:text-blue-400 sm:w-auto"
           >
             <span className="material-symbols-outlined text-sm" style={importingQoderModels ? { animation: "spin 1s linear infinite" } : undefined}>
               {importingQoderModels ? "progress_activity" : "download"}
             </span>
             {importingQoderModels ? translate("Fetching...") : translate("Fetch Qoder Models")}
-          </button>
+          </UIButton>
         )}
 
         {/* Suggested models from provider API — show only models not yet added */}
@@ -1300,17 +1310,19 @@ export default function ProviderDetailClient({
               <p className="text-xs text-text-muted mb-2">Suggested free models (≥200k context):</p>
               <div className="flex flex-wrap gap-2">
                 {notAdded.map((m) => (
-                  <button
+                  <UIButton
                     key={m.id}
+                    variant="outline"
+                    size="sm"
                     onClick={async () => {
                       await handleAddCustomModel(m.id, "llm", providerStorageAlias);
                     }}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                    className="text-xs"
                     title={`${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx`}
                   >
                     <span className="material-symbols-outlined text-[13px]">add</span>
                     {m.id.split("/").pop()}
-                  </button>
+                  </UIButton>
                 ))}
               </div>
             </div>
@@ -1323,15 +1335,17 @@ export default function ProviderDetailClient({
             <p className="text-xs text-text-muted mb-2">Disabled models ({disabledDisplayModels.length}):</p>
             <div className="flex flex-wrap gap-2">
               {disabledDisplayModels.map((m) => (
-                <button
+                <UIButton
                   key={m.id}
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleEnableModel(m.id)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                  className="border-dashed text-xs"
                   title="Restore model"
                 >
                   <span className="material-symbols-outlined text-[13px]">add</span>
                   {m.id}
-                </button>
+                </UIButton>
               ))}
             </div>
           </div>
@@ -1577,13 +1591,13 @@ export default function ProviderDetailClient({
                 {providerStrategy === "round-robin" && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-text-muted">Sticky:</span>
-                    <input
+                    <ShadcnInput
                       type="number"
                       min={1}
                       value={providerStickyLimit}
                       onChange={(e) => handleStickyLimitChange(e.target.value)}
                       placeholder="1"
-                      className="w-14 px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:border-primary"
+                      className="w-14 px-2 py-1 text-xs"
                     />
                   </div>
                 )}
@@ -1659,7 +1673,7 @@ export default function ProviderDetailClient({
               )}
               {connections.length > 0 && (
                 <div className="mb-3 flex items-center gap-2 border-b border-black/[0.03] pb-2 dark:border-white/[0.03]">
-                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted hover:text-primary">
+                  <Label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted hover:text-primary">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -1667,7 +1681,7 @@ export default function ProviderDetailClient({
                       className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
                     />
                     Select All
-                  </label>
+                  </Label>
                 </div>
               )}
               {connectionsList}

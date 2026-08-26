@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input, Toggle, ModelSelectModal } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 
@@ -329,15 +330,15 @@ export default function ComboDetailClient({
                     {model && <code className="text-[10px] text-text-muted font-mono truncate block">{model}</code>}
                   </div>
                   <div className="flex items-center gap-0.5">
-                    <button onClick={() => handleMove(idx, -1)} disabled={idx === 0} className={`p-1 rounded ${idx === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary hover:bg-black/5"}`} title="Move up">
+                    <UIButton variant="ghost" size="icon-sm" onClick={() => handleMove(idx, -1)} disabled={idx === 0} className={idx === 0 ? "text-text-muted/20" : ""} title="Move up">
                       <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
-                    </button>
-                    <button onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={`p-1 rounded ${idx === providers.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary hover:bg-black/5"}`} title="Move down">
+                    </UIButton>
+                    <UIButton variant="ghost" size="icon-sm" onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={idx === providers.length - 1 ? "text-text-muted/20" : ""} title="Move down">
                       <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
-                    </button>
-                    <button onClick={() => handleRemoveProvider(idx)} className="p-1 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10" title="Remove">
+                    </UIButton>
+                    <UIButton variant="ghost" size="icon-sm" onClick={() => handleRemoveProvider(idx)} className="text-red-500 hover:bg-red-500/10" title="Remove">
                       <span className="material-symbols-outlined text-[16px]">close</span>
-                    </button>
+                    </UIButton>
                   </div>
                 </div>
               );

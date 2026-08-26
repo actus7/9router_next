@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Card, Button, Toggle, Input } from "@/shared/components";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
@@ -869,7 +871,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
               <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 pt-4 border-t border-border/50">
                 {settings.hasPassword && (
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">Current Password</label>
+                    <Label className="text-xs sm:text-sm">Current Password</Label>
                     <Input
                       type="password"
                       placeholder="Enter current password"
@@ -881,7 +883,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">New Password</label>
+                    <Label className="text-xs sm:text-sm">New Password</Label>
                     <Input
                       type="password"
                       placeholder="Enter new password"
@@ -891,7 +893,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">Confirm New Password</label>
+                    <Label className="text-xs sm:text-sm">Confirm New Password</Label>
                     <Input
                       type="password"
                       placeholder="Confirm new password"
@@ -950,7 +952,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
               {/* SSO Protocol Switcher Tabs */}
               <div className="flex flex-col gap-2">
-                <label className="font-medium text-sm sm:text-base">SSO Protocol</label>
+                <Label className="sm:text-base">SSO Protocol</Label>
                 <div className="flex p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border">
                   <button
                     type="button"
@@ -981,7 +983,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
               {/* Auth Mode selection */}
               <div className="flex flex-col gap-2">
-                <label className="font-medium text-sm sm:text-base">Auth Mode</label>
+                <Label className="sm:text-base">Auth Mode</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     {
@@ -1159,7 +1161,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
                   <div className="grid grid-cols-1 gap-4">
                     <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Single Sign-On Service URL (samlEntryPoint)</label>
+                      <Label className="sm:text-base">Single Sign-On Service URL (samlEntryPoint)</Label>
                       <Input
                         placeholder="https://idp.example.com/app/saml/sso/..."
                         value={samlForm.samlEntryPoint}
@@ -1169,7 +1171,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">SP Entity ID / Audience (samlIssuer)</label>
+                      <Label className="sm:text-base">SP Entity ID / Audience (samlIssuer)</Label>
                       <Input
                         placeholder="urn:9router:sp"
                         value={samlForm.samlIssuer}
@@ -1180,7 +1182,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
-                        <label className="font-medium text-sm sm:text-base">IdP X.509 Certificate (samlCert)</label>
+                        <Label className="sm:text-base">IdP X.509 Certificate (samlCert)</Label>
                         <Button
                           type="button"
                           variant="outline"
@@ -1198,12 +1200,12 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                           onChange={handleCertFileUpload}
                         />
                       </div>
-                      <textarea
+                      <Textarea
                         rows={4}
                         placeholder="-----BEGIN CERTIFICATE-----&#10;MIIC...&#10;-----END CERTIFICATE-----"
                         value={samlForm.samlCert}
                         onChange={(e) => updateSamlForm("samlCert", e.target.value)}
-                        className="w-full p-2.5 rounded-lg border border-border bg-bg text-xs font-mono text-text-main focus:outline-none focus:border-primary"
+                        className="text-xs font-mono"
                         disabled={loading || samlLoading}
                       />
                       <p className="text-xs text-text-muted">Paste raw Base64 certificate or PEM block.</p>
@@ -1211,7 +1213,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="flex flex-col gap-2">
-                        <label className="font-medium text-sm sm:text-base">Login Button Label</label>
+                        <Label className="sm:text-base">Login Button Label</Label>
                         <Input
                           placeholder="Sign in with SAML SSO"
                           value={samlForm.samlLoginLabel}
@@ -1221,7 +1223,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <label className="font-medium text-sm sm:text-base">Email Claim Attribute</label>
+                        <Label className="sm:text-base">Email Claim Attribute</Label>
                         <Input
                           placeholder="email"
                           value={samlForm.samlAttributeEmail}
@@ -1231,7 +1233,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <label className="font-medium text-sm sm:text-base">Display Name Claim</label>
+                        <Label className="sm:text-base">Display Name Claim</Label>
                         <Input
                           placeholder="name"
                           value={samlForm.samlAttributeName}
@@ -1317,7 +1319,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 <div className="flex flex-col gap-4 pt-2 border-t border-border/50">
                   <div className="grid grid-cols-1 gap-4">
                     <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Issuer URL</label>
+                      <Label className="sm:text-base">Issuer URL</Label>
                       <Input
                         placeholder="https://auth.example.com/application/o/9router/"
                         value={oidcForm.oidcIssuerUrl}
@@ -1327,7 +1329,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Client ID</label>
+                      <Label className="sm:text-base">Client ID</Label>
                       <Input
                         placeholder="9router-dashboard"
                         value={oidcForm.oidcClientId}
@@ -1337,7 +1339,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Client Secret</label>
+                      <Label className="sm:text-base">Client Secret</Label>
                       <Input
                         type="password"
                         placeholder="Leave blank to keep existing secret"
@@ -1349,7 +1351,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Scopes</label>
+                      <Label className="sm:text-base">Scopes</Label>
                       <Input
                         placeholder="openid profile email"
                         value={oidcForm.oidcScopes}
@@ -1359,7 +1361,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Login Button Label</label>
+                      <Label className="sm:text-base">Login Button Label</Label>
                       <Input
                         placeholder="Sign in with OIDC"
                         value={oidcForm.oidcLoginLabel}
@@ -1528,7 +1530,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             {settings.outboundProxyEnabled === true && (
               <form onSubmit={updateOutboundProxy} className="flex flex-col gap-4 pt-2 border-t border-border/50">
                 <div className="flex flex-col gap-2">
-                  <label className="font-medium text-sm sm:text-base">Proxy URL</label>
+                  <Label className="sm:text-base">Proxy URL</Label>
                   <Input
                     placeholder="http://127.0.0.1:7897"
                     value={proxyForm.outboundProxyUrl}
@@ -1539,7 +1541,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-                  <label className="font-medium text-sm sm:text-base">No Proxy</label>
+                  <Label className="sm:text-base">No Proxy</Label>
                   <Input
                     placeholder="localhost,127.0.0.1"
                     value={proxyForm.outboundNoProxy}

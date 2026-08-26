@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Card, ModelSelectModal } from "@/shared/components";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Image from "next/image";
@@ -82,41 +84,43 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
   const renderModelSelector = () => {
     return (
       <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
-        <input
+        <Input
           type="text"
           value={modelValue}
           onChange={(e) => setModelValue(e.target.value)}
           placeholder="provider/model-id"
-          className="w-full sm:w-auto flex-1 px-3 py-2 bg-bg-secondary rounded-lg text-sm border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
+          className="w-full sm:w-auto flex-1 px-3 py-2 text-sm"
         />
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setShowModelModal(true)}
           disabled={!hasActiveProviders}
-          className={`shrink-0 px-3 py-2 rounded-lg border text-sm transition-colors ${
-            hasActiveProviders
-              ? "bg-bg-secondary border-border text-text-main hover:border-primary cursor-pointer"
-              : "opacity-50 cursor-not-allowed border-border"
-          }`}
+          className="shrink-0"
         >
           Select Model
-        </button>
+        </Button>
         {modelValue && (
           <>
-            <button
+            <Button
+              variant="outline"
+              size="icon-sm"
               onClick={() => handleCopy(modelValue, "model")}
-              className="shrink-0 px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary rounded-lg border border-border transition-colors"
+              className="shrink-0"
             >
               <span className="material-symbols-outlined text-lg">
                 {copiedField === "model" ? "check" : "content_copy"}
               </span>
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setModelValue("")}
-              className="p-2 text-text-muted hover:text-red-500 rounded transition-colors"
+              className="text-text-muted hover:text-red-500"
               title="Clear"
             >
               <span className="material-symbols-outlined text-lg">close</span>
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -193,14 +197,16 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
                     {replaceVars(item.value)}
                   </code>
                   {item.copyable && (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
                       onClick={() => handleCopy(item.value!, `${item.step}-${item.title}`)}
-                      className="shrink-0 px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary rounded-lg border border-border transition-colors"
+                      className="shrink-0"
                     >
                       <span className="material-symbols-outlined text-lg">
                         {copiedField === `${item.step}-${item.title}` ? "check" : "content_copy"}
                       </span>
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
@@ -212,15 +218,17 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
           <div className="mt-2">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-text-muted uppercase tracking-wide">{tool.codeBlock.language}</span>
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => handleCopy(tool.codeBlock!.code, "codeblock")}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-bg-secondary hover:bg-bg-tertiary rounded border border-border transition-colors"
+                className="flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-sm">
                   {copiedField === "codeblock" ? "check" : "content_copy"}
                 </span>
                 {copiedField === "codeblock" ? "Copied!" : "Copy"}
-              </button>
+              </Button>
             </div>
             <pre className="p-4 bg-bg-secondary rounded-lg border border-border overflow-x-auto">
               <code className="text-sm font-mono whitespace-pre">{replaceVars(tool.codeBlock.code)}</code>

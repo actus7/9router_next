@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -318,28 +319,28 @@ export default function DroidToolCard({
                         {modelList.map((id) => (
                           <div key={id} className="flex items-center gap-1.5 px-2 py-1 bg-bg-secondary rounded border border-border">
                             <span className="flex-1 text-xs font-mono truncate">{id}</span>
-                            <button onClick={() => removeModel(id)} className="text-text-muted hover:text-red-500 transition-colors shrink-0" title="Remove">
+                            <Button variant="ghost" size="sm" onClick={() => removeModel(id)} className="text-text-muted hover:text-red-500 shrink-0 p-0 h-auto" title="Remove">
                               <span className="material-symbols-outlined text-[12px]">close</span>
-                            </button>
+                            </Button>
                           </div>
                         ))}
                       </div>
                     )}
                     <div className="flex items-center gap-1.5">
-                      <input
+                      <Input
                         type="text"
                         value={modelInput}
                         onChange={(e) => setModelInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addModel(); } }}
                         placeholder="provider/model-id"
-                        className="w-full min-w-0 px-2 py-2 bg-surface rounded border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
+                        className="w-full min-w-0 px-2 py-2 text-xs sm:py-1.5"
                       />
-                      <button onClick={() => setModalOpen(true)} disabled={!hasActiveProviders} className={`px-2 py-1.5 rounded border text-xs shrink-0 ${hasActiveProviders ? "bg-surface border-border hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}>
+                      <Button variant="outline" size="sm" onClick={() => setModalOpen(true)} disabled={!hasActiveProviders} className="shrink-0">
                         Select
-                      </button>
-                      <button onClick={addModel} disabled={!modelInput.trim()} className="px-2 py-1.5 rounded border bg-surface border-border hover:border-primary text-xs shrink-0 disabled:opacity-50" title="Add model">
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={addModel} disabled={!modelInput.trim()} className="shrink-0" title="Add model">
                         <span className="material-symbols-outlined text-[14px]">add</span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>

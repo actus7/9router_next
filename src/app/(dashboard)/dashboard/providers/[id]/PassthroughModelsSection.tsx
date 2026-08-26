@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/shared/components";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 
 interface PassthroughModelRowProps {
@@ -144,15 +146,15 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
       {/* Add new model */}
       <div className="flex items-end gap-2">
         <div className="flex-1">
-          <label htmlFor="new-model-input" className="text-xs text-text-muted mb-1 block">Model ID (from OpenRouter)</label>
-          <input
+          <Label htmlFor="new-model-input" className="text-xs text-text-muted mb-1 block">Model ID (from OpenRouter)</Label>
+          <Input
             id="new-model-input"
             type="text"
             value={newModel}
             onChange={(e) => setNewModel(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="anthropic/claude-3-opus"
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+            className="w-full px-3 py-2 text-sm"
           />
         </div>
         <Button size="sm" icon="add" onClick={handleAdd} disabled={!newModel.trim() || adding}>

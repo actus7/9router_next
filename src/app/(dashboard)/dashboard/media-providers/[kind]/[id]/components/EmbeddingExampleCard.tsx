@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card } from "@/shared/components";
+import { Input } from "@/components/ui/input";
 import { getProviderAlias, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -111,11 +112,11 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
         {/* Model — text input for custom node, dropdown otherwise */}
         <Row label="Model">
           {isCustom ? (
-            <input
+            <Input
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               placeholder="e.g. voyage-3, embed-english-v3.0, text-embedding-3-small"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              className="w-full px-3 py-1.5 text-sm font-mono"
             />
           ) : (
             <select
@@ -133,10 +134,10 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
         {/* Endpoint */}
         <Row label="Endpoint">
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <input
+            <Input
               value={endpoint}
               onChange={(e) => useTunnel ? setTunnelEndpoint(e.target.value) : setLocalEndpoint(e.target.value)}
-              className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm font-mono"
               placeholder="http://localhost:3000"
             />
             {/* Tunnel toggle — only show if tunnel URL is available */}
@@ -157,22 +158,22 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
 
         {/* API Key */}
         <Row label="API Key">
-          <input
+          <Input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="sk-..."
-            className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+            className="w-full px-3 py-1.5 text-sm font-mono"
           />
         </Row>
 
         {/* Input */}
         <Row label="Input">
           <div className="relative">
-            <input
+            <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-1.5 pr-7 text-sm"
             />
             {input && (
               <button
@@ -188,13 +189,13 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
 
         {/* Dimensions (optional) — truncate embedding vector length */}
         <Row label="Dimensions">
-          <input
+          <Input
             type="number"
             min="1"
             value={dimensions}
             onChange={(e) => setDimensions(e.target.value)}
             placeholder="optional, e.g. 512, 1024 (leave empty for default)"
-            className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+            className="w-full px-3 py-1.5 text-sm"
           />
         </Row>
 

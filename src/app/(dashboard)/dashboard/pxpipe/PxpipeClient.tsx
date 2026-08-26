@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, Button } from "@/shared/components";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 const fmtTokens = (n) => {
   if (n >= 1000000) return `${(n / 1000000).toFixed(2)}M`;
@@ -205,43 +206,42 @@ export default function PxpipeClient() {
 
       <Card className="p-4">
         <h3 className="font-medium mb-3">History</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-text-muted border-b border-border">
-                <th className="py-2 pr-3">Time</th>
-                <th className="py-2 pr-3">Model</th>
-                <th className="py-2 pr-3 text-right">Original</th>
-                <th className="py-2 pr-3 text-right">Compressed</th>
-                <th className="py-2 pr-3 text-right">Saved</th>
-                <th className="py-2 pr-3 text-right">%</th>
-                <th className="py-2 pr-3 text-right">Duration</th>
-                <th className="py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow className="text-xs text-text-muted">
+                <TableHead className="py-2 pr-3">Time</TableHead>
+                <TableHead className="py-2 pr-3">Model</TableHead>
+                <TableHead className="py-2 pr-3 text-right">Original</TableHead>
+                <TableHead className="py-2 pr-3 text-right">Compressed</TableHead>
+                <TableHead className="py-2 pr-3 text-right">Saved</TableHead>
+                <TableHead className="py-2 pr-3 text-right">%</TableHead>
+                <TableHead className="py-2 pr-3 text-right">Duration</TableHead>
+                <TableHead className="py-2">Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {(stats?.recent || []).slice(0, 50).map((ev, i) => (
-                <tr key={`${ev.ts}-${i}`} className="border-b border-border/50">
-                  <td className="py-1.5 pr-3 whitespace-nowrap text-text-muted">
+                <TableRow key={`${ev.ts}-${i}`}>
+                  <TableCell className="py-1.5 pr-3 text-text-muted">
                     {new Date(ev.ts).toLocaleString()}
-                  </td>
-                  <td className="py-1.5 pr-3 font-mono text-xs">{ev.provider ? `${ev.provider}/${ev.model}` : ev.model || "—"}</td>
-                  <td className="py-1.5 pr-3 text-right font-mono text-xs">
+                  </TableCell>
+                  <TableCell className="py-1.5 pr-3 font-mono text-xs">{ev.provider ? `${ev.provider}/${ev.model}` : ev.model || "—"}</TableCell>
+                  <TableCell className="py-1.5 pr-3 text-right font-mono text-xs">
                     {ev.applied ? fmtTokens(ev.tokensBeforeEst) : "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right font-mono text-xs">
+                  </TableCell>
+                  <TableCell className="py-1.5 pr-3 text-right font-mono text-xs">
                     {ev.applied ? fmtTokens(ev.tokensAfterEst) : "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right font-mono text-xs text-success">
+                  </TableCell>
+                  <TableCell className="py-1.5 pr-3 text-right font-mono text-xs text-success">
                     {ev.applied ? fmtTokens(ev.tokensSavedEst) : "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right font-mono text-xs">
+                  </TableCell>
+                  <TableCell className="py-1.5 pr-3 text-right font-mono text-xs">
                     {ev.applied ? `${ev.savedPct}%` : "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right font-mono text-xs">
+                  </TableCell>
+                  <TableCell className="py-1.5 pr-3 text-right font-mono text-xs">
                     {ev.durationMs != null ? `${ev.durationMs}ms` : "—"}
-                  </td>
-                  <td className="py-1.5">
+                  </TableCell>
+                  <TableCell className="py-1.5">
                     <span
                       className={`text-xs px-2 py-0.5 rounded ${
                         ev.applied
@@ -254,19 +254,18 @@ export default function PxpipeClient() {
                     >
                       {ev.applied ? "Compressed" : REASON_LABELS[ev.reason] || ev.reason}
                     </span>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {(!stats?.recent || stats.recent.length === 0) && (
-                <tr>
-                  <td colSpan={8} className="py-6 text-center text-text-muted text-sm">
+                <TableRow>
+                  <TableCell colSpan={8} className="py-6 text-center text-text-muted text-sm">
                     No PXPIPE activity yet
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
       </Card>
 
       <Card className="p-4" id="logs">

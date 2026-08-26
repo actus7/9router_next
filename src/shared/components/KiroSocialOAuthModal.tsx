@@ -133,9 +133,9 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             {`Connect Kiro via ${providerName}`}
           </DialogTitle>
-          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+          <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
             <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
+          </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-4">

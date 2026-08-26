@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input } from "@/shared/components";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 
 interface CursorAuthModalProps {
   isOpen: boolean;
@@ -109,9 +111,9 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             Connect Cursor IDE
           </DialogTitle>
-          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+          <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
             <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
+          </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-4">
@@ -177,23 +179,23 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
 
             {/* Access Token Input */}
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <Label className="block mb-2">
                 Access Token <span className="text-red-500">*</span>
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder="Access token will be auto-filled..."
                 rows={3}
-                className="w-full px-3 py-2 text-sm font-mono border border-border rounded-lg bg-background focus:outline-none focus:border-primary resize-none"
+                className="font-mono resize-none"
               />
             </div>
 
             {/* Machine ID Input */}
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <Label className="block mb-2">
                 Machine ID <span className="text-red-500">*</span>
-              </label>
+              </Label>
               <Input
                 value={machineId}
                 onChange={(e) => setMachineId(e.target.value)}

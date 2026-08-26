@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import Card from "@/shared/components/Card";
 import Badge from "@/shared/components/Badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 const fmt = (n) => new Intl.NumberFormat().format(n || 0);
 const fmtCost = (n) => `$${(n || 0).toFixed(2)}`;
@@ -41,35 +42,35 @@ function ValueCells({ item, viewMode, isSummary = false }: ValueCellsProps) {
   if (viewMode === "tokens") {
     return (
       <>
-        <td className="px-6 py-3 text-right text-text-muted">
+        <TableCell className="px-6 py-3 text-right text-text-muted">
           {isSummary && item.promptTokens === undefined ? "—" : fmt(item.promptTokens)}
-        </td>
-        <td className="px-6 py-3 text-right text-text-muted">
+        </TableCell>
+        <TableCell className="px-6 py-3 text-right text-text-muted">
           {item.cachedTokens ? fmt(item.cachedTokens) : "—"}
-        </td>
-        <td className="px-6 py-3 text-right text-text-muted">
+        </TableCell>
+        <TableCell className="px-6 py-3 text-right text-text-muted">
           {isSummary && item.completionTokens === undefined ? "—" : fmt(item.completionTokens)}
-        </td>
-        <td className="px-6 py-3 text-right font-medium">
+        </TableCell>
+        <TableCell className="px-6 py-3 text-right font-medium">
           {fmt(item.totalTokens)}
-        </td>
+        </TableCell>
       </>
     );
   }
   return (
     <>
-      <td className="px-6 py-3 text-right text-text-muted">
+      <TableCell className="px-6 py-3 text-right text-text-muted">
         {isSummary && item.inputCost === undefined ? "—" : fmtCost(item.inputCost)}
-      </td>
-      <td className="px-6 py-3 text-right text-text-muted">
+      </TableCell>
+      <TableCell className="px-6 py-3 text-right text-text-muted">
         {item.cachedCost ? fmtCost(item.cachedCost) : "—"}
-      </td>
-      <td className="px-6 py-3 text-right text-text-muted">
+      </TableCell>
+      <TableCell className="px-6 py-3 text-right text-text-muted">
         {isSummary && item.outputCost === undefined ? "—" : fmtCost(item.outputCost)}
-      </td>
-      <td className="px-6 py-3 text-right font-medium text-warning">
+      </TableCell>
+      <TableCell className="px-6 py-3 text-right font-medium text-warning">
         {fmtCost(item.totalCost || item.cost)}
-      </td>
+      </TableCell>
     </>
   );
 }
@@ -168,41 +169,40 @@ export default function UsageTable({
       <div className="p-4 border-b border-border bg-bg-subtle/50">
         <h3 className="font-semibold">{title}</h3>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-bg-subtle/30 text-text-muted uppercase text-xs">
-            <tr>
+        <Table>
+          <TableHeader className="bg-bg-subtle/30 text-text-muted uppercase text-xs">
+            <TableRow>
               {columns.map((col) => (
-                <th
+                <TableHead
                   key={col.field}
                   className={`px-6 py-3 cursor-pointer hover:bg-bg-subtle/50 ${col.align === "right" ? "text-right" : ""}`}
                   onClick={() => onToggleSort(tableType, col.field)}
                 >
                   {col.label}{" "}
                   <SortIcon field={col.field} currentSort={sortBy} currentOrder={sortOrder} />
-                </th>
+                </TableHead>
               ))}
               {valueColumns.map((col) => (
-                <th
+                <TableHead
                   key={col.field}
                   className="px-6 py-3 text-right cursor-pointer hover:bg-bg-subtle/50"
                   onClick={() => onToggleSort(tableType, col.field)}
                 >
                   {col.label}{" "}
                   <SortIcon field={col.field} currentSort={sortBy} currentOrder={sortOrder} />
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {groupedData.map((group) => (
               <Fragment key={group.groupKey}>
                 {/* Group summary row */}
-                <tr
-                  className="group-summary cursor-pointer hover:bg-bg-subtle/50 transition-colors"
+                <TableRow
+                  className="group-summary cursor-pointer hover:bg-bg-subtle/50"
                   onClick={() => toggleGroup(group.groupKey)}
                 >
-                  <td className="px-6 py-3">
+                  <TableCell className="px-6 py-3">
                     <div className="flex items-center gap-2">
                       <span className={`material-symbols-outlined text-[18px] text-text-muted transition-transform ${expanded.has(group.groupKey) ? "rotate-90" : ""}`}>
                         chevron_right
@@ -211,32 +211,31 @@ export default function UsageTable({
                         {group.groupKey}
                       </span>
                     </div>
-                  </td>
+                  </TableCell>
                   {renderSummaryCells(group)}
                   <ValueCells item={group.summary} viewMode={viewMode} isSummary />
-                </tr>
+                </TableRow>
                 {/* Detail rows */}
                 {expanded.has(group.groupKey) && group.items.map((item) => (
-                  <tr
+                  <TableRow
                     key={`detail-${item.key}`}
-                    className="group-detail hover:bg-bg-subtle/20 transition-colors"
+                    className="group-detail hover:bg-bg-subtle/20"
                   >
                     {renderDetailCells(item)}
                     <ValueCells item={item} viewMode={viewMode} />
-                  </tr>
+                  </TableRow>
                 ))}
               </Fragment>
             ))}
             {groupedData.length === 0 && (
-              <tr>
-                <td colSpan={totalColSpan} className="px-6 py-8 text-center text-text-muted">
+              <TableRow>
+                <TableCell colSpan={totalColSpan} className="px-6 py-8 text-center text-text-muted">
                   {emptyMessage}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
     </Card>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card } from "@/shared/components";
+import { Input } from "@/components/ui/input";
 import { MEDIA_PROVIDER_KINDS, getProviderAlias, resolveProviderId } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -242,11 +243,11 @@ export function GenericExampleCard({ providerId, kind }) {
           </Row>
         ) : allowManualModel ? (
           <Row label="Model">
-            <input
+            <Input
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               placeholder="Enter model id (provider-specific)"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              className="w-full px-3 py-1.5 text-sm font-mono"
             />
           </Row>
         ) : null}
@@ -304,11 +305,11 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Input */}
         <Row label={exConfig.inputLabel}>
           <div className="relative">
-            <input
+            <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={exConfig.inputPlaceholder}
-              className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-1.5 pr-7 text-sm"
             />
             {input && (
               <button
@@ -327,11 +328,11 @@ export function GenericExampleCard({ providerId, kind }) {
           <Row label="Ref Image (URL)">
             <div className="flex flex-col gap-2">
               <div className="relative">
-                <input
+                <Input
                   value={refImage}
                   onChange={(e) => setRefImage(e.target.value)}
                   placeholder={imageEditDefaults.image || "https://example.com/source.png"}
-                  className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-1.5 pr-7 text-sm"
                 />
                 {refImage && (
                   <button
@@ -362,11 +363,11 @@ export function GenericExampleCard({ providerId, kind }) {
           <Row label="Mask (URL)">
             <div className="flex flex-col gap-2">
               <div className="relative">
-                <input
+                <Input
                   value={maskImage}
                   onChange={(e) => setMaskImage(e.target.value)}
                   placeholder={imageEditDefaults.mask_image || "https://example.com/mask.png"}
-                  className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-1.5 pr-7 text-sm"
                 />
                 {maskImage && (
                   <button
@@ -409,21 +410,21 @@ export function GenericExampleCard({ providerId, kind }) {
                 ))}
               </select>
             ) : f.type === "text" ? (
-              <input
+              <Input
                 type="text"
                 value={extraValues[f.key] ?? ""}
                 placeholder={f.placeholder}
                 onChange={(e) => setExtraValues((s) => ({ ...s, [f.key]: e.target.value }))}
-                className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                className="w-full px-3 py-1.5 text-sm"
               />
             ) : (
-              <input
+              <Input
                 type="number"
                 value={extraValues[f.key] ?? ""}
                 min={f.min}
                 max={f.max}
                 onChange={(e) => setExtraValues((s) => ({ ...s, [f.key]: e.target.value === "" ? "" : Number(e.target.value) }))}
-                className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+                className="w-full px-3 py-1.5 text-sm"
               />
             )}
           </Row>

@@ -2,7 +2,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge, Button, Card, CardSkeleton, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
+import { Label } from "@/components/ui/label";
 import { useNotificationStore } from "@/store/notificationStore";
 
 interface ProxyPool {
@@ -648,7 +650,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {proxyPools.length > 0 && (
-            <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
+            <Label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -656,7 +658,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                 className="size-4 rounded border-black/20 dark:border-white/20"
               />
               {allSelected ? "Unselect all" : "Select all"}
-            </label>
+            </Label>
           )}
           <Badge variant="default">Total: {proxyPools.length}</Badge>
           <Badge variant="success">Active: {activeCount}</Badge>
@@ -794,12 +796,12 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
       >
         <div className="flex flex-col gap-4">
           <div>
-            <label className="text-sm font-medium text-text-main mb-1 block">Paste Proxy List (One per line)</label>
-            <textarea
+            <Label className="text-text-main mb-1 block">Paste Proxy List (One per line)</Label>
+            <Textarea
               value={batchImportText}
               onChange={(e) => setBatchImportText(e.target.value)}
               placeholder={"http://user:pass@127.0.0.1:7897\n127.0.0.1:7897:user:pass"}
-              className="w-full min-h-[180px] py-2 px-3 text-sm text-text-main bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-md focus:ring-1 focus:ring-primary/30 focus:border-primary/50 focus:outline-none transition-all"
+              className="min-h-[180px]"
             />
             <p className="text-xs text-text-muted mt-1">
               Supported formats: protocol://user:pass@host:port, host:port:user:pass

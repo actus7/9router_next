@@ -122,9 +122,9 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             Connect GitLab Duo
           </DialogTitle>
-          <button onClick={handleClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+          <Button onClick={handleClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
             <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
+          </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-4">
@@ -135,26 +135,28 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
               Choose how to authenticate with GitLab Duo:
             </p>
             <div className="grid grid-cols-2 gap-3">
-              <button
+              <Button
                 onClick={() => setMode("oauth")}
-                className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-colors text-left"
+                variant="outline"
+                className="flex flex-col items-center gap-2 p-4 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-left h-auto"
               >
                 <span className="material-symbols-outlined text-2xl text-primary">lock_open</span>
                 <div>
                   <p className="text-sm font-medium">OAuth App</p>
                   <p className="text-xs text-text-muted">Use a GitLab OAuth application</p>
                 </div>
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setMode("pat")}
-                className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-colors text-left"
+                variant="outline"
+                className="flex flex-col items-center gap-2 p-4 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-left h-auto"
               >
                 <span className="material-symbols-outlined text-2xl text-primary">key</span>
                 <div>
                   <p className="text-sm font-medium">Personal Access Token</p>
                   <p className="text-xs text-text-muted">Use a GitLab PAT with api scope</p>
                 </div>
-              </button>
+              </Button>
             </div>
           </>
         )}

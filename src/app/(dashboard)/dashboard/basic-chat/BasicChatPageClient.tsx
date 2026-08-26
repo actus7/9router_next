@@ -2,7 +2,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge, Button } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
 
@@ -744,10 +746,11 @@ export default function BasicChatPageClient() {
       <div className="relative mx-auto flex flex-1 h-full min-h-0 w-full max-w-4xl flex-col">
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 lg:px-6">
           <div ref={modelMenuRef} className="relative">
-            <button
+            <UIButton
+              variant="outline"
               type="button"
               onClick={() => setModelMenuOpen((value) => !value)}
-              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:bg-white/8"
+              className="gap-3 rounded-2xl border-white/10 bg-white/5 px-4 py-3 h-auto text-left hover:bg-white/8"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -756,7 +759,7 @@ export default function BasicChatPageClient() {
                 </div>
                 <p className="truncate text-xs text-white/55">{modelSubLabel}</p>
               </div>
-            </button>
+            </UIButton>
 
             {modelMenuOpen ? (
               <div className="absolute left-0 top-[calc(100%+10px)] z-30 w-[min(520px,calc(100vw-2rem))] overflow-hidden rounded-[20px] border border-white/10 bg-[#262626] shadow-2xl shadow-black/50">
@@ -775,11 +778,12 @@ export default function BasicChatPageClient() {
                         {group.models.map((model) => {
                           const isActive = model.id === activeModelId;
                           return (
-                            <button
+                            <UIButton
                               key={model.id}
+                              variant="ghost"
                               type="button"
                               onClick={() => handleSelectModel(model.id)}
-                              className={`rounded-[14px] border px-3 py-3 text-left transition ${isActive ? "border-blue-400/40 bg-blue-500/15" : "border-white/10 bg-white/5 hover:bg-white/8"}`}
+                              className={`rounded-[14px] border px-3 py-3 h-auto text-left ${isActive ? "border-blue-400/40 bg-blue-500/15" : "border-white/10 bg-white/5 hover:bg-white/8"}`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -788,7 +792,7 @@ export default function BasicChatPageClient() {
                                 </div>
                                 {isActive ? <span className="material-symbols-outlined text-[18px] text-blue-300">check_circle</span> : null}
                               </div>
-                            </button>
+                            </UIButton>
                           );
                         })}
                       </div>
@@ -800,13 +804,14 @@ export default function BasicChatPageClient() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
+            <UIButton
+              variant="outline"
               type="button"
               onClick={() => setHistoryOpen((value) => !value)}
-              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 transition hover:bg-white/8"
+              className="rounded-2xl border-white/10 bg-white/5 px-4 py-3 h-auto text-sm text-white/80 hover:bg-white/8"
             >
               History
-            </button>
+            </UIButton>
             <Button variant="ghost" size="sm" icon="delete" onClick={handleDeleteCurrentChat} disabled={!activeSessionId || sessions.length === 0}>
               Clear
             </Button>
@@ -827,11 +832,12 @@ export default function BasicChatPageClient() {
                 const isActive = session.id === activeSessionId;
                 const latestMessage = [...(session.messages || [])].reverse().find((message) => message.role === "user") || session.messages?.[0];
                 return (
-                  <button
+                  <UIButton
                     key={session.id}
+                    variant="ghost"
                     type="button"
                     onClick={() => handleSelectSession(session.id)}
-                    className={`w-full rounded-[16px] border px-3 py-3 text-left transition ${isActive ? "border-blue-400/40 bg-blue-500/15" : "border-white/10 bg-white/5 hover:bg-white/8"}`}
+                    className={`w-full rounded-[16px] border px-3 py-3 h-auto text-left ${isActive ? "border-blue-400/40 bg-blue-500/15" : "border-white/10 bg-white/5 hover:bg-white/8"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
@@ -840,7 +846,7 @@ export default function BasicChatPageClient() {
                       </div>
                       <span className="text-[10px] text-white/40 shrink-0">{formatRelativeTime(session.updatedAt)}</span>
                     </div>
-                  </button>
+                  </UIButton>
                 );
               })}
             </div>
@@ -915,9 +921,9 @@ export default function BasicChatPageClient() {
                 {attachments.map((attachment) => (
                   <div key={attachment.id} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2">
                     <span className="text-xs text-white/80 max-w-[12rem] truncate">{attachment.name}</span>
-                    <button type="button" onClick={() => removeAttachment(attachment.id)} className="text-white/55 hover:text-white" aria-label="Remove attachment">
+                    <UIButton variant="ghost" size="icon-sm" type="button" onClick={() => removeAttachment(attachment.id)} className="text-white/55 hover:text-white" aria-label="Remove attachment">
                       <span className="material-symbols-outlined text-[18px]">close</span>
-                    </button>
+                    </UIButton>
                   </div>
                 ))}
               </div>
@@ -925,33 +931,33 @@ export default function BasicChatPageClient() {
 
             <div className="mx-auto w-full max-w-3xl px-4 pb-2">
               <div className="rounded-[26px] bg-[#2f2f2f] px-3 pt-3 pb-2 shadow-[0_0_15px_rgba(0,0,0,0.10)] ring-1 ring-white/5">
-                <textarea
+                <Textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Message AI"
                   rows={1}
-                  className="w-full resize-none bg-transparent px-2 text-[15px] leading-6 text-white outline-none placeholder:text-white/40 custom-scrollbar max-h-[25vh] overflow-y-auto"
+                  className="resize-none border-0 bg-transparent px-2 text-[15px] leading-6 text-white placeholder:text-white/40 custom-scrollbar max-h-[25vh] focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
 
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="p-2 text-white/50 hover:text-white transition rounded-full hover:bg-white/5">
+                    <UIButton variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="text-white/50 hover:text-white rounded-full hover:bg-white/5">
                       <span className="material-symbols-outlined text-[20px]">attach_file</span>
-                    </button>
+                    </UIButton>
                     <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAttachFiles} />
                     <span className="text-xs font-medium text-white/30 truncate max-w-[120px]">{activeModel ? activeModel.name : "No model"}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {isSending ? (
-                      <button type="button" onClick={handleStop} className="p-2 text-white bg-white/10 hover:bg-white/20 transition rounded-full h-8 w-8 flex items-center justify-center">
+                      <UIButton variant="secondary" size="icon" type="button" onClick={handleStop} className="rounded-full">
                         <span className="material-symbols-outlined text-[16px]">stop</span>
-                      </button>
+                      </UIButton>
                     ) : null}
-                    <button onClick={sendMessage} disabled={!canSend} className={`h-8 w-8 rounded-full flex items-center justify-center transition ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30 cursor-not-allowed'}`}>
+                    <UIButton variant="default" size="icon" onClick={sendMessage} disabled={!canSend} className={`rounded-full ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30'}`}>
                       <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
-                    </button>
+                    </UIButton>
                   </div>
                 </div>
               </div>

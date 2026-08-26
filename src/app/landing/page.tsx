@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import Navigation from "./components/Navigation";
 import HeroSection from "./components/HeroSection";
 import FlowAnimation from "./components/FlowAnimation";
@@ -56,18 +57,19 @@ export default function LandingPage() {
               Join developers who are streamlining their AI integrations with 9Router. Open source and free to start.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button 
+              <Button 
                 onClick={() => router.push("/dashboard")}
-                className="w-full sm:w-auto h-14 px-10 rounded-lg bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-lg font-bold transition-all shadow-[0_0_20px_rgba(249,120,21,0.5)]"
+                className="w-full sm:w-auto h-14 px-10 rounded-lg bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-lg font-bold shadow-[0_0_20px_rgba(249,120,21,0.5)]"
               >
                 Start Free
-              </button>
-              <button 
+              </Button>
+              <Button 
+                variant="outline"
                 onClick={() => window.open("https://github.com/decolua/9router#readme", "_blank")}
-                className="w-full sm:w-auto h-14 px-10 rounded-lg border border-[#3a2f27] hover:bg-[#23180f] text-white text-lg font-bold transition-all"
+                className="w-full sm:w-auto h-14 px-10 rounded-lg border border-[#3a2f27] hover:bg-[#23180f] text-white text-lg font-bold"
               >
                 Read Documentation
-              </button>
+              </Button>
             </div>
           </div>
         </section>

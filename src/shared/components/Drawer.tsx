@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogPortal,
@@ -68,16 +69,17 @@ export default function Drawer({
                 </DialogTitle>
               )}
             </div>
-            <button
+            <Button
               type="button"
               onClick={onClose}
               aria-label="Close drawer"
-              className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors"
+              variant="ghost"
+              size="icon-sm"
             >
               <span className="material-symbols-outlined text-[20px]">
                 close
               </span>
-            </button>
+            </Button>
           </div>
 
           {/* Body */}

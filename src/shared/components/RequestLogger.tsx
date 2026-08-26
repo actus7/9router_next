@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 export default function RequestLogger() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -60,25 +61,25 @@ export default function RequestLogger() {
 
       <Card className="overflow-hidden bg-surface-2">
         <CardContent>
-          <div className="p-0 overflow-x-auto max-h-[600px] overflow-y-auto font-mono text-xs">
+          <div className="p-0 max-h-[600px] overflow-y-auto font-mono text-xs">
           {loading && logs.length === 0 ? (
             <div className="p-8 text-center text-text-muted">Loading logs...</div>
           ) : logs.length === 0 ? (
             <div className="p-8 text-center text-text-muted">No logs recorded yet.</div>
           ) : (
-            <table className="w-full text-left border-collapse whitespace-nowrap">
-              <thead className="sticky top-0 bg-bg-subtle border-b border-border z-10">
-                <tr>
-                  <th className="px-3 py-2 border-r border-border">DateTime</th>
-                  <th className="px-3 py-2 border-r border-border">Model</th>
-                  <th className="px-3 py-2 border-r border-border">Provider</th>
-                  <th className="px-3 py-2 border-r border-border">Account</th>
-                  <th className="px-3 py-2 border-r border-border">In</th>
-                  <th className="px-3 py-2 border-r border-border">Out</th>
-                  <th className="px-3 py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
+            <Table className="whitespace-nowrap">
+              <TableHeader className="sticky top-0 bg-bg-subtle z-10">
+                <TableRow>
+                  <TableHead className="px-3 py-2 border-r border-border">DateTime</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">Model</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">Provider</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">Account</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">In</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">Out</TableHead>
+                  <TableHead className="px-3 py-2">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {logs.map((log, i) => {
                   const parts = log.split(" | ");
                   if (parts.length < 7) return null;
@@ -89,28 +90,28 @@ export default function RequestLogger() {
                   const isSuccess = status.includes("OK");
 
                   return (
-                    <tr key={i} className={`hover:bg-primary/5 transition-colors ${isPending ? 'bg-primary/5' : ''}`}>
-                      <td className="px-3 py-1.5 border-r border-border text-text-muted">{parts[0]}</td>
-                      <td className="px-3 py-1.5 border-r border-border font-medium">{parts[1]}</td>
-                      <td className="px-3 py-1.5 border-r border-border">
+                    <TableRow key={i} className={`hover:bg-primary/5 ${isPending ? 'bg-primary/5' : ''}`}>
+                      <TableCell className="px-3 py-1.5 border-r border-border text-text-muted">{parts[0]}</TableCell>
+                      <TableCell className="px-3 py-1.5 border-r border-border font-medium">{parts[1]}</TableCell>
+                      <TableCell className="px-3 py-1.5 border-r border-border">
                         <span className="px-1.5 py-0.5 rounded bg-bg-subtle border border-border text-[10px] uppercase font-bold">
                           {parts[2]}
                         </span>
-                      </td>
-                      <td className="px-3 py-1.5 border-r border-border truncate max-w-[150px]" title={parts[3]}>{parts[3]}</td>
-                      <td className="px-3 py-1.5 border-r border-border text-right text-primary">{parts[4]}</td>
-                      <td className="px-3 py-1.5 border-r border-border text-right text-success">{parts[5]}</td>
-                      <td className={`px-3 py-1.5 font-bold ${isSuccess ? 'text-success' :
+                      </TableCell>
+                      <TableCell className="px-3 py-1.5 border-r border-border truncate max-w-[150px]" title={parts[3]}>{parts[3]}</TableCell>
+                      <TableCell className="px-3 py-1.5 border-r border-border text-right text-primary">{parts[4]}</TableCell>
+                      <TableCell className="px-3 py-1.5 border-r border-border text-right text-success">{parts[5]}</TableCell>
+                      <TableCell className={`px-3 py-1.5 font-bold ${isSuccess ? 'text-success' :
                           isFailed ? 'text-error' :
                             'text-primary animate-pulse'
                         }`}>
                         {status}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
         </CardContent>

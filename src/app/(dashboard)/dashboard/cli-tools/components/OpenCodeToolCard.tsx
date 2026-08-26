@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -336,7 +337,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                           >
                             {model === activeModel && <span className="material-symbols-outlined text-[10px]">star</span>}
                             {model}
-                            <button
+                            <Button variant="ghost" size="sm"
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 try {
@@ -351,16 +352,16 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                                   console.log("Error removing model:", error);
                                 }
                               }}
-                              className="ml-0.5 hover:text-red-500"
+                              className="ml-0.5 hover:text-red-500 p-0 h-auto"
                             >
                               <span className="material-symbols-outlined text-[12px]">close</span>
-                            </button>
+                            </Button>
                           </span>
                         ))
                       )}
                     </div>
                     <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
-                      <button onClick={() => setModalOpen(true)} disabled={!activeProviders?.length} className={`px-2 py-1 rounded border text-xs transition-colors ${activeProviders?.length ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}>Add Model</button>
+                      <Button variant="outline" size="sm" onClick={() => setModalOpen(true)} disabled={!activeProviders?.length}>Add Model</Button>
                       <span className="text-xs text-text-muted">
                         {selectedModels.length > 0 && activeModel ? (
                           <>Active: <span className="text-primary">{activeModel}</span></>
@@ -377,14 +378,14 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
                   <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Subagent Model</span>
                   <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                  <input type="text" value={subagentModel} onChange={(e) => setSubagentModel(e.target.value)} placeholder={selectedModel || "provider/model-id (defaults to main model)"} className="w-full min-w-0 px-2 py-2 bg-surface rounded border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5" />
-                  <button onClick={() => setSubagentModalOpen(true)} disabled={!activeProviders?.length} className={`w-full sm:w-auto rounded border px-2 py-2 text-xs transition-colors sm:py-1.5 whitespace-nowrap sm:shrink-0 ${activeProviders?.length ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}>
+                  <Input type="text" value={subagentModel} onChange={(e) => setSubagentModel(e.target.value)} placeholder={selectedModel || "provider/model-id (defaults to main model)"} className="w-full min-w-0 px-2 py-2 text-xs sm:py-1.5" />
+                  <Button variant="outline" size="sm" onClick={() => setSubagentModalOpen(true)} disabled={!activeProviders?.length} className="w-full sm:w-auto">
                     Select Model
-                  </button>
+                  </Button>
                   {subagentModel && (
-                    <button onClick={() => setSubagentModel("")} className="p-1 text-text-muted hover:text-red-500 rounded transition-colors" title="Clear (will use main model)">
+                    <Button variant="ghost" size="sm" onClick={() => setSubagentModel("")} className="p-1 text-text-muted hover:text-red-500" title="Clear (will use main model)">
                       <span className="material-symbols-outlined text-[14px]">close</span>
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

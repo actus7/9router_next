@@ -1,5 +1,3 @@
-"use server";
-
 import { NextRequest, NextResponse  } from "next/server";
 import { getMitmAlias, setMitmAliasAll } from "@/models";
 import { getMitmStatus } from "@/mitm/manager";
