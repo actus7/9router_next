@@ -4,6 +4,7 @@ import Script from "next/script";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
+import { getI18nProps } from "@/i18n/server";
 import "material-symbols/outlined.css";
 import "./globals.css";
 import "@/lib/network/initOutboundProxy";
@@ -30,14 +31,17 @@ export const viewport = {
   themeColor: "#0a0a0a",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Read locale and translations on the server to prevent hydration mismatches
+  const { locale, translations } = await getI18nProps();
+
   return (
     <html
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
       className={`${inter.variable} h-full antialiased`}
     >
@@ -57,7 +61,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <RuntimeI18nProvider>
+          <RuntimeI18nProvider locale={locale} translations={translations}>
             <TooltipProvider>{children}</TooltipProvider>
           </RuntimeI18nProvider>
         </ThemeProvider>
