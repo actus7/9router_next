@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Modal from "@/shared/components/Modal";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import Input from "@/shared/components/Input";
 import Button from "@/shared/components/Button";
 import Badge from "@/shared/components/Badge";
@@ -212,8 +213,25 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   if (!connection) return null;
 
   return (
-    <Modal isOpen={isOpen} title="Edit Connection" onClose={onClose}>
-      <div className="flex flex-col gap-4">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "bg-surface border border-border-subtle rounded-[14px]",
+          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
+          "max-w-md"
+        )}
+      >
+        <div className="flex items-center justify-between p-2 border-b border-border-subtle">
+          <DialogTitle className="text-lg font-semibold text-text-main ml-2">
+            Edit Connection
+          </DialogTitle>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col gap-4">
         <Input
           label="Name"
           value={formData.name}
@@ -321,7 +339,9 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           <Button onClick={handleSubmit} fullWidth disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
           <Button onClick={onClose} variant="ghost" fullWidth>Cancel</Button>
         </div>
-      </div>
-    </Modal>
+        </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

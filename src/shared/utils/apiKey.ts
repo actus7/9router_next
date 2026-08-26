@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 const API_KEY_SECRET: string = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
 
-export interface ParsedApiKey {
+interface ParsedApiKey {
   machineId: string | null;
   keyId: string;
   isNewFormat: boolean;
@@ -53,7 +53,7 @@ export function generateApiKeyWithMachine(machineId: string): GeneratedApiKey {
  * - New: sk-{machineId}-{keyId}-{crc8}
  * - Old: sk-{random8}
  */
-export function parseApiKey(apiKey: string): ParsedApiKey | null {
+function parseApiKey(apiKey: string): ParsedApiKey | null {
   if (!apiKey || !apiKey.startsWith("sk-")) return null;
 
   const parts = apiKey.split("-");
@@ -80,7 +80,7 @@ export function parseApiKey(apiKey: string): ParsedApiKey | null {
 /**
  * Verify API key CRC (only for new format)
  */
-export function verifyApiKeyCrc(apiKey: string): boolean {
+function verifyApiKeyCrc(apiKey: string): boolean {
   const parsed = parseApiKey(apiKey);
   if (!parsed) return false;
 
@@ -94,7 +94,7 @@ export function verifyApiKeyCrc(apiKey: string): boolean {
 /**
  * Check if API key is new format (contains machineId)
  */
-export function isNewFormatKey(apiKey: string): boolean {
+function isNewFormatKey(apiKey: string): boolean {
   const parsed = parseApiKey(apiKey);
   return parsed?.isNewFormat === true;
 }

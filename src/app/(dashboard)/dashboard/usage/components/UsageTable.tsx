@@ -242,4 +242,4 @@ export default function UsageTable({
 }
 
 // Re-export utilities for use in UsageStats orchestrator
-export { fmt, fmtCost, fmtTime };
+export { fmt, fmtTime };

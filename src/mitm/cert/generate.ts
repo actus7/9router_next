@@ -34,4 +34,4 @@ function getCertForDomain(domain: string): CertData | null {
   }
 }
 
-export { generateCert, getCertForDomain };
+export { generateCert };

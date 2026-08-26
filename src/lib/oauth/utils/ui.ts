@@ -5,23 +5,23 @@ import ora, { Ora } from "ora";
  * UI Helper Functions
  */
 
-export function success(message: string): void {
+function success(message: string): void {
   console.log(chalk.green(`\n✓ ${message}\n`));
 }
 
-export function error(message: string): void {
+function error(message: string): void {
   console.log(chalk.red(`\n✗ ${message}\n`));
 }
 
-export function info(message: string): void {
+function info(message: string): void {
   console.log(chalk.blue(`\n${message}\n`));
 }
 
-export function warn(message: string): void {
+function warn(message: string): void {
   console.log(chalk.yellow(`\n⚠ ${message}\n`));
 }
 
-export function gray(message: string): void {
+function gray(message: string): void {
   console.log(chalk.gray(message));
 }
 
@@ -29,16 +29,16 @@ export function spinner(text: string): Ora {
   return ora(text);
 }
 
-export function printSection(title: string): void {
+function printSection(title: string): void {
   console.log(chalk.blue(`\n${title}\n`));
 }
 
-export function printKeyValue(key: string, value: string, isSuccess: boolean = false): void {
+function printKeyValue(key: string, value: string, isSuccess: boolean = false): void {
   const color = isSuccess ? chalk.green : chalk.gray;
   console.log(color(`  ${key}: ${value}`));
 }
 
-export function printList(items: string[], isSuccess: boolean = false): void {
+function printList(items: string[], isSuccess: boolean = false): void {
   const symbol: string = isSuccess ? "✓" : "✗";
   const color = isSuccess ? chalk.green : chalk.gray;
   items.forEach((item: string) => {

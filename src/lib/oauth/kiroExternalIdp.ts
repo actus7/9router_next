@@ -11,7 +11,7 @@ function normalizeString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-export function validateMicrosoftTokenEndpoint(rawEndpoint: string): string {
+function validateMicrosoftTokenEndpoint(rawEndpoint: string): string {
   const tokenEndpoint: string = normalizeString(rawEndpoint);
   if (!tokenEndpoint) throw new Error("token_endpoint is required");
 
@@ -34,7 +34,7 @@ export function validateMicrosoftTokenEndpoint(rawEndpoint: string): string {
   return parsed.toString();
 }
 
-export function normalizeScope(scopes: string | string[]): string {
+function normalizeScope(scopes: string | string[]): string {
   if (Array.isArray(scopes)) {
     return scopes.map(normalizeString).filter(Boolean).join(" ");
   }
@@ -50,7 +50,7 @@ interface JwtPayload {
   [key: string]: unknown;
 }
 
-export function decodeJwtPayload(jwt: string): JwtPayload | null {
+function decodeJwtPayload(jwt: string): JwtPayload | null {
   try {
     if (!jwt || typeof jwt !== "string") return null;
     const parts: string[] = jwt.split(".");

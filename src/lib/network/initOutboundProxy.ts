@@ -3,7 +3,7 @@ import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 
 let initialized: boolean = false;
 
-export async function ensureOutboundProxyInitialized(): Promise<boolean> {
+async function ensureOutboundProxyInitialized(): Promise<boolean> {
   if (initialized) return true;
 
   try {
@@ -22,4 +22,4 @@ setImmediate(() => {
   ensureOutboundProxyInitialized().catch(console.log);
 });
 
-export default ensureOutboundProxyInitialized;
+

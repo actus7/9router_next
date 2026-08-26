@@ -47,12 +47,12 @@ export {
 
 // Pricing
 export {
-  getPricing, getPricingForModel, updatePricing, resetPricing, resetAllPricing,
+  getPricing, updatePricing, resetPricing, resetAllPricing,
 } from "./repos/pricingRepo";
 
 // Disabled models
 export {
-  getDisabledModels, getDisabledByProvider, disableModels, enableModels,
+  getDisabledModels, disableModels, enableModels,
 } from "./repos/disabledModelsRepo";
 
 // Usage
@@ -166,6 +166,6 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
 }
 
 // Eager init helper (optional)
-export async function initDb(): Promise<void> {
+async function initDb(): Promise<void> {
   await getAdapter();
 }

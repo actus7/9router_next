@@ -259,8 +259,6 @@ export {
   removeAllDNSEntriesSync,
   execWithPassword,
   isSudoAvailable,
-  canRunSudoWithoutPassword,
   isSudoPasswordRequired,
-  checkDNSEntry,
   checkAllDNSStatus,
 };

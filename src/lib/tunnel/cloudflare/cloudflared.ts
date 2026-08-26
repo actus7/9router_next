@@ -197,7 +197,7 @@ interface SpawnResult {
   tunnelUrl: string;
 }
 
-export async function spawnCloudflared(tunnelToken: string): Promise<ChildProcess> {
+async function spawnCloudflared(tunnelToken: string): Promise<ChildProcess> {
   const binaryPath: string = await ensureCloudflared();
 
   const child: ChildProcess = spawn(binaryPath, ["tunnel", "run", "--dns-resolver-addrs", "1.1.1.1:53", "--token", tunnelToken], {

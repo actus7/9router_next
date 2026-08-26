@@ -35,7 +35,7 @@ interface DroppedRow {
 
 // Thrown when row-count assertion fails. Outer transaction rolls back,
 // legacy db.json kept intact, marker not written → next boot retries.
-export class MigrationAborted extends Error {
+class MigrationAborted extends Error {
   droppedRows: DroppedRow[];
   constructor(message: string, droppedRows: DroppedRow[]) {
     super(message);

@@ -16,7 +16,7 @@ function normalizeId(providerId: string | null | undefined): string {
 }
 
 /** Resolve icon file id (after alias). Empty if previously failed this session. */
-export function resolveProviderIconId(providerId: string | null | undefined): string {
+function resolveProviderIconId(providerId: string | null | undefined): string {
   const id = normalizeId(providerId);
   if (!id) return "";
   if (failedIds.has(id)) return "";

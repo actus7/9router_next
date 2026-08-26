@@ -7,7 +7,7 @@ export const APP_CONFIG = {
   version: pkg.version,
 } as const;
 
-export type AppConfig = typeof APP_CONFIG;
+type AppConfig = typeof APP_CONFIG;
 
 // GitHub configuration
 export const GITHUB_CONFIG = {
@@ -15,7 +15,7 @@ export const GITHUB_CONFIG = {
   donateUrl: "https://9router.com/api/donate",
 } as const;
 
-export type GithubConfig = typeof GITHUB_CONFIG;
+type GithubConfig = typeof GITHUB_CONFIG;
 
 // Updater configuration
 export const UPDATER_CONFIG = {
@@ -36,45 +36,45 @@ export const UPDATER_CONFIG = {
   appPort: 20128,
 } as const;
 
-export type UpdaterConfig = typeof UPDATER_CONFIG;
+type UpdaterConfig = typeof UPDATER_CONFIG;
 
 // Theme configuration
-export const THEME_CONFIG = {
+const THEME_CONFIG = {
   storageKey: "theme",
   defaultTheme: "system", // "light" | "dark" | "system"
 } as const;
 
-export type ThemeConfig = typeof THEME_CONFIG;
+type ThemeConfig = typeof THEME_CONFIG;
 
 // Subscription
-export const SUBSCRIPTION_CONFIG = {
+const SUBSCRIPTION_CONFIG = {
   price: 1.0,
   currency: "USD",
   interval: "month",
   planName: "Pro Plan",
 } as const;
 
-export type SubscriptionConfig = typeof SUBSCRIPTION_CONFIG;
+type SubscriptionConfig = typeof SUBSCRIPTION_CONFIG;
 
 // API endpoints
-export const API_ENDPOINTS = {
+const API_ENDPOINTS = {
   users: "/api/users",
   providers: "/api/providers",
   payments: "/api/payments",
   auth: "/api/auth",
 } as const;
 
-export type ApiEndpoints = typeof API_ENDPOINTS;
+type ApiEndpoints = typeof API_ENDPOINTS;
 
 export const CONSOLE_LOG_CONFIG = {
   maxLines: 200,
   pollIntervalMs: 1000,
 } as const;
 
-export type ConsoleLogConfig = typeof CONSOLE_LOG_CONFIG;
+type ConsoleLogConfig = typeof CONSOLE_LOG_CONFIG;
 
 // Client-side store TTL: how long fetched data stays fresh before re-fetching
-export const CLIENT_STORE_TTL_MS = 60000 as const;
+const CLIENT_STORE_TTL_MS = 60000 as const;
 
 // Quota auto-ping: keep 5h windows warm by sending a tiny request right after reset.
 export const QUOTA_AUTOPING_CONFIG = {
@@ -106,20 +106,15 @@ export const QUOTA_AUTOPING_CONFIG = {
   },
 } as const;
 
-export type QuotaAutopingConfig = typeof QUOTA_AUTOPING_CONFIG;
+type QuotaAutopingConfig = typeof QUOTA_AUTOPING_CONFIG;
 
 // Re-export from providers.js for backward compatibility
 export {
-  FREE_PROVIDERS,
   OAUTH_PROVIDERS,
   APIKEY_PROVIDERS,
-  WEB_COOKIE_PROVIDERS,
-  AI_PROVIDERS,
-  AUTH_METHODS,
 } from "./providers";
 
 // Re-export from models.js for backward compatibility
 export {
-  PROVIDER_MODELS,
   AI_MODELS,
 } from "./models";

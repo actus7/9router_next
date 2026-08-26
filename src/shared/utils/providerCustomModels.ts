@@ -1,4 +1,4 @@
-export interface CustomModel {
+interface CustomModel {
   id: string;
   name?: string;
   kind?: string;
@@ -6,7 +6,7 @@ export interface CustomModel {
   providerAlias?: string;
 }
 
-export interface BuiltInModel {
+interface BuiltInModel {
   id: string;
 }
 

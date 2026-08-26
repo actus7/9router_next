@@ -111,4 +111,4 @@ function createResponseDumper(req: IncomingMessage, tag: string = "raw"): Respon
   };
 }
 
-export { log, err, dumpRequest, createResponseDumper, clearDumpDir };
+export { log, err };

@@ -157,8 +157,8 @@ export const MITM_TOOLS = {
   // },
 } as const;
 
-export type MitmToolKey = keyof typeof MITM_TOOLS;
-export type MitmToolEntry = (typeof MITM_TOOLS)[MitmToolKey];
+type MitmToolKey = keyof typeof MITM_TOOLS;
+type MitmToolEntry = (typeof MITM_TOOLS)[MitmToolKey];
 
 // CLI Tools configuration
 export const CLI_TOOLS = {
@@ -547,8 +547,8 @@ gemini extensions install https://github.com/manalkaff/opendesign
   // },
 } as const;
 
-export type CliToolKey = keyof typeof CLI_TOOLS;
-export type CliToolEntry = (typeof CLI_TOOLS)[CliToolKey];
+type CliToolKey = keyof typeof CLI_TOOLS;
+type CliToolEntry = (typeof CLI_TOOLS)[CliToolKey];
 
 interface ProviderConnection {
   id: string;
@@ -567,7 +567,7 @@ interface ProviderModelMapping {
 }
 
 // Get all provider models for mapping dropdown
-export const getProviderModelsForMapping = (providers: ProviderConnection[]): ProviderModelMapping[] => {
+const getProviderModelsForMapping = (providers: ProviderConnection[]): ProviderModelMapping[] => {
   const result: ProviderModelMapping[] = [];
   providers.forEach(conn => {
     if (conn.isActive && (conn.testStatus === "active" || conn.testStatus === "success")) {

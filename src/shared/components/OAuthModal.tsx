@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Modal, Button, Input } from "@/shared/components";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button, Input } from "@/shared/components";
+import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
 // Providers using the dynamic-port local callback proxy.
@@ -652,8 +654,25 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       : placeholderUrl;
 
   return (
-    <Modal isOpen={isOpen} title={modalTitle} onClose={handleClose} size="lg">
-      <div className="flex flex-col gap-4">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "bg-surface border border-border-subtle rounded-[14px]",
+          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
+          "max-w-lg"
+        )}
+      >
+        <div className="flex items-center justify-between p-2 border-b border-border-subtle">
+          <DialogTitle className="text-lg font-semibold text-text-main ml-2">
+            {modalTitle}
+          </DialogTitle>
+          <button onClick={handleClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col gap-4">
         {/* Trae/Windsurf: browser OAuth (proxy) + paste-token fallback */}
         {provider && PROXY_OAUTH_PROVIDERS.has(provider) && (step === "waiting" || step === "input" || step === "error") && (
           <>
@@ -875,7 +894,9 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             </div>
           </div>
         )}
-      </div>
-    </Modal>
+        </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

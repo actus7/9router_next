@@ -1,5 +1,5 @@
-export const GROK_MAIN_MODEL_SLOT: string = "9router";
-export const GROK_BUILTIN_DEFAULT: string = "grok-build";
+const GROK_MAIN_MODEL_SLOT: string = "9router";
+const GROK_BUILTIN_DEFAULT: string = "grok-build";
 export const GROK_SUBAGENT_TYPES: readonly string[] = ["general-purpose", "explore", "plan"];
 
 const UNSET_SENTINEL: string = "__9router_unset__";
@@ -281,6 +281,6 @@ export function resetGrokBuildConfig(toml: string): string {
   return next.replace(/\n{3,}/g, "\n\n");
 }
 
-export function getGrokSubagentSlot(type: string): string | null {
+function getGrokSubagentSlot(type: string): string | null {
   return GROK_SUBAGENT_TYPES.includes(type) ? modelSlot(type) : null;
 }

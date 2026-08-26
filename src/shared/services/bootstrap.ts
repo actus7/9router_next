@@ -1,4 +1,4 @@
-import initializeApp from "./initializeApp";
+import { initializeApp } from "./initializeApp";
 
 // Skip during Next.js build/prerender — bootstrap would download cloudflared, init DNS, etc.
 const isBuildPhase: boolean =

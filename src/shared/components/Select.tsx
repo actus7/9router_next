@@ -40,6 +40,9 @@ export default function Select({
   required = false,
   className,
 }: SelectProps) {
+  // Find the label for the current value to display when closed
+  const selectedLabel = options.find((o) => o.value === value)?.label;
+
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
@@ -59,7 +62,7 @@ export default function Select({
             error && "border-red-500/40 focus-visible:ring-red-500/40 aria-invalid:border-red-500/40 aria-invalid:ring-red-500/20"
           )}
         >
-          <SelectValue placeholder={placeholder} />
+          <SelectValue placeholder={selectedLabel || placeholder} />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (

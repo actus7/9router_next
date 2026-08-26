@@ -127,7 +127,7 @@ export function findPython310(): string | null {
 }
 
 // Probe whether a Headroom proxy is reachable at the given URL by hitting /health.
-export async function probeProxyRunning(url: string): Promise<boolean> {
+async function probeProxyRunning(url: string): Promise<boolean> {
   if (!url) return false;
   const base: string = String(url).replace(/\/$/, "");
   try {

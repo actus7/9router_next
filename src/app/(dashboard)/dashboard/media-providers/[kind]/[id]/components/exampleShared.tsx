@@ -18,7 +18,7 @@ export function Row({ label, children }: RowProps) {
   );
 }
 
-export interface ExtraField {
+interface ExtraField {
   key: string;
   label: string;
   placeholder?: string;

@@ -10,7 +10,7 @@ const BASE64_BLOCK_SIZE: number = 4;
 
 let cachedDiscovery: { authorizeUrl: string; tokenUrl: string } | null = null;
 
-export function validateOAuthEndpoint(rawUrl: string, field: string): string {
+function validateOAuthEndpoint(rawUrl: string, field: string): string {
   const value: string = String(rawUrl || "").trim();
   if (!value) throw new Error(`xai discovery ${field} is empty`);
 
@@ -36,7 +36,7 @@ export function validateOAuthEndpoint(rawUrl: string, field: string): string {
 /**
  * Discover authorization + token endpoints. Cached process-wide.
  */
-export async function discoverEndpoints(): Promise<{ authorizeUrl: string; tokenUrl: string }> {
+async function discoverEndpoints(): Promise<{ authorizeUrl: string; tokenUrl: string }> {
   if (cachedDiscovery) return cachedDiscovery;
 
   try {
@@ -65,7 +65,7 @@ export async function discoverEndpoints(): Promise<{ authorizeUrl: string; token
 /**
  * Decode the `email` claim from an id_token JWT.
  */
-export function decodeIdTokenEmail(idToken: string): string | undefined {
+function decodeIdTokenEmail(idToken: string): string | undefined {
   if (!idToken || typeof idToken !== "string") return undefined;
   const parts: string[] = idToken.split(".");
   if (parts.length !== 3) return undefined;
@@ -97,7 +97,7 @@ interface CallbackParams {
   [key: string]: string | undefined;
 }
 
-export class XaiService extends OAuthService {
+class XaiService extends OAuthService {
   constructor() {
     super(XAI_CONFIG as { clientId: string; authorizeUrl: string; tokenUrl: string; codeChallengeMethod: string; [key: string]: unknown });
   }

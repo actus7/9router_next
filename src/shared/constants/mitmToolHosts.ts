@@ -10,4 +10,4 @@ const TOOL_HOSTS = {
 } as const;
 
 export { TOOL_HOSTS };
-export type ToolHostKey = keyof typeof TOOL_HOSTS;
+type ToolHostKey = keyof typeof TOOL_HOSTS;

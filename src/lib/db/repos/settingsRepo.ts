@@ -125,7 +125,7 @@ async function readRaw(): Promise<Record<string, unknown>> {
 }
 
 // Merge raw settings with defaults; backward-compat for missing keys
-export function mergeWithDefaults(raw: Record<string, unknown>): Settings {
+function mergeWithDefaults(raw: Record<string, unknown>): Settings {
   const merged: Settings = { ...DEFAULT_SETTINGS, ...(raw || {}) } as Settings;
   for (const [key, defVal] of Object.entries(DEFAULT_SETTINGS)) {
     if ((merged as Record<string, unknown>)[key] === undefined) {

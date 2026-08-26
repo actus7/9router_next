@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Modal from "./Modal";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 const REGISTRY_ENDPOINT = "/api/cli-tools/cowork-mcp-registry";
 const TOOLS_ENDPOINT = "/api/cli-tools/cowork-mcp-tools";
@@ -138,8 +139,25 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Browse MCP Marketplace" size="lg">
-      <div className="flex flex-col gap-3">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "bg-surface border border-border-subtle rounded-[14px]",
+          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
+          "max-w-lg"
+        )}
+      >
+        <div className="flex items-center justify-between p-2 border-b border-border-subtle">
+          <DialogTitle className="text-lg font-semibold text-text-main ml-2">
+            Browse MCP Marketplace
+          </DialogTitle>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -283,7 +301,9 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
         <div className="text-[10px] text-text-muted text-right">
           {filtered.length} of {servers.length} servers
         </div>
-      </div>
-    </Modal>
+        </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

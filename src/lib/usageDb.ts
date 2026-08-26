@@ -2,6 +2,13 @@
 export {
   statsEmitter, trackPendingRequest, getActiveRequests,
   saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
-  appendRequestLog, getRecentLogs,
+  getRecentLogs,
+} from "@/lib/db/repos/usageRepo";
+
+export {
+  appendRequestLog,
+} from "@/lib/db/repos/usageRepo";
+
+export {
   saveRequestDetail, getRequestDetails, getRequestDetailById,
-} from "@/lib/db/index";
+} from "@/lib/db/repos/requestDetailsRepo";

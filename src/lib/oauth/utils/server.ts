@@ -95,7 +95,7 @@ export function startLocalServer(onCallback: (params: Record<string, string>) =>
 /**
  * Wait for callback with timeout
  */
-export function waitForCallback(timeoutMs: number = 300000): Promise<Record<string, string>> {
+function waitForCallback(timeoutMs: number = 300000): Promise<Record<string, string>> {
   return new Promise<Record<string, string>>((resolve: (value: Record<string, string>) => void, reject: (reason: Error) => void) => {
     let resolved: boolean = false;
 

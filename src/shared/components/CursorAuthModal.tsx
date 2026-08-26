@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Modal, Button, Input } from "@/shared/components";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button, Input } from "@/shared/components";
+import { cn } from "@/lib/utils";
 
 interface CursorAuthModalProps {
   isOpen: boolean;
@@ -94,8 +96,25 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
   };
 
   return (
-    <Modal isOpen={isOpen} title="Connect Cursor IDE" onClose={onClose}>
-      <div className="flex flex-col gap-4">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "bg-surface border border-border-subtle rounded-[14px]",
+          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
+          "max-w-md"
+        )}
+      >
+        <div className="flex items-center justify-between p-2 border-b border-border-subtle">
+          <DialogTitle className="text-lg font-semibold text-text-main ml-2">
+            Connect Cursor IDE
+          </DialogTitle>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col gap-4">
         {/* Auto-detecting state */}
         {autoDetecting && (
           <div className="text-center py-6">
@@ -205,7 +224,9 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
             </div>
           </>
         )}
-      </div>
-    </Modal>
+        </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

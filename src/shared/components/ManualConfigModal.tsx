@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Modal from "./Modal";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import Button from "./Button";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
@@ -28,8 +29,25 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Manual Con
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="xl">
-      <div className="flex flex-col gap-4">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "bg-surface border border-border-subtle rounded-[14px]",
+          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
+          "max-w-xl"
+        )}
+      >
+        <div className="flex items-center justify-between p-2 border-b border-border-subtle">
+          <DialogTitle className="text-lg font-semibold text-text-main ml-2">
+            {title}
+          </DialogTitle>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col gap-4">
         {configs.map((config, index) => (
           <div key={index} className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -50,7 +68,9 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Manual Con
             </pre>
           </div>
         ))}
-      </div>
-    </Modal>
+        </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

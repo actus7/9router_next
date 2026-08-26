@@ -384,4 +384,4 @@ export function configureTunnelMonitoring(settings: Settings): void {
   stopNetworkMonitor();
 }
 
-export default initializeApp;
+

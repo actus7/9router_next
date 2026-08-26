@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Modal, Button, Input } from "@/shared/components";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button, Input } from "@/shared/components";
+import { cn } from "@/lib/utils";
 
 interface IFlowCookieModalProps {
   isOpen: boolean;
@@ -61,8 +63,25 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="iFlow Cookie Authentication">
-      <div className="space-y-4">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "bg-surface border border-border-subtle rounded-[14px]",
+          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
+          "max-w-md"
+        )}
+      >
+        <div className="flex items-center justify-between p-2 border-b border-border-subtle">
+          <DialogTitle className="text-lg font-semibold text-text-main ml-2">
+            iFlow Cookie Authentication
+          </DialogTitle>
+          <button onClick={handleClose} aria-label="Close" className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
+          <div className="space-y-4">
         {success ? (
           <div className="text-center py-8">
             <div className="text-6xl mb-4">✅</div>
@@ -125,7 +144,9 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
             </div>
           </>
         )}
-      </div>
-    </Modal>
+        </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

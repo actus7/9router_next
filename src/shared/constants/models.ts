@@ -1,16 +1,8 @@
 // Import directly from file to avoid pulling in server-side dependencies via index.js
 export {
   PROVIDER_MODELS,
-  getProviderModels,
-  getDefaultModel,
-  isValidModel as isValidModelCore,
-  findModelName,
-  getModelTargetFormat,
-  getModelStrip,
   PROVIDER_ID_TO_ALIAS,
   getModelsByProviderId,
-  getModelUpstreamId,
-  getModelQuotaFamily
 } from "@/lib/open-sse/config/providerModels";
 
 import { AI_PROVIDERS, isOpenAICompatibleProvider } from "./providers";
@@ -24,7 +16,7 @@ const PASSTHROUGH_PROVIDERS = new Set(
 );
 
 // Wrap isValidModel with passthrough providers
-export function isValidModel(aliasOrId: string, modelId: string): boolean {
+function isValidModel(aliasOrId: string, modelId: string): boolean {
   if (isOpenAICompatibleProvider(aliasOrId)) return true;
   if (PASSTHROUGH_PROVIDERS.has(aliasOrId)) return true;
   const models = (MODELS as Record<string, readonly { id: string; name: string }[]>)[aliasOrId];

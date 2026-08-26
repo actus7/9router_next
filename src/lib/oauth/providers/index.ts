@@ -68,10 +68,8 @@ const PROVIDERS: Record<string, ProviderHandler> = {
   zed,
 };
 
-export { PROVIDERS };
-
 // Re-export helpers that other files import from this path
-export { extractCodexAccountInfo, fetchKiroProfileArn };
+export { extractCodexAccountInfo };
 
 /**
  * Get provider handler
@@ -89,7 +87,7 @@ export function getProvider(name: string): ProviderHandler {
 /**
  * Get all provider names
  */
-export function getProviderNames(): string[] {
+function getProviderNames(): string[] {
   return Object.keys(PROVIDERS);
 }
 

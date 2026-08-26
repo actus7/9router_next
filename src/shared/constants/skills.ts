@@ -6,8 +6,8 @@ const BRANCH = "master";
 const SKILL_PATH = "skills";
 
 export const SKILLS_REPO_URL = `https://github.com/${REPO}` as const;
-export const SKILLS_RAW_BASE = `https://raw.githubusercontent.com/${REPO}/refs/heads/${BRANCH}/${SKILL_PATH}` as const;
-export const SKILLS_BLOB_BASE = `https://github.com/${REPO}/blob/${BRANCH}/${SKILL_PATH}` as const;
+const SKILLS_RAW_BASE = `https://raw.githubusercontent.com/${REPO}/refs/heads/${BRANCH}/${SKILL_PATH}` as const;
+const SKILLS_BLOB_BASE = `https://github.com/${REPO}/blob/${BRANCH}/${SKILL_PATH}` as const;
 
 interface Skill {
   id: string;

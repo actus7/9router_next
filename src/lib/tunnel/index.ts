@@ -14,7 +14,6 @@ export {
   ensureCloudflared,
   getDownloadStatus,
 } from "./cloudflare/cloudflared";
-export { probeUrlAlive as probeCloudflareAlive } from "./cloudflare/healthCheck";
 
 // Tailscale service
 export {
@@ -29,17 +28,14 @@ export {
   isTailscaleRunning,
   isTailscaleRunningStrict,
   isTailscaleLoggedIn,
-  isTailscaleLoggedInStrict,
   isSystemDaemonRunning,
   isDaemonAlive,
   startFunnel,
   getTailscaleBin,
   installTailscale,
-  startLogin,
-  startDaemonWithPassword,
   TAILSCALE_SOCKET,
 } from "./tailscale/tailscale";
-export { probeUrlAlive as probeTailscaleAlive } from "./tailscale/healthCheck";
+// probeUrlAlive re-exported from cloudflare/healthCheck above (line 17); tailscale variant removed to avoid duplicate
 
 // Shared
 export { loadState, generateShortId } from "./shared/state";

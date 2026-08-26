@@ -48,7 +48,7 @@ export function getOAuthClientMetadata(): { ideType: number; platform: number; p
 }
 
 // OpenAI OAuth Configuration (Authorization Code Flow with PKCE)
-export const OPENAI_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["openai"] };
+const OPENAI_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["openai"] };
 
 // GitHub Copilot OAuth Configuration (Device Code Flow)
 export const GITHUB_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["github"] };
@@ -57,7 +57,7 @@ export const GITHUB_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Re
 export const KIRO_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["kiro"] };
 
 // AWS region allowlist pattern — prevents SSRF via region injection into upstream URLs
-export const AWS_REGION_PATTERN: RegExp = /^[a-z]{2}-[a-z]+-\d{1,2}$/;
+const AWS_REGION_PATTERN: RegExp = /^[a-z]{2}-[a-z]+-\d{1,2}$/;
 
 // Reject any region that is not a valid AWS region before interpolating it into a URL
 export function assertValidAwsRegion(region: string): string {
@@ -86,8 +86,6 @@ export const KIMI_CONFIG: Record<string, unknown> = {
     (REGISTRY_PROVIDERS as Record<string, { clientId?: string }>)["kimi"]?.clientId ||
     (PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["kimi"]?.clientId,
 };
-// Back-compat alias
-export const KIMI_CODING_CONFIG: Record<string, unknown> = KIMI_CONFIG;
 
 // KiloCode OAuth Configuration (Custom Device Auth Flow)
 export const KILOCODE_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["kilocode"] };
@@ -175,7 +173,7 @@ export const ZED_HOSTED_CONFIG: Record<string, unknown> = {
 export const OAUTH_TIMEOUT: number = 300000;
 
 // Provider list
-export const PROVIDERS: Record<string, string> = {
+const PROVIDERS: Record<string, string> = {
   CLAUDE: "claude",
   CODEX: "codex",
   GEMINI: "gemini-cli",

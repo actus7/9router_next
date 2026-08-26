@@ -63,7 +63,7 @@ export type Combo = Awaited<ReturnType<typeof repoGetCombos>>[number];
 export type Settings = Awaited<ReturnType<typeof repoGetSettings>>;
 export type ApiKey = Awaited<ReturnType<typeof repoGetApiKeys>>[number];
 export type ProxyPool = Awaited<ReturnType<typeof repoGetProxyPools>>[number];
-export type UsageStats = Awaited<ReturnType<typeof repoGetUsageStats>>;
+type UsageStats = Awaited<ReturnType<typeof repoGetUsageStats>>;
 export type UsageLog = Awaited<ReturnType<typeof getUsageHistory>>[number];
 
 export interface UsageLogsParams {
@@ -92,7 +92,7 @@ export async function getProviders(): Promise<Connection[]> {
 /**
  * Fetch a single provider connection by its id, or `null` if not found.
  */
-export async function getProviderById(id: string): Promise<Connection | null> {
+async function getProviderById(id: string): Promise<Connection | null> {
   try {
     return await getProviderConnectionById(id);
   } catch (err) {
@@ -116,7 +116,7 @@ export async function getProviderNodes(): Promise<ProviderNode[]> {
 /**
  * Toggle the `isActive` flag on a provider connection.
  */
-export async function toggleProviderActive(id: string, active: boolean): Promise<void> {
+async function toggleProviderActive(id: string, active: boolean): Promise<void> {
   try {
     await updateProviderConnection(id, { isActive: active });
   } catch (err) {
@@ -171,7 +171,7 @@ export async function getSettings(): Promise<Settings> {
 /**
  * Partially update application settings.
  */
-export async function updateSettings(patch: Partial<Settings>): Promise<void> {
+async function updateSettings(patch: Partial<Settings>): Promise<void> {
   try {
     await repoUpdateSettings(patch as Record<string, unknown>);
   } catch (err) {
@@ -203,7 +203,7 @@ export async function getApiKeys(): Promise<ApiKey[]> {
 /**
  * Fetch all proxy pools.
  */
-export async function getProxyPools(): Promise<ProxyPool[]> {
+async function getProxyPools(): Promise<ProxyPool[]> {
   try {
     return await repoGetProxyPools();
   } catch (err) {
@@ -219,7 +219,7 @@ export async function getProxyPools(): Promise<ProxyPool[]> {
 /**
  * Fetch aggregated usage statistics.
  */
-export async function getUsageStats(): Promise<UsageStats> {
+async function getUsageStats(): Promise<UsageStats> {
   try {
     return await repoGetUsageStats();
   } catch (err) {
@@ -281,7 +281,7 @@ export async function getProviderModels(connectionId: string): Promise<unknown[]
  * Fetch disabled models for a specific provider alias.
  * Returns an empty array on error.
  */
-export async function getDisabledModels(providerAlias: string): Promise<string[]> {
+async function getDisabledModels(providerAlias: string): Promise<string[]> {
   try {
     return await getDisabledByProvider(providerAlias);
   } catch (err) {
@@ -433,7 +433,7 @@ export async function getDatabaseInfo(): Promise<Record<string, unknown>> {
  * Fetch a single combo by its id with additional details, or `null` if not found.
  * Returns null on error.
  */
-export async function getComboWithDetails(id: string): Promise<(Combo & { modelDetails: Array<{ id: string; provider: string; name: string }> }) | null> {
+async function getComboWithDetails(id: string): Promise<(Combo & { modelDetails: Array<{ id: string; provider: string; name: string }> }) | null> {
   try {
     const combo = await repoGetComboById(id);
     if (!combo) return null;

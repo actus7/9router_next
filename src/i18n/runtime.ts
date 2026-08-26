@@ -146,7 +146,7 @@ export function applyServerTranslations(locale: Locale, translations: Translatio
 }
 
 // Set translations from server and set up DOM observer (called after mount)
-export function setServerTranslations(locale: Locale, translations: TranslationMap): void {
+function setServerTranslations(locale: Locale, translations: TranslationMap): void {
   currentLocale = locale;
   translationMap = translations;
 

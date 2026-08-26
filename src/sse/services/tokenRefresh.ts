@@ -27,14 +27,14 @@ import {
   shouldRefreshCredentials as _shouldRefreshCredentials,
 } from "@/lib/open-sse/services/oauthCredentialManager";
 
-export const TOKEN_EXPIRY_BUFFER_MS: number = BUFFER_MS;
+const TOKEN_EXPIRY_BUFFER_MS: number = BUFFER_MS;
 
 // ─── Re-exports wrapped with local logger ─────────────────────────────────────
 
-export const refreshAccessToken = (provider: string, refreshToken: string, credentials: Record<string, unknown>): Promise<Record<string, unknown>> =>
+const refreshAccessToken = (provider: string, refreshToken: string, credentials: Record<string, unknown>): Promise<Record<string, unknown>> =>
   _refreshAccessToken(provider, refreshToken, credentials, log);
 
-export const refreshClaudeOAuthToken = (refreshToken: string): Promise<Record<string, unknown> | null> =>
+const refreshClaudeOAuthToken = (refreshToken: string): Promise<Record<string, unknown> | null> =>
   _refreshClaudeOAuthToken(refreshToken, log);
 
 export const refreshGoogleToken = (refreshToken: string, clientId: string, clientSecret: string): Promise<Record<string, unknown> | null> =>
@@ -43,31 +43,31 @@ export const refreshGoogleToken = (refreshToken: string, clientId: string, clien
 export const refreshCodexToken = (refreshToken: string): Promise<Record<string, unknown> | null> =>
   _refreshCodexToken(refreshToken, log);
 
-export const refreshIflowToken = (refreshToken: string): Promise<Record<string, unknown> | null> =>
+const refreshIflowToken = (refreshToken: string): Promise<Record<string, unknown> | null> =>
   _refreshIflowToken(refreshToken, log);
 
-export const refreshGitHubToken = (refreshToken: string): Promise<Record<string, unknown> | null> =>
+const refreshGitHubToken = (refreshToken: string): Promise<Record<string, unknown> | null> =>
   _refreshGitHubToken(refreshToken, log);
 
-export const refreshCopilotToken = (githubAccessToken: string): Promise<{ token: string; expiresAt: number } | null> =>
+const refreshCopilotToken = (githubAccessToken: string): Promise<{ token: string; expiresAt: number } | null> =>
   _refreshCopilotToken(githubAccessToken, log);
 
-export const refreshKiroToken = (refreshToken: string, providerSpecificData: Record<string, unknown>): Promise<Record<string, unknown> | null> =>
+const refreshKiroToken = (refreshToken: string, providerSpecificData: Record<string, unknown>): Promise<Record<string, unknown> | null> =>
   _refreshKiroToken(refreshToken, providerSpecificData, log);
 
-export const getAccessToken = (provider: string, credentials: Record<string, unknown>): Promise<string | null> =>
+const getAccessToken = (provider: string, credentials: Record<string, unknown>): Promise<string | null> =>
   _getAccessToken(provider, credentials, log);
 
-export const refreshTokenByProvider = (provider: string, credentials: Record<string, unknown>): Promise<Record<string, unknown> | null> =>
+const refreshTokenByProvider = (provider: string, credentials: Record<string, unknown>): Promise<Record<string, unknown> | null> =>
   _refreshTokenByProvider(provider, credentials, log);
 
-export const formatProviderCredentials = (provider: string, credentials: Record<string, unknown>): Record<string, unknown> =>
+const formatProviderCredentials = (provider: string, credentials: Record<string, unknown>): Record<string, unknown> =>
   _formatProviderCredentials(provider, credentials, log);
 
-export const getAllAccessTokens = (userInfo: Record<string, unknown>): Record<string, string> =>
+const getAllAccessTokens = (userInfo: Record<string, unknown>): Record<string, string> =>
   _getAllAccessTokens(userInfo, log);
 
-export const shouldRefreshCredentials = (provider: string, credentials: Record<string, unknown>): boolean =>
+const shouldRefreshCredentials = (provider: string, credentials: Record<string, unknown>): boolean =>
   _shouldRefreshCredentials(provider, credentials);
 
 // ─── Lifecycle hook ───────────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ export const shouldRefreshCredentials = (provider: string, credentials: Record<s
 /**
  * Call this when a connection is fully closed / removed.
  */
-export function releaseConnection(connectionId: string): void {
+function releaseConnection(connectionId: string): void {
   if (!connectionId) return;
   removeConnection(connectionId);
   log.debug("TOKEN_REFRESH", "Released connection resources", { connectionId });
@@ -306,7 +306,7 @@ export async function checkAndRefreshToken(provider: string, credentials: Creden
  * Refresh the GitHub OAuth token and immediately exchange it for a fresh
  * Copilot token.
  */
-export async function refreshGitHubAndCopilotTokens(credentials: Credentials): Promise<Credentials | null> {
+async function refreshGitHubAndCopilotTokens(credentials: Credentials): Promise<Credentials | null> {
   const newGitHubCreds: Credentials | null = await refreshGitHubToken(credentials.refreshToken!);
   if (!newGitHubCreds?.accessToken) return newGitHubCreds;
 

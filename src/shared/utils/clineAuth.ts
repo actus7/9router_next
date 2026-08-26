@@ -1,1 +1,1 @@
-export { getClineAccessToken, getClineAuthorizationHeader, buildClineHeaders } from "@/lib/open-sse/shared/clineAuth";
+export { buildClineHeaders } from "@/lib/open-sse/shared/clineAuth";

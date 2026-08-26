@@ -40,7 +40,7 @@ export function shouldUseSecureCookie(request?: RequestLike): boolean {
   return forceSecureCookie || isHttpsRequest;
 }
 
-export async function createDashboardAuthToken(claims: Record<string, unknown> = {}): Promise<string> {
+async function createDashboardAuthToken(claims: Record<string, unknown> = {}): Promise<string> {
   return new SignJWT({ authenticated: true, ...claims })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()

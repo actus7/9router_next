@@ -183,6 +183,4 @@ export {
   loadRootCA,
   generateLeafCert,
   isCertExpired,
-  ROOT_CA_CERT_PATH,
-  ROOT_CA_KEY_PATH
 };

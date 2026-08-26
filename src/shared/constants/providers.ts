@@ -50,7 +50,7 @@ export const FREE_TIER_PROVIDERS = byCategory("freeTier");
 // defaultMode: fallback when user hasn't configured
 // extended: claude-style thinking (thinking.type + budget_tokens) — used by most providers
 // effort: openai-style reasoning_effort — only openai + codex
-export const THINKING_CONFIG = {
+const THINKING_CONFIG = {
   extended: {
     options: ["auto", "on", "off"],
     defaultMode: "auto",
@@ -62,7 +62,7 @@ export const THINKING_CONFIG = {
   }
 } as const;
 
-export type ThinkingConfig = typeof THINKING_CONFIG;
+type ThinkingConfig = typeof THINKING_CONFIG;
 
 export const OAUTH_PROVIDERS = byCategory("oauth");
 export const APIKEY_PROVIDERS = byCategory("apikey");
@@ -90,7 +90,7 @@ export const MEDIA_PROVIDER_KINDS: readonly MediaProviderKind[] = [
   { id: "music",       label: "Music",          icon: "music_note",        endpoint: { method: "POST", path: "/v1/audio/music" } },
 ] as const;
 
-export type MediaProviderKindId = (typeof MEDIA_PROVIDER_KINDS)[number]["id"];
+type MediaProviderKindId = (typeof MEDIA_PROVIDER_KINDS)[number]["id"];
 
 export const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-" as const;
 export const ANTHROPIC_COMPATIBLE_PREFIX = "anthropic-compatible-" as const;
@@ -112,13 +112,13 @@ export function isCustomEmbeddingProvider(providerId: string): boolean {
 export const AI_PROVIDERS: Record<string, Record<string, unknown>> = { ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...OAUTH_PROVIDERS, ...APIKEY_PROVIDERS, ...WEB_COOKIE_PROVIDERS };
 
 // Auth methods
-export const AUTH_METHODS = {
+const AUTH_METHODS = {
   oauth: { id: "oauth" },
   apikey: { id: "apikey" },
   cookie: { id: "cookie" },
 } as const;
 
-export type AuthMethodKey = keyof typeof AUTH_METHODS;
+type AuthMethodKey = keyof typeof AUTH_METHODS;
 
 // Helper: Get provider by alias
 export function getProviderByAlias(alias: string): Record<string, unknown> | null {
@@ -149,7 +149,7 @@ export const ALIAS_TO_ID: Record<string, string> = Object.values(AI_PROVIDERS).r
 }, {});
 
 // ID to Alias mapping
-export const ID_TO_ALIAS: Record<string, string> = Object.values(AI_PROVIDERS).reduce((acc: Record<string, string>, p) => {
+const ID_TO_ALIAS: Record<string, string> = Object.values(AI_PROVIDERS).reduce((acc: Record<string, string>, p) => {
   acc[p.id as string] = p.alias as string;
   return acc;
 }, {});

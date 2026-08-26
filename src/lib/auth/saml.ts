@@ -42,7 +42,7 @@ interface SamlRuntimeConfig {
 /**
  * Fetches settings and returns runtime status + settings.
  */
-export async function getSamlRuntimeConfig(): Promise<SamlRuntimeConfig> {
+async function getSamlRuntimeConfig(): Promise<SamlRuntimeConfig> {
   const settings: SamlSettings = await getSettings() as SamlSettings;
   return {
     configured: isSamlConfigured(settings),
@@ -95,7 +95,7 @@ export function getSamlBaseUrl(request?: RequestLike, settings?: SamlSettings): 
   return "http://localhost:20128";
 }
 
-export function createSamlInstance(settings: SamlSettings, origin: string): SAML {
+function createSamlInstance(settings: SamlSettings, origin: string): SAML {
   const cert: string = formatX509Certificate(settings?.samlCert || "") || DUMMY_FALLBACK_CERT;
   const callbackUrl: string = `${origin}/api/auth/saml/acs`;
   return new SAML({

@@ -7,33 +7,33 @@
 import { PROVIDERS } from "@/lib/open-sse/providers/index";
 
 // xAI client_id for OAuth (PKCE public client) — single source: registry xai.transport
-export const XAI_CLIENT_ID: string | undefined = (PROVIDERS as Record<string, { clientId?: string }>)["xai"]?.clientId;
+const XAI_CLIENT_ID: string | undefined = (PROVIDERS as Record<string, { clientId?: string }>)["xai"]?.clientId;
 
 // OAuth issuer + endpoints
-export const XAI_ISSUER: string = "https://auth.x.ai";
-export const XAI_AUTH_ENDPOINT_PATH: string = "/oauth2/authorize";
-export const XAI_TOKEN_ENDPOINT_PATH: string = "/oauth2/token";
-export const XAI_DISCOVERY_PATH: string = "/.well-known/openid-configuration";
+const XAI_ISSUER: string = "https://auth.x.ai";
+const XAI_AUTH_ENDPOINT_PATH: string = "/oauth2/authorize";
+const XAI_TOKEN_ENDPOINT_PATH: string = "/oauth2/token";
+const XAI_DISCOVERY_PATH: string = "/.well-known/openid-configuration";
 
 // Scopes (space-separated, matches Go upstream)
-export const XAI_SCOPE: string = "openid profile email offline_access grok-cli:access api:access";
+const XAI_SCOPE: string = "openid profile email offline_access grok-cli:access api:access";
 
 // xAI inference API base URL
-export const XAI_API_BASE: string = "https://api.x.ai/v1";
+const XAI_API_BASE: string = "https://api.x.ai/v1";
 
 // Loopback callback (PKCE)
-export const XAI_LOOPBACK_PORT: number = 56121;
-export const XAI_CALLBACK_PATH: string = "/callback";
-export const XAI_REDIRECT_URI: string = `http://127.0.0.1:${XAI_LOOPBACK_PORT}${XAI_CALLBACK_PATH}`;
+const XAI_LOOPBACK_PORT: number = 56121;
+const XAI_CALLBACK_PATH: string = "/callback";
+const XAI_REDIRECT_URI: string = `http://127.0.0.1:${XAI_LOOPBACK_PORT}${XAI_CALLBACK_PATH}`;
 
 // PKCE verifier length (bytes pre-base64url)
 export const XAI_PKCE_VERIFIER_BYTES: number = 96;
 
 // Refresh tokens this many seconds before expiry
-export const XAI_REFRESH_LEAD_SECONDS: number = 5 * 60;
+const XAI_REFRESH_LEAD_SECONDS: number = 5 * 60;
 
 // User-Agent — mirror Go grok-cli UA. Version is best-effort; xAI does not pin a specific version.
-export const XAI_USER_AGENT: string = "grok-cli/9router";
+const XAI_USER_AGENT: string = "grok-cli/9router";
 
 /**
  * Aggregated config object — mirrors the shape of CLAUDE_CONFIG/CODEX_CONFIG in oauth.js.

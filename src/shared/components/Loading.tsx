@@ -50,7 +50,7 @@ export function Spinner({ size = "md", className }: SpinnerProps) {
 }
 
 // Full page loading
-export function PageLoading({ message = "Loading..." }: PageLoadingProps) {
+function PageLoading({ message = "Loading..." }: PageLoadingProps) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-bg">
       <Spinner size="xl" />
@@ -60,7 +60,7 @@ export function PageLoading({ message = "Loading..." }: PageLoadingProps) {
 }
 
 // Skeleton loading — delegates to shadcn Skeleton
-export function Skeleton({ className, ...props }: SkeletonProps) {
+function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <ShadcnSkeleton
       className={cn("rounded-[10px] bg-surface-2", className)}
@@ -83,7 +83,7 @@ export function CardSkeleton(_props: CardSkeletonProps) {
   );
 }
 
-export default function Loading({ type = "spinner", ...props }: LoadingProps) {
+function Loading({ type = "spinner", ...props }: LoadingProps) {
   switch (type) {
     case "page":
       return <PageLoading {...(props as PageLoadingProps)} />;

@@ -160,7 +160,7 @@ export function filterQuotaStateByConnections<T>(state: Record<string, T>, conne
   );
 }
 
-export function getConnectionsPageRange(pagination: Pagination): { start: number; end: number } {
+function getConnectionsPageRange(pagination: Pagination): { start: number; end: number } {
   if (!pagination.total) {
     return { start: 0, end: 0 };
   }
@@ -196,7 +196,7 @@ export function getConnectionsEmptyMessage(totals: Totals, providerFilter: strin
   };
 }
 
-export function sortRequestFromExpiringFirst(expiringFirst: boolean): string {
+function sortRequestFromExpiringFirst(expiringFirst: boolean): string {
   return expiringFirst ? "expiring" : "priority";
 }
 
@@ -314,7 +314,7 @@ export function formatResetTime(date: string | Date | null | undefined): string 
  * @param percentage - Remaining percentage (0-100)
  * @returns Color name: "green" | "yellow" | "red"
  */
-export function getStatusColor(percentage: number): string {
+function getStatusColor(percentage: number): string {
   if (percentage > 70) return "green";
   if (percentage >= 30) return "yellow";
   return "red"; // 0-29% including 0% (out of quota) - show red
@@ -325,7 +325,7 @@ export function getStatusColor(percentage: number): string {
  * @param percentage - Remaining percentage (0-100)
  * @returns Emoji: "🟢" | "🟡" | "🔴"
  */
-export function getStatusEmoji(percentage: number): string {
+function getStatusEmoji(percentage: number): string {
   if (percentage > 70) return "🟢";
   if (percentage >= 30) return "🟡";
   return "🔴"; // 0-29% including 0% (out of quota) - show red

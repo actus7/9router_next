@@ -4,7 +4,6 @@ export { default as DroidToolCard } from "./DroidToolCard";
 export { default as OpenClawToolCard } from "./OpenClawToolCard";
 export { default as HermesToolCard } from "./HermesToolCard";
 export { default as DefaultToolCard } from "./DefaultToolCard";
-export { default as AntigravityToolCard } from "./AntigravityToolCard";
 export { default as OpenCodeToolCard } from "./OpenCodeToolCard";
 export { default as CoworkToolCard } from "./CoworkToolCard";
 export { default as CopilotToolCard } from "./CopilotToolCard";
@@ -16,5 +15,4 @@ export { default as GrokBuildToolCard } from "./GrokBuildToolCard";
 export { default as MitmServerCard } from "./MitmServerCard";
 export { default as MitmToolCard } from "./MitmToolCard";
 export { default as MitmLinkCard } from "./MitmLinkCard";
-export { default as EndpointPresetControl } from "./EndpointPresetControl";
-export { default as BaseUrlSelect } from "./BaseUrlSelect";
+

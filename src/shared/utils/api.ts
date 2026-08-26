@@ -2,12 +2,12 @@
  * API utility functions for making HTTP requests
  */
 
-export interface ApiError extends Error {
+interface ApiError extends Error {
   status: number;
   data: unknown;
 }
 
-export interface RequestOptions extends Omit<RequestInit, "method" | "body"> {
+interface RequestOptions extends Omit<RequestInit, "method" | "body"> {
   headers?: Record<string, string>;
 }
 
@@ -18,7 +18,7 @@ const DEFAULT_HEADERS: Record<string, string> = {
 /**
  * Make a GET request
  */
-export async function get<T = unknown>(url: string, options: RequestOptions = {}): Promise<T> {
+async function get<T = unknown>(url: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(url, {
     method: "GET",
     headers: { ...DEFAULT_HEADERS, ...options.headers },
@@ -30,7 +30,7 @@ export async function get<T = unknown>(url: string, options: RequestOptions = {}
 /**
  * Make a POST request
  */
-export async function post<T = unknown>(url: string, data: unknown, options: RequestOptions = {}): Promise<T> {
+async function post<T = unknown>(url: string, data: unknown, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
     headers: { ...DEFAULT_HEADERS, ...options.headers },
@@ -43,7 +43,7 @@ export async function post<T = unknown>(url: string, data: unknown, options: Req
 /**
  * Make a PUT request
  */
-export async function put<T = unknown>(url: string, data: unknown, options: RequestOptions = {}): Promise<T> {
+async function put<T = unknown>(url: string, data: unknown, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(url, {
     method: "PUT",
     headers: { ...DEFAULT_HEADERS, ...options.headers },
@@ -56,7 +56,7 @@ export async function put<T = unknown>(url: string, data: unknown, options: Requ
 /**
  * Make a DELETE request
  */
-export async function del<T = unknown>(url: string, options: RequestOptions = {}): Promise<T> {
+async function del<T = unknown>(url: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(url, {
     method: "DELETE",
     headers: { ...DEFAULT_HEADERS, ...options.headers },
@@ -84,4 +84,4 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 const api = { get, post, put, del };
-export default api;
+

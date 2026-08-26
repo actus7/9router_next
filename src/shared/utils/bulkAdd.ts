@@ -21,7 +21,7 @@ export interface BulkAddOptions {
   isCloudflareAi?: boolean;
 }
 
-export interface ParsedLine {
+interface ParsedLine {
   baseName: string;
   apiKey: string;
   providerSpecificData?: { accountId: string };

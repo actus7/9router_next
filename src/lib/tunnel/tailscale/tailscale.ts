@@ -261,7 +261,7 @@ function getActualFunnelUrl(): string | null {
 }
 
 /** Get funnel URL from tailscale status (cached, non-blocking) */
-export function getTailscaleFunnelUrl(port: number): string | null {
+function getTailscaleFunnelUrl(port: number): string | null {
   if (Date.now() - funnelUrlCache.fetchedAt > PROBE_TTL_MS || funnelUrlCache.port !== port) {
     bgRefreshFunnelUrl(port);
   }
@@ -827,7 +827,7 @@ export function stopFunnel(): void {
 }
 
 /** Kill tailscaled daemon (runs as root, needs sudo) */
-export async function stopDaemon(sudoPassword: string): Promise<void> {
+async function stopDaemon(sudoPassword: string): Promise<void> {
   try { execSync("pkill -x tailscaled", { stdio: "ignore", windowsHide: true, timeout: 3000 }); } catch { /* ignore */ }
 
   try { execSync("pgrep -x tailscaled", { stdio: "ignore", windowsHide: true, timeout: 2000 }); } catch { return; }

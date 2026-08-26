@@ -39,7 +39,7 @@ for (const entry of REGISTRY as Array<{ id: string; alias?: string; aliases?: st
   for (const alias of entry.aliases || []) RESERVED_PROVIDER_PREFIXES.add(alias);
 }
 
-export function parseModel(modelStr: string): ParsedModel {
+function parseModel(modelStr: string): ParsedModel {
   const parsed: ParsedModel = parseModelCore(modelStr);
   if (parsed?.providerAlias && LOCAL_PROVIDER_ALIASES[parsed.providerAlias]) {
     return { ...parsed, provider: LOCAL_PROVIDER_ALIASES[parsed.providerAlias] };
@@ -50,7 +50,7 @@ export function parseModel(modelStr: string): ParsedModel {
 /**
  * Resolve model alias from localDb
  */
-export async function resolveModelAlias(alias: string): Promise<string | null> {
+async function resolveModelAlias(alias: string): Promise<string | null> {
   const aliases: Record<string, string> = await getModelAliases();
   return resolveModelAliasFromMap(alias, aliases);
 }

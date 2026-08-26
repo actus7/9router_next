@@ -25,14 +25,14 @@ const REQ_TAGS: string[] = ["🟢", "🔵", "🟣", "🟡", "🟠", "🔴", "⚪
 let tagCursor: number = 0;
 
 // Allocate next rotating tag (fallback when no session seed available)
-export function nextTag(): string {
+function nextTag(): string {
   const tag: string = REQ_TAGS[tagCursor % REQ_TAGS.length];
   tagCursor++;
   return tag;
 }
 
 // Stable tag derived from a session/connection seed: same seed always maps to the same color
-export function tagForSession(seed: string | null | undefined): string {
+function tagForSession(seed: string | null | undefined): string {
   if (!seed) return nextTag();
   let h: number = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
@@ -40,13 +40,13 @@ export function tagForSession(seed: string | null | undefined): string {
 }
 
 // Print one correlated line: [time] tag symbol message
-export function line(tag: string, symbol: string, message: string): void {
+function line(tag: string, symbol: string, message: string): void {
   if (LEVEL > LOG_LEVELS.INFO) return;
   console.log(`[${formatTime()}] ${tag} ${symbol} ${message}`);
 }
 
 // Like line() but always printed regardless of LOG_LEVEL (errors must never be hidden)
-export function errorLine(tag: string, symbol: string, message: string): void {
+function errorLine(tag: string, symbol: string, message: string): void {
   console.log(`[${formatTime()}] ${tag} ${symbol} ${message}`);
 }
 
@@ -57,7 +57,7 @@ interface ThinkIntent {
 }
 
 // Format thinking intent for the request line ("high(10k)" / "off" / "auto")
-export function fmtThink(intent: ThinkIntent | null | undefined): string | null {
+function fmtThink(intent: ThinkIntent | null | undefined): string | null {
   if (!intent || !intent.mode) return null;
   if (intent.mode === "none") return "off";
   if (intent.mode === "auto") return "auto";
@@ -112,13 +112,13 @@ export function request(method: string, path: string, extra?: unknown): void {
   console.log(`\x1b[36m[${formatTime()}] 📥 ${method} ${path}${dataStr}\x1b[0m`);
 }
 
-export function response(status: number, duration: number, extra?: unknown): void {
+function response(status: number, duration: number, extra?: unknown): void {
   const icon: string = status < 400 ? "📤" : "💥";
   const dataStr: string = extra ? ` ${formatData(extra)}` : "";
   console.log(`[${formatTime()}] ${icon} ${status} (${duration}ms)${dataStr}`);
 }
 
-export function stream(event: string, data?: unknown): void {
+function stream(event: string, data?: unknown): void {
   const dataStr: string = data ? ` ${formatData(data)}` : "";
   console.log(`[${formatTime()}] 🌊 [STREAM] ${event}${dataStr}`);
 }

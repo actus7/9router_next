@@ -5,7 +5,7 @@ interface CancelToken {
   cancelled: boolean;
 }
 
-export async function probeUrlAlive(url: string): Promise<boolean> {
+async function probeUrlAlive(url: string): Promise<boolean> {
   if (!url) return false;
   let hostname: string;
   try { hostname = new URL(url).hostname; } catch { return false; }

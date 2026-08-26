@@ -41,7 +41,7 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 export const LOCALE_COOKIE: string = "locale";
 
-export const LOCALE_NAMES: Record<Locale, string> = {
+const LOCALE_NAMES: Record<Locale, string> = {
   en: "English",
   vi: "Tiếng Việt",
   "zh-CN": "简体中文",

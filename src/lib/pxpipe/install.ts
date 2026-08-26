@@ -4,7 +4,7 @@ import { spawn, execSync, ChildProcess } from "child_process";
 import { DATA_DIR } from "@/lib/dataDir";
 
 export const PXPIPE_DIR: string = path.join(DATA_DIR, "pxpipe");
-export const PXPIPE_PACKAGE: string = "pxpipe-proxy";
+const PXPIPE_PACKAGE: string = "pxpipe-proxy";
 const INSTALL_LOG: string = path.join(PXPIPE_DIR, "install.log");
 const INSTALL_TIMEOUT_MS: number = 5 * 60 * 1000;
 
@@ -24,7 +24,7 @@ function ensureDir(): void {
   if (!fs.existsSync(PXPIPE_DIR)) fs.mkdirSync(PXPIPE_DIR, { recursive: true });
 }
 
-export function packageRoot(): string {
+function packageRoot(): string {
   return path.join(PXPIPE_DIR, "node_modules", PXPIPE_PACKAGE);
 }
 

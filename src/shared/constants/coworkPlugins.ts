@@ -100,4 +100,4 @@ function buildManagedMcpServers(plugins: RemotePlugin[] | unknown): ManagedMcpSe
 }
 
 export { DEFAULT_PLUGINS, LOCAL_STDIO_PLUGINS, buildManagedMcpServers };
-export type { RemotePlugin, LocalStdioPlugin, ManagedMcpServer };
+

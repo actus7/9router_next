@@ -93,7 +93,7 @@ function sanitizeHeaders(headers: Record<string, unknown>): Record<string, unkno
   return sanitized;
 }
 
-export const __test__ = { sanitizeHeaders };
+const __test__ = { sanitizeHeaders };
 
 function generateDetailId(model?: string): string {
   const timestamp: string = new Date().toISOString();
@@ -248,7 +248,7 @@ export async function getDistinctProviders(): Promise<string[]> {
   return rows.map((r: { provider: string }) => r.provider);
 }
 
-export async function getRequestDetailById(id: string): Promise<Record<string, unknown> | null> {
+async function getRequestDetailById(id: string): Promise<Record<string, unknown> | null> {
   const db = await getAdapter();
   const row: { data: string } | undefined = db.get(`SELECT data FROM requestDetails WHERE id = ?`, [id]);
   return row ? (parseJson(row.data, null) as Record<string, unknown> | null) : null;

@@ -106,9 +106,7 @@ export function extractCodexAccountInfo(idToken: string): CodexAccountInfo {
 }
 
 export {
-  BASE64_BLOCK_SIZE,
   validateXaiOAuthEndpoint,
   decodeXaiIdTokenEmail,
-  decodeJwtPayload,
   extractEmailFromAccessToken,
 };

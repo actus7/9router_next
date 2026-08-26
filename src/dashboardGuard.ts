@@ -176,7 +176,7 @@ function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PATHS.some((p: string) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-export const __test__ = {
+const __test__ = {
   isLocalRequest,
   isPublicLlmApi,
   extractApiKey,

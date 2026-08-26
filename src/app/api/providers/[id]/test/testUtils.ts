@@ -171,7 +171,7 @@ const OAUTH_TEST_CONFIG: Record<string, OAuthTestConfig> = {
  * account cannot spend — keep connection active and surface a warning.
  * Exported for unit tests.
  */
-export function classifyOAuthProbeResult(res: Response | null, config: OAuthTestConfig | null, bodyText = ""): ProbeResult {
+function classifyOAuthProbeResult(res: Response | null, config: OAuthTestConfig | null, bodyText = ""): ProbeResult {
   if (!res) return { valid: false, error: "No response", soft: false };
   const status = res.status;
   const accepted = res.ok || (config?.acceptStatuses && config.acceptStatuses.includes(status));

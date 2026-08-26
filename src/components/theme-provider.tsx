@@ -110,5 +110,5 @@ export function ThemeProvider({
   return <>{children}</>
 }
 
-export { useThemeStore as useTheme }
+
 export type { Theme, ResolvedTheme }

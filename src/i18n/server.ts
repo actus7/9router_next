@@ -20,7 +20,7 @@ const cache = new Map<Locale, TranslationMap>();
 /**
  * Read the locale from the cookie header (server-side).
  */
-export async function getLocaleFromCookies(): Promise<Locale> {
+async function getLocaleFromCookies(): Promise<Locale> {
   try {
     const cookieStore = await cookies();
     const localeCookie = cookieStore.get(LOCALE_COOKIE)?.value;
@@ -35,7 +35,7 @@ export async function getLocaleFromCookies(): Promise<Locale> {
  * Load translations for a locale from the JSON files on disk.
  * Returns an empty map for English (no translations needed).
  */
-export async function getTranslations(locale: Locale): Promise<TranslationMap> {
+async function getTranslations(locale: Locale): Promise<TranslationMap> {
   if (locale === "en") return {};
 
   // Check cache first

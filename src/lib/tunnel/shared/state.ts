@@ -30,7 +30,7 @@ export function saveState(state: TunnelState): void {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-export function clearState(): void {
+function clearState(): void {
   try {
     if (fs.existsSync(STATE_FILE)) fs.unlinkSync(STATE_FILE);
   } catch { /* ignore */ }
