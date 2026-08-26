@@ -5,7 +5,7 @@ const SCOPE: string = "disabledModels";
 
 export async function getDisabledModels(): Promise<Record<string, string[]>> {
   const db = await getAdapter();
-  const rows: Array<{ key: string; value: string }> = db.all(`SELECT key, value FROM kv WHERE scope = ?`, [SCOPE]);
+  const rows = db.all(`SELECT key, value FROM kv WHERE scope = ?`, [SCOPE]) as unknown as Array<{ key: string; value: string }>;
   const out: Record<string, string[]> = {};
   for (const r of rows) out[r.key] = parseJson(r.value, []) as string[];
   return out;
@@ -13,7 +13,7 @@ export async function getDisabledModels(): Promise<Record<string, string[]>> {
 
 export async function getDisabledByProvider(providerAlias: string): Promise<string[]> {
   const db = await getAdapter();
-  const row: { value: string } | undefined = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [SCOPE, providerAlias]);
+  const row = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [SCOPE, providerAlias]) as { value: string } | undefined;
   return row ? ((parseJson(row.value, []) as string[]) || []) : [];
 }
 
@@ -22,7 +22,7 @@ export async function disableModels(providerAlias: string, ids: string[]): Promi
   if (!providerAlias || !Array.isArray(ids)) return;
   const db = await getAdapter();
   db.transaction(() => {
-    const row: { value: string } | undefined = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [SCOPE, providerAlias]);
+    const row = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [SCOPE, providerAlias]) as { value: string } | undefined;
     const current: string[] = row ? ((parseJson(row.value, []) as string[]) || []) : [];
     const merged: string[] = [...new Set([...current, ...ids])];
     db.run(
@@ -40,7 +40,7 @@ export async function enableModels(providerAlias: string, ids?: string[]): Promi
       db.run(`DELETE FROM kv WHERE scope = ? AND key = ?`, [SCOPE, providerAlias]);
       return;
     }
-    const row: { value: string } | undefined = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [SCOPE, providerAlias]);
+    const row = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [SCOPE, providerAlias]) as { value: string } | undefined;
     const current: string[] = row ? ((parseJson(row.value, []) as string[]) || []) : [];
     const removeSet: Set<string> = new Set(ids);
     const next: string[] = current.filter((id: string) => !removeSet.has(id));

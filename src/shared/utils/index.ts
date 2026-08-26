@@ -1,6 +1,4 @@
 // Shared Utils - Export all
-export * as api from "./api";
-
 import { v4 as uuidv4 } from "uuid";
 
 /**

@@ -1,7 +1,7 @@
 import { machineIdSync } from "node-machine-id";
 import crypto from "node:crypto";
 
-let cachedRawId = null;
+let cachedRawId: string | null = null;
 
 function loadRawMachineId() {
   if (cachedRawId) return cachedRawId;

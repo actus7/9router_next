@@ -48,15 +48,16 @@ export async function POST(request: NextRequest, { params }: RouteContext): Prom
     // Warm up with first model to trigger token refresh (if needed) before parallel calls.
     // This prevents race condition where multiple requests concurrently refresh the same token.
     const [first, ...rest] = models;
-    const firstKind = first.kind || first.type || "llm";
+    const firstKind = String(first.kind || first.type || "llm");
     const firstResult = await pingModelByKind(`${alias}/${first.id}`, firstKind, baseUrl);
-    const results = [{ modelId: first.id, name: first.name || first.id, ...firstResult }];
+    const results = [{ modelId: first.id, name: String(first.name || first.id), ...firstResult }];
 
     if (rest.length > 0) {
       const restResults = await Promise.all(
-        rest.map(async (model: { id: string; name?: string; kind?: string; type?: string }) => {
-          const result = await pingModelByKind(`${alias}/${model.id}`, model.kind || model.type || "llm", baseUrl);
-          return { modelId: model.id, name: model.name || model.id, ...result };
+        rest.map(async (model: Record<string, unknown>) => {
+          const kind = String(model.kind || model.type || "llm");
+          const result = await pingModelByKind(`${alias}/${String(model.id)}`, kind, baseUrl);
+          return { modelId: model.id, name: String(model.name || model.id), ...result };
         })
       );
       results.push(...restResults);

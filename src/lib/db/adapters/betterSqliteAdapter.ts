@@ -10,7 +10,7 @@ interface DbAdapter {
   transaction(fn: () => void): void;
   checkpoint(): void;
   close(): void;
-  raw: Database.Database;
+  raw: Database;
 }
 
 // Periodic checkpoint to keep WAL file small (avoid huge -wal/-shm growth)

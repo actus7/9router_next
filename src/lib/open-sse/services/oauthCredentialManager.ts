@@ -4,32 +4,32 @@ import {
   refreshTokenByProvider,
 } from "./tokenRefresh";
 import { PROVIDER_OAUTH } from "../providers/index";
+import type { Credentials, RefreshResult, Logger, OAuthProviderConfig } from "./types";
 
 // Single source: codex.oauth.maxRefreshAgeMs (8 days) — proactive refresh window
-export const CODEX_MAX_REFRESH_AGE_MS = PROVIDER_OAUTH["codex"]?.maxRefreshAgeMs;
+export const CODEX_MAX_REFRESH_AGE_MS = (PROVIDER_OAUTH["codex"] as OAuthProviderConfig | undefined)?.maxRefreshAgeMs;
 
-const refreshLocks = new Map();
+const refreshLocks = new Map<string, Promise<RefreshResult | null>>();
 
-function parseTimeMs(value) {
+function parseTimeMs(value: unknown): number | null {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value === "number") {
     return value < 1e12 ? value * 1000 : value;
   }
 
-  const parsed = new Date(value).getTime();
+  const parsed = new Date(String(value)).getTime();
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function toExpiresAt(expiresIn, nowMs = Date.now()) {
-  if (!expiresIn) return null;
+function toExpiresAt(expiresIn: number, nowMs = Date.now()): string {
   return new Date(nowMs + expiresIn * 1000).toISOString();
 }
 
-export function getCredentialExpiryMs(credentials) {
+export function getCredentialExpiryMs(credentials: Credentials): number | null {
   return parseTimeMs(credentials?.expiresAt ?? credentials?.tokenExpiresAt);
 }
 
-export function getCredentialLastRefreshMs(credentials) {
+export function getCredentialLastRefreshMs(credentials: Credentials): number | null {
   return parseTimeMs(
     credentials?.lastRefreshAt ??
     credentials?.lastRefresh ??
@@ -37,21 +37,22 @@ export function getCredentialLastRefreshMs(credentials) {
   );
 }
 
-export function isCodexRefreshStale(credentials, nowMs = Date.now(), maxAgeMs = CODEX_MAX_REFRESH_AGE_MS) {
+export function isCodexRefreshStale(credentials: Credentials, nowMs = Date.now(), maxAgeMs?: number): boolean {
   const lastRefreshMs = getCredentialLastRefreshMs(credentials);
-  return !lastRefreshMs || nowMs - lastRefreshMs >= maxAgeMs;
+  return !lastRefreshMs || (maxAgeMs != null && nowMs - lastRefreshMs >= maxAgeMs);
 }
 
-export function shouldRefreshCredentials(provider, credentials, nowMs = Date.now()) {
+export function shouldRefreshCredentials(provider: string, credentials: Credentials | null, nowMs = Date.now()): boolean {
   if (!credentials) return false;
 
   const expiresAtMs = getCredentialExpiryMs(credentials);
-  if (expiresAtMs !== null && expiresAtMs - nowMs < getRefreshLeadMs(provider)) {
+  if (expiresAtMs !== null && expiresAtMs - nowMs < (getRefreshLeadMs(provider) as number)) {
     return true;
   }
 
   // Proactive stale refresh for providers declaring oauth.maxRefreshAgeMs (e.g. codex)
-  const maxAgeMs = PROVIDER_OAUTH[provider]?.maxRefreshAgeMs;
+  const oauthCfg = PROVIDER_OAUTH[provider] as OAuthProviderConfig | undefined;
+  const maxAgeMs = oauthCfg?.maxRefreshAgeMs;
   if (maxAgeMs && credentials.refreshToken && isCodexRefreshStale(credentials, nowMs, maxAgeMs)) {
     return true;
   }
@@ -59,19 +60,19 @@ export function shouldRefreshCredentials(provider, credentials, nowMs = Date.now
   return false;
 }
 
-export function mergeProviderSpecificData(existing, next) {
-  if (!next || typeof next !== "object") return existing;
+export function mergeProviderSpecificData(existing: Record<string, unknown> | undefined, next: Record<string, unknown>): Record<string, unknown> {
+  if (!next || typeof next !== "object") return existing || {};
   return {
     ...(existing || {}),
     ...next,
   };
 }
 
-export function mergeRefreshedCredentials(provider, currentCredentials, refreshedCredentials, nowMs = Date.now()) {
+export function mergeRefreshedCredentials(provider: string, currentCredentials: Credentials | null, refreshedCredentials: RefreshResult | null, nowMs = Date.now()): RefreshResult | null {
   if (!refreshedCredentials) return null;
   if (isUnrecoverableRefreshError(refreshedCredentials)) return refreshedCredentials;
 
-  const next = {};
+  const next: Record<string, unknown> = {};
   const nowIso = new Date(nowMs).toISOString();
 
   if (refreshedCredentials.accessToken) next.accessToken = refreshedCredentials.accessToken;
@@ -106,8 +107,9 @@ export function mergeRefreshedCredentials(provider, currentCredentials, refreshe
   }
 
   // trackRefreshAt providers (e.g. codex) always stamp lastRefreshAt for staleness tracking
+  const oauthCfg = PROVIDER_OAUTH[provider] as OAuthProviderConfig | undefined;
   if (
-    PROVIDER_OAUTH[provider]?.trackRefreshAt ||
+    oauthCfg?.trackRefreshAt ||
     next.accessToken ||
     next.apiKey ||
     next.token ||
@@ -117,10 +119,10 @@ export function mergeRefreshedCredentials(provider, currentCredentials, refreshe
     next.lastRefreshAt = refreshedCredentials.lastRefreshAt || nowIso;
   }
 
-  return next;
+  return next as RefreshResult;
 }
 
-function getRefreshLockKey(provider, credentials) {
+function getRefreshLockKey(provider: string, credentials: Credentials): string {
   const stableId =
     credentials?.connectionId ||
     credentials?.id ||
@@ -131,7 +133,7 @@ function getRefreshLockKey(provider, credentials) {
   return `${provider}:${stableId}`;
 }
 
-export async function withCredentialRefreshLock(provider, credentials, refreshFn) {
+export async function withCredentialRefreshLock(provider: string, credentials: Credentials, refreshFn: () => Promise<RefreshResult | null>): Promise<RefreshResult | null> {
   const key = getRefreshLockKey(provider, credentials);
   const existing = refreshLocks.get(key);
   if (existing) return existing;
@@ -146,7 +148,7 @@ export async function withCredentialRefreshLock(provider, credentials, refreshFn
   return pending;
 }
 
-export async function refreshProviderCredentials(provider, credentials, log) {
+export async function refreshProviderCredentials(provider: string, credentials: Credentials | null, log?: Logger): Promise<RefreshResult | null> {
   if (!credentials) return null;
 
   return withCredentialRefreshLock(provider, credentials, async () => {

@@ -19,14 +19,14 @@ const PASSTHROUGH_PROVIDERS = new Set(
 function isValidModel(aliasOrId: string, modelId: string): boolean {
   if (isOpenAICompatibleProvider(aliasOrId)) return true;
   if (PASSTHROUGH_PROVIDERS.has(aliasOrId)) return true;
-  const models = (MODELS as Record<string, readonly { id: string; name: string }[]>)[aliasOrId];
+  const models = MODELS[aliasOrId] as { id: string }[] | undefined;
   if (!models) return false;
-  return models.some((m: { id: string }) => m.id === modelId);
+  return models.some((m) => m.id === modelId);
 }
 
 // Legacy AI_MODELS for backward compatibility
-export const AI_MODELS = Object.entries(MODELS as Record<string, readonly { id: string; name: string }[]>).flatMap(([alias, models]) =>
-  models.map((m: { id: string; name: string }) => ({ provider: alias, model: m.id, name: m.name }))
+export const AI_MODELS = Object.entries(MODELS as Record<string, { id: string; name: string }[]>).flatMap(([alias, models]) =>
+  models.map((m) => ({ provider: alias, model: m.id, name: m.name }))
 );
 
 export const getModelKind = (m: Record<string, unknown> | null | undefined, fallback: string | null = null): string | null =>

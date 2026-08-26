@@ -1,4 +1,5 @@
 import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig";
+import type { Account, ErrorRule } from "./types";
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -20,7 +21,7 @@ export function getQuotaCooldown(backoffLevel = 0) {
  * @param {number} backoffLevel - Current backoff level for exponential backoff
  * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number }}
  */
-export function checkFallbackError(status, errorText, backoffLevel = 0) {
+export function checkFallbackError(status: number, errorText: string | unknown, backoffLevel = 0) {
   const lowerError = errorText
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
@@ -52,7 +53,7 @@ export function checkFallbackError(status, errorText, backoffLevel = 0) {
 /**
  * Check if account is currently unavailable (cooldown not expired)
  */
-export function isAccountUnavailable(unavailableUntil) {
+export function isAccountUnavailable(unavailableUntil: string | undefined | null) {
   if (!unavailableUntil) return false;
   return new Date(unavailableUntil).getTime() > Date.now();
 }
@@ -60,7 +61,7 @@ export function isAccountUnavailable(unavailableUntil) {
 /**
  * Calculate unavailable until timestamp
  */
-export function getUnavailableUntil(cooldownMs) {
+export function getUnavailableUntil(cooldownMs: number) {
   return new Date(Date.now() + cooldownMs).toISOString();
 }
 
@@ -69,7 +70,7 @@ export function getUnavailableUntil(cooldownMs) {
  * @param {Array} accounts - Array of account objects with rateLimitedUntil
  * @returns {string|null} Earliest rateLimitedUntil ISO string, or null
  */
-export function getEarliestRateLimitedUntil(accounts) {
+export function getEarliestRateLimitedUntil(accounts: Account[]) {
   let earliest = null;
   const now = Date.now();
   for (const acc of accounts) {
@@ -87,7 +88,7 @@ export function getEarliestRateLimitedUntil(accounts) {
  * @param {string} rateLimitedUntil - ISO timestamp
  * @returns {string} e.g. "reset after 2m 30s"
  */
-export function formatRetryAfter(rateLimitedUntil) {
+export function formatRetryAfter(rateLimitedUntil: string) {
   if (!rateLimitedUntil) return "";
   const diffMs = new Date(rateLimitedUntil).getTime() - Date.now();
   if (diffMs <= 0) return "reset after 0s";
@@ -109,7 +110,7 @@ export const MODEL_LOCK_PREFIX = "modelLock_";
 export const MODEL_LOCK_ALL = `${MODEL_LOCK_PREFIX}__all`;
 
 /** Build the flat field key for a model lock */
-export function getModelLockKey(model) {
+export function getModelLockKey(model: string | null) {
   return model ? `${MODEL_LOCK_PREFIX}${model}` : MODEL_LOCK_ALL;
 }
 
@@ -117,24 +118,24 @@ export function getModelLockKey(model) {
  * Check if a model lock on a connection is still active.
  * Reads flat field `modelLock_${model}` (or `modelLock___all` when model=null).
  */
-export function isModelLockActive(connection, model) {
+export function isModelLockActive(connection: Account, model: string | null) {
   const key = getModelLockKey(model);
   const expiry = connection[key] || connection[MODEL_LOCK_ALL];
   if (!expiry) return false;
-  return new Date(expiry).getTime() > Date.now();
+  return new Date(String(expiry)).getTime() > Date.now();
 }
 
 /**
  * Get earliest active model lock expiry across all modelLock_* fields.
  * Used for UI cooldown display.
  */
-export function getEarliestModelLockUntil(connection) {
+export function getEarliestModelLockUntil(connection: Account) {
   if (!connection) return null;
-  let earliest = null;
+  let earliest: number | null = null;
   const now = Date.now();
   for (const [key, val] of Object.entries(connection)) {
     if (!key.startsWith(MODEL_LOCK_PREFIX) || !val) continue;
-    const t = new Date(val).getTime();
+    const t = new Date(String(val)).getTime();
     if (t <= now) continue;
     if (!earliest || t < earliest) earliest = t;
   }
@@ -144,7 +145,7 @@ export function getEarliestModelLockUntil(connection) {
 /**
  * Build update object to set a model lock on a connection.
  */
-export function buildModelLockUpdate(model, cooldownMs) {
+export function buildModelLockUpdate(model: string | null, cooldownMs: number) {
   const key = getModelLockKey(model);
   return { [key]: new Date(Date.now() + cooldownMs).toISOString() };
 }
@@ -152,8 +153,8 @@ export function buildModelLockUpdate(model, cooldownMs) {
 /**
  * Build update object to clear all model locks on a connection.
  */
-export function buildClearModelLocksUpdate(connection) {
-  const cleared = {};
+export function buildClearModelLocksUpdate(connection: Account) {
+  const cleared: Record<string, null> = {};
   for (const key of Object.keys(connection)) {
     if (key.startsWith(MODEL_LOCK_PREFIX)) cleared[key] = null;
   }
@@ -163,9 +164,9 @@ export function buildClearModelLocksUpdate(connection) {
 /**
  * Filter available accounts (not in cooldown)
  */
-export function filterAvailableAccounts(accounts, excludeId = null) {
+export function filterAvailableAccounts(accounts: Account[], excludeId: string | null = null) {
   const now = Date.now();
-  return accounts.filter(acc => {
+  return accounts.filter((acc: Account) => {
     if (excludeId && acc.id === excludeId) return false;
     if (acc.rateLimitedUntil) {
       const until = new Date(acc.rateLimitedUntil).getTime();
@@ -181,7 +182,7 @@ export function filterAvailableAccounts(accounts, excludeId = null) {
  * @param {object} account - Account object
  * @returns {object} Updated account with reset state
  */
-export function resetAccountState(account) {
+export function resetAccountState(account: Account) {
   if (!account) return account;
   return {
     ...account,
@@ -199,7 +200,7 @@ export function resetAccountState(account) {
  * @param {string} errorText - Error message
  * @returns {object} Updated account with error state
  */
-export function applyErrorState(account, status, errorText) {
+export function applyErrorState(account: Account, status: number, errorText: string) {
   if (!account) return account;
 
   const backoffLevel = account.backoffLevel || 0;
@@ -207,7 +208,7 @@ export function applyErrorState(account, status, errorText) {
 
   return {
     ...account,
-    rateLimitedUntil: cooldownMs > 0 ? getUnavailableUntil(cooldownMs) : null,
+    rateLimitedUntil: cooldownMs && cooldownMs > 0 ? getUnavailableUntil(cooldownMs as number) : null,
     backoffLevel: newBackoffLevel ?? backoffLevel,
     lastError: { status, message: errorText, timestamp: new Date().toISOString() },
     status: "error"

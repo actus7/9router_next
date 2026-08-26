@@ -158,6 +158,8 @@ export default function ProviderLimits() {
   const [resetCreditsState, setResetCreditsState] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [proxyPools, setProxyPools] = useState([]);
   const [providerFilter, setProviderFilter] = useState("all");
   const [providerOptions, setProviderOptions] = useState([]);
@@ -364,7 +366,6 @@ export default function ProviderLimits() {
 
   const handleDeleteConnection = useCallback(
     async (id) => {
-      if (!confirm("Delete this connection?")) return;
       setDeletingId(id);
       try {
         const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
@@ -1232,7 +1233,10 @@ export default function ProviderLimits() {
                             type="button"
                             variant="destructive"
                             size="icon"
-                            onClick={() => handleDeleteConnection(conn.id)}
+                            onClick={() => {
+                              setPendingDeleteId(conn.id);
+                              setShowDeleteConfirm(true);
+                            }}
                             disabled={rowBusy}
                             aria-label="Delete connection"
                           >
@@ -1439,6 +1443,26 @@ export default function ProviderLimits() {
             </div>
           </div>
         </div>
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setPendingDeleteId(null);
+        }}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          if (pendingDeleteId) {
+            handleDeleteConnection(pendingDeleteId);
+            setPendingDeleteId(null);
+          }
+        }}
+        title="Delete Connection"
+        message="Delete this connection?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
 
       <ConfirmModal
         isOpen={Boolean(resetConfirmState)}

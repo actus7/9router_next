@@ -1,5 +1,6 @@
 import { PROVIDERS } from "../config/providers";
 import { OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared";
+import type { RequestBody, Credentials } from "./types";
 
 const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-";
 const OPENAI_COMPATIBLE_DEFAULTS = {
@@ -11,11 +12,11 @@ const ANTHROPIC_COMPATIBLE_DEFAULTS = {
   baseUrl: ANTHROPIC_COMPAT_BASE,
 };
 
-function isOpenAICompatible(provider) {
+function isOpenAICompatible(provider: string) {
   return typeof provider === "string" && provider.startsWith(OPENAI_COMPATIBLE_PREFIX);
 }
 
-function isAnthropicCompatible(provider) {
+function isAnthropicCompatible(provider: string) {
   return typeof provider === "string" && provider.startsWith(ANTHROPIC_COMPATIBLE_PREFIX);
 }
 
@@ -24,14 +25,14 @@ function isAnthropicCompatible(provider) {
 // the node on create/update) is authoritative. Falls back to the node ID
 // substring for legacy nodes created before apiType was persisted — their IDs
 // embed the type: openai-compatible-<chat|responses>-<uuid>.
-export function resolveOpenAICompatibleApiType(provider, credentials = null) {
+export function resolveOpenAICompatibleApiType(provider: string, credentials: Credentials | null = null) {
   const stored = credentials?.providerSpecificData?.apiType;
   if (stored === "chat" || stored === "responses") return stored;
   return typeof provider === "string" && provider.includes("responses") ? "responses" : "chat";
 }
 
 // Detect request format from body structure
-export function detectFormat(body) {
+export function detectFormat(body: RequestBody) {
   // OpenAI Responses API: has input (array or string) instead of messages[]
   // The Responses API accepts both input as array and input as a plain string
   if (body.input && (Array.isArray(body.input) || typeof body.input === "string") && !body.messages) {
@@ -82,17 +83,17 @@ export function detectFormat(body) {
           return "claude";
         }
         // Check if image format is Claude (source.type) vs OpenAI (image_url.url)
-        const hasClaudeImage = firstMsg.content.some(c => 
-          c.type === "image" && c.source?.type === "base64"
+        const hasClaudeImage = (firstMsg.content as Record<string, unknown>[]).some((c: Record<string, unknown>) => 
+          c.type === "image" && (c.source as Record<string, unknown>)?.type === "base64"
         );
-        const hasOpenAIImage = firstMsg.content.some(c => 
-          c.type === "image_url" && c.image_url?.url
+        const hasOpenAIImage = (firstMsg.content as Record<string, unknown>[]).some((c: Record<string, unknown>) => 
+          c.type === "image_url" && (c.image_url as Record<string, unknown>)?.url
         );
         if (hasClaudeImage) return "claude";
         if (hasOpenAIImage) return "openai";
         
         // If still unclear, check for tool format
-        const hasClaudeTool = firstMsg.content.some(c => 
+        const hasClaudeTool = (firstMsg.content as Record<string, unknown>[]).some((c: Record<string, unknown>) => 
           c.type === "tool_use" || c.type === "tool_result"
         );
         if (hasClaudeTool) return "claude";
@@ -111,7 +112,7 @@ export function detectFormat(body) {
 }
 
 // Get provider config (internal — no external runtime consumer)
-function getProviderConfig(provider, credentials = null) {
+function getProviderConfig(provider: string, credentials: Credentials | null = null) {
   if (isOpenAICompatible(provider)) {
     const apiType = resolveOpenAICompatibleApiType(provider, credentials);
     return {
@@ -131,7 +132,7 @@ function getProviderConfig(provider, credentials = null) {
 }
 
 // Get target format for provider
-export function getTargetFormat(provider, credentials = null) {
+export function getTargetFormat(provider: string, credentials: Credentials | null = null) {
   if (isOpenAICompatible(provider)) {
     return resolveOpenAICompatibleApiType(provider, credentials) === "responses" ? "openai-responses" : "openai";
   }
@@ -145,7 +146,7 @@ export function getTargetFormat(provider, credentials = null) {
 // Resolve which transport to use for a provider given the client sourceFormat.
 // Multi-endpoint providers (transport.transports[]) pick the entry matching sourceFormat
 // to avoid lossy translation; falls back to the default transport when no match.
-export function resolveTransport(provider, sourceFormat) {
+export function resolveTransport(provider: string, sourceFormat: string) {
   const config = PROVIDERS[provider];
   const transports = config?.transports;
   if (!Array.isArray(transports) || !transports.length) return null;
@@ -153,7 +154,7 @@ export function resolveTransport(provider, sourceFormat) {
 }
 
 // Check if last message is from user
-export function isLastMessageFromUser(body) {
+export function isLastMessageFromUser(body: RequestBody) {
   const messages = body.messages || body.contents;
   if (!messages?.length) return true;
   const lastMsg = messages[messages.length - 1];
@@ -161,13 +162,13 @@ export function isLastMessageFromUser(body) {
 }
 
 // Check if request has thinking config
-export function hasThinkingConfig(body) {
+export function hasThinkingConfig(body: RequestBody) {
   return !!(body.reasoning_effort || body.thinking?.type === "enabled");
 }
 
 // Normalize provider-native thinking config based on last message role.
 // OpenAI reasoning_effort is request-level and must survive tool-result turns.
-export function normalizeThinkingConfig(body) {
+export function normalizeThinkingConfig(body: RequestBody) {
   if (!isLastMessageFromUser(body)) {
     delete body.thinking;
   }

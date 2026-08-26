@@ -2,13 +2,15 @@
  * Shared combo (model combo) handling with fallback support
  */
 
+import type { ComboEntry, CombosData } from "./types";
+
 /**
  * Get combo models from combos data
- * @param {string} modelStr - Model string to check
- * @param {Array|Object} combosData - Array of combos or object with combos
- * @returns {string[]|null} Array of models or null if not a combo
+ * @param modelStr - Model string to check
+ * @param combosData - Array of combos or object with combos
+ * @returns Array of models or null if not a combo
  */
-export function getComboModelsFromData(modelStr, combosData) {
+export function getComboModelsFromData(modelStr: string, combosData: ComboEntry[] | CombosData) {
   // Don't check if it's in provider/model format
   if (modelStr.includes("/")) return null;
   
@@ -31,7 +33,12 @@ export function getComboModelsFromData(modelStr, combosData) {
  * @param {Object} options.log - Logger object
  * @returns {Promise<Response>}
  */
-export async function handleComboChat({ body, models, handleSingleModel, log }) {
+export async function handleComboChat({ body, models, handleSingleModel, log }: {
+  body: Record<string, unknown>;
+  models: string[];
+  handleSingleModel: (body: Record<string, unknown>, modelStr: string) => Promise<Response>;
+  log: { info: (tag: string, msg: string, meta?: unknown) => void; warn: (tag: string, msg: string, meta?: unknown) => void };
+}) {
   let lastError = null;
 
   for (let i = 0; i < models.length; i++) {
@@ -41,9 +48,9 @@ export async function handleComboChat({ body, models, handleSingleModel, log }) 
     let result;
     try {
       result = await handleSingleModel(body, modelStr);
-    } catch (e) {
-      lastError = `${modelStr}: ${e.message}`;
-      log.warn("COMBO", `Model threw exception, trying next`, { model: modelStr, error: e.message });
+    } catch (e: unknown) {
+      lastError = `${modelStr}: ${e instanceof Error ? e.message : String(e)}`;
+      log.warn("COMBO", `Model threw exception, trying next`, { model: modelStr, error: e instanceof Error ? e.message : String(e) });
       continue;
     }
 

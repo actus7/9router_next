@@ -347,7 +347,7 @@ export const PATTERN_PRICING = [
  * Match a model ID against a glob pattern (* = wildcard). Case-insensitive:
  * registry ids mix casing (e.g. "MiniMax-M2.5" vs "minimax-m2.5").
  */
-export function matchPattern(pattern, model) {
+export function matchPattern(pattern: string, model: string) {
   const regex = new RegExp("^" + pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "i");
   return regex.test(model);
 }
@@ -362,18 +362,19 @@ export function matchPattern(pattern, model) {
  * @param {string} model
  * @returns {object|null}
  */
-export function getPricingForModel(provider, model) {
+export function getPricingForModel(provider: string, model: string) {
   if (!model) return null;
 
   // 1. Provider-specific override
-  if (provider && PROVIDER_PRICING[provider]?.[model]) {
-    return PROVIDER_PRICING[provider][model];
+  if (provider && (PROVIDER_PRICING as Record<string, Record<string, unknown>>)[provider]?.[model]) {
+    return (PROVIDER_PRICING as Record<string, Record<string, unknown>>)[provider][model];
   }
 
   // 2. Canonical model pricing (strip vendor prefix if needed: "deepseek/deepseek-chat" → "deepseek-chat")
-  const baseModel = model.includes("/") ? model.split("/").pop() : model;
-  if (MODEL_PRICING[baseModel]) return MODEL_PRICING[baseModel];
-  if (MODEL_PRICING[model]) return MODEL_PRICING[model];
+  const baseModel = model.includes("/") ? model.split("/").pop()! : model;
+  const mp = MODEL_PRICING as Record<string, unknown>;
+  if (mp[baseModel]) return mp[baseModel];
+  if (mp[model]) return mp[model];
 
   // 3. Pattern match
   for (const { pattern, pricing } of PATTERN_PRICING) {
@@ -398,7 +399,7 @@ export function getDefaultPricing() {
  * @param {number} cost
  * @returns {string}
  */
-export function formatCost(cost) {
+export function formatCost(cost: number | null | undefined) {
   if (cost === null || cost === undefined || isNaN(cost)) return "$0.00";
   return `$${cost.toFixed(2)}`;
 }
@@ -409,7 +410,7 @@ export function formatCost(cost) {
  * @param {object} pricing
  * @returns {number} cost in dollars
  */
-export function calculateCostFromTokens(tokens, pricing) {
+export function calculateCostFromTokens(tokens: Record<string, number | undefined>, pricing: Record<string, number | undefined>) {
   if (!tokens || !pricing) return 0;
 
   let cost = 0;
@@ -421,22 +422,22 @@ export function calculateCostFromTokens(tokens, pricing) {
   // are subsets, so subtract both to avoid charging them at the full input rate.
   const nonCachedInput = Math.max(0, inputTokens - cachedTokens - cacheCreationTokens);
 
-  cost += nonCachedInput * (pricing.input / 1000000);
+  cost += nonCachedInput * ((pricing.input ?? 0) / 1000000);
 
   if (cachedTokens > 0) {
-    cost += cachedTokens * ((pricing.cached || pricing.input) / 1000000);
+    cost += cachedTokens * (((pricing.cached ?? pricing.input) ?? 0) / 1000000);
   }
 
   const outputTokens = tokens.completion_tokens || tokens.output_tokens || 0;
-  cost += outputTokens * (pricing.output / 1000000);
+  cost += outputTokens * ((pricing.output ?? 0) / 1000000);
 
   const reasoningTokens = tokens.reasoning_tokens || 0;
   if (reasoningTokens > 0) {
-    cost += reasoningTokens * ((pricing.reasoning || pricing.output) / 1000000);
+    cost += reasoningTokens * (((pricing.reasoning ?? pricing.output) ?? 0) / 1000000);
   }
 
   if (cacheCreationTokens > 0) {
-    cost += cacheCreationTokens * ((pricing.cache_creation || pricing.input) / 1000000);
+    cost += cacheCreationTokens * (((pricing.cache_creation ?? pricing.input) ?? 0) / 1000000);
   }
 
   return cost;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, Button, Input, ModelSelectModal } from "@/shared/components";
+import { Card, Button, Input, ModelSelectModal, ConfirmModal } from "@/shared/components";
 import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
@@ -183,8 +183,9 @@ export default function ComboDetailClient({
     });
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const handleDelete = async () => {
-    if (!confirm(`Delete combo "${combo!.name}"?`)) return;
     const res = await fetch(`/api/combos/${comboId}`, { method: "DELETE" });
     if (res.ok) router.push(getListingHref(combo!.kind));
   };
@@ -276,7 +277,7 @@ export default function ComboDetailClient({
             <code className="text-lg font-semibold font-mono">{combo.name}</code>
           </div>
         </div>
-        <Button variant="outline" icon="delete" onClick={handleDelete} className="text-red-500 border-red-200 hover:bg-red-50">
+        <Button variant="outline" icon="delete" onClick={() => setShowDeleteConfirm(true)} className="text-red-500 border-red-200 hover:bg-red-50">
           Delete
         </Button>
       </div>
@@ -428,6 +429,20 @@ export default function ComboDetailClient({
           closeOnSelect={false}
         />
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          handleDelete();
+        }}
+        title="Delete Combo"
+        message={`Delete combo "${combo!.name}"?`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

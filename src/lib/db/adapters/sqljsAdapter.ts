@@ -13,16 +13,16 @@ interface DbAdapter {
   raw: initSqlJs.Database;
 }
 
-let SQL: typeof initSqlJs | null = null;
+let SQL: import("sql.js").SqlJsStatic | null = null;
 
-async function loadSql(): Promise<typeof initSqlJs> {
+async function loadSql(): Promise<import("sql.js").SqlJsStatic> {
   if (SQL) return SQL;
   SQL = await initSqlJs();
   return SQL;
 }
 
 export async function createSqlJsAdapter(filePath: string): Promise<DbAdapter> {
-  const SQLLib: typeof initSqlJs = await loadSql();
+  const SQLLib: import("sql.js").SqlJsStatic = await loadSql();
   const buf: Buffer | null = fs.existsSync(filePath) ? fs.readFileSync(filePath) : null;
   const db: initSqlJs.Database = new SQLLib.Database(buf);
   db.exec(PRAGMA_SQL);

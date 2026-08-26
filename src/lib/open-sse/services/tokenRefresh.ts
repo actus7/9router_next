@@ -18,6 +18,7 @@ import {
   refreshWindsurfToken,
   classifyOAuthRefreshError,
 } from "./tokenRefresh/providers";
+import type { Credentials, RefreshResult, Logger, VertexServiceAccount, UserInfo, RefreshHandler, ProviderConfig } from "./types";
 
 // Re-export all provider refresh functions (preserves public API for all consumers)
 export {
@@ -40,30 +41,32 @@ export {
 
 export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;
 
-export function isUnrecoverableRefreshError(result) {
+export function isUnrecoverableRefreshError(result: unknown): result is { error: string; code?: string } {
   return (
-    result &&
+    !!result &&
     typeof result === "object" &&
-    (result.error === "unrecoverable_refresh_error" ||
-      result.error === "refresh_token_reused" ||
-      result.error === "invalid_request" ||
-      result.error === "invalid_grant")
+    ("error" in result) &&
+    ((result as RefreshResult).error === "unrecoverable_refresh_error" ||
+      (result as RefreshResult).error === "refresh_token_reused" ||
+      (result as RefreshResult).error === "invalid_request" ||
+      (result as RefreshResult).error === "invalid_grant")
   );
 }
 
-export function getRefreshLeadMs(provider) {
-  if (REFRESH_LEAD_MS[provider]) return REFRESH_LEAD_MS[provider];
+export function getRefreshLeadMs(provider: string): number {
+  const leadMap = REFRESH_LEAD_MS as Record<string, number>;
+  if (leadMap[provider]) return leadMap[provider];
   // Legacy id after kimi-coding → kimi merge
-  if (provider === "kimi-coding" && REFRESH_LEAD_MS.kimi) return REFRESH_LEAD_MS.kimi;
+  if (provider === "kimi-coding" && leadMap.kimi) return leadMap.kimi;
   return TOKEN_EXPIRY_BUFFER_MS;
 }
 
-export function parseVertexSaJson(apiKey) {
+export function parseVertexSaJson(apiKey: string): VertexServiceAccount | null {
   if (typeof apiKey !== "string") return null;
   try {
-    const parsed = JSON.parse(apiKey);
+    const parsed = JSON.parse(apiKey) as Record<string, unknown>;
     if (parsed.type === "service_account" && parsed.client_email && parsed.private_key && parsed.project_id) {
-      return parsed;
+      return parsed as unknown as VertexServiceAccount;
     }
     return null;
   } catch {
@@ -72,9 +75,9 @@ export function parseVertexSaJson(apiKey) {
 }
 
 // Cache Vertex tokens keyed by service account email { token, expiresAt }
-const vertexTokenCache = new Map();
+const vertexTokenCache = new Map<string, { token: string; expiresAt: number }>();
 
-export async function refreshVertexToken(saJson, log) {
+export async function refreshVertexToken(saJson: VertexServiceAccount, log?: Logger): Promise<{ accessToken: string; expiresAt: number } | null> {
   const cacheKey = saJson.client_email;
   const cached = vertexTokenCache.get(cacheKey);
 
@@ -91,12 +94,12 @@ export async function refreshVertexToken(saJson, log) {
     const jwt = await new SignJWT({ scope: "https://www.googleapis.com/auth/cloud-platform" })
       .setProtectedHeader({ alg: "RS256" })
       .setIssuer(saJson.client_email)
-      .setAudience(OAUTH_ENDPOINTS.google.token)
+      .setAudience(OAUTH_ENDPOINTS.google.token as string)
       .setIssuedAt(now)
       .setExpirationTime(now + 3600)
       .sign(privateKey);
 
-    const res = await fetch(OAUTH_ENDPOINTS.google.token, {
+    const res = await fetch(OAUTH_ENDPOINTS.google.token as string, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -111,50 +114,52 @@ export async function refreshVertexToken(saJson, log) {
       return null;
     }
 
-    const { access_token, expires_in } = await res.json();
-    const expiresAt = Date.now() + (expires_in ?? 3600) * 1000;
+    const data = (await res.json()) as Record<string, unknown>;
+    const access_token = data.access_token as string;
+    const expires_in = (data.expires_in as number) ?? 3600;
+    const expiresAt = Date.now() + expires_in * 1000;
 
     vertexTokenCache.set(cacheKey, { token: access_token, expiresAt });
     log?.info?.("TOKEN_REFRESH", `Vertex token minted for ${saJson.client_email}`);
 
     return { accessToken: access_token, expiresAt };
-  } catch (error) {
-    log?.error?.("TOKEN_REFRESH", `Vertex token error: ${error.message}`);
+  } catch (error: unknown) {
+    log?.error?.("TOKEN_REFRESH", `Vertex token error: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }
 
-function vertexRefreshHandler(c, log) {
-  const saJson = parseVertexSaJson(c.apiKey);
+function vertexRefreshHandler(c: Credentials, log?: Logger) {
+  const saJson = parseVertexSaJson(c.apiKey || "");
   if (!saJson) return null;
   return refreshVertexToken(saJson, log);
 }
 
-const REFRESH_HANDLERS = {
-  "gemini-cli": (c, log) => refreshGoogleToken(c.refreshToken, PROVIDERS["gemini-cli"].clientId, PROVIDERS["gemini-cli"].clientSecret, log),
-  antigravity: (c, log) => refreshGoogleToken(c.refreshToken, PROVIDERS.antigravity.clientId, PROVIDERS.antigravity.clientSecret, log),
-  claude: (c, log) => refreshClaudeOAuthToken(c.refreshToken, log),
-  codex: (c, log) => refreshCodexToken(c.refreshToken, log),
-  iflow: (c, log) => refreshIflowToken(c.refreshToken, log),
-  github: (c, log) => refreshGitHubToken(c.refreshToken, log),
-  kiro: (c, log) => refreshKiroToken(c.refreshToken, c.providerSpecificData, log),
-  xai: (c, log) => refreshXaiToken(c.refreshToken, log),
+const REFRESH_HANDLERS: Record<string, RefreshHandler> = {
+  "gemini-cli": (c, log) => refreshGoogleToken(c.refreshToken || "", (PROVIDERS["gemini-cli"] as ProviderConfig).clientId || "", (PROVIDERS["gemini-cli"] as ProviderConfig).clientSecret || "", log),
+  antigravity: (c, log) => refreshGoogleToken(c.refreshToken || "", (PROVIDERS.antigravity as ProviderConfig).clientId || "", (PROVIDERS.antigravity as ProviderConfig).clientSecret || "", log),
+  claude: (c, log) => refreshClaudeOAuthToken(c.refreshToken || "", log),
+  codex: (c, log) => refreshCodexToken(c.refreshToken || "", log),
+  iflow: (c, log) => refreshIflowToken(c.refreshToken || "", log),
+  github: (c, log) => refreshGitHubToken(c.refreshToken || "", log),
+  kiro: (c, log) => refreshKiroToken(c.refreshToken || "", c.providerSpecificData, log),
+  xai: (c, log) => refreshXaiToken(c.refreshToken || "", log),
   // Grok CLI shares xAI OAuth client + token endpoint (device-code tokens refresh the same way)
-  "grok-cli": (c, log) => refreshXaiToken(c.refreshToken, log),
-  gcli: (c, log) => refreshXaiToken(c.refreshToken, log),
-  "codebuddy-cn": (c, log) => refreshCodebuddyToken(c.refreshToken, log),
-  "codebuddy-intl": (c, log) => refreshCodebuddyIntlToken(c.refreshToken, log),
-  trae: (c, log) => refreshTraeToken(c.refreshToken, c, log),
+  "grok-cli": (c, log) => refreshXaiToken(c.refreshToken || "", log),
+  gcli: (c, log) => refreshXaiToken(c.refreshToken || "", log),
+  "codebuddy-cn": (c, log) => refreshCodebuddyToken(c.refreshToken || "", log),
+  "codebuddy-intl": (c, log) => refreshCodebuddyIntlToken(c.refreshToken || "", log),
+  trae: (c, log) => refreshTraeToken(c.refreshToken || "", c, log),
   zed: () => refreshZedToken(),
   windsurf: (c, log) => refreshWindsurfToken(c, log),
   // Kimi Code OAuth (merged into id `kimi`); legacy id still routes here
-  kimi: (c, log) => refreshKimiToken(c.refreshToken, c, log),
-  "kimi-coding": (c, log) => refreshKimiToken(c.refreshToken, c, log),
-  vertex: vertexRefreshHandler,
-  "vertex-partner": vertexRefreshHandler
+  kimi: (c, log) => refreshKimiToken(c.refreshToken || "", c, log),
+  "kimi-coding": (c, log) => refreshKimiToken(c.refreshToken || "", c, log),
+  vertex: vertexRefreshHandler as RefreshHandler,
+  "vertex-partner": vertexRefreshHandler as RefreshHandler,
 };
 
-export async function getAccessToken(provider, credentials, log) {
+export async function getAccessToken(provider: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   if (!credentials || !credentials.refreshToken || typeof credentials.refreshToken !== "string") {
     log?.warn?.("TOKEN_REFRESH", `No valid refresh token available for provider: ${provider}`);
     return null;
@@ -162,9 +167,9 @@ export async function getAccessToken(provider, credentials, log) {
   return _getAccessTokenInternal(provider, credentials, log);
 }
 
-async function _getAccessTokenInternal(provider, credentials, log) {
+async function _getAccessTokenInternal(provider: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   if (provider === "gemini") {
-    return refreshGoogleToken(credentials.refreshToken, PROVIDERS.gemini.clientId, PROVIDERS.gemini.clientSecret, log);
+    return refreshGoogleToken(credentials.refreshToken || "", (PROVIDERS.gemini as ProviderConfig).clientId || "", (PROVIDERS.gemini as ProviderConfig).clientSecret || "", log);
   }
   const handler = REFRESH_HANDLERS[provider];
   if (!handler) {
@@ -174,14 +179,14 @@ async function _getAccessTokenInternal(provider, credentials, log) {
   return handler(credentials, log);
 }
 
-export async function refreshTokenByProvider(provider, credentials, log) {
+export async function refreshTokenByProvider(provider: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   if (!credentials.refreshToken) return null;
   const handler = REFRESH_HANDLERS[provider];
   return handler ? handler(credentials, log) : refreshAccessToken(provider, credentials.refreshToken, credentials, log);
 }
 
-export function formatProviderCredentials(provider, credentials, log) {
-  const config = PROVIDERS[provider];
+export function formatProviderCredentials(provider: string, credentials: Credentials, log?: Logger): Record<string, unknown> | null {
+  const config = PROVIDERS[provider] as ProviderConfig | undefined;
   if (!config) {
     log?.warn?.("TOKEN_REFRESH", `No configuration found for provider: ${provider}`);
     return null;
@@ -229,8 +234,8 @@ export function formatProviderCredentials(provider, credentials, log) {
   }
 }
 
-export async function getAllAccessTokens(userInfo, log) {
-  const results = {};
+export async function getAllAccessTokens(userInfo: UserInfo, log?: Logger): Promise<Record<string, RefreshResult>> {
+  const results: Record<string, RefreshResult> = {};
 
   if (userInfo.connections && Array.isArray(userInfo.connections)) {
     for (const connection of userInfo.connections) {
@@ -249,7 +254,7 @@ export async function getAllAccessTokens(userInfo, log) {
   return results;
 }
 
-export async function refreshWithRetry(refreshFn, maxRetries = 3, log = null) {
+export async function refreshWithRetry(refreshFn: () => Promise<RefreshResult | null>, maxRetries = 3, log: Logger | null = null): Promise<RefreshResult | null> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (attempt > 0) {
       const delay = attempt * 1000;
@@ -260,8 +265,8 @@ export async function refreshWithRetry(refreshFn, maxRetries = 3, log = null) {
     try {
       const result = await refreshFn();
       if (result) return result;
-    } catch (error) {
-      log?.warn?.("TOKEN_REFRESH", `Attempt ${attempt + 1}/${maxRetries} failed: ${error.message}`);
+    } catch (error: unknown) {
+      log?.warn?.("TOKEN_REFRESH", `Attempt ${attempt + 1}/${maxRetries} failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

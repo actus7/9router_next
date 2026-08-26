@@ -6,7 +6,8 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 const tracingRoot = process.env.NEXT_TRACING_ROOT_MODE === "workspace"
   ? join(projectRoot, "..")
   : projectRoot;
-const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb";
+type ProxyClientMaxBodySize = NonNullable<NextConfig["experimental"]>["proxyClientMaxBodySize"];
+const proxyClientMaxBodySize = (process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb") as ProxyClientMaxBodySize;
 
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -27,16 +28,8 @@ const nextConfig: NextConfig = {
   },
   env: {},
   experimental: {
-    proxyClientMaxBodySize: proxyClientMaxBodySize as any,
+    proxyClientMaxBodySize: proxyClientMaxBodySize,
     optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "marked"],
-  },
-  webpack: (config) => {
-    config.watchOptions = {
-      ...config.watchOptions,
-      aggregateTimeout: 300,
-      ignored: /[\\/](node_modules|\.git|logs|\.next|\.next-cli-build|gitbook|cli|tests|docs|AppData[\\/]Local[\\/]Intel)[\\/]/,
-    };
-    return config;
   },
   async rewrites() {
     return [

@@ -1,6 +1,4 @@
 // Quota auto-ping scheduler: warms 5h windows by sending tiny opt-in requests right after reset.
-import "@/lib/open-sse/index";
-
 import { getSettings, getProviderConnections, updateProviderConnection } from "@/lib/localDb";
 import { getClaudeUsage } from "@/lib/open-sse/services/usage/claude";
 import { getCodexUsage } from "@/lib/open-sse/services/usage/codex";

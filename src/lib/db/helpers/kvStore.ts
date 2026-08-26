@@ -14,12 +14,12 @@ export function makeKv(scope: string): KvStore {
   return {
     async get<T = unknown>(key: string, fallback: T | null = null): Promise<T | null> {
       const db = await getAdapter();
-      const row: { value: string } | undefined = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [scope, key]);
+      const row = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [scope, key]) as { value: string } | undefined;
       return row ? parseJson<T>(row.value, fallback) : fallback;
     },
     async getAll(): Promise<Record<string, unknown>> {
       const db = await getAdapter();
-      const rows: Array<{ key: string; value: string }> = db.all(`SELECT key, value FROM kv WHERE scope = ?`, [scope]);
+      const rows = db.all(`SELECT key, value FROM kv WHERE scope = ?`, [scope]) as unknown as Array<{ key: string; value: string }>;
       const out: Record<string, unknown> = {};
       for (const r of rows) out[r.key] = parseJson(r.value);
       return out;

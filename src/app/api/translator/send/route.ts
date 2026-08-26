@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getProviderConnections, updateProviderConnection } from "@/lib/localDb";
-import { getExecutor } from "@/lib/open-sse/index";
+import { getExecutor } from "@/lib/open-sse/executors/index";
 
 async function persistRefreshedCredentials(connection, newCredentials) {
   const updateData = {};

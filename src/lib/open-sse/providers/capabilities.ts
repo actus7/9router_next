@@ -62,8 +62,8 @@ const SERVICE_KIND_CAPABILITIES = {
   embedding: { tools: false },
 };
 
-export function capabilitiesFromServiceKind(kind) {
-  return SERVICE_KIND_CAPABILITIES[kind] || null;
+export function capabilitiesFromServiceKind(kind: string) {
+  return (SERVICE_KIND_CAPABILITIES as Record<string, Record<string, boolean>>)[kind] || null;
 }
 
 /**
@@ -325,22 +325,23 @@ export const PATTERN_CAPABILITIES = [
  * @param {string} model
  * @returns {object} full capabilities object
  */
-export function getCapabilitiesForModel(provider, model) {
+export function getCapabilitiesForModel(provider: string, model: string) {
   if (!model) return { ...DEFAULT_CAPABILITIES };
 
   // Canonical exact lookup strips vendor prefix: "anthropic/claude-opus-4.7" -> "claude-opus-4.7".
-  const baseModel = model.includes("/") ? model.split("/").pop() : model;
+  const baseModel = model.includes("/") ? model.split("/").pop()! : model;
 
   // 1. Provider-specific override
   if (provider) {
-    const providerCaps = PROVIDER_CAPABILITIES[provider];
+    const providerCaps = (PROVIDER_CAPABILITIES as Record<string, Record<string, Record<string, unknown>>>)[provider];
     if (providerCaps?.[model]) return { ...DEFAULT_CAPABILITIES, ...providerCaps[model] };
     if (providerCaps?.[baseModel]) return { ...DEFAULT_CAPABILITIES, ...providerCaps[baseModel] };
   }
 
   // 2. Canonical exact
-  if (MODEL_CAPABILITIES[baseModel]) return { ...DEFAULT_CAPABILITIES, ...MODEL_CAPABILITIES[baseModel] };
-  if (MODEL_CAPABILITIES[model]) return { ...DEFAULT_CAPABILITIES, ...MODEL_CAPABILITIES[model] };
+  const mc = MODEL_CAPABILITIES as Record<string, Record<string, unknown>>;
+  if (mc[baseModel]) return { ...DEFAULT_CAPABILITIES, ...mc[baseModel] };
+  if (mc[model]) return { ...DEFAULT_CAPABILITIES, ...mc[model] };
 
   // 3. Pattern match (first match wins)
   for (const { pattern, caps } of PATTERN_CAPABILITIES) {

@@ -9,8 +9,8 @@ import { buildTtsProviderModels } from "../config/ttsModels";
 const OAUTH_INJECT_FIELDS = ["clientId", "clientSecret", "tokenUrl"];
 
 // transport: re-apply shared default (format:"openai") + inject oauth-canonical fields
-function buildTransport(transport, oauth) {
-  const t = { ...transport };
+function buildTransport(transport: Record<string, unknown>, oauth?: Record<string, unknown>) {
+  const t: Record<string, unknown> = { ...transport };
   if (!t.format) t.format = PROVIDER_DEFAULTS.format;
   if (oauth) {
     for (const f of OAUTH_INJECT_FIELDS) {
@@ -27,24 +27,25 @@ const MEDIA_KEYS = new Set([
   "modelsFetcher", "mediaPriority", "hiddenKinds",
 ]);
 
-export const PROVIDERS = {};
-export const PROVIDER_MODELS = {};
-export const PROVIDER_OAUTH = {};
-export const PROVIDER_MEDIA = {};
-for (const entry of REGISTRY) {
-  if (entry.transport) {
-    PROVIDERS[entry.id] = buildTransport(entry.transport, entry.oauth);
-    if (entry.transports) PROVIDERS[entry.id].transports = entry.transports;
+export const PROVIDERS: Record<string, Record<string, unknown>> = {};
+export const PROVIDER_MODELS: Record<string, Record<string, unknown>[]> = {};
+export const PROVIDER_OAUTH: Record<string, Record<string, unknown>> = {};
+export const PROVIDER_MEDIA: Record<string, Record<string, unknown>> = {};
+for (const entry of REGISTRY as Record<string, unknown>[]) {
+  const e = entry as Record<string, unknown>;
+  if (e.transport) {
+    PROVIDERS[e.id as string] = buildTransport(e.transport as Record<string, unknown>, e.oauth as Record<string, unknown> | undefined);
+    if (e.transports) PROVIDERS[e.id as string].transports = e.transports;
   }
-  if (entry.models !== undefined) PROVIDER_MODELS[entry.alias || entry.id] = entry.models.map(normalizeModel);
-  if (entry.oauth) PROVIDER_OAUTH[entry.id] = entry.oauth;
+  if (e.models !== undefined) PROVIDER_MODELS[(e.alias as string) || (e.id as string)] = (e.models as (string | Record<string, unknown>)[]).map(normalizeModel);
+  if (e.oauth) PROVIDER_OAUTH[e.id as string] = e.oauth as Record<string, unknown>;
   // Build PROVIDER_MEDIA from top-level fields (post-migration) + legacy entry.media
-  const mediaFields = {};
+  const mediaFields: Record<string, unknown> = {};
   for (const k of MEDIA_KEYS) {
-    if (entry[k] !== undefined) mediaFields[k] = entry[k];
+    if (e[k] !== undefined) mediaFields[k] = e[k];
   }
-  if (entry.media) Object.assign(mediaFields, entry.media);
-  if (Object.keys(mediaFields).length) PROVIDER_MEDIA[entry.id] = mediaFields;
+  if (e.media) Object.assign(mediaFields, e.media);
+  if (Object.keys(mediaFields).length) PROVIDER_MEDIA[e.id as string] = mediaFields;
 }
 
 // TTS model/voice tables keyed by special names (openai-tts-models, ...), not provider ids

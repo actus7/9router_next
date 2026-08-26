@@ -23,42 +23,60 @@ import {
   getQoderUsage,
 } from "./usage/misc";
 
-/**
- * Get usage data for a provider connection
- * @param {Object} connection - Provider connection with accessToken
- * @returns {Object} Usage data with quotas
- */
+interface UsageContext {
+  provider: string;
+  accessToken: string;
+  apiKey: string;
+  providerSpecificData: Record<string, unknown>;
+  providerDataWithProjectId: Record<string, unknown>;
+  proxyOptions: unknown;
+  force: boolean;
+}
+
+interface UsageConnection {
+  provider: string;
+  accessToken?: string;
+  apiKey?: string;
+  providerSpecificData?: Record<string, unknown>;
+  projectId?: string;
+  [key: string]: unknown;
+}
+
+interface UsageOptions {
+  force?: boolean;
+}
+
 // provider → usage handler (ctx carries every arg each handler needs)
-const USAGE_HANDLERS = {
-  github: (c) => getGitHubUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
-  "gemini-cli": (c) => getGeminiUsage(c.accessToken, c.providerDataWithProjectId, c.proxyOptions),
-  antigravity: (c) => getAntigravityUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
-  claude: (c) => getClaudeUsage(c.accessToken, c.proxyOptions, { force: c.force }),
-  codex: (c) => getCodexUsage(c.accessToken, c.proxyOptions),
-  kiro: (c) => getKiroUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
-  qoder: async (c) => {
+const USAGE_HANDLERS: Record<string, (c: UsageContext) => Promise<unknown>> = {
+  github: (c: UsageContext) => getGitHubUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
+  "gemini-cli": (c: UsageContext) => getGeminiUsage(c.accessToken, c.providerDataWithProjectId, c.proxyOptions),
+  antigravity: (c: UsageContext) => getAntigravityUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
+  claude: (c: UsageContext) => getClaudeUsage(c.accessToken, c.proxyOptions, { force: c.force }),
+  codex: (c: UsageContext) => getCodexUsage(c.accessToken, c.proxyOptions),
+  kiro: (c: UsageContext) => getKiroUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
+  qoder: async (c: UsageContext) => {
     // PAT (pt-...) connections must be exchanged to a job token before the
     // quota endpoint accepts them.
     const resolved = await resolveQoderCredentials(c, c.proxyOptions).catch(() => null);
     return getQoderUsage(resolved?.accessToken || c.accessToken, c.proxyOptions);
   },
-  iflow: (c) => getIflowUsage(c.accessToken),
-  ollama: (c) => getOllamaUsage(c.apiKey, c.providerSpecificData, c.proxyOptions),
-  glm: (c) => getGlmUsage(c.apiKey, c.provider, c.proxyOptions),
-  "glm-cn": (c) => getGlmUsage(c.apiKey, c.provider, c.proxyOptions),
-  minimax: (c) => getMiniMaxUsage(c.apiKey, c.provider, c.proxyOptions),
-  "minimax-cn": (c) => getMiniMaxUsage(c.apiKey, c.provider, c.proxyOptions),
-  "vercel-ai-gateway": (c) => getVercelAiGatewayUsage(c.apiKey, c.proxyOptions),
-  "codebuddy-cn": (c) => getCodeBuddyCnUsage(c.accessToken, c.apiKey, c.providerSpecificData, c.proxyOptions),
-  "codebuddy-intl": (c) => getCodeBuddyIntlUsage(c.accessToken, c.apiKey, c.providerSpecificData, c.proxyOptions),
-  "grok-cli": (c) => getGrokCliUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
-  kimi: (c) => getKimiUsage(c.accessToken, c.apiKey, c.proxyOptions, c.providerSpecificData),
-  deepseek: (c) => getDeepseekUsage(c.apiKey, c.proxyOptions),
+  iflow: (c: UsageContext) => getIflowUsage(c.accessToken),
+  ollama: (c: UsageContext) => getOllamaUsage(c.apiKey, c.providerSpecificData, c.proxyOptions),
+  glm: (c: UsageContext) => getGlmUsage(c.apiKey, c.provider, c.proxyOptions),
+  "glm-cn": (c: UsageContext) => getGlmUsage(c.apiKey, c.provider, c.proxyOptions),
+  minimax: (c: UsageContext) => getMiniMaxUsage(c.apiKey, c.provider, c.proxyOptions),
+  "minimax-cn": (c: UsageContext) => getMiniMaxUsage(c.apiKey, c.provider, c.proxyOptions),
+  "vercel-ai-gateway": (c: UsageContext) => getVercelAiGatewayUsage(c.apiKey, c.proxyOptions),
+  "codebuddy-cn": (c: UsageContext) => getCodeBuddyCnUsage(c.accessToken, c.apiKey, c.providerSpecificData, c.proxyOptions),
+  "codebuddy-intl": (c: UsageContext) => getCodeBuddyIntlUsage(c.accessToken, c.apiKey, c.providerSpecificData, c.proxyOptions),
+  "grok-cli": (c: UsageContext) => getGrokCliUsage(c.accessToken, c.providerSpecificData, c.proxyOptions),
+  kimi: (c: UsageContext) => getKimiUsage(c.accessToken, c.apiKey, c.proxyOptions, c.providerSpecificData),
+  deepseek: (c: UsageContext) => getDeepseekUsage(c.apiKey, c.proxyOptions),
 };
 
-export async function getUsageForProvider(connection, proxyOptions = null, options = {}) {
+export async function getUsageForProvider(connection: UsageConnection, proxyOptions: unknown = null, options: UsageOptions = {}): Promise<unknown> {
   const { provider, accessToken, apiKey, providerSpecificData, projectId } = connection;
-  const providerDataWithProjectId = {
+  const providerDataWithProjectId: Record<string, unknown> = {
     ...(providerSpecificData || {}),
     ...(projectId ? { projectId } : {}),
   };
@@ -67,9 +85,9 @@ export async function getUsageForProvider(connection, proxyOptions = null, optio
   if (!handler) return { message: `Usage API not implemented for ${provider}` };
   return await handler({
     provider,
-    accessToken,
-    apiKey,
-    providerSpecificData,
+    accessToken: accessToken ?? "",
+    apiKey: apiKey ?? "",
+    providerSpecificData: providerSpecificData ?? {},
     providerDataWithProjectId,
     proxyOptions,
     force: options.force === true,

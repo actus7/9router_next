@@ -1,7 +1,7 @@
 import { ROLE } from "../schema/index";
 
 // Build OpenAI delta carrying reasoning_content (optional leading assistant role)
-export function reasoningDelta(text, withRole = false) {
+export function reasoningDelta(text: string, withRole = false): Record<string, unknown> {
   return withRole
     ? { role: ROLE.ASSISTANT, reasoning_content: text }
     : { reasoning_content: text };
@@ -12,13 +12,14 @@ export function reasoningDelta(text, withRole = false) {
 //   - reasoning (some compat layers)
 //   - reasoning_details[] (MiniMax reasoning_split=true): [{ text|content }]
 // Returns concatenated reasoning string, or "" when none.
-export function extractReasoningText(delta) {
+export function extractReasoningText(delta: unknown): string {
   if (!delta || typeof delta !== "object") return "";
-  if (typeof delta.reasoning_content === "string" && delta.reasoning_content) return delta.reasoning_content;
-  if (typeof delta.reasoning === "string" && delta.reasoning) return delta.reasoning;
-  const details = delta.reasoning_details;
+  const d = delta as Record<string, unknown>;
+  if (typeof d.reasoning_content === "string" && d.reasoning_content) return d.reasoning_content;
+  if (typeof d.reasoning === "string" && d.reasoning) return d.reasoning;
+  const details = d.reasoning_details;
   if (Array.isArray(details)) {
-    return details.map((d) => (typeof d === "string" ? d : d?.text || d?.content || "")).join("");
+    return details.map((d: unknown) => (typeof d === "string" ? d : (d as Record<string, unknown>)?.text || (d as Record<string, unknown>)?.content || "")).join("");
   }
   return "";
 }

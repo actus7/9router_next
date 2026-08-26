@@ -34,19 +34,19 @@ function rowToCombo(row: ComboRow | undefined): Combo | null {
 
 export async function getCombos(): Promise<Combo[]> {
   const db = await getAdapter();
-  const rows: ComboRow[] = db.all(`SELECT * FROM combos ORDER BY createdAt ASC`);
+  const rows = db.all(`SELECT * FROM combos ORDER BY createdAt ASC`) as unknown as ComboRow[];
   return rows.map(rowToCombo).filter((c): c is Combo => c !== null);
 }
 
 export async function getComboById(id: string): Promise<Combo | null> {
   const db = await getAdapter();
-  const row: ComboRow | undefined = db.get(`SELECT * FROM combos WHERE id = ?`, [id]);
+  const row = db.get(`SELECT * FROM combos WHERE id = ?`, [id]) as ComboRow | undefined;
   return rowToCombo(row);
 }
 
 export async function getComboByName(name: string): Promise<Combo | null> {
   const db = await getAdapter();
-  const row: ComboRow | undefined = db.get(`SELECT * FROM combos WHERE name = ?`, [name]);
+  const row = db.get(`SELECT * FROM combos WHERE name = ?`, [name]) as ComboRow | undefined;
   return rowToCombo(row);
 }
 
@@ -78,7 +78,7 @@ export async function updateCombo(id: string, data: Partial<ComboInput>): Promis
   const db = await getAdapter();
   let result: Combo | null = null;
   db.transaction(() => {
-    const row: ComboRow | undefined = db.get(`SELECT * FROM combos WHERE id = ?`, [id]);
+    const row = db.get(`SELECT * FROM combos WHERE id = ?`, [id]) as ComboRow | undefined;
     if (!row) return;
     const merged: Combo = { ...rowToCombo(row)!, ...data, updatedAt: new Date().toISOString() };
     db.run(

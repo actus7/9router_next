@@ -2,7 +2,7 @@
 // Provider entries that ship their own `name` always win; this is only a fallback for terse entries.
 
 // Capitalize a hyphen/space separated token group: "coder-plus" → "Coder Plus".
-function titleCase(s) {
+function titleCase(s: string) {
   return s
     .split(/[-_\s]+/)
     .filter(Boolean)
@@ -11,7 +11,7 @@ function titleCase(s) {
 }
 
 // Ordered: first match wins. Keep specific patterns above generic ones.
-export const NAME_PATTERNS = [
+export const NAME_PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^kimi-k(\d+(?:\.\d+)?)(-thinking)?$/i, (m) => `Kimi K${m[1]}${m[2] ? " Thinking" : ""}`],
   [/^glm-(\d+(?:\.\d+)?)(v)?$/i, (m) => `GLM ${m[1]}${m[2] ? "V (Vision)" : ""}`],
   [/^minimax-m(\d+(?:\.\d+)?)$/i, (m) => `MiniMax M${m[1]}`],
@@ -23,7 +23,7 @@ export const NAME_PATTERNS = [
 ];
 
 // id → display name (regex fallback → id verbatim)
-export function deriveModelName(id) {
+export function deriveModelName(id: string) {
   if (typeof id !== "string") return id;
   for (const [re, fn] of NAME_PATTERNS) {
     const m = id.match(re);

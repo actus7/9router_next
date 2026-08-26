@@ -2,36 +2,65 @@
  * Claude usage handler
  */
 
-import { proxyAwareFetch } from "../../utils/proxyFetch";
+import { proxyAwareFetch as _proxyAwareFetch } from "../../utils/proxyFetch";
 import { ANTHROPIC_API_VERSION } from "../../providers/shared";
 import { U, parseResetTime } from "./shared";
 
+// Typed wrapper for the untyped proxyAwareFetch
+type ProxyFetchFn = (url: string, options?: RequestInit, proxyOptions?: unknown) => Promise<unknown>;
+const proxyAwareFetch = _proxyAwareFetch as unknown as ProxyFetchFn;
+
 // Claude API config (urls from registry, apiVersion is header logic kept here)
 const CLAUDE_CONFIG = {
-  oauthUsageUrl: U("claude").oauthUrl,
-  usageUrl: U("claude").orgUrl,
-  settingsUrl: U("claude").settingsUrl,
+  oauthUsageUrl: U("claude").oauthUrl as string,
+  usageUrl: U("claude").orgUrl as string,
+  settingsUrl: U("claude").settingsUrl as string,
   apiVersion: ANTHROPIC_API_VERSION,
 };
 
 // OAuth usage endpoint rate-limits (429); cool down per-token to stop hammering it.
 // Only the quota endpoint is affected — chat with the same token still works.
 const OAUTH_429_COOLDOWN_MS = 180000;
-const oauthCooldown = new Map();
+const oauthCooldown = new Map<string, number>();
 
 // Dedup + short TTL cache per access token. Many tabs / many accounts / auto-refresh
 // all funnel through here; without this each call hits Anthropic and triggers 429.
 const USAGE_CACHE_TTL_MS = 300000;
-const usageCache = new Map(); // token -> { promise } | { result, expiresAt }
+const usageCache = new Map<string, { promise?: Promise<unknown>; result?: unknown; expiresAt?: number }>();
 
-export async function getClaudeUsage(accessToken, proxyOptions = null, options = {}) {
+interface ClaudeUsageOptions {
+  force?: boolean;
+}
+
+interface ClaudeQuotaWindow {
+  utilization: number;
+  resets_at?: string;
+}
+
+interface ClaudeOAuthResponse {
+  ok: boolean;
+  status: number;
+  json: () => Promise<unknown>;
+}
+
+interface ClaudeSettingsResponse {
+  ok: boolean;
+  json: () => Promise<Record<string, unknown>>;
+}
+
+interface ClaudeUsageResponse {
+  ok: boolean;
+  json: () => Promise<unknown>;
+}
+
+export async function getClaudeUsage(accessToken: string, proxyOptions: unknown = null, options: ClaudeUsageOptions = {}): Promise<unknown> {
   const force = options?.force === true;
 
   // Serve in-flight or fresh cached result (skip on manual force)
   if (!force && accessToken) {
     const hit = usageCache.get(accessToken);
     if (hit?.promise) return hit.promise;
-    if (hit && hit.expiresAt > Date.now()) return hit.result;
+    if (hit && hit.expiresAt && hit.expiresAt > Date.now()) return hit.result;
   }
 
   const stale = (!force && accessToken && usageCache.get(accessToken)?.result) || null;
@@ -39,7 +68,7 @@ export async function getClaudeUsage(accessToken, proxyOptions = null, options =
   const promise = (async () => {
     const result = await fetchClaudeUsageRaw(accessToken, proxyOptions);
     // Only cache real quota data, not soft-failure {message: ...} payloads
-    if (accessToken && result?.quotas) {
+    if (accessToken && (result as Record<string, unknown>)?.quotas) {
       usageCache.set(accessToken, {
         result,
         expiresAt: Date.now() + USAGE_CACHE_TTL_MS,
@@ -55,7 +84,7 @@ export async function getClaudeUsage(accessToken, proxyOptions = null, options =
   return promise;
 }
 
-async function fetchClaudeUsageRaw(accessToken, proxyOptions = null) {
+async function fetchClaudeUsageRaw(accessToken: string, proxyOptions: unknown = null): Promise<unknown> {
   try {
     // Skip OAuth usage call while this token is cooling down from a recent 429
     const cooldownUntil = oauthCooldown.get(accessToken);
@@ -71,17 +100,17 @@ async function fetchClaudeUsageRaw(accessToken, proxyOptions = null) {
         "anthropic-beta": "oauth-2025-04-20",
         "anthropic-version": CLAUDE_CONFIG.apiVersion,
       },
-    }, proxyOptions);
+    }, proxyOptions) as ClaudeOAuthResponse;
 
     if (oauthResponse.ok) {
-      const data = await oauthResponse.json();
-      const quotas = {};
+      const data = (await oauthResponse.json()) as Record<string, unknown>;
+      const quotas: Record<string, unknown> = {};
 
       // utilization = % USED (e.g. 87 means 87% used, 13% remaining)
-      const hasUtilization = (window) =>
-        window && typeof window === "object" && typeof window.utilization === "number";
+      const hasUtilization = (window: unknown): window is ClaudeQuotaWindow =>
+        !!window && typeof window === "object" && typeof (window as ClaudeQuotaWindow).utilization === "number";
 
-      const createQuotaObject = (window) => {
+      const createQuotaObject = (window: ClaudeQuotaWindow) => {
         const used = window.utilization;
         const remaining = Math.max(0, 100 - used);
         return {
@@ -95,18 +124,18 @@ async function fetchClaudeUsageRaw(accessToken, proxyOptions = null) {
       };
 
       if (hasUtilization(data.five_hour)) {
-        quotas["session (5h)"] = createQuotaObject(data.five_hour);
+        quotas["session (5h)"] = createQuotaObject(data.five_hour as ClaudeQuotaWindow);
       }
 
       if (hasUtilization(data.seven_day)) {
-        quotas["weekly (7d)"] = createQuotaObject(data.seven_day);
+        quotas["weekly (7d)"] = createQuotaObject(data.seven_day as ClaudeQuotaWindow);
       }
 
       // Parse model-specific weekly windows (e.g. seven_day_sonnet, seven_day_opus)
       for (const [key, value] of Object.entries(data)) {
         if (key.startsWith("seven_day_") && key !== "seven_day" && hasUtilization(value)) {
           const modelName = key.replace("seven_day_", "");
-          quotas[`weekly ${modelName} (7d)`] = createQuotaObject(value);
+          quotas[`weekly ${modelName} (7d)`] = createQuotaObject(value as ClaudeQuotaWindow);
         }
       }
 
@@ -126,14 +155,14 @@ async function fetchClaudeUsageRaw(accessToken, proxyOptions = null) {
     console.warn(`[Claude Usage] OAuth endpoint returned ${oauthResponse.status}, falling back to legacy`);
     return await getClaudeUsageLegacy(accessToken, proxyOptions);
   } catch (error) {
-    return { message: `Claude connected. Unable to fetch usage: ${error.message}` };
+    return { message: `Claude connected. Unable to fetch usage: ${(error as Error).message}` };
   }
 }
 
 /**
  * Legacy Claude usage for API key / org admin users
  */
-async function getClaudeUsageLegacy(accessToken, proxyOptions = null) {
+async function getClaudeUsageLegacy(accessToken: string, proxyOptions: unknown = null): Promise<unknown> {
   try {
     const settingsResponse = await proxyAwareFetch(CLAUDE_CONFIG.settingsUrl, {
       method: "GET",
@@ -141,14 +170,14 @@ async function getClaudeUsageLegacy(accessToken, proxyOptions = null) {
         "Authorization": `Bearer ${accessToken}`,
         "anthropic-version": CLAUDE_CONFIG.apiVersion,
       },
-    }, proxyOptions);
+    }, proxyOptions) as ClaudeSettingsResponse;
 
     if (settingsResponse.ok) {
       const settings = await settingsResponse.json();
 
       if (settings.organization_id) {
         const usageResponse = await proxyAwareFetch(
-          CLAUDE_CONFIG.usageUrl.replace("{org_id}", settings.organization_id),
+          (CLAUDE_CONFIG.usageUrl as string).replace("{org_id}", settings.organization_id as string),
           {
             method: "GET",
             headers: {
@@ -157,7 +186,7 @@ async function getClaudeUsageLegacy(accessToken, proxyOptions = null) {
             },
           },
           proxyOptions
-        );
+        ) as ClaudeUsageResponse;
 
         if (usageResponse.ok) {
           const usage = await usageResponse.json();
@@ -178,6 +207,6 @@ async function getClaudeUsageLegacy(accessToken, proxyOptions = null) {
 
     return { message: "Claude connected. Usage API requires admin permissions." };
   } catch (error) {
-    return { message: `Claude connected. Unable to fetch usage: ${error.message}` };
+    return { message: `Claude connected. Unable to fetch usage: ${(error as Error).message}` };
   }
 }

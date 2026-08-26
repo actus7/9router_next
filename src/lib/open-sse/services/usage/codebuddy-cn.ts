@@ -19,20 +19,53 @@
  * for refill packs, "Bonus Pack N" for bonus packs (soonest-expiring first).
  */
 
-import { proxyAwareFetch } from "../../utils/proxyFetch";
+import { proxyAwareFetch as _proxyAwareFetch } from "../../utils/proxyFetch";
 import { PROVIDERS } from "../../providers/index";
 import { U, parseResetTime } from "./shared";
 
+// Typed wrapper for the untyped proxyAwareFetch
+type ProxyFetchFn = (url: string, options?: RequestInit, proxyOptions?: unknown) => Promise<unknown>;
+const proxyAwareFetch = _proxyAwareFetch as unknown as ProxyFetchFn;
+
 const PROVIDER_ID = "codebuddy-cn";
 
+interface CodeBuddyAccount {
+  CycleCapacityUsedPrecise?: string;
+  CycleCapacityUsed?: number;
+  CycleCapacitySizePrecise?: string;
+  CycleCapacitySize?: number;
+  CycleStartTime?: string;
+  CycleEndTime?: string;
+  DeductionEndTime?: string;
+  CapacityUsedPrecise?: string;
+  CapacityUsed?: number;
+  CapacitySizePrecise?: string;
+  CapacitySize?: number;
+  PackageName?: string;
+  SubProductName?: string;
+  [key: string]: unknown;
+}
+
+interface CodeBuddyResponse {
+  code?: number;
+  msg?: string;
+  data?: {
+    Response?: {
+      Data?: {
+        Accounts?: CodeBuddyAccount[];
+      };
+    };
+  };
+}
+
 // Prefer the *Precise string fields (exact), fall back to the numeric ones.
-function num(precise, plain) {
+function num(precise: unknown, plain: unknown): number {
   const n = Number(precise ?? plain);
   return Number.isFinite(n) ? n : 0;
 }
 
 // Label a refill pack by its cycle length (Monthly is the common CodeBuddy case).
-function refillCadence(acc) {
+function refillCadence(acc: CodeBuddyAccount): string {
   const start = parseResetTime(acc.CycleStartTime);
   const end = parseResetTime(acc.CycleEndTime);
   if (start && end) {
@@ -43,14 +76,14 @@ function refillCadence(acc) {
   return "Monthly";
 }
 
-async function getCodeBuddyUsage(providerId, accessToken, apiKey, providerSpecificData, proxyOptions = null) {
+async function getCodeBuddyUsage(providerId: string, accessToken: string, apiKey: string, providerSpecificData: Record<string, unknown>, proxyOptions: unknown = null): Promise<unknown> {
   const token = accessToken || apiKey;
   if (!token) {
     return { message: `CodeBuddy (${providerId}) credential not available.` };
   }
 
   try {
-    const response = await proxyAwareFetch(U(providerId).url, {
+    const response = await proxyAwareFetch(U(providerId).url as string, {
       method: "POST",
       headers: {
         ...(PROVIDERS[providerId]?.headers || {}),
@@ -59,7 +92,7 @@ async function getCodeBuddyUsage(providerId, accessToken, apiKey, providerSpecif
         Accept: "application/json",
       },
       body: "{}",
-    }, proxyOptions);
+    }, proxyOptions) as { status: number; ok: boolean; json: () => Promise<CodeBuddyResponse> };
 
     if (response.status === 401 || response.status === 403) {
       return { message: "CodeBuddy CN credential invalid or expired." };
@@ -74,33 +107,33 @@ async function getCodeBuddyUsage(providerId, accessToken, apiKey, providerSpecif
     }
 
     const data = json?.data?.Response?.Data || {};
-    const accounts = Array.isArray(data.Accounts) ? data.Accounts : [];
+    const accounts: CodeBuddyAccount[] = Array.isArray(data.Accounts) ? data.Accounts : [];
     if (accounts.length === 0) {
       return { message: "CodeBuddy CN connected. No credit package found." };
     }
 
-    const cycleEndMs = (acc) => {
+    const cycleEndMs = (acc: CodeBuddyAccount): number => {
       const r = parseResetTime(acc.CycleEndTime);
       return r ? new Date(r).getTime() : Number.POSITIVE_INFINITY;
     };
     // Refill packs roll into a new cycle before the resource expires; bonus packs
     // end exactly at expiry. >2d gap between cycle end and validity end = refill.
     const REFILL_GAP_MS = 2 * 24 * 60 * 60 * 1000;
-    const isRefill = (acc) => {
+    const isRefill = (acc: CodeBuddyAccount): boolean => {
       const ce = cycleEndMs(acc);
       const de = Number(acc.DeductionEndTime);
       return Number.isFinite(ce) && Number.isFinite(de) && de - ce > REFILL_GAP_MS;
     };
-    const byExpiry = (a, b) => cycleEndMs(a) - cycleEndMs(b);
+    const byExpiry = (a: CodeBuddyAccount, b: CodeBuddyAccount): number => cycleEndMs(a) - cycleEndMs(b);
 
     const refills = accounts.filter(isRefill).sort(byExpiry);
-    const bonuses = accounts.filter((a) => !isRefill(a)).sort(byExpiry);
+    const bonuses = accounts.filter((a: CodeBuddyAccount) => !isRefill(a)).sort(byExpiry);
 
-    const quotas = {};
+    const quotas: Record<string, unknown> = {};
     // Refill packs first: cadence-labelled, using the *Cycle* balance and
     // resetting at the next refresh.
-    const seenRefill = {};
-    refills.forEach((acc) => {
+    const seenRefill: Record<string, number> = {};
+    refills.forEach((acc: CodeBuddyAccount) => {
       const base = refillCadence(acc);
       seenRefill[base] = (seenRefill[base] || 0) + 1;
       const name = seenRefill[base] > 1 ? `${base} ${seenRefill[base]}` : base;
@@ -118,7 +151,7 @@ async function getCodeBuddyUsage(providerId, accessToken, apiKey, providerSpecif
     // These are one-shot credits (CycleEndTime == DeductionEndTime), so they
     // never replenish — mark recurring:false so the UI shows "Expires in"
     // instead of implying a monthly refill.
-    bonuses.forEach((acc, i) => {
+    bonuses.forEach((acc: CodeBuddyAccount, i: number) => {
       quotas[`Bonus Pack ${i + 1}`] = {
         used: num(acc.CapacityUsedPrecise, acc.CapacityUsed),
         total: num(acc.CapacitySizePrecise, acc.CapacitySize),
@@ -133,14 +166,14 @@ async function getCodeBuddyUsage(providerId, accessToken, apiKey, providerSpecif
 
     return { plan, quotas };
   } catch (error) {
-    return { message: `CodeBuddy (${providerId}) error: ${error.message}` };
+    return { message: `CodeBuddy (${providerId}) error: ${(error as Error).message}` };
   }
 }
 
-export async function getCodeBuddyCnUsage(accessToken, apiKey, providerSpecificData, proxyOptions = null) {
+export async function getCodeBuddyCnUsage(accessToken: string, apiKey: string, providerSpecificData: Record<string, unknown>, proxyOptions: unknown = null): Promise<unknown> {
   return getCodeBuddyUsage(PROVIDER_ID, accessToken, apiKey, providerSpecificData, proxyOptions);
 }
 
-export async function getCodeBuddyIntlUsage(accessToken, apiKey, providerSpecificData, proxyOptions = null) {
+export async function getCodeBuddyIntlUsage(accessToken: string, apiKey: string, providerSpecificData: Record<string, unknown>, proxyOptions: unknown = null): Promise<unknown> {
   return getCodeBuddyUsage("codebuddy-intl", accessToken, apiKey, providerSpecificData, proxyOptions);
 }

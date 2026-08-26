@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { getSettings, validateApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
@@ -41,26 +42,6 @@ const ALWAYS_PROTECTED: string[] = [
   "/api/version/update",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
-];
-
-const PROTECTED_API_PATHS: string[] = [
-  "/api/settings",
-  "/api/keys",
-  "/api/providers",
-  "/api/provider-nodes",
-  "/api/proxy-pools",
-  "/api/combos",
-  "/api/models",
-  "/api/usage",
-  "/api/oauth",
-  "/api/cloud",
-  "/api/media-providers",
-  "/api/pricing",
-  "/api/tags",
-  "/api/cli-tools",
-  "/api/mcp",
-  "/api/translator",
-  "/api/tunnel",
 ];
 
 const LOCAL_ONLY_PATHS: string[] = [
@@ -123,40 +104,41 @@ function isPublicLlmApi(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p: string) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-function extractApiKey(request: Request): string | null {
+function extractApiKey(request: NextRequest): string | null {
   const authHeader: string | null = request.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
   const apiKeyHeader: string | null = request.headers.get("x-api-key");
   if (apiKeyHeader) return apiKeyHeader;
   const googleApiKeyHeader: string | null = request.headers.get("x-goog-api-key");
   if (googleApiKeyHeader) return googleApiKeyHeader;
-  return (request as any).nextUrl?.searchParams?.get("key") || null;
+  return request.nextUrl?.searchParams?.get("key") || null;
 }
 
-async function hasValidApiKey(request: Request): Promise<boolean> {
+async function hasValidApiKey(request: NextRequest): Promise<boolean> {
   const apiKey: string | null = extractApiKey(request);
   if (!apiKey) return false;
   return await validateApiKey(apiKey);
 }
 
-async function canAccessPublicLlmApi(request: Request): Promise<boolean> {
+async function canAccessPublicLlmApi(request: NextRequest): Promise<boolean> {
   if (isLocalRequest(request)) return true;
   if (await hasValidCliToken(request)) return true;
   return await hasValidApiKey(request);
 }
 
-async function canAccessLocalOnlyRoute(request: Request): Promise<boolean> {
+async function canAccessLocalOnlyRoute(request: NextRequest): Promise<boolean> {
   if (await hasValidCliToken(request)) return true;
   if (isLocalRequest(request) && await isAuthenticated(request)) return true;
   return false;
 }
 
-async function hasValidToken(request: Request): Promise<boolean> {
-  const token: string | undefined = (request as any).cookies?.get("auth_token")?.value;
+async function hasValidToken(request: NextRequest): Promise<boolean> {
+  const token: string | undefined = request.cookies.get("auth_token")?.value;
+  if (!token) return false;
   return await verifyDashboardAuthToken(token);
 }
 
-async function loadSettings(): Promise<any> {
+async function loadSettings(): Promise<Awaited<ReturnType<typeof getSettings>> | null> {
   try {
     return await getSettings();
   } catch {
@@ -164,9 +146,9 @@ async function loadSettings(): Promise<any> {
   }
 }
 
-async function isAuthenticated(request: Request): Promise<boolean> {
+async function isAuthenticated(request: NextRequest): Promise<boolean> {
   if (await hasValidToken(request)) return true;
-  const settings: any = await loadSettings();
+  const settings = await loadSettings();
   if (settings && settings.requireLogin === false) return true;
   return false;
 }
@@ -176,7 +158,7 @@ function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PATHS.some((p: string) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-const __test__ = {
+export const __test__ = {
   isLocalRequest,
   isPublicLlmApi,
   extractApiKey,
@@ -184,8 +166,8 @@ const __test__ = {
   canAccessLocalOnlyRoute,
 };
 
-export async function proxy(request: Request): Promise<NextResponse> {
-  const { pathname } = (request as any).nextUrl;
+export async function proxy(request: NextRequest): Promise<NextResponse> {
+  const { pathname } = request.nextUrl;
 
   if (LOCAL_ONLY_PATHS.some((p: string) => pathname.startsWith(p))) {
     if (!(await canAccessLocalOnlyRoute(request))) {
@@ -216,7 +198,7 @@ export async function proxy(request: Request): Promise<NextResponse> {
     let tunnelDashboardAccess: boolean = true;
 
     try {
-      const settings: any = await loadSettings();
+      const settings = await loadSettings();
       if (settings) {
         requireLogin = settings.requireLogin !== false;
         tunnelDashboardAccess = settings.tunnelDashboardAccess === true;
@@ -236,7 +218,7 @@ export async function proxy(request: Request): Promise<NextResponse> {
 
     if (!requireLogin) return NextResponse.next();
 
-    const token: string | undefined = (request as any).cookies?.get("auth_token")?.value;
+    const token: string | undefined = request.cookies.get("auth_token")?.value;
     if (token) {
       if (await verifyDashboardAuthToken(token)) {
         return NextResponse.next();

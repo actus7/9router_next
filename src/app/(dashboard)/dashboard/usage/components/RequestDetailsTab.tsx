@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ArrowLeftFromLine, ArrowRightToLine, Brain, ChevronRight, Code2, Image, Languages, Loader2 } from "lucide-react";
 
 let providerNameCache = null;
@@ -56,16 +57,11 @@ function getProviderName(providerId, cache) {
   return providerConfig?.name || providerId;
 }
 
-function CollapsibleSection({ title, children, defaultOpen = false, icon = null }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  
+function CollapsibleSection({ title, children, defaultOpen = false, icon = null }: { title: string; children: React.ReactNode; defaultOpen?: boolean; icon?: string | null }) {
   return (
-    <div className="border border-black/5 dark:border-white/5 rounded-lg overflow-hidden">
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+    <Collapsible defaultOpen={defaultOpen} className="border border-black/5 dark:border-white/5 rounded-lg overflow-hidden">
+      <CollapsibleTrigger
+        className="w-full flex items-center justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] cursor-pointer"
       >
         <div className="flex items-center gap-2">
           {icon && <span className="text-text-muted">{(() => {
@@ -80,15 +76,13 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
           })()}</span>}
           <span className="font-semibold text-sm text-text-main">{title}</span>
         </div>
-        <ChevronRight className={`size-5 text-text-muted transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
-      </Button>
+        <ChevronRight className="size-5 text-text-muted transition-transform duration-200 [[data-open]>&]:rotate-90" />
+      </CollapsibleTrigger>
       
-      {isOpen && (
-        <div className="p-4 border-t border-black/5 dark:border-white/5">
-          {children}
-        </div>
-      )}
-    </div>
+      <CollapsibleContent className="p-4 border-t border-black/5 dark:border-white/5">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

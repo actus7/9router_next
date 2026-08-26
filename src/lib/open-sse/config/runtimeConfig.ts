@@ -32,14 +32,14 @@ export const MEMORY_CONFIG = {
 };
 
 // Parse a positive integer env override, falling back to a default.
-function envMs(name, def) {
+function envMs(name: string, def: number) {
   const raw = process.env[name];
   if (raw == null || raw === "") return def;
   const n = parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : def;
 }
 
-function envUrl(name, def) {
+function envUrl(name: string, def: string) {
   const raw = process.env[name]?.trim();
   return raw || def;
 }
@@ -83,7 +83,7 @@ export const DEFAULT_RETRY_CONFIG = {
 };
 
 // Normalize a retry entry to { attempts, delayMs }
-export function resolveRetryEntry(entry) {
+export function resolveRetryEntry(entry: { attempts?: number; delayMs?: number } | number | null | undefined) {
   if (entry == null) return { attempts: 0, delayMs: RETRY_CONFIG.delayMs };
   if (typeof entry === "number") return { attempts: entry, delayMs: RETRY_CONFIG.delayMs };
   return {

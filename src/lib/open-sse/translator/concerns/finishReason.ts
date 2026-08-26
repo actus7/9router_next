@@ -3,7 +3,7 @@
 import { OPENAI_FINISH, CLAUDE_STOP, GEMINI_FINISH } from "../schema/finishReasons";
 
 // upstream finish/stop reason → OpenAI finish_reason
-export function toOpenAIFinish(reason, format) {
+export function toOpenAIFinish(reason: string | null | undefined, format: string): string {
   switch (format) {
     case "claude":
       switch (reason) {
@@ -48,7 +48,7 @@ export function toOpenAIFinish(reason, format) {
 }
 
 // OpenAI finish_reason → upstream stop reason
-export function fromOpenAIFinish(reason, format) {
+export function fromOpenAIFinish(reason: string | null | undefined, format: string): string {
   switch (format) {
     case "claude":
       switch (reason) {
@@ -58,6 +58,6 @@ export function fromOpenAIFinish(reason, format) {
         default: return CLAUDE_STOP.END_TURN;
       }
     default:
-      return reason;
+      return reason || "";
   }
 }

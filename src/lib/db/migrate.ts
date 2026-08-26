@@ -84,7 +84,7 @@ function runVersionedMigrations(adapter: DbAdapter): { applied: number; from: nu
   // Bootstrap _meta first so we can read schemaVersion
   adapter.exec(buildCreateTableSql("_meta", TABLES._meta));
 
-  const current: number = parseInt(getMetaSync(adapter, "schemaVersion", "0"), 10) || 0;
+  const current: number = parseInt(getMetaSync(adapter, "schemaVersion", "0") ?? "0", 10) || 0;
   const target: number = latestVersion();
   if (current >= target) return { applied: 0, from: current, to: current };
 
@@ -108,7 +108,7 @@ function syncSchemaFromTables(adapter: DbAdapter): void {
     adapter.exec(buildCreateTableSql(tableName, def));
 
     // Diff columns
-    const existing: Array<{ name: string }> = adapter.all(`PRAGMA table_info(${tableName})`);
+    const existing = adapter.all(`PRAGMA table_info(${tableName})`) as unknown as Array<{ name: string }>;
     const existingNames: Set<string> = new Set(existing.map((r: { name: string }) => r.name));
     for (const [colName, colDef] of Object.entries(def.columns)) {
       if (!existingNames.has(colName)) {
@@ -256,7 +256,7 @@ export async function runMigrationOnce(adapter: DbAdapter): Promise<void> {
 
   // Detect a pending schema change via the central SCHEMA_VERSION const.
   // A lightweight backup is taken BEFORE any schema mutation below.
-  const storedSchemaVer: number = parseInt(getMetaSync(adapter, "backupSchemaVersion", "0"), 10) || 0;
+  const storedSchemaVer: number = parseInt(getMetaSync(adapter, "backupSchemaVersion", "0") ?? "0", 10) || 0;
   const schemaChanging: boolean = !fresh && storedSchemaVer < SCHEMA_VERSION;
   if (schemaChanging) {
     try {

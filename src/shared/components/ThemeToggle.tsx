@@ -1,6 +1,6 @@
 "use client";
 
-import { useThemeStore } from "@/components/theme-provider";
+import { useTheme } from "@/shared/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import Button from "@/shared/components/Button";
 import { Sun, Moon } from "lucide-react";
@@ -13,8 +13,7 @@ interface ThemeToggleProps {
 }
 
 export default function ThemeToggle({ className, variant = "default" }: ThemeToggleProps) {
-  const { resolvedTheme, toggleTheme } = useThemeStore();
-  const isDark = resolvedTheme === "dark";
+  const { toggleTheme, isDark } = useTheme();
 
   const variants: Record<ThemeToggleVariant, string> = {
     default: cn(

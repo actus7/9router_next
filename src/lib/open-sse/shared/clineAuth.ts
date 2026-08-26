@@ -1,20 +1,20 @@
 const APP_VERSION = process.env.npm_package_version || "0.0.0";
 
-export function getClineAccessToken(token) {
+export function getClineAccessToken(token: string | undefined | null) {
   if (typeof token !== "string") return "";
   const trimmed = token.trim();
   if (!trimmed) return "";
   return trimmed.startsWith("workos:") ? trimmed : `workos:${trimmed}`;
 }
 
-export function getClineAuthorizationHeader(token) {
+export function getClineAuthorizationHeader(token: string | undefined | null) {
   const accessToken = getClineAccessToken(token);
   return accessToken ? `Bearer ${accessToken}` : "";
 }
 
-export function buildClineHeaders(token, extraHeaders = {}) {
+export function buildClineHeaders(token: string | undefined | null, extraHeaders: Record<string, string> = {}) {
   const authorization = getClineAuthorizationHeader(token);
-  const headers = {
+  const headers: Record<string, string> = {
     "HTTP-Referer": "https://cline.bot",
     "X-Title": "Cline",
     "User-Agent": `9Router/${APP_VERSION}`,

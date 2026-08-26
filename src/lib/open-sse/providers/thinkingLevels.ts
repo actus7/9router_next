@@ -42,14 +42,14 @@ const PATTERN_THINKING = [
 ];
 
 // Returns valid thinking levels for a model, or null when the model has no reasoning.
-export function getThinkingLevels(provider, model) {
+export function getThinkingLevels(provider: string, model: string) {
   if (provider === "kiro" && resolveKiroEffortPath(model) === null) return null;
   const caps = getCapabilitiesForModel(provider, model);
   if (!caps.reasoning) return null;
   const hit = PATTERN_THINKING.find((entry) =>
     (!entry.provider || entry.provider === provider) && matchPattern(entry.pattern, model)
   );
-  let levels = hit?.levels || FORMAT_LEVELS[caps.thinkingFormat] || L.base;
-  if (caps.thinkingCanDisable === false) levels = levels.filter((l) => l !== "none");
+  let levels = hit?.levels || (FORMAT_LEVELS as Record<string, string[]>)[caps.thinkingFormat as string] || L.base;
+  if (caps.thinkingCanDisable === false) levels = levels.filter((l: string) => l !== "none");
   return levels;
 }

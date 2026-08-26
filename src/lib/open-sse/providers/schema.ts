@@ -63,14 +63,14 @@ export const ENDPOINT_DEFAULTS = {
 };
 
 // Deep-merge a provider entry over PROVIDER_DEFAULTS (defensive for missing transport)
-export function resolveProvider(entry) {
-  const transport = (entry && entry.transport) || {};
+export function resolveProvider(entry: Record<string, unknown>) {
+  const transport = (entry && (entry.transport as Record<string, unknown>)) || {};
   return {
     ...PROVIDER_DEFAULTS,
     ...transport,
-    headers: { ...PROVIDER_DEFAULTS.headers, ...transport.headers },
-    auth: { ...PROVIDER_DEFAULTS.auth, ...transport.auth },
-    quirks: { ...PROVIDER_DEFAULTS.quirks, ...transport.quirks },
-    retry: { ...PROVIDER_DEFAULTS.retry, ...transport.retry }
+    headers: { ...PROVIDER_DEFAULTS.headers, ...(transport.headers as Record<string, string> || {}) },
+    auth: { ...PROVIDER_DEFAULTS.auth, ...(transport.auth as Record<string, unknown> || {}) },
+    quirks: { ...PROVIDER_DEFAULTS.quirks, ...(transport.quirks as Record<string, unknown> || {}) },
+    retry: { ...PROVIDER_DEFAULTS.retry, ...(transport.retry as Record<string, unknown> || {}) }
   };
 }

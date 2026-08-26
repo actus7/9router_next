@@ -33,13 +33,13 @@ function rowToKey(row: ApiKeyRow | undefined): ApiKey | null {
 
 export async function getApiKeys(): Promise<ApiKey[]> {
   const db = await getAdapter();
-  const rows: ApiKeyRow[] = db.all(`SELECT * FROM apiKeys ORDER BY createdAt ASC`);
+  const rows = db.all(`SELECT * FROM apiKeys ORDER BY createdAt ASC`) as unknown as ApiKeyRow[];
   return rows.map(rowToKey).filter((k): k is ApiKey => k !== null);
 }
 
 export async function getApiKeyById(id: string): Promise<ApiKey | null> {
   const db = await getAdapter();
-  const row: ApiKeyRow | undefined = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]);
+  const row = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]) as ApiKeyRow | undefined;
   return rowToKey(row);
 }
 
@@ -67,7 +67,7 @@ export async function updateApiKey(id: string, data: Partial<ApiKey>): Promise<A
   const db = await getAdapter();
   let result: ApiKey | null = null;
   db.transaction(() => {
-    const row: ApiKeyRow | undefined = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]);
+    const row = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]) as ApiKeyRow | undefined;
     if (!row) return;
     const merged: ApiKey = { ...rowToKey(row)!, ...data };
     db.run(
@@ -87,7 +87,7 @@ export async function deleteApiKey(id: string): Promise<boolean> {
 
 export async function validateApiKey(key: string): Promise<boolean> {
   const db = await getAdapter();
-  const row: { isActive: number | boolean } | undefined = db.get(`SELECT isActive FROM apiKeys WHERE key = ?`, [key]);
+  const row = db.get(`SELECT isActive FROM apiKeys WHERE key = ?`, [key]) as { isActive: number | boolean } | undefined;
   if (!row) return false;
   return row.isActive === 1 || row.isActive === true;
 }

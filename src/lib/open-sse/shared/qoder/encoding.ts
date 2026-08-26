@@ -29,7 +29,7 @@ const QODER_S2C = (() => {
  * @param {Buffer|Uint8Array|string} plaintext
  * @returns {string} encoded string
  */
-export function qoderEncodeBody(plaintext) {
+export function qoderEncodeBody(plaintext: Buffer | Uint8Array | string) {
   const buf = Buffer.isBuffer(plaintext)
     ? plaintext
     : typeof plaintext === "string"

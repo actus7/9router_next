@@ -3,7 +3,7 @@
 import { useParams, notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { Card, Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
+import { Card, Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard, ConfirmModal } from "@/shared/components";
 import { Badge } from "@/components/ui/badge";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, isCustomEmbeddingProvider } from "@/shared/constants/providers";
@@ -34,8 +34,9 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
   const kindConfig = MEDIA_PROVIDER_KINDS.find((k: { id: string }) => k.id === kind);
   const isCustom = isCustomEmbeddingProvider(id as string) && kind === "embedding";
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const handleDeleteCustom = async () => {
-    if (!confirm("Delete this Custom Embedding node?")) return;
     try {
       const res = await fetch(`/api/provider-nodes/${id}`, { method: "DELETE" });
       if (res.ok) router.push(`/dashboard/media-providers/${kind}`);
@@ -120,7 +121,7 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
               <Button variant="secondary" icon="edit" onClick={() => setShowEditModal(true)}>
                 Edit
               </Button>
-              <Button variant="secondary" icon="delete" onClick={handleDeleteCustom}>
+              <Button variant="secondary" icon="delete" onClick={() => setShowDeleteConfirm(true)}>
                 Delete
               </Button>
             </div>
@@ -204,6 +205,20 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
           }}
         />
       )}
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          handleDeleteCustom();
+        }}
+        title="Delete Custom Embedding"
+        message="Delete this Custom Embedding node?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

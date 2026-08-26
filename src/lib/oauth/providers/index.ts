@@ -1,5 +1,5 @@
 // Ensure outbound fetch respects HTTP(S)_PROXY/ALL_PROXY in Node runtime
-import "@/lib/open-sse/index";
+import "@/lib/open-sse/utils/proxyFetch";
 
 import { generatePKCE } from "../utils/pkce";
 import { extractCodexAccountInfo, fetchKiroProfileArn } from "../providerHelpers";

@@ -7,7 +7,7 @@ interface DbAdapter {
 
 export async function getMeta(key: string, fallback: string | null = null): Promise<string | null> {
   const db = await getAdapter();
-  const row: { value: string } | undefined = db.get(`SELECT value FROM _meta WHERE key = ?`, [key]);
+  const row = db.get(`SELECT value FROM _meta WHERE key = ?`, [key]) as { value: string } | undefined;
   return row ? row.value : fallback;
 }
 
@@ -18,7 +18,7 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
 
 // Sync versions for use during migration (adapter passed directly)
 export function getMetaSync(adapter: DbAdapter, key: string, fallback: string | null = null): string | null {
-  const row: { value: string } | undefined = adapter.get(`SELECT value FROM _meta WHERE key = ?`, [key]);
+  const row = adapter.get(`SELECT value FROM _meta WHERE key = ?`, [key]) as { value: string } | undefined;
   return row ? row.value : fallback;
 }
 

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatResetTime, getRemainingPercentage } from "./utils";
 import Button from "@/shared/components/Button";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { EyeOff } from "lucide-react";
 
 const PAGE_SIZE = 10;
@@ -195,14 +197,15 @@ export default function QuotaTable({
 
               {/* Progress + used/total */}
               <div className={`min-w-0 flex-1 ${compact ? "space-y-1" : "space-y-1.5"}`}>
-                <div className={`${compact ? "h-1" : "h-1.5"} rounded-full overflow-hidden border ${colors.bgLight} ${
-                  quota.remaining === 0 ? "border-black/10 dark:border-white/10" : "border-transparent"
-                }`}>
-                  <div
-                    className={`h-full transition-all duration-300 ${colors.bg}`}
-                    style={{ width: `${Math.min(quota.remaining, 100)}%` }}
-                  />
-                </div>
+                <Progress
+                  value={Math.min(quota.remaining, 100)}
+                  className={cn(
+                    compact ? "h-1" : "h-1.5",
+                    colors.bgLight,
+                    quota.remaining === 0 ? "border border-black/10 dark:border-white/10" : "border-transparent"
+                  )}
+                  indicatorClassName={colors.bg}
+                />
 
                 <div className={`flex items-center justify-between gap-1 min-w-0 ${compact ? "text-[10px]" : "text-xs"}`}>
                   <span

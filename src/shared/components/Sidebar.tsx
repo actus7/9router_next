@@ -9,8 +9,9 @@ import { MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Button from "@/shared/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import NineRemotePromoModal from "./NineRemotePromoModal";
-import { BarChart3, ChevronDown, Copy, Film, FolderOpen, Globe, Languages, Layers, Mic, Monitor, Music, Network, Paintbrush, PieChart, PiggyBank, Power, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
+import { BarChart3, Copy, Film, FolderOpen, Globe, Languages, Layers, Mic, Monitor, Music, Network, Paintbrush, PieChart, PiggyBank, Power, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const KIND_ICON_MAP: Record<string, LucideIcon> = {
@@ -63,7 +64,6 @@ interface SidebarProps {
 
 export default function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
-  const [mediaOpen, setMediaOpen] = useState(false);
   const [showRemoteModal, setShowRemoteModal] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ latestVersion?: string } | null>(null);
@@ -209,57 +209,55 @@ export default function Sidebar({ onClose }: SidebarProps) {
             </p>
 
             {/* Media Providers accordion */}
-            <Button
-              onClick={() => setMediaOpen((v) => !v)}
-              aria-expanded={mediaOpen}
-              aria-controls="media-providers-submenu"
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-1 rounded-lg transition-all group justify-start h-auto",
-                pathname.startsWith("/dashboard/media-providers")
-                  ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-              )}
-            >
-              <FolderOpen className="size-5" />
-              <span className="text-[13px] font-medium flex-1 text-left">Media Providers</span>
-              <ChevronDown className="size-3.5 transition-transform" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
-            </Button>
-            {mediaOpen && (
-              <div id="media-providers-submenu" className="pl-4" role="group">
-                {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
-                  <Link
-                    key={kind.id}
-                    href={`/dashboard/media-providers/${kind.id}`}
-                    onClick={onClose}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-1 rounded-lg transition-all group",
-                      pathname.startsWith(`/dashboard/media-providers/${kind.id}`)
-                        ? "bg-primary/10 text-primary"
-                        : "text-text-muted hover:bg-surface-2 hover:text-text-main"
-                    )}
-                  >
-                    {getKindIcon(kind.icon)}
-                    <span className="text-sm">{kind.label}</span>
-                  </Link>
-                ))}
-                <Link
-                  key={COMBINED_WEB_ITEM.id}
-                  href={COMBINED_WEB_ITEM.href}
-                  onClick={onClose}
+            <Accordion className="w-full">
+              <AccordionItem value="media-providers" className="border-b-0">
+                <AccordionTrigger
                   className={cn(
-                    "flex items-center gap-3 px-4 py-1 rounded-lg transition-all group",
-                    pathname.startsWith(COMBINED_WEB_ITEM.href)
+                    "w-full flex items-center gap-3 px-3 py-1 rounded-lg transition-all group justify-start h-auto text-sm font-medium",
+                    pathname.startsWith("/dashboard/media-providers")
                       ? "bg-primary/10 text-primary"
                       : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   )}
                 >
-                  {COMBINED_WEB_ITEM.icon}
-                  <span className="text-sm">{COMBINED_WEB_ITEM.label}</span>
-                </Link>
-              </div>
-            )}
+                  <FolderOpen className="size-5" />
+                  <span className="text-[13px] font-medium flex-1 text-left">Media Providers</span>
+                </AccordionTrigger>
+                <AccordionContent className="pl-4">
+                  <div id="media-providers-submenu" role="group">
+                    {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
+                      <Link
+                        key={kind.id}
+                        href={`/dashboard/media-providers/${kind.id}`}
+                        onClick={onClose}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-1 rounded-lg transition-all group",
+                          pathname.startsWith(`/dashboard/media-providers/${kind.id}`)
+                            ? "bg-primary/10 text-primary"
+                            : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                        )}
+                      >
+                        {getKindIcon(kind.icon)}
+                        <span className="text-sm">{kind.label}</span>
+                      </Link>
+                    ))}
+                    <Link
+                      key={COMBINED_WEB_ITEM.id}
+                      href={COMBINED_WEB_ITEM.href}
+                      onClick={onClose}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-1 rounded-lg transition-all group",
+                        pathname.startsWith(COMBINED_WEB_ITEM.href)
+                          ? "bg-primary/10 text-primary"
+                          : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                      )}
+                    >
+                      {COMBINED_WEB_ITEM.icon}
+                      <span className="text-sm">{COMBINED_WEB_ITEM.label}</span>
+                    </Link>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
             {systemItems.map((item) => (
               <Link

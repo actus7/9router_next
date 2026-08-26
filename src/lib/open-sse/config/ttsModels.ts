@@ -17,7 +17,7 @@ const VOICES = {
   verse:   { id: "verse",   name: "Verse" },
 };
 
-const v = (...keys) => keys.map((k) => ({ ...VOICES[k], type: "tts" }));
+const v = (...keys: (keyof typeof VOICES)[]) => keys.map((k) => ({ ...VOICES[k], type: "tts" as const }));
 
 // 9 voices for tts-1 / tts-1-hd
 const VOICES_STANDARD = v("alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer");
@@ -133,22 +133,22 @@ export const TTS_MODELS_CONFIG = {
 };
 
 // ── Helper: get voices for a specific model ────────────────────────────────
-export function getTtsVoicesForModel(provider, modelId) {
-  const cfg = TTS_MODELS_CONFIG[provider];
+export function getTtsVoicesForModel(provider: string, modelId: string) {
+  const cfg = (TTS_MODELS_CONFIG as Record<string, Record<string, unknown>>)[provider];
   if (!cfg?.voices) return null;
-  return cfg.voices[modelId] || cfg.allVoices || null;
+  return (cfg.voices as Record<string, unknown[]>)[modelId] || cfg.allVoices || null;
 }
 
 // ── Build flat entries for PROVIDER_MODELS backward compat ─────────────────
 export function buildTtsProviderModels() {
-  const entries = {};
-  for (const [provider, cfg] of Object.entries(TTS_MODELS_CONFIG)) {
-    if (cfg.models) entries[`${provider}-tts-models`] = cfg.models;
-    if (cfg.allVoices) entries[`${provider}-tts-voices`] = cfg.allVoices;
-    if (cfg.defaults) entries[provider] = cfg.defaults;
+  const entries: Record<string, unknown[]> = {};
+  for (const [provider, cfg] of Object.entries(TTS_MODELS_CONFIG as Record<string, Record<string, unknown>>)) {
+    if (cfg.models) entries[`${provider}-tts-models`] = cfg.models as unknown[];
+    if (cfg.allVoices) entries[`${provider}-tts-voices`] = cfg.allVoices as unknown[];
+    if (cfg.defaults) entries[provider] = cfg.defaults as unknown[];
   }
   // Keep openai-tts-voices key pointing to full voice list for backward compat
-  entries["openai-tts-voices"] = TTS_MODELS_CONFIG.openai.allVoices;
-  entries["openrouter-tts-voices"] = TTS_MODELS_CONFIG.openrouter.allVoices;
+  entries["openai-tts-voices"] = (TTS_MODELS_CONFIG as Record<string, Record<string, unknown>>).openai.allVoices as unknown[];
+  entries["openrouter-tts-voices"] = (TTS_MODELS_CONFIG as Record<string, Record<string, unknown>>).openrouter.allVoices as unknown[];
   return entries;
 }

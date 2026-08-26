@@ -34,14 +34,14 @@ function generateAesKey() {
   return uuidv4().slice(0, 16);
 }
 
-function pkcs7Pad(data, blockSize) {
+function pkcs7Pad(data: Buffer, blockSize: number) {
   const padding = blockSize - (data.length % blockSize);
   const padded = Buffer.alloc(data.length + padding, padding);
   data.copy(padded, 0);
   return padded;
 }
 
-function aesEncryptCbcBase64(plaintext, keyStr) {
+function aesEncryptCbcBase64(plaintext: string, keyStr: string) {
   const keyBytes = Buffer.from(keyStr, "utf8");
   if (keyBytes.length !== 16) {
     throw new Error(`aes key must be 16 bytes, got ${keyBytes.length}`);
@@ -54,7 +54,7 @@ function aesEncryptCbcBase64(plaintext, keyStr) {
   return encrypted.toString("base64");
 }
 
-function rsaEncryptBase64(data) {
+function rsaEncryptBase64(data: string) {
   const encrypted = crypto.publicEncrypt(
     { key: QODER_RSA_PUBLIC_KEY, padding: crypto.constants.RSA_PKCS1_PADDING },
     Buffer.from(data, "utf8"),
@@ -62,7 +62,7 @@ function rsaEncryptBase64(data) {
   return encrypted.toString("base64");
 }
 
-function encryptUserInfo(userInfo) {
+function encryptUserInfo(userInfo: Record<string, string>) {
   const aesKey = generateAesKey();
   const plaintext = JSON.stringify(userInfo);
   const infoB64 = aesEncryptCbcBase64(plaintext, aesKey);
@@ -70,7 +70,7 @@ function encryptUserInfo(userInfo) {
   return { cosyKey: cosyKeyB64, info: infoB64 };
 }
 
-function md5Hex(input) {
+function md5Hex(input: Buffer | string) {
   return crypto.createHash("md5").update(input).digest("hex");
 }
 
@@ -78,7 +78,7 @@ function md5Hex(input) {
  * Strip the leading "/algo" prefix from the request path. Matches qodercli
  * convention. Empty input returns "".
  */
-function computeSigPath(requestUrl) {
+function computeSigPath(requestUrl: string) {
   let pathname;
   try {
     pathname = new URL(requestUrl).pathname || "";
@@ -113,7 +113,7 @@ export function generateMachineId() {
  * @param {string} [creds.machineId]       Persisted machine UUID.
  * @returns {Record<string, string>} Header map ready to merge onto fetch().
  */
-export function buildCosyHeaders(body, requestUrl, creds) {
+export function buildCosyHeaders(body: Buffer | Uint8Array | string, requestUrl: string, creds: { userId: string; authToken: string; name?: string; email?: string; machineId?: string }) {
   if (!creds?.userId) throw new Error("cosy: user id is empty");
   if (!creds?.authToken) throw new Error("cosy: auth token is empty");
 

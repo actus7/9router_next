@@ -1,4 +1,5 @@
-import "@/lib/open-sse/index";
+// Patch global fetch with proxy support (must be first)
+import "@/lib/open-sse/utils/proxyFetch";
 
 import {
   getProviderCredentials,

@@ -1,9 +1,9 @@
 // Codex auto-generates a "-review" variant for each llm model (review quota family)
 export const CODEX_REVIEW_SUFFIX = "-review";
 
-export function withCodexReviewModels(models) {
-  return models.flatMap((model) => {
-    if ((model.kind || model.type || "llm") !== "llm" || model.id.endsWith(CODEX_REVIEW_SUFFIX)) {
+export function withCodexReviewModels(models: Record<string, unknown>[]) {
+  return models.flatMap((model: Record<string, unknown>) => {
+    if ((model.kind || model.type || "llm") !== "llm" || (model.id as string).endsWith(CODEX_REVIEW_SUFFIX)) {
       return [model];
     }
     return [

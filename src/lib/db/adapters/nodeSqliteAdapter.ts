@@ -24,7 +24,7 @@ export async function createNodeSqliteAdapter(filePath: string): Promise<DbAdapt
     if (name === "warning" && data?.name === "ExperimentalWarning" && /SQLite/i.test(data.message || "")) {
       return false;
     }
-    return origEmit.call(process, name, data, ...rest) as boolean;
+    return (origEmit as unknown as (event: string | symbol, ...args: unknown[]) => boolean).call(process, name, data, ...rest);
   };
 
   // Dynamic import — fails on Node < 22.5 → driver.js falls back to sql.js

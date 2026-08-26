@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 // Ensure proxyFetch is loaded to patch globalThis.fetch
-import "@/lib/open-sse/index";
+import "@/lib/open-sse/utils/proxyFetch";
 
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
 import { getUsageForProvider } from "@/lib/open-sse/services/usage";

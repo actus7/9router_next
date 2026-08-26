@@ -29,6 +29,7 @@ import { getCapabilitiesForModel } from "../providers/capabilities";
 import { stripUnsupportedModalities } from "../translator/concerns/modality";
 import { prefetchRemoteImages } from "../translator/concerns/prefetch";
 import { resolveSessionId } from "../utils/sessionManager";
+import type { HandleChatCoreOptions, HeadroomDiagnostics, PxpipeSummary } from "./chatCore/types";
 
 /**
  * Core chat handler - shared between SSE and Worker
@@ -46,7 +47,7 @@ import { resolveSessionId } from "../utils/sessionManager";
  * assistant-message field and answer every turn with a literal "400" body
  * (observed with multi-turn Codex sessions via OpenAI-compatible nodes).
  */
-export function stripContinuityFields(body) {
+export function stripContinuityFields(body: Record<string, unknown>): Record<string, unknown> {
   if (!body || !Array.isArray(body.messages)) return body;
   for (const msg of body.messages) {
     if (msg && typeof msg === "object") {
@@ -57,7 +58,7 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }: HandleChatCoreOptions) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -73,7 +74,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const sourceFormat = sourceFormatOverride || detectFormat(body);
 
   // Check for bypass patterns (warmup, skip, cc naming)
-  const bypassResponse = handleBypassRequest(body, model, userAgent, ccFilterNaming);
+  const bypassResponse = handleBypassRequest(body, model, userAgent, ccFilterNaming as boolean | undefined);
   if (bypassResponse) return bypassResponse;
 
   const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
@@ -89,8 +90,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // sourceFormat-matched transport if that format is declared (opencode-go models
   // differ — kimi/glm only do /chat/completions). Undeclared models keep the
   // upstream default (use the transport), preserving behavior for glm/deepseek/...
-  const useTransport = (!modelSupportedFormats || modelSupportedFormats.includes(sourceFormat)) ? runtimeTransport : null;
-  const targetFormat = modelTargetFormat || useTransport?.format || getTargetFormat(provider, credentials);
+  const useTransport = (!modelSupportedFormats || (modelSupportedFormats as string[]).includes(sourceFormat)) ? runtimeTransport : null;
+  const targetFormat = modelTargetFormat || useTransport?.format || getTargetFormat(provider, credentials as Record<string, unknown>);
   if (useTransport && credentials) credentials.runtimeTransport = useTransport;
   const stripList = getModelStrip(alias, model);
   const upstreamModel = getModelUpstreamId(alias, model);
@@ -110,7 +111,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   const clientRequestedStreaming = body.stream === true || sourceFormat === FORMATS.ANTIGRAVITY || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI;
-  const providerRequiresStreaming = PROVIDERS[provider]?.forceStream === true;
+  const providerRequiresStreaming = (PROVIDERS as Record<string, Record<string, unknown>>)[provider]?.forceStream === true;
   let stream = providerRequiresStreaming ? true : (body.stream !== false);
 
   // Image generation models require non-streaming (Google v1internal:generateContent)
@@ -158,7 +159,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     try {
       const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: undefined });
       if (n > 0) log?.debug?.("MODALITY", `prefetched ${n} remote image(s) for ${targetFormat}`);
-    } catch (e) { log?.warn?.("MODALITY", `image prefetch failed: ${e.message}`); }
+    } catch (e: unknown) { log?.warn?.("MODALITY", `image prefetch failed: ${(e as Error).message}`); }
   }
 
   let translatedBody;
@@ -168,15 +169,15 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     log?.debug?.("PASSTHROUGH", `${clientTool} → ${provider} | native lossless`);
     translatedBody = { ...body, model: stripThinkingSuffix(upstreamModel) };
     if (provider === "codex") {
-      const suffixThinking = {};
-      applyThinking(sourceFormat, upstreamModel, suffixThinking, provider);
+      const suffixThinking: Record<string, unknown> = {};
+      applyThinking(sourceFormat, upstreamModel, suffixThinking, provider as unknown as null);
       if (suffixThinking.reasoning_effort) {
-        const reasoning = translatedBody.reasoning;
-        translatedBody.reasoning = {
+        const reasoning = (translatedBody as Record<string, unknown>).reasoning;
+        (translatedBody as Record<string, unknown>).reasoning = {
           ...(reasoning && typeof reasoning === "object" && !Array.isArray(reasoning) ? reasoning : {}),
           effort: suffixThinking.reasoning_effort,
         };
-        delete translatedBody.reasoning_effort;
+        delete (translatedBody as Record<string, unknown>).reasoning_effort;
       }
     }
     // Normalize newer Cowork/CC beta shapes (adaptive thinking, mid-conversation system) the API rejects
@@ -185,7 +186,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
     if (!translatedBody) {
       trackPendingRequest(model, provider, connectionId, false, true);
-      return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);
+      return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`, undefined);
     }
     toolNameMap = translatedBody._toolNameMap;
     delete translatedBody._toolNameMap;
@@ -211,8 +212,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Request line: one correlated summary (fmt + thinking + counts + account)
   if (log?.line) {
     const clientModel = clientRawRequest?.body?.model || `${provider}/${model}`;
-    const msgN = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || body.messages?.length || body.input?.length || 0;
-    const toolN = translatedBody.tools?.length || body.tools?.length || 0;
+    const msgN = (translatedBody as Record<string, unknown>).messages && ((translatedBody as Record<string, unknown>).messages as unknown[]).length || (translatedBody as Record<string, unknown>).input && ((translatedBody as Record<string, unknown>).input as unknown[]).length || (translatedBody as Record<string, unknown>).contents && ((translatedBody as Record<string, unknown>).contents as unknown[]).length || (body.messages as unknown[])?.length || (body.input as unknown[])?.length || 0;
+    const toolN = ((translatedBody as Record<string, unknown>).tools as unknown[])?.length || (body.tools as unknown[])?.length || 0;
     const fmtStr = passthrough ? `FMT: ${sourceFormat} (passthrough)` : `FMT: ${sourceFormat}→${targetFormat}`;
     const showThinking = provider !== "grok-cli" || supportsGrokCliReasoningEffort(model);
     const think = showThinking ? log.fmtThink?.(extractThinking(translatedBody)) : null;
@@ -231,7 +232,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   // TTS models don't support tool messages/function calling
   if (getModelType(alias, model) === "tts" && translatedBody.messages) {
-    translatedBody.messages = translatedBody.messages.filter(msg => msg.role !== "tool");
+    translatedBody.messages = (translatedBody.messages as Record<string, unknown>[]).filter((msg: Record<string, unknown>) => msg.role !== "tool");
     delete translatedBody.tools;
   }
 
@@ -244,8 +245,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (rtkLine) console.log(rtkLine);
 
   // Headroom: optional external proxy compression; fail open if proxy is absent.
-  const headroomDiagnostics = {};
-  const headroomStats = await compressWithHeadroom(translatedBody, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, diagnostics: headroomDiagnostics });
+  const headroomDiagnostics: HeadroomDiagnostics = {};
+  const headroomStats = await compressWithHeadroom(translatedBody, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, diagnostics: headroomDiagnostics } as unknown as Parameters<typeof compressWithHeadroom>[1]);
   const headroomLine = formatHeadroomLog(headroomStats);
   const headroomSizeLine = formatHeadroomSizeLog(headroomDiagnostics);
   if (headroomLine) {

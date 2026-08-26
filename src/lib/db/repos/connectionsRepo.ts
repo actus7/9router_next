@@ -107,7 +107,7 @@ export async function getProviderConnections(filter: ConnectionFilter = {}): Pro
   if (filter.provider) { where.push("provider = ?"); params.push(filter.provider); }
   if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
   const sql: string = `SELECT * FROM providerConnections${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const rows: ConnectionRow[] = db.all(sql, params);
+  const rows = db.all(sql, params) as unknown as ConnectionRow[];
   const list: ProviderConnection[] = rows.map(rowToConn).filter((c): c is ProviderConnection => c !== null);
   list.sort((a: ProviderConnection, b: ProviderConnection) => (a.priority || 999) - (b.priority || 999));
   return list;

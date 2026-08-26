@@ -58,7 +58,7 @@ export function backupDbLite(adapter: DbAdapter, destDir: string, destName: stri
     const excluded: Set<string> = new Set(BACKUP_EXCLUDE_TABLES);
     const tables: Array<{ name: string; sql: string }> = adapter
       .all(`SELECT name, sql FROM main.sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`)
-      .filter((t: { name: string }) => !excluded.has(t.name));
+      .filter((t: Record<string, unknown>) => !excluded.has(t.name as string)) as unknown as Array<{ name: string; sql: string }>;
 
     adapter.transaction(() => {
       for (const t of tables) {

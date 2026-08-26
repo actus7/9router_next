@@ -18,6 +18,11 @@
 import { extractThinking, parseSuffix } from "../translator/concerns/thinkingUnified";
 import { effortToBudget } from "../translator/concerns/thinking";
 
+// Reusable body/headers/model types for Kiro helpers (ported from JS — shapes are dynamic)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type KiroBody = Record<string, any>;
+type KiroHeaders = Record<string, string> | { get(name: string): string | undefined } | undefined;
+
 export const KIRO_AGENTIC_SUFFIX = "-agentic";
 export const KIRO_THINKING_SUFFIX = "-thinking";
 export const KIRO_TOOL_NAME_MAX_LENGTH = 64;
@@ -39,7 +44,7 @@ export const KIRO_DEFAULT_PROFILE_ARNS = {
 export const KIRO_DEFAULT_PROFILE_ARN = KIRO_DEFAULT_PROFILE_ARNS["builder-id"];
 
 /** Resolve the shared default profileArn for a given auth method. */
-export function resolveDefaultProfileArn(authMethod) {
+export function resolveDefaultProfileArn(authMethod: string) {
   const social = authMethod === "google" || authMethod === "github";
   return social ? KIRO_DEFAULT_PROFILE_ARNS.social : KIRO_DEFAULT_PROFILE_ARNS["builder-id"];
 }
@@ -50,7 +55,7 @@ export const KIRO_THINKING_BUDGET_DEFAULT = 16000;
  * Resolve a Kiro model after consuming the generic model(level) suffix.
  * The suffix is a 9router request override, not part of Kiro's upstream model id.
  */
-export function resolveKiroModelIntent(model) {
+export function resolveKiroModelIntent(model: string) {
   const { cleanModel, override } = parseSuffix(model);
   return {
     model: cleanModel,
@@ -60,7 +65,7 @@ export function resolveKiroModelIntent(model) {
 }
 
 /** Apply a parsed model(level) override without mutating the caller's body. */
-export function applyKiroThinkingOverride(body, override) {
+export function applyKiroThinkingOverride(body: Record<string, unknown>, override: { mode: string; budget?: number; level?: string } | null) {
   if (!override) return body;
 
   const next = { ...body };
@@ -144,7 +149,7 @@ REMEMBER: When in doubt, write LESS per operation. Multiple small operations > o
  * @param {string} [model] Model id the caller asked for
  * @returns {number|null} budget to inject, or null when thinking is disabled
  */
-export function resolveKiroThinkingBudget(body, headers, model) {
+export function resolveKiroThinkingBudget(body: KiroBody, headers?: KiroHeaders, model?: string) {
   const cfg = extractThinking(body);
   if (cfg) {
     if (cfg.mode === "none") return null;
@@ -171,7 +176,7 @@ export function resolveKiroThinkingBudget(body, headers, model) {
   return null;
 }
 
-export function extractKiroEffortLevel(body) {
+export function extractKiroEffortLevel(body: KiroBody) {
   const effort =
     body?.output_config?.effort ??
     body?.reasoning_effort ??
@@ -184,7 +189,7 @@ export function extractKiroEffortLevel(body) {
   return null;
 }
 
-function extractKiroGptEffortLevel(body) {
+function extractKiroGptEffortLevel(body: KiroBody) {
   const effort =
     body?.output_config?.effort ??
     body?.reasoning_effort ??
@@ -199,7 +204,7 @@ function extractKiroGptEffortLevel(body) {
   return null;
 }
 
-export function buildKiroAdditionalModelRequestFields(body, effortPath = "output_config") {
+export function buildKiroAdditionalModelRequestFields(body: KiroBody, effortPath: string = "output_config") {
   const effort = effortPath === "reasoning"
     ? extractKiroGptEffortLevel(body)
     : extractKiroEffortLevel(body);
@@ -215,7 +220,7 @@ export function buildKiroAdditionalModelRequestFields(body, effortPath = "output
   };
 }
 
-export function resolveKiroEffortPath(model) {
+export function resolveKiroEffortPath(model: string) {
   if (typeof model !== "string") return null;
   const normalized = model.toLowerCase().replace(/-/g, ".");
   if (/(?:^|[/.])gpt[/.]5[/.]6(?:[/.]|$)/.test(normalized)) {
@@ -236,16 +241,16 @@ export function resolveKiroEffortPath(model) {
     : "output_config";
 }
 
-export function supportsKiroAdditionalModelRequestFields(model) {
+export function supportsKiroAdditionalModelRequestFields(model: string) {
   return resolveKiroEffortPath(model) !== null;
 }
 
-export function usesKiroNativeGptEffort(body, model) {
+export function usesKiroNativeGptEffort(body: KiroBody, model: string) {
   return resolveKiroEffortPath(model) === "reasoning"
     && extractKiroGptEffortLevel(body) !== null;
 }
 
-export function buildKiroAdditionalModelRequestFieldsForModel(body, model) {
+export function buildKiroAdditionalModelRequestFieldsForModel(body: KiroBody, model: string) {
   const effortPath = resolveKiroEffortPath(model);
   if (!effortPath) return undefined;
   return buildKiroAdditionalModelRequestFields(body, effortPath);
@@ -260,7 +265,7 @@ export function buildKiroAdditionalModelRequestFieldsForModel(body, model) {
  * @param {string} [model] Model id the caller asked for (post-strip ok)
  * @returns {boolean}
  */
-export function isThinkingEnabled(body, headers, model) {
+export function isThinkingEnabled(body: KiroBody, headers?: KiroHeaders, model?: string) {
   return resolveKiroThinkingBudget(body, headers, model) !== null;
 }
 
@@ -272,7 +277,7 @@ export function isThinkingEnabled(body, headers, model) {
  * @param {string} model
  * @returns {boolean}
  */
-export function isAgenticModel(model) {
+export function isAgenticModel(model: string) {
   return typeof model === "string" && model.endsWith(KIRO_AGENTIC_SUFFIX);
 }
 
@@ -282,7 +287,7 @@ export function isAgenticModel(model) {
  * @param {string} model
  * @returns {string}
  */
-export function stripAgenticSuffix(model) {
+export function stripAgenticSuffix(model: string) {
   if (!isAgenticModel(model)) return model;
   return model.slice(0, -KIRO_AGENTIC_SUFFIX.length);
 }
@@ -299,7 +304,7 @@ export function stripAgenticSuffix(model) {
  * @param {string} model Model id with `-agentic` already stripped
  * @returns {boolean}
  */
-export function isThinkingModel(model) {
+export function isThinkingModel(model: string) {
   return typeof model === "string" && model.endsWith(KIRO_THINKING_SUFFIX);
 }
 
@@ -309,7 +314,7 @@ export function isThinkingModel(model) {
  * @param {string} model
  * @returns {string}
  */
-export function stripThinkingSuffix(model) {
+export function stripThinkingSuffix(model: string) {
   if (!isThinkingModel(model)) return model;
   return model.slice(0, -KIRO_THINKING_SUFFIX.length);
 }
@@ -330,7 +335,7 @@ export function stripThinkingSuffix(model) {
  * @param {string} model
  * @returns {{ upstream: string, agentic: boolean, thinking: boolean }}
  */
-export function resolveKiroModel(model) {
+export function resolveKiroModel(model: string) {
   let upstream = model;
   let agentic = false;
   let thinking = false;
@@ -356,21 +361,22 @@ export function buildThinkingSystemPrefix(budget = KIRO_THINKING_BUDGET_DEFAULT)
   return `<thinking_mode>enabled</thinking_mode>\n<max_thinking_length>${safeBudget}</max_thinking_length>`;
 }
 
-function pickHeader(headers, name) {
+function pickHeader(headers: KiroHeaders, name: string) {
   if (!headers) return undefined;
-  if (typeof headers.get === "function") {
-    return headers.get(name);
+  if (typeof (headers as { get?: unknown }).get === "function") {
+    return (headers as { get(name: string): string | undefined }).get(name);
   }
   const lower = name.toLowerCase();
-  for (const key of Object.keys(headers)) {
+  const h = headers as Record<string, string>;
+  for (const key of Object.keys(h)) {
     if (key.toLowerCase() === lower) {
-      return headers[key];
+      return h[key];
     }
   }
   return undefined;
 }
 
-function containsThinkingModeTag(body) {
+function containsThinkingModeTag(body: KiroBody) {
   const messages = Array.isArray(body?.messages) ? body.messages : [];
   for (const msg of messages) {
     if (!msg) continue;
@@ -389,7 +395,7 @@ function containsThinkingModeTag(body) {
   return false;
 }
 
-function containsTagInText(text) {
+function containsTagInText(text: string) {
   if (!text) return false;
   if (!text.includes("<thinking_mode>")) return false;
   return text.includes("<thinking_mode>enabled</thinking_mode>")

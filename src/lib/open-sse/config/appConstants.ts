@@ -3,8 +3,8 @@ import { PROVIDERS, PROVIDER_OAUTH } from "./providers";
 import { ANTIGRAVITY_IDE_USER_AGENT } from "../providers/shared";
 
 // === Gemini CLI === derive từ registry gemini-cli.transport
-export const GEMINI_CLI_VERSION = PROVIDERS["gemini-cli"]?.cliVersion;
-export const GEMINI_CLI_API_CLIENT = PROVIDERS["gemini-cli"]?.apiClient;
+export const GEMINI_CLI_VERSION = PROVIDERS["gemini-cli"]?.cliVersion as string | undefined;
+export const GEMINI_CLI_API_CLIENT = PROVIDERS["gemini-cli"]?.apiClient as string | undefined;
 
 // Map Node arch to Gemini CLI arch string (x64/x86/arm64/...)
 function geminiCLIArch() {
@@ -19,12 +19,12 @@ export function geminiCLIUserAgent(model = "unknown") {
 
 // === GitHub Copilot ===
 // Derive từ registry github.transport.copilot
-const _ghCopilot = PROVIDERS.github?.copilot || {};
+const _ghCopilot = (PROVIDERS.github?.copilot || {}) as Record<string, unknown>;
 export const GITHUB_COPILOT = {
-  VSCODE_VERSION: _ghCopilot.vscodeVersion,
-  COPILOT_CHAT_VERSION: _ghCopilot.chatVersion,
-  USER_AGENT: _ghCopilot.userAgent,
-  API_VERSION: _ghCopilot.apiVersion,
+  VSCODE_VERSION: _ghCopilot.vscodeVersion as string | undefined,
+  COPILOT_CHAT_VERSION: _ghCopilot.chatVersion as string | undefined,
+  USER_AGENT: _ghCopilot.userAgent as string | undefined,
+  API_VERSION: _ghCopilot.apiVersion as string | undefined,
 };
 
 // === Antigravity enums ===
@@ -173,12 +173,12 @@ export const CLAUDE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official C
 export const ANTIGRAVITY_DEFAULT_SYSTEM = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**";
 
 // Derive từ registry oauth.refreshLeadMs
-export const REFRESH_LEAD_MS = Object.fromEntries(
-  Object.entries(PROVIDER_OAUTH).filter(([, o]) => o.refreshLeadMs).map(([id, o]) => [id, o.refreshLeadMs])
+export const REFRESH_LEAD_MS: Record<string, unknown> = Object.fromEntries(
+  Object.entries(PROVIDER_OAUTH).filter(([, o]) => (o as Record<string, unknown>).refreshLeadMs).map(([id, o]) => [id, (o as Record<string, unknown>).refreshLeadMs])
 );
 
 // OAuth endpoints
-export const OAUTH_ENDPOINTS = {
+export const OAUTH_ENDPOINTS: Record<string, Record<string, unknown>> = {
   google:    { token: "https://oauth2.googleapis.com/token", auth: "https://accounts.google.com/o/oauth2/auth" },
   openai:    { token: PROVIDER_OAUTH["codex"]?.tokenUrl, auth: PROVIDER_OAUTH["codex"]?.authorizeUrl },
   anthropic: { token: PROVIDER_OAUTH["claude"]?.tokenUrl, auth: "https://api.anthropic.com/v1/oauth/authorize" }, // ≠ claude.authorizeUrl (claude.ai login) — keep
@@ -186,7 +186,7 @@ export const OAUTH_ENDPOINTS = {
   github:    { token: PROVIDER_OAUTH["github"]?.tokenUrl, auth: PROVIDER_OAUTH["github"]?.authorizeUrl, deviceCode: PROVIDER_OAUTH["github"]?.deviceCodeUrl },
 };
 
-let _appVersion;
+let _appVersion: string | undefined;
 function getAppPackageVersion() {
   if (_appVersion) return _appVersion;
   _appVersion = process.env.npm_package_version || "0.0.0";
@@ -195,7 +195,7 @@ function getAppPackageVersion() {
 
 // Kimi Code OAuth / API headers (CLIProxyAPI internal/auth/kimi commonHeaders parity).
 // deviceId must stay stable per connection for the whole OAuth session.
-export function buildKimiHeaders(deviceId) {
+export function buildKimiHeaders(deviceId: string) {
   const osName = platform();
   const architecture = arch();
   let deviceModel = `${osName} ${architecture}`;

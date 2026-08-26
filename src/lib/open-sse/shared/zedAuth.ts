@@ -31,37 +31,104 @@ const PRIVATE_KEY_PREFIX = "zed-rsa-pkcs1:";
 const LLM_TOKEN_TTL_MS = 50 * 60 * 1000;
 const MODEL_CACHE_TTL_MS = 60 * 60 * 1000;
 
-const llmTokenCache = new Map();
-const modelCache = new Map();
-const modelInflight = new Map();
+// Local interfaces for Zed credential/config shapes (ported from JS)
+interface ZedCredentials {
+  accessToken?: string;
+  apiKey?: string;
+  userId?: string;
+  systemId?: string;
+  providerSpecificData?: Record<string, unknown>;
+}
 
-function b64url(value) {
+interface ZedConfig {
+  webBaseUrl?: string;
+  cloudBaseUrl?: string;
+  llmBaseUrl?: string;
+  defaultNativeAppPort?: number;
+}
+
+interface ZedOptions {
+  config?: ZedConfig;
+  signal?: AbortSignal;
+  organizationId?: string;
+  forceRefresh?: boolean;
+  nativeAppPort?: number;
+  systemId?: string;
+  fetchOptions?: Record<string, unknown>;
+}
+
+interface ZedError extends Error {
+  status?: number;
+  body?: unknown;
+}
+
+interface ZedLlmTokenCacheEntry {
+  token: string;
+  expiresAt: number;
+}
+
+interface ZedModelCacheEntry {
+  expiresAt: number;
+  models: ZedModelInfo[];
+  rawModels: Record<string, unknown>[];
+  rawById: Map<string, Record<string, unknown>>;
+  defaultModel: string;
+  defaultFastModel: string;
+  recommendedModels: string[];
+}
+
+interface ZedModelInfo {
+  id: string;
+  name: string;
+  provider: unknown;
+  isLatest: boolean;
+  contextLength: unknown;
+  contextLengthInMaxMode: unknown;
+  maxOutputTokens: unknown;
+  supportsTools: boolean;
+  supportsImages: boolean;
+  supportsThinking: boolean;
+  supportsDisablingThinking: boolean;
+  supportsFastMode: boolean;
+  supportsServerSideCompaction: boolean;
+  supportedEffortLevels: unknown;
+  supportsStreamingTools: boolean;
+  supportsParallelToolCalls: boolean;
+  isDisabled: boolean;
+  disabledReason: unknown;
+}
+
+const llmTokenCache = new Map<string, ZedLlmTokenCacheEntry>();
+const modelCache = new Map<string, ZedModelCacheEntry>();
+const modelInflight = new Map<string, Promise<ZedModelCacheEntry | null>>();
+
+function b64url(value: string | Buffer) {
   return Buffer.from(value).toString("base64url");
 }
 
-function b64urlPadded(buf) {
+function b64urlPadded(buf: Buffer) {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-function fromB64url(value) {
+function fromB64url(value: string) {
   return Buffer.from(String(value || ""), "base64url").toString("utf8");
 }
 
-function normalizeBaseUrl(baseUrl, fallback) {
+function normalizeBaseUrl(baseUrl: string | undefined, fallback: string) {
   return String(baseUrl || fallback).replace(/\/+$/, "");
 }
 
-function zedUrl(config, key, path, fallbackBase) {
-  const base = normalizeBaseUrl(config?.[key], fallbackBase);
+function zedUrl(config: ZedConfig, key: keyof ZedConfig, path: string, fallbackBase: string) {
+  const base = normalizeBaseUrl(config[key] as string | undefined, fallbackBase);
   return `${base}${path}`;
 }
 
 /** Encode a PEM private key as an opaque verifier (flows through the OAuth codeVerifier slot). */
-export function encodeZedPrivateKeyVerifier(privateKeyPem) {
+export function encodeZedPrivateKeyVerifier(privateKeyPem: string) {
   return `${PRIVATE_KEY_PREFIX}${b64url(privateKeyPem)}`;
 }
 
-export function decodeZedPrivateKeyVerifier(verifier) {
+export function decodeZedPrivateKeyVerifier(verifier: string) {
   const value = String(verifier || "");
   if (!value.startsWith(PRIVATE_KEY_PREFIX)) {
     throw new Error("Missing Zed private key verifier; restart the login flow");
@@ -70,7 +137,7 @@ export function decodeZedPrivateKeyVerifier(verifier) {
 }
 
 /** Generate a fresh RSA keypair + the zed.dev native_app_signin URL for it. */
-export function createZedNativeAuthData(config = {}, options = {}) {
+export function createZedNativeAuthData(config: ZedConfig = {}, options: ZedOptions = {}) {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
     modulusLength: 2048,
     publicKeyEncoding: { type: "pkcs1", format: "der" },
@@ -99,15 +166,15 @@ export function createZedNativeAuthData(config = {}, options = {}) {
 }
 
 /** Parse the pasted native-app callback URL/JSON/query into userId + encrypted token. */
-export function parseZedCallbackPayload(input) {
+export function parseZedCallbackPayload(input: string) {
   const raw = String(input || "").trim();
   if (!raw) throw new Error("Missing Zed callback URL");
 
-  let data = {};
+  let data: Record<string, string> = {};
   try {
     data = JSON.parse(raw);
   } catch {
-    let url;
+    let url: URL;
     try {
       url = new URL(raw);
     } catch {
@@ -131,7 +198,7 @@ export function parseZedCallbackPayload(input) {
 }
 
 /** Decrypt the RSA-encrypted access token using the stored private key. */
-export function decryptZedAccessToken(encryptedAccessToken, privateKeyVerifier) {
+export function decryptZedAccessToken(encryptedAccessToken: string, privateKeyVerifier: string) {
   const privateKey = decodeZedPrivateKeyVerifier(privateKeyVerifier);
   const encrypted = Buffer.from(String(encryptedAccessToken), "base64url");
   try {
@@ -156,9 +223,9 @@ export function decryptZedAccessToken(encryptedAccessToken, privateKeyVerifier) 
   }
 }
 
-export function buildZedUserAuthHeader(credentials) {
+export function buildZedUserAuthHeader(credentials: ZedCredentials) {
   const psd = credentials?.providerSpecificData || {};
-  const userId = psd.userId || credentials?.userId;
+  const userId = (psd.userId as string) || credentials?.userId;
   const accessToken = credentials?.accessToken || credentials?.apiKey;
   if (!userId || !accessToken) {
     throw new Error("Zed credential is missing userId or accessToken");
@@ -166,16 +233,16 @@ export function buildZedUserAuthHeader(credentials) {
   return `${userId} ${accessToken}`;
 }
 
-function getSystemId(credentials) {
+function getSystemId(credentials: ZedCredentials) {
   return String(
     credentials?.providerSpecificData?.systemId || credentials?.systemId || "",
   );
 }
 
-async function fetchJson(url, options) {
-  const res = await proxyAwareFetch(url, options);
+async function fetchJson(url: string, options: Record<string, unknown>) {
+  const res = (await proxyAwareFetch(url, options)) as { text(): Promise<string>; ok: boolean; status: number; json(): Promise<unknown> };
   const text = await res.text();
-  let data = null;
+  let data: Record<string, unknown> | null = null;
   if (text) {
     try {
       data = JSON.parse(text);
@@ -185,8 +252,12 @@ async function fetchJson(url, options) {
   }
   if (!res.ok) {
     const message =
-      data?.message || data?.error?.message || data?.error || text || `HTTP ${res.status}`;
-    const err = new Error(String(message));
+      (data as Record<string, unknown> | null)?.message ||
+      ((data as Record<string, unknown> | null)?.error as Record<string, unknown> | undefined)?.message ||
+      (data as Record<string, unknown> | null)?.error ||
+      text ||
+      `HTTP ${res.status}`;
+    const err = new Error(String(message)) as ZedError;
     err.status = res.status;
     err.body = data;
     throw err;
@@ -194,9 +265,9 @@ async function fetchJson(url, options) {
   return data;
 }
 
-export async function fetchZedAuthenticatedUser(credentials, options = {}) {
+export async function fetchZedAuthenticatedUser(credentials: ZedCredentials, options: ZedOptions = {}) {
   const config = options.config || {};
-  const headers = {
+  const headers: Record<string, string> = {
     Accept: "application/json",
     Authorization: buildZedUserAuthHeader(credentials),
   };
@@ -210,49 +281,50 @@ export async function fetchZedAuthenticatedUser(credentials, options = {}) {
   });
 }
 
-function normalizeOrganizationId(value) {
+function normalizeOrganizationId(value: unknown): string {
   if (!value) return "";
   if (typeof value === "string") return value;
   if (typeof value === "object" && value !== null) {
-    if (typeof value[0] === "string") return value[0];
-    if (typeof value.id === "string") return value.id;
+    const v = value as Record<string, unknown>;
+    if (typeof (v as unknown as unknown[])[0] === "string") return (v as unknown as string[])[0];
+    if (typeof v.id === "string") return v.id;
   }
   return String(value);
 }
 
-export function resolveZedOrganizationId(credentials, userInfo = null) {
+export function resolveZedOrganizationId(credentials: ZedCredentials, userInfo: Record<string, unknown> | null = null) {
   const psd = credentials?.providerSpecificData || {};
   const explicit = normalizeOrganizationId(psd.organizationId || psd.defaultOrganizationId);
   if (explicit) return explicit;
   const fromUser = normalizeOrganizationId(
-    userInfo?.default_organization_id || userInfo?.defaultOrganizationId,
+    (userInfo as Record<string, unknown> | null)?.default_organization_id || (userInfo as Record<string, unknown> | null)?.defaultOrganizationId,
   );
   if (fromUser) return fromUser;
-  const orgs = userInfo?.organizations || [];
-  const org = orgs.find((item) => item?.is_personal) || orgs[0];
+  const orgs = ((userInfo as Record<string, unknown> | null)?.organizations as Record<string, unknown>[]) || [];
+  const org = orgs.find((item: Record<string, unknown>) => item?.is_personal) || orgs[0];
   return normalizeOrganizationId(org?.id);
 }
 
-function zedUserCacheKey(credentials, organizationId) {
+function zedUserCacheKey(credentials: ZedCredentials, organizationId: string) {
   const psd = credentials?.providerSpecificData || {};
-  const userId = psd.userId || credentials?.userId || "unknown";
+  const userId = (psd.userId as string) || credentials?.userId || "unknown";
   const token = credentials?.accessToken || credentials?.apiKey || "";
   return `${userId}:${organizationId || "default"}:${token.slice(-16)}`;
 }
 
-function zedModelCacheKey(credentials) {
+function zedModelCacheKey(credentials: ZedCredentials) {
   const psd = credentials?.providerSpecificData || {};
-  const org = psd.organizationId || psd.defaultOrganizationId || "default";
+  const org = (psd.organizationId as string) || (psd.defaultOrganizationId as string) || "default";
   const token = credentials?.accessToken || credentials?.apiKey || "";
-  return `${psd.userId || "unknown"}:${org}:${token.slice(-16)}`;
+  return `${(psd.userId as string) || "unknown"}:${org}:${token.slice(-16)}`;
 }
 
-export async function fetchZedLlmToken(credentials, options = {}) {
+export async function fetchZedLlmToken(credentials: ZedCredentials, options: ZedOptions = {}) {
   const config = options.config || {};
   let organizationId = options.organizationId || resolveZedOrganizationId(credentials);
   if (!organizationId) {
     const userInfo = await fetchZedAuthenticatedUser(credentials, options);
-    organizationId = resolveZedOrganizationId(credentials, userInfo);
+    organizationId = resolveZedOrganizationId(credentials, userInfo as Record<string, unknown>);
   }
   if (!organizationId) throw new Error("No Zed organization selected");
 
@@ -260,7 +332,7 @@ export async function fetchZedLlmToken(credentials, options = {}) {
   const cached = llmTokenCache.get(cacheKey);
   if (!options.forceRefresh && cached && cached.expiresAt > Date.now()) return cached.token;
 
-  const headers = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
     Authorization: buildZedUserAuthHeader(credentials),
@@ -277,14 +349,18 @@ export async function fetchZedLlmToken(credentials, options = {}) {
       signal: options.signal ?? undefined,
     },
   );
+  const d = data as Record<string, unknown> | null;
+  const tokenVal = d?.token;
   const token =
-    typeof data?.token === "string" ? data.token : data?.token?.[0] || data?.token?.value;
+    typeof tokenVal === "string" ? tokenVal :
+    Array.isArray(tokenVal) ? (tokenVal[0] as string) :
+    (tokenVal as Record<string, unknown> | undefined)?.value as string | undefined;
   if (!token) throw new Error("Zed did not return an LLM token");
   llmTokenCache.set(cacheKey, { token, expiresAt: Date.now() + LLM_TOKEN_TTL_MS });
   return token;
 }
 
-export function shouldRefreshZedLlmToken(response) {
+export function shouldRefreshZedLlmToken(response: { status?: number; headers?: { has?(name: string): boolean } }) {
   return (
     response?.status === 401 ||
     !!response?.headers?.has?.(ZED_HEADERS.expiredToken) ||
@@ -292,19 +368,19 @@ export function shouldRefreshZedLlmToken(response) {
   );
 }
 
-export async function zedLlmFetch(credentials, path, options = {}) {
+export async function zedLlmFetch(credentials: ZedCredentials, path: string, options: ZedOptions = {}) {
   const config = options.config || {};
   const url = zedUrl(config, "llmBaseUrl", path, ZED_LLM_BASE_URL);
-  const buildRequest = async (forceRefresh) => {
+  const buildRequest = async (forceRefresh: boolean) => {
     const token = await fetchZedLlmToken(credentials, { ...options, forceRefresh });
     return proxyAwareFetch(url, {
-      ...options.fetchOptions,
+      ...(options.fetchOptions || {}),
       headers: {
-        ...(options.fetchOptions?.headers || {}),
+        ...((options.fetchOptions?.headers as Record<string, string>) || {}),
         Authorization: `Bearer ${token}`,
       },
       signal: options.signal ?? undefined,
-    });
+    }) as Promise<{ ok: boolean; status: number; text(): Promise<string>; json(): Promise<unknown> }>;
   };
 
   let response = await buildRequest(false);
@@ -314,22 +390,23 @@ export async function zedLlmFetch(credentials, path, options = {}) {
   return response;
 }
 
-function normalizeZedModelId(id) {
+function normalizeZedModelId(id: unknown): string {
   if (!id) return "";
   if (typeof id === "string") return id;
   if (typeof id === "object" && id !== null) {
-    if (typeof id[0] === "string") return id[0];
-    if (typeof id.id === "string") return id.id;
+    const obj = id as Record<string, unknown>;
+    if (typeof (obj as unknown as unknown[])[0] === "string") return (obj as unknown as string[])[0];
+    if (typeof obj.id === "string") return obj.id;
   }
   return String(id);
 }
 
-export function mapZedModel(model) {
+export function mapZedModel(model: Record<string, unknown>) {
   const id = normalizeZedModelId(model?.id);
   if (!id) return null;
   return {
     id,
-    name: model.display_name || model.displayName || id,
+    name: (model.display_name as string) || (model.displayName as string) || id,
     provider: model.provider,
     isLatest: !!model.is_latest,
     contextLength: model.max_token_count ?? model.maxTokenCount,
@@ -350,7 +427,7 @@ export function mapZedModel(model) {
 }
 
 /** Resolve (and cache) the live Zed model catalog. Never hardcoded — always a live fetch. */
-export async function resolveZedModels(credentials, options = {}) {
+export async function resolveZedModels(credentials: ZedCredentials, options: ZedOptions = {}) {
   if (!credentials?.accessToken) return null;
   const key = zedModelCacheKey(credentials);
   const cached = modelCache.get(key);
@@ -359,7 +436,7 @@ export async function resolveZedModels(credentials, options = {}) {
   const existing = modelInflight.get(key);
   if (existing && !options.forceRefresh) return existing;
 
-  const promise = (async () => {
+  const promise = (async (): Promise<ZedModelCacheEntry | null> => {
     const response = await zedLlmFetch(credentials, "/models", {
       ...options,
       fetchOptions: {
@@ -374,25 +451,25 @@ export async function resolveZedModels(credentials, options = {}) {
       const text = await response.text().catch(() => "");
       throw new Error(`Zed models failed: ${response.status} ${text}`);
     }
-    const data = await response.json();
-    const rawModels = Array.isArray(data?.models) ? data.models : [];
+    const data = await response.json() as Record<string, unknown>;
+    const rawModels = (Array.isArray(data?.models) ? data.models : []) as Record<string, unknown>[];
     const models = rawModels
       .map(mapZedModel)
-      .filter(Boolean)
+      .filter((m): m is NonNullable<ReturnType<typeof mapZedModel>> => m !== null)
       .filter((model) => !model.isDisabled);
-    const rawById = new Map();
+    const rawById = new Map<string, Record<string, unknown>>();
     for (const raw of rawModels) {
       const id = normalizeZedModelId(raw?.id);
       if (id) rawById.set(id, raw);
     }
-    const entry = {
+    const entry: ZedModelCacheEntry = {
       expiresAt: Date.now() + MODEL_CACHE_TTL_MS,
       models,
       rawModels,
       rawById,
       defaultModel: normalizeZedModelId(data?.default_model ?? data?.defaultModel),
       defaultFastModel: normalizeZedModelId(data?.default_fast_model ?? data?.defaultFastModel),
-      recommendedModels: (data?.recommended_models || data?.recommendedModels || [])
+      recommendedModels: ((data?.recommended_models || data?.recommendedModels || []) as unknown[])
         .map(normalizeZedModelId)
         .filter(Boolean),
     };

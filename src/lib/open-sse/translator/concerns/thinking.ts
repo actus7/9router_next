@@ -6,7 +6,7 @@
 export const EFFORT_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max"];
 
 // Web-standard level → budget_tokens (Anthropic/Gemini docs).
-export const LEVEL_TO_BUDGET = {
+export const LEVEL_TO_BUDGET: Record<string, number> = {
   none: 0,
   minimal: 512,
   low: 1024,
@@ -18,14 +18,14 @@ export const LEVEL_TO_BUDGET = {
 
 // Returns budget_tokens for an effort level, or undefined if unknown.
 // 0 means "no thinking"; undefined means "effort not recognized".
-export function effortToBudget(effort) {
+export function effortToBudget(effort: string | undefined | null): number | undefined {
   if (!effort) return undefined;
   return LEVEL_TO_BUDGET[String(effort).toLowerCase()];
 }
 
 // OpenAI reasoning_effort → Gemini thinkingLevel (gemini-3 enum: minimal|low|medium|high).
 // Gemini 3 cannot fully disable thinking; "none"/"off" map to "minimal".
-export function effortToThinkingLevel(effort) {
+export function effortToThinkingLevel(effort: string | undefined | null): string {
   const e = String(effort).toLowerCase().trim();
   if (e === "none" || e === "off") return "minimal";
   if (e === "xhigh" || e === "max") return "high";
@@ -34,7 +34,7 @@ export function effortToThinkingLevel(effort) {
 
 // Numeric budget → nearest discrete level (reverse map via thresholds).
 // Returns null when budget <= 0 (no reasoning).
-export function budgetToLevel(budget) {
+export function budgetToLevel(budget: number | undefined | null): string | null {
   const b = Number(budget);
   if (!b || b <= 0) return null;
   if (b <= 768) return "minimal";
@@ -45,7 +45,7 @@ export function budgetToLevel(budget) {
 }
 
 // Gemini thinkingBudget (numeric) → OpenAI reasoning_effort (antigravity reverse map).
-export function budgetToEffort(budget) {
+export function budgetToEffort(budget: number | undefined | null): string | null {
   if (!budget || budget <= 0) return null;
   if (budget <= 2048) return "low";
   if (budget <= 16384) return "medium";
