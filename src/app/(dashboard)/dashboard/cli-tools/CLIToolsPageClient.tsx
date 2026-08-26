@@ -5,6 +5,7 @@ import { CardSkeleton } from "@/shared/components";
 import { CLI_TOOLS, MITM_TOOLS } from "@/shared/constants/cliTools";
 import { MitmLinkCard } from "./components";
 import ToolSummaryCard from "./components/ToolSummaryCard";
+import { Shield } from "lucide-react";
 
 const ALL_STATUSES_URL = "/api/cli-tools/all-statuses";
 
@@ -60,7 +61,7 @@ export default function CLIToolsPageClient({ machineId }: CLIToolsPageClientProp
       </div>
       <div className="flex flex-col gap-3 sm:gap-4">
         <div className="flex items-center gap-2 px-1">
-          <span className="material-symbols-outlined text-[18px] text-primary">security</span>
+          <Shield className="size-5" />
           <h2 className="text-sm font-semibold text-text-main">MITM Tools</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">

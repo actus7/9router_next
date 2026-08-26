@@ -8,6 +8,7 @@ import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/prov
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Image from "next/image";
 import ApiKeySelect from "./ApiKeySelect";
+import { ChevronDown, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo {
@@ -108,7 +109,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
               onClick={() => handleCopy(modelValue, "model")}
               className="shrink-0"
             >
-              <span className="material-symbols-outlined text-lg">
+              <span className="text-lg">
                 {copiedField === "model" ? "check" : "content_copy"}
               </span>
             </Button>
@@ -119,7 +120,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
               className="text-text-muted hover:text-red-500"
               title="Clear"
             >
-              <span className="material-symbols-outlined text-lg">close</span>
+              <X className="size-4" />
             </Button>
           </>
         )}
@@ -157,7 +158,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
 
           return (
             <div key={index} className={`flex items-start gap-3 p-3 rounded-lg border ${bgClass}`}>
-              <span className={`material-symbols-outlined text-lg ${iconClass}`}>{icon}</span>
+              <span className={`text-lg ${iconClass}`}>{icon}</span>
               <p className={`text-sm ${textClass}`}>{note.text}</p>
             </div>
           );
@@ -203,7 +204,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
                       onClick={() => handleCopy(item.value!, `${item.step}-${item.title}`)}
                       className="shrink-0"
                     >
-                      <span className="material-symbols-outlined text-lg">
+                      <span className="text-lg">
                         {copiedField === `${item.step}-${item.title}` ? "check" : "content_copy"}
                       </span>
                     </Button>
@@ -224,7 +225,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
                 onClick={() => handleCopy(tool.codeBlock!.code, "codeblock")}
                 className="flex items-center gap-1"
               >
-                <span className="material-symbols-outlined text-sm">
+                <span className="text-sm">
                   {copiedField === "codeblock" ? "check" : "content_copy"}
                 </span>
                 {copiedField === "codeblock" ? "Copied!" : "Copy"}
@@ -256,7 +257,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
       );
     }
     if (tool.icon) {
-      return <span className="material-symbols-outlined text-xl" style={{ color: tool.color }}>{tool.icon}</span>;
+      return <span className="text-xl" style={{ color: tool.color }}>{tool.icon}</span>;
     }
     const iconSrc = getProviderIconSrc(toolId);
     if (!iconSrc) {
@@ -292,7 +293,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
             <p className="text-xs text-text-muted truncate">{tool.description}</p>
           </div>
         </div>
-        <span className={`material-symbols-outlined text-text-muted text-[20px] transition-transform ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
+        <ChevronDown className={`size-5 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
       </div>
 
       {isExpanded && (

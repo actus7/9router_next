@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { marked } from "marked";
 import { GITHUB_CONFIG } from "@/shared/constants/config";
+import { Loader2 } from "lucide-react";
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -43,7 +44,7 @@ export default function ChangelogModal({ isOpen, onClose }: ChangelogModalProps)
         <div className="p-6 overflow-y-auto flex-1">
           {loading && (
             <div className="flex items-center justify-center py-10 text-text-muted">
-              <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
+              <Loader2 className="size-4" />
               Loading...
             </div>
           )}

@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import Button from "@/shared/components/Button";
 import CooldownTimer from "./CooldownTimer";
+import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network, Pencil, Trash2, Zap } from "lucide-react";
 
 interface Connection {
   id: string;
@@ -215,7 +216,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             disabled={isFirst}
             className={isFirst ? "text-text-muted/30" : ""}
           >
-            <span className="material-symbols-outlined text-sm">keyboard_arrow_up</span>
+            <ChevronUp className="size-4" />
           </Button>
           <Button
             variant="ghost"
@@ -224,11 +225,11 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             disabled={isLast}
             className={isLast ? "text-text-muted/30" : ""}
           >
-            <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
+            <ChevronDown className="size-4" />
           </Button>
         </div>
-        <span className="material-symbols-outlined shrink-0 text-base text-text-muted">
-          {authIcon}
+        <span className="shrink-0 text-base text-text-muted">
+          {isCookieConnection ? "cookie" : isOAuthConnection ? <Lock className="size-4" /> : <Key className="size-4" />}
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{displayName}</p>
@@ -293,8 +294,8 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
                 className={`w-full flex-col ${hasAnyProxy ? "text-primary" : ""}`}
                 disabled={updatingProxy}
               >
-                <span className="material-symbols-outlined text-[18px]">
-                  {updatingProxy ? "progress_activity" : "lan"}
+                <span className="text-[18px]">
+                  {updatingProxy ? <Loader2 className="size-[18px] animate-spin" /> : <Network className="size-[18px]" />}
                 </span>
                 <span className="text-[10px] leading-tight">Proxy</span>
               </Button>
@@ -330,7 +331,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
                     onClick={() => autoPing.onToggle(!autoPing.on)}
                     className={`w-full flex-col ${autoPing.on ? "text-primary" : ""}`}
                   >
-                    <span className="material-symbols-outlined text-[18px]">bolt</span>
+                    <Zap className="size-5" />
                     <span className="text-[10px] leading-tight">Auto-ping</span>
                   </Button>
                 </TooltipTrigger>
@@ -339,11 +340,11 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             </TooltipProvider>
           )}
           <Button variant="ghost" onClick={onEdit} className="flex-col">
-            <span className="material-symbols-outlined text-[18px]">edit</span>
+            <Pencil className="size-5" />
             <span className="text-[10px] leading-tight">Edit</span>
           </Button>
           <Button variant="destructive" onClick={onDelete} className="flex-col">
-            <span className="material-symbols-outlined text-[18px]">delete</span>
+            <Trash2 className="size-5" />
             <span className="text-[10px] leading-tight">Delete</span>
           </Button>
         </div>

@@ -7,6 +7,7 @@ import {
   getSkillBlobUrl,
 } from "@/shared/constants/skills";
 import { CopyButton } from "./CopyButton";
+import { ExternalLink } from "lucide-react";
 
 interface Skill {
   id: string;
@@ -32,7 +33,7 @@ function SkillRow({ skill }: { skill: Skill }) {
           skill.isEntry ? "bg-primary text-white" : "bg-primary/10 text-primary"
         }`}
       >
-        <span className="material-symbols-outlined text-[18px]">{skill.icon}</span>
+        <span className="text-[18px]">{skill.icon}</span>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -55,7 +56,7 @@ function SkillRow({ skill }: { skill: Skill }) {
           className="text-[11px] text-text-muted hover:text-primary mt-1 inline-flex items-center gap-1 break-all"
         >
           {url}
-          <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+          <ExternalLink className="size-3" />
         </a>
       </div>
 
@@ -94,7 +95,7 @@ export default function SkillsPage() {
             rel="noreferrer"
             className="text-sm text-primary hover:underline inline-flex items-center gap-1"
           >
-            <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+            <ExternalLink className="size-4" />
             View on GitHub
           </a>
         </div>

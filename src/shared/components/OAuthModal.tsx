@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input } from "@/shared/components";
 import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 
 // Providers using the dynamic-port local callback proxy.
 // Browser OAuth: popup → auto callback → auto exchange → poll-status.
@@ -668,7 +669,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             {modalTitle}
           </DialogTitle>
           <Button onClick={handleClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
@@ -699,7 +700,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
               <>
                 {step === "waiting" && (
                   <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">
-                    <span className="material-symbols-outlined text-base text-primary animate-spin">progress_activity</span>
+                    <Loader2 className="size-4" />
                     <span className="text-sm">Waiting for browser authorization…</span>
                   </div>
                 )}
@@ -753,9 +754,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         {(step === "waiting" || step === "input") && !isDeviceCode && !(provider && PROXY_OAUTH_PROVIDERS.has(provider)) && (
           <>
             <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">
-              <span className="material-symbols-outlined text-base text-primary animate-spin">
-                progress_activity
-              </span>
+              <Loader2 className="size-4" />
               <span className="text-sm">
                 {isXaiProvider ? "Waiting for Grok Build OAuth…" : "Waiting for popup authorization…"}
               </span>
@@ -855,7 +854,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             </div>
             {polling && (
               <div className="flex items-center justify-center gap-2 text-sm text-text-muted">
-                <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                <Loader2 className="size-4" />
                 Waiting for authorization...
               </div>
             )}
@@ -866,7 +865,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         {step === "success" && (
           <div className="text-center py-6">
             <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl text-green-600">check_circle</span>
+              <CheckCircle2 className="size-4" />
             </div>
             <h3 className="text-lg font-semibold mb-2">Connected Successfully!</h3>
             <p className="text-sm text-text-muted mb-4">
@@ -882,7 +881,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         {step === "error" && (
           <div className="text-center py-6">
             <div className="size-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl text-red-600">error</span>
+              <AlertCircle className="size-4" />
             </div>
             <h3 className="text-lg font-semibold mb-2">Connection Failed</h3>
             <p className="text-sm text-red-600 mb-4">{error}</p>

@@ -10,32 +10,51 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Button from "@/shared/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import NineRemotePromoModal from "./NineRemotePromoModal";
+import { BarChart3, ChevronDown, Copy, Film, FolderOpen, Globe, Languages, Layers, Mic, Monitor, Music, Network, Paintbrush, PieChart, PiggyBank, Power, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+const KIND_ICON_MAP: Record<string, LucideIcon> = {
+  data_array: Braces,
+  brush: Paintbrush,
+  image_search: ScanEye,
+  record_voice_over: Mic,
+  mic: Mic,
+  travel_explore: Globe,
+  language: Languages,
+  movie: Film,
+  music_note: Music,
+};
+
+function getKindIcon(iconName: string): React.ReactNode {
+  const IconComponent = KIND_ICON_MAP[iconName];
+  return IconComponent ? <IconComponent className="size-4" /> : <FolderOpen className="size-4" />;
+}
 
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
 // Combined entry: webSearch + webFetch share one page at /dashboard/media-providers/web
-const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: "travel_explore", href: "/dashboard/media-providers/web" };
+const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: <Globe className="size-4" />, href: "/dashboard/media-providers/web" };
 
 const navItems = [
-  { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
-  { href: "/dashboard/providers", label: "Providers", icon: "dns" },
+  { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: <Webhook className="size-5" /> },
+  { href: "/dashboard/providers", label: "Providers", icon: <Server className="size-5" /> },
   // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" }, // Hidden
-  { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: "layers" },
-  { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
-  { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
-  { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
+  { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: <Layers className="size-5" /> },
+  { href: "/dashboard/usage", label: "Usage", icon: <BarChart3 className="size-5" /> },
+  { href: "/dashboard/quota", label: "Quota Tracker", icon: <PieChart className="size-5" /> },
+  { href: "/dashboard/token-saver", label: "Token Saver", icon: <PiggyBank className="size-5" /> },
   // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" },
-  { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
+  { href: "/dashboard/cli-tools", label: "CLI Tools", icon: <Terminal className="size-5" /> },
 ];
 
 const debugItems = [
-  { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
-  { href: "/dashboard/translator", label: "Translator", icon: "translate" },
+  { href: "/dashboard/console-log", label: "Console Log", icon: <Terminal className="size-5" /> },
+  { href: "/dashboard/translator", label: "Translator", icon: <Languages className="size-5" /> },
 ];
 
 const systemItems = [
-  { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
-  { href: "/dashboard/skills", label: "Skills", icon: "extension" },
+  { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: <Network className="size-5" /> },
+  { href: "/dashboard/skills", label: "Skills", icon: <Puzzle className="size-5" /> },
 ];
 
 interface SidebarProps {
@@ -124,7 +143,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
         <div className="px-6 py-4 flex flex-col gap-2">
           <Link href="/dashboard" className="flex items-center gap-3">
             <div className="flex items-center justify-center size-9 rounded-[10px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)]">
-              <span className="material-symbols-outlined text-white text-[20px]">hub</span>
+              <Network className="size-5" />
             </div>
             <div className="flex flex-col">
               <h1 className="text-lg font-semibold tracking-tight text-text-main">
@@ -178,14 +197,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
-              <span
-                className={cn(
-                  "material-symbols-outlined text-[18px]",
-                  isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
-                )}
-              >
-                {item.icon}
-              </span>
+              {item.icon}
               <span className="text-[13px] font-medium">{item.label}</span>
             </Link>
           ))}
@@ -210,11 +222,9 @@ export default function Sidebar({ onClose }: SidebarProps) {
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
-              <span className="material-symbols-outlined text-[18px]">perm_media</span>
+              <FolderOpen className="size-5" />
               <span className="text-[13px] font-medium flex-1 text-left">Media Providers</span>
-              <span className="material-symbols-outlined text-[14px] transition-transform" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
-                expand_more
-              </span>
+              <ChevronDown className="size-3.5 transition-transform" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
             </Button>
             {mediaOpen && (
               <div id="media-providers-submenu" className="pl-4" role="group">
@@ -230,7 +240,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                         : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                     )}
                   >
-                    <span className="material-symbols-outlined text-[16px]">{kind.icon}</span>
+                    {getKindIcon(kind.icon)}
                     <span className="text-sm">{kind.label}</span>
                   </Link>
                 ))}
@@ -245,7 +255,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                       : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   )}
                 >
-                  <span className="material-symbols-outlined text-[16px]">{COMBINED_WEB_ITEM.icon}</span>
+                  {COMBINED_WEB_ITEM.icon}
                   <span className="text-sm">{COMBINED_WEB_ITEM.label}</span>
                 </Link>
               </div>
@@ -264,14 +274,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                     : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                 )}
               >
-                <span
-                  className={cn(
-                    "material-symbols-outlined text-[18px]",
-                    isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
-                  )}
-                >
-                  {item.icon}
-                </span>
+                {item.icon}
                 <span className="text-[13px] font-medium">{item.label}</span>
               </Link>
             ))}
@@ -291,14 +294,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                       : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   )}
                 >
-                  <span
-                    className={cn(
-                      "material-symbols-outlined text-[18px]",
-                      isActive(item.href) ? "fill-1" : "group-hover:text-primary transition-colors"
-                    )}
-                  >
-                    {item.icon}
-                  </span>
+                  {item.icon}
                   <span className="text-[13px] font-medium">{item.label}</span>
                 </Link>
               ) : null;
@@ -314,9 +310,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
-              <span className="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">
-                computer
-              </span>
+              <Monitor className="size-5" />
               <span className="text-[13px] font-medium">9Remote</span>
             </Button>
 
@@ -331,9 +325,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
-              <span className="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">
-                translate
-              </span>
+              <Languages className="size-5" />
               <span className="text-[13px] font-medium">9English</span>
             </a>
 
@@ -349,14 +341,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
-              <span
-                className={cn(
-                  "material-symbols-outlined text-[18px]",
-                  isActive("/dashboard/profile") ? "fill-1" : "group-hover:text-primary transition-colors"
-                )}
-              >
-                settings
-              </span>
+              <Settings className="size-5" />
               <span className="text-[13px] font-medium">Settings</span>
             </Link>
           </div>
@@ -395,7 +380,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
           ) : (
             <div className="text-center p-8">
               <div className="flex items-center justify-center size-16 rounded-full bg-danger/20 text-danger mx-auto mb-4">
-                <span className="material-symbols-outlined text-[32px]">power_off</span>
+                <Power className="size-8" />
               </div>
               <h2 className="text-xl font-semibold text-text-main mb-2">Server Disconnected</h2>
               <p className="text-text-muted mb-6">The proxy server has been stopped.</p>
@@ -426,7 +411,7 @@ function ManualUpdatePanel({ latestVersion, installCmd, copied, onCopyAndShutdow
     <div className="w-full max-w-lg rounded-xl bg-surface border border-border p-6 text-text-main shadow-[var(--shadow-elev)]">
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center justify-center size-11 rounded-full bg-warning/20 text-warning">
-          <span className="material-symbols-outlined text-[24px]">content_copy</span>
+          <Copy className="size-6" />
         </div>
         <div>
           <h2 className="text-lg font-semibold">Update 9Router{latestVersion ? ` to v${latestVersion}` : ""}</h2>

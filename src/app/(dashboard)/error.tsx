@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Button from "@/shared/components/Button";
+import { AlertCircle } from "lucide-react";
 
 export default function DashboardError({
   error,
@@ -18,7 +19,7 @@ export default function DashboardError({
     <div className="flex h-full items-center justify-center p-10">
       <div className="flex flex-col items-center gap-4 text-center max-w-md">
         <div className="flex items-center justify-center size-14 rounded-full bg-danger/10 text-danger">
-          <span className="material-symbols-outlined text-[28px]">error</span>
+          <AlertCircle className="size-7" />
         </div>
         <h2 className="text-lg font-semibold text-text-main">Something went wrong</h2>
         <p className="text-sm text-text-muted">

@@ -10,6 +10,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { AlertCircle } from "lucide-react";
 
 interface SelectOption {
   value: string;
@@ -72,7 +73,7 @@ export default function Select({
       </ShadcnSelect>
       {error && (
         <p className="text-xs text-red-500 flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">error</span>
+          <AlertCircle className="size-3.5" />
           {error}
         </p>
       )}

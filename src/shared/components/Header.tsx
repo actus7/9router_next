@@ -15,6 +15,7 @@ import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
+import { BarChart3, ChevronRight, Globe, Heart, Key, Languages, Layers, Menu, Monitor, Network, PieChart, PiggyBank, Puzzle, Search, Server, Settings, Shield, Terminal, User, Webhook, X } from "lucide-react";
 
 interface Breadcrumb {
   label: string;
@@ -25,7 +26,7 @@ interface Breadcrumb {
 interface PageInfo {
   title: string;
   description: string;
-  icon?: string;
+  icon?: React.ReactNode;
   breadcrumbs: Breadcrumb[];
 }
 
@@ -58,7 +59,7 @@ const getPageInfo = (pathname: string | null): PageInfo => {
     return {
       title: kindConfig?.label || kindId,
       description: `Manage your ${kindConfig?.label || kindId} providers`,
-      icon: kindConfig?.icon || "perm_media",
+      icon: <Globe className="size-6" />,
       breadcrumbs: [],
     };
   }
@@ -88,14 +89,14 @@ const getPageInfo = (pathname: string | null): PageInfo => {
     return {
       title: "Providers",
       description: "Manage your AI provider connections",
-      icon: "dns",
+      icon: <Server className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/combos"))
     return {
       title: "Combos",
       description: "Model combos with fallback",
-      icon: "layers",
+      icon: <Layers className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/usage"))
@@ -103,91 +104,91 @@ const getPageInfo = (pathname: string | null): PageInfo => {
       title: "Usage & Analytics",
       description:
         "Monitor your API usage, token consumption, and request logs",
-      icon: "bar_chart",
+      icon: <BarChart3 className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/auth-files"))
     return {
       title: "Auth Files",
       description: "Map provider credentials stored in the local database",
-      icon: "vpn_key",
+      icon: <Key className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/quota"))
     return {
       title: "Quota Tracker",
       description: "Track and manage your API quota limits",
-      icon: "data_usage",
+      icon: <PieChart className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/mitm"))
     return {
       title: "MITM Proxy",
       description: "Intercept CLI tool traffic and route through 9Router",
-      icon: "security",
+      icon: <Shield className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/token-saver"))
     return {
       title: "Token Saver",
       description: "Compress prompts and outputs to save tokens",
-      icon: "savings",
+      icon: <PiggyBank className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/cli-tools"))
     return {
       title: "CLI Tools",
       description: "Configure CLI tools",
-      icon: "terminal",
+      icon: <Terminal className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/proxy-pools"))
     return {
       title: "Proxy Pools",
       description: "Manage your proxy pool configurations",
-      icon: "lan",
+      icon: <Network className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/skills"))
     return {
       title: "Agent Skills",
       description: "Copy a link and paste to your AI to use 9Router — no install needed",
-      icon: "extension",
+      icon: <Puzzle className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/endpoint"))
     return {
       title: "Endpoint",
       description: "API endpoint configuration",
-      icon: "api",
+      icon: <Webhook className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/profile"))
     return {
       title: "Settings",
       description: "Manage your preferences",
-      icon: "settings",
+      icon: <Settings className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/translator"))
     return {
       title: "Translator",
       description: "Debug translation flow between formats",
-      icon: "translate",
+      icon: <Languages className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/console-log"))
     return {
       title: "Console Log",
       description: "Live server console output",
-      icon: "monitor",
+      icon: <Monitor className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname === "/dashboard")
     return {
       title: "Endpoint",
       description: "API endpoint configuration",
-      icon: "api",
+      icon: <Webhook className="size-6" />,
       breadcrumbs: [],
     };
   return { title: "", description: "", breadcrumbs: [] };
@@ -258,7 +259,7 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
             aria-expanded="false"
             className="text-text-main hover:text-primary"
           >
-            <span className="material-symbols-outlined">menu</span>
+            <Menu className="size-4" />
           </Button>
         )}
       </div>
@@ -273,9 +274,7 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
                 className="flex items-center gap-2"
               >
                 {index > 0 && (
-                  <span className="material-symbols-outlined text-text-muted text-base">
-                    chevron_right
-                  </span>
+                  <ChevronRight className="size-4" />
                 )}
                 {crumb.href ? (
                   <Link
@@ -307,7 +306,7 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
           <div>
             <div className="flex items-center gap-2">
               {icon && (
-                <span className="material-symbols-outlined text-primary text-xl lg:text-2xl">
+                <span className="text-primary [&>svg]:size-5 lg:[&>svg]:size-6">
                   {icon}
                 </span>
               )}
@@ -331,7 +330,7 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
             className="hidden sm:flex items-center max-w-[220px] px-3 py-1.5 rounded-full border border-border bg-surface/70 text-xs text-text-muted truncate"
             title={displayName}
           >
-            <span className="material-symbols-outlined text-[14px] mr-1.5 text-primary">person</span>
+            <User className="size-4" />
             <span className="truncate">{displayName}</span>
             <span className="ml-2 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
               {loginMethod}
@@ -346,7 +345,7 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
           className="flex items-center gap-1.5 px-3 h-8 border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20 text-sm font-medium"
           aria-label="Donate"
         >
-          <span className="material-symbols-outlined text-[18px]">volunteer_activism</span>
+          <Heart className="size-5" />
           <span className="hidden sm:inline">Donate</span>
         </Button>
         <ThemeToggle />
@@ -368,9 +367,7 @@ function HeaderSearch() {
 
   return (
     <div className="relative w-[160px] sm:w-[220px]">
-      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
-        search
-      </span>
+      <Search className="size-4" />
       <Input
         type="text"
         value={query}
@@ -387,7 +384,7 @@ function HeaderSearch() {
           className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main"
           aria-label="Clear search"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <X className="size-4" />
         </Button>
       )}
     </div>

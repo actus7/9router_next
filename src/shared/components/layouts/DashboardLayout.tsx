@@ -6,6 +6,7 @@ import { useNotificationStore } from "@/store/notificationStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
 import Button from "@/shared/components/Button";
+import { AlertCircle, CheckCircle, Info, TriangleAlert, X } from "lucide-react";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
@@ -13,24 +14,24 @@ function getToastStyle(type: ToastType) {
   if (type === "success") {
     return {
       wrapper: "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400",
-      icon: "check_circle",
+      icon: <CheckCircle className="size-[18px] leading-5" />,
     };
   }
   if (type === "error") {
     return {
       wrapper: "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
-      icon: "error",
+      icon: <AlertCircle className="size-[18px] leading-5" />,
     };
   }
   if (type === "warning") {
     return {
       wrapper: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-      icon: "warning",
+      icon: <TriangleAlert className="size-[18px] leading-5" />,
     };
   }
   return {
     wrapper: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400",
-    icon: "info",
+    icon: <Info className="size-[18px] leading-5" />,
   };
 }
 
@@ -66,7 +67,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               className={`rounded-lg border px-3 py-2 shadow-lg backdrop-blur-sm ${style.wrapper}`}
             >
               <div className="flex items-start gap-2">
-                <span className="material-symbols-outlined text-[18px] leading-5">{style.icon}</span>
+                {style.icon}
                 <div className="min-w-0 flex-1">
                   {n.title ? <p className="text-xs font-semibold mb-0.5">{n.title}</p> : null}
                   <p className="text-xs whitespace-pre-wrap break-words">{n.message}</p>
@@ -80,7 +81,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     className="text-current/70 hover:text-current"
                     aria-label="Dismiss notification"
                   >
-                    <span className="material-symbols-outlined text-[16px]">close</span>
+                    <X className="size-4" />
                   </Button>
                 ) : null}
               </div>

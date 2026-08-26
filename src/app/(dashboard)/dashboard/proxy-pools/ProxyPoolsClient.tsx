@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useNotificationStore } from "@/store/notificationStore";
+import { ChevronDown, ChevronUp, Cloud, CloudUpload, FlaskConical, ListChecks, Loader2, Pencil, Terminal, Trash2 } from "lucide-react";
 
 interface ProxyPool {
   id: string;
@@ -605,9 +606,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
               onClick={() => setShowRelayMenu(!showRelayMenu)}
             >
               Deploy Relay
-              <span className="material-symbols-outlined ml-1 text-[18px]">
-                {showRelayMenu ? "expand_less" : "expand_more"}
-              </span>
+              {showRelayMenu ? <ChevronUp className="size-4 ml-1" /> : <ChevronDown className="size-4 ml-1" />}
             </Button>
 
             {showRelayMenu && (
@@ -620,7 +619,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                   }}
                   className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
-                  <span className="material-symbols-outlined text-[20px] text-orange-500">cloud</span>
+                  <Cloud className="size-5" />
                   Cloudflare Relay
                 </Button>
                 <Button
@@ -631,7 +630,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                   }}
                   className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
-                  <span className="material-symbols-outlined text-[20px] text-blue-500">cloud_upload</span>
+                  <CloudUpload className="size-5" />
                   Vercel Relay
                 </Button>
                 <Button
@@ -642,7 +641,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                   }}
                   className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
-                  <span className="material-symbols-outlined text-[20px] text-green-500">terminal</span>
+                  <Terminal className="size-5" />
                   Deno Relay
                 </Button>
               </div>
@@ -679,7 +678,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
 
         {(selectedIds.length > 0 || healthChecking) && (
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
-            <span className="material-symbols-outlined text-[18px] text-primary">checklist</span>
+            <ListChecks className="size-5" />
             <span className="text-xs font-medium text-primary">
               {selectedIds.length > 0 ? `${selectedIds.length} selected` : "All pools"}
             </span>
@@ -778,12 +777,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     title="Test proxy"
                     disabled={testingId === pool.id}
                   >
-                    <span
-                      className="material-symbols-outlined text-[18px]"
-                      style={testingId === pool.id ? { animation: "spin 1s linear infinite" } : undefined}
-                    >
-                      {testingId === pool.id ? "progress_activity" : "science"}
-                    </span>
+                    {testingId === pool.id ? <Loader2 className="size-4 animate-spin" /> : <FlaskConical className="size-4" />}
                   </Button>
                   <Button
                     variant="ghost"
@@ -791,7 +785,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     onClick={() => openEditModal(pool)}
                     title="Edit"
                   >
-                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                    <Pencil className="size-5" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -800,7 +794,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
                     title="Delete"
                   >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                    <Trash2 className="size-5" />
                   </Button>
                 </div>
               </div>

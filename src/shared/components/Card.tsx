@@ -16,7 +16,7 @@ type CardPadding = "none" | "xs" | "sm" | "md" | "lg";
 interface CardProps extends React.ComponentProps<typeof ShadcnCard> {
   title?: string;
   subtitle?: string;
-  icon?: string;
+  icon?: React.ReactNode;
   action?: React.ReactNode;
   padding?: CardPadding;
   hover?: boolean;
@@ -79,10 +79,8 @@ export default function Card({
         <CardHeader>
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="p-2 rounded-[10px] bg-bg text-text-muted">
-                <span className="material-symbols-outlined text-[20px]">
-                  {icon}
-                </span>
+              <div className="p-2 rounded-[10px] bg-bg text-text-muted [&>svg]:size-5">
+                {icon}
               </div>
             )}
             <div className="grid gap-1">

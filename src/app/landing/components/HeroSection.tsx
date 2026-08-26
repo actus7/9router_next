@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@/shared/components/Button";
+import { Code, Rocket } from "lucide-react";
 
 export default function HeroSection() {
   return (
@@ -29,7 +30,7 @@ export default function HeroSection() {
         {/* CTA Buttons */}
         <div className="flex flex-wrap items-center justify-center gap-4 w-full">
           <Button className="h-12 px-8 rounded-lg bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-base font-bold shadow-[0_0_15px_rgba(249,120,21,0.4)]">
-            <span className="material-symbols-outlined">rocket_launch</span>
+            <Rocket className="size-4" />
             Get Started
           </Button>
           <a 
@@ -38,7 +39,7 @@ export default function HeroSection() {
             rel="noopener noreferrer"
             className="h-12 px-8 rounded-lg border border-[#3a2f27] bg-[#23180f] hover:bg-[#3a2f27] text-white text-base font-bold transition-all flex items-center gap-2"
           >
-            <span className="material-symbols-outlined">code</span>
+            <Code className="size-4" />
             View on GitHub
           </a>
         </div>

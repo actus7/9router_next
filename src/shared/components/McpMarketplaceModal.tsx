@@ -8,6 +8,7 @@ import Button from "@/shared/components/Button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, X } from "lucide-react";
 
 const REGISTRY_ENDPOINT = "/api/cli-tools/cowork-mcp-registry";
 const TOOLS_ENDPOINT = "/api/cli-tools/cowork-mcp-tools";
@@ -158,7 +159,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
             Browse MCP Marketplace
           </DialogTitle>
           <Button onClick={onClose} aria-label="Close" variant="ghost" size="icon-sm">
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
@@ -189,7 +190,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
 
         {loading && (
           <div className="flex items-center gap-2 text-text-muted text-xs py-4 justify-center">
-            <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+            <Loader2 className="size-5" />
             <span>Loading registry...</span>
           </div>
         )}
@@ -250,7 +251,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                     <div className="px-3 py-2 bg-surface/40 border-t border-border flex flex-col gap-2">
                       {isLoadingTools && (
                         <div className="flex items-center gap-2 text-text-muted text-[10px] py-1">
-                          <span className="material-symbols-outlined animate-spin text-[14px]">progress_activity</span>
+                          <Loader2 className="size-4" />
                           <span>Probing server for tools...</span>
                         </div>
                       )}

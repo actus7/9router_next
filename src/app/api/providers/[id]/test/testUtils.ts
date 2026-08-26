@@ -17,7 +17,7 @@ import {
   KILOCODE_CONFIG,
   KIMCHI_CONFIG,
 } from "@/lib/oauth/constants/oauth";
-import { buildClineHeaders } from "@/shared/utils/clineAuth";
+import { buildClineHeaders } from "@/lib/open-sse/shared/clineAuth";
 
 interface OAuthTestConfig {
   url?: string;

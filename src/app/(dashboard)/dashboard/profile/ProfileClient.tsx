@@ -8,10 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { useTheme } from "@/shared/hooks/useTheme";
-import { cn } from "@/shared/utils/cn";
+import { cn } from "@/lib/utils";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { LOCALE_FLAGS } from "@/shared/constants/locales";
+import { BarChart3, BookOpen, ChevronDown, ChevronUp, Contrast, Download, Globe, Monitor, Moon, Route, Shield, Sun, Unlock, Wifi } from "lucide-react";
 
 interface Settings {
   fallbackStrategy?: string;
@@ -758,7 +759,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="size-10 sm:size-12 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-xl sm:text-2xl">computer</span>
+                <Monitor className="size-4" />
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-semibold">Local Mode</h2>
@@ -779,9 +780,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       : "text-text-muted hover:text-text-main"
                   )}
                 >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {option === "light" ? "light_mode" : option === "dark" ? "dark_mode" : "contrast"}
-                  </span>
+                  {option === "light" ? <Sun className="size-4" /> : option === "dark" ? <Moon className="size-4" /> : <Contrast className="size-4" />}
                   <span className="capitalize text-xs sm:text-sm">{option}</span>
                 </Button>
               ))}
@@ -833,7 +832,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="size-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[20px]">language</span>
+              <Globe className="size-5" />
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Language</h3>
           </div>
@@ -852,7 +851,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-              <span className="material-symbols-outlined text-[20px]">shield</span>
+              <Shield className="size-5" />
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Security</h3>
           </div>
@@ -932,7 +931,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             className="w-full flex items-center gap-3 text-left justify-start"
           >
             <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">lock_open</span>
+              <Unlock className="size-5" />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-base sm:text-lg font-semibold">Single Sign-On (SSO)</h3>
@@ -944,9 +943,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     : "Optional SSO via Okta, Entra ID, Keycloak, or OIDC"}
               </p>
             </div>
-            <span className="material-symbols-outlined text-text-muted shrink-0">
-              {oidcExpanded ? "expand_less" : "expand_more"}
-            </span>
+            {oidcExpanded ? <ChevronUp className="size-5 text-text-muted shrink-0" /> : <ChevronDown className="size-5 text-text-muted shrink-0" />}
           </Button>
           {oidcExpanded && (
             <div className="flex flex-col gap-4 mt-4">
@@ -1053,7 +1050,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       className="w-full p-3 flex items-center justify-between gap-2 text-left hover:bg-surface/50 transition-colors justify-start h-auto"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary text-lg">menu_book</span>
+                        <BookOpen className="size-4" />
                         <div>
                           <p className="font-semibold text-xs sm:text-sm text-text-main">
                             IdP Setup Guidelines & Provider Configuration Instructions
@@ -1063,12 +1060,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                           </p>
                         </div>
                       </div>
-                      <span
-                        className="material-symbols-outlined text-text-muted transition-transform text-lg"
-                        style={{ transform: showSamlGuide ? "rotate(180deg)" : "none" }}
-                      >
-                        expand_more
-                      </span>
+                      <ChevronDown className={`size-5 text-text-muted transition-transform text-lg ${showSamlGuide ? "rotate-180" : ""}`} />
                     </Button>
 
                     {showSamlGuide && (
@@ -1287,7 +1279,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                         download="9router-sp-metadata.xml"
                         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                       >
-                        <span className="material-symbols-outlined text-[16px]">download</span>
+                        <Download className="size-4" />
                         Download XML
                       </a>
                     </div>
@@ -1430,7 +1422,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">route</span>
+              <Route className="size-5" />
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Routing Strategy</h3>
           </div>
@@ -1521,7 +1513,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">wifi</span>
+              <Wifi className="size-5" />
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Network</h3>
           </div>
@@ -1593,7 +1585,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         <Card>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">monitoring</span>
+              <BarChart3 className="size-5" />
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Observability</h3>
           </div>

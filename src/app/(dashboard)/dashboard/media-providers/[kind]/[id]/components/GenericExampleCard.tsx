@@ -9,6 +9,7 @@ import { MEDIA_PROVIDER_KINDS, getProviderAlias, resolveProviderId } from "@/sha
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Row, KIND_EXAMPLE_CONFIG } from "./exampleShared";
+import { Check, CheckCircle2, Copy, Download, Loader2, Play, Wifi, X } from "lucide-react";
 
 const CLOUDFLARE_TEST_IMAGE_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog.png";
 const CLOUDFLARE_TEST_MASK_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog-mask.png";
@@ -269,7 +270,7 @@ export function GenericExampleCard({ providerId, kind }) {
                 title={useTunnel ? "Using tunnel" : "Using local"}
                 className="shrink-0"
               >
-                <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
+                <Wifi className="size-4" />
                 Tunnel
               </Button>
             )}
@@ -323,7 +324,7 @@ export function GenericExampleCard({ providerId, kind }) {
                 onClick={() => setInput("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
               >
-                <span className="material-symbols-outlined text-[14px]">close</span>
+                <X className="size-4" />
               </Button>
             )}
           </div>
@@ -348,7 +349,7 @@ export function GenericExampleCard({ providerId, kind }) {
                     onClick={() => setRefImage("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                   >
-                    <span className="material-symbols-outlined text-[14px]">close</span>
+                    <X className="size-4" />
                   </Button>
                 )}
               </div>
@@ -385,7 +386,7 @@ export function GenericExampleCard({ providerId, kind }) {
                     onClick={() => setMaskImage("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                   >
-                    <span className="material-symbols-outlined text-[14px]">close</span>
+                    <X className="size-4" />
                   </Button>
                 )}
               </div>
@@ -467,7 +468,7 @@ export function GenericExampleCard({ providerId, kind }) {
                 onClick={() => copyCurl(curlSnippet)}
                 className="text-text-muted hover:text-primary"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
+                {copiedCurl ? <Check className="size-4" /> : <Copy className="size-4" />}
                 {copiedCurl ? "Copied" : "Copy"}
               </Button>
             <Button
@@ -476,9 +477,7 @@ export function GenericExampleCard({ providerId, kind }) {
               size="sm"
               className="w-full sm:w-auto"
             >
-                <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
-                  play_arrow
-                </span>
+                <Play className={`size-4 ${running ? "animate-spin" : ""}`} />
                 {running ? "Running..." : "Run"}
               </Button>
             </div>
@@ -489,9 +488,7 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Streaming progress */}
         {(running || progress) && useStreaming && (
           <div className="flex flex-col gap-2 px-3 py-2 rounded-lg bg-sidebar border border-border sm:flex-row sm:items-center sm:gap-3">
-            <span className="material-symbols-outlined text-[16px] text-primary" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
-              {running ? "progress_activity" : "check_circle"}
-            </span>
+            {running ? <Loader2 className="size-4 text-primary animate-spin" /> : <CheckCircle2 className="size-4 text-primary" />}
             <span className="text-xs text-text-muted">
               {progress?.stage || "starting"}
               {!running && progress?.bytesReceived ? ` · ${(progress.bytesReceived / 1024).toFixed(1)} KB` : ""}
@@ -529,7 +526,7 @@ export function GenericExampleCard({ providerId, kind }) {
                 onClick={() => copyRes(resultJson)}
                 className="text-text-muted hover:text-primary"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedRes ? "check" : "content_copy"}</span>
+                {copiedRes ? <Check className="size-4" /> : <Copy className="size-4" />}
                 {copiedRes ? "Copied" : "Copy"}
               </Button>
             )}
@@ -545,7 +542,7 @@ export function GenericExampleCard({ providerId, kind }) {
                   download="image.png"
                   className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[14px]">download</span>
+                  <Download className="size-4" />
                   Download
                 </a>
               </div>

@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input } from "@/shared/components";
 import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 
 interface AuthData {
   authUrl: string;
@@ -134,7 +135,7 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
             {`Connect Kiro via ${providerName}`}
           </DialogTitle>
           <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
@@ -143,9 +144,7 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
         {step === "loading" && (
           <div className="text-center py-6">
             <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl text-primary animate-spin">
-                progress_activity
-              </span>
+              <Loader2 className="size-4" />
             </div>
             <h3 className="text-lg font-semibold mb-2">Initializing...</h3>
             <p className="text-sm text-text-muted">
@@ -201,7 +200,7 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
         {step === "success" && (
           <div className="text-center py-6">
             <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl text-green-600">check_circle</span>
+              <CheckCircle2 className="size-4" />
             </div>
             <h3 className="text-lg font-semibold mb-2">Connected Successfully!</h3>
             <p className="text-sm text-text-muted mb-4">
@@ -217,7 +216,7 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
         {step === "error" && (
           <div className="text-center py-6">
             <div className="size-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl text-red-600">error</span>
+              <AlertCircle className="size-4" />
             </div>
             <h3 className="text-lg font-semibold mb-2">Connection Failed</h3>
             <p className="text-sm text-red-600 mb-4">{error}</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { ExternalLink } from "lucide-react";
 
 interface FieldSchema {
   label: string;
@@ -69,7 +70,7 @@ export default function ProviderInfoCard({ config, provider, title = "Provider I
               rel="noopener noreferrer"
               className="text-xs text-primary hover:underline inline-flex items-center gap-1"
             >
-              <span className="material-symbols-outlined text-sm">open_in_new</span>
+              <ExternalLink className="size-4" />
               Get API Key
             </a>
           )}

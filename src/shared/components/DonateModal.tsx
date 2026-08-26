@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { GITHUB_CONFIG } from "@/shared/constants/config";
+import { ExternalLink, Heart, CreditCard, Coffee, Gift, Bitcoin, Banknote, Loader2, type LucideIcon } from "lucide-react";
 
 interface DonateChannel {
   id: string;
@@ -12,6 +13,25 @@ interface DonateChannel {
   color: string;
   url?: string;
   qr?: string;
+}
+
+const DONATE_ICON_MAP: Record<string, LucideIcon> = {
+  volunteer_activism: Heart,
+  favorite: Heart,
+  coffee: Coffee,
+  payments: CreditCard,
+  credit_card: CreditCard,
+  card_giftcard: Gift,
+  redeem: Gift,
+  currency_bitcoin: Bitcoin,
+  account_balance: Banknote,
+  currency_exchange: Banknote,
+};
+
+function getDonateIcon(iconName: string): React.ReactNode {
+  const IconComponent = DONATE_ICON_MAP[iconName];
+  if (IconComponent) return <IconComponent className="size-7" />;
+  return <Heart className="size-7" />;
 }
 
 interface DonateData {
@@ -51,7 +71,7 @@ export default function DonateModal({ isOpen, onClose }: DonateModalProps) {
 
         <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5">
           <h2 className="text-lg font-semibold text-text-main flex items-center gap-2">
-            <span className="material-symbols-outlined text-pink-500">volunteer_activism</span>
+            <Heart className="size-4" />
             {data?.title || "Support 9Router"}
           </h2>
         </div>
@@ -59,7 +79,7 @@ export default function DonateModal({ isOpen, onClose }: DonateModalProps) {
         <div className="p-6 overflow-y-auto flex-1">
           {loading && (
             <div className="flex items-center justify-center py-10 text-text-muted">
-              <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
+              <Loader2 className="size-4" />
               Loading...
             </div>
           )}
@@ -96,7 +116,7 @@ function DonateChannelCard({ channel }: DonateChannelCardProps) {
         className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
         style={{ backgroundColor: `${color}20`, color }}
       >
-        <span className="material-symbols-outlined text-[26px]">{icon}</span>
+        {getDonateIcon(icon)}
       </div>
       <div className="font-semibold text-text-main mb-1">{label}</div>
       {description && (
@@ -126,7 +146,7 @@ function DonateChannelCard({ channel }: DonateChannelCardProps) {
           style={{ backgroundColor: color }}
         >
           Open
-          <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+          <ExternalLink className="size-4" />
         </a>
       )}
     </div>

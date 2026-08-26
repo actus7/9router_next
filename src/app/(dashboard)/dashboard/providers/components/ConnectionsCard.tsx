@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network, Pencil, Trash2 } from "lucide-react";
 
 // ── CooldownTimer ──────────────────────────────────────────────
 interface CooldownTimerProps {
@@ -152,13 +153,13 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
       <div className="flex w-full min-w-0 flex-1 items-start gap-3 sm:items-center">
         <div className="flex flex-col">
           <Button variant="ghost" size="icon-sm" onClick={onMoveUp} disabled={isFirst} className={isFirst ? "text-text-muted/30" : ""}>
-            <span className="material-symbols-outlined text-sm">keyboard_arrow_up</span>
+            <ChevronUp className="size-4" />
           </Button>
           <Button variant="ghost" size="icon-sm" onClick={onMoveDown} disabled={isLast} className={isLast ? "text-text-muted/30" : ""}>
-            <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
+            <ChevronDown className="size-4" />
           </Button>
         </div>
-        <span className="material-symbols-outlined text-base text-text-muted">{isOAuth ? "lock" : "key"}</span>
+        <span className="text-base text-text-muted">{isOAuth ? <Lock className="size-4" /> : <Key className="size-4" />}</span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{displayName}</p>
           <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -191,7 +192,7 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
                 className={`flex-col ${hasAnyProxy ? "text-primary" : ""}`}
                 disabled={updatingProxy}
               >
-                <span className="material-symbols-outlined text-[18px]">{updatingProxy ? "progress_activity" : "lan"}</span>
+                <span className="text-[18px]">{updatingProxy ? <Loader2 className="size-[18px] animate-spin" /> : <Network className="size-[18px]" />}</span>
                 <span className="text-[10px] leading-tight">Proxy</span>
               </Button>
               {showProxyDropdown && (
@@ -205,11 +206,11 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
             </div>
           )}
           <Button variant="ghost" onClick={onEdit} className="flex-col">
-            <span className="material-symbols-outlined text-[18px]">edit</span>
+            <Pencil className="size-5" />
             <span className="text-[10px] leading-tight">Edit</span>
           </Button>
           <Button variant="destructive" onClick={onDelete} className="flex-col">
-            <span className="material-symbols-outlined text-[18px]">delete</span>
+            <Trash2 className="size-5" />
             <span className="text-[10px] leading-tight">Delete</span>
           </Button>
         </div>

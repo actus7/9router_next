@@ -10,6 +10,7 @@ import { getModelKind } from "@/shared/constants/models";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Row } from "./exampleShared";
+import { Check, Copy, Play, Wifi } from "lucide-react";
 
 export function SttExampleCard({ providerId }) {
   const providerAlias = getProviderAlias(providerId);
@@ -153,7 +154,7 @@ export function SttExampleCard({ providerId }) {
                   useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "text-text-muted hover:text-primary"
                 }`}
               >
-                <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
+                <Wifi className="size-4" />
                 Tunnel
               </Button>
             )}
@@ -253,7 +254,7 @@ export function SttExampleCard({ providerId }) {
                 onClick={() => copyCurl(curlSnippet)}
                 className="inline-flex items-center gap-1 text-text-muted hover:text-primary"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
+                {copiedCurl ? <Check className="size-4" /> : <Copy className="size-4" />}
                 {copiedCurl ? "Copied" : "Copy"}
               </Button>
               <Button
@@ -262,9 +263,7 @@ export function SttExampleCard({ providerId }) {
                 className="flex w-full sm:w-auto items-center justify-center gap-1.5"
                 size="sm"
               >
-                <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
-                  play_arrow
-                </span>
+                <Play className={`size-4 ${running ? "animate-spin" : ""}`} />
                 {running ? "Transcribing..." : "Run"}
               </Button>
             </div>
@@ -287,7 +286,7 @@ export function SttExampleCard({ providerId }) {
                 onClick={() => copyRes(resultStr)}
                 className="inline-flex items-center gap-1 text-text-muted hover:text-primary"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedRes ? "check" : "content_copy"}</span>
+                {copiedRes ? <Check className="size-4" /> : <Copy className="size-4" />}
                 {copiedRes ? "Copied" : "Copy"}
               </Button>
             )}

@@ -6,11 +6,12 @@ import Button from "@/shared/components/Button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import Drawer from "@/shared/components/Drawer";
 import Pagination from "@/shared/components/Pagination";
-import { cn } from "@/shared/utils/cn";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { ArrowLeftFromLine, ArrowRightToLine, Brain, ChevronRight, Code2, Image, Languages, Loader2 } from "lucide-react";
 
 let providerNameCache = null;
 let providerNodesCache = null;
@@ -67,15 +68,19 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
         className="w-full justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
       >
         <div className="flex items-center gap-2">
-          {icon && <span className="material-symbols-outlined text-[18px] text-text-muted">{icon}</span>}
+          {icon && <span className="text-text-muted">{(() => {
+            const iconMap: Record<string, React.ElementType> = {
+              input: ArrowRightToLine,
+              translate: Languages,
+              data_object: Code2,
+              output: ArrowLeftFromLine,
+            };
+            const IconComp = iconMap[icon] || Code2;
+            return <IconComp className="size-[18px]" />;
+          })()}</span>}
           <span className="font-semibold text-sm text-text-main">{title}</span>
         </div>
-        <span className={cn(
-          "material-symbols-outlined text-[20px] text-text-muted transition-transform duration-200",
-          isOpen ? "rotate-90" : ""
-        )}>
-          chevron_right
-        </span>
+        <ChevronRight className={`size-5 text-text-muted transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
       </Button>
       
       {isOpen && (
@@ -264,7 +269,7 @@ export default function RequestDetailsTab() {
                 <TableRow>
                   <TableCell colSpan={7} className="p-8 text-center text-text-muted">
                     <div className="flex items-center justify-center gap-2">
-                      <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+                      <Loader2 className="size-5" />
                       Loading...
                     </div>
                   </TableCell>
@@ -411,7 +416,7 @@ export default function RequestDetailsTab() {
             {selectedDetail.pxpipe && (
               <div className="rounded-lg border border-black/5 dark:border-white/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="material-symbols-outlined text-[18px] text-text-muted">image</span>
+                  <Image className="size-5" />
                   <span className="font-semibold text-sm text-text-main">PXPIPE</span>
                   <span className={cn(
                     "text-xs px-2 py-0.5 rounded",
@@ -480,7 +485,7 @@ export default function RequestDetailsTab() {
                 {selectedDetail.response?.thinking && (
                   <div className="mb-4">
                     <h4 className="font-semibold text-text-main mb-2 flex items-center gap-2 text-xs uppercase tracking-wide opacity-70">
-                      <span className="material-symbols-outlined text-[16px]">psychology</span>
+                      <Brain className="size-4" />
                       Thinking Process
                     </h4>
                     <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 font-mono text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-4">

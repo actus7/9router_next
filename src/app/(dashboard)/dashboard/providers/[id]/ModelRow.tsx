@@ -1,5 +1,6 @@
 import { CapacityBadges } from "@/shared/components";
 import Button from "@/shared/components/Button";
+import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, X } from "lucide-react";
 
 interface ModelRowProps {
   model: { id: string; name?: string };
@@ -36,10 +37,10 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
     <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 ${borderColor} hover:bg-sidebar/50`}>
       <div className="flex min-w-0 items-start gap-2 sm:items-center">
         <span
-          className="material-symbols-outlined shrink-0 text-base"
+          className="shrink-0 text-base"
           style={iconColor ? { color: iconColor } : undefined}
         >
-          {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
+          {testStatus === "ok" ? <CheckCircle2 className="size-4" /> : testStatus === "error" ? <X className="size-4" /> : <Bot className="size-4" />}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <code className="max-w-[72vw] truncate rounded bg-sidebar px-1.5 py-0.5 font-mono text-xs text-text-muted sm:max-w-[360px]">{displayModel}</code>
@@ -57,8 +58,8 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
               disabled={isTesting}
               className={isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}
             >
-              <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
-                {isTesting ? "progress_activity" : "science"}
+              <span className="text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
+                {isTesting ? <Loader2 className="size-4" /> : <Beaker className="size-4" />}
               </span>
             </Button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
@@ -72,8 +73,8 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             size="icon-xs"
             onClick={() => onCopy(displayModel, `model-${model.id}`)}
           >
-            <span className="material-symbols-outlined text-sm">
-              {copied === `model-${model.id}` ? "check" : "content_copy"}
+            <span className="text-sm">
+              {copied === `model-${model.id}` ? <Check className="size-4" /> : <Copy className="size-4" />}
             </span>
           </Button>
           <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
@@ -88,7 +89,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             className="ml-auto text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500"
             title="Remove custom model"
           >
-            <span className="material-symbols-outlined text-sm">close</span>
+            <X className="size-4" />
           </Button>
         ) : onDisable ? (
           <Button
@@ -98,7 +99,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             className="ml-auto text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500"
             title="Disable this model"
           >
-            <span className="material-symbols-outlined text-sm">close</span>
+            <X className="size-4" />
           </Button>
         ) : null}
       </div>

@@ -2,6 +2,7 @@
 
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Button from "@/shared/components/Button";
+import { Check, Copy } from "lucide-react";
 
 export function CopyButton({ value, label = "Copy link" }: { value: string; label?: string }) {
   const { copied, copy } = useCopyToClipboard(2000);
@@ -13,9 +14,7 @@ export function CopyButton({ value, label = "Copy link" }: { value: string; labe
       title={value}
       className="shrink-0"
     >
-      <span className="material-symbols-outlined text-[12px]">
-        {copied ? "check" : "content_copy"}
-      </span>
+      {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
       {copied ? "Copied!" : label}
     </Button>
   );

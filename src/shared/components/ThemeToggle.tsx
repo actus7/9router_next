@@ -3,6 +3,7 @@
 import { useThemeStore } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import Button from "@/shared/components/Button";
+import { Sun, Moon } from "lucide-react";
 
 type ThemeToggleVariant = 'default' | 'card';
 
@@ -39,14 +40,11 @@ export default function ThemeToggle({ className, variant = "default" }: ThemeTog
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
       title={`Switch to ${isDark ? "light" : "dark"} mode`}
     >
-      <span
-        className={cn(
-          "material-symbols-outlined text-[22px]",
-          variant === "card" && "transition-transform duration-300 group-hover:rotate-12"
-        )}
-      >
-        {isDark ? "light_mode" : "dark_mode"}
-      </span>
+      {isDark ? (
+        <Sun className={cn("size-[22px]", variant === "card" && "transition-transform duration-300 group-hover:rotate-12")} />
+      ) : (
+        <Moon className={cn("size-[22px]", variant === "card" && "transition-transform duration-300 group-hover:rotate-12")} />
+      )}
     </Button>
   );
 }

@@ -5,7 +5,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 import { getI18nProps } from "@/i18n/server";
-import "material-symbols/outlined.css";
 import "./globals.css";
 import "@/lib/network/initOutboundProxy";
 import "@/shared/services/bootstrap";

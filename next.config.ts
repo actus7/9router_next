@@ -14,9 +14,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open"],
   turbopack: {
     root: tracingRoot,
-    resolveAlias: {
-      'open-sse': './src/lib/open-sse',
-    },
   },
   outputFileTracingRoot: tracingRoot,
   outputFileTracingExcludes: {
@@ -29,16 +26,15 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {},
-  serverComponentsHmrCache: true,
   experimental: {
     proxyClientMaxBodySize: proxyClientMaxBodySize as any,
-    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked"],
+    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "marked"],
   },
   webpack: (config) => {
     config.watchOptions = {
       ...config.watchOptions,
       aggregateTimeout: 300,
-      ignored: /[\\/](node_modules|\.git|logs|\.next|\.next-cli-build|gitbook|cli|open-sse\.old|tests|docs|AppData[\\/]Local[\\/]Intel)[\\/]/,
+      ignored: /[\\/](node_modules|\.git|logs|\.next|\.next-cli-build|gitbook|cli|tests|docs|AppData[\\/]Local[\\/]Intel)[\\/]/,
     };
     return config;
   },

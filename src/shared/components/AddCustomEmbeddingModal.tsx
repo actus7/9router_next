@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input, Button } from "@/shared/components";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
@@ -145,7 +146,7 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
             {isEdit ? "Edit Custom Embedding" : "Add Custom Embedding"}
           </DialogTitle>
           <Button onClick={onClose} aria-label="Close" variant="ghost" className="p-1.5">
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">

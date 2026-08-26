@@ -2,17 +2,18 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import Button from "@/shared/components/Button";
+import { ExternalLink, FolderOpen, MonitorSmartphone, QrCode, Terminal, Tv, WifiOff } from "lucide-react";
 
 const FEATURES = [
-  { icon: "terminal", label: "Terminal", desc: "Full shell access" },
-  { icon: "cast", label: "Desktop", desc: "Screen sharing" },
-  { icon: "folder_open", label: "Files", desc: "Browse & edit files" },
+  { icon: <Terminal className="size-6 text-primary" />, label: "Terminal", desc: "Full shell access" },
+  { icon: <Tv className="size-6 text-primary" />, label: "Desktop", desc: "Screen sharing" },
+  { icon: <FolderOpen className="size-6 text-primary" />, label: "Files", desc: "Browse & edit files" },
 ];
 
 const BULLETS = [
-  { icon: "qr_code_scanner", text: "Scan QR to connect instantly" },
-  { icon: "wifi_off", text: "No port forwarding needed" },
-  { icon: "devices", text: "Works on any device" },
+  { id: "qr", icon: <QrCode className="size-4 text-primary" />, text: "Scan QR to connect instantly" },
+  { id: "wifi", icon: <WifiOff className="size-4 text-primary" />, text: "No port forwarding needed" },
+  { id: "devices", icon: <MonitorSmartphone className="size-4 text-primary" />, text: "Works on any device" },
 ];
 
 const NINE_REMOTE_URL = "https://9remote.cc";
@@ -32,7 +33,7 @@ export default function NineRemotePromoModal({ isOpen, onClose }: NineRemoteProm
         <div className="flex items-center px-5 py-3 border-b border-border-subtle">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-[8px] flex items-center justify-center bg-primary">
-              <span className="material-symbols-outlined text-white text-base">terminal</span>
+              <Terminal className="size-4" />
             </div>
             <span className="text-xs font-bold uppercase tracking-wider text-primary font-mono">9Remote</span>
           </div>
@@ -43,7 +44,7 @@ export default function NineRemotePromoModal({ isOpen, onClose }: NineRemoteProm
           {/* Hero */}
           <div className="flex flex-col items-center gap-2 text-center mt-2">
             <div className="w-14 h-14 rounded-[14px] flex items-center justify-center mb-1 bg-primary shadow-[var(--shadow-warm)]">
-              <span className="material-symbols-outlined text-white text-[30px]">terminal</span>
+              <Terminal className="size-8" />
             </div>
             <h1 className="text-lg font-bold text-text-main tracking-tight">9Remote</h1>
             <p className="text-xs text-text-muted leading-5 max-w-[220px]">
@@ -55,7 +56,7 @@ export default function NineRemotePromoModal({ isOpen, onClose }: NineRemoteProm
           <div className="flex gap-2 w-full">
             {FEATURES.map(({ icon, label, desc }) => (
               <div key={label} className="flex-1 flex flex-col items-center gap-1.5 py-4 px-1 rounded-[10px] border border-border-subtle bg-surface-2">
-                <span className="material-symbols-outlined text-primary text-[22px]">{icon}</span>
+                {icon}
                 <p className="text-xs font-semibold text-text-main">{label}</p>
                 <p className="text-[10px] text-text-muted text-center leading-4">{desc}</p>
               </div>
@@ -64,9 +65,9 @@ export default function NineRemotePromoModal({ isOpen, onClose }: NineRemoteProm
 
           {/* Bullets */}
           <div className="flex flex-col gap-3 w-full">
-            {BULLETS.map(({ icon, text }) => (
-              <div key={icon} className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined flex-shrink-0 text-primary text-[16px]">{icon}</span>
+            {BULLETS.map(({ id, icon, text }) => (
+              <div key={id} className="flex items-center gap-2.5">
+                {icon}
                 <span className="text-xs text-text-muted">{text}</span>
               </div>
             ))}
@@ -77,7 +78,7 @@ export default function NineRemotePromoModal({ isOpen, onClose }: NineRemoteProm
             onClick={() => window.open(NINE_REMOTE_URL, "_blank")}
             className="w-full py-3 h-auto rounded-[10px] shadow-[var(--shadow-warm)]"
           >
-            <span className="material-symbols-outlined text-base">open_in_new</span>
+            <ExternalLink className="size-4" />
             Get 9Remote
           </Button>
         </div>

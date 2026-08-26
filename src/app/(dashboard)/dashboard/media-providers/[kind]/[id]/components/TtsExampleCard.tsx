@@ -14,6 +14,7 @@ import { getTtsVoicesForModel } from "@/lib/open-sse/config/ttsModels";
 import { GOOGLE_TTS_LANGUAGES } from "@/lib/open-sse/config/googleTtsLanguages";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Row } from "./exampleShared";
+import { Check, Copy, Download, Globe, Play, Wifi, X } from "lucide-react";
 
 const DEFAULT_TTS_RESPONSE_EXAMPLE = `// Audio will appear here after running.
 // Example JSON response (response_format=json):
@@ -271,7 +272,7 @@ export function TtsExampleCard({ providerId }) {
                     useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "text-text-muted hover:text-primary"
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
+                  <Wifi className="size-4" />
                   Tunnel
                 </Button>
               )}
@@ -344,7 +345,7 @@ export function TtsExampleCard({ providerId }) {
                   onClick={openModal}
                   className="flex w-full items-center justify-center gap-1 sm:w-auto sm:shrink-0"
                 >
-                  <span className="material-symbols-outlined text-[14px]">language</span>
+                  <Globe className="size-4" />
                   Select language
                 </Button>
               </div>
@@ -408,7 +409,7 @@ export function TtsExampleCard({ providerId }) {
                       onClick={() => { setVoiceId(""); setSelectedVoice(""); }}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                     >
-                      <span className="material-symbols-outlined text-[14px]">close</span>
+                      <X className="size-4" />
                     </Button>
                   )}
                 </div>
@@ -452,7 +453,7 @@ export function TtsExampleCard({ providerId }) {
                   onClick={() => setInput("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                 >
-                  <span className="material-symbols-outlined text-[14px]">close</span>
+                  <X className="size-4" />
                 </Button>
               )}
             </div>
@@ -477,7 +478,7 @@ export function TtsExampleCard({ providerId }) {
                     onClick={() => setStyle("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                   >
-                    <span className="material-symbols-outlined text-[14px]">close</span>
+                    <X className="size-4" />
                   </Button>
                 )}
               </div>
@@ -508,7 +509,7 @@ export function TtsExampleCard({ providerId }) {
                   onClick={() => copyCurl(curlSnippet)}
                   className="inline-flex items-center gap-1 text-text-muted hover:text-primary"
                 >
-                  <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
+                  {copiedCurl ? <Check className="size-4" /> : <Copy className="size-4" />}
                   {copiedCurl ? "Copied" : "Copy"}
                 </Button>
                 <Button
@@ -517,9 +518,7 @@ export function TtsExampleCard({ providerId }) {
                   className="flex w-full sm:w-auto items-center justify-center gap-1.5"
                   size="sm"
                 >
-                  <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
-                    play_arrow
-                  </span>
+                  <Play className={`size-4 ${running ? "animate-spin" : ""}`} />
                   {running ? "Generating..." : "Run"}
                 </Button>
               </div>
@@ -537,7 +536,7 @@ export function TtsExampleCard({ providerId }) {
                   Response {latency && <span className="font-normal normal-case">&#9889; {latency}ms</span>}
                 </span>
                 <a href={audioUrl} download="speech.mp3" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined text-[14px]">download</span>
+                  <Download className="size-4" />
                   Download
                 </a>
               </div>
@@ -583,7 +582,7 @@ export function TtsExampleCard({ providerId }) {
             <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0 rounded-t-xl">
               <h3 className="text-sm font-semibold">Select Language</h3>
               <Button variant="ghost" size="icon" onClick={() => setModalOpen(false)} className="text-text-muted hover:text-primary">
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <X className="size-5" />
               </Button>
             </div>
 
@@ -618,7 +617,7 @@ export function TtsExampleCard({ providerId }) {
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-text-muted">{c.voices.length} voices</span>
                         {selectedLang === c.code && (
-                          <span className="material-symbols-outlined text-[16px] text-primary">check</span>
+                          <Check className="size-4" />
                         )}
                       </div>
                     </Button>

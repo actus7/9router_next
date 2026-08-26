@@ -10,6 +10,7 @@ import CapacityBadges from "./CapacityBadges";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, getProviderAlias } from "@/shared/constants/providers";
+import { Check, Info, Layers, Pencil, Search, SearchX, X } from "lucide-react";
 
 type RawModel = { id: string; name: string; [key: string]: unknown };
 
@@ -504,22 +505,20 @@ export default function ModelSelectModal({
             {title}
           </DialogTitle>
           <Button onClick={() => { onClose(); setSearchQuery(""); }} aria-label="Close" variant="ghost" size="icon-sm">
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
       {/* Info bar */}
       <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-primary/8 border border-primary/20 rounded-lg text-xs text-text-muted">
-        <span className="material-symbols-outlined text-primary shrink-0" style={{ fontSize: "14px" }}>info</span>
+        <Info className="size-3.5 text-primary shrink-0" />
         <span>Click to add, click again to remove. Changes are saved automatically.</span>
       </div>
 
       {/* Search - compact */}
       <div className="mb-3">
         <div className="relative">
-          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[16px]">
-            search
-          </span>
+          <Search className="size-4" />
           <Input
             type="text"
             placeholder="Search..."
@@ -536,7 +535,7 @@ export default function ModelSelectModal({
         {filteredCombos.length > 0 && (
           <div>
             <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5">
-              <span className="material-symbols-outlined text-primary text-[14px]">layers</span>
+              <Layers className="size-4" />
               <span className="text-xs font-medium text-primary">Combos</span>
               <span className="text-[10px] text-text-muted">({filteredCombos.length})</span>
             </div>
@@ -560,7 +559,7 @@ export default function ModelSelectModal({
                     `}
                   >
                     {addedModelValues.includes(combo.name) && (
-                      <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
+                      <Check className="size-2.5" />
                     )}
                     {combo.name}
                   </Button>
@@ -615,11 +614,11 @@ export default function ModelSelectModal({
                   >
                     <span className="flex items-center gap-1">
                       {addedModelValues.includes(model.value) && !isPlaceholder && (
-                        <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
+                        <Check className="size-2.5" />
                       )}
                       {isPlaceholder ? (
                         <>
-                          <span className="material-symbols-outlined text-[11px]">edit</span>
+                          <Pencil className="size-3" />
                           {model.name}
                         </>
                       ) : model.isCustom ? (
@@ -644,9 +643,7 @@ export default function ModelSelectModal({
 
         {Object.keys(filteredGroups).length === 0 && filteredCombos.length === 0 && (
           <div className="text-center py-4 text-text-muted">
-            <span className="material-symbols-outlined text-2xl mb-1 block">
-              search_off
-            </span>
+            <SearchX className="size-4" />
             <p className="text-xs">No models found</p>
           </div>
         )}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button, Modal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CheckCircle2, XCircle } from "lucide-react";
 
 interface AddCustomModelModalProps {
   isOpen: boolean;
@@ -98,13 +99,13 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
         {/* Test result */}
         {testStatus === "ok" && (
           <div className="flex items-center gap-2 text-sm text-green-600">
-            <span className="material-symbols-outlined text-base">check_circle</span>
+            <CheckCircle2 className="size-4" />
             Model is reachable
           </div>
         )}
         {testStatus === "error" && (
           <div className="flex items-start gap-2 text-sm text-red-500">
-            <span className="material-symbols-outlined text-base shrink-0">cancel</span>
+            <XCircle className="size-4" />
             <span>{testError || "Model not reachable"}</span>
           </div>
         )}

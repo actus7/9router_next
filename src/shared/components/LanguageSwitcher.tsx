@@ -5,6 +5,7 @@ import Button from "@/shared/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LOCALES, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { reloadTranslations } from "@/i18n/runtime";
+import { Check, Globe } from "lucide-react";
 
 function getLocaleFromCookie(): string {
   if (typeof document === "undefined") return "en";
@@ -120,7 +121,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
           title="Language"
           data-i18n-skip="true"
         >
-          <span className="material-symbols-outlined text-[20px]">language</span>
+          <Globe className="size-5" />
           <span className="text-sm font-medium">{getLocaleInfo(locale).name}</span>
           <span className="text-lg">{getLocaleInfo(locale).flag}</span>
         </Button>
@@ -169,7 +170,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
                     {/* Fixed 2-line height so all cards are uniform */}
                     <span className="text-center leading-tight line-clamp-2 h-8 flex items-center">{info.name}</span>
                     {active && (
-                      <span className="material-symbols-outlined text-sm">check</span>
+                      <Check className="size-4" />
                     )}
                   </Button>
                 );

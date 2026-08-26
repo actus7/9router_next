@@ -9,6 +9,7 @@ import { getProviderAlias, isCustomEmbeddingProvider } from "@/shared/constants/
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Row } from "./exampleShared";
+import { Check, Copy, Play, Wifi, X } from "lucide-react";
 
 const DEFAULT_RESPONSE_EXAMPLE = `{
   "object": "list",
@@ -154,7 +155,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
                   useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "text-text-muted hover:text-primary"
                 }`}
               >
-                <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
+                <Wifi className="size-4" />
                 Tunnel
               </Button>
             )}
@@ -188,7 +189,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
                 onClick={() => setInput("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
               >
-                <span className="material-symbols-outlined text-[14px]">close</span>
+                <X className="size-4" />
               </Button>
             )}
           </div>
@@ -217,7 +218,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
                 onClick={() => copyCurl(curlSnippet)}
                 className="inline-flex items-center gap-1 text-text-muted hover:text-primary"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
+                {copiedCurl ? <Check className="size-4" /> : <Copy className="size-4" />}
                 {copiedCurl ? "Copied" : "Copy"}
               </Button>
               <Button
@@ -226,9 +227,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
                 className="flex w-full sm:w-auto items-center justify-center gap-1.5"
                 size="sm"
               >
-                <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
-                  play_arrow
-                </span>
+                <Play className={`size-4 ${running ? "animate-spin" : ""}`} />
                 {running ? "Running..." : "Run"}
               </Button>
             </div>
@@ -252,7 +251,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
                 onClick={() => copyRes(resultJson)}
                 className="inline-flex items-center gap-1 text-text-muted hover:text-primary"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedRes ? "check" : "content_copy"}</span>
+                {copiedRes ? <Check className="size-4" /> : <Copy className="size-4" />}
                 {copiedRes ? "Copied" : "Copy"}
               </Button>
             )}

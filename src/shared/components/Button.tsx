@@ -3,6 +3,7 @@
 import React from "react";
 import { Button as ShadcnButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "success" | "default" | "destructive" | "link";
 type ButtonSize = "sm" | "md" | "lg" | "xs" | "icon" | "icon-xs" | "icon-sm" | "icon-lg";
@@ -10,8 +11,8 @@ type ButtonSize = "sm" | "md" | "lg" | "xs" | "icon" | "icon-xs" | "icon-sm" | "
 interface ButtonProps extends Omit<React.ComponentProps<typeof ShadcnButton>, "variant" | "size"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  icon?: string;
-  iconRight?: string;
+  icon?: React.ReactNode;
+  iconRight?: React.ReactNode;
   loading?: boolean;
   fullWidth?: boolean;
   className?: string;
@@ -67,15 +68,13 @@ export default function Button({
       {...props}
     >
       {loading ? (
-        <span className="material-symbols-outlined animate-spin text-[18px]">
-          progress_activity
-        </span>
+        <Loader2 className="size-[18px] animate-spin" />
       ) : icon ? (
-        <span className="material-symbols-outlined text-[18px]">{icon}</span>
+        <span className="[&>svg]:size-[18px]">{icon}</span>
       ) : null}
       {children}
       {iconRight && !loading && (
-        <span className="material-symbols-outlined text-[18px]">{iconRight}</span>
+        <span className="[&>svg]:size-[18px]">{iconRight}</span>
       )}
     </ShadcnButton>
   );

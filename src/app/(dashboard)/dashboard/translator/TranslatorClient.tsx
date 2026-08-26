@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, Button } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import dynamic from "next/dynamic";
+import { ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -236,7 +237,7 @@ export default function TranslatorClient() {
         {meta && (
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <MetaBadge label="src" value={meta.sourceFormat} color="blue" />
-            <span className="material-symbols-outlined text-text-muted text-[14px]">arrow_forward</span>
+            <ArrowRight className="size-4" />
             <MetaBadge label="dst" value={meta.targetFormat} color="orange" />
             <MetaBadge label="provider" value={meta.provider} color="green" />
             <MetaBadge label="model" value={meta.model} color="purple" />
@@ -255,9 +256,7 @@ export default function TranslatorClient() {
               {/* Step header */}
               <div className="flex items-center justify-between">
                 <Button variant="ghost" onClick={() => toggle(step.id)} className="flex-1 justify-start gap-2">
-                  <span className="material-symbols-outlined text-[20px] text-text-muted group-hover:text-primary transition-colors">
-                    {isExpanded ? "expand_more" : "chevron_right"}
-                  </span>
+                  {isExpanded ? <ChevronDown className="size-5 text-text-muted group-hover:text-primary transition-colors" /> : <ChevronRight className="size-5 text-text-muted group-hover:text-primary transition-colors" />}
                   <span className="text-xs font-mono text-text-muted/60 w-4">{step.id}</span>
                   <h3 className="text-sm font-semibold text-text-main">{step.label}</h3>
                   <span className="text-xs text-text-muted/60 font-mono">{step.file}</span>

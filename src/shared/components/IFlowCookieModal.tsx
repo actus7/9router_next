@@ -6,6 +6,7 @@ import { Button, Input } from "@/shared/components";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
+import { X } from "lucide-react";
 
 interface IFlowCookieModalProps {
   isOpen: boolean;
@@ -79,7 +80,7 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
             iFlow Cookie Authentication
           </DialogTitle>
           <Button onClick={handleClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">

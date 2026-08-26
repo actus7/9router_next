@@ -4,12 +4,13 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { Input as ShadcnInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AlertCircle } from "lucide-react";
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;
   error?: string;
   hint?: string;
-  icon?: string;
+  icon?: React.ReactNode;
   inputClassName?: string;
 }
 
@@ -38,8 +39,8 @@ export default function Input({
       )}
       <div className="relative">
         {icon && (
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-muted">
-            <span className="material-symbols-outlined text-[20px]">{icon}</span>
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-muted [&>svg]:size-5">
+            {icon}
           </div>
         )}
         <ShadcnInput
@@ -65,7 +66,7 @@ export default function Input({
       </div>
       {error && (
         <p className="text-xs text-red-500 flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">error</span>
+          <AlertCircle className="size-3.5" />
           {error}
         </p>
       )}

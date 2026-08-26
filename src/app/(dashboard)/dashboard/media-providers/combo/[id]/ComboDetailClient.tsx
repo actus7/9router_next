@@ -7,6 +7,7 @@ import { Card, Button, Input, ModelSelectModal } from "@/shared/components";
 import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
+import { ArrowDown, ArrowLeft, ArrowUp, Download, Layers, X } from "lucide-react";
 
 interface Combo {
   id: string;
@@ -263,10 +264,10 @@ export default function ComboDetailClient({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <Link href={backHref} className="text-text-muted hover:text-primary">
-            <span className="material-symbols-outlined">arrow_back</span>
+            <ArrowLeft className="size-4" />
           </Link>
           <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary">layers</span>
+            <Layers className="size-4" />
           </div>
           <div className="min-w-0">
             <p className="text-xs text-text-muted">{kindLabel} Combo</p>
@@ -331,13 +332,13 @@ export default function ComboDetailClient({
                   </div>
                   <div className="flex items-center gap-0.5">
                     <Button variant="ghost" size="icon-sm" onClick={() => handleMove(idx, -1)} disabled={idx === 0} className={idx === 0 ? "text-text-muted/20" : ""} title="Move up">
-                      <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+                      <ArrowUp className="size-4" />
                     </Button>
                     <Button variant="ghost" size="icon-sm" onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={idx === providers.length - 1 ? "text-text-muted/20" : ""} title="Move down">
-                      <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+                      <ArrowDown className="size-4" />
                     </Button>
                     <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveProvider(idx)} className="text-red-500 hover:bg-red-500/10" title="Remove">
-                      <span className="material-symbols-outlined text-[16px]">close</span>
+                      <X className="size-4" />
                     </Button>
                   </div>
                 </div>
@@ -371,7 +372,7 @@ export default function ComboDetailClient({
                 <div>
                   <div className="flex items-center justify-end mb-1.5">
                     <a href={testResult.imageUrl} download="image.png" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-[14px]">download</span>
+                      <Download className="size-4" />
                       Download
                     </a>
                   </div>
@@ -382,7 +383,7 @@ export default function ComboDetailClient({
                 <div>
                   <div className="flex items-center justify-end mb-1.5">
                     <a href={testResult.audioUrl} download="speech.mp3" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-[14px]">download</span>
+                      <Download className="size-4" />
                       Download
                     </a>
                   </div>

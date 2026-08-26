@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Unlock } from "lucide-react";
 
 const NONE_PROXY_POOL_VALUE = "__none__";
 const STRATEGIES = [
@@ -90,7 +91,7 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
       <CardContent>
         <div className="flex items-center gap-3 mb-4">
           <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500/10 text-green-500">
-            <span className="material-symbols-outlined text-[20px]">lock_open</span>
+            <Unlock className="size-5" />
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium">No authentication required</p>

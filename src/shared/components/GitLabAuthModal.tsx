@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input, OAuthModal } from "@/shared/components";
 import { cn } from "@/lib/utils";
+import { Key, Unlock, X } from "lucide-react";
 
 const GITLAB_COM = "https://gitlab.com";
 
@@ -123,7 +124,7 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
             Connect GitLab Duo
           </DialogTitle>
           <Button onClick={handleClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
@@ -140,7 +141,7 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 variant="outline"
                 className="flex flex-col items-center gap-2 p-4 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-left h-auto"
               >
-                <span className="material-symbols-outlined text-2xl text-primary">lock_open</span>
+                <Unlock className="size-4" />
                 <div>
                   <p className="text-sm font-medium">OAuth App</p>
                   <p className="text-xs text-text-muted">Use a GitLab OAuth application</p>
@@ -151,7 +152,7 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
                 variant="outline"
                 className="flex flex-col items-center gap-2 p-4 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-left h-auto"
               >
-                <span className="material-symbols-outlined text-2xl text-primary">key</span>
+                <Key className="size-4" />
                 <div>
                   <p className="text-sm font-medium">Personal Access Token</p>
                   <p className="text-xs text-text-muted">Use a GitLab PAT with api scope</p>

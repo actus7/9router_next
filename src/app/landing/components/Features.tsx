@@ -1,5 +1,8 @@
 "use client";
 
+import { Link, Zap, ShieldCheck, BarChart3, Key, Cloud, Terminal, LayoutDashboard } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 interface FeatureColors {
   border: string;
   bg: string;
@@ -9,7 +12,7 @@ interface FeatureColors {
 }
 
 interface Feature {
-  icon: string;
+  icon: LucideIcon;
   title: string;
   desc: string;
   colors: FeatureColors;
@@ -17,7 +20,7 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   { 
-    icon: "link", 
+    icon: Link, 
     title: "Unified Endpoint", 
     desc: "Access all providers via a single standard API URL.", 
     colors: {
@@ -29,7 +32,7 @@ const FEATURES: Feature[] = [
     }
   },
   { 
-    icon: "bolt", 
+    icon: Zap, 
     title: "Easy Setup", 
     desc: "Get up and running in minutes with npx command.", 
     colors: {
@@ -41,7 +44,7 @@ const FEATURES: Feature[] = [
     }
   },
   { 
-    icon: "shield_with_heart", 
+    icon: ShieldCheck, 
     title: "Model Fallback", 
     desc: "Automatically switch providers on failure or high latency.", 
     colors: {
@@ -53,7 +56,7 @@ const FEATURES: Feature[] = [
     }
   },
   { 
-    icon: "monitoring", 
+    icon: BarChart3, 
     title: "Usage Tracking", 
     desc: "Detailed analytics and cost monitoring across all models.", 
     colors: {
@@ -65,7 +68,7 @@ const FEATURES: Feature[] = [
     }
   },
   { 
-    icon: "key", 
+    icon: Key, 
     title: "OAuth & API Keys", 
     desc: "Securely manage credentials in one vault.", 
     colors: {
@@ -77,7 +80,7 @@ const FEATURES: Feature[] = [
     }
   },
   { 
-    icon: "cloud_sync", 
+    icon: Cloud, 
     title: "Cloud Sync", 
     desc: "Sync your configurations across devices instantly.", 
     colors: {
@@ -89,7 +92,7 @@ const FEATURES: Feature[] = [
     }
   },
   { 
-    icon: "terminal", 
+    icon: Terminal, 
     title: "CLI Support", 
     desc: "Works with Claude Code, Codex, Cline, Cursor, and more.", 
     colors: {
@@ -101,7 +104,7 @@ const FEATURES: Feature[] = [
     }
   },
   { 
-    icon: "dashboard", 
+    icon: LayoutDashboard, 
     title: "Dashboard", 
     desc: "Visual dashboard for real-time traffic analysis.", 
     colors: {
@@ -132,7 +135,7 @@ export default function Features() {
               className={`p-6 rounded-xl bg-[#23180f] border border-[#3a2f27] ${feature.colors.border} ${feature.colors.bg} transition-all duration-300 group`}
             >
               <div className={`w-10 h-10 rounded-lg ${feature.colors.iconBg} flex items-center justify-center mb-4 ${feature.colors.iconText} group-hover:scale-110 transition-transform duration-300`}>
-                <span className="material-symbols-outlined">{feature.icon}</span>
+                <feature.icon className="size-5" />
               </div>
               <h3 className={`text-lg font-bold mb-2 ${feature.colors.titleHover} transition-colors`}>
                 {feature.title}

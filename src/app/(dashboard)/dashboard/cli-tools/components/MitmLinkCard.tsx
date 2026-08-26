@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Card } from "@/shared/components";
 import Image from "next/image";
+import { ChevronRight } from "lucide-react";
 
 interface MitmToolInfo {
   name: string;
@@ -44,7 +45,7 @@ export default function MitmLinkCard({ tool }: MitmLinkCardProps) {
               <p className="text-xs text-text-muted truncate">{tool.description}</p>
             </div>
           </div>
-          <span className="material-symbols-outlined text-text-muted text-[20px]">chevron_right</span>
+          <ChevronRight className="size-5" />
         </div>
       </Card>
     </Link>

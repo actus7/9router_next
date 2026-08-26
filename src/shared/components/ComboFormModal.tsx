@@ -9,6 +9,7 @@ import Input from "./Input";
 import Button from "./Button";
 import ModelSelectModal from "./ModelSelectModal";
 import type { ActiveProvider } from "./ModelSelectModal";
+import { ArrowDown, ArrowUp, Layers, Plus, X } from "lucide-react";
 
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
@@ -50,15 +51,15 @@ function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown
       <div className="flex shrink-0 items-center gap-0.5">
         <Button onClick={onMoveUp} disabled={isFirst} variant="ghost" size="icon-xs"
           className={`${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title="Move up">
-          <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
+          <ArrowUp className="size-3" />
         </Button>
         <Button onClick={onMoveDown} disabled={isLast} variant="ghost" size="icon-xs"
           className={`${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title="Move down">
-          <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
+          <ArrowDown className="size-3" />
         </Button>
       </div>
       <Button onClick={onRemove} variant="ghost" size="icon-xs" className="hover:bg-red-500/10 text-text-muted hover:text-red-500 transition-all" title="Remove">
-        <span className="material-symbols-outlined text-[12px]">close</span>
+        <X className="size-3" />
       </Button>
     </div>
   );
@@ -155,7 +156,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
               {title || (isEdit ? "Edit Combo" : "Create Combo")}
             </DialogTitle>
             <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
-              <span className="material-symbols-outlined text-[20px]">close</span>
+              <X className="size-5" />
             </Button>
           </div>
           <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
@@ -183,7 +184,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
                 <Label className="mb-1.5 block">Models</Label>
                 {models.length === 0 ? (
                   <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
-                    <span className="material-symbols-outlined text-text-muted text-xl mb-1">layers</span>
+                    <Layers className="size-4" />
                     <p className="text-xs text-text-muted">No models added yet</p>
                   </div>
                 ) : (
@@ -200,7 +201,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
                 )}
                 <Button onClick={() => setShowModelSelect(true)} variant="outline" size="sm"
                   className="w-full mt-2 py-2 border-dashed text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <Plus className="size-4" />
                   Add Model
                 </Button>
               </div>

@@ -4,6 +4,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import Button from "@/shared/components/Button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface PaginationProps {
   currentPage: number;
@@ -90,7 +91,7 @@ export default function Pagination({
               disabled={currentPage === 1}
               className="w-9 px-0"
             >
-              <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+              <ChevronLeft className="size-5" />
             </Button>
 
             {pageNumbers[0] > 1 && (
@@ -147,7 +148,7 @@ export default function Pagination({
               disabled={currentPage === totalPages}
               className="w-9 px-0"
             >
-              <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+              <ChevronRight className="size-5" />
             </Button>
           </div>
         )}

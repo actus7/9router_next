@@ -10,6 +10,7 @@ import {
   DialogOverlay,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { X } from "lucide-react";
 
 type DrawerWidth = "sm" | "md" | "lg" | "xl" | "full";
 
@@ -76,9 +77,7 @@ export default function Drawer({
               variant="ghost"
               size="icon-sm"
             >
-              <span className="material-symbols-outlined text-[20px]">
-                close
-              </span>
+              <X className="size-5" />
             </Button>
           </div>
 

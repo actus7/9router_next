@@ -5,6 +5,7 @@ import { Button } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
+import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, Trash2, X } from "lucide-react";
 
 interface PassthroughModelRowProps {
   modelId: string;
@@ -33,10 +34,10 @@ function PassthroughModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias
   return (
     <div className={`flex items-center gap-3 p-3 rounded-lg border ${borderColor} hover:bg-sidebar/50`}>
       <span
-        className="material-symbols-outlined text-base text-text-muted"
+        className="text-base text-text-muted"
         style={iconColor ? { color: iconColor } : undefined}
       >
-        {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
+        {testStatus === "ok" ? <CheckCircle2 className="size-4" /> : testStatus === "error" ? <X className="size-4" /> : <Bot className="size-4" />}
       </span>
 
       <div className="flex-1 min-w-0">
@@ -50,8 +51,8 @@ function PassthroughModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias
               size="icon-xs"
               onClick={() => onCopy(fullModel, `model-${modelId}`)}
             >
-              <span className="material-symbols-outlined text-sm">
-                {copied === `model-${modelId}` ? "check" : "content_copy"}
+              <span className="text-sm">
+                {copied === `model-${modelId}` ? <Check className="size-4" /> : <Copy className="size-4" />}
               </span>
             </Button>
             <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
@@ -66,8 +67,8 @@ function PassthroughModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias
                 onClick={onTest}
                 disabled={isTesting}
               >
-                <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
-                  {isTesting ? "progress_activity" : "science"}
+                <span className="text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
+                  {isTesting ? <Loader2 className="size-4" /> : <Beaker className="size-4" />}
                 </span>
               </Button>
               <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
@@ -86,7 +87,7 @@ function PassthroughModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias
         className="text-red-500 hover:bg-red-50 hover:text-red-500"
         title="Remove model"
       >
-        <span className="material-symbols-outlined text-sm">delete</span>
+        <Trash2 className="size-4" />
       </Button>
     </div>
   );

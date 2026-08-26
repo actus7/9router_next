@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { Input } from "@/shared/components";
 import Button from "@/shared/components/Button";
+import { Check, Copy } from "lucide-react";
 
 interface EndpointRowProps {
   label: string;
@@ -28,7 +29,7 @@ export default function EndpointRow({ label, url, copyId, copied, onCopy, badge,
         onClick={() => onCopy(url, copyId)}
         className="text-text-muted hover:text-primary"
       >
-        <span className="material-symbols-outlined text-[18px]">{copied === copyId ? "check" : "content_copy"}</span>
+        {copied === copyId ? <Check className="size-[18px]" /> : <Copy className="size-[18px]" />}
       </Button>
       {actions}
     </div>

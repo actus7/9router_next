@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import Button from "./Button";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { X } from "lucide-react";
 
 type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
 
@@ -105,9 +106,7 @@ export default function Modal({
               size="sm"
               className="md:hidden p-1.5"
             >
-              <span className="material-symbols-outlined text-[20px]">
-                close
-              </span>
+              <X className="size-5" />
             </Button>
           </div>
         )}

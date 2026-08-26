@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTheme } from "@/shared/hooks/useTheme";
 import ChangelogModal from "./ChangelogModal";
 import { ConfirmModal } from "./Modal";
+import { History, LayoutGrid, LogOut, Moon, Power, Sun } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -39,38 +40,30 @@ export default function HeaderMenu({ onLogout }: HeaderMenuProps) {
           className="flex items-center justify-center p-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface-2/50 transition-all"
           title="Menu"
         >
-          <span className="material-symbols-outlined">grid_view</span>
+          <LayoutGrid className="size-4" />
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuItem onClick={() => setChangelogOpen(true)}>
-            <span className="material-symbols-outlined text-[20px] text-text-muted">
-              history
-            </span>
+            <History className="size-5 text-text-muted" />
             <span className="flex-1 text-left">Change Log</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => toggleTheme()}>
-            <span className="material-symbols-outlined text-[20px] text-text-muted">
-              {isDark ? "light_mode" : "dark_mode"}
-            </span>
+            {isDark ? <Sun className="size-5 text-text-muted" /> : <Moon className="size-5 text-text-muted" />}
             <span className="flex-1 text-left">Theme</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={() => setShutdownOpen(true)}
           >
-            <span className="material-symbols-outlined text-[20px]">
-              power_settings_new
-            </span>
+            <Power className="size-5" />
             <span className="flex-1 text-left">Shutdown</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={() => onLogout()}
           >
-            <span className="material-symbols-outlined text-[20px]">
-              logout
-            </span>
+            <LogOut className="size-5" />
             <span className="flex-1 text-left">Logout</span>
           </DropdownMenuItem>
         </DropdownMenuContent>

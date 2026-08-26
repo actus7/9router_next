@@ -34,9 +34,9 @@ export const getModelKind = (m: Record<string, unknown> | null | undefined, fall
 
 // Capacity metadata for UI badges — icon + label + color per capability.
 export const CAPACITY_META = {
-  vision: { icon: "visibility", label: "Vision", desc: "Supports image input", color: "text-blue-500" },
+  vision: { icon: "Eye", label: "Vision", desc: "Supports image input", color: "text-blue-500" },
   // search: temporarily hidden (feature not wired yet)
-  reasoning: { icon: "neurology", label: "Reasoning", desc: "Supports reasoning / thinking", color: "text-amber-500" },
+  reasoning: { icon: "Brain", label: "Reasoning", desc: "Supports reasoning / thinking", color: "text-amber-500" },
 } as const;
 
 export type CapacityKey = keyof typeof CAPACITY_META;

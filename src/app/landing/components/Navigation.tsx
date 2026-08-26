@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/shared/components/Button";
+import { ExternalLink, Menu, Network, X } from "lucide-react";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -18,7 +19,7 @@ export default function Navigation() {
           aria-label="Navigate to home"
         >
           <div className="size-8 rounded bg-linear-to-br from-[#f97815] to-orange-700 flex items-center justify-center text-white">
-            <span className="material-symbols-outlined text-[20px]">hub</span>
+            <Network className="size-5" />
           </div>
           <h2 className="text-white text-xl font-bold tracking-tight">9Router</h2>
         </Button>
@@ -29,7 +30,7 @@ export default function Navigation() {
           <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="#how-it-works">How it Works</a>
           <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="https://github.com/decolua/9router#readme" target="_blank" rel="noopener noreferrer">Docs</a>
           <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors flex items-center gap-1" href="https://github.com/decolua/9router" target="_blank" rel="noopener noreferrer">
-            GitHub <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+            GitHub <ExternalLink className="size-4" />
           </a>
         </div>
 
@@ -47,7 +48,7 @@ export default function Navigation() {
             className="md:hidden text-white"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            <span className="material-symbols-outlined">{mobileMenuOpen ? "close" : "menu"}</span>
+            {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </Button>
         </div>
       </div>

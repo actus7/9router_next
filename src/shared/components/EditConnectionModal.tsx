@@ -8,6 +8,7 @@ import Button from "@/shared/components/Button";
 import { Badge } from "@/components/ui/badge";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import Select from "@/shared/components/Select";
+import { X } from "lucide-react";
 
 interface Connection {
   id: string;
@@ -227,7 +228,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
             Edit Connection
           </DialogTitle>
           <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">

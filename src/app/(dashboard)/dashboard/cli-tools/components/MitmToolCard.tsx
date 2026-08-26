@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input as RawInput } from "@/components/ui/input";
 import { TOOL_HOSTS } from "@/shared/constants/mitmToolHosts";
 import Image from "next/image";
+import { AlertCircle, ArrowRight, ChevronDown, Play, StopCircle, TriangleAlert, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { id: string; name: string; image?: string; defaultModels?: Array<{ alias: string; name: string }>; }
@@ -156,9 +157,7 @@ export default function MitmToolCard({
               <p className="text-xs text-text-muted sm:truncate">Intercept {tool.name} requests via MITM proxy</p>
             </div>
           </div>
-          <span className={`material-symbols-outlined text-text-muted text-[20px] transition-transform ${isExpanded ? "rotate-180" : ""}`}>
-            expand_more
-          </span>
+          <ChevronDown className={`size-5 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
         </div>
 
         {isExpanded && (
@@ -189,7 +188,7 @@ export default function MitmToolCard({
                 {tool.defaultModels.map((model) => (
                   <div key={model.alias} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[9rem_auto_1fr_auto] sm:items-center sm:gap-2">
                     <span className="text-xs font-semibold text-text-main sm:text-right">{model.name}</span>
-                    <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
+                    <ArrowRight className="size-4" />
                     <div className="relative w-full min-w-0">
                       <RawInput
                         type="text"
@@ -211,7 +210,7 @@ export default function MitmToolCard({
                           className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-red-500"
                           title="Clear"
                         >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
+                          <X className="size-4" />
                         </Button>
                       )}
                     </div>
@@ -240,7 +239,7 @@ export default function MitmToolCard({
                   disabled={!serverRunning || loading}
                   className="flex w-full items-center justify-center gap-1.5 border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 sm:w-auto sm:py-1.5"
                 >
-                  <span className="material-symbols-outlined text-[16px]">stop_circle</span>
+                  <StopCircle className="size-4" />
                   Stop DNS
                 </Button>
               ) : (
@@ -250,14 +249,14 @@ export default function MitmToolCard({
                   disabled={!serverRunning || loading}
                   className="flex w-full items-center justify-center gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 sm:w-auto sm:py-1.5"
                 >
-                  <span className="material-symbols-outlined text-[16px]">play_circle</span>
+                  <Play className="size-4" />
                   Start DNS
                 </Button>
               )}
 
               {warning && (
                 <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-amber-500">
-                  <span className="material-symbols-outlined text-[14px]">warning</span>
+                  <TriangleAlert className="size-4" />
                   <span>{warning}</span>
                 </div>
               )}
@@ -271,7 +270,7 @@ export default function MitmToolCard({
           <div className="mx-4 flex w-full max-w-sm flex-col gap-4 rounded-xl border border-border bg-surface p-5 shadow-xl sm:p-6">
             <h3 className="font-semibold text-text-main">Sudo Password Required</h3>
             <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <span className="material-symbols-outlined text-yellow-500 text-[20px]">warning</span>
+              <TriangleAlert className="size-5" />
               <p className="text-xs text-text-muted">Required to modify /etc/hosts and flush DNS cache</p>
             </div>
             <Input
@@ -283,7 +282,7 @@ export default function MitmToolCard({
             />
             {modalError && (
               <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600">
-                <span className="material-symbols-outlined text-[14px]">error</span>
+                <AlertCircle className="size-4" />
                 <span>{modalError}</span>
               </div>
             )}

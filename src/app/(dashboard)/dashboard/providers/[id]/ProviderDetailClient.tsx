@@ -28,6 +28,7 @@ import AddApiKeyModal from "./AddApiKeyModal";
 import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
 import BulkImportCodexModal from "./BulkImportCodexModal";
+import { ArrowLeft, ArrowLeftRight, Download, ExternalLink, Info, Key, Loader2, Lock, Network, Plus, TriangleAlert, Unlink } from "lucide-react";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
 
@@ -1124,7 +1125,7 @@ export default function ProviderDetailClient({
             disabled={bulkUpdatingProxy || activePools.length === 0}
             className="justify-start gap-2"
           >
-            <span className="material-symbols-outlined text-text-muted text-[18px]">sync_alt</span>
+            <ArrowLeftRight className="size-5" />
             <span className="text-sm text-text-main">One-to-one (rotate)</span>
           </Button>
           <Button
@@ -1133,7 +1134,7 @@ export default function ProviderDetailClient({
             disabled={bulkUpdatingProxy}
             className="justify-start gap-2"
           >
-            <span className="material-symbols-outlined text-text-muted text-[18px]">link_off</span>
+            <Unlink className="size-5" />
             <span className="text-sm text-text-main">None (unbind all)</span>
           </Button>
           {proxyPools.map((pool) => (
@@ -1144,7 +1145,7 @@ export default function ProviderDetailClient({
               disabled={bulkUpdatingProxy || pool.isActive !== true}
               className="justify-start gap-2"
             >
-              <span className="material-symbols-outlined text-text-muted text-[18px]">lan</span>
+              <Network className="size-5" />
               <span className="truncate text-sm text-text-main">{pool.name}</span>
               {pool.isActive !== true && (
                 <span className="text-[10px] text-text-muted">(inactive)</span>
@@ -1280,7 +1281,7 @@ export default function ProviderDetailClient({
           onClick={() => setShowAddCustomModel(true)}
           className="w-full border-dashed border-primary/40 text-xs sm:w-auto"
         >
-          <span className="material-symbols-outlined text-sm">add</span>
+          <Plus className="size-4" />
           Add Model
         </Button>
 
@@ -1292,8 +1293,8 @@ export default function ProviderDetailClient({
             disabled={importingQoderModels}
             className="w-full border-dashed border-blue-500/40 text-xs text-blue-600 dark:text-blue-400 sm:w-auto"
           >
-            <span className="material-symbols-outlined text-sm" style={importingQoderModels ? { animation: "spin 1s linear infinite" } : undefined}>
-              {importingQoderModels ? "progress_activity" : "download"}
+            <span className="text-sm" style={importingQoderModels ? { animation: "spin 1s linear infinite" } : undefined}>
+              {importingQoderModels ? <Loader2 className="size-4" /> : <Download className="size-4" />}
             </span>
             {importingQoderModels ? translate("Fetching...") : translate("Fetch Qoder Models")}
           </Button>
@@ -1324,7 +1325,7 @@ export default function ProviderDetailClient({
                     className="text-xs"
                     title={`${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx`}
                   >
-                    <span className="material-symbols-outlined text-[13px]">add</span>
+                    <Plus className="size-3" />
                     {m.id.split("/").pop()}
                   </Button>
                 ))}
@@ -1346,7 +1347,7 @@ export default function ProviderDetailClient({
                   className="border-dashed text-xs"
                   title="Restore model"
                 >
-                  <span className="material-symbols-outlined text-[13px]">add</span>
+                  <Plus className="size-3" />
                   {m.id}
                 </Button>
               ))}
@@ -1396,7 +1397,7 @@ export default function ProviderDetailClient({
           href="/dashboard/providers"
           className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
         >
-          <span className="material-symbols-outlined text-lg">arrow_back</span>
+          <ArrowLeft className="size-4" />
           Back to Providers
         </Link>
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -1435,7 +1436,7 @@ export default function ProviderDetailClient({
                   rel="noopener noreferrer"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <span className="material-symbols-outlined text-sm">open_in_new</span>
+                  <ExternalLink className="size-4" />
                   {providerInfo.notice?.apiKeyUrl ? "Get API Key" : "Sign up / Learn more"}
                 </a>
               )}
@@ -1449,14 +1450,14 @@ export default function ProviderDetailClient({
 
       {providerInfo.deprecated && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-          <span className="material-symbols-outlined text-[16px] text-yellow-500 mt-0.5 shrink-0">warning</span>
+          <TriangleAlert className="size-4" />
           <p className="text-xs text-red-600 dark:text-yellow-400 leading-relaxed">{providerInfo.deprecationNotice}</p>
         </div>
       )}
 
       {providerInfo.notice?.text && !providerInfo.deprecated && (
         <div className="flex flex-col gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 sm:flex-row sm:items-center">
-          <span className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">info</span>
+          <Info className="size-4" />
           <p className="min-w-0 flex-1 text-xs leading-relaxed text-blue-600 dark:text-blue-400">{providerInfo.notice.text}</p>
           {providerInfo.notice.apiKeyUrl && (
             <a
@@ -1605,7 +1606,7 @@ export default function ProviderDetailClient({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">{isOAuth ? "lock" : "key"}</span>
+                  <span className="text-[18px]">{isOAuth ? <Lock className="size-[18px]" /> : <Key className="size-[18px]" />}</span>
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm text-text-muted">No connections yet</p>

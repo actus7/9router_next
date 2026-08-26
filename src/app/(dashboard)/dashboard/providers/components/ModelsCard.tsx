@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, Plus, X } from "lucide-react";
 
 // ── ModelRow ───────────────────────────────────────────────────
 interface ModelRowProps {
@@ -29,8 +30,8 @@ function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFr
   return (
     <div className={`group px-3 py-2 rounded-lg border ${borderColor} hover:bg-sidebar/50`}>
       <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-base" style={iconColor ? { color: iconColor } : undefined}>
-          {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
+        <span className="text-base" style={iconColor ? { color: iconColor } : undefined}>
+          {testStatus === "ok" ? <CheckCircle2 className="size-4" /> : testStatus === "error" ? <X className="size-4" /> : <Bot className="size-4" />}
         </span>
         <div className="flex flex-col gap-1">
           <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>
@@ -39,8 +40,8 @@ function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFr
         {onTest && (
           <div className="relative group/btn">
             <Button variant="ghost" size="icon-sm" onClick={onTest} disabled={isTesting} className={`${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
-              <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
-                {isTesting ? "progress_activity" : "science"}
+              <span className="text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
+                {isTesting ? <Loader2 className="size-4" /> : <Beaker className="size-4" />}
               </span>
             </Button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
@@ -50,7 +51,7 @@ function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFr
         )}
         <div className="relative group/btn">
           <Button variant="ghost" size="icon-sm" onClick={() => onCopy(fullModel, `model-${model.id}`)}>
-            <span className="material-symbols-outlined text-sm">{copied === `model-${model.id}` ? "check" : "content_copy"}</span>
+            <span className="text-sm">{copied === `model-${model.id}` ? <Check className="size-4" /> : <Copy className="size-4" />}</span>
           </Button>
           <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
             {copied === `model-${model.id}` ? "Copied!" : "Copy"}
@@ -59,7 +60,7 @@ function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFr
         {isFree && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded">FREE</span>}
         {isCustom && (
           <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-red-500 opacity-0 group-hover:opacity-100 ml-auto" title="Remove custom model">
-            <span className="material-symbols-outlined text-sm">close</span>
+            <X className="size-4" />
           </Button>
         )}
       </div>
@@ -288,7 +289,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
             onClick={() => setShowAddCustomModel(true)}
             className="border-dashed border-black/15 dark:border-white/15 text-xs"
           >
-            <span className="material-symbols-outlined text-sm">add</span>
+            <Plus className="size-4" />
             Add Model
           </Button>
         </div>

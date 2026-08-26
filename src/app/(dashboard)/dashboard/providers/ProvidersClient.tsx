@@ -23,6 +23,7 @@ import { useNotificationStore } from "@/store/notificationStore";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import ModelAvailabilityBadge from "./components/ModelAvailabilityBadge";
 import AddCompatibleModal from "./components/AddCompatibleModal";
+import { AlertCircle, CheckCircle2, ChevronDown, Loader2, PauseCircle, Play, Puzzle, SearchX } from "lucide-react";
 
 interface Connection {
   id: string;
@@ -372,9 +373,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       {!hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
-          <span className="material-symbols-outlined text-[32px] text-text-muted mb-2">
-            search_off
-          </span>
+          <SearchX className="size-8" />
           <p className="text-text-muted text-sm">No providers match your search</p>
         </div>
       )}
@@ -406,7 +405,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         {compatibleProviders.length === 0 &&
         anthropicCompatibleProviders.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
-            <span className="material-symbols-outlined text-[18px]">extension</span>
+            <Puzzle className="size-5" />
             <span>No custom providers — use buttons above to add OpenAI/Anthropic compatible endpoints</span>
           </div>
         ) : (
@@ -447,9 +446,9 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               aria-label="Test all OAuth connections"
             >
               <span
-                className={`material-symbols-outlined text-[14px]${testingMode === "oauth" ? " animate-spin" : ""}`}
+                className={`text-[14px]${testingMode === "oauth" ? " animate-spin" : ""}`}
               >
-                play_arrow
+                <Play className="size-3.5" />
               </span>
               {testingMode === "oauth" ? "Testing..." : "Test All"}
             </Button>
@@ -489,9 +488,9 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
             aria-label="Test all Free provider connections"
           >
             <span
-              className={`material-symbols-outlined text-[14px]${testingMode === "free" ? " animate-spin" : ""}`}
+              className={`text-[14px]${testingMode === "free" ? " animate-spin" : ""}`}
             >
-              play_arrow
+              <Play className="size-3.5" />
             </span>
             {testingMode === "free" ? "Testing..." : "Test All"}
           </Button>
@@ -545,9 +544,9 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
             aria-label="Test all API Key connections"
           >
             <span
-              className={`material-symbols-outlined text-[14px]${testingMode === "apikey" ? " animate-spin" : ""}`}
+              className={`text-[14px]${testingMode === "apikey" ? " animate-spin" : ""}`}
             >
-              play_arrow
+              <Play className="size-3.5" />
             </span>
             {testingMode === "apikey" ? "Testing..." : "Test All"}
           </Button>
@@ -570,7 +569,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
             onClick={() => setShowAllApikey(true)}
             className="w-full border-dashed border-primary/40 text-primary hover:border-primary hover:bg-primary/5"
           >
-            <span className="material-symbols-outlined text-[16px]">expand_more</span>
+            <ChevronDown className="size-4" />
             Show all {apikeyEntries.length} providers
           </Button>
         )}
@@ -651,9 +650,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }: {
                 {allDisabled ? (
                   <Badge variant="default" >
                     <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[12px]">
-                        pause_circle
-                      </span>
+                      <PauseCircle className="size-3" />
                       Disabled
                     </span>
                   </Badge>
@@ -753,9 +750,7 @@ function ApiKeyProviderCard({
                 {allDisabled ? (
                   <Badge variant="default" >
                     <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[12px]">
-                        pause_circle
-                      </span>
+                      <PauseCircle className="size-3" />
                       Disabled
                     </span>
                   </Badge>
@@ -810,9 +805,7 @@ function ProviderTestResultsView({ results }: { results: TestResults }) {
   if (results.error && !results.results) {
     return (
       <div className="text-center py-6">
-        <span className="material-symbols-outlined text-red-500 text-[32px] mb-2 block">
-          error
-        </span>
+        <AlertCircle className="size-8" />
         <p className="text-sm text-red-400">{results.error}</p>
       </div>
     );
@@ -853,9 +846,9 @@ function ProviderTestResultsView({ results }: { results: TestResults }) {
           className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg bg-black/[0.03] px-3 py-2 text-xs dark:bg-white/[0.03] sm:flex-nowrap"
         >
           <span
-            className={`material-symbols-outlined text-[16px] ${r.valid ? "text-emerald-500" : "text-red-500"}`}
+            className={`text-[16px] ${r.valid ? "text-emerald-500" : "text-red-500"}`}
           >
-            {r.valid ? "check_circle" : "error"}
+            {r.valid ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
           </span>
           <div className="min-w-0 flex-[1_1_160px]">
             <span className="block truncate font-medium sm:inline">

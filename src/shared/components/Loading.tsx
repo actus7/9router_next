@@ -3,6 +3,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton as ShadcnSkeleton } from "@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 
 type SpinnerSize = "sm" | "md" | "lg" | "xl";
 
@@ -23,15 +24,7 @@ export function Spinner({ size = "md", className }: SpinnerProps) {
   };
 
   return (
-    <span
-      className={cn(
-        "material-symbols-outlined animate-spin text-brand-500",
-        sizes[size],
-        className
-      )}
-    >
-      progress_activity
-    </span>
+    <Loader2 className={cn("animate-spin text-brand-500", sizes[size], className)} />
   );
 }
 

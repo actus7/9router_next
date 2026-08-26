@@ -13,6 +13,7 @@ import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import type { Combo, Connection, Settings } from "@/lib/data-access";
+import { ArrowDown, ArrowUp, Check, Copy, Gavel, Layers, Pencil, Plus, Trash2, X } from "lucide-react";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -222,7 +223,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
         <Card>
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">layers</span>
+              <Layers className="size-8" />
             </div>
             <p className="text-text-main font-medium mb-1">No combos yet</p>
             <p className="text-sm text-text-muted mb-4">Create model combos with fallback support</p>
@@ -322,7 +323,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
           <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-[18px]">layers</span>
+            <Layers className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
             <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
@@ -352,7 +353,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
                   className="max-w-full gap-1 border-dashed border-primary/40 font-mono text-[11px]"
                   title="Pick the model that fuses panel answers"
                 >
-                  <span className="material-symbols-outlined text-[13px]">gavel</span>
+                  <Gavel className="size-3" />
                   <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
                 </Button>
                 {judge && (
@@ -363,7 +364,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
                     className="text-red-500"
                     title="Reset judge to Auto"
                   >
-                    <span className="material-symbols-outlined text-[13px]">close</span>
+                    <X className="size-3" />
                   </Button>
                 )}
               </div>
@@ -390,9 +391,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
               className="flex-col"
               title="Copy combo name"
             >
-              <span className="material-symbols-outlined text-[18px]">
-                {copied === `combo-${combo.id}` ? "check" : "content_copy"}
-              </span>
+              {copied === `combo-${combo.id}` ? <Check className="size-4" /> : <Copy className="size-4" />}
               <span className="text-[10px] leading-tight">Copy</span>
             </Button>
             <Button
@@ -401,7 +400,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
               className="flex-col"
               title="Edit"
             >
-              <span className="material-symbols-outlined text-[18px]">edit</span>
+              <Pencil className="size-5" />
               <span className="text-[10px] leading-tight">Edit</span>
             </Button>
             <Button
@@ -410,7 +409,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
               className="flex-col"
               title="Delete"
             >
-              <span className="material-symbols-outlined text-[18px]">delete</span>
+              <Trash2 className="size-5" />
               <span className="text-[10px] leading-tight">Delete</span>
             </Button>
           </div>
@@ -510,7 +509,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
             aria-label={`Enable ${cap.label} adapter`}
           />
           <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-[18px]">{cap.icon}</span>
+            <span className="text-primary text-[18px]">{cap.icon}</span>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
@@ -529,13 +528,13 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
                     <span>{model}</span>
                     <CapacityBadges caps={getCaps?.(model)} />
                     <Button variant="ghost" size="icon-xs" onClick={() => handleMove(index, -1)} disabled={index === 0} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === 0 ? "text-text-muted/20" : ""}`}>
-                      <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
+                      <ArrowUp className="size-3" />
                     </Button>
                     <Button variant="ghost" size="icon-xs" onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === models.length - 1 ? "text-text-muted/20" : ""}`}>
-                      <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
+                      <ArrowDown className="size-3" />
                     </Button>
                     <Button variant="ghost" size="icon-xs" onClick={() => handleRemove(index)} className="leading-none opacity-0 group-hover/chip:opacity-100 text-red-500">
-                      <span className="material-symbols-outlined text-[12px]">close</span>
+                      <X className="size-3" />
                     </Button>
                   </code>
                 ))
@@ -674,7 +673,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
           className={isFirst ? "text-text-muted/20" : ""}
           title="Move up"
         >
-          <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
+          <ArrowUp className="size-3" />
         </Button>
         <Button
           variant="ghost"
@@ -684,7 +683,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
           className={isLast ? "text-text-muted/20" : ""}
           title="Move down"
         >
-          <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
+          <ArrowDown className="size-3" />
         </Button>
       </div>
 
@@ -696,7 +695,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         className="text-red-500"
         title="Remove"
       >
-        <span className="material-symbols-outlined text-[12px]">close</span>
+        <X className="size-3" />
       </Button>
     </div>
   );
@@ -822,7 +821,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
 
             {models.length === 0 ? (
               <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
-                <span className="material-symbols-outlined text-text-muted text-xl mb-1">layers</span>
+                <Layers className="size-4" />
                 <p className="text-xs text-text-muted">No models added yet</p>
               </div>
             ) : (
@@ -859,7 +858,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
               onClick={() => setShowModelSelect(true)}
               className="w-full mt-2 border-dashed text-xs"
             >
-              <span className="material-symbols-outlined text-[16px]">add</span>
+              <Plus className="size-4" />
               Add Model
             </Button>
           </div>
