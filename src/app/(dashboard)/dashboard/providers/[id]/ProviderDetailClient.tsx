@@ -139,6 +139,7 @@ export default function ProviderDetailClient({
 }: ProviderDetailClientProps) {
   const router = useRouter();
   const { getCaps } = useModelCaps();
+  const providerAlias = getProviderAlias(providerId);
   const filteredConnections = initialProviders.filter((c) => c.provider === providerId);
   const [connections, setConnections] = useState<Connection[]>(filteredConnections);
   const [loading, setLoading] = useState<boolean>(false);
@@ -174,8 +175,7 @@ export default function ProviderDetailClient({
   const [suggestedModels, setSuggestedModels] = useState<SuggestedModel[]>([]);
   const [liveModels, setLiveModels] = useState<Array<{ id: string; name?: string; isFree?: boolean }>>([]);
   const [kiloFreeModels, setKiloFreeModels] = useState<Array<{ id: string; name?: string; isFree?: boolean }>>([]);
-  const allDisabledForProvider = initialDisabledModels[providerAlias] || [];
-  const [disabledModelIds, setDisabledModelIds] = useState<string[]>(allDisabledForProvider);
+  const [disabledModelIds, setDisabledModelIds] = useState<string[]>(initialDisabledModels[providerAlias] || []);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [showAgRiskModal, setShowAgRiskModal] = useState<boolean>(false);
   const [oneByOneRunning, setOneByOneRunning] = useState<boolean>(false);
@@ -253,8 +253,6 @@ export default function ProviderDetailClient({
   const models = providerId === "cursor" && liveModels.length > 0
     ? liveModels
     : staticModels;
-  const providerAlias = getProviderAlias(providerId);
-  
   const isOpenAICompatible = isOpenAICompatibleProvider(providerId);
   const isAnthropicCompatible = isAnthropicCompatibleProvider(providerId);
   const isCompatible = isOpenAICompatible || isAnthropicCompatible;
