@@ -300,7 +300,7 @@ function AddApiKeyModal({ isOpen, provider, providerName, proxyPools, onSave, on
           <label className="text-xs text-text-muted mb-1 block">Priority</label>
           <input type="number" className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary" value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value) || 1 })} />
         </div>
-        <Select label="Proxy Pool" value={formData.proxyPoolId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, proxyPoolId: e.target.value })}
+        <Select label="Proxy Pool" value={formData.proxyPoolId} onChange={(val: string) => setFormData({ ...formData, proxyPoolId: val })}
           options={[{ value: NONE, label: "None" }, ...(proxyPools || []).map((p) => ({ value: p.id, label: p.name }))]} />
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={!formData.name || !formData.apiKey || saving}>
