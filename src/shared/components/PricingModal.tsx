@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { getDefaultPricing, formatCost } from "@/lib/open-sse/providers/pricing";
 
 interface PricingData {
@@ -104,23 +105,17 @@ export default function PricingModal({ isOpen, onClose, onSave }: PricingModalPr
     }
   };
 
-  if (!isOpen) return null;
-
   const allProviders = Object.keys(pricingData).sort();
   const pricingFields = ["input", "output", "cached", "reasoning", "cache_creation"];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-bg-base border border-border rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-6xl max-h-[90vh] flex flex-col">
+        <DialogTitle className="sr-only">Pricing Configuration</DialogTitle>
+
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-xl font-semibold">Pricing Configuration</h2>
-          <button
-            onClick={onClose}
-            className="text-text-muted hover:text-text text-2xl leading-none"
-          >
-            ×
-          </button>
         </div>
 
         {/* Content */}
@@ -218,7 +213,7 @@ export default function PricingModal({ isOpen, onClose, onSave }: PricingModalPr
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

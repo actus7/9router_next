@@ -2,6 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type SegmentedControlSize = "sm" | "md" | "lg";
 
@@ -33,36 +34,35 @@ export default function SegmentedControl({
   };
 
   return (
-    <div
-      role="tablist"
-      className={cn(
-        "inline-flex items-center p-1 rounded-[10px] overflow-x-auto",
-        "bg-surface-2",
-        className
-      )}
+    <Tabs
+      value={value}
+      onValueChange={(v) => onChange?.(String(v))}
+      className={cn("inline-flex", className)}
     >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          role="tab"
-          aria-selected={value === option.value}
-          onClick={() => onChange?.(option.value)}
-          className={cn(
-            "shrink-0 px-4 rounded-[8px] font-medium transition-all",
-            sizes[size],
-            value === option.value
-              ? "bg-surface text-text-main shadow-sm"
-              : "text-text-muted hover:text-text-main"
-          )}
-        >
-          {option.icon && (
-            <span className="material-symbols-outlined text-[16px] mr-1.5">
-              {option.icon}
-            </span>
-          )}
-          {option.label}
-        </button>
-      ))}
-    </div>
+      <TabsList
+        variant="default"
+        className="rounded-[10px] bg-surface-2 p-1"
+      >
+        {options.map((option) => (
+          <TabsTrigger
+            key={option.value}
+            value={option.value}
+            className={cn(
+              "shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all",
+              sizes[size],
+              "data-active:bg-surface data-active:text-text-main data-active:shadow-sm",
+              "text-text-muted hover:text-text-main"
+            )}
+          >
+            {option.icon && (
+              <span className="material-symbols-outlined text-[16px] mr-1.5">
+                {option.icon}
+              </span>
+            )}
+            {option.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }

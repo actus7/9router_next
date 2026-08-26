@@ -2,6 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { Skeleton as ShadcnSkeleton } from "@/components/ui/skeleton";
 
 type SpinnerSize = "sm" | "md" | "lg" | "xl";
 type LoadingType = "spinner" | "page" | "skeleton" | "card";
@@ -58,14 +59,11 @@ export function PageLoading({ message = "Loading..." }: PageLoadingProps) {
   );
 }
 
-// Skeleton loading
+// Skeleton loading — delegates to shadcn Skeleton
 export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
-    <div
-      className={cn(
-        "animate-pulse rounded-[10px] bg-surface-2",
-        className
-      )}
+    <ShadcnSkeleton
+      className={cn("rounded-[10px] bg-surface-2", className)}
       {...props}
     />
   );

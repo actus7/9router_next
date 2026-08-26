@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LOCALES, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { reloadTranslations } from "@/i18n/runtime";
 
@@ -67,34 +67,13 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
   const [locale, setLocale] = useState<string>("en");
   const [isPending, setIsPending] = useState<boolean>(false);
   const [internalOpen, setInternalOpen] = useState<boolean>(false);
-  const modalRef = useRef<HTMLDivElement>(null);
 
   const isControlled = typeof controlledOpen === "boolean";
   const isOpen = isControlled ? controlledOpen : internalOpen;
-  const setIsOpen = (value: boolean, nextLocale: string = locale) => {
-    if (isControlled) {
-      if (!value && onClose) onClose(nextLocale);
-    } else {
-      setInternalOpen(value);
-    }
-  };
 
   useEffect(() => {
     setLocale(getLocaleFromCookie());
   }, []);
-
-  // Close modal when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
 
   const handleSetLocale = async (nextLocale: string) => {
     if (nextLocale === locale || isPending) return;
@@ -110,7 +89,11 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
       // Reload translations without full page reload
       await reloadTranslations();
       setLocale(nextLocale);
-      setIsOpen(false, nextLocale);
+      if (isControlled) {
+        onClose?.(nextLocale);
+      } else {
+        setInternalOpen(false);
+      }
     } catch (err) {
       console.error("Failed to set locale:", err);
     } finally {
@@ -123,7 +106,13 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
       {/* Trigger button */}
       {!hideTrigger && (
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => {
+            if (isControlled) {
+              if (isOpen) onClose?.(locale);
+            } else {
+              setInternalOpen((prev) => !prev);
+            }
+          }}
           disabled={isPending}
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface/60 transition-colors"
           title="Language"
@@ -135,65 +124,57 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
         </button>
       )}
 
-      {/* Portal modal - renders at document.body to avoid parent layout constraints */}
-      {isOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-i18n-skip="true">
-          {/* Overlay */}
-          <div
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-            onClick={() => setIsOpen(false)}
-          />
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            if (isControlled) {
+              onClose?.(locale);
+            } else {
+              setInternalOpen(false);
+            }
+          }
+        }}
+      >
+        <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-2xl max-h-[80vh] flex flex-col" data-i18n-skip="true">
+          <DialogTitle className="sr-only">Select Language</DialogTitle>
 
-          {/* Modal content */}
-          <div
-            ref={modalRef}
-            className="relative w-full bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-w-2xl flex flex-col max-h-[80vh]"
-          >
-            {/* Modal header */}
-            <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5">
-              <h2 className="text-lg font-semibold text-text-main">Select Language</h2>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-text-muted hover:bg-surface-2/50 transition-colors"
-                aria-label="Close"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+          {/* Modal header */}
+          <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5">
+            <h2 className="text-lg font-semibold text-text-main">Select Language</h2>
+          </div>
 
-            {/* Modal body - fixed grid columns, equal sizing */}
-            <div className="p-6 overflow-y-auto flex-1">
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
-                {LOCALES.map((item) => {
-                  const active = locale === item;
-                  const info = getLocaleInfo(item);
-                  return (
-                    <button
-                      key={item}
-                      onClick={() => handleSetLocale(item)}
-                      disabled={isPending}
-                      className={`flex flex-col items-center justify-start gap-1 px-2 py-3 rounded-lg text-xs font-medium transition-colors w-full ${
-                        active
-                          ? "bg-primary/15 text-primary ring-2 ring-primary"
-                          : "text-text-main hover:bg-surface-2/50"
-                      } ${isPending ? "opacity-70 cursor-wait" : ""}`}
-                      title={info.name}
-                    >
-                      <span className="text-2xl">{info.flag}</span>
-                      {/* Fixed 2-line height so all cards are uniform */}
-                      <span className="text-center leading-tight line-clamp-2 h-8 flex items-center">{info.name}</span>
-                      {active && (
-                        <span className="material-symbols-outlined text-sm">check</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Modal body - fixed grid columns, equal sizing */}
+          <div className="p-6 overflow-y-auto flex-1">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
+              {LOCALES.map((item) => {
+                const active = locale === item;
+                const info = getLocaleInfo(item);
+                return (
+                  <button
+                    key={item}
+                    onClick={() => handleSetLocale(item)}
+                    disabled={isPending}
+                    className={`flex flex-col items-center justify-start gap-1 px-2 py-3 rounded-lg text-xs font-medium transition-colors w-full ${
+                      active
+                        ? "bg-primary/15 text-primary ring-2 ring-primary"
+                        : "text-text-main hover:bg-surface-2/50"
+                    } ${isPending ? "opacity-70 cursor-wait" : ""}`}
+                    title={info.name}
+                  >
+                    <span className="text-2xl">{info.flag}</span>
+                    {/* Fixed 2-line height so all cards are uniform */}
+                    <span className="text-center leading-tight line-clamp-2 h-8 flex items-center">{info.name}</span>
+                    {active && (
+                      <span className="material-symbols-outlined text-sm">check</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
-        </div>,
-        document.body
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

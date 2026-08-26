@@ -41,6 +41,18 @@ import {
   getUsageHistory,
 } from "@/lib/db/repos/usageRepo";
 
+import {
+  getDisabledByProvider,
+  getDisabledModels as repoGetDisabledModels,
+} from "@/lib/db/repos/disabledModelsRepo";
+
+import {
+  getModelAliases as repoGetModelAliases,
+  getCustomModels as repoGetCustomModels,
+} from "@/lib/db/repos/aliasRepo";
+
+import { getAdapter } from "@/lib/db/driver";
+
 // ---------------------------------------------------------------------------
 // Re-exported types (so consumers can import from a single module)
 // ---------------------------------------------------------------------------
@@ -230,5 +242,223 @@ export async function getUsageLogs(params: UsageLogsParams): Promise<UsageLog[]>
   } catch (err) {
     console.error("[data-access] getUsageLogs failed:", err);
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Provider Models
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch models for a specific provider connection.
+ * Returns an empty array on error.
+ */
+export async function getProviderModels(connectionId: string): Promise<unknown[]> {
+  try {
+    const db = await getAdapter();
+    const connection = await getProviderConnectionById(connectionId);
+    if (!connection) return [];
+
+    // Get provider nodes for this connection's provider type
+    const nodes = await repoGetProviderNodes({ type: connection.provider });
+    if (!nodes.length) return [];
+
+    // Return the models from the first matching node's data
+    const node = nodes[0];
+    const models = (node as Record<string, unknown>).models;
+    return Array.isArray(models) ? models : [];
+  } catch (err) {
+    console.error("[data-access] getProviderModels failed:", err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Disabled Models
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch disabled models for a specific provider alias.
+ * Returns an empty array on error.
+ */
+export async function getDisabledModels(providerAlias: string): Promise<string[]> {
+  try {
+    return await getDisabledByProvider(providerAlias);
+  } catch (err) {
+    console.error("[data-access] getDisabledModels failed:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetch all disabled models grouped by provider alias.
+ * Returns an empty object on error.
+ */
+export async function getAllDisabledModels(): Promise<Record<string, string[]>> {
+  try {
+    return await repoGetDisabledModels();
+  } catch (err) {
+    console.error("[data-access] getAllDisabledModels failed:", err);
+    return {};
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Model Aliases
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch all model aliases (alias → model mapping).
+ * Returns an empty object on error.
+ */
+export async function getModelAliases(): Promise<Record<string, string>> {
+  try {
+    const aliases = await repoGetModelAliases();
+    return aliases as Record<string, string>;
+  } catch (err) {
+    console.error("[data-access] getModelAliases failed:", err);
+    return {};
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Custom Models
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch all custom models.
+ * Returns an empty array on error.
+ */
+export async function getCustomModels(): Promise<unknown[]> {
+  try {
+    return await repoGetCustomModels();
+  } catch (err) {
+    console.error("[data-access] getCustomModels failed:", err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Proxy Pools with Usage
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch all proxy pools enriched with usage statistics.
+ * Returns an empty array on error.
+ */
+export async function getProxyPoolsWithUsage(): Promise<ProxyPool[]> {
+  try {
+    const pools = await repoGetProxyPools();
+    const stats = await repoGetUsageStats();
+
+    // Enrich pools with usage data if available
+    return pools.map(pool => ({
+      ...pool,
+      usage: {
+        totalRequests: 0,
+        totalCost: 0,
+        // Additional usage metrics can be added here
+      }
+    }));
+  } catch (err) {
+    console.error("[data-access] getProxyPoolsWithUsage failed:", err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Database Info
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch database metadata and statistics.
+ * Returns an empty object on error.
+ */
+export async function getDatabaseInfo(): Promise<Record<string, unknown>> {
+  try {
+    const db = await getAdapter();
+
+    // Get table counts
+    const tables = ['providerConnections', 'providerNodes', 'proxyPools', 'apiKeys', 'combos', 'usageHistory', 'requestDetails'];
+    const tableCounts: Record<string, number> = {};
+
+    for (const table of tables) {
+      try {
+        const result = db.get(`SELECT COUNT(*) as count FROM ${table}`);
+        tableCounts[table] = (result as { count: number })?.count || 0;
+      } catch {
+        tableCounts[table] = 0;
+      }
+    }
+
+    // Get database size (approximate)
+    let dbSize = 0;
+    try {
+      const pageCount = db.get(`PRAGMA page_count`);
+      const pageSize = db.get(`PRAGMA page_size`);
+      if (pageCount && pageSize) {
+        dbSize = ((pageCount as { page_count: number }).page_count || 0) * ((pageCount as { page_size: number }).page_size || 0);
+      }
+    } catch {
+      // Ignore size calculation errors
+    }
+
+    // Get schema version
+    let schemaVersion = 0;
+    try {
+      const versionRow = db.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`);
+      schemaVersion = parseInt((versionRow as { value: string })?.value || '0', 10);
+    } catch {
+      // Ignore version errors
+    }
+
+    return {
+      tableCounts,
+      dbSize,
+      schemaVersion,
+      driver: (db as unknown as Record<string, unknown>).driver || 'unknown',
+      timestamp: new Date().toISOString(),
+    };
+  } catch (err) {
+    console.error("[data-access] getDatabaseInfo failed:", err);
+    return {};
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Combo with Details
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a single combo by its id with additional details, or `null` if not found.
+ * Returns null on error.
+ */
+export async function getComboWithDetails(id: string): Promise<(Combo & { modelDetails: Array<{ id: string; provider: string; name: string }> }) | null> {
+  try {
+    const combo = await repoGetComboById(id);
+    if (!combo) return null;
+
+    // Get additional details for the combo's models
+    const models = combo.models || [];
+    const modelDetails = await Promise.all(
+      models.map(async (model: unknown) => {
+        const modelStr = typeof model === 'string' ? model : String(model);
+        // Try to get provider info for this model
+        const [provider, modelName] = modelStr.includes('/') ? modelStr.split('/') : ['', modelStr];
+        return {
+          id: modelStr,
+          provider: provider || 'unknown',
+          name: modelName || modelStr,
+        };
+      })
+    );
+
+    return {
+      ...combo,
+      modelDetails,
+    };
+  } catch (err) {
+    console.error("[data-access] getComboWithDetails failed:", err);
+    return null;
   }
 }

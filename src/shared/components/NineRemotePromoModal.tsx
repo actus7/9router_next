@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { createPortal } from "react-dom";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 const FEATURES = [
   { icon: "terminal", label: "Terminal", desc: "Full shell access" },
@@ -23,35 +22,19 @@ interface NineRemotePromoModalProps {
 }
 
 export default function NineRemotePromoModal({ isOpen, onClose }: NineRemotePromoModalProps) {
-  useEffect(() => {
-    if (!isOpen) return;
-    document.body.style.overflow = "hidden";
-    const onEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onEsc);
-    return () => { document.body.style.overflow = ""; document.removeEventListener("keydown", onEsc); };
-  }, [isOpen, onClose]);
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="p-0 gap-0 overflow-hidden">
+        <DialogTitle className="sr-only">9Remote</DialogTitle>
 
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] fade-in" onClick={onClose} />
-
-      <div className="relative w-full max-w-sm rounded-[14px] overflow-hidden shadow-[var(--shadow-elev)] fade-in flex flex-col bg-surface border border-border-subtle">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle">
+        <div className="flex items-center px-5 py-3 border-b border-border-subtle">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-[8px] flex items-center justify-center bg-primary">
               <span className="material-symbols-outlined text-white text-base">terminal</span>
             </div>
             <span className="text-xs font-bold uppercase tracking-wider text-primary font-mono">9Remote</span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors"
-          >
-            <span className="material-symbols-outlined text-base">close</span>
-          </button>
         </div>
 
         {/* Body */}
@@ -97,8 +80,7 @@ export default function NineRemotePromoModal({ isOpen, onClose }: NineRemoteProm
             Get 9Remote
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }

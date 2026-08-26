@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 function resolveSrc(src?: string | null, providerId?: string): string | null {
   if (providerId) return getProviderIconSrc(providerId);
@@ -31,39 +31,34 @@ export default function ProviderIcon({
   fallbackColor,
 }: ProviderIconProps) {
   const effectiveSrc = resolveSrc(src, providerId);
-  const [errored, setErrored] = useState(false);
 
-  if (!effectiveSrc || errored) {
-    return (
-      <span
-        className={`inline-flex items-center justify-center font-bold rounded-lg ${className}`.trim()}
+  const handleError = () => {
+    const m = effectiveSrc?.match(/^\/providers\/([^/]+)\.png$/i);
+    if (m) markProviderIconMissing(m[1]);
+    if (providerId) markProviderIconMissing(providerId);
+  };
+
+  return (
+    <Avatar
+      className={className}
+      style={{ width: size, height: size }}
+    >
+      <AvatarImage
+        src={effectiveSrc ?? undefined}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        onError={handleError}
+      />
+      <AvatarFallback
+        className="font-bold"
         style={{
-          width: size,
-          height: size,
           color: fallbackColor,
           fontSize: Math.max(10, Math.floor(size * 0.38)),
         }}
       >
         {fallbackText}
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={effectiveSrc}
-      alt={alt}
-      width={size}
-      height={size}
-      className={className}
-      loading="lazy"
-      decoding="async"
-      onError={() => {
-        const m = effectiveSrc.match(/^\/providers\/([^/]+)\.png$/i);
-        if (m) markProviderIconMissing(m[1]);
-        if (providerId) markProviderIconMissing(providerId);
-        setErrored(true);
-      }}
-    />
+      </AvatarFallback>
+    </Avatar>
   );
 }
