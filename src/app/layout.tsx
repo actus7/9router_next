@@ -13,6 +13,18 @@ import { initConsoleLogCapture } from "@/lib/consoleLogBuffer";
 
 initConsoleLogCapture();
 
+/** Inject translations into globalThis before React hydrates */
+function I18nScript({ locale, translations }: { locale: string; translations: Record<string, string> }) {
+  const json = JSON.stringify(translations);
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `globalThis.__I18N_LOCALE__=${JSON.stringify(locale)};globalThis.__I18N_TRANSLATIONS__=${json};`,
+      }}
+    />
+  );
+}
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -55,6 +67,7 @@ export default async function RootLayout({
         />
       </head>
       <body suppressHydrationWarning className="min-h-full flex flex-col font-sans">
+        <I18nScript locale={locale} translations={translations} />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

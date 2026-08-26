@@ -14,8 +14,13 @@ interface TranslatedText extends Text {
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
-let translationMap: TranslationMap = {};
-let currentLocale: Locale = DEFAULT_LOCALE;
+// Check for server-injected translations (set via <script> tag before React hydrates)
+const g = typeof globalThis !== "undefined" ? (globalThis as Record<string, unknown>) : {};
+const serverLocale = g.__I18N_LOCALE__ as Locale | undefined;
+const serverTranslations = g.__I18N_TRANSLATIONS__ as TranslationMap | undefined;
+
+let translationMap: TranslationMap = serverTranslations || {};
+let currentLocale: Locale = serverLocale || DEFAULT_LOCALE;
 let reloadCallbacks: ReloadCallback[] = [];
 
 // Read locale from cookie
