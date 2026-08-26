@@ -14,6 +14,7 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import type { Combo, Connection, Settings } from "@/lib/data-access";
 import { ArrowDown, ArrowUp, Check, Copy, Gavel, Layers, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useNotificationStore } from "@/store/notificationStore";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -81,6 +82,7 @@ function normalizeCapacityAdapter(raw: Record<string, unknown> | undefined): Rec
 }
 
 export default function CombosClient({ initialCombos, initialProviders, initialSettings, initialAliases }: CombosClientProps) {
+  const notify = useNotificationStore();
   // Only LLM combos here - webSearch/webFetch combos belong to media-providers/web
   const [combos, setCombos] = useState<Combo[]>(
     (initialCombos || []).filter((c) => !c.kind || c.kind === "llm")
@@ -105,7 +107,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
         body: JSON.stringify({ capacityAdapter: next }),
       });
     } catch (error) {
-      console.log("Error updating capacity adapter:", error);
+      console.error("Error updating capacity adapter:", error);
     }
   };
 
@@ -126,10 +128,10 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
         setShowCreateModal(false);
       } else {
         const err = await res.json();
-        alert(err.error || "Failed to create combo");
+        notify.error(err.error || "Failed to create combo");
       }
     } catch (error) {
-      console.log("Error creating combo:", error);
+      console.error("Error creating combo:", error);
     }
   };
 
@@ -150,10 +152,10 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
         setEditingCombo(null);
       } else {
         const err = await res.json();
-        alert(err.error || "Failed to update combo");
+        notify.error(err.error || "Failed to update combo");
       }
     } catch (error) {
-      console.log("Error updating combo:", error);
+      console.error("Error updating combo:", error);
     }
   };
 
@@ -169,7 +171,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
             setCombos(combos.filter(c => c.id !== id));
           }
         } catch (error) {
-          console.log("Error deleting combo:", error);
+          console.error("Error deleting combo:", error);
         }
       }
     });
@@ -195,7 +197,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
 
       setComboStrategies(updated);
     } catch (error) {
-      console.log("Error updating combo strategy:", error);
+      console.error("Error updating combo strategy:", error);
     }
   };
 

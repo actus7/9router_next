@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
     
     return NextResponse.json(combo);
   } catch (error) {
-    console.log("Error fetching combo:", error);
+    console.error("Error fetching combo:", error);
     return NextResponse.json({ error: "Failed to fetch combo" }, { status: 500 });
   }
 }
@@ -59,7 +59,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
 
     return NextResponse.json(combo);
   } catch (error) {
-    console.log("Error updating combo:", error);
+    console.error("Error updating combo:", error);
     return NextResponse.json({ error: "Failed to update combo" }, { status: 500 });
   }
 }
@@ -79,7 +79,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext): Pr
     
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error deleting combo:", error);
+    console.error("Error deleting combo:", error);
     return NextResponse.json({ error: "Failed to delete combo" }, { status: 500 });
   }
 }

@@ -141,7 +141,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
 
     while (Date.now() < deadline) {
       if (pollingAbortRef.current) {
-        console.log("[OAuthModal] Polling aborted");
+        console.error("[OAuthModal] Polling aborted");
         setPolling(false);
         return;
       }
@@ -149,7 +149,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       await new Promise((r) => setTimeout(r, interval * 1000));
 
       if (pollingAbortRef.current) {
-        console.log("[OAuthModal] Polling aborted after sleep");
+        console.error("[OAuthModal] Polling aborted after sleep");
         setPolling(false);
         return;
       }
@@ -513,8 +513,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     try {
       channel = new BroadcastChannel("oauth_callback");
       channel.onmessage = (event) => handleCallback(event.data);
-    } catch (e) {
-      console.log("BroadcastChannel not supported");
+    } catch ($1) { console.error("BroadcastChannel not supported");
     }
 
     const handleStorage = (event: StorageEvent) => {
@@ -524,7 +523,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           handleCallback(data);
           localStorage.removeItem("oauth_callback");
         } catch (e) {
-          console.log("Failed to parse localStorage data");
+          console.error("Failed to parse localStorage data");
         }
       }
     };

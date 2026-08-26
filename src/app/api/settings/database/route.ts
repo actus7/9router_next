@@ -19,7 +19,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const payload = await exportDb();
     return NextResponse.json(payload);
   } catch (error) {
-    console.log("Error exporting database:", error);
+    console.error("Error exporting database:", error);
     return NextResponse.json({ error: "Failed to export database" }, { status: 500 });
   }
 }
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error importing database:", error);
+    console.error("Error importing database:", error);
     return NextResponse.json(
       { error: (error as Error)?.message || "Failed to import database" },
       { status: 400 }

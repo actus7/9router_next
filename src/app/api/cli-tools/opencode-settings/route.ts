@@ -80,7 +80,7 @@ export async function GET() {
         },
     });
   } catch (error) {
-    console.log("Error checking opencode settings:", error);
+    console.error("Error checking opencode settings:", error);
     return NextResponse.json({ error: "Failed to check opencode settings" }, { status: 500 });
   }
 }
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
       configPath,
     });
   } catch (error) {
-    console.log("Error applying opencode settings:", error);
+    console.error("Error applying opencode settings:", error);
     return NextResponse.json({ error: "Failed to apply settings" }, { status: 500 });
   }
 }
@@ -201,7 +201,7 @@ export async function PATCH(request: NextRequest) {
       message: "Settings updated",
     });
   } catch (error) {
-    console.log("Error patching opencode settings:", error);
+    console.error("Error patching opencode settings:", error);
     return NextResponse.json({ error: "Failed to patch settings" }, { status: 500 });
   }
 }
@@ -257,7 +257,7 @@ export async function DELETE(request: NextRequest) {
       message: modelToRemove ? `Model "${modelToRemove}" removed` : "9Router settings removed from OpenCode",
     });
   } catch (error) {
-    console.log("Error resetting opencode settings:", error);
+    console.error("Error resetting opencode settings:", error);
     return NextResponse.json({ error: "Failed to reset opencode settings" }, { status: 500 });
   }
 }

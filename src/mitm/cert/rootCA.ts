@@ -41,11 +41,11 @@ function isCertExpired(certPath: string): boolean {
 function generateRootCA(): RootCAPaths {
   const exists: boolean = fs.existsSync(ROOT_CA_KEY_PATH) && fs.existsSync(ROOT_CA_CERT_PATH);
   if (exists && !isCertExpired(ROOT_CA_CERT_PATH)) {
-    console.log("✅ Root CA already exists");
+    console.error("✅ Root CA already exists");
     return { key: ROOT_CA_KEY_PATH, cert: ROOT_CA_CERT_PATH };
   }
   if (exists) {
-    console.log("🔐 Root CA expired or expiring soon — regenerating...");
+    console.error("🔐 Root CA expired or expiring soon — regenerating...");
     try { fs.unlinkSync(ROOT_CA_KEY_PATH); } catch { /* ignore */ }
     try { fs.unlinkSync(ROOT_CA_CERT_PATH); } catch { /* ignore */ }
   }

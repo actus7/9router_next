@@ -226,7 +226,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         updateReachable(null, tsClientReachableRef, tsMissRef, setTsReachable, tsEverReachableRef, setTsEverReachable);
       }
     } catch (error) {
-      console.log("Error loading settings:", error);
+      console.error("Error loading settings:", error);
     } finally {
       setTunnelChecking(false);
     }
@@ -241,7 +241,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       });
       if (res.ok) setTunnelDashboardAccess(value);
     } catch (error) {
-      console.log("Error updating tunnelDashboardAccess:", error);
+      console.error("Error updating tunnelDashboardAccess:", error);
     }
   };
 
@@ -254,7 +254,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       });
       if (res.ok) setRequireApiKey(value);
     } catch (error) {
-      console.log("Error updating requireApiKey:", error);
+      console.error("Error updating requireApiKey:", error);
     }
   };
 
@@ -281,7 +281,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       }
       setKeys(existing);
     } catch (error) {
-      console.log("Error fetching data:", error);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
@@ -645,7 +645,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         setShowAddModal(false);
       }
     } catch (error) {
-      console.log("Error creating key:", error);
+      console.error("Error creating key:", error);
     }
   };
 
@@ -666,7 +666,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             });
           }
         } catch (error) {
-          console.log("Error deleting key:", error);
+          console.error("Error deleting key:", error);
         }
       }
     });
@@ -683,7 +683,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         setKeys(prev => prev.map(k => k.id === id ? { ...k, isActive } : k));
       }
     } catch (error) {
-      console.log("Error toggling key:", error);
+      console.error("Error toggling key:", error);
     }
   };
 

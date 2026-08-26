@@ -359,7 +359,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
       const override = (settingsData.providerStrategies || {})[providerId] || {};
       setProviderStrategy(override.fallbackStrategy || null);
       setProviderStickyLimit(override.stickyRoundRobinLimit != null ? String(override.stickyRoundRobinLimit) : "1");
-    } catch (e) { console.log("ConnectionsCard fetch error:", e); }
+    } catch ($1) { console.error("ConnectionsCard fetch error:", e); }
     finally { setLoading(false); }
   }, [providerId]);
 
@@ -377,7 +377,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
       if (Object.keys(override).length === 0) delete updated[providerId];
       else updated[providerId] = override;
       await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerStrategies: updated }) });
-    } catch (e) { console.log("saveStrategy error:", e); }
+    } catch ($1) { console.error("saveStrategy error:", e); }
   };
 
   const handleSwapPriority = async (i1: number, i2: number) => {
@@ -401,7 +401,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
         try {
           const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
           if (res.ok) setConnections((prev) => prev.filter((c) => c.id !== id));
-        } catch (e) { console.log("delete error:", e); }
+        } catch ($1) { console.error("delete error:", e); }
       }
     });
   };
@@ -410,28 +410,28 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
     try {
       const res = await fetch(`/api/providers/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) });
       if (res.ok) setConnections((prev) => prev.map((c) => c.id === id ? { ...c, isActive } : c));
-    } catch (e) { console.log("toggle error:", e); }
+    } catch ($1) { console.error("toggle error:", e); }
   };
 
   const handleUpdateProxy = async (connId: string, proxyPoolId: string | null) => {
     try {
       const res = await fetch(`/api/providers/${connId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proxyPoolId: proxyPoolId || null }) });
       if (res.ok) setConnections((prev) => prev.map((c) => c.id === connId ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId || null } } : c));
-    } catch (e) { console.log("proxy error:", e); }
+    } catch ($1) { console.error("proxy error:", e); }
   };
 
   const handleSaveApiKey = async (formData: Record<string, unknown>) => {
     try {
       const res = await fetch("/api/providers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: providerId, ...formData }) });
       if (res.ok) { await fetch_(); setShowAddModal(false); }
-    } catch (e) { console.log("save apikey error:", e); }
+    } catch ($1) { console.error("save apikey error:", e); }
   };
 
   const handleUpdateConnection = async (formData: Record<string, unknown>) => {
     try {
       const res = await fetch(`/api/providers/${selectedConnection!.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
       if (res.ok) { await fetch_(); setShowEditModal(false); }
-    } catch (e) { console.log("update connection error:", e); }
+    } catch ($1) { console.error("update connection error:", e); }
   };
 
   if (loading) return <Card><div className="h-20 animate-pulse bg-black/5 rounded-lg" /></Card>;

@@ -695,16 +695,16 @@ export function startZedProxy(preferredPort: number = 0): Promise<TraeProxyResul
     const tryPort: number = Number(preferredPort) || 0;
     server.on("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "EADDRINUSE" && tryPort !== 0) {
-        console.log(`[Zed proxy] port ${tryPort} busy, falling back to random`);
+        console.error(`[Zed proxy] port ${tryPort} busy, falling back to random`);
         server.listen(0, "127.0.0.1", () => {
           zedProxyServer = server;
           zedProxyPort = (server.address() as { port: number }).port;
           zedProxyTimeout = setTimeout(() => stopZedProxy(), (ZED_HOSTED_CONFIG as Record<string, number>).oauthTimeoutMs);
-          console.log(`[Zed proxy] listening on random port ${zedProxyPort}`);
+          console.error(`[Zed proxy] listening on random port ${zedProxyPort}`);
           resolve({ success: true, port: zedProxyPort, callbackUrl: `http://127.0.0.1:${zedProxyPort}/` });
         });
       } else {
-        console.log(`[Zed proxy] listen error: ${err.message}`);
+        console.error(`[Zed proxy] listen error: ${err.message}`);
         resolve({ success: false, reason: err.message });
       }
     });

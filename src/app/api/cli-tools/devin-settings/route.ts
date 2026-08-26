@@ -80,7 +80,7 @@ export async function GET() {
       message: "Devin CLI detected. Make sure `devin auth login` has been run.",
     });
   } catch (error) {
-    console.log("Error checking devin settings:", error);
+    console.error("Error checking devin settings:", error);
     return NextResponse.json({ error: "Failed to check devin settings" }, { status: 500 });
   }
 }

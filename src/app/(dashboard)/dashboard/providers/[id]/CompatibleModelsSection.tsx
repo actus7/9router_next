@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, Trash2, X } from "lucide-react";
+import { useNotificationStore } from "@/store/notificationStore";
 
 interface CompatibleModelRowProps {
   modelId: string;
@@ -116,6 +117,7 @@ interface CompatibleModelsSectionProps {
 }
 
 export default function CompatibleModelsSection({ providerStorageAlias, providerDisplayAlias, modelAliases, customModels, copied, onCopy, onDeleteAlias, onAddCustomModel, onDeleteCustomModel, connections, isAnthropic }: CompatibleModelsSectionProps) {
+  const notify = useNotificationStore();
   const [newModel, setNewModel] = useState<string>("");
   const [adding, setAdding] = useState<boolean>(false);
   const [importing, setImporting] = useState<boolean>(false);
@@ -151,7 +153,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     if (!newModel.trim() || adding) return;
     const modelId = newModel.trim();
     if (allModels.some((model: { id: string }) => model.id === modelId)) {
-      alert("Model already exists for this provider.");
+      notify.warning("Model already exists for this provider.");
       return;
     }
 
@@ -160,7 +162,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       await onAddCustomModel(modelId);
       setNewModel("");
     } catch (error) {
-      console.log("Error adding model:", error);
+      console.error("Error adding model:", error);
     } finally {
       setAdding(false);
     }
@@ -176,12 +178,12 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       const res = await fetch(`/api/providers/${activeConnection.id}/models`);
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to import models");
+        notify.error(data.error || "Failed to import models");
         return;
       }
       const models = data.models || [];
       if (models.length === 0) {
-        alert("No models returned from /models.");
+        notify.warning("No models returned from /models.");
         return;
       }
       let importedCount = 0;
@@ -193,10 +195,10 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         importedCount += 1;
       }
       if (importedCount === 0) {
-        alert("No new models were added.");
+        notify.warning("No new models were added.");
       }
     } catch (error) {
-      console.log("Error importing models:", error);
+      console.error("Error importing models:", error);
     } finally {
       setImporting(false);
     }

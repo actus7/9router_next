@@ -301,7 +301,7 @@ export async function GET() {
       localStdioPlugins: LOCAL_STDIO_PLUGINS,
     });
   } catch (error) {
-    console.log("Error reading cowork settings:", error);
+    console.error("Error reading cowork settings:", error);
     return NextResponse.json({ error: "Failed to read cowork settings" }, { status: 500 });
   }
 }
@@ -361,7 +361,7 @@ export async function POST(request: NextRequest) {
       localMcp: localMcpResult,
     });
   } catch (error) {
-    console.log("Error applying cowork settings:", error);
+    console.error("Error applying cowork settings:", error);
     return NextResponse.json({ error: "Failed to apply cowork settings" }, { status: 500 });
   }
 }
@@ -379,7 +379,7 @@ export async function DELETE() {
     try { await cleanup1pLegacy(); } catch { /* ignore */ }
     return NextResponse.json({ success: true, message: "Cowork config reset" });
   } catch (error) {
-    console.log("Error resetting cowork settings:", error);
+    console.error("Error resetting cowork settings:", error);
     return NextResponse.json({ error: "Failed to reset cowork settings" }, { status: 500 });
   }
 }

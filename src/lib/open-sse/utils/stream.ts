@@ -461,7 +461,7 @@ export function createSSEStream(options = {}) {
           }, state?.usage, ttftAt);
         }
       } catch (error) {
-        console.log("Error in flush:", error);
+        console.error("Error in flush:", error);
       }
     }
   });

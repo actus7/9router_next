@@ -69,7 +69,7 @@ export async function GET() {
       globalStatePath: getGlobalStatePath(),
     });
   } catch (error) {
-    console.log("Error checking cline settings:", error);
+    console.error("Error checking cline settings:", error);
     return NextResponse.json({ error: "Failed to check cline settings" }, { status: 500 });
   }
 }
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Cline settings applied successfully!", globalStatePath: getGlobalStatePath() });
   } catch (error) {
-    console.log("Error updating cline settings:", error);
+    console.error("Error updating cline settings:", error);
     return NextResponse.json({ error: "Failed to update cline settings" }, { status: 500 });
   }
 }
@@ -127,7 +127,7 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true, message: "9Router settings removed from Cline" });
   } catch (error) {
-    console.log("Error resetting cline settings:", error);
+    console.error("Error resetting cline settings:", error);
     return NextResponse.json({ error: "Failed to reset cline settings" }, { status: 500 });
   }
 }

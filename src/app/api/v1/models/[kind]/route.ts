@@ -47,7 +47,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       headers: { "Access-Control-Allow-Origin": "*" },
     });
   } catch (error) {
-    console.log("Error fetching models by kind:", error);
+    console.error("Error fetching models by kind:", error);
     return Response.json(
       { error: { message: error.message, type: "server_error" } },
       { status: 500 }

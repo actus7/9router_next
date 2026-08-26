@@ -397,7 +397,7 @@ export function stopQuotaAutoPing(): void {
   if (!g.interval) return;
   clearInterval(g.interval);
   g.interval = null;
-  console.log("[AutoPing] scheduler stopped");
+  console.error("[AutoPing] scheduler stopped");
 }
 
 export function configureQuotaAutoPing(settings: Settings): void {

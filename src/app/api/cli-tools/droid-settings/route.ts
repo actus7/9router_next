@@ -72,7 +72,7 @@ export async function GET() {
       settingsPath: getDroidSettingsPath(),
     });
   } catch (error) {
-    console.log("Error checking droid settings:", error);
+    console.error("Error checking droid settings:", error);
     return NextResponse.json({ error: "Failed to check droid settings" }, { status: 500 });
   }
 }
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
       settingsPath,
     });
   } catch (error) {
-    console.log("Error updating droid settings:", error);
+    console.error("Error updating droid settings:", error);
     return NextResponse.json({ error: "Failed to update droid settings" }, { status: 500 });
   }
 }
@@ -207,7 +207,7 @@ export async function DELETE() {
       message: "9Router settings removed successfully",
     });
   } catch (error) {
-    console.log("Error resetting droid settings:", error);
+    console.error("Error resetting droid settings:", error);
     return NextResponse.json({ error: "Failed to reset droid settings" }, { status: 500 });
   }
 }

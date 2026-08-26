@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, getProvidersByKind } from "@/shared/constants/providers";
 import { ChevronRight, Layers } from "lucide-react";
+import { useNotificationStore } from "@/store/notificationStore";
 
 interface Connection {
   provider: string;
@@ -181,6 +182,7 @@ interface MediaProviderKindClientProps {
 }
 
 export default function MediaProviderKindClient({ initialConnections, initialNodes, initialCombos }: MediaProviderKindClientProps) {
+  const notify = useNotificationStore();
   const { kind } = useParams();
   const router = useRouter();
   const [connections, setConnections] = useState<Connection[]>(initialConnections);
@@ -247,7 +249,7 @@ export default function MediaProviderKindClient({ initialConnections, initialNod
       router.push(`/dashboard/media-providers/combo/${created.id}`);
     } else {
       const err = await res.json();
-      alert(err.error || "Failed to create combo");
+      notify.error(err.error || "Failed to create combo");
     }
   };
 

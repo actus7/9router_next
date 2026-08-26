@@ -76,7 +76,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
       const data = await res.json();
       if (res.ok) setModelAliases(data.aliases || {});
     } catch (error) {
-      console.log("Error fetching model aliases:", error);
+      console.error("Error fetching model aliases:", error);
     }
   };
 
@@ -91,7 +91,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
         body: JSON.stringify({ baseUrl: getEffectiveBaseUrl(), apiKey: keyToUse, models }),
       });
     } catch (error) {
-      console.log("Error saving models:", error);
+      console.error("Error saving models:", error);
     }
   };
 

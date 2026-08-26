@@ -113,8 +113,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }: AddCompatib
         setCheckKey("");
         setValidationResult(null);
       }
-    } catch (error) {
-      console.log(`Error creating ${config.errorLabel} node:`, error);
+    } catch ($1) { console.error(`Error creating ${config.errorLabel} node:`, error);
     } finally {
       setSubmitting(false);
     }

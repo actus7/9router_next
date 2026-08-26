@@ -106,7 +106,7 @@ const antigravity = {
         }
       }
     } catch (e: unknown) {
-      console.log("Failed to load code assist:", e);
+      console.error("Failed to load code assist:", e);
     }
 
     if (projectId) {

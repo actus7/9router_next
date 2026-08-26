@@ -108,7 +108,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         setProxyPools(data.proxyPools || []);
       }
     } catch (error) {
-      console.log("Error fetching proxy pools:", error);
+      console.error("Error fetching proxy pools:", error);
     }
   }, []);
 
@@ -162,7 +162,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         notify.error(data.error || "Failed to save proxy pool");
       }
     } catch (error) {
-      console.log("Error saving proxy pool:", error);
+      console.error("Error saving proxy pool:", error);
     } finally {
       setSaving(false);
     }
@@ -189,7 +189,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
             notify.error(data.error || "Failed to delete proxy pool");
           }
         } catch (error) {
-          console.log("Error deleting proxy pool:", error);
+          console.error("Error deleting proxy pool:", error);
           notify.error("Failed to delete proxy pool");
         }
       }
@@ -210,7 +210,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
       await fetchProxyPools();
       notify.success(data.ok ? "Proxy test passed" : "Proxy test failed");
     } catch (error) {
-      console.log("Error testing proxy pool:", error);
+      console.error("Error testing proxy pool:", error);
       notify.error("Failed to test proxy");
     } finally {
       setTestingId(null);
@@ -231,7 +231,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         notify.error("Failed to update active state");
       }
     } catch (error) {
-      console.log("Error toggling active:", error);
+      console.error("Error toggling active:", error);
       setProxyPools((prev) => prev.map((p) => p.id === pool.id ? { ...p, isActive: pool.isActive } : p));
     }
   };
@@ -418,7 +418,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         notify.error(data.error || "Deploy failed");
       }
     } catch (error) {
-      console.log("Error deploying Vercel relay:", error);
+      console.error("Error deploying Vercel relay:", error);
       notify.error("Deploy failed");
     } finally {
       setDeploying(false);
@@ -443,7 +443,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         notify.error(data.error || "Deploy failed");
       }
     } catch (error) {
-      console.log("Error deploying Cloudflare relay:", error);
+      console.error("Error deploying Cloudflare relay:", error);
       notify.error("Deploy failed");
     } finally {
       setDeploying(false);
@@ -468,7 +468,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         notify.error(data.error || "Deploy failed");
       }
     } catch (error) {
-      console.log("Error deploying Deno relay:", error);
+      console.error("Error deploying Deno relay:", error);
       notify.error("Deploy failed");
     } finally {
       setDeploying(false);
@@ -579,7 +579,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
       setShowBatchImportModal(false);
       notify.success(`Batch import completed: Created ${created}, Skipped ${skipped}, Failed ${failed}`);
     } catch (error) {
-      console.log("Error batch importing proxies:", error);
+      console.error("Error batch importing proxies:", error);
       notify.error("Batch import failed");
     } finally {
       setImporting(false);

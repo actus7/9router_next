@@ -92,7 +92,7 @@ const geminiCli = {
         projectId = ((data.cloudaicompanionProject as Record<string, unknown>)?.id as string) || (data.cloudaicompanionProject as string) || "";
       }
     } catch (e: unknown) {
-      console.log("Failed to fetch project ID:", e);
+      console.error("Failed to fetch project ID:", e);
     }
 
     return { userInfo, projectId };

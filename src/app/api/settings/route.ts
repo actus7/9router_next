@@ -30,7 +30,7 @@ export async function GET(): Promise<NextResponse> {
       hasPassword: !!password
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
-    console.log("Error getting settings:", error);
+    console.error("Error getting settings:", error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
@@ -112,7 +112,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
-    console.log("Error updating settings:", error);
+    console.error("Error updating settings:", error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

@@ -51,8 +51,7 @@ async function createLogSession(sourceFormat, targetFormat, model) {
     fs.mkdirSync(sessionPath, { recursive: true });
     
     return sessionPath;
-  } catch (err) {
-    console.log("[LOG] Failed to create log session:", err.message);
+  } catch ($1) { console.error("[LOG] Failed to create log session:", err.message);
     return null;
   }
 }
@@ -64,8 +63,7 @@ function writeJsonFile(sessionPath, filename, data) {
   try {
     const filePath = path.join(sessionPath, filename);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.log(`[LOG] Failed to write ${filename}:`, err.message);
+  } catch ($1) { console.error(`[LOG] Failed to write ${filename}:`, err.message);
   }
 }
 
@@ -254,7 +252,6 @@ export function logError(provider, { error, url, model, requestBody }) {
     };
     
     fs.appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
-  } catch (err) {
-    console.log("[LOG] Failed to write error log:", err.message);
+  } catch ($1) { console.error("[LOG] Failed to write error log:", err.message);
   }
 }

@@ -89,7 +89,7 @@ export async function GET() {
       configPath: getGrokConfigPath(),
     });
   } catch (error) {
-    console.log("Error checking grok-build settings:", error);
+    console.error("Error checking grok-build settings:", error);
     return NextResponse.json({ error: "Failed to check grok-build settings" }, { status: 500 });
   }
 }
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       modelSlot: "9router",
     });
   } catch (error) {
-    console.log("Error updating grok-build settings:", error);
+    console.error("Error updating grok-build settings:", error);
     return NextResponse.json({ error: "Failed to update grok-build settings" }, { status: 500 });
   }
 }
@@ -144,7 +144,7 @@ export async function DELETE() {
       message: "9router model slots removed from Grok Build",
     });
   } catch (error) {
-    console.log("Error resetting grok-build settings:", error);
+    console.error("Error resetting grok-build settings:", error);
     return NextResponse.json({ error: "Failed to reset grok-build settings" }, { status: 500 });
   }
 }

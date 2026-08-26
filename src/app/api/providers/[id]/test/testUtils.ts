@@ -342,7 +342,7 @@ async function refreshOAuthToken(connection: Record<string, unknown>): Promise<R
 
     return null;
   } catch (err) {
-    console.log(`Error refreshing ${provider} token:`, (err as Error).message);
+    console.error(`Error refreshing ${provider} token:`, (err as Error).message);
     return null;
   }
 }

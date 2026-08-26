@@ -21,7 +21,7 @@ export async function POST(request: NextRequest, { params }: RouteContext): Prom
       refreshed: result.refreshed || false,
     });
   } catch (error) {
-    console.log("Error testing connection:", error);
+    console.error("Error testing connection:", error);
     return NextResponse.json({ error: "Test failed" }, { status: 500 });
   }
 }

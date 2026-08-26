@@ -39,7 +39,7 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json({ models });
   } catch (error) {
-    console.log("Error fetching models:", error);
+    console.error("Error fetching models:", error);
     return NextResponse.json({ error: "Failed to fetch models" }, { status: 500 });
   }
 }
@@ -70,7 +70,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, model, alias });
   } catch (error) {
-    console.log("Error updating alias:", error);
+    console.error("Error updating alias:", error);
     return NextResponse.json({ error: "Failed to update alias" }, { status: 500 });
   }
 }

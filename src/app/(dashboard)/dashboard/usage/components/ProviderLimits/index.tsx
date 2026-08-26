@@ -235,7 +235,7 @@ export default function ProviderLimits() {
     setErrors((prev) => ({ ...prev, [connectionId]: null }));
 
     try {
-      console.log(
+      console.error(
         `[ProviderLimits] Fetching quota for ${provider} (${connectionId})`,
       );
       const url = `/api/usage/${connectionId}${force ? "?force=1" : ""}`;
@@ -276,7 +276,7 @@ export default function ProviderLimits() {
       }
 
       const data = await response.json();
-      console.log(`[ProviderLimits] Got quota for ${provider}:`, data);
+      console.error(`[ProviderLimits] Got quota for ${provider}:`, data);
 
       // Parse quota data using provider-specific parser
       const parsedQuotas = parseQuotaData(provider, data);

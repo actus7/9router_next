@@ -17,6 +17,7 @@ import { getThinkingLevels } from "@/lib/open-sse/providers/thinkingLevels";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { translate } from "@/i18n/runtime";
+import { useNotificationStore } from "@/store/notificationStore";
 import { Label } from "@/components/ui/label";
 import { fetchSuggestedModels } from "@/shared/utils/providerModelsFetcher";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
@@ -193,6 +194,7 @@ export default function ProviderDetailClient({
   const stopOneByOneRef = useRef<boolean>(false);
   const [importingQoderModels, setImportingQoderModels] = useState<boolean>(false);
   const { copied, copy } = useCopyToClipboard();
+  const notify = useNotificationStore();
 
   const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
 
@@ -311,7 +313,7 @@ export default function ProviderDetailClient({
       const data = await res.json();
       if (res.ok) setDisabledModelIds(data.ids || []);
     } catch (error) {
-      console.log("Error fetching disabled models:", error);
+      console.error("Error fetching disabled models:", error);
     }
   }, [providerStorageAlias]);
 
@@ -324,7 +326,7 @@ export default function ProviderDetailClient({
       });
       if (res.ok) await fetchDisabledModels();
     } catch (error) {
-      console.log("Error disabling model:", error);
+      console.error("Error disabling model:", error);
     }
   };
 
@@ -333,7 +335,7 @@ export default function ProviderDetailClient({
       const res = await fetch(`/api/models/disabled?providerAlias=${encodeURIComponent(providerStorageAlias)}&id=${encodeURIComponent(modelId)}`, { method: "DELETE" });
       if (res.ok) await fetchDisabledModels();
     } catch (error) {
-      console.log("Error enabling model:", error);
+      console.error("Error enabling model:", error);
     }
   };
 
@@ -352,7 +354,7 @@ export default function ProviderDetailClient({
           });
           if (res.ok) await fetchDisabledModels();
         } catch (error) {
-          console.log("Error disabling all models:", error);
+          console.error("Error disabling all models:", error);
         }
       }
     });
@@ -363,7 +365,7 @@ export default function ProviderDetailClient({
       const res = await fetch(`/api/models/disabled?providerAlias=${encodeURIComponent(providerStorageAlias)}`, { method: "DELETE" });
       if (res.ok) await fetchDisabledModels();
     } catch (error) {
-      console.log("Error enabling all models:", error);
+      console.error("Error enabling all models:", error);
     }
   };
 
@@ -376,7 +378,7 @@ export default function ProviderDetailClient({
         setModelAliases(data.aliases || {});
       }
     } catch (error) {
-      console.log("Error fetching aliases:", error);
+      console.error("Error fetching aliases:", error);
     }
   }, []);
 
@@ -388,7 +390,7 @@ export default function ProviderDetailClient({
         setCustomModels(data.models || []);
       }
     } catch (error) {
-      console.log("Error fetching custom models:", error);
+      console.error("Error fetching custom models:", error);
     }
   }, []);
 
@@ -449,7 +451,7 @@ export default function ProviderDetailClient({
         setProviderNode(node);
       }
     } catch (error) {
-      console.log("Error fetching connections:", error);
+      console.error("Error fetching connections:", error);
     } finally {
       setLoading(false);
     }
@@ -469,7 +471,7 @@ export default function ProviderDetailClient({
         setShowEditNodeModal(false);
       }
     } catch (error) {
-      console.log("Error updating provider node:", error);
+      console.error("Error updating provider node:", error);
     }
   };
 
@@ -499,7 +501,7 @@ export default function ProviderDetailClient({
         body: JSON.stringify({ providerStrategies: updated }),
       });
     } catch (error) {
-      console.log("Error saving provider strategy:", error);
+      console.error("Error saving provider strategy:", error);
     }
   };
 
@@ -533,7 +535,7 @@ export default function ProviderDetailClient({
         body: JSON.stringify({ providerThinking: updated }),
       });
     } catch (error) {
-      console.log("Error saving thinking config:", error);
+      console.error("Error saving thinking config:", error);
     }
   };
 
@@ -554,7 +556,7 @@ export default function ProviderDetailClient({
         body: JSON.stringify({ [autoPingSettingsKey]: next }),
       });
     } catch (error) {
-      console.log("Error saving auto-ping config:", error);
+      console.error("Error saving auto-ping config:", error);
     }
   };
 
@@ -611,10 +613,10 @@ export default function ProviderDetailClient({
         await fetchAliases();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to set alias");
+        notify.error(data.error || "Failed to set alias");
       }
     } catch (error) {
-      console.log("Error setting alias:", error);
+      console.error("Error setting alias:", error);
     }
   };
 
@@ -627,7 +629,7 @@ export default function ProviderDetailClient({
         await fetchAliases();
       }
     } catch (error) {
-      console.log("Error deleting alias:", error);
+      console.error("Error deleting alias:", error);
     }
   };
 
@@ -643,10 +645,10 @@ export default function ProviderDetailClient({
         if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to add custom model");
+        notify.error(data.error || "Failed to add custom model");
       }
     } catch (error) {
-      console.log("Error adding custom model:", error);
+      console.error("Error adding custom model:", error);
     }
   };
 
@@ -659,7 +661,7 @@ export default function ProviderDetailClient({
         if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
       }
     } catch (error) {
-      console.log("Error deleting custom model:", error);
+      console.error("Error deleting custom model:", error);
     }
   };
 
@@ -668,7 +670,7 @@ export default function ProviderDetailClient({
     if (importingQoderModels) return;
     const activeConnection = connections.find((conn) => conn.isActive !== false);
     if (!activeConnection) {
-      alert(translate("Please add an active Qoder connection first"));
+      notify.error(translate("Please add an active Qoder connection first"));
       return;
     }
 
@@ -677,12 +679,12 @@ export default function ProviderDetailClient({
       const res = await fetch(`/api/providers/${activeConnection.id}/models`);
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || translate("Failed to fetch models"));
+        notify.error(data.error || translate("Failed to fetch models"));
         return;
       }
       const models = data.models || [];
       if (models.length === 0) {
-        alert(translate("No models returned"));
+        notify.warning(translate("No models returned"));
         return;
       }
 
@@ -705,13 +707,13 @@ export default function ProviderDetailClient({
       }
       
       if (importedCount === 0) {
-        alert(translate("All models already exist, no new models added"));
+        notify.warning(translate("All models already exist, no new models added"));
       } else {
-        alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
+        notify.success(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
       }
     } catch (error: unknown) {
-      console.log("Error importing Qoder models:", error);
-      alert(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error)));
+      console.error("Error importing Qoder models:", error);
+      notify.error(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setImportingQoderModels(false);
     }
@@ -821,7 +823,7 @@ export default function ProviderDetailClient({
             setConnections(prev => prev.filter(c => c.id !== id));
           }
         } catch (error) {
-          console.log("Error deleting connection:", error);
+          console.error("Error deleting connection:", error);
         }
       }
     });
@@ -842,13 +844,13 @@ export default function ProviderDetailClient({
             const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
             if (!res.ok) failed += 1;
           } catch (error) {
-            console.log("Error deleting connection:", error);
+            console.error("Error deleting connection:", error);
             failed += 1;
           }
         }
         setConnections(prev => prev.filter(c => !idsToDelete.includes(c.id)));
         setSelectedConnectionIds([]);
-        if (failed > 0) alert(`Deleted ${idsToDelete.length - failed} connection(s), ${failed} failed.`);
+        if (failed > 0) notify.warning(`Deleted ${idsToDelete.length - failed} connection(s), ${failed} failed.`);
       }
     });
   };
@@ -887,7 +889,7 @@ export default function ProviderDetailClient({
 
       setAddConnectionError(data?.error || "Failed to save connection");
     } catch (error) {
-      console.log("Error saving connection:", error);
+      console.error("Error saving connection:", error);
       setAddConnectionError("Failed to save connection");
     }
   };
@@ -904,7 +906,7 @@ export default function ProviderDetailClient({
         setShowEditModal(false);
       }
     } catch (error) {
-      console.log("Error updating connection:", error);
+      console.error("Error updating connection:", error);
     }
   };
 
@@ -919,7 +921,7 @@ export default function ProviderDetailClient({
         setConnections(prev => prev.map(c => c.id === id ? { ...c, isActive } : c));
       }
     } catch (error) {
-      console.log("Error updating connection status:", error);
+      console.error("Error updating connection status:", error);
     }
   };
 
@@ -943,7 +945,7 @@ export default function ProviderDetailClient({
         }),
       ]);
     } catch (error) {
-      console.log("Error swapping priority:", error);
+      console.error("Error swapping priority:", error);
       await fetchConnections();
     }
   };
@@ -1013,11 +1015,11 @@ export default function ProviderDetailClient({
           });
           if (!res.ok) failed += 1;
         } catch (e) {
-          console.log("Error applying proxy for", connectionId, e);
+          console.error("Error applying proxy for", connectionId, e);
           failed += 1;
         }
       }
-      if (failed > 0) alert(`Updated with ${failed} failed request(s).`);
+      if (failed > 0) notify.warning(`Updated with ${failed} failed request(s).`);
       await fetchConnections();
       setShowBulkProxyModal(false);
     } finally {
@@ -1033,7 +1035,7 @@ export default function ProviderDetailClient({
   const handleApplyOneToOne = () => {
     const activePools = proxyPools.filter((p) => p.isActive === true);
     if (activePools.length === 0) {
-      alert("No active proxy pools available.");
+      notify.warning("No active proxy pools available.");
       return;
     }
     const targets = connections.map((c, i) => ({
@@ -1093,7 +1095,7 @@ export default function ProviderDetailClient({
                       ));
                     }
                   } catch (error) {
-                    console.log("Error updating proxy:", error);
+                    console.error("Error updating proxy:", error);
                   }
                 }}
                 onEdit={() => {
@@ -1516,7 +1518,7 @@ export default function ProviderDetailClient({
                           router.push("/dashboard/providers");
                         }
                       } catch (error) {
-                        console.log("Error deleting provider node:", error);
+                        console.error("Error deleting provider node:", error);
                       }
                     }
                   });

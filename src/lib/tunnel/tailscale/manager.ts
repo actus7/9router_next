@@ -78,7 +78,7 @@ export async function enableTailscale(localPort: number = 20128): Promise<Enable
     } catch (e: unknown) {
       console.error(`[Tailscale] funnel error: ${(e as Error).message}`);
       if (/NoState|unexpected state|not logged in|Logged ?out|NeedsLogin/i.test((e as Error).message || "")) {
-        console.log("[Tailscale] retry via startLogin");
+        console.error("[Tailscale] retry via startLogin");
         const loginResult = await startLogin(tsHostname);
         if (loginResult.authUrl) return { success: false, needsLogin: true, authUrl: loginResult.authUrl };
       }
@@ -92,7 +92,7 @@ export async function enableTailscale(localPort: number = 20128): Promise<Enable
     }
 
     if (!(await isTailscaleLoggedInStrict()) || !(await isTailscaleRunningStrict())) {
-      console.error("[Tailscale] strict probe failed (device removed?)");
+      console.log("[Tailscale] strict probe failed (device removed?)");
       stopFunnel();
       return { success: false, error: "Tailscale not connected. Device may have been removed. Please re-login." };
     }

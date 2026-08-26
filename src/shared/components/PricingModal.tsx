@@ -6,6 +6,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { getDefaultPricing, formatCost } from "@/lib/open-sse/providers/pricing";
 import Button from "@/shared/components/Button";
 import { Input } from "@/components/ui/input";
+import { useNotificationStore } from "@/store/notificationStore";
 
 interface PricingData {
   [provider: string]: {
@@ -26,6 +27,7 @@ interface PricingModalProps {
 }
 
 export default function PricingModal({ isOpen, onClose, onSave }: PricingModalProps) {
+  const notify = useNotificationStore();
   const [pricingData, setPricingData] = useState<PricingData>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -83,11 +85,11 @@ export default function PricingModal({ isOpen, onClose, onSave }: PricingModalPr
         onClose();
       } else {
         const error = await response.json();
-        alert(`Failed to save pricing: ${error.error}`);
+        notify.error(`Failed to save pricing: ${error.error}`);
       }
     } catch (error) {
       console.error("Failed to save pricing:", error);
-      alert("Failed to save pricing");
+      notify.error("Failed to save pricing");
     } finally {
       setSaving(false);
     }
@@ -104,7 +106,7 @@ export default function PricingModal({ isOpen, onClose, onSave }: PricingModalPr
       }
     } catch (error) {
       console.error("Failed to reset pricing:", error);
-      alert("Failed to reset pricing");
+      notify.error("Failed to reset pricing");
     }
   };
 

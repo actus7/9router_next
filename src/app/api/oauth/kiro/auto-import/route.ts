@@ -122,8 +122,7 @@ export async function GET() {
       authMethod,
       profileArn,
     });
-  } catch (error) {
-    console.log("Kiro auto-import error:", error);
+  } catch ($1) { console.error("Kiro auto-import error:", error);
     return NextResponse.json(
       { found: false, error: error.message },
       { status: 500 }

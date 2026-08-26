@@ -112,7 +112,7 @@ export async function GET() {
       configPath: getHermesConfigPath(),
     });
   } catch (error) {
-    console.log("Error checking hermes settings:", error);
+    console.error("Error checking hermes settings:", error);
     return NextResponse.json({ error: "Failed to check hermes settings" }, { status: 500 });
   }
 }
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       configPath: getHermesConfigPath(),
     });
   } catch (error) {
-    console.log("Error updating hermes settings:", error);
+    console.error("Error updating hermes settings:", error);
     return NextResponse.json({ error: "Failed to update hermes settings" }, { status: 500 });
   }
 }
@@ -168,7 +168,7 @@ export async function DELETE() {
     await fs.writeFile(configPath, newYaml);
     return NextResponse.json({ success: true, message: `${PROVIDER_NAME} model block removed` });
   } catch (error) {
-    console.log("Error resetting hermes settings:", error);
+    console.error("Error resetting hermes settings:", error);
     return NextResponse.json({ error: "Failed to reset hermes settings" }, { status: 500 });
   }
 }

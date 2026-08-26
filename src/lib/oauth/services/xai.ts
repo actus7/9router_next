@@ -197,8 +197,8 @@ class XaiService extends OAuthService {
       const state: string = generateState();
       const authUrl: string = this.buildXaiAuthUrl(redirectUri, state, codeChallenge, authorizeUrl);
 
-      console.log("\nOpening browser for xAI authentication...");
-      console.log(`If browser doesn't open, visit:\n${authUrl}\n`);
+      console.error("\nOpening browser for xAI authentication...");
+      console.error(`If browser doesn't open, visit:\n${authUrl}\n`);
       await open(authUrl);
 
       spinner.start("Waiting for xAI authorization...");

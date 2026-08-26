@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
     }
     return NextResponse.json({ key });
   } catch (error) {
-    console.log("Error fetching key:", error);
+    console.error("Error fetching key:", error);
     return NextResponse.json({ error: "Failed to fetch key" }, { status: 500 });
   }
 }
@@ -39,7 +39,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
 
     return NextResponse.json({ key: updated });
   } catch (error) {
-    console.log("Error updating key:", error);
+    console.error("Error updating key:", error);
     return NextResponse.json({ error: "Failed to update key" }, { status: 500 });
   }
 }
@@ -56,7 +56,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext): Pr
 
     return NextResponse.json({ message: "Key deleted successfully" });
   } catch (error) {
-    console.log("Error deleting key:", error);
+    console.error("Error deleting key:", error);
     return NextResponse.json({ error: "Failed to delete key" }, { status: 500 });
   }
 }

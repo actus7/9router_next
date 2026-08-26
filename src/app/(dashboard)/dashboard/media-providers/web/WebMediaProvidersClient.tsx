@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, getProvidersByKind } from "@/shared/constants/providers";
 import { ChevronRight, Layers } from "lucide-react";
+import { useNotificationStore } from "@/store/notificationStore";
 
 interface Connection {
   provider: string;
@@ -181,6 +182,7 @@ interface WebMediaProvidersClientProps {
 }
 
 export default function WebMediaProvidersClient({ initialConnections, initialCombos }: WebMediaProvidersClientProps) {
+  const notify = useNotificationStore();
   const router = useRouter();
   const [connections, setConnections] = useState<Connection[]>(initialConnections);
   const [combos, setCombos] = useState<Combo[]>(initialCombos);
@@ -207,7 +209,7 @@ export default function WebMediaProvidersClient({ initialConnections, initialCom
       router.push(`/dashboard/media-providers/combo/${created.id}`);
     } else {
       const err = await res.json();
-      alert(err.error || "Failed to create combo");
+      notify.error(err.error || "Failed to create combo");
     }
   };
 

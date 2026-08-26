@@ -59,8 +59,7 @@ export async function POST(request: NextRequest) {
         email: connection.email,
       },
     });
-  } catch (error) {
-    console.log("Kiro import token error:", error);
+  } catch ($1) { console.error("Kiro import token error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

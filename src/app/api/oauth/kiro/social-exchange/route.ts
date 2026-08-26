@@ -60,8 +60,7 @@ export async function POST(request: NextRequest) {
         email: connection.email,
       },
     });
-  } catch (error) {
-    console.log("Kiro social exchange error:", error);
+  } catch ($1) { console.error("Kiro social exchange error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

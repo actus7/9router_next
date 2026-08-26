@@ -130,7 +130,7 @@ const buildOAuthResolver = ({ refreshFn, fetchFn, parseFn, errorLabel }: {
     }
   } catch (error) {
     warning = `${errorLabel}: ${(error as Error).message}`;
-    console.log(`${errorLabel} (falling back to static):`, (error as Error).message);
+    console.error(`${errorLabel} (falling back to static):`, (error as Error).message);
   }
   return { models: [], warning };
 };
@@ -330,7 +330,7 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
         warning = "Kiro returned no models; falling back to static catalog.";
       } catch (error) {
         warning = `Failed to fetch Kiro models: ${(error as Error).message}`;
-        console.log("Failed to fetch Kiro models dynamically, falling back to static:", (error as Error).message);
+        console.error("Failed to fetch Kiro models dynamically, falling back to static:", (error as Error).message);
       }
       return { models: [], warning };
     }
@@ -364,7 +364,7 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
         warning = "Qoder returned no models; falling back to static catalog.";
       } catch (error) {
         warning = `Failed to fetch Qoder models: ${(error as Error).message}`;
-        console.log("Failed to fetch Qoder models dynamically, falling back to static:", (error as Error).message);
+        console.error("Failed to fetch Qoder models dynamically, falling back to static:", (error as Error).message);
       }
       return { models: [], warning };
     },
@@ -428,7 +428,7 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
       });
       if (!response.ok) {
         const errorText = await response.text();
-        console.log("Error fetching models from ollama-local:", errorText);
+        console.error("Error fetching models from ollama-local:", errorText);
         return { error: `Failed to fetch models: ${response.status}`, status: response.status };
       }
       const data = await response.json();
@@ -465,7 +465,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.log(`Error fetching models from ${connection.provider}:`, errorText);
+        console.error(`Error fetching models from ${connection.provider}:`, errorText);
         return NextResponse.json(
           { error: `Failed to fetch models: ${response.status}` },
           { status: response.status }
@@ -506,7 +506,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.log(`Error fetching models from ${connection.provider}:`, errorText);
+        console.error(`Error fetching models from ${connection.provider}:`, errorText);
         return NextResponse.json(
           { error: `Failed to fetch models: ${response.status}` },
           { status: response.status }
@@ -577,7 +577,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.log(`Error fetching models from ${connection.provider}:`, errorText);
+      console.error(`Error fetching models from ${connection.provider}:`, errorText);
       return NextResponse.json(
         { error: `Failed to fetch models: ${response.status}` },
         { status: response.status }
@@ -593,7 +593,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
       models
     });
   } catch (error) {
-    console.log("Error fetching provider models:", error);
+    console.error("Error fetching provider models:", error);
     return NextResponse.json({ error: "Failed to fetch models" }, { status: 500 });
   }
 }

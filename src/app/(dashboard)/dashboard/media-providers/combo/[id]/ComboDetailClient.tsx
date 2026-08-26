@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { ArrowDown, ArrowLeft, ArrowUp, Download, Layers, X } from "lucide-react";
+import { useNotificationStore } from "@/store/notificationStore";
 
 interface Combo {
   id: string;
@@ -78,6 +79,7 @@ export default function ComboDetailClient({
   initialAliases,
   initialLogs,
 }: ComboDetailClientProps) {
+  const notify = useNotificationStore();
   const router = useRouter();
   const [combo, setCombo] = useState<Combo | null>(initialCombo);
   const [name, setName] = useState(initialCombo?.name || "");
@@ -116,7 +118,7 @@ export default function ComboDetailClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
-    if (!res.ok) { const err = await res.json(); alert(err.error || "Failed to save"); return false; }
+    if (!res.ok) { const err = await res.json(); notify.error(err.error || "Failed to save"); return false; }
     return true;
   };
 

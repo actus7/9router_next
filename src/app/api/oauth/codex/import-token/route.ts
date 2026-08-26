@@ -89,8 +89,7 @@ export async function POST(request: NextRequest) {
         plan: providerSpecificData.chatgptPlanType || null,
       },
     });
-  } catch (error) {
-    console.log("Codex access token import error:", error);
+  } catch ($1) { console.error("Codex access token import error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

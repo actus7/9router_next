@@ -79,7 +79,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
 
     return NextResponse.json({ node: updated });
   } catch (error) {
-    console.log("Error updating provider node:", error);
+    console.error("Error updating provider node:", error);
     return NextResponse.json({ error: "Failed to update provider node" }, { status: 500 });
   }
 }
@@ -99,7 +99,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext): Pr
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error deleting provider node:", error);
+    console.error("Error deleting provider node:", error);
     return NextResponse.json({ error: "Failed to delete provider node" }, { status: 500 });
   }
 }

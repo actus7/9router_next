@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ proxyPool, deployUrl }, { status: 201 });
   } catch (error) {
-    console.log("Error deploying Vercel relay:", error);
+    console.error("Error deploying Vercel relay:", error);
     return NextResponse.json({ error: error.message || "Deploy failed" }, { status: 500 });
   }
 }

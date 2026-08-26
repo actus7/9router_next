@@ -47,7 +47,7 @@ function line(tag: string, symbol: string, message: string): void {
 
 // Like line() but always printed regardless of LOG_LEVEL (errors must never be hidden)
 function errorLine(tag: string, symbol: string, message: string): void {
-  console.log(`[${formatTime()}] ${tag} ${symbol} ${message}`);
+  console.error(`[${formatTime()}] ${tag} ${symbol} ${message}`);
 }
 
 interface ThinkIntent {
@@ -103,7 +103,7 @@ export function warn(tag: string, message: string, data?: unknown): void {
 export function error(tag: string, message: string, data?: unknown): void {
   if (LEVEL <= LOG_LEVELS.ERROR) {
     const dataStr: string = data ? ` ${formatData(data)}` : "";
-    console.log(`[${formatTime()}] ❌ [${tag}] ${message}${dataStr}`);
+    console.error(`[${formatTime()}] ❌ [${tag}] ${message}${dataStr}`);
   }
 }
 

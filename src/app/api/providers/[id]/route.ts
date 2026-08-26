@@ -90,7 +90,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
 
     return NextResponse.json({ connection: result });
   } catch (error) {
-    console.log("Error fetching connection:", error);
+    console.error("Error fetching connection:", error);
     return NextResponse.json({ error: "Failed to fetch connection" }, { status: 500 });
   }
 }
@@ -178,7 +178,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
 
     return NextResponse.json({ connection: result });
   } catch (error) {
-    console.log("Error updating connection:", error);
+    console.error("Error updating connection:", error);
     return NextResponse.json({ error: "Failed to update connection" }, { status: 500 });
   }
 }
@@ -195,7 +195,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext): Pr
 
     return NextResponse.json({ message: "Connection deleted successfully" });
   } catch (error) {
-    console.log("Error deleting connection:", error);
+    console.error("Error deleting connection:", error);
     return NextResponse.json({ error: "Failed to delete connection" }, { status: 500 });
   }
 }

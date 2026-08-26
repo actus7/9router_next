@@ -138,14 +138,14 @@ async function runHeavyStartup(): Promise<void> {
   if (settings.tunnelEnabled && !g.tunnelAutoResumed) {
     g.tunnelAutoResumed = true;
     console.log("[InitApp] Tunnel was enabled, auto-resuming...");
-    safeRestartTunnel("startup").catch((e: Error) => console.log("[InitApp] Tunnel resume failed:", e.message));
+    safeRestartTunnel("startup").catch((e: Error) => console.error("[InitApp] Tunnel resume failed:", e.message));
   }
 
   // Auto-resume tailscale (once per process)
   if (settings.tailscaleEnabled && !g.tailscaleAutoResumed) {
     g.tailscaleAutoResumed = true;
     console.log("[InitApp] Tailscale was enabled, auto-resuming...");
-    safeRestartTailscale("startup").catch((e: Error) => console.log("[InitApp] Tailscale resume failed:", e.message));
+    safeRestartTailscale("startup").catch((e: Error) => console.error("[InitApp] Tailscale resume failed:", e.message));
   }
 
   if (settings.tunnelEnabled) ensureCloudflared().catch(() => {});
@@ -161,14 +161,14 @@ async function runHeavyStartup(): Promise<void> {
   if (hasQuotaAutoPingEnabled(settings)) {
     import("@/shared/services/quotaAutoPing")
       .then(({ startQuotaAutoPing }) => startQuotaAutoPing())
-      .catch((e: Error) => console.log("[AutoPing] scheduler start failed:", e.message));
+      .catch((e: Error) => console.error("[AutoPing] scheduler start failed:", e.message));
   }
 
   // Proactive OAuth token refresh (e.g. grok-cli ~6h TTL). Module is idempotent
   // and also started from custom-server.js when that entry is used.
   import("@/sse/services/backgroundTokenRefresh")
     .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
-    .catch((e: Error) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
+    .catch((e: Error) => console.error("[BackgroundTokenRefresh] scheduler start failed:", e.message));
 }
 
 function hasQuotaAutoPingEnabled(settings: Settings): boolean {
@@ -200,10 +200,10 @@ async function autoStartMitm(settings: Settings): Promise<void> {
       await restoreToolDNS(password);
       console.log("[InitApp] DNS restored from saved state");
     } catch (e: unknown) {
-      console.log("[InitApp] DNS restore failed:", (e as Error).message);
+      console.error("[InitApp] DNS restore failed:", (e as Error).message);
     }
   } catch (err: unknown) {
-    console.log("[InitApp] MITM auto-start failed:", (err as Error).message);
+    console.error("[InitApp] MITM auto-start failed:", (err as Error).message);
   } finally {
     g.mitmStartInProgress = false;
   }
@@ -241,7 +241,7 @@ async function safeRestartTunnel(reason: string): Promise<void> {
     console.log("[Tunnel] restart success");
   } catch (err: unknown) {
     if (!/cloudflared killed|tunnel cancelled/.test((err as Error).message)) {
-      console.log("[Tunnel] restart failed:", (err as Error).message);
+      console.error("[Tunnel] restart failed:", (err as Error).message);
     }
   }
 }
@@ -265,7 +265,7 @@ async function safeRestartTailscale(reason: string): Promise<void> {
       svc.lastRestartAt = Date.now();
       console.log("[Tailscale] funnel re-established (daemon alive)");
     } catch (err: unknown) {
-      console.log("[Tailscale] funnel recovery failed:", (err as Error).message);
+      console.error("[Tailscale] funnel recovery failed:", (err as Error).message);
     }
     return;
   }
@@ -283,7 +283,7 @@ async function safeRestartTailscale(reason: string): Promise<void> {
     svc.lastRestartAt = Date.now();
     console.log("[Tailscale] restart success");
   } catch (err: unknown) {
-    console.log("[Tailscale] restart failed:", (err as Error).message);
+    console.error("[Tailscale] restart failed:", (err as Error).message);
   }
 }
 
@@ -358,7 +358,7 @@ function startNetworkMonitor(): void {
       safeRestartTunnel(reason).catch(() => {});
       safeRestartTailscale(reason).catch(() => {});
     } catch (err: unknown) {
-      console.log("[NetworkMonitor] error:", (err as Error).message);
+      console.error("[NetworkMonitor] error:", (err as Error).message);
     }
   }, NETWORK_CHECK_INTERVAL_MS);
 

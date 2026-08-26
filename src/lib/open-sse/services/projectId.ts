@@ -235,14 +235,14 @@ async function onboardUser(accessToken, tierID, externalSignal, endpoints, provi
             if (data.done === true) {
                 const projectId = extractProjectIdFromOnboard(data);
                 if (projectId) {
-                    console.log(`[ProjectId] Successfully onboarded, project ID: ${projectId}`);
+                    console.error(`[ProjectId] Successfully onboarded, project ID: ${projectId}`);
                     return projectId;
                 }
                 throw new Error("onboardUser done but no project_id in response");
             }
 
             // Server not done yet – wait and retry
-            console.log(`[ProjectId] Onboard attempt ${attempt}/${MAX_ATTEMPTS}: not done yet, waiting...`);
+            console.error(`[ProjectId] Onboard attempt ${attempt}/${MAX_ATTEMPTS}: not done yet, waiting...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
 
         } catch (error) {

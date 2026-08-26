@@ -234,7 +234,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
-    console.log("OAuth GET error:", error);
+    console.error("OAuth GET error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -449,7 +449,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
-    console.log("OAuth POST error:", error);
+    console.error("OAuth POST error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

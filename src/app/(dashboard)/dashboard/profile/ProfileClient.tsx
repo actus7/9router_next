@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, Button, Input } from "@/shared/components";
+import { Input as ShadcnInput } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
@@ -812,7 +813,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
               >
                 Import Backup
               </Button>
-              <input
+              <ShadcnInput
                 ref={importFileRef}
                 type="file"
                 accept="application/json,.json"
@@ -1154,7 +1155,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     >
                       Upload Metadata XML
                     </Button>
-                    <input
+                    <ShadcnInput
                       ref={idpMetadataFileRef}
                       type="file"
                       accept=".xml,application/xml,text/xml"
@@ -1196,7 +1197,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                         >
                           Upload Certificate
                         </Button>
-                        <input
+                        <ShadcnInput
                           ref={certFileRef}
                           type="file"
                           accept=".crt,.pem,.cer,text/plain"

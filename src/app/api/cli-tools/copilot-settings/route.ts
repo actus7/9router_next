@@ -53,7 +53,7 @@ export async function GET() {
       currentUrl: entry?.models?.[0]?.url || null,
     });
   } catch (error) {
-    console.log("Error checking copilot settings:", error);
+    console.error("Error checking copilot settings:", error);
     return NextResponse.json({ error: "Failed to check copilot settings" }, { status: 500 });
   }
 }
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       configPath,
     });
   } catch (error) {
-    console.log("Error updating copilot settings:", error);
+    console.error("Error updating copilot settings:", error);
     return NextResponse.json({ error: "Failed to update copilot settings" }, { status: 500 });
   }
 }
@@ -142,7 +142,7 @@ export async function DELETE() {
       message: "9Router removed from Copilot config",
     });
   } catch (error) {
-    console.log("Error resetting copilot settings:", error);
+    console.error("Error resetting copilot settings:", error);
     return NextResponse.json({ error: "Failed to reset copilot settings" }, { status: 500 });
   }
 }

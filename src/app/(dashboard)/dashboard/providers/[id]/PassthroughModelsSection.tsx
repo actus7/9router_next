@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, Trash2, X } from "lucide-react";
+import { useNotificationStore } from "@/store/notificationStore";
 
 interface PassthroughModelRowProps {
   modelId: string;
@@ -112,6 +113,7 @@ interface PassthroughModelsSectionProps {
 }
 
 export default function PassthroughModelsSection({ providerAlias, modelAliases, customModels, copied, onCopy, onDeleteAlias, onAddCustomModel, onDeleteCustomModel }: PassthroughModelsSectionProps) {
+  const notify = useNotificationStore();
   const [newModel, setNewModel] = useState<string>("");
   const [adding, setAdding] = useState<boolean>(false);
 
@@ -127,7 +129,7 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
     const modelId = newModel.trim();
 
     if (allModels.some((model: { id: string }) => model.id === modelId)) {
-      alert("Model already exists for this provider.");
+      notify.warning("Model already exists for this provider.");
       return;
     }
 
@@ -136,7 +138,7 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
       await onAddCustomModel(modelId);
       setNewModel("");
     } catch (error) {
-      console.log("Error adding model:", error);
+      console.error("Error adding model:", error);
     } finally {
       setAdding(false);
     }

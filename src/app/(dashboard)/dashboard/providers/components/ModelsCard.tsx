@@ -155,7 +155,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
       const customData = await customRes.json();
       if (aliasRes.ok) setModelAliases(aliasData.aliases || {});
       if (customRes.ok) setCustomModels(customData.models || []);
-    } catch (e) { console.log("ModelsCard fetch error:", e); }
+    } catch ($1) { console.error("ModelsCard fetch error:", e); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -169,14 +169,14 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         body: JSON.stringify({ model: fullModel, alias }),
       });
       if (res.ok) await fetchData();
-    } catch (e) { console.log("set alias error:", e); }
+    } catch ($1) { console.error("set alias error:", e); }
   };
 
   const handleDeleteAlias = async (alias: string) => {
     try {
       const res = await fetch(`/api/models/alias?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
       if (res.ok) await fetchData();
-    } catch (e) { console.log("delete alias error:", e); }
+    } catch ($1) { console.error("delete alias error:", e); }
   };
 
   const handleAddCustomModel = async (modelId: string) => {
@@ -190,7 +190,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         await fetchData();
         window.dispatchEvent(new CustomEvent("customModelChanged"));
       }
-    } catch (e) { console.log("add custom model error:", e); }
+    } catch ($1) { console.error("add custom model error:", e); }
   };
 
   const handleDeleteCustomModel = async (modelId: string) => {
@@ -201,7 +201,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         await fetchData();
         window.dispatchEvent(new CustomEvent("customModelChanged"));
       }
-    } catch (e) { console.log("delete custom model error:", e); }
+    } catch ($1) { console.error("delete custom model error:", e); }
   };
 
   const handleTestModel = async (modelId: string) => {

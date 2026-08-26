@@ -251,36 +251,31 @@ export async function buildModelsList(kindFilter, options = {}) {
   try {
     connections = await getProviderConnections();
     connections = connections.filter(c => c.isActive !== false);
-  } catch (e) {
-    console.log("Could not fetch providers, returning all models");
+  } catch ($1) { console.error("Could not fetch providers, returning all models");
   }
 
   let combos = [];
   try {
     combos = await getCombos();
-  } catch (e) {
-    console.log("Could not fetch combos");
+  } catch ($1) { console.error("Could not fetch combos");
   }
 
   let customModels = [];
   try {
     customModels = await getCustomModels();
-  } catch (e) {
-    console.log("Could not fetch custom models");
+  } catch ($1) { console.error("Could not fetch custom models");
   }
 
   let modelAliases = {};
   try {
     modelAliases = await getModelAliases();
-  } catch (e) {
-    console.log("Could not fetch model aliases");
+  } catch ($1) { console.error("Could not fetch model aliases");
   }
 
   let disabledByAlias = {};
   try {
     disabledByAlias = await getDisabledModels();
-  } catch (e) {
-    console.log("Could not fetch disabled models");
+  } catch ($1) { console.error("Could not fetch disabled models");
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
@@ -400,8 +395,7 @@ export async function buildModelsList(kindFilter, options = {}) {
                 .map((m) => [m.id, m.capabilities])
             );
           }
-        } catch (err) {
-          console.log(`Live model fetch failed for ${providerId}: ${err?.message || err}`);
+        } catch ($1) { console.error(`Live model fetch failed for ${providerId}: ${err?.message || err}`);
         }
       }
 
@@ -568,7 +562,7 @@ export async function GET(request: NextRequest) {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
   } catch (error) {
-    console.log("Error fetching models:", error);
+    console.error("Error fetching models:", error);
     return Response.json(
       { error: { message: error.message, type: "server_error" } },
       { status: 500 }

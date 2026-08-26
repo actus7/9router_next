@@ -66,8 +66,7 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
       });
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
-    } catch (e) {
-      console.log("Save proxy config error:", e);
+    } catch ($1) { console.error("Save proxy config error:", e);
     } finally {
       setSaving(false);
     }
