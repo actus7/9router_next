@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 import { APP_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import Button from "./Button";
-import { ConfirmModal } from "./Modal";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import NineRemotePromoModal from "./NineRemotePromoModal";
 
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
@@ -360,16 +360,16 @@ export default function Sidebar({ onClose }: SidebarProps) {
       <NineRemotePromoModal isOpen={showRemoteModal} onClose={() => setShowRemoteModal(false)} />
 
       {/* Update Confirmation Modal */}
-      <ConfirmModal
-        isOpen={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
-        onConfirm={handleUpdate}
-        title="Update 9Router"
-        message={`Show install command for v${updateInfo?.latestVersion || ""}? You can copy it and shutdown to install manually.`}
-        confirmText="Show Command"
-        cancelText="Cancel"
-        variant="primary"
-      />
+      <Dialog open={showUpdateModal} onOpenChange={(open) => { if (!open) setShowUpdateModal(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>Update 9Router</DialogTitle>
+          <p className="text-sm text-text-muted">{`Show install command for v${updateInfo?.latestVersion || ""}? You can copy it and shutdown to install manually.`}</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="ghost" onClick={() => setShowUpdateModal(false)}>Cancel</Button>
+            <Button variant="default" onClick={handleUpdate}>Show Command</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Disconnected / Updating Overlay */}
       {(isDisconnected || isUpdating) && (
@@ -444,7 +444,7 @@ function ManualUpdatePanel({ latestVersion, installCmd, copied, onCopyAndShutdow
       </ol>
 
       {isDisconnected ? (
-        <Button variant="secondary" fullWidth onClick={() => globalThis.location.reload()}>
+        <Button variant="secondary" className="w-full" onClick={() => globalThis.location.reload()}>
           Reload Page
         </Button>
       ) : (
@@ -452,7 +452,7 @@ function ManualUpdatePanel({ latestVersion, installCmd, copied, onCopyAndShutdow
           <Button variant="secondary" onClick={onCancel} disabled={isCountingDown}>
             Cancel
           </Button>
-          <Button variant="primary" fullWidth onClick={onCopyAndShutdown} disabled={isCountingDown}>
+          <Button variant="default" className="w-full" onClick={onCopyAndShutdown} disabled={isCountingDown}>
             {copied ? "✓ Copied — shutting down..." : isCountingDown ? `Shutting down in ${countdown}s` : "Copy & Shutdown"}
           </Button>
         </div>

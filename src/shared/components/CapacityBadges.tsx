@@ -1,7 +1,7 @@
 "use client";
 
 import { CAPACITY_META, type CapacityKey } from "@/shared/constants/models";
-import Tooltip from "./Tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 interface CapacityBadgesProps {
   caps?: Record<string, boolean> | null;
@@ -19,17 +19,22 @@ export default function CapacityBadges({ caps, className = "", colorOverride, si
   if (active.length === 0) return null;
 
   return (
-    <span className={`inline-flex items-center gap-0.5 ${className}`}>
-      {active.map((k) => (
-        <Tooltip key={k} text={`${CAPACITY_META[k].label} — ${CAPACITY_META[k].desc}`}>
-          <span
-            className={`material-symbols-outlined leading-none cursor-help ${colorOverride || CAPACITY_META[k].color}`}
-            style={{ fontSize: `${size}px` }}
-          >
-            {CAPACITY_META[k].icon}
-          </span>
-        </Tooltip>
-      ))}
-    </span>
+    <TooltipProvider>
+      <span className={`inline-flex items-center gap-0.5 ${className}`}>
+        {active.map((k) => (
+          <Tooltip key={k}>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <span
+                className={`material-symbols-outlined leading-none cursor-help ${colorOverride || CAPACITY_META[k].color}`}
+                style={{ fontSize: `${size}px` }}
+              >
+                {CAPACITY_META[k].icon}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{`${CAPACITY_META[k].label} — ${CAPACITY_META[k].desc}`}</TooltipContent>
+          </Tooltip>
+        ))}
+      </span>
+    </TooltipProvider>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Card from "./Card";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function RequestLogger() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -59,7 +59,8 @@ export default function RequestLogger() {
       </div>
 
       <Card className="overflow-hidden bg-surface-2">
-        <div className="p-0 overflow-x-auto max-h-[600px] overflow-y-auto font-mono text-xs">
+        <CardContent>
+          <div className="p-0 overflow-x-auto max-h-[600px] overflow-y-auto font-mono text-xs">
           {loading && logs.length === 0 ? (
             <div className="p-8 text-center text-text-muted">Loading logs...</div>
           ) : logs.length === 0 ? (
@@ -112,6 +113,7 @@ export default function RequestLogger() {
             </table>
           )}
         </div>
+        </CardContent>
       </Card>
       <div className="text-[10px] text-text-muted italic">
         Logs are loaded from the request history database.

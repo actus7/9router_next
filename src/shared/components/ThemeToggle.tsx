@@ -2,6 +2,7 @@
 
 import { useThemeStore } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type ThemeToggleVariant = 'default' | 'card';
 
@@ -31,7 +32,8 @@ export default function ThemeToggle({ className, variant = "default" }: ThemeTog
   };
 
   return (
-    <button
+    <Button
+      variant="ghost"
       onClick={toggleTheme}
       className={cn(variants[variant], className)}
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
@@ -45,6 +47,6 @@ export default function ThemeToggle({ className, variant = "default" }: ThemeTog
       >
         {isDark ? "light_mode" : "dark_mode"}
       </span>
-    </button>
+    </Button>
   );
 }

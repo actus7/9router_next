@@ -2,7 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import Button from "./Button";
+import { Button } from "@/components/ui/button";
 
 interface PaginationProps {
   currentPage: number;
@@ -115,7 +115,7 @@ export default function Pagination({
             {pageNumbers.map((page) => (
               <Button
                 key={page}
-                variant={currentPage === page ? "primary" : "ghost"}
+                variant={currentPage === page ? "default" : "ghost"}
                 size="sm"
                 onClick={() => onPageChange(page)}
                 className={cn(

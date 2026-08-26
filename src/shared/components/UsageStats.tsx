@@ -10,8 +10,8 @@ function isLLMProvider(id: string): boolean {
   if (!p?.serviceKinds) return true;
   return (p.serviceKinds as string[]).includes("llm");
 }
-import Badge from "./Badge";
-import Card from "./Card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
 import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
 import dynamic from "next/dynamic";
@@ -399,7 +399,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           renderDetailCells: (item: SortedItem) => (
             <>
               <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "primary" : "default"} size="sm">{item.provider}</Badge></td>
+              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "default" : "secondary"} className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></td>
               <td className="px-6 py-3 text-right">{fmt(item.requests || 0)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
@@ -434,7 +434,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
             <>
               <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}</td>
               <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "primary" : "default"} size="sm">{item.provider}</Badge></td>
+              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "default" : "secondary"} className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></td>
               <td className="px-6 py-3 text-right">{fmt(item.requests || 0)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
@@ -459,7 +459,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
             <>
               <td className="px-6 py-3 font-medium">{item.keyName}</td>
               <td className="px-6 py-3">{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant="default" size="sm">{item.provider}</Badge></td>
+              <td className="px-6 py-3"><Badge variant="secondary" className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></td>
               <td className="px-6 py-3 text-right">{fmt(item.requests || 0)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
@@ -485,7 +485,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
             <>
               <td className="px-6 py-3 font-medium font-mono text-sm">{item.endpoint}</td>
               <td className="px-6 py-3">{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant="default" size="sm">{item.provider}</Badge></td>
+              <td className="px-6 py-3"><Badge variant="secondary" className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></td>
               <td className="px-6 py-3 text-right">{fmt(item.requests || 0)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
