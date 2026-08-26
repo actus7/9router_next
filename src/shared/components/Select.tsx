@@ -2,6 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 import {
   Select as ShadcnSelect,
   SelectTrigger,
@@ -40,18 +41,15 @@ export default function Select({
   required = false,
   className,
 }: SelectProps) {
-  // Find the label for the current value to display when closed
-  const selectedLabel = options.find((o) => o.value === value)?.label;
-
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label className="text-sm font-medium text-text-main">
+        <Label className="text-sm font-medium text-text-main">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        </Label>
       )}
-      <ShadcnSelect value={value} onValueChange={onChange ? (val) => onChange(val ?? "") : undefined} disabled={disabled}>
+      <ShadcnSelect value={value} onValueChange={onChange ? (val) => onChange(val ?? "") : undefined} disabled={disabled} items={options}>
         <SelectTrigger
           className={cn(
             "w-full py-2.5 px-3 pr-10 text-sm text-text-main",
@@ -62,7 +60,7 @@ export default function Select({
             error && "border-red-500/40 focus-visible:ring-red-500/40 aria-invalid:border-red-500/40 aria-invalid:ring-red-500/20"
           )}
         >
-          <SelectValue placeholder={selectedLabel || placeholder} />
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (

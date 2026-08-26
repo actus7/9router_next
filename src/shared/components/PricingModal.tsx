@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { getDefaultPricing, formatCost } from "@/lib/open-sse/providers/pricing";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface PricingData {
@@ -160,13 +161,13 @@ export default function PricingModal({ isOpen, onClose, onSave }: PricingModalPr
                               <TableCell className="px-3 py-2 font-medium">{model}</TableCell>
                               {pricingFields.map(field => (
                                 <TableCell key={field} className="px-3 py-2">
-                                  <input
+                                  <Input
                                     type="number"
                                     step="0.01"
                                     min="0"
                                     value={pricingData[provider][model]?.[field as keyof typeof pricingData[string][string]] || 0}
                                     onChange={(e) => handlePricingChange(provider, model, field, e.target.value)}
-                                    className="w-20 px-2 py-1 text-right bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
+                                    className="w-20 px-2 py-1 text-right"
                                   />
                                 </TableCell>
                               ))}
@@ -189,28 +190,33 @@ export default function PricingModal({ isOpen, onClose, onSave }: PricingModalPr
 
         {/* Footer */}
         <div className="p-4 border-t border-border flex items-center justify-between gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleReset}
-            className="px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded border border-red-500/20 transition-colors"
+            className="px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 border border-red-500/20"
             disabled={saving}
           >
             Reset to Defaults
-          </button>
+          </Button>
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-text-muted hover:text-text border border-border rounded transition-colors"
+              className="px-4 py-2 text-sm"
               disabled={saving}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
               onClick={handleSave}
-              className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm"
               disabled={saving}
             >
               {saving ? "Saving..." : "Save Changes"}
-            </button>
+            </Button>
           </div>
         </div>
       </DialogContent>

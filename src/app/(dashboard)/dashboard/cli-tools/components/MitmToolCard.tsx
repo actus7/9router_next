@@ -200,25 +200,29 @@ export default function MitmToolCard({
                         className={`w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5 ${!dnsActive ? "opacity-50 cursor-not-allowed" : ""}`}
                       />
                       {modelMappings[model.alias] && (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
                           onClick={() => {
                             handleModelMappingChange(model.alias, "");
                             saveMappings({ ...modelMappings, [model.alias]: "" });
                           }}
-                          className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded transition-colors"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-red-500"
                           title="Clear"
                         >
                           <span className="material-symbols-outlined text-[14px]">close</span>
-                        </button>
+                        </Button>
                       )}
                     </div>
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openModelSelector(model.alias)}
                       disabled={!hasActiveProviders || !dnsActive}
-                      className={`rounded border px-2 py-2 text-xs transition-colors sm:py-1.5 ${hasActiveProviders && dnsActive ? "bg-surface border-border hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}
+                      className="rounded px-2 py-2 sm:py-1.5"
                     >
                       Select
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -230,23 +234,27 @@ export default function MitmToolCard({
 
             <div className="flex flex-col gap-2 sm:items-start">
               {dnsActive ? (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleDnsToggle}
                   disabled={!serverRunning || loading}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-1.5"
+                  className="flex w-full items-center justify-center gap-1.5 border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 sm:w-auto sm:py-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">stop_circle</span>
                   Stop DNS
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleDnsToggle}
                   disabled={!serverRunning || loading}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-1.5"
+                  className="flex w-full items-center justify-center gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 sm:w-auto sm:py-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">play_circle</span>
                   Start DNS
-                </button>
+                </Button>
               )}
 
               {warning && (

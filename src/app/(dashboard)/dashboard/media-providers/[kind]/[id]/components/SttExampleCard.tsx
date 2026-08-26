@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { getModelKind } from "@/shared/constants/models";
 import { getModelsByProviderId } from "@/shared/constants/models";
@@ -113,15 +115,16 @@ export function SttExampleCard({ providerId }) {
         {/* Model */}
         {sttModels.length > 0 ? (
           <Row label="Model">
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-            >
-              {sttModels.map((m) => (
-                <option key={m.id} value={m.id}>{m.name || m.id}</option>
-              ))}
-            </select>
+            <Select value={selectedModel} onValueChange={setSelectedModel}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                {sttModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.name || m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Row>
         ) : (
           <Row label="Model">
@@ -141,16 +144,18 @@ export function SttExampleCard({ providerId }) {
               {endpoint}/v1/audio/transcriptions
             </span>
             {tunnelEndpoint && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setUseTunnel((v) => !v)}
                 title={useTunnel ? "Using tunnel" : "Using local"}
-                className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border shrink-0 transition-colors ${
-                  useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-text-muted hover:text-primary"
+                className={`flex items-center gap-1 shrink-0 ${
+                  useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "text-text-muted hover:text-primary"
                 }`}
               >
                 <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
                 Tunnel
-              </button>
+              </Button>
             )}
           </div>
         </Row>
@@ -165,7 +170,7 @@ export function SttExampleCard({ providerId }) {
         {/* Audio file */}
         <Row label="Audio File">
           <div className="flex flex-col gap-2">
-            <input
+            <Input
               type="file"
               accept="audio/*,video/mp4,.m4a,.mp3,.wav,.ogg,.flac,.webm,.opus"
               onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
@@ -222,17 +227,18 @@ export function SttExampleCard({ providerId }) {
         {/* Response format (if model supports) */}
         {allowedParams.includes("response_format") && (
           <Row label="Response Format">
-            <select
-              value={responseFormat}
-              onChange={(e) => setResponseFormat(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-            >
-              <option value="json">json</option>
-              <option value="text">text</option>
-              <option value="srt">srt</option>
-              <option value="verbose_json">verbose_json</option>
-              <option value="vtt">vtt</option>
-            </select>
+            <Select value={responseFormat} onValueChange={setResponseFormat}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="json">json</SelectItem>
+                <SelectItem value="text">text</SelectItem>
+                <SelectItem value="srt">srt</SelectItem>
+                <SelectItem value="verbose_json">verbose_json</SelectItem>
+                <SelectItem value="vtt">vtt</SelectItem>
+              </SelectContent>
+            </Select>
           </Row>
         )}
 
@@ -241,23 +247,26 @@ export function SttExampleCard({ providerId }) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
             <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Request</span>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => copyCurl(curlSnippet)}
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1 text-text-muted hover:text-primary"
               >
                 <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
                 {copiedCurl ? "Copied" : "Copy"}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleRun}
                 disabled={running || !audioFile || !modelFull}
-                className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex w-full sm:w-auto items-center justify-center gap-1.5"
+                size="sm"
               >
                 <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
                   play_arrow
                 </span>
                 {running ? "Transcribing..." : "Run"}
-              </button>
+              </Button>
             </div>
           </div>
           <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">{curlSnippet}</pre>
@@ -272,13 +281,15 @@ export function SttExampleCard({ providerId }) {
               Response {result && latency && <span className="font-normal normal-case">&#9889; {latency}ms</span>}
             </span>
             {result && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => copyRes(resultStr)}
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1 text-text-muted hover:text-primary"
               >
                 <span className="material-symbols-outlined text-[14px]">{copiedRes ? "check" : "content_copy"}</span>
                 {copiedRes ? "Copied" : "Copy"}
-              </button>
+              </Button>
             )}
           </div>
           <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all opacity-70">

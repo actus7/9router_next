@@ -8,6 +8,7 @@ import {
   Toggle,
   Modal,
 } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
@@ -440,14 +441,12 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           </h2>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <ModelAvailabilityBadge />
-            <button
+            <UIButton
+              variant="outline"
+              size="sm"
               onClick={() => handleBatchTest("oauth")}
               disabled={!!testingMode}
-              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
-                testingMode === "oauth"
-                  ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                  : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
-              }`}
+              className={testingMode === "oauth" ? "animate-pulse" : ""}
               title="Test all OAuth connections"
               aria-label="Test all OAuth connections"
             >
@@ -457,7 +456,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                 play_arrow
               </span>
               {testingMode === "oauth" ? "Testing..." : "Test All"}
-            </button>
+            </UIButton>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -485,14 +484,12 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
             Free Tier Providers
           </h2>
-          <button
+          <UIButton
+            variant="outline"
+            size="sm"
             onClick={() => handleBatchTest("free")}
             disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
-              testingMode === "free"
-                ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
-            }`}
+            className={testingMode === "free" ? "animate-pulse" : ""}
             title="Test all Free connections"
             aria-label="Test all Free provider connections"
           >
@@ -502,7 +499,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               play_arrow
             </span>
             {testingMode === "free" ? "Testing..." : "Test All"}
-          </button>
+          </UIButton>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {freeEntries.map(([key, info]) => {
@@ -544,14 +541,12 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
             API Key Providers{" "}
           </h2>
-          <button
+          <UIButton
+            variant="outline"
+            size="sm"
             onClick={() => handleBatchTest("apikey")}
             disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
-              testingMode === "apikey"
-                ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
-            }`}
+            className={testingMode === "apikey" ? "animate-pulse" : ""}
             title="Test all API Key connections"
             aria-label="Test all API Key connections"
           >
@@ -561,7 +556,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               play_arrow
             </span>
             {testingMode === "apikey" ? "Testing..." : "Test All"}
-          </button>
+          </UIButton>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {visibleApikeyEntries.map(([key, info]) => (
@@ -576,13 +571,14 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           ))}
         </div>
         {!isApikeySearching && !showAllApikey && hiddenApikeyCount > 0 && (
-          <button
+          <UIButton
+            variant="outline"
             onClick={() => setShowAllApikey(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary/5"
+            className="w-full border-dashed border-primary/40 text-primary hover:border-primary hover:bg-primary/5"
           >
             <span className="material-symbols-outlined text-[16px]">expand_more</span>
             Show all {apikeyEntries.length} providers
-          </button>
+          </UIButton>
         )}
       </div>
       )}

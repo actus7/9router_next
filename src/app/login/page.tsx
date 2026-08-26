@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, Button, Input } from "@/shared/components";
+import { Label } from "@/components/ui/label";
 import { Spinner } from "@/shared/components/Loading";
 
 export default function LoginPage() {
@@ -173,7 +174,7 @@ export default function LoginPage() {
                 Set a new password before accessing the dashboard remotely.
               </p>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">New password</label>
+                <Label className="text-sm font-medium">New password</Label>
                 <Input
                   type="password"
                   placeholder="Enter new password"
@@ -219,7 +220,7 @@ export default function LoginPage() {
                 )}
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Password</label>
+                  <Label className="text-sm font-medium">Password</Label>
                   <Input
                     type="password"
                     placeholder="Enter password"

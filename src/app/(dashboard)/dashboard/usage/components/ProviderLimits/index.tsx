@@ -8,6 +8,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import Toggle from "@/shared/components/Toggle";
 import Tooltip from "@/shared/components/Tooltip";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   parseQuotaData,
   calculatePercentage,
@@ -803,10 +805,12 @@ export default function ProviderLimits() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
         <div className="flex flex-wrap items-center gap-1.5">
           <div className="relative">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="default"
               onClick={() => setProviderMenuOpen((prev) => !prev)}
-              className="flex h-8 items-center justify-between gap-1 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
+              className="gap-1 text-xs"
               aria-haspopup="menu"
               aria-expanded={providerMenuOpen}
               title="Filter quota providers"
@@ -832,19 +836,21 @@ export default function ProviderLimits() {
               <span className="material-symbols-outlined text-[14px] text-text-muted">
                 expand_more
               </span>
-            </button>
+            </Button>
 
             {providerMenuOpen && (
               <>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   className="fixed inset-0 z-30 bg-transparent"
                   aria-label="Close provider filter"
                   onClick={() => setProviderMenuOpen(false)}
                 />
                 <div className="absolute left-0 z-40 mt-2 w-64 overflow-hidden rounded-2xl border border-black/10 bg-surface/95 p-1.5 shadow-xl shadow-black/10 backdrop-blur dark:border-white/10 dark:bg-surface/95 sm:w-72">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => {
                       if (shouldResetPage(providerFilter, "all")) {
                         setPage(1);
@@ -852,7 +858,7 @@ export default function ProviderLimits() {
                       setProviderFilter("all");
                       setProviderMenuOpen(false);
                     }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${providerFilter === "all" ? "bg-primary/10 text-primary" : "text-text-primary hover:bg-black/5 dark:hover:bg-white/10"}`}
+                    className={`w-full justify-start gap-3 rounded-xl px-3 py-2.5 ${providerFilter === "all" ? "bg-primary/10 text-primary" : ""}`}
                   >
                     <span className="material-symbols-outlined text-[22px]">
                       apps
@@ -863,13 +869,14 @@ export default function ProviderLimits() {
                         check
                       </span>
                     )}
-                  </button>
+                  </Button>
                   <div className="my-1 h-px bg-black/10 dark:bg-white/10" />
                   <div className="max-h-72 overflow-y-auto pr-1">
                     {providerOptions.map((provider) => (
-                      <button
+                      <Button
                         key={provider}
                         type="button"
+                        variant="ghost"
                         onClick={() => {
                           if (shouldResetPage(providerFilter, provider)) {
                             setPage(1);
@@ -877,7 +884,7 @@ export default function ProviderLimits() {
                           setProviderFilter(provider);
                           setProviderMenuOpen(false);
                         }}
-                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${providerFilter === provider ? "bg-primary/10 text-primary" : "text-text-primary hover:bg-black/5 dark:hover:bg-white/10"}`}
+                        className={`w-full justify-start gap-3 rounded-xl px-3 py-2.5 ${providerFilter === provider ? "bg-primary/10 text-primary" : ""}`}
                       >
                         <ProviderIcon
                           src={`/providers/${provider}.png`}
@@ -894,90 +901,99 @@ export default function ProviderLimits() {
                             check
                           </span>
                         )}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
               </>
             )}
           </div>
-          <select
+          <Select
             value={accountFilter}
-            onChange={(event) => {
-              const nextValue = event.target.value;
+            onValueChange={(nextValue) => {
               if (shouldResetPage(accountFilter, nextValue)) {
                 setPage(1);
               }
               setAccountFilter(nextValue);
             }}
-            className="h-8 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary outline-none transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
-            aria-label="Filter accounts by status"
           >
-            {ACCOUNT_FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-8 text-xs" aria-label="Filter accounts by status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ACCOUNT_FILTER_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {providerFilter === "codex" && (
-            <select
+            <Select
               value={quotaSortMode}
-              onChange={(event) => setQuotaSortMode(event.target.value)}
-              className="h-8 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary outline-none transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
-              aria-label="Sort Codex quotas by remaining"
+              onValueChange={setQuotaSortMode}
             >
-              {QUOTA_SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-8 text-xs" aria-label="Sort Codex quotas by remaining">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {QUOTA_SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
 
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => setExpiringFirst((prev) => !prev)}
             aria-pressed={expiringFirst}
-            className={`flex h-8 shrink-0 items-center gap-1 rounded-lg border px-2 text-xs transition-colors ${expiringFirst ? "border-amber-500/40 bg-amber-500/10 text-amber-500" : "border-black/10 text-text-primary hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"}`}
+            className={`gap-1 text-xs ${expiringFirst ? "border-amber-500/40 bg-amber-500/10 text-amber-500" : ""}`}
             title="Sort accounts by earliest quota reset time"
           >
             <span className="material-symbols-outlined text-[14px]">
               hourglass_top
             </span>
             <span className="hidden sm:inline">Expiring first</span>
-          </button>
+          </Button>
 
           {/* Bulk: disable depleted */}
-          <button
+          <Button
             type="button"
+            variant="destructive"
             onClick={handleDisableDepleted}
             disabled={bulkToggling}
-            className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-red-500/30 px-2 text-xs text-red-500 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+            className="gap-1 text-xs"
             title="Disable connections with depleted quota on the current page"
           >
             <span className="material-symbols-outlined text-[14px]">block</span>
             <span className="hidden sm:inline">Turn off Empty</span>
-          </button>
+          </Button>
 
           {/* Bulk: enable available */}
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={handleEnableAvailable}
             disabled={bulkToggling}
-            className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-emerald-500/30 px-2 text-xs text-emerald-500 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+            className="gap-1 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
             title="Enable connections that still have quota on the current page"
           >
             <span className="material-symbols-outlined text-[14px]">
               check_circle
             </span>
             <span className="hidden sm:inline">Turn on Available</span>
-          </button>
+          </Button>
 
           {/* Auto-refresh toggle */}
-          <button
+          <Button
+            variant="outline"
             onClick={() => setAutoRefresh((prev) => !prev)}
-            className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-black/10 px-2 text-xs transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+            className="gap-1 text-xs"
             title={autoRefresh ? "Disable auto-refresh" : "Enable auto-refresh"}
           >
             <span
@@ -995,15 +1011,16 @@ export default function ProviderLimits() {
                 ({countdown}s)
               </span>
             )}
-          </button>
+          </Button>
 
 
           {/* Refresh all button */}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon"
             onClick={() => refreshAll(true)}
             disabled={refreshingAll}
-            className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-black/10 px-2 text-xs text-text-primary transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5 disabled:opacity-50"
             title="Refresh all"
           >
             <span
@@ -1011,7 +1028,7 @@ export default function ProviderLimits() {
             >
               refresh
             </span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1097,11 +1114,12 @@ export default function ProviderLimits() {
                             {isInactive ? "disabled" : conn.testStatus || "unknown"}
                           </span>
                           {conn.providerSpecificData?.profileArn && (
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
                               onClick={() => copy(conn.providerSpecificData.profileArn, conn.id)}
                               title={conn.providerSpecificData.profileArn}
-                              className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-[10px] text-text-muted transition-colors hover:text-primary"
+                              className="max-w-full gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-[10px] text-text-muted hover:text-primary"
                             >
                               <span className="material-symbols-outlined text-[12px]">
                                 {copied === conn.id ? "check" : "content_copy"}
@@ -1109,7 +1127,7 @@ export default function ProviderLimits() {
                               <code className="truncate font-mono">
                                 {conn.providerSpecificData.profileArn}
                               </code>
-                            </button>
+                            </Button>
                           )}
                         </div>
                       )}
@@ -1126,8 +1144,9 @@ export default function ProviderLimits() {
                               : "No Codex reset credits available"
                           }
                         >
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
                             onClick={() => setResetConfirmState({ connection: conn, resetCreditCount })}
                             disabled={resetCreditCount <= 0 || isLoading || rowBusy}
                             aria-label={
@@ -1135,88 +1154,95 @@ export default function ProviderLimits() {
                                 ? `Use one Codex reset credit. ${resetCreditCount} available.`
                                 : "No Codex reset credits available"
                             }
-                            className={`flex h-8 min-w-10 items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-medium tabular-nums transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/60 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            className={`min-w-10 gap-1 text-[11px] font-medium tabular-nums ${
                               resetCreditCount > 0
                                 ? "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
-                                : "border-black/10 bg-black/[0.02] text-text-muted dark:border-white/10 dark:bg-white/[0.03]"
+                                : ""
                             }`}
                           >
                             <span className={`material-symbols-outlined text-[15px] ${isResettingLimit ? "animate-spin" : ""}`}>
                               {isResettingLimit ? "progress_activity" : "restart_alt"}
                             </span>
                             <span>{resetCreditCount}</span>
-                          </button>
+                          </Button>
                         </Tooltip>
                         <Tooltip text="View Codex reset credit expiry">
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="icon"
                             onClick={() => handleViewCodexResetCredits(conn)}
                             disabled={isLoading || rowBusy}
                             aria-label="View Codex reset credit expiry"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-text-muted transition-colors hover:bg-black/5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/5"
                           >
                             <span className="material-symbols-outlined text-[17px]">schedule</span>
-                          </button>
+                          </Button>
                         </Tooltip>
                       </>
                     )}
                     {AUTO_PING_SETTINGS_KEYS[conn.provider] && conn.authType === "oauth" && (
                       <Tooltip text={AUTO_PING_TOOLTIPS[conn.provider]}>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => toggleAutoPing(conn.id, conn.provider, !(autoPingMaps[conn.provider]?.[conn.id] === true))}
                           aria-label="Toggle auto-ping"
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-surface-2/50 ${autoPingMaps[conn.provider]?.[conn.id] === true ? "text-primary" : "text-text-muted"}`}
+                          className={autoPingMaps[conn.provider]?.[conn.id] === true ? "text-primary" : "text-text-muted"}
                         >
                           <span className="material-symbols-outlined text-[18px]">bolt</span>
-                        </button>
+                        </Button>
                       </Tooltip>
                     )}
                     <Tooltip text="Refresh quota">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => refreshProvider(conn.id, conn.provider)}
                         disabled={isLoading || rowBusy}
                         aria-label="Refresh quota"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-2/50 transition-colors disabled:opacity-50"
                       >
                         <span
                           className={`material-symbols-outlined text-[18px] text-text-muted ${isLoading ? "animate-spin" : ""}`}
                         >
                           refresh
                         </span>
-                      </button>
+                      </Button>
                     </Tooltip>
                     <Tooltip text="Edit connection">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => {
                           setSelectedConnection(conn);
                           setShowEditModal(true);
                         }}
                         disabled={rowBusy}
                         aria-label="Edit connection"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-2/50 text-text-muted hover:text-primary transition-colors disabled:opacity-50"
+                        className="text-text-muted hover:text-primary"
                       >
                         <span className="material-symbols-outlined text-[18px]">
                           edit
                         </span>
-                      </button>
+                      </Button>
                     </Tooltip>
                     <Tooltip text="Delete connection">
-                      <button
+                      <Button
                         type="button"
+                        variant="destructive"
+                        size="icon"
                         onClick={() => handleDeleteConnection(conn.id)}
                         disabled={rowBusy}
                         aria-label="Delete connection"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-red-500/10 text-red-500 transition-colors disabled:opacity-50"
                       >
                         <span
                           className={`material-symbols-outlined text-[18px] ${deletingId === conn.id ? "animate-pulse" : ""}`}
                         >
                           delete
                         </span>
-                      </button>
+                      </Button>
                     </Tooltip>
                     <div
                       className="inline-flex items-center pl-0.5"
@@ -1276,15 +1302,17 @@ export default function ProviderLimits() {
                     <span className="shrink-0">Hidden:</span>
                     <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pb-2">
                       {hiddenQuotaRows.map((quotaRow) => (
-                        <button
+                        <Button
                           key={getQuotaVisibilityKey(quotaRow)}
                           type="button"
+                          variant="outline"
+                          size="xs"
                           onClick={() => handleShowQuota(conn.provider, quotaRow)}
-                          className="shrink-0 rounded-md border border-black/10 px-1.5 py-0.5 transition-colors hover:bg-black/5 hover:text-text-primary dark:border-white/10 dark:hover:bg-white/5"
+                          className="shrink-0 rounded-md px-1.5 py-0.5"
                           title="Show this quota row"
                         >
                           {quotaRow.name}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </div>
@@ -1299,10 +1327,9 @@ export default function ProviderLimits() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-text-muted">{connectionsPageSummary}</span>
             <div className="flex flex-wrap items-center gap-2">
-              <select
+              <Select
                 value={isCustomPageSize ? "custom" : String(pageSize)}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
+                onValueChange={(nextValue) => {
                   if (nextValue === "custom") return;
                   const nextPageSize = Number.parseInt(nextValue, 10);
                   if (Number.isFinite(nextPageSize)) {
@@ -1311,16 +1338,19 @@ export default function ProviderLimits() {
                     setCustomPageSizeInput(String(nextPageSize));
                   }
                 }}
-                className="h-8 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary outline-none transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
-                aria-label="Accounts per page"
               >
-                {ACCOUNT_PAGE_SIZE_OPTIONS.map((option) => (
-                  <option key={option} value={String(option)}>
-                    {option} / page
-                  </option>
-                ))}
-                <option value="custom">Custom</option>
-              </select>
+                <SelectTrigger className="h-8 text-xs" aria-label="Accounts per page">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCOUNT_PAGE_SIZE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option} / page
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
               <Input
                 type="number"
                 min="1"
@@ -1358,33 +1388,37 @@ export default function ProviderLimits() {
               <span className="text-xs text-text-muted">Page {pagination.page} / {pagination.totalPages}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setPage(1)}
                 disabled={
                   pagination.page <= 1 || connectionsLoading || refreshingAll
                 }
-                className="flex h-8 items-center rounded-lg border border-black/10 px-3 text-xs text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
+                className="text-xs"
               >
                 First Page
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={() =>
                   setPage((currentPage) => Math.max(1, currentPage - 1))
                 }
                 disabled={
                   pagination.page <= 1 || connectionsLoading || refreshingAll
                 }
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
                 aria-label="Previous accounts page"
               >
                 <span className="material-symbols-outlined text-[16px]">
                   chevron_left
                 </span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={() =>
                   setPage((currentPage) =>
                     Math.min(pagination.totalPages, currentPage + 1),
@@ -1395,25 +1429,25 @@ export default function ProviderLimits() {
                   connectionsLoading ||
                   refreshingAll
                 }
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
                 aria-label="Next accounts page"
               >
                 <span className="material-symbols-outlined text-[16px]">
                   chevron_right
                 </span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setPage(pagination.totalPages)}
                 disabled={
                   pagination.page >= pagination.totalPages ||
                   connectionsLoading ||
                   refreshingAll
                 }
-                className="flex h-8 items-center rounded-lg border border-black/10 px-3 text-xs text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
+                className="text-xs"
               >
                 Last Page
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1447,14 +1481,16 @@ export default function ProviderLimits() {
                   {getConnectionLabel(resetCreditsState.connection) || "Codex account"}
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setResetCreditsState(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5"
+                className="text-text-muted hover:text-text-primary"
                 aria-label="Close reset credit expiry modal"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
+              </Button>
             </div>
 
             <div className="max-h-[70vh] overflow-auto bg-white p-4 dark:bg-neutral-950">

@@ -3,6 +3,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 interface PaginationProps {
   currentPage: number;
@@ -65,22 +66,18 @@ export default function Pagination({
         {onPageSizeChange && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-text-muted">Rows:</span>
-            <select
-              value={pageSize}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onPageSizeChange(Number(e.target.value))}
-              className={cn(
-                "h-9 rounded-lg border border-border bg-surface",
-                "text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20",
-                "cursor-pointer"
-              )}
-              style={{ colorScheme: 'auto' }}
-            >
-              {[10, 20, 50].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
+            <Select value={String(pageSize)} onValueChange={(val) => onPageSizeChange(Number(val))}>
+              <SelectTrigger className="h-9 w-auto">
+                <SelectValue placeholder="Rows" />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50].map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 

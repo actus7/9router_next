@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 export default function RequestLogger() {
@@ -43,7 +44,7 @@ export default function RequestLogger() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Request Logs</h2>
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-text-muted flex items-center gap-2 cursor-pointer">
+          <Label className="text-sm font-medium text-text-muted flex items-center gap-2 cursor-pointer">
             <span>Auto Refresh (3s)</span>
             <div
               onClick={() => setAutoRefresh(!autoRefresh)}
@@ -55,7 +56,7 @@ export default function RequestLogger() {
                   }`}
               />
             </div>
-          </label>
+          </Label>
         </div>
       </div>
 

@@ -29,9 +29,9 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {},
+  serverComponentsHmrCache: true,
   experimental: {
     proxyClientMaxBodySize: proxyClientMaxBodySize as any,
-    serverComponentsHmrCache: true,
     optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked"],
   },
   webpack: (config) => {

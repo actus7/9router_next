@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/shared/components";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { MEDIA_PROVIDER_KINDS, getProviderAlias, resolveProviderId } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -231,15 +233,16 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Model selector — dropdown if presets exist, else manual input for media kinds */}
         {kindModels.length > 0 ? (
           <Row label="Model">
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-            >
-              {kindModels.map((m) => (
-                <option key={m.id} value={m.id}>{m.name || m.id}</option>
-              ))}
-            </select>
+            <Select value={selectedModel} onValueChange={setSelectedModel}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                {kindModels.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.name || m.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Row>
         ) : allowManualModel ? (
           <Row label="Model">
@@ -259,16 +262,16 @@ export function GenericExampleCard({ providerId, kind }) {
               {endpoint}{apiPath}
             </span>
             {tunnelEndpoint && (
-              <button
+              <Button
+                variant={useTunnel ? "default" : "outline"}
+                size="sm"
                 onClick={() => setUseTunnel((v) => !v)}
                 title={useTunnel ? "Using tunnel" : "Using local"}
-                className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border shrink-0 transition-colors ${
-                  useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-text-muted hover:text-primary"
-                }`}
+                className="shrink-0"
               >
                 <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
                 Tunnel
-              </button>
+              </Button>
             )}
           </div>
         </Row>
@@ -283,22 +286,23 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Connection picker - only show when 2+ connections (or any with email) */}
         {connections.length > 0 && (
           <Row label="Connection">
-            <select
-              value={pinnedConnectionId}
-              onChange={(e) => setPinnedConnectionId(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-            >
-              <option value="">Auto (by priority)</option>
-              {connections.map((c) => {
-                const plan = c.providerSpecificData?.chatgptPlanType;
-                const label = c.email || c.name || c.id.slice(0, 8);
-                return (
-                  <option key={c.id} value={c.id}>
-                    {label}{plan ? ` [${plan}]` : ""}
-                  </option>
-                );
-              })}
-            </select>
+            <Select value={pinnedConnectionId || "__auto__"} onValueChange={(v) => setPinnedConnectionId(v === "__auto__" ? "" : v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Auto (by priority)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__auto__">Auto (by priority)</SelectItem>
+                {connections.map((c) => {
+                  const plan = c.providerSpecificData?.chatgptPlanType;
+                  const label = c.email || c.name || c.id.slice(0, 8);
+                  return (
+                    <SelectItem key={c.id} value={c.id}>
+                      {label}{plan ? ` [${plan}]` : ""}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </Row>
         )}
 
@@ -312,13 +316,15 @@ export function GenericExampleCard({ providerId, kind }) {
               className="w-full px-3 py-1.5 pr-7 text-sm"
             />
             {input && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={() => setInput("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
               >
                 <span className="material-symbols-outlined text-[14px]">close</span>
-              </button>
+              </Button>
             )}
           </div>
         </Row>
@@ -335,13 +341,15 @@ export function GenericExampleCard({ providerId, kind }) {
                   className="w-full px-3 py-1.5 pr-7 text-sm"
                 />
                 {refImage && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={() => setRefImage("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                   >
                     <span className="material-symbols-outlined text-[14px]">close</span>
-                  </button>
+                  </Button>
                 )}
               </div>
               {refImagePreviewSrc && (
@@ -370,13 +378,15 @@ export function GenericExampleCard({ providerId, kind }) {
                   className="w-full px-3 py-1.5 pr-7 text-sm"
                 />
                 {maskImage && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={() => setMaskImage("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary"
                   >
                     <span className="material-symbols-outlined text-[14px]">close</span>
-                  </button>
+                  </Button>
                 )}
               </div>
               {maskImagePreviewSrc && (
@@ -400,15 +410,16 @@ export function GenericExampleCard({ providerId, kind }) {
           .map((f) => (
           <Row key={f.key} label={f.label}>
             {f.type === "select" ? (
-              <select
-                value={extraValues[f.key] ?? ""}
-                onChange={(e) => setExtraValues((s) => ({ ...s, [f.key]: e.target.value }))}
-                className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-              >
-                {(f.options || []).map((opt) => (
-                  <option key={opt} value={opt}>{opt === "" ? "(default)" : opt}</option>
-                ))}
-              </select>
+              <Select value={extraValues[f.key] || "__default__"} onValueChange={(v) => setExtraValues((s) => ({ ...s, [f.key]: v === "__default__" ? "" : v }))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="(default)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(f.options || []).map((opt) => (
+                    <SelectItem key={opt || "__default__"} value={opt || "__default__"}>{opt === "" ? "(default)" : opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : f.type === "text" ? (
               <Input
                 type="text"
@@ -433,14 +444,15 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Output Format toggle (image only) — last */}
         {kind === "image" && (
           <Row label="Output Format">
-            <select
-              value={imageOutputFormat}
-              onChange={(e) => setImageOutputFormat(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-            >
-              <option value="json">JSON (Base64)</option>
-              <option value="binary">Binary File</option>
-            </select>
+            <Select value={imageOutputFormat} onValueChange={setImageOutputFormat}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Output format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="json">JSON (Base64)</SelectItem>
+                <SelectItem value="binary">Binary File</SelectItem>
+              </SelectContent>
+            </Select>
           </Row>
         )}
 
@@ -449,23 +461,26 @@ export function GenericExampleCard({ providerId, kind }) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
             <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Request</span>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => copyCurl(curlSnippet)}
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                className="text-text-muted hover:text-primary"
               >
                 <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
                 {copiedCurl ? "Copied" : "Copy"}
-              </button>
-            <button
+              </Button>
+            <Button
               onClick={handleRun}
               disabled={running || !input.trim() || !modelFull}
-              className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              size="sm"
+              className="w-full sm:w-auto"
             >
                 <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
                   play_arrow
                 </span>
                 {running ? "Running..." : "Run"}
-              </button>
+              </Button>
             </div>
           </div>
           <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">{curlSnippet}</pre>
@@ -508,13 +523,15 @@ export function GenericExampleCard({ providerId, kind }) {
               Response {result && <span className="font-normal normal-case">&#9889; {result.latencyMs}ms</span>}
             </span>
             {result && (
-              <button
+              <Button
+                variant="ghost"
+                size="xs"
                 onClick={() => copyRes(resultJson)}
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                className="text-text-muted hover:text-primary"
               >
                 <span className="material-symbols-outlined text-[14px]">{copiedRes ? "check" : "content_copy"}</span>
                 {copiedRes ? "Copied" : "Copy"}
-              </button>
+              </Button>
             )}
           </div>
           <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all opacity-70">

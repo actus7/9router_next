@@ -1,4 +1,5 @@
 import { CapacityBadges } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 
 interface ModelRowProps {
   model: { id: string; name?: string };
@@ -49,49 +50,56 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
         </div>
         {onTest && (
           <div className="relative shrink-0 group/btn">
-            <button
+            <Button
+              variant="ghost"
+              size="icon-xs"
               onClick={onTest}
               disabled={isTesting}
-              className={`rounded p-0.5 text-text-muted transition-opacity hover:bg-sidebar hover:text-primary ${isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}
+              className={isTesting ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}
             >
               <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                 {isTesting ? "progress_activity" : "science"}
               </span>
-            </button>
+            </Button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
               {isTesting ? "Testing..." : "Test"}
             </span>
           </div>
         )}
         <div className="relative shrink-0 group/btn">
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={() => onCopy(displayModel, `model-${model.id}`)}
-            className="rounded p-0.5 text-text-muted hover:bg-sidebar hover:text-primary"
           >
             <span className="material-symbols-outlined text-sm">
               {copied === `model-${model.id}` ? "check" : "content_copy"}
             </span>
-          </button>
+          </Button>
           <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
             {copied === `model-${model.id}` ? "Copied!" : "Copy"}
           </span>
         </div>
         {isCustom ? (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={onDeleteAlias}
-            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+            className="ml-auto text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500"
             title="Remove custom model"
           >
             <span className="material-symbols-outlined text-sm">close</span>
-          </button>
+          </Button>
         ) : onDisable ? (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-xs"
             onClick={onDisable}
-            className="ml-auto rounded p-0.5 text-text-muted opacity-100 transition-opacity hover:bg-red-500/10 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+            className="ml-auto text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500"
             title="Disable this model"
           >
             <span className="material-symbols-outlined text-sm">close</span>
-          </button>
+          </Button>
         ) : null}
       </div>
     </div>

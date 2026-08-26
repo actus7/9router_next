@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatResetTime, getRemainingPercentage } from "./utils";
+import { Button } from "@/components/ui/button";
 
 const PAGE_SIZE = 10;
 
@@ -247,17 +248,19 @@ export default function QuotaTable({
 
               {/* Hide action */}
               {hasHideAction && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => onHideQuota(quota)}
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5"
+                  className="text-text-muted hover:text-text-primary"
                   title="Hide this quota row"
                   aria-label={`Hide quota ${quota.name}`}
                 >
                   <span className="material-symbols-outlined text-[15px]">
                     visibility_off
                   </span>
-                </button>
+                </Button>
               )}
             </div>
           );
@@ -275,22 +278,24 @@ export default function QuotaTable({
             </span>
           </div>
           <div className="mt-1.5 flex items-center justify-end gap-1">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="xs"
               onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
               disabled={page === 1}
-              className="flex h-6 items-center rounded-md border border-black/10 px-2 text-[10px] text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
             >
               Prev
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="xs"
               onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
               disabled={page === totalPages}
-              className="flex h-6 items-center rounded-md border border-black/10 px-2 text-[10px] text-text-primary transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, Button, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
@@ -518,13 +520,14 @@ export default function TokenSaverClient() {
               >
                 {headroomStatusLabel}
               </span>
-              <button
-                type="button"
+              <UIButton
+                variant="link"
+                size="sm"
                 onClick={() => setShowHeadroomInstallModal(true)}
-                className="text-xs text-primary underline hover:opacity-80"
+                className="h-auto p-0 text-xs"
               >
                 {headroomRunning ? "Manage" : "Setup"}
-              </button>
+              </UIButton>
             </div>
             <p className="text-sm text-text-muted mt-1">
               Compress prompts via /v1/compress before routing to the model
@@ -565,15 +568,16 @@ export default function TokenSaverClient() {
                         onChange={() => toggleExtraActive(extra, !active)}
                       />
                       <span className="font-medium">[{extra}]</span>
-                      <button
-                        type="button"
+                      <UIButton
+                        variant="link"
+                        size="sm"
                         onClick={() => handleRemoveExtra(extra)}
                         disabled={removingExtra === extra}
-                        className="ml-1 text-error underline hover:opacity-80 disabled:opacity-50"
+                        className="ml-1 h-auto p-0 text-xs text-error"
                         title={`Uninstall [${extra}]`}
                       >
                         {removingExtra === extra ? "Uninstalling…" : "Uninstall"}
-                      </button>
+                      </UIButton>
                     </div>
                   );
                 }
@@ -588,11 +592,10 @@ export default function TokenSaverClient() {
                     }`}
                     title={extraTitle}
                   >
-                    <input
-                      type="checkbox"
-                      className="w-3 h-3"
+                    <Checkbox
                       checked={pending}
-                      onChange={() => togglePendingExtra(extra)}
+                      onCheckedChange={() => togglePendingExtra(extra)}
+                      className="size-3"
                     />
                     <span className="font-medium">[{extra}]</span>
                     <span className="opacity-70">not installed</span>
@@ -600,15 +603,15 @@ export default function TokenSaverClient() {
                 );
               })}
               {pendingExtras.length > 0 && (
-                <button
+                <UIButton
+                  size="sm"
                   onClick={handleInstallExtras}
                   disabled={extrasActionLoading}
-                  className="text-xs px-2.5 py-1 rounded bg-primary text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {extrasActionLoading
                     ? "Installing…"
                     : `Install [proxy,${pendingExtras.join(",")}]`}
-                </button>
+                </UIButton>
               )}
             </div>
             {extrasActionError && (
@@ -655,18 +658,15 @@ export default function TokenSaverClient() {
               <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
                   {visibleCavemanLevels.map((lvl) => (
-                    <button
+                    <UIButton
                       key={lvl.id}
+                      variant={cavemanLevel === lvl.id ? "default" : "outline"}
+                      size="sm"
                       onClick={() => handleCavemanLevel(lvl.id)}
-                      className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
-                        cavemanLevel === lvl.id
-                          ? "bg-primary text-white border-primary"
-                          : "bg-transparent border-border text-text-muted hover:bg-surface-2"
-                      }`}
                       title={lvl.desc}
                     >
                       {lvl.label}
-                    </button>
+                    </UIButton>
                   ))}
                 </div>
                 <p className="text-xs text-primary">
@@ -706,18 +706,15 @@ export default function TokenSaverClient() {
               <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
                   {PONYTAIL_LEVELS.map((lvl) => (
-                    <button
+                    <UIButton
                       key={lvl.id}
+                      variant={ponytailLevel === lvl.id ? "default" : "outline"}
+                      size="sm"
                       onClick={() => handlePonytailLevel(lvl.id)}
-                      className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
-                        ponytailLevel === lvl.id
-                          ? "bg-primary text-white border-primary"
-                          : "bg-transparent border-border text-text-muted hover:bg-surface-2"
-                      }`}
                       title={lvl.desc}
                     >
                       {lvl.label}
-                    </button>
+                    </UIButton>
                   ))}
                 </div>
                 <p className="text-xs text-primary">
@@ -753,13 +750,14 @@ export default function TokenSaverClient() {
               <span className={`text-xs px-2 py-0.5 rounded ${pxpipeChipClass}`}>
                 {pxpipeStatusLabel}
               </span>
-              <button
-                type="button"
+              <UIButton
+                variant="link"
+                size="sm"
                 onClick={() => setShowPxpipeModal(true)}
-                className="text-xs text-primary underline hover:opacity-80"
+                className="h-auto p-0 text-xs"
               >
                 {pxpipeStatus.installed ? "Manage" : "Setup"}
-              </button>
+              </UIButton>
               <a
                 href="/dashboard/pxpipe"
                 className="text-xs text-primary underline hover:opacity-80"

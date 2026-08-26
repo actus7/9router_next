@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, Button, Toggle, Input } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -766,9 +767,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             </div>
             <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full sm:w-auto">
               {["light", "dark", "system"].map((option) => (
-                <button
+                <UIButton
                   key={option}
-                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setTheme(option)}
                   className={cn(
                     "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium transition-all flex-1 sm:flex-initial",
@@ -781,7 +783,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     {option === "light" ? "light_mode" : option === "dark" ? "dark_mode" : "contrast"}
                   </span>
                   <span className="capitalize text-xs sm:text-sm">{option}</span>
-                </button>
+                </UIButton>
               ))}
             </div>
           </div>
@@ -835,14 +837,15 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Language</h3>
           </div>
-          <button
+          <UIButton
+            variant="outline"
             onClick={() => setLangOpen(true)}
             className="flex items-center justify-between w-full p-3 rounded-lg bg-bg border border-border hover:border-primary/50 transition-colors"
             data-i18n-skip="true"
           >
             <span className="text-sm text-text-muted">Display language</span>
             <span className="text-2xl">{LOCALE_FLAGS[locale] || "🌐"}</span>
-          </button>
+          </UIButton>
         </Card>
 
         {/* Security */}
@@ -922,10 +925,11 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
         {/* Single Sign-On (SSO) */}
         <Card>
-          <button
+          <UIButton
+            variant="ghost"
             type="button"
             onClick={() => setOidcExpanded((v) => !v)}
-            className="w-full flex items-center gap-3 text-left"
+            className="w-full flex items-center gap-3 text-left justify-start"
           >
             <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
               <span className="material-symbols-outlined text-[20px]">lock_open</span>
@@ -943,7 +947,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             <span className="material-symbols-outlined text-text-muted shrink-0">
               {oidcExpanded ? "expand_less" : "expand_more"}
             </span>
-          </button>
+          </UIButton>
           {oidcExpanded && (
             <div className="flex flex-col gap-4 mt-4">
               <p className="text-xs sm:text-sm text-text-muted">
@@ -954,7 +958,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
               <div className="flex flex-col gap-2">
                 <Label className="sm:text-base">SSO Protocol</Label>
                 <div className="flex p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border">
-                  <button
+                  <UIButton
+                    variant="ghost"
+                    size="sm"
                     type="button"
                     onClick={() => setSsoTypeTab("saml")}
                     className={cn(
@@ -965,8 +971,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     )}
                   >
                     SAML 2.0
-                  </button>
-                  <button
+                  </UIButton>
+                  <UIButton
+                    variant="ghost"
+                    size="sm"
                     type="button"
                     onClick={() => setSsoTypeTab("oidc")}
                     className={cn(
@@ -977,7 +985,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     )}
                   >
                     OIDC
-                  </button>
+                  </UIButton>
                 </div>
               </div>
 
@@ -1010,21 +1018,24 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                           ? currentMode === "sso" || currentMode === "saml" || currentMode === "oidc"
                           : currentMode === "both";
                     return (
-                      <button
+                      <UIButton
                         key={option.value}
+                        variant="outline"
                         type="button"
                         onClick={() => updateOidcForm("authMode", option.value)}
                         className={cn(
-                          "text-left rounded-lg border p-3 transition-colors",
+                          "text-left rounded-lg border p-3 transition-colors h-auto",
                           active
                             ? "border-primary bg-primary/5"
                             : "border-border bg-bg hover:bg-surface-2/50"
                         )}
                         disabled={loading || oidcLoading || samlLoading}
                       >
-                        <p className="font-medium text-sm sm:text-base">{option.title}</p>
-                        <p className="text-xs sm:text-sm text-text-muted mt-1">{option.desc}</p>
-                      </button>
+                        <div className="text-left">
+                          <p className="font-medium text-sm sm:text-base">{option.title}</p>
+                          <p className="text-xs sm:text-sm text-text-muted mt-1">{option.desc}</p>
+                        </div>
+                      </UIButton>
                     );
                   })}
                 </div>
@@ -1035,10 +1046,11 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 <div className="flex flex-col gap-4 pt-2 border-t border-border/50">
                   {/* IdP Setup Guidelines Banner & Collapsible Drawer */}
                   <div className="rounded-lg border border-border bg-bg/80 overflow-hidden">
-                    <button
+                    <UIButton
+                      variant="ghost"
                       type="button"
                       onClick={() => setShowSamlGuide((prev) => !prev)}
-                      className="w-full p-3 flex items-center justify-between gap-2 text-left hover:bg-surface/50 transition-colors"
+                      className="w-full p-3 flex items-center justify-between gap-2 text-left hover:bg-surface/50 transition-colors justify-start h-auto"
                     >
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-primary text-lg">menu_book</span>
@@ -1057,7 +1069,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       >
                         expand_more
                       </span>
-                    </button>
+                    </UIButton>
 
                     {showSamlGuide && (
                       <div className="p-4 border-t border-border bg-surface/30 text-xs text-text-main flex flex-col gap-3">

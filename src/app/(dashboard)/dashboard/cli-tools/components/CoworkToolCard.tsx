@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, Button, ModelSelectModal, ManualConfigModal, ComboFormModal, McpMarketplaceModal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -387,11 +388,10 @@ export default function CoworkToolCard({
                       const exaDef = (status?.defaultPlugins || []).find((d) => d.name === "exa");
                       return (
                         <Label className="flex items-start gap-2 cursor-pointer px-2 py-1.5 bg-surface rounded border border-border">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={exaEnabled}
-                            onChange={(e) => {
-                              if (e.target.checked && exaDef) setPlugins([...plugins.filter((p) => p.name !== "exa"), exaDef]);
+                            onCheckedChange={(checked) => {
+                              if (checked && exaDef) setPlugins([...plugins.filter((p) => p.name !== "exa"), exaDef]);
                               else setPlugins(plugins.filter((p) => p.name !== "exa"));
                             }}
                             className="mt-0.5"
@@ -409,10 +409,9 @@ export default function CoworkToolCard({
                       const browserEnabled = localPlugins.includes("browsermcp");
                       return (
                         <Label className="flex items-start gap-2 cursor-pointer px-2 py-1.5 bg-surface rounded border border-border">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={browserEnabled}
-                            onChange={(e) => setLocalPlugins(e.target.checked ? [...localPlugins, "browsermcp"] : localPlugins.filter((n) => n !== "browsermcp"))}
+                            onCheckedChange={(checked) => setLocalPlugins(checked ? [...localPlugins, "browsermcp"] : localPlugins.filter((n) => n !== "browsermcp"))}
                             className="mt-0.5"
                           />
                           <div className="flex-1 min-w-0">
@@ -438,10 +437,9 @@ export default function CoworkToolCard({
                           const enabled = localPlugins.includes(p.name);
                           return (
                             <Label key={p.name} className="flex items-start gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
+                              <Checkbox
                                 checked={enabled}
-                                onChange={(e) => setLocalPlugins(e.target.checked ? [...localPlugins, p.name] : localPlugins.filter((n) => n !== p.name))}
+                                onCheckedChange={(checked) => setLocalPlugins(checked ? [...localPlugins, p.name] : localPlugins.filter((n) => n !== p.name))}
                                 className="mt-0.5"
                               />
                               <div className="flex-1 min-w-0">

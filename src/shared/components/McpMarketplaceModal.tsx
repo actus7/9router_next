@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const REGISTRY_ENDPOINT = "/api/cli-tools/cowork-mcp-registry";
 const TOOLS_ENDPOINT = "/api/cli-tools/cowork-mcp-tools";
@@ -169,15 +171,16 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
             placeholder="Search by name or description..."
             className="flex-1 px-2 py-1.5 text-xs"
           />
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-2 py-1.5 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
-          >
-            <option value="all">All</option>
-            <option value="authless">Authless</option>
-            <option value="oauth">OAuth</option>
-          </select>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="px-2 py-1.5 bg-surface rounded text-xs">
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="authless">Authless</SelectItem>
+              <SelectItem value="oauth">OAuth</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {error && (
@@ -275,10 +278,9 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                           <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto">
                             {toolKeys.map((t) => (
                               <Label key={t} className="gap-1.5 text-[10px] cursor-pointer hover:bg-surface-2/50 px-1 rounded">
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={!!sel[t]}
-                                  onChange={() => toggleTool(s.url, t)}
+                                  onCheckedChange={() => toggleTool(s.url, t)}
                                   className="size-3"
                                 />
                                 <span className="truncate">{t}</span>

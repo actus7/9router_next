@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/shared/components/Card";
 import PricingModal from "@/shared/components/PricingModal";
+import { Button } from "@/components/ui/button";
 
 interface PricingData {
   [provider: string]: Record<string, unknown>;
@@ -64,12 +65,11 @@ export default function PricingSettingsPage() {
             Configure pricing rates for cost tracking and calculations
           </p>
         </div>
-        <button
+        <Button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
         >
           Edit Pricing
-        </button>
+        </Button>
       </div>
 
       {/* Quick Stats */}
@@ -133,12 +133,13 @@ export default function PricingSettingsPage() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">Current Pricing Overview</h2>
-          <button
+          <Button
+            variant="link"
             onClick={() => setShowModal(true)}
-            className="text-primary hover:underline text-sm"
+            className="text-sm"
           >
             View Full Details
-          </button>
+          </Button>
         </div>
 
         {loading ? (

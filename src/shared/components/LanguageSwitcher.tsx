@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LOCALES, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { reloadTranslations } from "@/i18n/runtime";
@@ -105,7 +106,8 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
     <div className={className}>
       {/* Trigger button */}
       {!hideTrigger && (
-        <button
+        <Button
+          variant="ghost"
           onClick={() => {
             if (isControlled) {
               if (isOpen) onClose?.(locale);
@@ -114,14 +116,14 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
             }
           }}
           disabled={isPending}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface/60 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface/60"
           title="Language"
           data-i18n-skip="true"
         >
           <span className="material-symbols-outlined text-[20px]">language</span>
           <span className="text-sm font-medium">{getLocaleInfo(locale).name}</span>
           <span className="text-lg">{getLocaleInfo(locale).flag}</span>
-        </button>
+        </Button>
       )}
 
       <Dialog
@@ -151,11 +153,12 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
                 const active = locale === item;
                 const info = getLocaleInfo(item);
                 return (
-                  <button
+                  <Button
                     key={item}
+                    variant={active ? "default" : "ghost"}
                     onClick={() => handleSetLocale(item)}
                     disabled={isPending}
-                    className={`flex flex-col items-center justify-start gap-1 px-2 py-3 rounded-lg text-xs font-medium transition-colors w-full ${
+                    className={`flex flex-col items-center justify-start gap-1 px-2 py-3 rounded-lg text-xs font-medium w-full ${
                       active
                         ? "bg-primary/15 text-primary ring-2 ring-primary"
                         : "text-text-main hover:bg-surface-2/50"
@@ -168,7 +171,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
                     {active && (
                       <span className="material-symbols-outlined text-sm">check</span>
                     )}
-                  </button>
+                  </Button>
                 );
               })}
             </div>

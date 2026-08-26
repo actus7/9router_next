@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge, Button, Card, CardSkeleton, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useNotificationStore } from "@/store/notificationStore";
 
@@ -606,36 +608,39 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
 
             {showRelayMenu && (
               <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-xl border border-black/10 bg-white p-1 shadow-xl dark:border-white/10 dark:bg-zinc-900 sm:left-auto sm:right-0">
-                <button
+                <UIButton
+                  variant="ghost"
                   onClick={() => {
                     openCloudflareModal();
                     setShowRelayMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-main transition-colors hover:bg-surface-2/50"
+                  className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
                   <span className="material-symbols-outlined text-[20px] text-orange-500">cloud</span>
                   Cloudflare Relay
-                </button>
-                <button
+                </UIButton>
+                <UIButton
+                  variant="ghost"
                   onClick={() => {
                     openVercelModal();
                     setShowRelayMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-main transition-colors hover:bg-surface-2/50"
+                  className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
                   <span className="material-symbols-outlined text-[20px] text-blue-500">cloud_upload</span>
                   Vercel Relay
-                </button>
-                <button
+                </UIButton>
+                <UIButton
+                  variant="ghost"
                   onClick={() => {
                     openDenoModal();
                     setShowRelayMenu(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-text-main transition-colors hover:bg-surface-2/50"
+                  className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
                   <span className="material-symbols-outlined text-[20px] text-green-500">terminal</span>
                   Deno Relay
-                </button>
+                </UIButton>
               </div>
             )}
           </div>
@@ -651,11 +656,15 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {proxyPools.length > 0 && (
             <Label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={allSelected}
-                onChange={toggleSelectAll}
-                className="size-4 rounded border-black/20 dark:border-white/20"
+                onCheckedChange={(checked) => {
+                  if (checked === true) {
+                    setSelectedIds(proxyPools.map((p) => p.id));
+                  } else {
+                    setSelectedIds([]);
+                  }
+                }}
               />
               {allSelected ? "Unselect all" : "Select all"}
             </Label>
@@ -712,11 +721,16 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
             {proxyPools.map((pool) => (
               <div key={pool.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3 min-w-0 flex-1">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selectedIds.includes(pool.id)}
-                    onChange={() => toggleSelect(pool.id)}
-                    className="mt-1 size-4 shrink-0 rounded border-black/20 dark:border-white/20"
+                    onCheckedChange={(checked) => {
+                      if (checked === true) {
+                        setSelectedIds((prev) => [...prev, pool.id]);
+                      } else {
+                        setSelectedIds((prev) => prev.filter((x) => x !== pool.id));
+                      }
+                    }}
+                    className="mt-1 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -755,9 +769,10 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     onChange={() => handleToggleActive(pool)}
                     title={pool.isActive ? "Disable" : "Enable"}
                   />
-                  <button
+                  <UIButton
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => handleTest(pool.id)}
-                    className="p-2 rounded hover:bg-surface-2/50 text-text-muted hover:text-primary"
                     title="Test proxy"
                     disabled={testingId === pool.id}
                   >
@@ -767,21 +782,24 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     >
                       {testingId === pool.id ? "progress_activity" : "science"}
                     </span>
-                  </button>
-                  <button
+                  </UIButton>
+                  <UIButton
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => openEditModal(pool)}
-                    className="p-2 rounded hover:bg-surface-2/50 text-text-muted hover:text-primary"
                     title="Edit"
                   >
                     <span className="material-symbols-outlined text-[18px]">edit</span>
-                  </button>
-                  <button
+                  </UIButton>
+                  <UIButton
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => handleDelete(pool)}
-                    className="p-2 rounded hover:bg-red-500/10 text-red-500"
+                    className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
                     title="Delete"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
+                  </UIButton>
                 </div>
               </div>
             ))}

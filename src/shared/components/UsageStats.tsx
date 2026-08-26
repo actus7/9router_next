@@ -11,6 +11,8 @@ function isLLMProvider(id: string): boolean {
   return (p.serviceKinds as string[]).includes("llm");
 }
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
@@ -511,14 +513,16 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         <div className="flex w-full items-center gap-2 sm:w-auto sm:self-end">
           <div className="grid flex-1 grid-cols-5 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex sm:flex-none">
             {PERIODS.map((p) => (
-              <button
+              <Button
                 key={p.value}
+                variant={period === p.value ? "default" : "ghost"}
+                size="sm"
                 onClick={() => setPeriod(p.value)}
                 disabled={fetching}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${period === p.value ? "bg-primary text-white shadow-sm" : "text-text-muted hover:bg-bg-hover hover:text-text"}`}
+                className="rounded-md px-3 py-1 text-sm font-medium"
               >
                 {p.label}
-              </button>
+              </Button>
             ))}
           </div>
           {fetching && (
@@ -549,29 +553,33 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       {/* Table with dropdown selector */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <select
-            value={tableView}
-            onChange={(e) => setTableView(e.target.value)}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 sm:w-auto"
-            style={{ colorScheme: 'auto' }}
-          >
-            {TABLE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          <Select value={tableView} onValueChange={setTableView}>
+            <SelectTrigger className="w-full sm:w-auto">
+              <SelectValue placeholder="Select view" />
+            </SelectTrigger>
+            <SelectContent>
+              {TABLE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="grid grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex">
-            <button
+            <Button
+              variant={viewMode === "costs" ? "default" : "ghost"}
+              size="sm"
               onClick={() => setViewMode("costs")}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "costs" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+              className="px-3 py-1 rounded-md text-sm font-medium"
             >
               Costs
-            </button>
-            <button
+            </Button>
+            <Button
+              variant={viewMode === "tokens" ? "default" : "ghost"}
+              size="sm"
               onClick={() => setViewMode("tokens")}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+              className="px-3 py-1 rounded-md text-sm font-medium"
             >
               Tokens
-            </button>
+            </Button>
           </div>
         </div>
         {loading ? spinner : activeTableConfig && (

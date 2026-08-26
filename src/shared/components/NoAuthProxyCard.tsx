@@ -101,7 +101,12 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
 
         <div className="flex flex-col gap-1.5">
           <Label className="text-text-main">Proxy Pool</Label>
-          <Select value={proxyPoolId} onValueChange={(val) => handlePoolChange(val)} disabled={saving || isRotation}>
+          <Select
+            value={proxyPoolId}
+            onValueChange={(val) => handlePoolChange(val ?? NONE_PROXY_POOL_VALUE)}
+            disabled={saving || isRotation}
+            items={[{ value: NONE_PROXY_POOL_VALUE, label: "None (direct)" }, ...proxyPools.map((pool) => ({ value: pool.id, label: pool.name }))]}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select a pool" />
             </SelectTrigger>
@@ -117,18 +122,18 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
 
         <div className="flex flex-col gap-2 mt-4">
           <Label className="text-text-main">Rotation Strategy</Label>
-          <select
-            value={rotateStrategy}
-            onChange={(e) => handleStrategyChange(e.target.value)}
-            disabled={saving}
-            className="py-2 px-3 text-sm text-text-main bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-md focus:ring-1 focus:ring-primary/30 focus:border-primary/50 focus:outline-none transition-all disabled:opacity-50"
-          >
-            {STRATEGIES.map((s) => (
-              <option key={s.value} value={s.value} disabled={s.value !== "none" && !canRotate}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+          <Select value={rotateStrategy} onValueChange={handleStrategyChange} disabled={saving}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select strategy" />
+            </SelectTrigger>
+            <SelectContent>
+              {STRATEGIES.map((s) => (
+                <SelectItem key={s.value} value={s.value} disabled={s.value !== "none" && !canRotate}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <p className="text-xs text-text-muted">
             {!canRotate
               ? `Need at least 2 active proxy pools for rotation.`

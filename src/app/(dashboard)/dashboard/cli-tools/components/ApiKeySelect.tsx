@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 const CUSTOM_VALUE = "__custom__";
 
@@ -28,8 +29,7 @@ export default function ApiKeySelect({ value, onChange, apiKeys = [], cloudEnabl
   });
   const [customInput, setCustomInput] = useState<string>(isCustom ? value : "");
 
-  const handleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const next = e.target.value;
+  const handleSelect = (next: string) => {
     setMode(next);
     if (next === CUSTOM_VALUE) {
       setCustomInput("");
@@ -57,16 +57,17 @@ export default function ApiKeySelect({ value, onChange, apiKeys = [], cloudEnabl
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <select
-        value={mode}
-        onChange={handleSelect}
-        className="w-full min-w-0 px-2 py-2 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
-      >
-        {apiKeys.map((k) => (
-          <option key={k.id} value={k.key}>{k.key}</option>
-        ))}
-        <option value={CUSTOM_VALUE}>Custom...</option>
-      </select>
+      <Select value={mode} onValueChange={handleSelect}>
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {apiKeys.map((k) => (
+            <SelectItem key={k.id} value={k.key}>{k.key}</SelectItem>
+          ))}
+          <SelectItem value={CUSTOM_VALUE}>Custom...</SelectItem>
+        </SelectContent>
+      </Select>
       {mode === CUSTOM_VALUE && (
         <Input
           type="text"

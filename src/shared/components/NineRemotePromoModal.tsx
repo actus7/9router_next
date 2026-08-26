@@ -1,6 +1,7 @@
 "use client";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const FEATURES = [
   { icon: "terminal", label: "Terminal", desc: "Full shell access" },
@@ -72,13 +73,13 @@ export default function NineRemotePromoModal({ isOpen, onClose }: NineRemoteProm
           </div>
 
           {/* CTA */}
-          <button
+          <Button
             onClick={() => window.open(NINE_REMOTE_URL, "_blank")}
-            className="w-full py-3 flex items-center justify-center gap-2 text-sm font-semibold text-white rounded-[10px] bg-primary hover:bg-primary-hover shadow-[var(--shadow-warm)] active:scale-[0.98] transition-all"
+            className="w-full py-3 h-auto rounded-[10px] shadow-[var(--shadow-warm)]"
           >
             <span className="material-symbols-outlined text-base">open_in_new</span>
             Get 9Remote
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

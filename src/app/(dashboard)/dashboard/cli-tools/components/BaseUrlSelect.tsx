@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { UPDATER_CONFIG } from "@/shared/constants/config";
 
 const STORAGE_KEY = "9router.cliToolEndpointPresets";
@@ -134,8 +135,7 @@ export default function BaseUrlSelect({
     }
   }, [options, onChange]);
 
-  const handleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const next = e.target.value;
+  const handleSelect = (next: string) => {
     if (next === SAVE_VALUE) {
       const trimmed = (value || "").trim();
       if (!trimmed) return;
@@ -183,16 +183,17 @@ export default function BaseUrlSelect({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <select
-          value={mode}
-          onChange={handleSelect}
-          className="flex-1 min-w-0 px-2 py-2 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
-        >
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-          {canSave && <option value={SAVE_VALUE}>+ Save current as...</option>}
-        </select>
+        <Select value={mode} onValueChange={handleSelect}>
+          <SelectTrigger className="flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+            {canSave && <SelectItem value={SAVE_VALUE}>+ Save current as...</SelectItem>}
+          </SelectContent>
+        </Select>
         {isSaved && (
           <Button variant="ghost" size="icon-sm" type="button" onClick={handleDeleteSaved} className="text-text-muted hover:text-red-500 shrink-0" title="Delete saved endpoint">
             <span className="material-symbols-outlined text-[14px]">delete</span>

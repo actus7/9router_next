@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, Button } from "@/shared/components";
+import { Button as UIButton } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 const fmtTokens = (n) => {
@@ -139,17 +140,14 @@ export default function PxpipeClient() {
           <h3 className="font-medium">Token savings (estimated)</h3>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1">
             {WINDOW_TABS.map((tab) => (
-              <button
+              <UIButton
                 key={tab.id}
+                variant={windowId === tab.id ? "default" : "ghost"}
+                size="xs"
                 onClick={() => setWindowId(tab.id)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  windowId === tab.id
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-text-muted hover:text-text hover:bg-bg-hover"
-                }`}
               >
                 {tab.label}
-              </button>
+              </UIButton>
             ))}
           </div>
         </div>

@@ -12,6 +12,7 @@ import { TTS_PROVIDER_CONFIG } from "@/shared/constants/ttsProviders";
 import { translate } from "@/i18n/runtime";
 import { getTtsVoicesForModel } from "@/lib/open-sse/config/ttsModels";
 import { GOOGLE_TTS_LANGUAGES } from "@/lib/open-sse/config/googleTtsLanguages";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Row } from "./exampleShared";
 
 const DEFAULT_TTS_RESPONSE_EXAMPLE = `// Audio will appear here after running.
@@ -289,36 +290,38 @@ export function TtsExampleCard({ providerId }) {
           {/* Model selector — prefer PROVIDER_MODELS[kind=tts], else providerModels via modelKey */}
           {config.hasModelSelector && (config.modelKey || getModelsByProviderId(providerId).some(m => getModelKind(m) === "tts")) && (
             <Row label="Model">
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-              >
-                {(() => {
-                  const ttsModels = getModelsByProviderId(providerId).filter(m => getModelKind(m) === "tts");
-                  return (ttsModels.length ? ttsModels : getModelsByProviderId(config.modelKey) || []).map((m) => (
-                    <option key={m.id} value={m.id}>{m.name || m.id}</option>
-                  ));
-                })()}
-              </select>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const ttsModels = getModelsByProviderId(providerId).filter(m => getModelKind(m) === "tts");
+                    return (ttsModels.length ? ttsModels : getModelsByProviderId(config.modelKey) || []).map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name || m.id}</SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
             </Row>
           )}
 
           {/* Language hint dropdown (Gemini, Xiaomi MiMo) — sends body.language to guide pronunciation */}
           {config.hasLanguageHint && (
             <Row label="Language">
-              <select
-                value={languageHint}
-                onChange={(e) => setLanguageHint(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-              >
-                <option value="">Auto-detect</option>
-                {(config.languageOptions || GOOGLE_TTS_LANGUAGES).map((l) =>
-                  typeof l === "string"
-                    ? <option key={l} value={l}>{l}</option>
-                    : <option key={l.id} value={l.name}>{l.name}</option>
-                )}
-              </select>
+              <Select value={languageHint || "__auto__"} onValueChange={(v) => setLanguageHint(v === "__auto__" ? "" : v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Auto-detect" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__auto__">Auto-detect</SelectItem>
+                  {(config.languageOptions || GOOGLE_TTS_LANGUAGES).map((l) =>
+                    typeof l === "string"
+                      ? <SelectItem key={l} value={l}>{l}</SelectItem>
+                      : <SelectItem key={l.id} value={l.name}>{l.name}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </Row>
           )}
 
@@ -416,19 +419,20 @@ export function TtsExampleCard({ providerId }) {
           {/* Google TTS: Language dropdown */}
           {config.hasLanguageDropdown && (
             <Row label="Language">
-              <select
-                value={selectedVoice}
-                onChange={(e) => {
-                  const m = getModelsByProviderId(providerId).filter((m) => getModelKind(m) === "tts").find((m) => m.id === e.target.value);
-                  setSelectedVoice(e.target.value);
-                  setSelectedVoiceName(m?.name || e.target.value);
-                }}
-                className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-              >
-                {getModelsByProviderId(providerId).filter((m) => getModelKind(m) === "tts").map((m) => (
-                  <option key={m.id} value={m.id}>{m.name || m.id}</option>
-                ))}
-              </select>
+              <Select value={selectedVoice} onValueChange={(val) => {
+                  const m = getModelsByProviderId(providerId).filter((m) => getModelKind(m) === "tts").find((m) => m.id === val);
+                  setSelectedVoice(val);
+                  setSelectedVoiceName(m?.name || val);
+                }}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getModelsByProviderId(providerId).filter((m) => getModelKind(m) === "tts").map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name || m.id}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Row>
           )}
 
@@ -482,14 +486,15 @@ export function TtsExampleCard({ providerId }) {
 
           {/* Output Format */}
           <Row label="Output Format">
-            <select
-              value={responseFormat}
-              onChange={(e) => setResponseFormat(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
-            >
-              <option value="mp3">MP3 (Binary)</option>
-              <option value="json">JSON (Base64)</option>
-            </select>
+            <Select value={responseFormat} onValueChange={setResponseFormat}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mp3">MP3 (Binary)</SelectItem>
+                <SelectItem value="json">JSON (Base64)</SelectItem>
+              </SelectContent>
+            </Select>
           </Row>
 
           {/* Curl + Run */}

@@ -8,6 +8,8 @@ import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/prov
 import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
 import { Button as UIButton } from "@/components/ui/button";
 import { Input as ShadcnInput } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select as ShadcnSelect, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "@/lib/open-sse/providers/thinkingLevels";
@@ -1048,11 +1050,15 @@ export default function ProviderDetailClient({
         .map((conn, index) => (
           <div key={conn.id} className="flex min-w-0 items-stretch">
             <div className="flex shrink-0 items-center pl-1 sm:pl-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isSelected(conn.id)}
-                onChange={() => toggleSelectConnection(conn.id)}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                onCheckedChange={(checked) => {
+                  if (checked === true) {
+                    setSelectedConnectionIds((prev) => [...prev, conn.id]);
+                  } else {
+                    setSelectedConnectionIds((prev) => prev.filter((id) => id !== conn.id));
+                  }
+                }}
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -1674,11 +1680,15 @@ export default function ProviderDetailClient({
               {connections.length > 0 && (
                 <div className="mb-3 flex items-center gap-2 border-b border-black/[0.03] pb-2 dark:border-white/[0.03]">
                   <Label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-muted hover:text-primary">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={allSelected}
-                      onChange={toggleSelectAllConnections}
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                      onCheckedChange={(checked) => {
+                        if (checked === true) {
+                          setSelectedConnectionIds(connections.map((conn) => conn.id));
+                        } else {
+                          setSelectedConnectionIds([]);
+                        }
+                      }}
                     />
                     Select All
                   </Label>
@@ -1756,16 +1766,20 @@ export default function ProviderDetailClient({
               {"Available Models"}
             </h2>
             {providerThinkingLevels && (
-              <select
-                value={thinkingMode}
-                onChange={(e) => handleThinkingModeChange(e.target.value)}
-                title="Appends (level) suffix to copied model names"
-                className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:border-primary focus:outline-none"
-              >
-                {providerThinkingLevels.map((opt) => (
-                  <option key={opt} value={opt}>{`Thinking: ${opt.charAt(0).toUpperCase() + opt.slice(1)}`}</option>
-                ))}
-              </select>
+              <ShadcnSelect value={thinkingMode} onValueChange={(value) => handleThinkingModeChange(value)}>
+                <SelectTrigger
+                  size="sm"
+                  className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+                  title="Appends (level) suffix to copied model names"
+                >
+                  <SelectValue placeholder="Thinking: Auto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providerThinkingLevels.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{`Thinking: ${opt.charAt(0).toUpperCase() + opt.slice(1)}`}</SelectItem>
+                  ))}
+                </SelectContent>
+              </ShadcnSelect>
             )}
           </div>
           {!isCompatible && (() => {

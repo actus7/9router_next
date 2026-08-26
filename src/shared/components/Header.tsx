@@ -8,6 +8,7 @@ import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 import DonateModal from "@/shared/components/DonateModal";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
@@ -249,14 +250,16 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onMenuClick}
             aria-label="Open navigation menu"
             aria-expanded="false"
-            className="text-text-main hover:text-primary transition-colors"
+            className="text-text-main hover:text-primary"
           >
             <span className="material-symbols-outlined">menu</span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -336,14 +339,16 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
           </div>
         )}
         <HeaderSearch />
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setDonateOpen(true)}
-          className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20 transition-colors text-sm font-medium"
+          className="flex items-center gap-1.5 px-3 h-8 border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20 text-sm font-medium"
           aria-label="Donate"
         >
           <span className="material-symbols-outlined text-[18px]">volunteer_activism</span>
           <span className="hidden sm:inline">Donate</span>
-        </button>
+        </Button>
         <ThemeToggle />
         <HeaderLanguage />
         <HeaderMenu onLogout={handleLogout} />
@@ -374,14 +379,16 @@ function HeaderSearch() {
         className="w-full h-8 pl-7 pr-7 text-sm"
       />
       {query && (
-        <button
+        <Button
+          variant="ghost"
+          size="icon-xs"
           type="button"
           onClick={() => setQuery("")}
-          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main p-0.5 rounded"
+          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main"
           aria-label="Clear search"
         >
           <span className="material-symbols-outlined text-[16px]">close</span>
-        </button>
+        </Button>
       )}
     </div>
   );

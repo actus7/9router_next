@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import { Input } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 
 interface EndpointRowProps {
   label: string;
@@ -21,12 +22,14 @@ export default function EndpointRow({ label, url, copyId, copied, onCopy, badge,
           (badge === "CF" || badge === "TS") ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
         }`}>{label}</span>
       <Input value={url} readOnly className="flex-1 font-mono text-sm" />
-      <button
+      <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={() => onCopy(url, copyId)}
-        className="p-2 hover:bg-surface-2/50 rounded text-text-muted hover:text-primary transition-colors shrink-0"
+        className="text-text-muted hover:text-primary"
       >
         <span className="material-symbols-outlined text-[18px]">{copied === copyId ? "check" : "content_copy"}</span>
-      </button>
+      </Button>
       {actions}
     </div>
   );

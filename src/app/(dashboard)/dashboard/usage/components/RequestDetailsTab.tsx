@@ -12,6 +12,7 @@ import { cn } from "@/shared/utils/cn";
 import { Label } from "@/components/ui/label";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
 import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 let providerNameCache = null;
 let providerNodesCache = null;
@@ -191,24 +192,22 @@ export default function RequestDetailsTab() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex min-w-0 flex-col gap-2">
             <Label htmlFor="provider-filter" className="text-text-main">Provider</Label>
-            <select
-              id="provider-filter"
-              value={filters.provider}
-              onChange={(e) => setFilters({ ...filters, provider: e.target.value })}
-              className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20",
-                "w-full min-w-0 cursor-pointer"
-              )}
-              style={{ colorScheme: 'auto' }}
+            <Select
+              value={filters.provider || "__all__"}
+              onValueChange={(val) => setFilters({ ...filters, provider: val === "__all__" ? "" : val })}
             >
-              <option value="">All Providers</option>
-              {providers.map((provider) => (
-                <option key={provider.id} value={provider.id}>
-                  {provider.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="provider-filter" className="w-full h-9">
+                <SelectValue placeholder="All Providers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All Providers</SelectItem>
+                {providers.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id}>
+                    {provider.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="flex min-w-0 flex-col gap-2">
