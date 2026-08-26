@@ -649,8 +649,8 @@ export function refreshZedToken() {
 
 // Windsurf apiKey is the long-lived terminal credential (no OAuth2 refresh_token
 // grant yields a fresh apiKey). Refresh handled out-of-band by the caller.
-// TODO(firebase): if short-lived Firebase JWT credentials must be refreshed,
-// re-run RegisterUser with the refreshed Firebase JWT (separate code path).
+// Firebase JWT: if short-lived credentials must be refreshed, re-run RegisterUser
+// with the refreshed Firebase JWT (separate code path).
 export async function refreshWindsurfToken(credentials, log) {
   log?.info?.(
     "TOKEN_REFRESH",
