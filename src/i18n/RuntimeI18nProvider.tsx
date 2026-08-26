@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { initRuntimeI18n, reloadTranslations, setServerTranslations } from "./runtime";
+import { initRuntimeI18n, reloadTranslations, applyServerTranslations } from "./runtime";
 import type { Locale } from "./config";
 
 interface RuntimeI18nProviderProps {
@@ -19,12 +19,19 @@ export function RuntimeI18nProvider({
   translations,
 }: RuntimeI18nProviderProps): React.JSX.Element {
   const pathname: string | null = usePathname();
+  const initialized = useRef(false);
 
-  // Initialize with server-provided translations (synchronous, no hydration mismatch)
+  // Apply translations SYNCHRONOUSLY before children render.
+  // This ensures server and client render the same text on first paint.
+  if (locale && translations && !initialized.current) {
+    applyServerTranslations(locale, translations);
+    initialized.current = true;
+  }
+
+  // Set up DOM observer for future translations (runs once after mount)
   useEffect(() => {
-    if (locale && translations) {
-      setServerTranslations(locale, translations);
-    } else {
+    if (!locale || !translations) {
+      // Fallback: no server props, load translations async
       initRuntimeI18n();
     }
   }, [locale, translations]);

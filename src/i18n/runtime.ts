@@ -132,7 +132,15 @@ function processElement(element: Node): void {
   nodesToProcess.forEach(processTextNode);
 }
 
-// Set translations from server (synchronous, no hydration mismatch)
+// Apply server-provided translations synchronously (before render).
+// This sets the module-level variables so translate() returns correct text
+// during the initial client render, preventing hydration mismatches.
+export function applyServerTranslations(locale: Locale, translations: TranslationMap): void {
+  currentLocale = locale;
+  translationMap = translations;
+}
+
+// Set translations from server and set up DOM observer (called after mount)
 export function setServerTranslations(locale: Locale, translations: TranslationMap): void {
   currentLocale = locale;
   translationMap = translations;
