@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
-import { Button as ShadcnButton } from "@/components/ui/button";
+import { Card, Button, Input, Modal, CardSkeleton, ConfirmModal } from "@/shared/components";
+import { Switch } from "@/components/ui/switch";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import {
   TUNNEL_BENEFITS,
@@ -747,21 +747,21 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             {tunnelEnabled && !tunnelLoading && tunnelReachable ? (
               <>
                 <Input value={`${tunnelPublicUrl || tunnelUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
-                <ShadcnButton
+                <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
                 >
                   <span className="material-symbols-outlined text-[18px]">{copied === "tunnel_url" ? "check" : "content_copy"}</span>
-                </ShadcnButton>
-                <ShadcnButton
+                </Button>
+                <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDisableTunnelModal(true)}
                   title="Disable Tunnel"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </ShadcnButton>
+                </Button>
               </>
             ) : tunnelEnabled && !tunnelLoading && !tunnelReachable ? (
               <>
@@ -769,14 +769,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                   {tunnelEverReachable ? "Tunnel reconnecting..." : "Tunnel checking..."}
                 </div>
-                <ShadcnButton
+                <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDisableTunnelModal(true)}
                   title="Disable Tunnel"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </ShadcnButton>
+                </Button>
               </>
             ) : tunnelLoading ? (
               <>
@@ -784,14 +784,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                   {tunnelProgress || "Creating tunnel..."}
                 </div>
-                <ShadcnButton
+                <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => { setTunnelLoading(false); setTunnelProgress(""); }}
                   title="Stop"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </ShadcnButton>
+                </Button>
               </>
             ) : tunnelStatus?.type === "error" ? (
               <>
@@ -807,14 +807,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                   Checking...
                 </div>
-                <ShadcnButton
+                <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => setTunnelChecking(false)}
                   title="Stop"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </ShadcnButton>
+                </Button>
               </>
             ) : (
               <Button
@@ -844,21 +844,21 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             {tsEnabled && !tsLoading && tsReachable ? (
               <>
                 <Input value={`${tsUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
-                <ShadcnButton
+                <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
                 >
                   <span className="material-symbols-outlined text-[18px]">{copied === "ts_url" ? "check" : "content_copy"}</span>
-                </ShadcnButton>
-                <ShadcnButton
+                </Button>
+                <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDisableTsModal(true)}
                   title="Disable Tailscale"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </ShadcnButton>
+                </Button>
               </>
             ) : tsEnabled && !tsLoading && !tsReachable ? (
               <>
@@ -866,14 +866,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                   {tsEverReachable ? "Tailscale reconnecting..." : "Tailscale checking..."}
                 </div>
-                <ShadcnButton
+                <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDisableTsModal(true)}
                   title="Disable Tailscale"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </ShadcnButton>
+                </Button>
               </>
             ) : (tsLoading || tsConnecting) ? (
               <>
@@ -890,14 +890,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                     {tsAuthLabel || "Open"}
                   </Button>
                 )}
-                <ShadcnButton
+                <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
                   title="Stop"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </ShadcnButton>
+                </Button>
               </>
             ) : tsStatus?.type === "error" ? (
               <>
@@ -964,9 +964,9 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         {/* Tunnel dashboard access option */}
         {(tunnelEnabled || tsEnabled) && (
           <div className="mt-4 pt-4 border-t border-border flex items-center gap-3">
-            <Toggle
+            <Switch
               checked={tunnelDashboardAccess}
-              onChange={() => handleTunnelDashboardAccess(!tunnelDashboardAccess)}
+              onCheckedChange={() => handleTunnelDashboardAccess(!tunnelDashboardAccess)}
             />
             <div className="flex items-center gap-1.5">
               <p className="font-medium text-sm">Allow dashboard access via tunnel</p>
@@ -995,9 +995,9 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               Requests without a valid key will be rejected
             </p>
           </div>
-          <Toggle
+          <Switch
             checked={requireApiKey}
-            onChange={() => handleRequireApiKey(!requireApiKey)}
+            onCheckedChange={() => handleRequireApiKey(!requireApiKey)}
           />
         </div>
 
@@ -1031,7 +1031,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                     <code className="text-xs text-text-muted font-mono">
                       {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
                     </code>
-                    <ShadcnButton
+                    <Button
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => toggleKeyVisibility(key.id)}
@@ -1040,8 +1040,8 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                       <span className="material-symbols-outlined text-[14px]">
                         {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
                       </span>
-                    </ShadcnButton>
-                    <ShadcnButton
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => copy(key.key, key.id)}
@@ -1049,7 +1049,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                       <span className="material-symbols-outlined text-[14px]">
                         {copied === key.id ? "check" : "content_copy"}
                       </span>
-                    </ShadcnButton>
+                    </Button>
                   </div>
                   <p className="text-xs text-text-muted mt-1">
                     Created {new Date(key.createdAt).toLocaleDateString()}
@@ -1059,10 +1059,10 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Toggle
+                  <Switch
                     size="sm"
                     checked={key.isActive ?? true}
-                    onChange={(checked) => {
+                    onCheckedChange={(checked) => {
                       if (key.isActive && !checked) {
                         setConfirmState({
                           title: "Pause API Key",
@@ -1078,14 +1078,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                     }}
                     title={key.isActive ? "Pause key" : "Resume key"}
                   />
-                  <ShadcnButton
+                  <Button
                     variant="destructive"
                     size="icon"
                     onClick={() => handleDeleteKey(key.id)}
                     className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </ShadcnButton>
+                  </Button>
                 </div>
               </div>
             ))}

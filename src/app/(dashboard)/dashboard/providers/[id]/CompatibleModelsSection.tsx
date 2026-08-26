@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
@@ -44,7 +43,7 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
         <div className="flex items-center gap-1 mt-1">
           <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>
           <div className="relative group/btn">
-            <UIButton
+            <Button
               variant="ghost"
               size="icon-xs"
               onClick={() => onCopy(fullModel, `model-${modelId}`)}
@@ -52,14 +51,14 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
               <span className="material-symbols-outlined text-sm">
                 {copied === `model-${modelId}` ? "check" : "content_copy"}
               </span>
-            </UIButton>
+            </Button>
             <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
               {copied === `model-${modelId}` ? "Copied!" : "Copy"}
             </span>
           </div>
           {onTest && (
             <div className="relative group/btn">
-              <UIButton
+              <Button
                 variant="ghost"
                 size="icon-xs"
                 onClick={onTest}
@@ -68,7 +67,7 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
                 <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                   {isTesting ? "progress_activity" : "science"}
                 </span>
-              </UIButton>
+              </Button>
               <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
                 {isTesting ? "Testing..." : "Test"}
               </span>
@@ -76,7 +75,7 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
           )}
         </div>
       </div>
-      <UIButton
+      <Button
         variant="ghost"
         size="icon-sm"
         onClick={onDeleteAlias}
@@ -84,7 +83,7 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
         title="Remove model"
       >
         <span className="material-symbols-outlined text-sm">delete</span>
-      </UIButton>
+      </Button>
     </div>
   );
 }

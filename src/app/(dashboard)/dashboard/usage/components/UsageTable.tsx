@@ -1,9 +1,7 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import Card from "@/shared/components/Card";
-import Badge from "@/shared/components/Badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 const fmt = (n) => new Intl.NumberFormat().format(n || 0);

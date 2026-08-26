@@ -1,10 +1,10 @@
-// @ts-nocheck
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge, Button, Card, CardSkeleton, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
+import { Button, Card, CardSkeleton, Input, Modal, ConfirmModal } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useNotificationStore } from "@/store/notificationStore";
@@ -29,10 +29,15 @@ interface ConfirmState {
   onConfirm: () => Promise<void>;
 }
 
-function getStatusVariant(status?: string) {
-  if (status === "active") return "success";
-  if (status === "error") return "error";
-  return "default";
+function getStatusVariant(status?: string): "secondary" | "default" | "destructive" {
+  if (status === "active") return "default";
+  if (status === "error") return "destructive";
+  return "secondary";
+}
+
+function getStatusClassName(status?: string): string | undefined {
+  if (status === "active") return "bg-green-500/10 text-green-600 dark:text-green-400";
+  return undefined;
 }
 
 function formatDateTime(value?: string) {
@@ -595,7 +600,6 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
           <div className="relative" ref={relayMenuRef}>
             <Button
-              size="sm"
               variant="secondary"
               icon="rocket_launch"
               onClick={() => setShowRelayMenu(!showRelayMenu)}
@@ -608,7 +612,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
 
             {showRelayMenu && (
               <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-xl border border-black/10 bg-white p-1 shadow-xl dark:border-white/10 dark:bg-zinc-900 sm:left-auto sm:right-0">
-                <UIButton
+                <Button
                   variant="ghost"
                   onClick={() => {
                     openCloudflareModal();
@@ -618,8 +622,8 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                 >
                   <span className="material-symbols-outlined text-[20px] text-orange-500">cloud</span>
                   Cloudflare Relay
-                </UIButton>
-                <UIButton
+                </Button>
+                <Button
                   variant="ghost"
                   onClick={() => {
                     openVercelModal();
@@ -629,8 +633,8 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                 >
                   <span className="material-symbols-outlined text-[20px] text-blue-500">cloud_upload</span>
                   Vercel Relay
-                </UIButton>
-                <UIButton
+                </Button>
+                <Button
                   variant="ghost"
                   onClick={() => {
                     openDenoModal();
@@ -640,15 +644,15 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                 >
                   <span className="material-symbols-outlined text-[20px] text-green-500">terminal</span>
                   Deno Relay
-                </UIButton>
+                </Button>
               </div>
             )}
           </div>
 
-          <Button size="sm" variant="secondary" icon="upload" onClick={openBatchImportModal}>
+          <Button variant="secondary" icon="upload" onClick={openBatchImportModal}>
             Batch Import
           </Button>
-          <Button size="sm" icon="add" onClick={openCreateModal}>Add Proxy Pool</Button>
+          <Button icon="add" onClick={openCreateModal}>Add Proxy Pool</Button>
         </div>
       </div>
 
@@ -669,8 +673,8 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
               {allSelected ? "Unselect all" : "Select all"}
             </Label>
           )}
-          <Badge variant="default">Total: {proxyPools.length}</Badge>
-          <Badge variant="success">Active: {activeCount}</Badge>
+          <Badge variant="secondary">Total: {proxyPools.length}</Badge>
+          <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Active: {activeCount}</Badge>
         </div>
 
         {(selectedIds.length > 0 || healthChecking) && (
@@ -681,7 +685,6 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
             </span>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <Button
-                size="sm"
                 icon={healthChecking ? "progress_activity" : "health_and_safety"}
                 onClick={handleHealthCheck}
                 disabled={healthChecking || bulkBusy || proxyPools.length === 0}
@@ -690,16 +693,16 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
               </Button>
               {selectedIds.length > 0 && (
                 <>
-                  <Button size="sm" variant="secondary" icon="toggle_on" onClick={() => bulkSetActive(true)} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon="toggle_on" onClick={() => bulkSetActive(true)} disabled={bulkBusy || healthChecking}>
                     Activate
                   </Button>
-                  <Button size="sm" variant="secondary" icon="toggle_off" onClick={() => bulkSetActive(false)} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon="toggle_off" onClick={() => bulkSetActive(false)} disabled={bulkBusy || healthChecking}>
                     Deactivate
                   </Button>
-                  <Button size="sm" variant="secondary" icon="delete" onClick={bulkDelete} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon="delete" onClick={bulkDelete} disabled={bulkBusy || healthChecking}>
                     Delete
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={clearSelection} disabled={bulkBusy || healthChecking}>
+                  <Button variant="ghost" onClick={clearSelection} disabled={bulkBusy || healthChecking}>
                     Clear
                   </Button>
                 </>
@@ -735,19 +738,19 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                   <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="min-w-0 max-w-full truncate text-sm font-medium sm:max-w-[18rem]">{pool.name}</p>
-                    <Badge variant={getStatusVariant(pool.testStatus)} size="sm" dot>
+                    <Badge variant={getStatusVariant(pool.testStatus)} className={getStatusClassName(pool.testStatus)}>
                       {pool.testStatus || "unknown"}
                     </Badge>
-                    <Badge variant={pool.isActive ? "success" : "default"} size="sm">
+                    <Badge variant={pool.isActive ? "default" : "secondary"} className={pool.isActive ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
                       {pool.isActive ? "active" : "inactive"}
                     </Badge>
                     {pool.type === "vercel" && (
-                      <Badge variant="default" size="sm">vercel relay</Badge>
+                      <Badge variant="secondary" >vercel relay</Badge>
                     )}
                     {pool.type === "cloudflare" && (
-                      <Badge variant="default" size="sm">cloudflare relay</Badge>
+                      <Badge variant="secondary" >cloudflare relay</Badge>
                     )}
-                    <Badge variant="default" size="sm">
+                    <Badge variant="secondary" >
                       {pool.boundConnectionCount || 0} bound
                     </Badge>
                   </div>
@@ -763,13 +766,12 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                 </div>
 
                 <div className="flex items-center justify-end gap-1">
-                  <Toggle
-                    size="sm"
+                  <Switch
                     checked={pool.isActive === true}
-                    onChange={() => handleToggleActive(pool)}
+                    onCheckedChange={() => handleToggleActive(pool)}
                     title={pool.isActive ? "Disable" : "Enable"}
                   />
-                  <UIButton
+                  <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => handleTest(pool.id)}
@@ -782,16 +784,16 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     >
                       {testingId === pool.id ? "progress_activity" : "science"}
                     </span>
-                  </UIButton>
-                  <UIButton
+                  </Button>
+                  <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => openEditModal(pool)}
                     title="Edit"
                   >
                     <span className="material-symbols-outlined text-[18px]">edit</span>
-                  </UIButton>
-                  <UIButton
+                  </Button>
+                  <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => handleDelete(pool)}
@@ -799,7 +801,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     title="Delete"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </UIButton>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -1044,9 +1046,9 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
               <p className="font-medium text-sm">Active</p>
               <p className="text-xs text-text-muted">Inactive pools are ignored by runtime resolution.</p>
             </div>
-            <Toggle
+            <Switch
               checked={formData.isActive === true}
-              onChange={() => setFormData((prev) => ({ ...prev, isActive: !prev.isActive }))}
+              onCheckedChange={() => setFormData((prev) => ({ ...prev, isActive: !prev.isActive }))}
               disabled={saving}
             />
           </div>
@@ -1056,9 +1058,9 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
               <p className="font-medium text-sm">Strict Proxy</p>
               <p className="text-xs text-text-muted">Fail request if proxy is unreachable instead of falling back to direct.</p>
             </div>
-            <Toggle
+            <Switch
               checked={formData.strictProxy === true}
-              onChange={() => setFormData((prev) => ({ ...prev, strictProxy: !prev.strictProxy }))}
+              onCheckedChange={() => setFormData((prev) => ({ ...prev, strictProxy: !prev.strictProxy }))}
               disabled={saving}
             />
           </div>

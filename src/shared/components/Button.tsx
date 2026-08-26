@@ -4,8 +4,8 @@ import React from "react";
 import { Button as ShadcnButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "success";
-type ButtonSize = "sm" | "md" | "lg";
+type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "success" | "default" | "destructive" | "link";
+type ButtonSize = "sm" | "md" | "lg" | "xs" | "icon" | "icon-xs" | "icon-sm" | "icon-lg";
 
 interface ButtonProps extends Omit<React.ComponentProps<typeof ShadcnButton>, "variant" | "size"> {
   variant?: ButtonVariant;
@@ -25,12 +25,20 @@ const variantToShadcn: Record<ButtonVariant, string> = {
   ghost: "ghost",
   danger: "destructive",
   success: "default",
+  default: "default",
+  destructive: "destructive",
+  link: "link",
 };
 
 const sizeToShadcn: Record<ButtonSize, string> = {
+  xs: "xs",
   sm: "sm",
   md: "default",
   lg: "lg",
+  icon: "icon",
+  "icon-xs": "icon-xs",
+  "icon-sm": "icon-sm",
+  "icon-lg": "icon-lg",
 };
 
 export default function Button({

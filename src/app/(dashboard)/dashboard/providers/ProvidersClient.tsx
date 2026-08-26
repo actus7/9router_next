@@ -3,12 +3,11 @@
 import { useState, useEffect } from "react";
 import {
   Card,
-  Badge,
   Button,
-  Toggle,
   Modal,
 } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
@@ -93,7 +92,7 @@ function getStatusDisplay(connected: number, error: number, errorCode: string | 
   const parts = [];
   if (connected > 0) {
     parts.push(
-      <Badge key="connected" variant="success" size="sm" dot>
+      <Badge key="connected" variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">
         {connected} Connected
       </Badge>,
     );
@@ -103,7 +102,7 @@ function getStatusDisplay(connected: number, error: number, errorCode: string | 
       ? `${error} Error (${errorCode})`
       : `${error} Error`;
     parts.push(
-      <Badge key="error" variant="error" size="sm" dot>
+      <Badge key="error" variant="destructive">
         {errText}
       </Badge>,
     );
@@ -388,7 +387,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           </h2>
           <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
             <Button
-              size="sm"
               icon="add"
               onClick={() => setShowAddAnthropicCompatibleModal(true)}
               className="w-full sm:w-auto"
@@ -396,7 +394,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               Add Anthropic Compatible
             </Button>
             <Button
-              size="sm"
               variant="outline"
               icon="add"
               onClick={() => setShowAddCompatibleModal(true)}
@@ -441,9 +438,8 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           </h2>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <ModelAvailabilityBadge />
-            <UIButton
+            <Button
               variant="outline"
-              size="sm"
               onClick={() => handleBatchTest("oauth")}
               disabled={!!testingMode}
               className={testingMode === "oauth" ? "animate-pulse" : ""}
@@ -456,7 +452,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                 play_arrow
               </span>
               {testingMode === "oauth" ? "Testing..." : "Test All"}
-            </UIButton>
+            </Button>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -484,9 +480,8 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
             Free Tier Providers
           </h2>
-          <UIButton
+          <Button
             variant="outline"
-            size="sm"
             onClick={() => handleBatchTest("free")}
             disabled={!!testingMode}
             className={testingMode === "free" ? "animate-pulse" : ""}
@@ -499,7 +494,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               play_arrow
             </span>
             {testingMode === "free" ? "Testing..." : "Test All"}
-          </UIButton>
+          </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {freeEntries.map(([key, info]) => {
@@ -541,9 +536,8 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
             API Key Providers{" "}
           </h2>
-          <UIButton
+          <Button
             variant="outline"
-            size="sm"
             onClick={() => handleBatchTest("apikey")}
             disabled={!!testingMode}
             className={testingMode === "apikey" ? "animate-pulse" : ""}
@@ -556,7 +550,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               play_arrow
             </span>
             {testingMode === "apikey" ? "Testing..." : "Test All"}
-          </UIButton>
+          </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {visibleApikeyEntries.map(([key, info]) => (
@@ -571,14 +565,14 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           ))}
         </div>
         {!isApikeySearching && !showAllApikey && hiddenApikeyCount > 0 && (
-          <UIButton
+          <Button
             variant="outline"
             onClick={() => setShowAllApikey(true)}
             className="w-full border-dashed border-primary/40 text-primary hover:border-primary hover:bg-primary/5"
           >
             <span className="material-symbols-outlined text-[16px]">expand_more</span>
             Show all {apikeyEntries.length} providers
-          </UIButton>
+          </Button>
         )}
       </div>
       )}
@@ -655,7 +649,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }: {
               <h3 className="truncate font-semibold">{provider.name}</h3>
               <div className="flex min-w-0 items-center gap-1.5 text-xs flex-wrap">
                 {allDisabled ? (
-                  <Badge variant="default" size="sm">
+                  <Badge variant="default" >
                     <span className="flex items-center gap-1">
                       <span className="material-symbols-outlined text-[12px]">
                         pause_circle
@@ -664,7 +658,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }: {
                     </span>
                   </Badge>
                 ) : isNoAuth ? (
-                  <Badge variant="success" size="sm" dot>Ready</Badge>
+                  <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Ready</Badge>
                 ) : (
                   <>
                     {getStatusDisplay(connected, error, errorCode)}
@@ -686,10 +680,9 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }: {
                   onToggle(!allDisabled ? false : true);
                 }}
               >
-                <Toggle
-                  size="sm"
+                <Switch
                   checked={!allDisabled}
-                  onChange={() => {}}
+                  onCheckedChange={() => {}}
                   title={allDisabled ? "Enable provider" : "Disable provider"}
                 />
               </div>
@@ -758,7 +751,7 @@ function ApiKeyProviderCard({
               <h3 className="truncate font-semibold">{provider.name}</h3>
               <div className="flex min-w-0 items-center gap-1.5 text-xs flex-wrap">
                 {allDisabled ? (
-                  <Badge variant="default" size="sm">
+                  <Badge variant="default" >
                     <span className="flex items-center gap-1">
                       <span className="material-symbols-outlined text-[12px]">
                         pause_circle
@@ -770,14 +763,14 @@ function ApiKeyProviderCard({
                   <>
                     {getStatusDisplay(connected, error, errorCode)}
                     {isCompatible && (
-                      <Badge variant="default" size="sm">
+                      <Badge variant="default" >
                         {provider.apiType === "responses"
                           ? "Responses"
                           : "Chat"}
                       </Badge>
                     )}
                     {isAnthropicCompatible && (
-                      <Badge variant="default" size="sm">
+                      <Badge variant="default" >
                         Messages
                       </Badge>
                     )}
@@ -799,10 +792,9 @@ function ApiKeyProviderCard({
                   onToggle(!allDisabled ? false : true);
                 }}
               >
-                <Toggle
-                  size="sm"
+                <Switch
                   checked={!allDisabled}
-                  onChange={() => {}}
+                  onCheckedChange={() => {}}
                   title={allDisabled ? "Enable provider" : "Disable provider"}
                 />
               </div>

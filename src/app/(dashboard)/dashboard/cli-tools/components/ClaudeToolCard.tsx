@@ -1,8 +1,8 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal, Tooltip } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
@@ -367,9 +367,14 @@ export default function ClaudeToolCard({
                   <Label className="flex items-center gap-1.5 cursor-pointer select-none">
                     <Checkbox checked={ccFilterNaming} onCheckedChange={handleCcFilterNamingToggle} />
                     <span className="text-xs text-text-muted">Filter naming requests</span>
-                    <Tooltip text="Intercepts Claude Code's topic-naming requests and returns a fake response locally, saving API tokens.">
-                      <span className="material-symbols-outlined text-text-muted text-[14px] cursor-help">info</span>
-                    </Tooltip>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="inline-flex" />}>
+                          <span className="material-symbols-outlined text-text-muted text-[14px] cursor-help">info</span>
+                        </TooltipTrigger>
+                        <TooltipContent>Intercepts Claude Code's topic-naming requests and returns a fake response locally, saving API tokens.</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </Label>
                 </div>
 
@@ -379,9 +384,14 @@ export default function ClaudeToolCard({
                   <Label className="flex items-center gap-1.5 cursor-pointer select-none">
                     <Checkbox checked={exaMcpEnabled} onCheckedChange={(checked) => setExaMcpEnabled(checked === true)} />
                     <span className="text-xs text-text-muted">Exa MCP</span>
-                    <Tooltip text="Injects Exa MCP into ~/.claude.json so non-Claude models gain web search. Restart Claude Code after Apply.">
-                      <span className="material-symbols-outlined text-text-muted text-[14px] cursor-help">info</span>
-                    </Tooltip>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="inline-flex" />}>
+                          <span className="material-symbols-outlined text-text-muted text-[14px] cursor-help">info</span>
+                        </TooltipTrigger>
+                        <TooltipContent>Injects Exa MCP into ~/.claude.json so non-Claude models gain web search. Restart Claude Code after Apply.</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </Label>
                 </div>
               </div>

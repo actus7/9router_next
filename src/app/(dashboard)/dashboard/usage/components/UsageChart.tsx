@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -13,7 +12,7 @@ import {
   Legend,
 } from "recharts";
 import Card from "@/shared/components/Card";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 
 const fmtTokens = (n) => {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;

@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Card, Button, Modal } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
@@ -39,29 +38,29 @@ function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFr
         </div>
         {onTest && (
           <div className="relative group/btn">
-            <UIButton variant="ghost" size="icon-sm" onClick={onTest} disabled={isTesting} className={`${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+            <Button variant="ghost" size="icon-sm" onClick={onTest} disabled={isTesting} className={`${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
               <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                 {isTesting ? "progress_activity" : "science"}
               </span>
-            </UIButton>
+            </Button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
               {isTesting ? "Testing..." : "Test"}
             </span>
           </div>
         )}
         <div className="relative group/btn">
-          <UIButton variant="ghost" size="icon-sm" onClick={() => onCopy(fullModel, `model-${model.id}`)}>
+          <Button variant="ghost" size="icon-sm" onClick={() => onCopy(fullModel, `model-${model.id}`)}>
             <span className="material-symbols-outlined text-sm">{copied === `model-${model.id}` ? "check" : "content_copy"}</span>
-          </UIButton>
+          </Button>
           <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
             {copied === `model-${model.id}` ? "Copied!" : "Copy"}
           </span>
         </div>
         {isFree && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded">FREE</span>}
         {isCustom && (
-          <UIButton variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-red-500 opacity-0 group-hover:opacity-100 ml-auto" title="Remove custom model">
+          <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-red-500 opacity-0 group-hover:opacity-100 ml-auto" title="Remove custom model">
             <span className="material-symbols-outlined text-sm">close</span>
-          </UIButton>
+          </Button>
         )}
       </div>
     </div>
@@ -283,7 +282,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
             />
           ))}
 
-          <UIButton
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setShowAddCustomModel(true)}
@@ -291,7 +290,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
           >
             <span className="material-symbols-outlined text-sm">add</span>
             Add Model
-          </UIButton>
+          </Button>
         </div>
       </Card>
 

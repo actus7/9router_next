@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { APP_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import NineRemotePromoModal from "./NineRemotePromoModal";
 

@@ -1,9 +1,8 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Card, Button, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
+import { Card, Button, Input, Modal, ConfirmModal } from "@/shared/components";
+import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -496,9 +495,9 @@ export default function TokenSaverClient() {
               git/grep/ls/tree/logs → 60-90% fewer input tokens
             </p>
           </div>
-          <Toggle
+          <Switch
             checked={rtkEnabled}
-            onChange={() => handleRtkEnabled(!rtkEnabled)}
+            onCheckedChange={() => handleRtkEnabled(!rtkEnabled)}
           />
         </div>
         <div className="flex items-center justify-between py-4 gap-4 flex-wrap">
@@ -520,22 +519,22 @@ export default function TokenSaverClient() {
               >
                 {headroomStatusLabel}
               </span>
-              <UIButton
+              <Button
                 variant="link"
                 size="sm"
                 onClick={() => setShowHeadroomInstallModal(true)}
                 className="h-auto p-0 text-xs"
               >
                 {headroomRunning ? "Manage" : "Setup"}
-              </UIButton>
+              </Button>
             </div>
             <p className="text-sm text-text-muted mt-1">
               Compress prompts via /v1/compress before routing to the model
             </p>
           </div>
-          <Toggle
+          <Switch
             checked={headroomEnabled}
-            onChange={() => handleHeadroomEnabled(!headroomEnabled)}
+            onCheckedChange={() => handleHeadroomEnabled(!headroomEnabled)}
           />
         </div>
         {headroomStatus.installed && (
@@ -561,14 +560,14 @@ export default function TokenSaverClient() {
                       className="flex items-center gap-1.5 text-xs px-2 py-1 rounded border border-success/40 bg-success/5 text-text"
                       title={extraTitle}
                     >
-                      <Toggle
+                      <Switch
                         size="sm"
                         checked={active}
                         disabled={restartingProxy}
-                        onChange={() => toggleExtraActive(extra, !active)}
+                        onCheckedChange={() => toggleExtraActive(extra, !active)}
                       />
                       <span className="font-medium">[{extra}]</span>
-                      <UIButton
+                      <Button
                         variant="link"
                         size="sm"
                         onClick={() => handleRemoveExtra(extra)}
@@ -577,7 +576,7 @@ export default function TokenSaverClient() {
                         title={`Uninstall [${extra}]`}
                       >
                         {removingExtra === extra ? "Uninstalling…" : "Uninstall"}
-                      </UIButton>
+                      </Button>
                     </div>
                   );
                 }
@@ -603,7 +602,7 @@ export default function TokenSaverClient() {
                 );
               })}
               {pendingExtras.length > 0 && (
-                <UIButton
+                <Button
                   size="sm"
                   onClick={handleInstallExtras}
                   disabled={extrasActionLoading}
@@ -611,7 +610,7 @@ export default function TokenSaverClient() {
                   {extrasActionLoading
                     ? "Installing…"
                     : `Install [proxy,${pendingExtras.join(",")}]`}
-                </UIButton>
+                </Button>
               )}
             </div>
             {extrasActionError && (
@@ -658,7 +657,7 @@ export default function TokenSaverClient() {
               <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
                   {visibleCavemanLevels.map((lvl) => (
-                    <UIButton
+                    <Button
                       key={lvl.id}
                       variant={cavemanLevel === lvl.id ? "default" : "outline"}
                       size="sm"
@@ -666,7 +665,7 @@ export default function TokenSaverClient() {
                       title={lvl.desc}
                     >
                       {lvl.label}
-                    </UIButton>
+                    </Button>
                   ))}
                 </div>
                 <p className="text-xs text-primary">
@@ -677,9 +676,9 @@ export default function TokenSaverClient() {
                 </p>
               </div>
             )}
-            <Toggle
+            <Switch
               checked={cavemanEnabled}
-              onChange={() => handleCavemanEnabled(!cavemanEnabled)}
+              onCheckedChange={() => handleCavemanEnabled(!cavemanEnabled)}
             />
           </div>
         </div>
@@ -706,7 +705,7 @@ export default function TokenSaverClient() {
               <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
                   {PONYTAIL_LEVELS.map((lvl) => (
-                    <UIButton
+                    <Button
                       key={lvl.id}
                       variant={ponytailLevel === lvl.id ? "default" : "outline"}
                       size="sm"
@@ -714,7 +713,7 @@ export default function TokenSaverClient() {
                       title={lvl.desc}
                     >
                       {lvl.label}
-                    </UIButton>
+                    </Button>
                   ))}
                 </div>
                 <p className="text-xs text-primary">
@@ -725,9 +724,9 @@ export default function TokenSaverClient() {
                 </p>
               </div>
             )}
-            <Toggle
+            <Switch
               checked={ponytailEnabled}
-              onChange={() => handlePonytailEnabled(!ponytailEnabled)}
+              onCheckedChange={() => handlePonytailEnabled(!ponytailEnabled)}
             />
           </div>
         </div>
@@ -750,14 +749,14 @@ export default function TokenSaverClient() {
               <span className={`text-xs px-2 py-0.5 rounded ${pxpipeChipClass}`}>
                 {pxpipeStatusLabel}
               </span>
-              <UIButton
+              <Button
                 variant="link"
                 size="sm"
                 onClick={() => setShowPxpipeModal(true)}
                 className="h-auto p-0 text-xs"
               >
                 {pxpipeStatus.installed ? "Manage" : "Setup"}
-              </UIButton>
+              </Button>
               <a
                 href="/dashboard/pxpipe"
                 className="text-xs text-primary underline hover:opacity-80"
@@ -771,10 +770,10 @@ export default function TokenSaverClient() {
               conversations.
             </p>
           </div>
-          <Toggle
+          <Switch
             checked={pxpipeEnabled}
             disabled={!pxpipeStatus.installed}
-            onChange={() => handlePxpipeEnabled(!pxpipeEnabled)}
+            onCheckedChange={() => handlePxpipeEnabled(!pxpipeEnabled)}
           />
         </div>
         )}

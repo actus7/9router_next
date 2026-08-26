@@ -1,7 +1,7 @@
 "use client";
 
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 
 export function CopyButton({ value, label = "Copy link" }: { value: string; label?: string }) {
   const { copied, copy } = useCopyToClipboard(2000);

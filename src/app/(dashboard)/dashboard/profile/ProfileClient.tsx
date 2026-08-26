@@ -3,8 +3,8 @@
 import { useState, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, Button, Toggle, Input } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
+import { Card, Button, Input } from "@/shared/components";
+import { Switch } from "@/components/ui/switch";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -767,7 +767,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             </div>
             <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full sm:w-auto">
               {["light", "dark", "system"].map((option) => (
-                <UIButton
+                <Button
                   key={option}
                   variant="ghost"
                   size="sm"
@@ -783,7 +783,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     {option === "light" ? "light_mode" : option === "dark" ? "dark_mode" : "contrast"}
                   </span>
                   <span className="capitalize text-xs sm:text-sm">{option}</span>
-                </UIButton>
+                </Button>
               ))}
             </div>
           </div>
@@ -837,7 +837,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             </div>
             <h3 className="text-base sm:text-lg font-semibold">Language</h3>
           </div>
-          <UIButton
+          <Button
             variant="outline"
             onClick={() => setLangOpen(true)}
             className="flex items-center justify-between w-full p-3 rounded-lg bg-bg border border-border hover:border-primary/50 transition-colors"
@@ -845,7 +845,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           >
             <span className="text-sm text-text-muted">Display language</span>
             <span className="text-2xl">{LOCALE_FLAGS[locale] || "🌐"}</span>
-          </UIButton>
+          </Button>
         </Card>
 
         {/* Security */}
@@ -864,9 +864,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                   When ON, dashboard requires password. When OFF, access without login.
                 </p>
               </div>
-              <Toggle
+              <Switch
                 checked={settings.requireLogin === true}
-                onChange={() => updateRequireLogin(!settings.requireLogin)}
+                onCheckedChange={() => updateRequireLogin(!settings.requireLogin)}
                 disabled={loading}
               />
             </div>
@@ -925,7 +925,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
         {/* Single Sign-On (SSO) */}
         <Card>
-          <UIButton
+          <Button
             variant="ghost"
             type="button"
             onClick={() => setOidcExpanded((v) => !v)}
@@ -947,7 +947,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             <span className="material-symbols-outlined text-text-muted shrink-0">
               {oidcExpanded ? "expand_less" : "expand_more"}
             </span>
-          </UIButton>
+          </Button>
           {oidcExpanded && (
             <div className="flex flex-col gap-4 mt-4">
               <p className="text-xs sm:text-sm text-text-muted">
@@ -958,7 +958,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
               <div className="flex flex-col gap-2">
                 <Label className="sm:text-base">SSO Protocol</Label>
                 <div className="flex p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border">
-                  <UIButton
+                  <Button
                     variant="ghost"
                     size="sm"
                     type="button"
@@ -971,8 +971,8 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     )}
                   >
                     SAML 2.0
-                  </UIButton>
-                  <UIButton
+                  </Button>
+                  <Button
                     variant="ghost"
                     size="sm"
                     type="button"
@@ -985,7 +985,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     )}
                   >
                     OIDC
-                  </UIButton>
+                  </Button>
                 </div>
               </div>
 
@@ -1018,7 +1018,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                           ? currentMode === "sso" || currentMode === "saml" || currentMode === "oidc"
                           : currentMode === "both";
                     return (
-                      <UIButton
+                      <Button
                         key={option.value}
                         variant="outline"
                         type="button"
@@ -1035,7 +1035,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                           <p className="font-medium text-sm sm:text-base">{option.title}</p>
                           <p className="text-xs sm:text-sm text-text-muted mt-1">{option.desc}</p>
                         </div>
-                      </UIButton>
+                      </Button>
                     );
                   })}
                 </div>
@@ -1046,7 +1046,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 <div className="flex flex-col gap-4 pt-2 border-t border-border/50">
                   {/* IdP Setup Guidelines Banner & Collapsible Drawer */}
                   <div className="rounded-lg border border-border bg-bg/80 overflow-hidden">
-                    <UIButton
+                    <Button
                       variant="ghost"
                       type="button"
                       onClick={() => setShowSamlGuide((prev) => !prev)}
@@ -1069,7 +1069,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       >
                         expand_more
                       </span>
-                    </UIButton>
+                    </Button>
 
                     {showSamlGuide && (
                       <div className="p-4 border-t border-border bg-surface/30 text-xs text-text-main flex flex-col gap-3">
@@ -1442,9 +1442,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                   Cycle through accounts to distribute load
                 </p>
               </div>
-              <Toggle
+              <Switch
                 checked={settings.fallbackStrategy === "round-robin"}
-                onChange={() => updateFallbackStrategy(settings.fallbackStrategy === "round-robin" ? "fill-first" : "round-robin")}
+                onCheckedChange={() => updateFallbackStrategy(settings.fallbackStrategy === "round-robin" ? "fill-first" : "round-robin")}
                 disabled={loading}
               />
             </div>
@@ -1478,9 +1478,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                   Cycle through providers in combos instead of always starting with first
                 </p>
               </div>
-              <Toggle
+              <Switch
                 checked={settings.comboStrategy === "round-robin"}
-                onChange={() => updateComboStrategy(settings.comboStrategy === "round-robin" ? "fallback" : "round-robin")}
+                onCheckedChange={() => updateComboStrategy(settings.comboStrategy === "round-robin" ? "fallback" : "round-robin")}
                 disabled={loading}
               />
             </div>
@@ -1532,9 +1532,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 <p className="font-medium text-sm sm:text-base">Outbound Proxy</p>
                 <p className="text-xs sm:text-sm text-text-muted">Enable proxy for OAuth + provider outbound requests.</p>
               </div>
-              <Toggle
+              <Switch
                 checked={settings.outboundProxyEnabled === true}
-                onChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
+                onCheckedChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
                 disabled={loading || proxyLoading}
               />
             </div>
@@ -1604,9 +1604,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 Record request details for inspection in the logs view
               </p>
             </div>
-            <Toggle
+            <Switch
               checked={observabilityEnabled}
-              onChange={updateObservabilityEnabled}
+              onCheckedChange={updateObservabilityEnabled}
               disabled={loading}
             />
           </div>

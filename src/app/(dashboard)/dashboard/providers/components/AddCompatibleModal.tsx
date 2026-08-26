@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Badge, Button, Input, Modal, Select } from "@/shared/components";
+import { Button, Input, Modal, Select } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
 
 type Variant = "openai" | "anthropic";
 
@@ -147,7 +148,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }: AddCompatib
     if (valid) {
       return (
         <>
-          <Badge variant="success">Valid</Badge>
+          <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Valid</Badge>
           {method === "chat" && (
             <span className="text-sm text-text-muted">(via inference test)</span>
           )}
@@ -156,7 +157,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }: AddCompatib
     }
     return (
       <div className="flex flex-col gap-1">
-        <Badge variant="error">Invalid</Badge>
+        <Badge variant="destructive">Invalid</Badge>
         {error && <span className="text-sm text-red-500">{error}</span>}
       </div>
     );

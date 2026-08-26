@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getStatusVariant as getConnectionStatusVariant } from "@/shared/utils/connectionStatus";
-import { Badge, Toggle, Tooltip } from "@/shared/components";
-import { Button } from "@/components/ui/button";
+import { getStatusVariant as getConnectionStatusVariant, getStatusClassName } from "@/shared/utils/connectionStatus";
+import {  } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import Button from "@/shared/components/Button";
 import CooldownTimer from "./CooldownTimer";
 
 interface Connection {
@@ -96,11 +99,13 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
 
   const noProxyText = boundProxyPool?.noProxy || connection.providerSpecificData?.connectionNoProxy || "";
 
-  let proxyBadgeVariant: "default" | "success" | "error" = "default";
+  let proxyBadgeVariant: "secondary" | "default" | "destructive" = "secondary";
+  let proxyBadgeClassName: string | undefined;
   if (boundProxyPool?.isActive === true) {
-    proxyBadgeVariant = "success";
+    proxyBadgeVariant = "default";
+    proxyBadgeClassName = "bg-green-500/10 text-green-600 dark:text-green-400";
   } else if (boundProxyPoolId || hasLegacyProxy) {
-    proxyBadgeVariant = "error";
+    proxyBadgeVariant = "destructive";
   }
 
   // Close dropdown when clicking outside
@@ -174,12 +179,19 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
 
   const getStatusVariant = () => getConnectionStatusVariant(connection.isActive, effectiveStatus);
 
-  const getOneByOneVariant = (): "default" | "success" | "error" | "primary" => {
-    if (!oneByOneStatus) return "default";
-    if (oneByOneStatus.state === "success") return "success";
-    if (oneByOneStatus.state === "failed") return "error";
-    if (oneByOneStatus.state === "testing") return "primary";
-    return "default";
+  const getOneByOneVariant = (): "secondary" | "default" | "destructive" => {
+    if (!oneByOneStatus) return "secondary";
+    if (oneByOneStatus.state === "success") return "default";
+    if (oneByOneStatus.state === "failed") return "destructive";
+    if (oneByOneStatus.state === "testing") return "default";
+    return "secondary";
+  };
+
+  const getOneByOneClassName = (): string | undefined => {
+    if (!oneByOneStatus) return undefined;
+    if (oneByOneStatus.state === "success") return "bg-green-500/10 text-green-600 dark:text-green-400";
+    if (oneByOneStatus.state === "testing") return undefined;
+    return undefined;
   };
 
   const getOneByOneLabel = (): string | null => {
@@ -224,14 +236,14 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <p className="text-xs text-text-muted truncate">{secondaryDisplayName}</p>
           )}
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
-            <Badge variant={getStatusVariant()} size="sm" dot>
+            <Badge variant={getStatusVariant()} className={getStatusClassName(connection.isActive, effectiveStatus)}>
               {connection.isActive === false ? "disabled" : (effectiveStatus || "Unknown")}
             </Badge>
-            <Badge variant="default" size="sm">
+            <Badge variant="secondary">
               {authLabel}
             </Badge>
             {hasAnyProxy && (
-              <Badge variant={proxyBadgeVariant} size="sm">
+              <Badge variant={proxyBadgeVariant} className={proxyBadgeClassName}>
                 Proxy
               </Badge>
             )}
@@ -246,7 +258,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
               <span className="text-xs text-text-muted">Auto: {connection.globalPriority}</span>
             )}
             {getOneByOneLabel() && (
-              <Badge variant={getOneByOneVariant()} size="sm">
+              <Badge variant={getOneByOneVariant()} className={getOneByOneClassName()}>
                 {getOneByOneLabel()}
               </Badge>
             )}
@@ -310,16 +322,21 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             </div>
           )}
           {autoPing && (
-            <Tooltip text={autoPingTooltip}>
-              <Button
-                variant="ghost"
-                onClick={() => autoPing.onToggle(!autoPing.on)}
-                className={`w-full flex-col ${autoPing.on ? "text-primary" : ""}`}
-              >
-                <span className="material-symbols-outlined text-[18px]">bolt</span>
-                <span className="text-[10px] leading-tight">Auto-ping</span>
-              </Button>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger render={<span className="inline-flex" />}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => autoPing.onToggle(!autoPing.on)}
+                    className={`w-full flex-col ${autoPing.on ? "text-primary" : ""}`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">bolt</span>
+                    <span className="text-[10px] leading-tight">Auto-ping</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{autoPingTooltip}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           <Button variant="ghost" onClick={onEdit} className="flex-col">
             <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -330,11 +347,9 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <span className="text-[10px] leading-tight">Delete</span>
           </Button>
         </div>
-        <Toggle
-          size="sm"
+        <Switch
           checked={connection.isActive ?? true}
-          onChange={onToggleActive}
-          title={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
+          onCheckedChange={onToggleActive}
         />
       </div>
     </div>

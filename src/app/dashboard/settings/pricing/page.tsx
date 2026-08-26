@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Card from "@/shared/components/Card";
 import PricingModal from "@/shared/components/PricingModal";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 
 interface PricingData {
   [provider: string]: Record<string, unknown>;

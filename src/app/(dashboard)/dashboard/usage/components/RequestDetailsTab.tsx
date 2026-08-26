@@ -1,11 +1,9 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Button as UIButton } from "@/components/ui/button";
 import Drawer from "@/shared/components/Drawer";
 import Pagination from "@/shared/components/Pagination";
 import { cn } from "@/shared/utils/cn";
@@ -62,7 +60,7 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
   
   return (
     <div className="border border-black/5 dark:border-white/5 rounded-lg overflow-hidden">
-      <UIButton
+      <Button
         type="button"
         variant="ghost"
         onClick={() => setIsOpen(!isOpen)}
@@ -78,7 +76,7 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
         )}>
           chevron_right
         </span>
-      </UIButton>
+      </Button>
       
       {isOpen && (
         <div className="p-4 border-t border-black/5 dark:border-white/5">

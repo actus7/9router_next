@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getStatusVariant as getConnectionStatusVariant } from "@/shared/utils/connectionStatus";
-import { Card, Badge, Button, Modal, Select, Toggle, EditConnectionModal, ConfirmModal } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
+import { getStatusVariant as getConnectionStatusVariant, getStatusClassName } from "@/shared/utils/connectionStatus";
+import { Card, Button, Modal, Select, EditConnectionModal, ConfirmModal } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -103,7 +104,8 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
   }
 
   const noProxyText = boundProxyPool?.noProxy || connection.providerSpecificData?.connectionNoProxy || "";
-  const proxyBadgeVariant: "default" | "success" | "error" = boundProxyPool?.isActive === true ? "success" : (boundProxyPoolId || hasLegacyProxy) ? "error" : "default";
+  const proxyBadgeVariant: "secondary" | "default" | "destructive" = boundProxyPool?.isActive === true ? "default" : (boundProxyPoolId || hasLegacyProxy) ? "destructive" : "secondary";
+  const proxyBadgeClassName: string | undefined = boundProxyPool?.isActive === true ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined;
 
   const modelLockUntil = Object.entries(connection)
     .filter(([k]) => k.startsWith("modelLock_"))
@@ -149,21 +151,21 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
     <div className={`group flex flex-col gap-3 p-2 rounded-lg sm:flex-row sm:items-center sm:justify-between hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors ${connection.isActive === false ? "opacity-60" : ""}`}>
       <div className="flex w-full min-w-0 flex-1 items-start gap-3 sm:items-center">
         <div className="flex flex-col">
-          <UIButton variant="ghost" size="icon-sm" onClick={onMoveUp} disabled={isFirst} className={isFirst ? "text-text-muted/30" : ""}>
+          <Button variant="ghost" size="icon-sm" onClick={onMoveUp} disabled={isFirst} className={isFirst ? "text-text-muted/30" : ""}>
             <span className="material-symbols-outlined text-sm">keyboard_arrow_up</span>
-          </UIButton>
-          <UIButton variant="ghost" size="icon-sm" onClick={onMoveDown} disabled={isLast} className={isLast ? "text-text-muted/30" : ""}>
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={onMoveDown} disabled={isLast} className={isLast ? "text-text-muted/30" : ""}>
             <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
-          </UIButton>
+          </Button>
         </div>
         <span className="material-symbols-outlined text-base text-text-muted">{isOAuth ? "lock" : "key"}</span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{displayName}</p>
           <div className="flex flex-wrap items-center gap-2 mt-1">
-            <Badge variant={getStatusVariant()} size="sm" dot>
+            <Badge variant={getStatusVariant()} className={getStatusClassName(connection.isActive, effectiveStatus)}>
               {connection.isActive === false ? "disabled" : (effectiveStatus || "Unknown")}
             </Badge>
-            {hasAnyProxy && <Badge variant={proxyBadgeVariant} size="sm">Proxy</Badge>}
+            {hasAnyProxy && <Badge variant={proxyBadgeVariant} className={proxyBadgeClassName}>Proxy</Badge>}
             {isCooldown && connection.isActive !== false && modelLockUntil && <CooldownTimer until={modelLockUntil} />}
             {connection.lastError && connection.isActive !== false && (
               <span className="text-xs text-red-500 truncate max-w-[300px]" title={connection.lastError}>{connection.lastError}</span>
@@ -183,7 +185,7 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
         <div className="flex flex-wrap gap-1">
           {(proxyPools || []).length > 0 && (
             <div className="relative" ref={proxyDropdownRef}>
-              <UIButton
+              <Button
                 variant="ghost"
                 onClick={() => setShowProxyDropdown((v) => !v)}
                 className={`flex-col ${hasAnyProxy ? "text-primary" : ""}`}
@@ -191,27 +193,27 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
               >
                 <span className="material-symbols-outlined text-[18px]">{updatingProxy ? "progress_activity" : "lan"}</span>
                 <span className="text-[10px] leading-tight">Proxy</span>
-              </UIButton>
+              </Button>
               {showProxyDropdown && (
                 <div className="absolute right-0 top-full mt-1 z-50 bg-bg border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
-                  <UIButton variant="ghost" onClick={() => handleSelectProxy("__none__")} className={`w-full justify-start ${!boundProxyPoolId ? "text-primary font-medium" : ""}`}>None</UIButton>
+                  <Button variant="ghost" onClick={() => handleSelectProxy("__none__")} className={`w-full justify-start ${!boundProxyPoolId ? "text-primary font-medium" : ""}`}>None</Button>
                   {(proxyPools || []).map((pool) => (
-                    <UIButton key={pool.id} variant="ghost" onClick={() => handleSelectProxy(pool.id)} className={`w-full justify-start ${boundProxyPoolId === pool.id ? "text-primary font-medium" : ""}`}>{pool.name}</UIButton>
+                    <Button key={pool.id} variant="ghost" onClick={() => handleSelectProxy(pool.id)} className={`w-full justify-start ${boundProxyPoolId === pool.id ? "text-primary font-medium" : ""}`}>{pool.name}</Button>
                   ))}
                 </div>
               )}
             </div>
           )}
-          <UIButton variant="ghost" onClick={onEdit} className="flex-col">
+          <Button variant="ghost" onClick={onEdit} className="flex-col">
             <span className="material-symbols-outlined text-[18px]">edit</span>
             <span className="text-[10px] leading-tight">Edit</span>
-          </UIButton>
-          <UIButton variant="destructive" onClick={onDelete} className="flex-col">
+          </Button>
+          <Button variant="destructive" onClick={onDelete} className="flex-col">
             <span className="material-symbols-outlined text-[18px]">delete</span>
             <span className="text-[10px] leading-tight">Delete</span>
-          </UIButton>
+          </Button>
         </div>
-        <Toggle size="sm" checked={connection.isActive ?? true} onChange={onToggleActive} title={(connection.isActive ?? true) ? "Disable" : "Enable"} />
+        <Switch checked={connection.isActive ?? true} onCheckedChange={onToggleActive} title={(connection.isActive ?? true) ? "Disable" : "Enable"} />
       </div>
     </div>
   );
@@ -296,7 +298,7 @@ function AddApiKeyModal({ isOpen, provider, providerName, proxyPools, onSave, on
           </div>
         </div>
         {validationResult && (
-          <Badge variant={validationResult === "success" ? "success" : "error"}>
+          <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
             {validationResult === "success" ? "Valid" : "Invalid"}
           </Badge>
         )}
@@ -440,9 +442,9 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
           <h2 className="text-lg font-semibold">Connections</h2>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-text-muted font-medium">Round Robin</span>
-            <Toggle
+            <Switch
               checked={providerStrategy === "round-robin"}
-              onChange={(enabled: boolean) => {
+              onCheckedChange={(enabled: boolean) => {
                 const strategy = enabled ? "round-robin" : null;
                 setProviderStrategy(strategy);
                 if (enabled && !providerStickyLimit) setProviderStickyLimit("1");
@@ -465,7 +467,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
         {connections.length === 0 ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-text-muted">No connections yet</p>
-            <Button size="sm" icon="add" onClick={() => setShowAddModal(true)}>Add Connection</Button>
+            <Button icon="add" onClick={() => setShowAddModal(true)}>Add Connection</Button>
           </div>
         ) : (
           <>
@@ -488,7 +490,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
               ))}
             </div>
             <div className="mt-4 flex justify-stretch sm:justify-start">
-              <Button size="sm" icon="add" onClick={() => setShowAddModal(true)}>Add</Button>
+              <Button icon="add" onClick={() => setShowAddModal(true)}>Add</Button>
             </div>
           </>
         )}

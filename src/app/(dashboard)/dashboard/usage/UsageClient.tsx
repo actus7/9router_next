@@ -2,7 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { UsageStats, RequestLogger, CardSkeleton, SegmentedControl } from "@/shared/components";
+import { UsageStats, RequestLogger, CardSkeleton } from "@/shared/components";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 
 const PERIODS = [
@@ -35,23 +36,20 @@ export default function UsageClient() {
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       {/* Tabs + period selector on same row */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <SegmentedControl
-          options={[
-            { value: "overview", label: "Overview" },
-            { value: "details", label: "Details" },
-          ]}
-          value={activeTab}
-          onChange={handleTabChange}
-          className="w-full sm:w-auto"
-        />
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="inline-flex w-full sm:w-auto">
+          <TabsList variant="default" className="rounded-[10px] bg-surface-2 p-1">
+            <TabsTrigger value="overview" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">Overview</TabsTrigger>
+            <TabsTrigger value="details" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">Details</TabsTrigger>
+          </TabsList>
+        </Tabs>
         {activeTab === "overview" && (
-          <SegmentedControl
-            options={PERIODS}
-            value={period}
-            onChange={setPeriod}
-            size="sm"
-            className="w-full sm:w-auto"
-          />
+          <Tabs value={period} onValueChange={setPeriod} className="inline-flex w-full sm:w-auto">
+            <TabsList variant="default" className="rounded-[10px] bg-surface-2 p-1">
+              {PERIODS.map((p) => (
+                <TabsTrigger key={p.value} value={p.value} className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-7 text-xs data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">{p.label}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         )}
       </div>
 

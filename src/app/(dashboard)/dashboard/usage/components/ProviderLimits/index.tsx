@@ -1,14 +1,13 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import QuotaTable from "./QuotaTable";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import Toggle from "@/shared/components/Toggle";
-import Tooltip from "@/shared/components/Tooltip";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   parseQuotaData,
@@ -1137,113 +1136,137 @@ export default function ProviderLimits() {
                   <div className="flex items-center gap-1 shrink-0">
                     {isCodex && (
                       <>
-                        <Tooltip
-                          text={
-                            resetCreditCount > 0
-                              ? `Use one Codex reset credit. Available: ${resetCreditCount}`
-                              : "No Codex reset credits available"
-                          }
-                        >
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setResetConfirmState({ connection: conn, resetCreditCount })}
-                            disabled={resetCreditCount <= 0 || isLoading || rowBusy}
-                            aria-label={
-                              resetCreditCount > 0
-                                ? `Use one Codex reset credit. ${resetCreditCount} available.`
-                                : "No Codex reset credits available"
-                            }
-                            className={`min-w-10 gap-1 text-[11px] font-medium tabular-nums ${
-                              resetCreditCount > 0
-                                ? "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
-                                : ""
-                            }`}
-                          >
-                            <span className={`material-symbols-outlined text-[15px] ${isResettingLimit ? "animate-spin" : ""}`}>
-                              {isResettingLimit ? "progress_activity" : "restart_alt"}
-                            </span>
-                            <span>{resetCreditCount}</span>
-                          </Button>
-                        </Tooltip>
-                        <Tooltip text="View Codex reset credit expiry">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleViewCodexResetCredits(conn)}
-                            disabled={isLoading || rowBusy}
-                            aria-label="View Codex reset credit expiry"
-                          >
-                            <span className="material-symbols-outlined text-[17px]">schedule</span>
-                          </Button>
-                        </Tooltip>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger render={<span className="inline-flex" />}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setResetConfirmState({ connection: conn, resetCreditCount })}
+                                disabled={resetCreditCount <= 0 || isLoading || rowBusy}
+                                aria-label={
+                                  resetCreditCount > 0
+                                    ? `Use one Codex reset credit. ${resetCreditCount} available.`
+                                    : "No Codex reset credits available"
+                                }
+                                className={`min-w-10 gap-1 text-[11px] font-medium tabular-nums ${
+                                  resetCreditCount > 0
+                                    ? "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
+                                    : ""
+                                }`}
+                              >
+                                <span className={`material-symbols-outlined text-[15px] ${isResettingLimit ? "animate-spin" : ""}`}>
+                                  {isResettingLimit ? "progress_activity" : "restart_alt"}
+                                </span>
+                                <span>{resetCreditCount}</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{resetCreditCount > 0 ? `Use one Codex reset credit. Available: ${resetCreditCount}` : "No Codex reset credits available"}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger render={<span className="inline-flex" />}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleViewCodexResetCredits(conn)}
+                                disabled={isLoading || rowBusy}
+                                aria-label="View Codex reset credit expiry"
+                              >
+                                <span className="material-symbols-outlined text-[17px]">schedule</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View Codex reset credit expiry</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </>
                     )}
                     {AUTO_PING_SETTINGS_KEYS[conn.provider] && conn.authType === "oauth" && (
-                      <Tooltip text={AUTO_PING_TOOLTIPS[conn.provider]}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => toggleAutoPing(conn.id, conn.provider, !(autoPingMaps[conn.provider]?.[conn.id] === true))}
-                          aria-label="Toggle auto-ping"
-                          className={autoPingMaps[conn.provider]?.[conn.id] === true ? "text-primary" : "text-text-muted"}
-                        >
-                          <span className="material-symbols-outlined text-[18px]">bolt</span>
-                        </Button>
-                      </Tooltip>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger render={<span className="inline-flex" />}>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleAutoPing(conn.id, conn.provider, !(autoPingMaps[conn.provider]?.[conn.id] === true))}
+                              aria-label="Toggle auto-ping"
+                              className={autoPingMaps[conn.provider]?.[conn.id] === true ? "text-primary" : "text-text-muted"}
+                            >
+                              <span className="material-symbols-outlined text-[18px]">bolt</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{AUTO_PING_TOOLTIPS[conn.provider]}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
-                    <Tooltip text="Refresh quota">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => refreshProvider(conn.id, conn.provider)}
-                        disabled={isLoading || rowBusy}
-                        aria-label="Refresh quota"
-                      >
-                        <span
-                          className={`material-symbols-outlined text-[18px] text-text-muted ${isLoading ? "animate-spin" : ""}`}
-                        >
-                          refresh
-                        </span>
-                      </Button>
-                    </Tooltip>
-                    <Tooltip text="Edit connection">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedConnection(conn);
-                          setShowEditModal(true);
-                        }}
-                        disabled={rowBusy}
-                        aria-label="Edit connection"
-                        className="text-text-muted hover:text-primary"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">
-                          edit
-                        </span>
-                      </Button>
-                    </Tooltip>
-                    <Tooltip text="Delete connection">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => handleDeleteConnection(conn.id)}
-                        disabled={rowBusy}
-                        aria-label="Delete connection"
-                      >
-                        <span
-                          className={`material-symbols-outlined text-[18px] ${deletingId === conn.id ? "animate-pulse" : ""}`}
-                        >
-                          delete
-                        </span>
-                      </Button>
-                    </Tooltip>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="inline-flex" />}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => refreshProvider(conn.id, conn.provider)}
+                            disabled={isLoading || rowBusy}
+                            aria-label="Refresh quota"
+                          >
+                            <span
+                              className={`material-symbols-outlined text-[18px] text-text-muted ${isLoading ? "animate-spin" : ""}`}
+                            >
+                              refresh
+                            </span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Refresh quota</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="inline-flex" />}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedConnection(conn);
+                              setShowEditModal(true);
+                            }}
+                            disabled={rowBusy}
+                            aria-label="Edit connection"
+                            className="text-text-muted hover:text-primary"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">
+                              edit
+                            </span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Edit connection</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="inline-flex" />}>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleDeleteConnection(conn.id)}
+                            disabled={rowBusy}
+                            aria-label="Delete connection"
+                          >
+                            <span
+                              className={`material-symbols-outlined text-[18px] ${deletingId === conn.id ? "animate-pulse" : ""}`}
+                            >
+                              delete
+                            </span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete connection</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     <div
                       className="inline-flex items-center pl-0.5"
                       title={
@@ -1252,11 +1275,11 @@ export default function ProviderLimits() {
                           : "Enable connection"
                       }
                     >
-                      <Toggle
+                      <Switch
                         size="sm"
                         checked={conn.isActive ?? true}
                         disabled={rowBusy}
-                        onChange={(nextActive) =>
+                        onCheckedChange={(nextActive) =>
                           handleToggleConnectionActive(conn.id, nextActive)
                         }
                       />

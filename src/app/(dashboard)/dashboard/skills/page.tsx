@@ -1,4 +1,5 @@
-import { Card, Badge } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
 import {
   SKILLS,
   SKILLS_REPO_URL,
@@ -38,10 +39,10 @@ function SkillRow({ skill }: { skill: Skill }) {
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="font-semibold text-sm text-text-main">{skill.name}</h3>
           {skill.isEntry && (
-            <Badge variant="primary" size="sm">START HERE</Badge>
+            <Badge variant="default" >START HERE</Badge>
           )}
           {skill.endpoint && (
-            <Badge variant="default" size="sm">
+            <Badge variant="secondary" >
               <code className="text-[10px]">{skill.endpoint}</code>
             </Badge>
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 
 const FEATURES = [
   { icon: "terminal", label: "Terminal", desc: "Full shell access" },

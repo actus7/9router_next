@@ -3,7 +3,8 @@
 import { useParams, notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { Card, Badge, Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
+import { Card, Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
@@ -105,9 +106,9 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
               )}
             </div>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {isCustom && <Badge variant="default" size="sm">Custom · {customNode?.prefix}</Badge>}
+              {isCustom && <Badge variant="secondary" >Custom · {customNode?.prefix}</Badge>}
               {kinds.map((k) => (
-                <Badge key={k} variant={k === kind ? "primary" : "default"} size="sm">
+                <Badge key={k} variant={k === kind ? "default" : "secondary"}>
                   {k.toUpperCase()}
                 </Badge>
               ))}
@@ -115,10 +116,10 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
           </div>
           {isCustom && (
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <Button size="sm" variant="secondary" icon="edit" onClick={() => setShowEditModal(true)}>
+              <Button variant="secondary" icon="edit" onClick={() => setShowEditModal(true)}>
                 Edit
               </Button>
-              <Button size="sm" variant="secondary" icon="delete" onClick={handleDeleteCustom}>
+              <Button variant="secondary" icon="delete" onClick={handleDeleteCustom}>
                 Delete
               </Button>
             </div>

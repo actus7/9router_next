@@ -1,10 +1,9 @@
-// @ts-nocheck
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge, Button } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
+import { Button } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
@@ -747,7 +746,7 @@ export default function BasicChatPageClient() {
       <div className="relative mx-auto flex flex-1 h-full min-h-0 w-full max-w-4xl flex-col">
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 lg:px-6">
           <div ref={modelMenuRef} className="relative">
-            <UIButton
+            <Button
               variant="outline"
               type="button"
               onClick={() => setModelMenuOpen((value) => !value)}
@@ -760,7 +759,7 @@ export default function BasicChatPageClient() {
                 </div>
                 <p className="truncate text-xs text-white/55">{modelSubLabel}</p>
               </div>
-            </UIButton>
+            </Button>
 
             {modelMenuOpen ? (
               <div className="absolute left-0 top-[calc(100%+10px)] z-30 w-[min(520px,calc(100vw-2rem))] overflow-hidden rounded-[20px] border border-white/10 bg-[#262626] shadow-2xl shadow-black/50">
@@ -773,13 +772,13 @@ export default function BasicChatPageClient() {
                     <div key={group.providerId} className="mb-2 rounded-[16px] border border-white/10 bg-black/20 p-2">
                       <div className="flex items-center justify-between px-2 py-2">
                         <p className="text-sm font-semibold text-white">{group.providerName}</p>
-                        <Badge size="sm" variant="default">{group.models.length}</Badge>
+                        <Badge variant="secondary">{group.models.length}</Badge>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {group.models.map((model) => {
                           const isActive = model.id === activeModelId;
                           return (
-                            <UIButton
+                            <Button
                               key={model.id}
                               variant="ghost"
                               type="button"
@@ -793,7 +792,7 @@ export default function BasicChatPageClient() {
                                 </div>
                                 {isActive ? <span className="material-symbols-outlined text-[18px] text-blue-300">check_circle</span> : null}
                               </div>
-                            </UIButton>
+                            </Button>
                           );
                         })}
                       </div>
@@ -805,15 +804,15 @@ export default function BasicChatPageClient() {
           </div>
 
           <div className="flex items-center gap-2">
-            <UIButton
+            <Button
               variant="outline"
               type="button"
               onClick={() => setHistoryOpen((value) => !value)}
               className="rounded-2xl border-white/10 bg-white/5 px-4 py-3 h-auto text-sm text-white/80 hover:bg-white/8"
             >
               History
-            </UIButton>
-            <Button variant="ghost" size="sm" icon="delete" onClick={handleDeleteCurrentChat} disabled={!activeSessionId || sessions.length === 0}>
+            </Button>
+            <Button variant="ghost" icon="delete" onClick={handleDeleteCurrentChat} disabled={!activeSessionId || sessions.length === 0}>
               Clear
             </Button>
           </div>
@@ -833,7 +832,7 @@ export default function BasicChatPageClient() {
                 const isActive = session.id === activeSessionId;
                 const latestMessage = [...(session.messages || [])].reverse().find((message) => message.role === "user") || session.messages?.[0];
                 return (
-                  <UIButton
+                  <Button
                     key={session.id}
                     variant="ghost"
                     type="button"
@@ -847,7 +846,7 @@ export default function BasicChatPageClient() {
                       </div>
                       <span className="text-[10px] text-white/40 shrink-0">{formatRelativeTime(session.updatedAt)}</span>
                     </div>
-                  </UIButton>
+                  </Button>
                 );
               })}
             </div>
@@ -922,9 +921,9 @@ export default function BasicChatPageClient() {
                 {attachments.map((attachment) => (
                   <div key={attachment.id} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2">
                     <span className="text-xs text-white/80 max-w-[12rem] truncate">{attachment.name}</span>
-                    <UIButton variant="ghost" size="icon-sm" type="button" onClick={() => removeAttachment(attachment.id)} className="text-white/55 hover:text-white" aria-label="Remove attachment">
+                    <Button variant="ghost" size="icon-sm" type="button" onClick={() => removeAttachment(attachment.id)} className="text-white/55 hover:text-white" aria-label="Remove attachment">
                       <span className="material-symbols-outlined text-[18px]">close</span>
-                    </UIButton>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -943,22 +942,22 @@ export default function BasicChatPageClient() {
 
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <UIButton variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="text-white/50 hover:text-white rounded-full hover:bg-white/5">
+                    <Button variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="text-white/50 hover:text-white rounded-full hover:bg-white/5">
                       <span className="material-symbols-outlined text-[20px]">attach_file</span>
-                    </UIButton>
+                    </Button>
                     <Input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAttachFiles} />
                     <span className="text-xs font-medium text-white/30 truncate max-w-[120px]">{activeModel ? activeModel.name : "No model"}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {isSending ? (
-                      <UIButton variant="secondary" size="icon" type="button" onClick={handleStop} className="rounded-full">
+                      <Button variant="secondary" size="icon" type="button" onClick={handleStop} className="rounded-full">
                         <span className="material-symbols-outlined text-[16px]">stop</span>
-                      </UIButton>
+                      </Button>
                     ) : null}
-                    <UIButton variant="default" size="icon" onClick={sendMessage} disabled={!canSend} className={`rounded-full ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30'}`}>
+                    <Button variant="secondary" size="icon" onClick={sendMessage} disabled={!canSend} className={`rounded-full ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30'}`}>
                       <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
-                    </UIButton>
+                    </Button>
                   </div>
                 </div>
               </div>

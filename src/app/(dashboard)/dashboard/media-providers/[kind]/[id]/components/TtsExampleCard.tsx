@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card } from "@/shared/components";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { AI_PROVIDERS, getProviderAlias } from "@/shared/constants/providers";

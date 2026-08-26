@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Badge, Button } from "@/shared/components";
+import { Card, Button } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, getProvidersByKind } from "@/shared/constants/providers";
 
@@ -46,14 +47,14 @@ function ProviderCard({ provider, kind, connections }: { provider: Provider; kin
   const allDisabled = total > 0 && providerConns.every((c) => c.isActive === false);
 
   const renderStatus = () => {
-    if (isNoAuth) return <Badge variant="success" size="sm">Ready</Badge>;
-    if (allDisabled) return <Badge variant="default" size="sm">Disabled</Badge>;
+    if (isNoAuth) return <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Ready</Badge>;
+    if (allDisabled) return <Badge variant="secondary" >Disabled</Badge>;
     if (total === 0) return <span className="text-xs text-text-muted">No connections</span>;
     return (
       <>
-        {connected > 0 && <Badge variant="success" size="sm" dot>{connected} Connected</Badge>}
-        {error > 0 && <Badge variant="error" size="sm" dot>{error} Error</Badge>}
-        {connected === 0 && error === 0 && <Badge variant="default" size="sm">{total} Added</Badge>}
+        {connected > 0 && <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">{connected} Connected</Badge>}
+        {error > 0 && <Badge variant="destructive">{error} Error</Badge>}
+        {connected === 0 && error === 0 && <Badge variant="secondary" >{total} Added</Badge>}
       </>
     );
   };
@@ -147,7 +148,7 @@ function Section({ title, icon, kind, providers, connections, combos, onCreateCo
           <h2 className="text-base font-semibold">{title}</h2>
           <span className="text-xs text-text-muted">({providers.length} providers · {combos.length} combos)</span>
         </div>
-        <Button size="sm" icon="add" onClick={onCreateCombo}>Create Combo</Button>
+        <Button icon="add" onClick={onCreateCombo}>Create Combo</Button>
       </div>
 
       {/* Combos — top */}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, Badge, Input, Modal, Select } from "@/shared/components";
+import { Button, Input, Modal, Select } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
 
 interface ProviderNode {
   id?: string;
@@ -144,7 +145,7 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
           hint="If provider lacks /models endpoint, enter a model ID to validate via chat/completions instead."
         />
         {validationResult && (
-          <Badge variant={validationResult === "success" ? "success" : "error"}>
+          <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
             {validationResult === "success" ? "Valid" : "Invalid"}
           </Badge>
         )}

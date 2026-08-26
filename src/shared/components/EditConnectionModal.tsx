@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import Input from "@/shared/components/Input";
 import Button from "@/shared/components/Button";
-import Badge from "@/shared/components/Badge";
+import { Badge } from "@/components/ui/badge";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import Select from "@/shared/components/Select";
 
@@ -270,7 +270,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
               </div>
             </div>
             {validationResult && (
-              <Badge variant={validationResult === "success" ? "success" : "error"}>
+              <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
                 {validationResult === "success" ? "Valid" : "Invalid"}
               </Badge>
             )}
@@ -328,7 +328,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
               {testing ? "Testing..." : "Test Connection"}
             </Button>
             {testResult && (
-              <Badge variant={testResult === "success" ? "success" : "error"}>
+              <Badge variant={testResult === "success" ? "default" : "destructive"} className={testResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
                 {testResult === "success" ? "Valid" : "Failed"}
               </Badge>
             )}

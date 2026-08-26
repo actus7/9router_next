@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
-import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
-import { Input as ShadcnInput } from "@/components/ui/input";
+import { Card, Button, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, GitLabAuthModal, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Input as RawInput } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select as ShadcnSelect, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "@/lib/open-sse/providers/thinkingLevels";
@@ -1117,7 +1118,7 @@ export default function ProviderDetailClient({
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col">
-          <UIButton
+          <Button
             variant="ghost"
             onClick={handleApplyOneToOne}
             disabled={bulkUpdatingProxy || activePools.length === 0}
@@ -1125,8 +1126,8 @@ export default function ProviderDetailClient({
           >
             <span className="material-symbols-outlined text-text-muted text-[18px]">sync_alt</span>
             <span className="text-sm text-text-main">One-to-one (rotate)</span>
-          </UIButton>
-          <UIButton
+          </Button>
+          <Button
             variant="ghost"
             onClick={() => handleApplySinglePool(null)}
             disabled={bulkUpdatingProxy}
@@ -1134,9 +1135,9 @@ export default function ProviderDetailClient({
           >
             <span className="material-symbols-outlined text-text-muted text-[18px]">link_off</span>
             <span className="text-sm text-text-main">None (unbind all)</span>
-          </UIButton>
+          </Button>
           {proxyPools.map((pool) => (
-            <UIButton
+            <Button
               key={pool.id}
               variant="ghost"
               onClick={() => handleApplySinglePool(pool.id)}
@@ -1148,7 +1149,7 @@ export default function ProviderDetailClient({
               {pool.isActive !== true && (
                 <span className="text-[10px] text-text-muted">(inactive)</span>
               )}
-            </UIButton>
+            </Button>
           ))}
         </div>
 
@@ -1274,21 +1275,19 @@ export default function ProviderDetailClient({
         })}
 
         {/* Add model button — inline, same style as model chips */}
-        <UIButton
+        <Button
           variant="outline"
-          size="sm"
           onClick={() => setShowAddCustomModel(true)}
           className="w-full border-dashed border-primary/40 text-xs sm:w-auto"
         >
           <span className="material-symbols-outlined text-sm">add</span>
           Add Model
-        </UIButton>
+        </Button>
 
         {/* Import Qoder models button — only show for qoder provider */}
         {providerId === "qoder" && connections.some((conn) => conn.isActive !== false) && (
-          <UIButton
+          <Button
             variant="outline"
-            size="sm"
             onClick={handleImportQoderModels}
             disabled={importingQoderModels}
             className="w-full border-dashed border-blue-500/40 text-xs text-blue-600 dark:text-blue-400 sm:w-auto"
@@ -1297,7 +1296,7 @@ export default function ProviderDetailClient({
               {importingQoderModels ? "progress_activity" : "download"}
             </span>
             {importingQoderModels ? translate("Fetching...") : translate("Fetch Qoder Models")}
-          </UIButton>
+          </Button>
         )}
 
         {/* Suggested models from provider API — show only models not yet added */}
@@ -1316,10 +1315,9 @@ export default function ProviderDetailClient({
               <p className="text-xs text-text-muted mb-2">Suggested free models (≥200k context):</p>
               <div className="flex flex-wrap gap-2">
                 {notAdded.map((m) => (
-                  <UIButton
+                  <Button
                     key={m.id}
                     variant="outline"
-                    size="sm"
                     onClick={async () => {
                       await handleAddCustomModel(m.id, "llm", providerStorageAlias);
                     }}
@@ -1328,7 +1326,7 @@ export default function ProviderDetailClient({
                   >
                     <span className="material-symbols-outlined text-[13px]">add</span>
                     {m.id.split("/").pop()}
-                  </UIButton>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -1341,17 +1339,16 @@ export default function ProviderDetailClient({
             <p className="text-xs text-text-muted mb-2">Disabled models ({disabledDisplayModels.length}):</p>
             <div className="flex flex-wrap gap-2">
               {disabledDisplayModels.map((m) => (
-                <UIButton
+                <Button
                   key={m.id}
                   variant="outline"
-                  size="sm"
                   onClick={() => handleEnableModel(m.id)}
                   className="border-dashed text-xs"
                   title="Restore model"
                 >
                   <span className="material-symbols-outlined text-[13px]">add</span>
                   {m.id}
-                </UIButton>
+                </Button>
               ))}
             </div>
           </div>
@@ -1486,7 +1483,6 @@ export default function ProviderDetailClient({
             </div>
             <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
               <Button
-                size="sm"
                 icon="add"
                 onClick={() => {
                   setAddConnectionError("");
@@ -1497,7 +1493,6 @@ export default function ProviderDetailClient({
                 Add API Key
               </Button>
               <Button
-                size="sm"
                 variant="secondary"
                 icon="edit"
                 onClick={() => setShowEditNodeModal(true)}
@@ -1506,7 +1501,6 @@ export default function ProviderDetailClient({
                 Edit
               </Button>
               <Button
-                size="sm"
                 variant="secondary"
                 icon="delete"
                 onClick={async () => {
@@ -1545,7 +1539,6 @@ export default function ProviderDetailClient({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               {connections.length > 0 && proxyPools.length > 0 && (
                 <Button
-                  size="sm"
                   variant="secondary"
                   icon="lan"
                   onClick={() => setShowBulkProxyModal(true)}
@@ -1557,7 +1550,6 @@ export default function ProviderDetailClient({
                 <>
                   {selectedConnectionIds.length > 0 && (
                     <Button
-                      size="sm"
                       variant="danger"
                       icon="delete"
                       onClick={handleBulkDelete}
@@ -1566,7 +1558,6 @@ export default function ProviderDetailClient({
                     </Button>
                   )}
                   <Button
-                    size="sm"
                     variant="secondary"
                     icon="sync"
                     onClick={handleRunOneByOneTest}
@@ -1576,7 +1567,6 @@ export default function ProviderDetailClient({
                   </Button>
                   {oneByOneRunning && (
                     <Button
-                      size="sm"
                       variant="ghost"
                       icon="stop"
                       onClick={handleStopOneByOneTest}
@@ -1590,14 +1580,14 @@ export default function ProviderDetailClient({
               {/* Round Robin toggle */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-text-muted font-medium">Round Robin</span>
-                <Toggle
+                <Switch
                   checked={providerStrategy === "round-robin"}
-                  onChange={handleRoundRobinToggle}
+                  onCheckedChange={handleRoundRobinToggle}
                 />
                 {providerStrategy === "round-robin" && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-text-muted">Sticky:</span>
-                    <ShadcnInput
+                    <RawInput
                       type="number"
                       min={1}
                       value={providerStickyLimit}
@@ -1629,27 +1619,26 @@ export default function ProviderDetailClient({
               <div className="flex gap-2">
                 {hasDualAuthModes ? (
                   <>
-                    <Button size="sm" icon="lock" variant="secondary" onClick={triggerOAuthConnection}>
+                    <Button icon="lock" variant="secondary" onClick={triggerOAuthConnection}>
                       {oauthConnectionLabel}
                     </Button>
-                    <Button size="sm" icon="key" onClick={triggerApiKeyConnection}>
+                    <Button icon="key" onClick={triggerApiKeyConnection}>
                       {apiKeyConnectionLabel}
                     </Button>
                   </>
                 ) : (
                   <>
                     {!isCompatible && providerId === "iflow" && (
-                      <Button size="sm" icon="cookie" variant="secondary" onClick={() => setShowIFlowCookieModal(true)}>
+                      <Button icon="cookie" variant="secondary" onClick={() => setShowIFlowCookieModal(true)}>
                         Cookie
                       </Button>
                     )}
                     {providerId === "codex" && (
-                      <Button size="sm" icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportCodex(true)}>
+                      <Button icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportCodex(true)}>
                         {translate("Bulk Add")}
                       </Button>
                     )}
                     <Button
-                      size="sm"
                       icon="add"
                       onClick={triggerAddConnection}
                     >
@@ -1699,7 +1688,6 @@ export default function ProviderDetailClient({
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
                   {providerId === "iflow" && (
                     <Button
-                      size="sm"
                       icon="cookie"
                       variant="secondary"
                       onClick={() => setShowIFlowCookieModal(true)}
@@ -1711,7 +1699,6 @@ export default function ProviderDetailClient({
                   )}
                   {providerId === "codex" && (
                     <Button
-                      size="sm"
                       icon="playlist_add"
                       variant="secondary"
                       onClick={() => setShowBulkImportCodex(true)}
@@ -1724,7 +1711,6 @@ export default function ProviderDetailClient({
                   {hasDualAuthModes ? (
                     <>
                       <Button
-                        size="sm"
                         icon="lock"
                         variant="secondary"
                         onClick={triggerOAuthConnection}
@@ -1733,7 +1719,6 @@ export default function ProviderDetailClient({
                         {oauthConnectionLabel}
                       </Button>
                       <Button
-                        size="sm"
                         icon="key"
                         onClick={triggerApiKeyConnection}
                         className="w-full sm:w-auto"
@@ -1743,7 +1728,6 @@ export default function ProviderDetailClient({
                     </>
                   ) : (
                     <Button
-                      size="sm"
                       icon="add"
                       onClick={triggerAddConnection}
                       className="w-full sm:w-auto"
@@ -1766,9 +1750,8 @@ export default function ProviderDetailClient({
               {"Available Models"}
             </h2>
             {providerThinkingLevels && (
-              <ShadcnSelect value={thinkingMode} onValueChange={(value) => handleThinkingModeChange(value)}>
+              <Select value={thinkingMode} onValueChange={(value) => handleThinkingModeChange(value)}>
                 <SelectTrigger
-                  size="sm"
                   className="rounded-md border border-border bg-background px-2 py-1 text-xs"
                   title="Appends (level) suffix to copied model names"
                 >
@@ -1779,7 +1762,7 @@ export default function ProviderDetailClient({
                     <SelectItem key={opt} value={opt}>{`Thinking: ${opt.charAt(0).toUpperCase() + opt.slice(1)}`}</SelectItem>
                   ))}
                 </SelectContent>
-              </ShadcnSelect>
+              </Select>
             )}
           </div>
           {!isCompatible && (() => {
@@ -1791,12 +1774,12 @@ export default function ProviderDetailClient({
             return (
               <div className="flex gap-2">
                 {disabledModelIds.length > 0 && (
-                  <Button size="sm" variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
+                  <Button variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
                     Active All
                   </Button>
                 )}
                 {activeIds.length > 0 && (
-                  <Button size="sm" variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
+                  <Button variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
                     Disable All
                   </Button>
                 )}

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { Input as ShadcnInput } from "@/components/ui/input";
+import { Input as RawInput } from "@/components/ui/input";
 import Input from "./Input";
 import Button from "./Button";
 import ModelSelectModal from "./ModelSelectModal";
@@ -41,7 +41,7 @@ function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown
     <div className="group flex min-w-0 items-center gap-1.5 rounded-md bg-black/[0.02] px-2 py-1 transition-colors hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]">
       <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
       {editing ? (
-        <ShadcnInput autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={handleKeyDown}
+        <RawInput autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={handleKeyDown}
           className="min-w-0 flex-1 px-1.5 py-0.5 font-mono text-xs text-text-main" />
       ) : (
         <div className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-surface-2/50"
@@ -166,7 +166,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
                     <Label className="mb-1 block">Combo Name</Label>
                     <div className="flex items-stretch">
                       <span className="inline-flex items-center px-2 rounded-l border border-r-0 border-black/10 dark:border-white/10 bg-black/[0.04] dark:bg-white/[0.04] text-text-muted font-mono text-sm">{forcePrefix}</span>
-                      <ShadcnInput value={name} onChange={handleNameChange} placeholder="my-combo"
+                      <RawInput value={name} onChange={handleNameChange} placeholder="my-combo"
                         className="flex-1 min-w-0 rounded-l-none px-2 py-1.5 font-mono text-sm" />
                     </div>
                     {nameError && <p className="text-[11px] text-red-500 mt-0.5">{nameError}</p>}

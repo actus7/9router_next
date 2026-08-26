@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 
 type ToastType = "success" | "error" | "warning" | "info";
 

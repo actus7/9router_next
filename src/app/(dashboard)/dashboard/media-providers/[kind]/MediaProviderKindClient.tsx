@@ -3,7 +3,9 @@
 import { useParams, notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { Card, Badge, Button, Toggle, AddCustomEmbeddingModal } from "@/shared/components";
+import { Card, Button, AddCustomEmbeddingModal } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, getProvidersByKind } from "@/shared/constants/providers";
 
@@ -72,14 +74,14 @@ function MediaProviderCard({ provider, kind, connections, isCustom, onToggle }: 
   };
 
   const renderStatus = () => {
-    if (isNoAuth) return <Badge variant="success" size="sm">Ready</Badge>;
-    if (allDisabled) return <Badge variant="default" size="sm">Disabled</Badge>;
+    if (isNoAuth) return <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Ready</Badge>;
+    if (allDisabled) return <Badge variant="secondary" >Disabled</Badge>;
     if (total === 0) return <span className="text-xs text-text-muted">No connections</span>;
     return (
       <>
-        {connected > 0 && <Badge variant="success" size="sm" dot>{connected} Connected</Badge>}
-        {error > 0 && <Badge variant="error" size="sm" dot>{error} Error</Badge>}
-        {connected === 0 && error === 0 && <Badge variant="default" size="sm">{total} Added</Badge>}
+        {connected > 0 && <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">{connected} Connected</Badge>}
+        {error > 0 && <Badge variant="destructive">{error} Error</Badge>}
+        {connected === 0 && error === 0 && <Badge variant="secondary" >{total} Added</Badge>}
       </>
     );
   };
@@ -108,7 +110,7 @@ function MediaProviderCard({ provider, kind, connections, isCustom, onToggle }: 
             <div className="min-w-0">
               <h3 className="font-semibold text-sm">{provider.name}</h3>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {isCustom && <Badge variant="default" size="sm">Custom</Badge>}
+                {isCustom && <Badge variant="secondary" >Custom</Badge>}
                 {renderStatus()}
               </div>
             </div>
@@ -118,11 +120,9 @@ function MediaProviderCard({ provider, kind, connections, isCustom, onToggle }: 
               className="shrink-0 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
               onClick={handleToggleClick}
             >
-              <Toggle
-                size="sm"
+              <Switch
                 checked={!allDisabled}
-                onChange={() => {}}
-                title={allDisabled ? "Enable provider" : "Disable provider"}
+                onCheckedChange={() => {}}
               />
             </div>
           )}
@@ -255,10 +255,10 @@ export default function MediaProviderKindClient({ initialConnections, initialNod
       {(isEmbedding || supportsCombo) && (
         <div className="flex items-center justify-end gap-2">
           {supportsCombo && (
-            <Button size="sm" icon="add" onClick={handleCreateCombo}>Create Combo</Button>
+            <Button icon="add" onClick={handleCreateCombo}>Create Combo</Button>
           )}
           {isEmbedding && (
-            <Button size="sm" icon="add" onClick={() => setShowAddCustomEmbedding(true)}>
+            <Button icon="add" onClick={() => setShowAddCustomEmbedding(true)}>
               Add Custom Embedding
             </Button>
           )}

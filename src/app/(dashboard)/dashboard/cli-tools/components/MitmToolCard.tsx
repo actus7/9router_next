@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, Button, Badge, Input, ModelSelectModal } from "@/shared/components";
-import { Input as ShadcnInput } from "@/components/ui/input";
+import { Card, Button, Input, ModelSelectModal } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
+import { Input as RawInput } from "@/components/ui/input";
 import { TOOL_HOSTS } from "@/shared/constants/mitmToolHosts";
 import Image from "next/image";
 
@@ -145,11 +146,11 @@ export default function MitmToolCard({
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-medium text-sm">{tool.name}</h3>
                 {!serverRunning ? (
-                  <Badge variant="default" size="sm">Server off</Badge>
+                  <Badge variant="secondary" >Server off</Badge>
                 ) : dnsActive ? (
-                  <Badge variant="success" size="sm">Active</Badge>
+                  <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Active</Badge>
                 ) : (
-                  <Badge variant="warning" size="sm">DNS off</Badge>
+                  <Badge variant="default" className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">DNS off</Badge>
                 )}
               </div>
               <p className="text-xs text-text-muted sm:truncate">Intercept {tool.name} requests via MITM proxy</p>
@@ -190,7 +191,7 @@ export default function MitmToolCard({
                     <span className="text-xs font-semibold text-text-main sm:text-right">{model.name}</span>
                     <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
                     <div className="relative w-full min-w-0">
-                      <ShadcnInput
+                      <RawInput
                         type="text"
                         value={modelMappings[model.alias] || ""}
                         onChange={(e) => handleModelMappingChange(model.alias, e.target.value)}
@@ -216,7 +217,6 @@ export default function MitmToolCard({
                     </div>
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={() => openModelSelector(model.alias)}
                       disabled={!hasActiveProviders || !dnsActive}
                       className="rounded px-2 py-2 sm:py-1.5"
@@ -236,7 +236,6 @@ export default function MitmToolCard({
               {dnsActive ? (
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={handleDnsToggle}
                   disabled={!serverRunning || loading}
                   className="flex w-full items-center justify-center gap-1.5 border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 sm:w-auto sm:py-1.5"
@@ -247,7 +246,6 @@ export default function MitmToolCard({
               ) : (
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={handleDnsToggle}
                   disabled={!serverRunning || loading}
                   className="flex w-full items-center justify-center gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 sm:w-auto sm:py-1.5"
@@ -290,10 +288,10 @@ export default function MitmToolCard({
               </div>
             )}
             <div className="flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => { setShowPasswordModal(false); setSudoPassword(""); setModalError(null); }} disabled={loading}>
+              <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setSudoPassword(""); setModalError(null); }} disabled={loading}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" onClick={handleConfirmPassword} loading={loading}>
+              <Button variant="default" onClick={handleConfirmPassword} loading={loading}>
                 Confirm
               </Button>
             </div>

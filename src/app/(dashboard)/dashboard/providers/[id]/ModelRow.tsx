@@ -1,5 +1,5 @@
 import { CapacityBadges } from "@/shared/components";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 
 interface ModelRowProps {
   model: { id: string; name?: string };

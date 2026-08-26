@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, ModelSelectModal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Image from "next/image";

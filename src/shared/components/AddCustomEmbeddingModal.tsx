@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Input, Button, Badge } from "@/shared/components";
+import { Input, Button } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
@@ -116,14 +117,14 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
     if (valid) {
       return (
         <>
-          <Badge variant="success">Valid</Badge>
+          <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Valid</Badge>
           {dimensions && <span className="text-sm text-text-muted">{dimensions} dims</span>}
         </>
       );
     }
     return (
       <div className="flex flex-col gap-1">
-        <Badge variant="error">Invalid</Badge>
+        <Badge variant="destructive">Invalid</Badge>
         {error && <span className="text-sm text-red-500">{error}</span>}
       </div>
     );
@@ -143,7 +144,7 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             {isEdit ? "Edit Custom Embedding" : "Add Custom Embedding"}
           </DialogTitle>
-          <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={onClose} aria-label="Close" variant="ghost" className="p-1.5">
             <span className="material-symbols-outlined text-[20px]">close</span>
           </Button>
         </div>

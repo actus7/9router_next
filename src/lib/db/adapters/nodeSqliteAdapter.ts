@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Built-in node:sqlite adapter — available in Node >= 22.5.0.
 // No native build, no npm install. API mirrors betterSqliteAdapter.
 import { PRAGMA_SQL } from "../schema";
@@ -21,7 +20,7 @@ export async function createNodeSqliteAdapter(filePath: string): Promise<DbAdapt
   // Suppress "ExperimentalWarning: SQLite is an experimental feature" from node:sqlite.
   // Stable enough for production use as of Node 22.x (RC quality).
   const origEmit = process.emit;
-  process.emit = function (name: string | symbol, data: any, ...rest: unknown[]): boolean {
+  (process as any).emit = function (name: string | symbol, data: any, ...rest: unknown[]): boolean { // eslint-disable-line @typescript-eslint/no-explicit-any
     if (name === "warning" && data?.name === "ExperimentalWarning" && /SQLite/i.test(data.message || "")) {
       return false;
     }

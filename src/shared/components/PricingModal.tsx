@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { getDefaultPricing, formatCost } from "@/lib/open-sse/providers/pricing";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 import { Input } from "@/components/ui/input";
 
 interface PricingData {

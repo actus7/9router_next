@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, Button, Input, Toggle, ModelSelectModal } from "@/shared/components";
-import { Button as UIButton } from "@/components/ui/button";
+import { Card, Button, Input, ModelSelectModal } from "@/shared/components";
+import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 
@@ -291,7 +291,7 @@ export default function ComboDetailClient({
               <p className="text-sm font-medium">Round Robin</p>
               <p className="text-xs text-text-muted">Rotate providers across requests instead of strict fallback order.</p>
             </div>
-            <Toggle checked={roundRobin} onChange={handleToggleRoundRobin} />
+            <Switch checked={roundRobin} onCheckedChange={handleToggleRoundRobin} />
           </div>
         </div>
       </Card>
@@ -330,15 +330,15 @@ export default function ComboDetailClient({
                     {model && <code className="text-[10px] text-text-muted font-mono truncate block">{model}</code>}
                   </div>
                   <div className="flex items-center gap-0.5">
-                    <UIButton variant="ghost" size="icon-sm" onClick={() => handleMove(idx, -1)} disabled={idx === 0} className={idx === 0 ? "text-text-muted/20" : ""} title="Move up">
+                    <Button variant="ghost" size="icon-sm" onClick={() => handleMove(idx, -1)} disabled={idx === 0} className={idx === 0 ? "text-text-muted/20" : ""} title="Move up">
                       <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
-                    </UIButton>
-                    <UIButton variant="ghost" size="icon-sm" onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={idx === providers.length - 1 ? "text-text-muted/20" : ""} title="Move down">
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={idx === providers.length - 1 ? "text-text-muted/20" : ""} title="Move down">
                       <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
-                    </UIButton>
-                    <UIButton variant="ghost" size="icon-sm" onClick={() => handleRemoveProvider(idx)} className="text-red-500 hover:bg-red-500/10" title="Remove">
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveProvider(idx)} className="text-red-500 hover:bg-red-500/10" title="Remove">
                       <span className="material-symbols-outlined text-[16px]">close</span>
-                    </UIButton>
+                    </Button>
                   </div>
                 </div>
               );

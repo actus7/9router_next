@@ -5,8 +5,7 @@ export { default as Select } from "./Select";
 export { default as Card } from "./Card";
 export { default as Modal, ConfirmModal } from "./Modal";
 export { CardSkeleton } from "./Loading";
-export { default as Badge } from "./Badge";
-export { default as Toggle } from "./Toggle";
+
 export { default as OAuthModal } from "./OAuthModal";
 export { default as ModelSelectModal } from "./ModelSelectModal";
 export { default as ManualConfigModal } from "./ManualConfigModal";
@@ -21,8 +20,7 @@ export { default as GitLabAuthModal } from "./GitLabAuthModal";
 export { default as EditConnectionModal } from "./EditConnectionModal";
 export { default as AddCustomEmbeddingModal } from "./AddCustomEmbeddingModal";
 export { default as NoAuthProxyCard } from "./NoAuthProxyCard";
-export { default as SegmentedControl } from "./SegmentedControl";
-export { default as Tooltip } from "./Tooltip";
+
 export { default as ProviderInfoCard } from "./ProviderInfoCard";
 export { default as CapacityBadges } from "./CapacityBadges";
 

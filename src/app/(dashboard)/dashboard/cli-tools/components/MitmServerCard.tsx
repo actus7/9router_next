@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, Button, Badge, Input } from "@/shared/components";
-import { Input as ShadcnInput } from "@/components/ui/input";
+import { Card, Button, Input } from "@/shared/components";
+import { Badge } from "@/components/ui/badge";
+import { Input as RawInput } from "@/components/ui/input";
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 
@@ -151,9 +152,9 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
               <span className="material-symbols-outlined text-primary text-[20px]">security</span>
               <span className="font-semibold text-sm text-text-main">MITM Server</span>
               {isRunning ? (
-                <Badge variant="success" size="sm">Running</Badge>
+                <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Running</Badge>
               ) : (
-                <Badge variant="default" size="sm">Stopped</Badge>
+                <Badge variant="secondary" >Stopped</Badge>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-1 text-xs text-text-muted" data-i18n-skip="true">
@@ -185,7 +186,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             <div className="grid gap-1 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
               <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">9Router Base URL</span>
               <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-              <ShadcnInput
+              <RawInput
                 type="text"
                 value={mitmRouterBaseUrl}
                 onChange={(e) => setMitmRouterBaseUrl(e.target.value)}
@@ -198,7 +199,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
               <div className="grid gap-1 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
                 <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">API Key</span>
                 <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                <ShadcnInput
+                <RawInput
                   type="text"
                   list="mitm-api-keys"
                   value={selectedApiKey}
@@ -221,7 +222,6 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             {status?.certExists && !status?.certTrusted && (
               <Button
                 variant="outline"
-                size="sm"
                 onClick={() => handleAction("trust-cert")}
                 disabled={loading}
                 className="flex w-full items-center justify-center gap-1.5 border-yellow-500/30 bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 sm:w-auto sm:py-1.5"
@@ -233,7 +233,6 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             {isRunning ? (
               <Button
                 variant="outline"
-                size="sm"
                 onClick={() => handleAction("stop")}
                 disabled={loading}
                 className="flex w-full items-center justify-center gap-1.5 border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 sm:w-auto sm:py-1.5"
@@ -244,7 +243,6 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             ) : (
               <Button
                 variant="outline"
-                size="sm"
                 onClick={() => handleAction("start")}
                 disabled={loading || !status || (serverIsWindows && !isAdmin)}
                 title={serverIsWindows && !isAdmin ? "Administrator required" : undefined}
@@ -297,10 +295,10 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
               </div>
             )}
             <div className="flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => { setShowPasswordModal(false); setSudoPassword(""); setModalError(null); }} disabled={loading}>
+              <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setSudoPassword(""); setModalError(null); }} disabled={loading}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" onClick={handleConfirmPassword} loading={loading}>
+              <Button variant="default" onClick={handleConfirmPassword} loading={loading}>
                 Confirm
               </Button>
             </div>
@@ -323,10 +321,10 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
               </div>
             </div>
             <div className="flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => { setPort443Conflict(null); setLoading(false); }} disabled={loading}>
+              <Button variant="ghost" onClick={() => { setPort443Conflict(null); setLoading(false); }} disabled={loading}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" onClick={handleKillAndStart} loading={loading}>
+              <Button variant="default" onClick={handleKillAndStart} loading={loading}>
                 Kill & Start
               </Button>
             </div>

@@ -1,9 +1,8 @@
-// @ts-nocheck
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { formatResetTime, getRemainingPercentage } from "./utils";
-import { Button } from "@/components/ui/button";
+import Button from "@/shared/components/Button";
 
 const PAGE_SIZE = 10;
 
