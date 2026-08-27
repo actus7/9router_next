@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useNotificationStore } from "@/store/notificationStore";
-import { ChevronDown, ChevronUp, Cloud, CloudUpload, FlaskConical, ListChecks, Loader2, Pencil, Terminal, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Cloud, CloudUpload, FlaskConical, ListChecks, Loader2, Pencil, Plus, Rocket, Terminal, ToggleLeft, ToggleRight, Trash2, Upload } from "lucide-react";
 
 interface ProxyPool {
   id: string;
@@ -602,7 +602,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
           <div className="relative" ref={relayMenuRef}>
             <Button
               variant="secondary"
-              icon="rocket_launch"
+              icon={<Rocket className="size-4" />}
               onClick={() => setShowRelayMenu(!showRelayMenu)}
             >
               Deploy Relay
@@ -648,10 +648,10 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
             )}
           </div>
 
-          <Button variant="secondary" icon="upload" onClick={openBatchImportModal}>
+          <Button variant="secondary" icon={<Upload className="size-4" />} onClick={openBatchImportModal}>
             Batch Import
           </Button>
-          <Button icon="add" onClick={openCreateModal}>Add Proxy Pool</Button>
+          <Button icon={<Plus className="size-4" />} onClick={openCreateModal}>Add Proxy Pool</Button>
         </div>
       </div>
 
@@ -692,13 +692,13 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
               </Button>
               {selectedIds.length > 0 && (
                 <>
-                  <Button variant="secondary" icon="toggle_on" onClick={() => bulkSetActive(true)} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon={<ToggleRight className="size-4" />} onClick={() => bulkSetActive(true)} disabled={bulkBusy || healthChecking}>
                     Activate
                   </Button>
-                  <Button variant="secondary" icon="toggle_off" onClick={() => bulkSetActive(false)} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon={<ToggleLeft className="size-4" />} onClick={() => bulkSetActive(false)} disabled={bulkBusy || healthChecking}>
                     Deactivate
                   </Button>
-                  <Button variant="secondary" icon="delete" onClick={bulkDelete} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon={<Trash2 className="size-4" />} onClick={bulkDelete} disabled={bulkBusy || healthChecking}>
                     Delete
                   </Button>
                   <Button variant="ghost" onClick={clearSelection} disabled={bulkBusy || healthChecking}>
@@ -716,7 +716,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
             <p className="text-sm text-text-muted mb-4">
               Create a proxy pool entry, then assign it to connections.
             </p>
-            <Button icon="add" onClick={openCreateModal}>Add Proxy Pool</Button>
+            <Button icon={<Plus className="size-4" />} onClick={openCreateModal}>Add Proxy Pool</Button>
           </div>
         ) : (
           <div className="flex flex-col divide-y divide-black/[0.04] dark:divide-white/[0.05]">

@@ -5,7 +5,7 @@ import { Button } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
-import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, Trash2, X } from "lucide-react";
+import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 
 interface PassthroughModelRowProps {
@@ -164,7 +164,7 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
             className="w-full px-3 py-2 text-sm"
           />
         </div>
-        <Button size="sm" icon="add" onClick={handleAdd} disabled={!newModel.trim() || adding}>
+        <Button size="sm" icon={<Plus className="size-4" />} onClick={handleAdd} disabled={!newModel.trim() || adding}>
           {adding ? "Adding..." : "Add"}
         </Button>
       </div>

@@ -23,7 +23,7 @@ import { useNotificationStore } from "@/store/notificationStore";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import ModelAvailabilityBadge from "./components/ModelAvailabilityBadge";
 import AddCompatibleModal from "./components/AddCompatibleModal";
-import { AlertCircle, CheckCircle2, ChevronDown, Loader2, PauseCircle, Play, Puzzle, SearchX } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, Loader2, PauseCircle, Play, Plus, Puzzle, SearchX } from "lucide-react";
 
 interface Connection {
   id: string;
@@ -386,7 +386,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           </h2>
           <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
             <Button
-              icon="add"
+              icon={<Plus className="size-4" />}
               onClick={() => setShowAddAnthropicCompatibleModal(true)}
               className="w-full sm:w-auto"
             >
@@ -394,7 +394,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
             </Button>
             <Button
               variant="outline"
-              icon="add"
+              icon={<Plus className="size-4" />}
               onClick={() => setShowAddCompatibleModal(true)}
               className="w-full sm:w-auto"
             >

@@ -7,7 +7,7 @@ import { Card, Button, Input, ModelSelectModal, ConfirmModal } from "@/shared/co
 import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
-import { ArrowDown, ArrowLeft, ArrowUp, Download, Layers, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Download, Layers, Play, Plus, Trash2, X } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 
 interface Combo {
@@ -277,7 +277,7 @@ export default function ComboDetailClient({
             <code className="text-lg font-semibold font-mono">{combo.name}</code>
           </div>
         </div>
-        <Button variant="outline" icon="delete" onClick={() => setShowDeleteConfirm(true)} className="text-red-500 border-red-200 hover:bg-red-50">
+        <Button variant="outline" icon={<Trash2 className="size-4" />} onClick={() => setShowDeleteConfirm(true)} className="text-red-500 border-red-200 hover:bg-red-50">
           Delete
         </Button>
       </div>
@@ -307,7 +307,7 @@ export default function ComboDetailClient({
             <h2 className="text-lg font-semibold">Providers</h2>
             <p className="text-xs text-text-muted">Tried in order (top-down) or rotated when round-robin is on.</p>
           </div>
-          <Button size="sm" icon="add" onClick={() => setShowPicker(true)}>Add Provider</Button>
+          <Button size="sm" icon={<Plus className="size-4" />} onClick={() => setShowPicker(true)}>Add Provider</Button>
         </div>
         {providers.length === 0 ? (
           <div className="text-center py-6 border border-dashed border-border rounded-lg text-text-muted text-sm">
@@ -356,7 +356,7 @@ export default function ComboDetailClient({
         <Card>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
             <h2 className="text-lg font-semibold">Test Example</h2>
-            <Button size="sm" icon="play_arrow" onClick={handleTest} disabled={testing || providers.length === 0}>
+            <Button size="sm" icon={<Play className="size-4" />} onClick={handleTest} disabled={testing || providers.length === 0}>
               {testing ? "Running..." : "Run"}
             </Button>
           </div>

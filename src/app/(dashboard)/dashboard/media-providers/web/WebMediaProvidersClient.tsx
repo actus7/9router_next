@@ -7,7 +7,7 @@ import { Card, Button } from "@/shared/components";
 import { Badge } from "@/components/ui/badge";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, getProvidersByKind } from "@/shared/constants/providers";
-import { ChevronRight, Layers } from "lucide-react";
+import { ChevronRight, Globe, Layers, Plus, Search } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 
 interface Connection {
@@ -134,7 +134,7 @@ function ComboList({ combos }: { combos: Combo[] }) {
 
 function Section({ title, icon, kind, providers, connections, combos, onCreateCombo }: {
   title: string;
-  icon: string;
+  icon: React.ReactNode;
   kind: string;
   providers: Provider[];
   connections: Connection[];
@@ -150,7 +150,7 @@ function Section({ title, icon, kind, providers, connections, combos, onCreateCo
           <h2 className="text-base font-semibold">{title}</h2>
           <span className="text-xs text-text-muted">({providers.length} providers · {combos.length} combos)</span>
         </div>
-        <Button icon="add" onClick={onCreateCombo}>Create Combo</Button>
+        <Button icon={<Plus className="size-4" />} onClick={onCreateCombo}>Create Combo</Button>
       </div>
 
       {/* Combos — top */}
@@ -216,7 +216,7 @@ export default function WebMediaProvidersClient({ initialConnections, initialCom
   return (
     <div className="flex flex-col gap-8">
       <Section
-        title="Web Search" icon="search" kind="webSearch"
+        title="Web Search" icon={<Search className="size-4" />} kind="webSearch"
         providers={searchProviders} connections={connections} combos={searchCombos}
         onCreateCombo={() => handleCreateCombo("webSearch")}
       />
@@ -225,7 +225,7 @@ export default function WebMediaProvidersClient({ initialConnections, initialCom
       <div className="border-t border-border" />
 
       <Section
-        title="Web Fetch" icon="travel_explore" kind="webFetch"
+        title="Web Fetch" icon={<Globe className="size-4" />} kind="webFetch"
         providers={fetchProviders} connections={connections} combos={fetchCombos}
         onCreateCombo={() => handleCreateCombo("webFetch")}
       />

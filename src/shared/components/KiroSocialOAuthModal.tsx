@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input } from "@/shared/components";
 import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, Copy, Loader2, X } from "lucide-react";
 
 interface AuthData {
   authUrl: string;
@@ -163,7 +163,7 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
                   <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
                   <Button 
                     variant="secondary" 
-                    icon={copied === "auth_url" ? "check" : "content_copy"} 
+                    icon={copied === "auth_url" ? <Check className="size-4" /> : <Copy className="size-4" />} 
                     onClick={() => copy(authUrl, "auth_url")}
                   >
                     Copy

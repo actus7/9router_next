@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, Button } from "@/shared/components";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
+import { Trash2 } from "lucide-react";
 
 const LOG_LEVEL_COLORS: Record<string, string> = {
   LOG: "text-green-400",
@@ -72,7 +73,7 @@ export default function ConsoleLogClient() {
     <div className="">
       <Card>
         <div className="flex items-center justify-end px-4 pt-3 pb-2">
-          <Button size="sm" variant="outline" icon="delete" onClick={handleClear}>
+          <Button size="sm" variant="outline" icon={<Trash2 className="size-4" />} onClick={handleClear}>
             Clear
           </Button>
         </div>

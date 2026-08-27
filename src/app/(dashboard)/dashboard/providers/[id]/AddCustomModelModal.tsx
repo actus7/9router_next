@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button, Modal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, FlaskConical, XCircle } from "lucide-react";
 
 interface AddCustomModelModalProps {
   isOpen: boolean;
@@ -83,7 +83,7 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
             />
             <Button
               variant="secondary"
-              icon="science"
+              icon={<FlaskConical className="size-4" />}
               loading={testStatus === "testing"}
               onClick={handleTest}
               disabled={!modelId.trim() || testStatus === "testing"}

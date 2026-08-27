@@ -14,7 +14,7 @@ import { EmbeddingExampleCard } from "./components/EmbeddingExampleCard";
 import { TtsExampleCard } from "./components/TtsExampleCard";
 import { GenericExampleCard } from "./components/GenericExampleCard";
 import { SttExampleCard } from "./components/SttExampleCard";
-import { ArrowLeft, ExternalLink, Info, TriangleAlert } from "lucide-react";
+import { ArrowLeft, ExternalLink, Info, Pencil, Trash2, TriangleAlert } from "lucide-react";
 
 interface CustomNode {
   id: string;
@@ -118,10 +118,10 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
           </div>
           {isCustom && (
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <Button variant="secondary" icon="edit" onClick={() => setShowEditModal(true)}>
+              <Button variant="secondary" icon={<Pencil className="size-4" />} onClick={() => setShowEditModal(true)}>
                 Edit
               </Button>
-              <Button variant="secondary" icon="delete" onClick={() => setShowDeleteConfirm(true)}>
+              <Button variant="secondary" icon={<Trash2 className="size-4" />} onClick={() => setShowDeleteConfirm(true)}>
                 Delete
               </Button>
             </div>

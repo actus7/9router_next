@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network, Pencil, Plus, Trash2 } from "lucide-react";
 
 // ── CooldownTimer ──────────────────────────────────────────────
 interface CooldownTimerProps {
@@ -468,7 +468,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
         {connections.length === 0 ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-text-muted">No connections yet</p>
-            <Button icon="add" onClick={() => setShowAddModal(true)}>Add Connection</Button>
+            <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>Add Connection</Button>
           </div>
         ) : (
           <>
@@ -491,7 +491,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
               ))}
             </div>
             <div className="mt-4 flex justify-stretch sm:justify-start">
-              <Button icon="add" onClick={() => setShowAddModal(true)}>Add</Button>
+              <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>Add</Button>
             </div>
           </>
         )}

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input } from "@/shared/components";
 import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, Copy, ExternalLink, Loader2, X } from "lucide-react";
 
 // Providers using the dynamic-port local callback proxy.
 // Browser OAuth: popup → auto callback → auto exchange → poll-status.
@@ -772,7 +772,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                 </p>
                 <div className="flex gap-2">
                   <Input value={(authData?.authUrl as string) || ""} readOnly className="flex-1 font-mono text-xs" />
-                  <Button variant="secondary" icon={copied === "auth_url" ? "check" : "content_copy"} onClick={() => copy(authData?.authUrl as string, "auth_url")} disabled={!authData?.authUrl}>
+                  <Button variant="secondary" icon={copied === "auth_url" ? <Check className="size-4" /> : <Copy className="size-4" />} onClick={() => copy(authData?.authUrl as string, "auth_url")} disabled={!authData?.authUrl}>
                     Copy
                   </Button>
                 </div>
@@ -823,14 +823,14 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                   <Button
                     size="sm"
                     variant="ghost"
-                    icon={copied === "login_url" ? "check" : "content_copy"}
+                    icon={copied === "login_url" ? <Check className="size-4" /> : <Copy className="size-4" />}
                     onClick={() => copy(deviceLoginUrl, "login_url")}
                     disabled={!deviceLoginUrl}
                   />
                   <Button
                     size="sm"
                     variant="ghost"
-                    icon="open_in_new"
+                    icon={<ExternalLink className="size-4" />}
                     onClick={() => window.open(deviceLoginUrl, "_blank", "noopener,noreferrer")}
                     disabled={!deviceLoginUrl}
                   >
@@ -845,7 +845,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                   <Button
                     size="sm"
                     variant="ghost"
-                    icon={copied === "user_code" ? "check" : "content_copy"}
+                    icon={copied === "user_code" ? <Check className="size-4" /> : <Copy className="size-4" />}
                     onClick={() => copy(deviceData.user_code as string, "user_code")}
                   />
                 </div>

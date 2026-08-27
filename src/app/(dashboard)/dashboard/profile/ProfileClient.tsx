@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { LOCALE_FLAGS } from "@/shared/constants/locales";
-import { BarChart3, BookOpen, ChevronDown, ChevronUp, Contrast, Download, Globe, Monitor, Moon, Route, Shield, Sun, Unlock, Wifi } from "lucide-react";
+import { BarChart3, BookOpen, ChevronDown, ChevronUp, Contrast, Copy, Download, Globe, LogOut, Monitor, Moon, Power, Route, Shield, Sun, Unlock, Upload, Wifi } from "lucide-react";
 
 interface Settings {
   fallbackStrategy?: string;
@@ -797,7 +797,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="secondary"
-                icon="download"
+                icon={<Download className="size-4" />}
                 onClick={() => setDbAuth({ open: true, mode: "export", password: "" })}
                 loading={dbLoading}
                 className="w-full sm:w-auto"
@@ -806,7 +806,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
               </Button>
               <Button
                 variant="outline"
-                icon="upload"
+                icon={<Upload className="size-4" />}
                 onClick={() => importFileRef.current?.click()}
                 disabled={dbLoading}
                 className="w-full sm:w-auto"
@@ -1150,7 +1150,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       type="button"
                       variant="outline"
                       size="sm"
-                      icon="upload_file"
+                      icon={<Upload className="size-4" />}
                       onClick={() => idpMetadataFileRef.current?.click()}
                     >
                       Upload Metadata XML
@@ -1192,7 +1192,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                           type="button"
                           variant="outline"
                           size="sm"
-                          icon="file_upload"
+                          icon={<Upload className="size-4" />}
                           onClick={() => certFileRef.current?.click()}
                         >
                           Upload Certificate
@@ -1259,7 +1259,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                         type="button"
                         variant="outline"
                         size="sm"
-                        icon="content_copy"
+                        icon={<Copy className="size-4" />}
                         onClick={() => {
                           navigator.clipboard.writeText(samlAcsUrl);
                           setSamlStatus({ type: "success", message: "ACS URL copied to clipboard!" });
@@ -1610,7 +1610,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           <Button
             variant="outline"
             fullWidth
-            icon="power_settings_new"
+            icon={<Power className="size-4" />}
             onClick={() => setShutdownOpen(true)}
             className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
           >
@@ -1619,7 +1619,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           <Button
             variant="outline"
             fullWidth
-            icon="logout"
+            icon={<LogOut className="size-4" />}
             onClick={handleLogout}
           >
             Logout

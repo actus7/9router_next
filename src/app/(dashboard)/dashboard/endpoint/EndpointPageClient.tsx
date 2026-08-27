@@ -17,7 +17,7 @@ import EndpointRow from "./components/EndpointRow";
 import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
-import { AlertCircle, Check, CheckCircle2, CloudUpload, Copy, Eye, EyeOff, KeyRound, Loader2, Power, Trash2, Webhook } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, CloudUpload, Copy, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Lock, Plus, Power, Trash2, Webhook } from "lucide-react";
 interface APIPageClientProps {
   machineId?: string;
 }
@@ -800,7 +800,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   <AlertCircle className="size-4" />
                   {tunnelStatus.message}
                 </div>
-                <Button size="sm" icon="cloud_upload" onClick={() => setShowEnableTunnelModal(true)}>Enable</Button>
+                <Button size="sm" icon={<CloudUpload className="size-4" />} onClick={() => setShowEnableTunnelModal(true)}>Enable</Button>
               </>
             ) : tunnelChecking ? (
               <>
@@ -820,7 +820,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             ) : (
               <Button
                 size="sm"
-                icon="cloud_upload"
+                icon={<CloudUpload className="size-4" />}
                 onClick={() => {
                   if (isLoginUnsafe) {
                     setTunnelStatus({ type: "error", message: `Security required: ${unsafeReason}` });
@@ -885,7 +885,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                 {tsAuthUrl && (
                   <Button
                     size="sm"
-                    icon="open_in_new"
+                    icon={<ExternalLink className="size-4" />}
                     onClick={() => window.open(tsAuthUrl, "tailscale_auth", "width=600,height=700,noopener,noreferrer")}
                   >
                     {tsAuthLabel || "Open"}
@@ -906,12 +906,12 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   <AlertCircle className="size-4" />
                   {tsStatus.message}
                 </div>
-                <Button size="sm" icon="vpn_lock" onClick={handleOpenTsModal}>Enable</Button>
+                <Button size="sm" icon={<Lock className="size-4" />} onClick={handleOpenTsModal}>Enable</Button>
               </>
             ) : (
               <Button
                 size="sm"
-                icon="vpn_lock"
+                icon={<Lock className="size-4" />}
                 onClick={() => {
                   if (isLoginUnsafe) {
                     setTsStatus({ type: "error", message: `Security required: ${unsafeReason}` });
@@ -984,7 +984,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             <KeyRound className="size-4" />
             API Keys
           </h2>
-          <Button icon="add" onClick={() => setShowAddModal(true)}>
+          <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>
             Create Key
           </Button>
         </div>
@@ -1015,7 +1015,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             </div>
             <p className="text-text-main font-medium mb-1">No API keys yet</p>
             <p className="text-sm text-text-muted mb-4">Create your first API key to get started</p>
-            <Button icon="add" onClick={() => setShowAddModal(true)}>
+            <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>
               Create Key
             </Button>
           </div>
@@ -1147,7 +1147,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             />
             <Button
               variant="secondary"
-              icon={copied === "created_key" ? "check" : "content_copy"}
+              icon={copied === "created_key" ? <Check className="size-4" /> : <Copy className="size-4" />}
               onClick={() => copy(createdKey, "created_key")}
             >
               {copied === "created_key" ? "Copied!" : "Copy"}

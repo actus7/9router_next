@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, Button } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import dynamic from "next/dynamic";
-import { ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowRight, Braces, ChevronDown, ChevronRight, Copy, FolderOpen, Send } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -222,9 +222,9 @@ export default function TranslatorClient() {
 
   // Render action button per step
   const getAction = (stepId: number) => {
-    if (stepId === 1) return <Button size="sm" icon="arrow_forward" loading={loading["toOpenAI"]} onClick={handleToOpenAI}>→ OpenAI</Button>;
-    if (stepId === 3) return <Button size="sm" icon="arrow_forward" loading={loading["toTarget"]} onClick={handleToTarget}>→ Target</Button>;
-    if (stepId === 4) return <Button size="sm" icon="send" loading={loading["send"]} onClick={handleSend}>Send</Button>;
+    if (stepId === 1) return <Button size="sm" icon={<ArrowRight className="size-4" />} loading={loading["toOpenAI"]} onClick={handleToOpenAI}>→ OpenAI</Button>;
+    if (stepId === 3) return <Button size="sm" icon={<ArrowRight className="size-4" />} loading={loading["toTarget"]} onClick={handleToTarget}>→ Target</Button>;
+    if (stepId === 4) return <Button size="sm" icon={<Send className="size-4" />} loading={loading["send"]} onClick={handleSend}>Send</Button>;
     return null;
   };
 
@@ -266,7 +266,7 @@ export default function TranslatorClient() {
                 </Button>
                 {!isExpanded && (
                   <div className="flex gap-1 shrink-0">
-                    <Button size="sm" variant="ghost" icon="folder_open" loading={loading[`load-${step.id}`]} onClick={() => handleLoad(step.id)} />
+                    <Button size="sm" variant="ghost" icon={<FolderOpen className="size-4" />} loading={loading[`load-${step.id}`]} onClick={() => handleLoad(step.id)} />
                     {action}
                   </div>
                 )}
@@ -289,9 +289,9 @@ export default function TranslatorClient() {
                     />
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" icon="folder_open" loading={loading[`load-${step.id}`]} onClick={() => handleLoad(step.id)}>Load</Button>
-                    <Button size="sm" variant="outline" icon="data_object" onClick={() => handleFormat(step.id)}>Format</Button>
-                    <Button size="sm" variant="outline" icon="content_copy" onClick={() => handleCopy(step.id)}>Copy</Button>
+                    <Button size="sm" variant="outline" icon={<FolderOpen className="size-4" />} loading={loading[`load-${step.id}`]} onClick={() => handleLoad(step.id)}>Load</Button>
+                    <Button size="sm" variant="outline" icon={<Braces className="size-4" />} onClick={() => handleFormat(step.id)}>Format</Button>
+                    <Button size="sm" variant="outline" icon={<Copy className="size-4" />} onClick={() => handleCopy(step.id)}>Copy</Button>
                     {action}
                   </div>
                 </>

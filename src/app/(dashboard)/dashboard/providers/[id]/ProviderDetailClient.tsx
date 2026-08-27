@@ -29,7 +29,7 @@ import AddApiKeyModal from "./AddApiKeyModal";
 import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
 import BulkImportCodexModal from "./BulkImportCodexModal";
-import { ArrowLeft, ArrowLeftRight, Download, ExternalLink, Info, Key, Loader2, Lock, Network, Plus, RefreshCw, TriangleAlert, Unlink } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Ban, Cookie, Download, ExternalLink, Info, Key, ListPlus, Loader2, Lock, Network, Pencil, Plus, RefreshCw, RotateCcw, Square, Trash2, TriangleAlert, Unlink } from "lucide-react";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
 
@@ -749,8 +749,13 @@ export default function ProviderDetailClient({
         const data = await res.json();
         fetched = data.data || data.models || [];
       } else {
-        notify.error(translate("No active connection available"));
-        return;
+        // No connection and not a custom compatible node — try the provider's public models API (free/no-auth providers)
+        const fetcher = (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId])?.modelsFetcher as { url: string; type: string } | undefined;
+        if (!fetcher) {
+          notify.error(translate("No active connection available"));
+          return;
+        }
+        fetched = await fetchSuggestedModels(fetcher);
       }
 
       if (fetched.length === 0) {
@@ -1559,7 +1564,7 @@ export default function ProviderDetailClient({
             </div>
             <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
               <Button
-                icon="add"
+                icon={<Plus className="size-4" />}
                 onClick={() => {
                   setAddConnectionError("");
                   setShowAddApiKeyModal(true);
@@ -1570,7 +1575,7 @@ export default function ProviderDetailClient({
               </Button>
               <Button
                 variant="secondary"
-                icon="edit"
+                icon={<Pencil className="size-4" />}
                 onClick={() => setShowEditNodeModal(true)}
                 className="w-full sm:w-auto"
               >
@@ -1578,7 +1583,7 @@ export default function ProviderDetailClient({
               </Button>
               <Button
                 variant="secondary"
-                icon="delete"
+                icon={<Trash2 className="size-4" />}
                 onClick={async () => {
                   setConfirmState({
                     title: "Delete Compatible Node",
@@ -1616,7 +1621,7 @@ export default function ProviderDetailClient({
               {connections.length > 0 && proxyPools.length > 0 && (
                 <Button
                   variant="secondary"
-                  icon="lan"
+                  icon={<Network className="size-4" />}
                   onClick={() => setShowBulkProxyModal(true)}
                 >
                   Apply Proxy
@@ -1627,7 +1632,7 @@ export default function ProviderDetailClient({
                   {selectedConnectionIds.length > 0 && (
                     <Button
                       variant="danger"
-                      icon="delete"
+                      icon={<Trash2 className="size-4" />}
                       onClick={handleBulkDelete}
                     >
                       Delete Selected ({selectedConnectionIds.length})
@@ -1635,7 +1640,7 @@ export default function ProviderDetailClient({
                   )}
                   <Button
                     variant="secondary"
-                    icon="sync"
+                    icon={<RefreshCw className="size-4" />}
                     onClick={handleRunOneByOneTest}
                     disabled={oneByOneRunning}
                   >
@@ -1644,7 +1649,7 @@ export default function ProviderDetailClient({
                   {oneByOneRunning && (
                     <Button
                       variant="ghost"
-                      icon="stop"
+                      icon={<Square className="size-4" />}
                       onClick={handleStopOneByOneTest}
                       disabled={oneByOneStopping}
                     >
@@ -1695,27 +1700,27 @@ export default function ProviderDetailClient({
               <div className="flex gap-2">
                 {hasDualAuthModes ? (
                   <>
-                    <Button icon="lock" variant="secondary" onClick={triggerOAuthConnection}>
+                    <Button icon={<Lock className="size-4" />} variant="secondary" onClick={triggerOAuthConnection}>
                       {oauthConnectionLabel}
                     </Button>
-                    <Button icon="key" onClick={triggerApiKeyConnection}>
+                    <Button icon={<Key className="size-4" />} onClick={triggerApiKeyConnection}>
                       {apiKeyConnectionLabel}
                     </Button>
                   </>
                 ) : (
                   <>
                     {!isCompatible && providerId === "iflow" && (
-                      <Button icon="cookie" variant="secondary" onClick={() => setShowIFlowCookieModal(true)}>
+                      <Button icon={<Cookie className="size-4" />} variant="secondary" onClick={() => setShowIFlowCookieModal(true)}>
                         Cookie
                       </Button>
                     )}
                     {providerId === "codex" && (
-                      <Button icon="playlist_add" variant="secondary" onClick={() => setShowBulkImportCodex(true)}>
+                      <Button icon={<ListPlus className="size-4" />} variant="secondary" onClick={() => setShowBulkImportCodex(true)}>
                         {translate("Bulk Add")}
                       </Button>
                     )}
                     <Button
-                      icon="add"
+                      icon={<Plus className="size-4" />}
                       onClick={triggerAddConnection}
                     >
                       {isCompatible ? "Add API Key" : (providerId === "iflow" ? "OAuth" : "Add Connection")}
@@ -1764,7 +1769,7 @@ export default function ProviderDetailClient({
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
                   {providerId === "iflow" && (
                     <Button
-                      icon="cookie"
+                      icon={<Cookie className="size-4" />}
                       variant="secondary"
                       onClick={() => setShowIFlowCookieModal(true)}
                       title="Add connection using browser cookie"
@@ -1775,7 +1780,7 @@ export default function ProviderDetailClient({
                   )}
                   {providerId === "codex" && (
                     <Button
-                      icon="playlist_add"
+                      icon={<ListPlus className="size-4" />}
                       variant="secondary"
                       onClick={() => setShowBulkImportCodex(true)}
                       title={translate("Bulk import codex accounts from JSON")}
@@ -1787,7 +1792,7 @@ export default function ProviderDetailClient({
                   {hasDualAuthModes ? (
                     <>
                       <Button
-                        icon="lock"
+                        icon={<Lock className="size-4" />}
                         variant="secondary"
                         onClick={triggerOAuthConnection}
                         className="w-full sm:w-auto"
@@ -1795,7 +1800,7 @@ export default function ProviderDetailClient({
                         {oauthConnectionLabel}
                       </Button>
                       <Button
-                        icon="key"
+                        icon={<Key className="size-4" />}
                         onClick={triggerApiKeyConnection}
                         className="w-full sm:w-auto"
                       >
@@ -1804,7 +1809,7 @@ export default function ProviderDetailClient({
                     </>
                   ) : (
                     <Button
-                      icon="add"
+                      icon={<Plus className="size-4" />}
                       onClick={triggerAddConnection}
                       className="w-full sm:w-auto"
                     >
@@ -1860,12 +1865,12 @@ export default function ProviderDetailClient({
               return (
                 <div className="flex gap-2">
                   {disabledModelIds.length > 0 && (
-                    <Button variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
+                    <Button variant="secondary" icon={<RotateCcw className="size-4" />} onClick={handleEnableAll}>
                       Active All
                     </Button>
                   )}
                   {activeIds.length > 0 && (
-                    <Button variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
+                    <Button variant="secondary" icon={<Ban className="size-4" />} onClick={() => handleDisableAll(activeIds)}>
                       Disable All
                     </Button>
                   )}

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, getProvidersByKind } from "@/shared/constants/providers";
-import { ChevronRight, Layers } from "lucide-react";
+import { ChevronRight, Layers, Plus } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 
 interface Connection {
@@ -258,10 +258,10 @@ export default function MediaProviderKindClient({ initialConnections, initialNod
       {(isEmbedding || supportsCombo) && (
         <div className="flex items-center justify-end gap-2">
           {supportsCombo && (
-            <Button icon="add" onClick={handleCreateCombo}>Create Combo</Button>
+            <Button icon={<Plus className="size-4" />} onClick={handleCreateCombo}>Create Combo</Button>
           )}
           {isEmbedding && (
-            <Button icon="add" onClick={() => setShowAddCustomEmbedding(true)}>
+            <Button icon={<Plus className="size-4" />} onClick={() => setShowAddCustomEmbedding(true)}>
               Add Custom Embedding
             </Button>
           )}

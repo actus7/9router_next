@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
-import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, MessageSquare, Paperclip, Square, X } from "lucide-react";
+import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, MessageSquare, Paperclip, Square, Trash2, X } from "lucide-react";
 
 const STORAGE_KEYS = {
   sessions: "basic-chat.sessions",
@@ -813,7 +813,7 @@ export default function BasicChatPageClient() {
             >
               History
             </Button>
-            <Button variant="ghost" icon="delete" onClick={handleDeleteCurrentChat} disabled={!activeSessionId || sessions.length === 0}>
+            <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={handleDeleteCurrentChat} disabled={!activeSessionId || sessions.length === 0}>
               Clear
             </Button>
           </div>

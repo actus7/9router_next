@@ -215,7 +215,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
             <li><span className="font-medium text-text-main">Fusion</span> — queries all models in parallel, then a judge synthesizes one answer. Best quality, but costs the most: every request bills all panel models + the judge (N+1 calls)</li>
           </ul>
         </div>
-        <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto whitespace-nowrap">
+        <Button icon={<Plus className="size-4" />} onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto whitespace-nowrap">
           Create Combo
         </Button>
       </div>
@@ -229,7 +229,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
             </div>
             <p className="text-text-main font-medium mb-1">No combos yet</p>
             <p className="text-sm text-text-muted mb-4">Create model combos with fallback support</p>
-            <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
+            <Button icon={<Plus className="size-4" />} onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
               Create Combo
             </Button>
           </div>
@@ -560,7 +560,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
             <span>Round</span>
           </Label>
           <Button
-            icon="add"
+            icon={<Plus className="size-4" />}
             variant="ghost"
             size="sm"
             onClick={() => setShowModelSelect(true)}
