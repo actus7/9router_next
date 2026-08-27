@@ -723,15 +723,14 @@ export default function ProviderDetailClient({
   const handleRefreshModels = async () => {
     if (refreshingModels) return;
     const activeConnection = connections.find((conn) => conn.isActive !== false);
-    if (!activeConnection && !isFreeNoAuth) {
+    if (!activeConnection) {
       notify.error(translate("No active connection available"));
       return;
     }
 
     setRefreshingModels(true);
     try {
-      const connectionId = activeConnection?.id || providerId;
-      const res = await fetch(`/api/providers/${connectionId}/models`, { cache: "no-store" });
+      const res = await fetch(`/api/providers/${activeConnection.id}/models`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         notify.error(data.error || translate("Failed to fetch models"));
@@ -742,8 +741,33 @@ export default function ProviderDetailClient({
         notify.warning(translate("No models returned"));
         return;
       }
+
+      const fetchedIds = new Set(fetched.map((m: { id?: string; name?: string }) => m.id || m.name));
+
+      // For compatible providers: sync custom models (add new, remove stale)
+      if (isCompatible) {
+        const existingCustom = customModels.filter(
+          (entry) => entry.providerAlias === providerStorageAlias && (entry.kind || entry.type || "llm") === "llm"
+        );
+        // Remove custom models no longer in the fetched list
+        for (const entry of existingCustom) {
+          if (!fetchedIds.has(entry.id)) {
+            await handleDeleteCustomModel(entry.id, "llm", providerStorageAlias);
+          }
+        }
+        // Add new models not yet in custom or static
+        const staticIds = new Set(staticModels.map((m) => m.id));
+        const existingCustomIds = new Set(existingCustom.map((e) => e.id));
+        for (const m of fetched) {
+          const mid = m.id || m.name;
+          if (mid && !staticIds.has(mid) && !existingCustomIds.has(mid)) {
+            await handleAddCustomModel(mid, "llm", providerStorageAlias);
+          }
+        }
+      }
+
       setLiveModels(fetched);
-      notify.success(`Refreshed ${fetched.length} models`);
+      notify.success(`Atualizado: ${fetched.length} modelos`);
     } catch (error: unknown) {
       console.error("Error refreshing models:", error);
       notify.error(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error)));
@@ -1785,15 +1809,6 @@ export default function ProviderDetailClient({
             <h2 className="text-lg font-semibold">
               {"Available Models"}
             </h2>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleRefreshModels}
-              disabled={refreshingModels}
-              title="Refresh models from provider"
-            >
-              <RefreshCw className={`size-4 ${refreshingModels ? "animate-spin" : ""}`} />
-            </Button>
             {providerThinkingLevels && (
               <Select value={thinkingMode} onValueChange={(value) => handleThinkingModeChange(value)}>
                 <SelectTrigger
@@ -1810,27 +1825,40 @@ export default function ProviderDetailClient({
               </Select>
             )}
           </div>
-          {!isCompatible && (() => {
-            const allIds = [
-              ...models,
-              ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
-            ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id);
-            const activeIds = allIds.filter((id) => !disabledModelIds.includes(id));
-            return (
-              <div className="flex gap-2">
-                {disabledModelIds.length > 0 && (
-                  <Button variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
-                    Active All
-                  </Button>
-                )}
-                {activeIds.length > 0 && (
-                  <Button variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
-                    Disable All
-                  </Button>
-                )}
-              </div>
-            );
-          })()}
+          <div className="flex items-center gap-2">
+            {connections.length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleRefreshModels}
+                disabled={refreshingModels}
+              >
+                <RefreshCw className={`size-4 mr-1.5 ${refreshingModels ? "animate-spin" : ""}`} />
+                {refreshingModels ? "Atualizando..." : "Atualizar Modelos"}
+              </Button>
+            )}
+            {!isCompatible && (() => {
+              const allIds = [
+                ...models,
+                ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
+              ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id);
+              const activeIds = allIds.filter((id) => !disabledModelIds.includes(id));
+              return (
+                <div className="flex gap-2">
+                  {disabledModelIds.length > 0 && (
+                    <Button variant="secondary" icon="restart_alt" onClick={handleEnableAll}>
+                      Active All
+                    </Button>
+                  )}
+                  {activeIds.length > 0 && (
+                    <Button variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
+                      Disable All
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
         </div>
         {!!modelsTestError && (
           <p className="text-xs text-red-500 mb-3 break-words">{modelsTestError}</p>
