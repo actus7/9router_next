@@ -1,5 +1,7 @@
 "use client";
 
+import { TriangleAlert } from "lucide-react";
+
 interface SecurityAction {
   label: string;
   href: string;

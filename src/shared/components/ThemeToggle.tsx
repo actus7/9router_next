@@ -4,6 +4,7 @@ import { useTheme } from "@/shared/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import Button from "@/shared/components/Button";
 import { Sun, Moon } from "lucide-react";
+import { useState, useEffect } from "react";
 
 type ThemeToggleVariant = 'default' | 'card';
 
@@ -14,6 +15,8 @@ interface ThemeToggleProps {
 
 export default function ThemeToggle({ className, variant = "default" }: ThemeToggleProps) {
   const { toggleTheme, isDark } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const variants: Record<ThemeToggleVariant, string> = {
     default: cn(
@@ -36,10 +39,10 @@ export default function ThemeToggle({ className, variant = "default" }: ThemeTog
       variant="ghost"
       onClick={toggleTheme}
       className={cn(variants[variant], className)}
-      aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
-      title={`Switch to ${isDark ? "light" : "dark"} mode`}
+      aria-label={`Switch to ${mounted && isDark ? "light" : "dark"} mode`}
+      title={`Switch to ${mounted && isDark ? "light" : "dark"} mode`}
     >
-      {isDark ? (
+      {mounted && isDark ? (
         <Sun className={cn("size-[22px]", variant === "card" && "transition-transform duration-300 group-hover:rotate-12")} />
       ) : (
         <Moon className={cn("size-[22px]", variant === "card" && "transition-transform duration-300 group-hover:rotate-12")} />
