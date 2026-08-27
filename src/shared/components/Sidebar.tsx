@@ -10,8 +10,7 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Button from "@/shared/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import NineRemotePromoModal from "./NineRemotePromoModal";
-import { BarChart3, Copy, Film, FolderOpen, Globe, Languages, Layers, Mic, Monitor, Music, Network, Paintbrush, PieChart, PiggyBank, Power, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
+import { BarChart3, Copy, Film, FolderOpen, Globe, Languages, Layers, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Power, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const KIND_ICON_MAP: Record<string, LucideIcon> = {
@@ -64,7 +63,6 @@ interface SidebarProps {
 
 export default function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
-  const [showRemoteModal, setShowRemoteModal] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ latestVersion?: string } | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -298,35 +296,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
               ) : null;
             })}
 
-            {/* Remote */}
-            <Button
-              onClick={() => setShowRemoteModal(true)}
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group w-full justify-start h-auto",
-                "text-text-muted hover:bg-surface-2 hover:text-text-main"
-              )}
-            >
-              <Monitor className="size-5" />
-              <span className="text-[13px] font-medium">9Remote</span>
-            </Button>
-
-            {/* 9English */}
-            <a
-              href="https://9english.net/"
-              target="_blank"
-              rel="noreferrer"
-              onClick={onClose}
-              className={cn(
-                "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group w-full",
-                "text-text-muted hover:bg-surface-2 hover:text-text-main"
-              )}
-            >
-              <Languages className="size-5" />
-              <span className="text-[13px] font-medium">9English</span>
-            </a>
-
             {/* Settings */}
             <Link
               href="/dashboard/profile"
@@ -346,9 +315,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
         </nav>
 
       </aside>
-
-      {/* Remote Promo Modal */}
-      <NineRemotePromoModal isOpen={showRemoteModal} onClose={() => setShowRemoteModal(false)} />
 
       {/* Update Confirmation Modal */}
       <Dialog open={showUpdateModal} onOpenChange={(open) => { if (!open) setShowUpdateModal(false); }}>

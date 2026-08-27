@@ -99,14 +99,6 @@ async function tryGotScrapingFetch(url, options) {
 
 // DNS cache — use Map to avoid prototype pollution via malformed hostnames
 const DNS_CACHE = new Map();
-const MITM_BYPASS_HOSTS = [
-  "cloudcode-pa.googleapis.com",
-  "daily-cloudcode-pa.googleapis.com",
-  "api.individual.githubcopilot.com",
-  "q.us-east-1.amazonaws.com",
-  "codewhisperer.us-east-1.amazonaws.com",
-  "api2.cursor.sh",
-];
 const GOOGLE_DNS_SERVERS = ["8.8.8.8", "8.8.4.4"];
 const HTTPS_PORT = 443;
 const HTTP_SUCCESS_MIN = 200;
@@ -137,16 +129,6 @@ async function resolveRealIP(hostname) {
     console.warn(`[ProxyFetch] DNS resolve failed for ${hostname}:`, error.message);
     return null;
   }
-}
-
-/**
- * Check if request should bypass MITM DNS redirect
- */
-function shouldBypassMitmDns(url) {
-  try {
-    const hostname = new URL(url).hostname;
-    return MITM_BYPASS_HOSTS.some(host => hostname.includes(host));
-  } catch { return false; }
 }
 
 function shouldBypassByNoProxy(targetUrl, noProxyValue) {
@@ -250,10 +232,9 @@ async function createBypassRequest(parsedUrl, realIP, options) {
         socket,
         // SNI + cert hostname are validated against the hostname the caller
         // asked for, not the IP we connected to. This keeps the DNS-bypass
-        // (avoiding /etc/hosts MITM) while still rejecting on-path attackers
-        // that present a different cert. The MITM_BYPASS_HOSTS targets are
-        // all public-CA-issued (Google / GitHub / AWS / Cursor) so default
-        // verification works without any extra trust store.
+        // while still rejecting on-path attackers that present a different cert.
+        // All targets are public-CA-issued (Google / GitHub / AWS / Cursor)
+        // so default verification works without any extra trust store.
         servername: parsedUrl.hostname,
         path: parsedUrl.pathname + parsedUrl.search,
         method: options.method || "POST",
@@ -310,30 +291,6 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const envProxyUrl = connectionProxyUrl ? null : normalizeProxyUrl(getEnvProxyUrl(targetUrl));
   const proxyUrl = connectionProxyUrl || envProxyUrl;
 
-  // MITM DNS bypass: for known MITM-intercepted hosts, resolve real IP to avoid DNS spoof
-  if (shouldBypassMitmDns(targetUrl)) {
-    if (proxyUrl) {
-      // Proxy resolves DNS externally (not affected by /etc/hosts) — use proxy directly
-      try {
-        const dispatcher = await getDispatcher(proxyUrl);
-        return await originalFetch(url, { ...options, dispatcher });
-      } catch (proxyError) {
-        if (proxyOptions?.strictProxy === true) {
-          throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
-        }
-        console.warn(`[ProxyFetch] Proxy failed, falling back to direct bypass: ${proxyError.message}`);
-      }
-    }
-    // No proxy — manually resolve real IP to bypass DNS spoof
-    try {
-      const parsedUrl = new URL(targetUrl);
-      const realIP = await resolveRealIP(parsedUrl.hostname);
-      if (realIP) return await createBypassRequest(parsedUrl, realIP, options);
-    } catch (error) {
-      console.warn(`[ProxyFetch] MITM bypass failed: ${error.message}`);
-    }
-  }
-
   if (proxyUrl) {
     try {
       const dispatcher = await getDispatcher(proxyUrl);
@@ -354,7 +311,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
 }
 
 /**
- * Patched global fetch with env-proxy support and MITM DNS bypass
+ * Patched global fetch with env-proxy support
  */
 async function patchedFetch(url, options = {}) {
   return proxyAwareFetch(url, options, null);

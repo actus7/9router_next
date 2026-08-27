@@ -187,9 +187,6 @@ function importLegacyMain(adapter: DbAdapter, data: Record<string, unknown> | nu
     const k: string = `${m.providerAlias}|${m.id}|${m.type || "llm"}`;
     adapter.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('customModels', ?, ?)`, [k, stringifyJson(m)]);
   }
-  for (const [tool, mappings] of Object.entries((data.mitmAlias || {}) as Record<string, unknown>)) {
-    adapter.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('mitmAlias', ?, ?)`, [tool, stringifyJson(mappings || {})]);
-  }
   for (const [provider, models] of Object.entries((data.pricing || {}) as Record<string, unknown>)) {
     adapter.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('pricing', ?, ?)`, [provider, stringifyJson(models || {})]);
   }

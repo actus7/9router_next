@@ -22,6 +22,4 @@ export {
   getCustomModels,
   addCustomModel,
   deleteCustomModel,
-  getMitmAlias,
-  setMitmAliasAll,
 } from "@/lib/localDb";

@@ -1,7 +1,6 @@
 import { getAdapter } from "../driver";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 
-const DEFAULT_MITM_ROUTER_BASE: string = "http://localhost:20128";
 const DEFAULT_HEADROOM_URL: string = process.env.HEADROOM_URL || "http://localhost:8787";
 
 interface Settings {
@@ -42,8 +41,6 @@ interface Settings {
   outboundProxyEnabled: boolean;
   outboundProxyUrl: string;
   outboundNoProxy: string;
-  mitmRouterBaseUrl: string;
-  dnsToolEnabled: Record<string, unknown>;
   rtkEnabled: boolean;
   headroomEnabled: boolean;
   headroomUrl: string;
@@ -102,8 +99,6 @@ const DEFAULT_SETTINGS: Settings = {
   outboundProxyEnabled: false,
   outboundProxyUrl: "",
   outboundNoProxy: "",
-  mitmRouterBaseUrl: DEFAULT_MITM_ROUTER_BASE,
-  dnsToolEnabled: {},
   rtkEnabled: true,
   headroomEnabled: false,
   headroomUrl: DEFAULT_HEADROOM_URL,

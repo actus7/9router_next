@@ -38,11 +38,10 @@ export {
   createCombo, updateCombo, deleteCombo,
 } from "./repos/combosRepo";
 
-// Aliases (model + custom + mitm)
+// Aliases (model + custom)
 export {
   getModelAliases, setModelAlias, deleteModelAlias,
   getCustomModels, addCustomModel, deleteCustomModel,
-  getMitmAlias, setMitmAliasAll,
 } from "./repos/aliasRepo";
 
 // Pricing
@@ -81,13 +80,11 @@ export async function exportDb(): Promise<Record<string, unknown>> {
     combos: (db.all(`SELECT * FROM combos`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), createdAt: r.createdAt, updatedAt: r.updatedAt })),
     modelAliases: {} as Record<string, unknown>,
     customModels: [] as unknown[],
-    mitmAlias: {} as Record<string, unknown>,
     pricing: {} as Record<string, unknown>,
   };
 
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'modelAliases'`) as Array<Record<string, unknown>>) (out.modelAliases as Record<string, unknown>)[r.key as string] = parseJson(r.value);
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'customModels'`) as Array<Record<string, unknown>>) (out.customModels as unknown[]).push(parseJson(r.value));
-  for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'mitmAlias'`) as Array<Record<string, unknown>>) (out.mitmAlias as Record<string, unknown>)[r.key as string] = parseJson(r.value);
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'pricing'`) as Array<Record<string, unknown>>) (out.pricing as Record<string, unknown>)[r.key as string] = parseJson(r.value);
 
   return out;
@@ -107,7 +104,7 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
     db.run(`DELETE FROM proxyPools`);
     db.run(`DELETE FROM apiKeys`);
     db.run(`DELETE FROM combos`);
-    db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'mitmAlias', 'pricing')`);
+    db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'pricing')`);
 
     // Settings
     if (payload.settings) {
@@ -153,9 +150,6 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
     for (const m of (payload.customModels || []) as Array<Record<string, unknown>>) {
       const k: string = `${m.providerAlias}|${m.id}|${m.type || "llm"}`;
       db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('customModels', ?, ?)`, [k, stringifyJson(m)]);
-    }
-    for (const [tool, mappings] of Object.entries((payload.mitmAlias || {}) as Record<string, unknown>)) {
-      db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('mitmAlias', ?, ?)`, [tool, stringifyJson(mappings || {})]);
     }
     for (const [provider, models] of Object.entries((payload.pricing || {}) as Record<string, unknown>)) {
       db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('pricing', ?, ?)`, [provider, stringifyJson(models || {})]);

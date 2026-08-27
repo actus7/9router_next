@@ -2,7 +2,7 @@ import { loadState, generateShortId } from "../shared/state";
 import { startFunnel, stopFunnel, isTailscaleRunning, isTailscaleRunningStrict, isTailscaleLoggedIn, isTailscaleLoggedInStrict, startLogin, startDaemonWithPassword, provisionCert } from "./tailscale";
 import { waitForHealth } from "./healthCheck";
 import { getSettings, updateSettings } from "@/lib/localDb";
-import { getCachedPassword, loadEncryptedPassword, initDbHooks } from "@/mitm/manager";
+import { getCachedPassword, loadEncryptedPassword, initDbHooks } from "@/lib/elevatedExec";
 
 initDbHooks(getSettings, updateSettings);
 

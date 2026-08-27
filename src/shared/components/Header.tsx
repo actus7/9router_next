@@ -15,7 +15,7 @@ import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
-import { BarChart3, ChevronRight, Globe, Heart, Key, Languages, Layers, Menu, Monitor, Network, PieChart, PiggyBank, Puzzle, Search, Server, Settings, Shield, Terminal, User, Webhook, X } from "lucide-react";
+import { BarChart3, ChevronRight, Globe, Heart, Key, Languages, Layers, Menu, Monitor, Network, PieChart, PiggyBank, Puzzle, Search, Server, Settings, Terminal, User, Webhook, X } from "lucide-react";
 
 interface Breadcrumb {
   label: string;
@@ -119,13 +119,6 @@ const getPageInfo = (pathname: string | null): PageInfo => {
       title: "Quota Tracker",
       description: "Track and manage your API quota limits",
       icon: <PieChart className="size-6" />,
-      breadcrumbs: [],
-    };
-  if (pathname.includes("/mitm"))
-    return {
-      title: "MITM Proxy",
-      description: "Intercept CLI tool traffic and route through 9Router",
-      icon: <Shield className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/token-saver"))

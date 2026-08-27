@@ -4,7 +4,7 @@ import os from "os";
 import crypto from "crypto";
 import { execSync, exec, spawn, ChildProcess } from "child_process";
 import { promisify } from "util";
-import { execWithPassword } from "@/mitm/dns/dnsConfig";
+import { execWithPassword } from "@/lib/elevatedExec";
 import { DATA_DIR } from "@/lib/dataDir";
 
 const execAsync: (command: string, options?: Record<string, unknown>) => Promise<{ stdout: string; stderr: string }> = promisify(exec);

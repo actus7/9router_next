@@ -46,7 +46,6 @@ const ALWAYS_PROTECTED: string[] = [
 
 const LOCAL_ONLY_PATHS: string[] = [
   "/api/cli-tools/cowork-settings",
-  "/api/cli-tools/antigravity-mitm",
   "/api/mcp/",
   "/api/tunnel/tailscale-install",
   "/api/tunnel/tailscale-enable",
