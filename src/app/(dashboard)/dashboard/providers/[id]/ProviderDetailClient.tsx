@@ -723,26 +723,42 @@ export default function ProviderDetailClient({
   const handleRefreshModels = async () => {
     if (refreshingModels) return;
     const activeConnection = connections.find((conn) => conn.isActive !== false);
-    if (!activeConnection) {
-      notify.error(translate("No active connection available"));
-      return;
-    }
 
     setRefreshingModels(true);
     try {
-      const res = await fetch(`/api/providers/${activeConnection.id}/models`, { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok) {
-        notify.error(data.error || translate("Failed to fetch models"));
+      let fetched: Array<{ id?: string; name?: string }> = [];
+
+      if (activeConnection) {
+        // Use connection endpoint (has credentials)
+        const res = await fetch(`/api/providers/${activeConnection.id}/models`, { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) {
+          notify.error(data.error || translate("Failed to fetch models"));
+          return;
+        }
+        fetched = data.models || [];
+      } else if (isCompatible && providerNode?.baseUrl) {
+        // Compatible provider without connection — fetch directly from base URL
+        const baseUrl = (providerNode.baseUrl as string).replace(/\/$/, "");
+        const modelsUrl = isAnthropicCompatible ? `${baseUrl}/models` : `${baseUrl}/models`;
+        const res = await fetch(modelsUrl, { cache: "no-store" });
+        if (!res.ok) {
+          notify.error(translate("Failed to fetch models") + ` (${res.status})`);
+          return;
+        }
+        const data = await res.json();
+        fetched = data.data || data.models || [];
+      } else {
+        notify.error(translate("No active connection available"));
         return;
       }
-      const fetched = data.models || [];
+
       if (fetched.length === 0) {
         notify.warning(translate("No models returned"));
         return;
       }
 
-      const fetchedIds = new Set(fetched.map((m: { id?: string; name?: string }) => m.id || m.name));
+      const fetchedIds = new Set(fetched.map((m) => m.id || m.name));
 
       // For compatible providers: sync custom models (add new, remove stale)
       if (isCompatible) {
@@ -1826,17 +1842,15 @@ export default function ProviderDetailClient({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {connections.length > 0 && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleRefreshModels}
-                disabled={refreshingModels}
-              >
-                <RefreshCw className={`size-4 mr-1.5 ${refreshingModels ? "animate-spin" : ""}`} />
-                {refreshingModels ? "Atualizando..." : "Atualizar Modelos"}
-              </Button>
-            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRefreshModels}
+              disabled={refreshingModels}
+            >
+              <RefreshCw className={`size-4 mr-1.5 ${refreshingModels ? "animate-spin" : ""}`} />
+              {refreshingModels ? "Atualizando..." : "Atualizar Modelos"}
+            </Button>
             {!isCompatible && (() => {
               const allIds = [
                 ...models,
