@@ -29,7 +29,7 @@ import AddApiKeyModal from "./AddApiKeyModal";
 import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
 import BulkImportCodexModal from "./BulkImportCodexModal";
-import { ArrowLeft, ArrowLeftRight, Download, ExternalLink, Info, Key, Loader2, Lock, Network, Plus, TriangleAlert, Unlink } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Download, ExternalLink, Info, Key, Loader2, Lock, Network, Plus, RefreshCw, TriangleAlert, Unlink } from "lucide-react";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
 
@@ -192,6 +192,7 @@ export default function ProviderDetailClient({
   const [oneByOneResults, setOneByOneResults] = useState<Record<string, OneByOneResult>>({});
   const [oneByOneSummary, setOneByOneSummary] = useState<OneByOneSummary | null>(null);
   const stopOneByOneRef = useRef<boolean>(false);
+  const [refreshingModels, setRefreshingModels] = useState<boolean>(false);
   const [importingQoderModels, setImportingQoderModels] = useState<boolean>(false);
   const { copied, copy } = useCopyToClipboard();
   const notify = useNotificationStore();
@@ -259,7 +260,7 @@ export default function ProviderDetailClient({
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
   const isFreeNoAuth = !!(FREE_PROVIDERS[providerId] as Record<string, unknown>)?.noAuth;
   const staticModels = getModelsByProviderId(providerId);
-  const models = providerId === "cursor" && liveModels.length > 0
+  const models = liveModels.length > 0
     ? liveModels
     : staticModels;
   const isOpenAICompatible = isOpenAICompatibleProvider(providerId);
@@ -716,6 +717,38 @@ export default function ProviderDetailClient({
       notify.error(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setImportingQoderModels(false);
+    }
+  };
+
+  const handleRefreshModels = async () => {
+    if (refreshingModels) return;
+    const activeConnection = connections.find((conn) => conn.isActive !== false);
+    if (!activeConnection && !isFreeNoAuth) {
+      notify.error(translate("No active connection available"));
+      return;
+    }
+
+    setRefreshingModels(true);
+    try {
+      const connectionId = activeConnection?.id || providerId;
+      const res = await fetch(`/api/providers/${connectionId}/models`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) {
+        notify.error(data.error || translate("Failed to fetch models"));
+        return;
+      }
+      const fetched = data.models || [];
+      if (fetched.length === 0) {
+        notify.warning(translate("No models returned"));
+        return;
+      }
+      setLiveModels(fetched);
+      notify.success(`Refreshed ${fetched.length} models`);
+    } catch (error: unknown) {
+      console.error("Error refreshing models:", error);
+      notify.error(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setRefreshingModels(false);
     }
   };
 
@@ -1752,6 +1785,15 @@ export default function ProviderDetailClient({
             <h2 className="text-lg font-semibold">
               {"Available Models"}
             </h2>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleRefreshModels}
+              disabled={refreshingModels}
+              title="Refresh models from provider"
+            >
+              <RefreshCw className={`size-4 ${refreshingModels ? "animate-spin" : ""}`} />
+            </Button>
             {providerThinkingLevels && (
               <Select value={thinkingMode} onValueChange={(value) => handleThinkingModeChange(value)}>
                 <SelectTrigger
