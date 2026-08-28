@@ -2358,15 +2358,16 @@ export default function CloudPageClient() {
   const [isLoading, setIsLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
-    const [connectionsRes, deploymentsRes, settingsRes] = await Promise.all([
+    const [connectionsRes, deploymentsRes, settingsRes, keysRes] = await Promise.all([
       fetch("/api/cloud/connections").then((r) => r.json()),
       fetch("/api/cloud/deployments").then((r) => r.json()),
       fetch("/api/settings").then((r) => r.json()).catch(() => null),
+      fetch("/api/keys").then((r) => r.json()).catch(() => null),
     ]);
     setConnections(connectionsRes.connections ?? []);
     setDeployments(deploymentsRes.deployments ?? []);
     setCloudEnabled(Boolean(settingsRes?.cloudEnabled));
-    setApiKeys(settingsRes?.apiKeys ?? []);
+    setApiKeys(keysRes?.keys ?? []);
     setIsLoading(false);
   }, []);
 
