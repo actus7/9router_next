@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, BrainCircuit, Check, ChevronRight, Plus, RefreshCw, Save, Sparkles, Trash2 } from "lucide-react";
 import { Button, Card, Input, Modal, ModelSelectModal, Select } from "@/shared/components";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
+import ComplexityRoutingBoard from "./ComplexityRoutingBoard";
 import { buttonVariants } from "@/components/ui/button";
 import { Input as RawInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ import {
   ROUTE_NEEDS,
   ROUTING_TIERS,
   type RouteNeed,
+  type RoutingTier,
   type RoutingTierOrDefault,
   type SmartModelProfile,
   type SmartRoutingConfig,
@@ -105,6 +107,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
   const [confirming, setConfirming] = useState(false);
 
   const currentModels = config.overrides[selectedNeed]?.[selectedTier] || [];
+  const tierOptionsForNeed: RoutingTierOrDefault[] = selectedNeed === "general" ? ["default"] : ALL_TIERS;
   const profileSummary = useMemo(() => ({
     total: profiles.length,
     llm: profiles.filter((profile) => profile.capabilities.serviceKinds.includes("llm")).length,
@@ -231,16 +234,27 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
             <Label className="flex min-h-12 items-center justify-between gap-3 rounded-lg bg-muted px-3">
-              <span><span className="block text-sm font-medium">Complexidade</span><span className="block text-xs text-text-muted">Simples até raciocínio</span></span>
-              <Switch aria-label="Ativar roteamento por complexidade" checked={config.complexity.enabled} onCheckedChange={(enabled) => setConfig((current) => ({ ...current, complexity: { enabled } }))} />
-            </Label>
-            <Label className="flex min-h-12 items-center justify-between gap-3 rounded-lg bg-muted px-3">
               <span><span className="block text-sm font-medium">Tipo de tarefa</span><span className="block text-xs text-text-muted">Código, mídia, busca e mais</span></span>
               <Switch aria-label="Ativar roteamento por tipo de tarefa" checked={config.task.enabled} onCheckedChange={(enabled) => setConfig((current) => ({ ...current, task: { ...current.task, enabled } }))} />
             </Label>
           </div>
         </div>
       </Card>
+
+      <ComplexityRoutingBoard
+        overrides={config.overrides.general || {}}
+        onOverridesChange={(tier: RoutingTier, models: string[]) => setConfig((current) => ({
+          ...current,
+          overrides: { ...current.overrides, general: { ...current.overrides.general, [tier]: models } },
+        }))}
+        enabled={config.complexity.enabled}
+        onEnabledChange={(enabled: boolean) => setConfig((current) => ({ ...current, complexity: { enabled } }))}
+        profiles={profiles}
+        activeProviders={activeProviders as unknown as ActiveProvider[]}
+        modelAliases={modelAliases}
+        onSuggest={handleSuggest}
+        suggesting={suggesting}
+      />
 
       <Card>
         <div className="flex flex-col gap-4">
@@ -300,9 +314,22 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
             <h2 className="text-base font-semibold text-text-main">Overrides manuais</h2>
             <p className="mt-1 text-sm text-text-muted">O ranking dinâmico continua sendo a fonte principal. Modelos aqui ganham prioridade quando forem compatíveis.</p>
           </div>
+          <p className="text-xs text-text-muted">Os tiers de complexidade (Simples/Padrão/Complexo/Raciocínio) da tarefa Geral agora são editados no board &quot;Roteamento padrão&quot; acima.</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><Label className="mb-1.5 block text-xs text-text-muted">Tarefa</Label><Select options={NEED_OPTIONS} value={selectedNeed} onChange={(value) => setSelectedNeed(value as RouteNeed)} ariaLabel="Tarefa" /></div>
-            <div><Label className="mb-1.5 block text-xs text-text-muted">Tier</Label><Select options={ALL_TIERS.map((tier) => ({ value: tier, label: TIER_LABELS[tier] }))} value={selectedTier} onChange={(value) => setSelectedTier(value as RoutingTierOrDefault)} ariaLabel="Tier" /></div>
+            <div>
+              <Label className="mb-1.5 block text-xs text-text-muted">Tarefa</Label>
+              <Select
+                options={NEED_OPTIONS}
+                value={selectedNeed}
+                onChange={(value) => {
+                  const need = value as RouteNeed;
+                  setSelectedNeed(need);
+                  if (need === "general") setSelectedTier("default");
+                }}
+                ariaLabel="Tarefa"
+              />
+            </div>
+            <div><Label className="mb-1.5 block text-xs text-text-muted">Tier</Label><Select options={tierOptionsForNeed.map((tier) => ({ value: tier, label: TIER_LABELS[tier] }))} value={selectedTier} onChange={(value) => setSelectedTier(value as RoutingTierOrDefault)} ariaLabel="Tier" /></div>
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-3">
             <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
