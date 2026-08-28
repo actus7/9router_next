@@ -13,13 +13,14 @@ import TierModelPickerModal, { type ModelPriceInfo } from "@/shared/components/T
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { translate } from "@/i18n/runtime";
 import { ROUTING_TIERS, type RoutingTier, type SmartModelProfile } from "@/shared/llm-catalog";
 
 const TIER_META: Record<RoutingTier, { label: string; scoreRange: string }> = {
-  simple: { label: "Simples", scoreRange: "score 0–15" },
-  standard: { label: "Padrão", scoreRange: "score 16–40" },
-  complex: { label: "Complexo", scoreRange: "score 41–65" },
-  reasoning: { label: "Raciocínio", scoreRange: "score 66+" },
+  simple: { label: translate("Simple") || "Simple", scoreRange: translate("Short, direct questions") || "Short, direct questions" },
+  standard: { label: translate("Standard") || "Standard", scoreRange: translate("Most everyday requests") || "Most everyday requests" },
+  complex: { label: translate("Complex") || "Complex", scoreRange: translate("Multi-step tasks") || "Multi-step tasks" },
+  reasoning: { label: translate("Reasoning") || "Reasoning", scoreRange: translate("Needs to think a lot before answering") || "Needs to think a lot before answering" },
 };
 
 function fmtPrice(n: number): string {
@@ -28,9 +29,9 @@ function fmtPrice(n: number): string {
 
 function modelSubtitle(profile: SmartModelProfile | undefined, providerName: string): string {
   if (profile && profile.inputPrice !== null && profile.outputPrice !== null) {
-    return `${fmtPrice(profile.inputPrice)} entrada · ${fmtPrice(profile.outputPrice)} saída / 1M`;
+    return `${fmtPrice(profile.inputPrice)} ${translate("input") || "input"} · ${fmtPrice(profile.outputPrice)} ${translate("output") || "output"} / 1M`;
   }
-  return `${providerName} · preço não catalogado`;
+  return `${providerName} · ${translate("price not catalogued") || "price not catalogued"}`;
 }
 
 interface RowProps {
@@ -40,12 +41,11 @@ interface RowProps {
   profile: SmartModelProfile | undefined;
   providerId: string;
   providerName: string;
-  onMoveUp: () => void;
   onEdit: () => void;
   onRemove: () => void;
 }
 
-function TierModelRow({ id: _id, index, value, profile, providerId, providerName, onMoveUp, onEdit, onRemove }: RowProps) {
+function TierModelRow({ id: _id, index, value, profile, providerId, providerName, onEdit, onRemove }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id: _id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -53,49 +53,46 @@ function TierModelRow({ id: _id, index, value, profile, providerId, providerName
     zIndex: isDragging ? 999 : undefined,
   };
   const displayName = profile?.displayName || value;
+  const subtitle = modelSubtitle(profile, providerName);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex items-center gap-2 rounded-lg bg-muted/50 px-2.5 py-2 transition-colors hover:bg-muted",
+        "group flex flex-col gap-0.5 rounded-lg bg-muted/50 px-2 py-1.5 transition-colors hover:bg-muted",
         isDragging && "shadow-md ring-1 ring-primary/30",
       )}
     >
-      <Button
-        {...attributes}
-        {...listeners}
-        variant="ghost"
-        size="icon-sm"
-        type="button"
-        className="size-7 shrink-0 cursor-grab touch-none active:cursor-grabbing"
-        title="Arrastar para reordenar"
-        aria-label={`Arrastar ${displayName}`}
-      >
-        <GripVertical />
-      </Button>
+      <div className="flex items-center gap-1.5">
+        <Button
+          {...attributes}
+          {...listeners}
+          variant="ghost"
+          size="icon-sm"
+          type="button"
+          className="size-5 shrink-0 cursor-grab touch-none active:cursor-grabbing"
+          title={translate("Drag to reorder") || "Drag to reorder"}
+          aria-label={`${translate("Drag") || "Drag"} ${displayName}`}
+        >
+          <GripVertical className="size-3.5" />
+        </Button>
 
-      <span className="w-6 shrink-0 rounded-full bg-surface px-1.5 py-0.5 text-center text-[11px] font-medium text-text-muted">{index + 1}º</span>
+        <ProviderIcon providerId={providerId} alt={providerName} size={15} fallbackText={providerId.slice(0, 2).toUpperCase()} className="shrink-0" />
 
-      <ProviderIcon providerId={providerId} alt={providerName} size={20} fallbackText={providerId.slice(0, 2).toUpperCase()} className="shrink-0" />
+        <p className="min-w-0 flex-1 truncate text-xs font-medium text-text-main" title={displayName}>{displayName}</p>
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-text-main">{displayName}</p>
-        <p className="truncate text-xs text-text-muted">{modelSubtitle(profile, providerName)}</p>
+        <span className="shrink-0 rounded-full bg-surface px-1.5 py-0.5 text-center text-[10px] font-medium text-text-muted">{index + 1}º</span>
+
+        <Button variant="ghost" size="icon-xs" onClick={onEdit} className="size-5 shrink-0" title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
+          <Pencil className="size-3.5" />
+        </Button>
+        <Button variant="ghost" size="icon-xs" onClick={onRemove} className="size-5 shrink-0 text-destructive" title={translate("Remove") || "Remove"} aria-label={`${translate("Remove") || "Remove"} ${displayName}`}>
+          <X className="size-3.5" />
+        </Button>
       </div>
 
-      {index > 0 && (
-        <Button variant="ghost" size="icon-xs" onClick={onMoveUp} className="size-7 shrink-0" title="Mover para cima" aria-label={`Mover ${displayName} para cima`}>
-          <GripVertical className="rotate-90" />
-        </Button>
-      )}
-      <Button variant="ghost" size="icon-xs" onClick={onEdit} className="size-7 shrink-0" title="Trocar modelo" aria-label={`Editar ${displayName}`}>
-        <Pencil />
-      </Button>
-      <Button variant="ghost" size="icon-xs" onClick={onRemove} className="size-7 shrink-0 text-destructive" title="Remover" aria-label={`Remover ${displayName}`}>
-        <X />
-      </Button>
+      <p className="truncate pl-[26px] text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
     </div>
   );
 }
@@ -147,20 +144,20 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-muted/20 p-3">
+    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-muted/20 p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-text-main">{meta.label}</p>
           <p className="text-xs text-text-muted">{meta.scoreRange}</p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => onChange([])} disabled={models.length === 0} className="text-xs text-text-muted">
-          <RotateCcw data-icon="inline-start" className="size-3.5" /> Limpar
+          <RotateCcw data-icon="inline-start" className="size-3.5" /> {translate("Clear")}
         </Button>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             {models.map((model, index) => {
               const profile = profileByKey.get(model);
               const providerId = profile?.provider || model.split("/")[0];
@@ -174,7 +171,6 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
                   profile={profile}
                   providerId={providerId}
                   providerName={providerName}
-                  onMoveUp={() => onChange(arrayMove(models, index, index - 1))}
                   onEdit={() => setPickerMode({ index })}
                   onRemove={() => onChange(models.filter((_, i) => i !== index))}
                 />
@@ -185,7 +181,7 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
       </DndContext>
 
       <Button variant="outline" size="sm" onClick={() => setPickerMode({ index: null })} className="mt-1 w-full">
-        <Plus data-icon="inline-start" className="size-4" /> Adicionar fallback
+        <Plus data-icon="inline-start" className="size-4" /> {translate("Add Model")}
       </Button>
 
       {pickerMode && (
@@ -193,7 +189,7 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
           isOpen
           onClose={() => setPickerMode(null)}
           onSelect={handlePick}
-          title={`${meta.label} — escolher modelo`}
+          title={`${meta.label} — ${translate("choose model") || "choose model"}`}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
           addedModelValues={models}
@@ -232,21 +228,21 @@ export default function ComplexityRoutingBoard({
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-text-main">Roteamento padrão</h2>
-            <p className="mt-1 text-sm text-text-muted">Analisa a complexidade de cada requisição na hora e envia para o nível correspondente (&lt;2ms, sem chamada externa).</p>
+            <h2 className="text-base font-semibold text-text-main">{translate("Complexity-based routing")}</h2>
+            <p className="mt-1 text-sm text-text-muted">{translate("Each request is assessed on the spot and sent to the right tier — no latency cost. Use \"Suggest models with AI\" to fill the 4 columns automatically, or add manually.")}</p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <Button variant="outline" size="sm" onClick={onSuggest} loading={suggesting}>
-              <Sparkles data-icon="inline-start" /> Sugerir modelos
+              <Sparkles data-icon="inline-start" /> {translate("Suggest models with AI")}
             </Button>
             <label className="flex items-center gap-2 text-sm text-text-main">
-              Rotear por complexidade
-              <Switch aria-label="Rotear por complexidade" checked={enabled} onCheckedChange={onEnabledChange} />
+              {translate("Enabled")}
+              <Switch aria-label={translate("Enable complexity-based routing") || "Enable complexity-based routing"} checked={enabled} onCheckedChange={onEnabledChange} />
             </label>
           </div>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {ROUTING_TIERS.map((tier) => (
             <TierColumn
               key={tier}

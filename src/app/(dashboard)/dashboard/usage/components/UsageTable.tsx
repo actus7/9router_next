@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import Card from "@/shared/components/Card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { ChevronRight } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const fmt = (n: number) => new Intl.NumberFormat().format(n || 0);
 const fmtCost = (n: number) => `$${(n || 0).toFixed(2)}`;
@@ -148,17 +149,17 @@ export default function UsageTable({
   const valueColumns = useMemo(() => {
     if (viewMode === "tokens") {
       return [
-        { field: "promptTokens", label: "Tokens de Entrada" },
-        { field: "cachedTokens", label: "Cache" },
-        { field: "completionTokens", label: "Tokens de Saída" },
-        { field: "totalTokens", label: "Total de Tokens" },
+        { field: "promptTokens", label: translate("Input Tokens") },
+        { field: "cachedTokens", label: translate("Cached") },
+        { field: "completionTokens", label: translate("Output Tokens") },
+        { field: "totalTokens", label: translate("Total Tokens") },
       ];
     }
     return [
-      { field: "promptTokens", label: "Custo de Entrada" },
-      { field: "cachedCost", label: "Custo em Cache" },
-      { field: "completionTokens", label: "Custo de Saída" },
-      { field: "cost", label: "Custo Total" },
+      { field: "promptTokens", label: translate("Input Cost") },
+      { field: "cachedCost", label: translate("Cache Cost") },
+      { field: "completionTokens", label: translate("Output Cost") },
+      { field: "cost", label: translate("Total Cost") },
     ];
   }, [viewMode]);
 

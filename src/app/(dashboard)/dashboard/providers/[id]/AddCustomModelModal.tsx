@@ -5,6 +5,7 @@ import { Button, Modal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, FlaskConical, XCircle } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface AddCustomModelModalProps {
   isOpen: boolean;
@@ -67,10 +68,10 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Adicionar Modelo Customizado">
+    <Modal isOpen={isOpen} onClose={onClose} title={translate("Add Custom Model") || "Add Custom Model"}>
       <div className="flex flex-col gap-4">
         <div>
-          <Label className="mb-1.5 block">ID do Modelo</Label>
+          <Label className="mb-1.5 block">{translate("Model ID")}</Label>
           <div className="flex gap-2">
             <Input
               type="text"
@@ -88,11 +89,11 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
               onClick={handleTest}
               disabled={!modelId.trim() || testStatus === "testing"}
             >
-              {testStatus === "testing" ? "Testando..." : "Testar"}
+              {testStatus === "testing" ? translate("Testing...") : translate("Test")}
             </Button>
           </div>
           <p className="text-xs text-text-muted mt-1">
-            Enviado ao provedor como: <code className="font-mono bg-sidebar px-1 rounded">{stripAlias(modelId.trim()) || "model-id"}</code>
+            {translate("Sent to provider as:")} <code className="font-mono bg-sidebar px-1 rounded">{stripAlias(modelId.trim()) || "model-id"}</code>
           </p>
         </div>
 
@@ -100,25 +101,25 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
         {testStatus === "ok" && (
           <div className="flex items-center gap-2 text-sm text-green-600">
             <CheckCircle2 className="size-4" />
-            Modelo está acessível
+            {translate("Model is reachable")}
           </div>
         )}
         {testStatus === "error" && (
           <div className="flex items-start gap-2 text-sm text-red-500">
             <XCircle className="size-4" />
-            <span>{testError || "Modelo não acessível"}</span>
+            <span>{testError || translate("Model is not reachable")}</span>
           </div>
         )}
 
         <div className="flex gap-2 pt-1">
-          <Button onClick={onClose} variant="ghost" fullWidth size="sm">Cancelar</Button>
+          <Button onClick={onClose} variant="ghost" fullWidth size="sm">{translate("Cancel")}</Button>
           <Button
             onClick={handleSave}
             fullWidth
             size="sm"
             disabled={!modelId.trim() || saving}
           >
-            {saving ? "Adicionando..." : "Adicionar Modelo"}
+            {saving ? translate("Adding...") : translate("Add Model")}
           </Button>
         </div>
       </div>

@@ -114,10 +114,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json().catch(() => ({}));
     const inventory = await refreshDeterministicSmartProfiles();
+    // This endpoint only feeds general-purpose LLM chat routing (ComplexityRoutingBoard tiers);
+    // non-chat models (TTS voices, STT, image/video, embeddings) from noAuth providers must not
+    // pollute the suggestions.
+    const llmInventory = inventory.filter((profile) => profile.capabilities.serviceKinds.includes("llm"));
     const requestedKeys = Array.isArray(body.modelKeys)
       ? new Set(body.modelKeys.filter((key: unknown): key is string => typeof key === "string"))
       : null;
-    const targets = inventory
+    const targets = llmInventory
       .filter((profile) => !requestedKeys || requestedKeys.has(profile.modelKey))
       .slice(0, MAX_PROFILES);
     if (targets.length === 0) return NextResponse.json({ error: "No active models selected" }, { status: 400 });
@@ -138,9 +142,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       researchedAt,
       researchProvider: research.provider || null,
       webResearchUsed: !!research.evidence,
-      totalInventory: inventory.length,
+      totalInventory: llmInventory.length,
       included: preview.length,
-      truncated: targets.length < inventory.filter((profile) => !requestedKeys || requestedKeys.has(profile.modelKey)).length,
+      truncated: targets.length < llmInventory.filter((profile) => !requestedKeys || requestedKeys.has(profile.modelKey)).length,
     });
   } catch (error) {
     console.error("Error suggesting smart model profiles:", error);

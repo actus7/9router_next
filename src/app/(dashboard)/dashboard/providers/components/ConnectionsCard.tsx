@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network, Pencil, Plus, Trash2 } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 // ── CooldownTimer ──────────────────────────────────────────────
 interface CooldownTimerProps {
@@ -214,7 +215,7 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
             <span className="text-[10px] leading-tight">Delete</span>
           </Button>
         </div>
-        <Switch checked={connection.isActive ?? true} onCheckedChange={onToggleActive} title={(connection.isActive ?? true) ? "Desabilitar" : "Habilitar"} />
+        <Switch checked={connection.isActive ?? true} onCheckedChange={onToggleActive} title={((connection.isActive ?? true) ? translate("Disable") : translate("Enable")) ?? undefined} />
       </div>
     </div>
   );
@@ -284,36 +285,36 @@ function AddApiKeyModal({ isOpen, provider, providerName, proxyPools, onSave, on
     <Modal isOpen={isOpen} title={`Add ${providerName || provider} API Key`} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div>
-          <Label className="text-xs text-text-muted mb-1 block">Nome</Label>
+          <Label className="text-xs text-text-muted mb-1 block">{translate("Name")}</Label>
           <Input className="w-full px-3 py-2 text-sm" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Production Key" />
         </div>
         <div className="flex gap-2">
           <div className="flex-1">
-            <Label className="text-xs text-text-muted mb-1 block">Chave de API</Label>
+            <Label className="text-xs text-text-muted mb-1 block">{translate("API Key")}</Label>
             <Input type="password" className="w-full px-3 py-2 text-sm" value={formData.apiKey} onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })} />
           </div>
           <div className="pt-6">
             <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary">
-              {validating ? "Verificando..." : "Verificar"}
+              {validating ? translate("Checking...") : translate("Check")}
             </Button>
           </div>
         </div>
         {validationResult && (
           <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
-            {validationResult === "success" ? "Válido" : "Inválido"}
+            {validationResult === "success" ? translate("Valid") : translate("Invalid")}
           </Badge>
         )}
         <div>
-          <Label className="text-xs text-text-muted mb-1 block">Prioridade</Label>
+          <Label className="text-xs text-text-muted mb-1 block">{translate("Priority")}</Label>
           <Input type="number" className="w-full px-3 py-2 text-sm" value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value) || 1 })} />
         </div>
-        <Select label="Pool de Proxy" value={formData.proxyPoolId} onChange={(val: string) => setFormData({ ...formData, proxyPoolId: val })}
-          options={[{ value: NONE, label: "Nenhum" }, ...(proxyPools || []).map((p) => ({ value: p.id, label: p.name }))]} />
+        <Select label={translate("Proxy Pool") || "Proxy Pool"} value={formData.proxyPoolId} onChange={(val: string) => setFormData({ ...formData, proxyPoolId: val })}
+          options={[{ value: NONE, label: translate("None") || "None" }, ...(proxyPools || []).map((p) => ({ value: p.id, label: p.name }))]} />
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={!formData.name || !formData.apiKey || saving}>
-            {saving ? "Salvando..." : "Salvar"}
+            {saving ? translate("Saving...") : translate("Save")}
           </Button>
-          <Button onClick={onClose} variant="ghost" fullWidth>Cancel</Button>
+          <Button onClick={onClose} variant="ghost" fullWidth>{translate("Cancel")}</Button>
         </div>
       </div>
     </Modal>
@@ -394,8 +395,8 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
 
   const handleDelete = async (id: string) => {
     setConfirmState({
-      title: "Excluir Conexão",
-      message: "Excluir esta conexão?",
+      title: translate("Delete connection") || "Delete connection",
+      message: translate("Delete this connection?") || "Delete this connection?",
       onConfirm: async () => {
         setConfirmState(null);
         try {
@@ -440,7 +441,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
     <>
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <h2 className="text-lg font-semibold">Conexões</h2>
+          <h2 className="text-lg font-semibold">{translate("Connections")}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-text-muted font-medium">Round Robin</span>
             <Switch
@@ -467,8 +468,8 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
 
         {connections.length === 0 ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-text-muted">Nenhuma conexão ainda</p>
-            <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>Adicionar Conexão</Button>
+            <p className="text-sm text-text-muted">{translate("No connections yet")}</p>
+            <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>{translate("Add Connection")}</Button>
           </div>
         ) : (
           <>
@@ -491,7 +492,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
               ))}
             </div>
             <div className="mt-4 flex justify-stretch sm:justify-start">
-              <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>Adicionar</Button>
+              <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>{translate("Add")}</Button>
             </div>
           </>
         )}

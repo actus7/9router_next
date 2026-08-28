@@ -4,7 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import Button from "@/shared/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LOCALES, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
-import { reloadTranslations } from "@/i18n/runtime";
+import { reloadTranslations, translate } from "@/i18n/runtime";
 import { Check, Globe } from "lucide-react";
 
 function getLocaleFromCookie(): string {
@@ -16,47 +16,51 @@ function getLocaleFromCookie(): string {
   return normalizeLocale(value);
 }
 
-// Locale display names and flags - will be translated by runtime i18n
-const getLocaleInfo = (locale: string): { name: string; flag: string } => {
-  const locales: Record<string, { name: string; flag: string }> = {
-    "en": { name: "English", flag: "🇺🇸" },
-    "vi": { name: "Tiếng Việt", flag: "🇻🇳" },
-    "zh-CN": { name: "简体中文", flag: "🇨🇳" },
-    "zh-TW": { name: "繁體中文", flag: "🇹🇼" },
-    "ja": { name: "日本語", flag: "🇯🇵" },
-    "pt-BR": { name: "Português (Brasil)", flag: "🇧🇷" },
-    "pt-PT": { name: "Português (Portugal)", flag: "🇵🇹" },
-    "ko": { name: "한국어", flag: "🇰🇷" },
-    "es": { name: "Español", flag: "🇪🇸" },
-    "de": { name: "Deutsch", flag: "🇩🇪" },
-    "fr": { name: "Français", flag: "🇫🇷" },
-    "he": { name: "עברית", flag: "🇮🇱" },
-    "ar": { name: "العربية", flag: "🇸🇦" },
-    "ru": { name: "Русский", flag: "🇷🇺" },
-    "pl": { name: "Polski", flag: "🇵🇱" },
-    "cs": { name: "Čeština", flag: "🇨🇿" },
-    "nl": { name: "Nederlands", flag: "🇳🇱" },
-    "tr": { name: "Türkçe", flag: "🇹🇷" },
-    "uk": { name: "Українська", flag: "🇺🇦" },
-    "tl": { name: "Tagalog", flag: "🇵🇭" },
-    "id": { name: "Indonesia", flag: "🇮🇩" },
-    "th": { name: "ไทย", flag: "🇹🇭" },
-    "km": { name: "ខ្មែរ", flag: "🇰🇭" },
-    "hi": { name: "हिन्दी", flag: "🇮🇳" },
-    "bn": { name: "বাংলা", flag: "🇧🇩" },
-    "ur": { name: "اردو", flag: "🇵🇰" },
-    "ro": { name: "Română", flag: "🇷🇴" },
-    "sv": { name: "Svenska", flag: "🇸🇪" },
-    "it": { name: "Italiano", flag: "🇮🇹" },
-    "el": { name: "Ελληνικά", flag: "🇬🇷" },
-    "hu": { name: "Magyar", flag: "🇭🇺" },
-    "fi": { name: "Suomi", flag: "🇫🇮" },
-    "da": { name: "Dansk", flag: "🇩🇰" },
-    "no": { name: "Norsk", flag: "🇳🇴" },
-    "fa": { name: "فارسی", flag: "🇮🇷" }
-  };
-  return locales[locale] || { name: locale, flag: "🌐" };
+// Locale display names - will be translated by runtime i18n
+// ponytail: flag emoji render as bare region-code text on Windows (Segoe UI Emoji has no
+// color-flag glyphs), so we show an explicit code badge instead of relying on emoji fallback.
+const LOCALE_NAMES: Record<string, string> = {
+  "en": "English",
+  "vi": "Tiếng Việt",
+  "zh-CN": "简体中文",
+  "zh-TW": "繁體中文",
+  "ja": "日本語",
+  "pt-BR": "Português (Brasil)",
+  "pt-PT": "Português (Portugal)",
+  "ko": "한국어",
+  "es": "Español",
+  "de": "Deutsch",
+  "fr": "Français",
+  "he": "עברית",
+  "ar": "العربية",
+  "ru": "Русский",
+  "pl": "Polski",
+  "cs": "Čeština",
+  "nl": "Nederlands",
+  "tr": "Türkçe",
+  "uk": "Українська",
+  "tl": "Tagalog",
+  "id": "Indonesia",
+  "th": "ไทย",
+  "km": "ខ្មែរ",
+  "hi": "हिन्दी",
+  "bn": "বাংলা",
+  "ur": "اردو",
+  "ro": "Română",
+  "sv": "Svenska",
+  "it": "Italiano",
+  "el": "Ελληνικά",
+  "hu": "Magyar",
+  "fi": "Suomi",
+  "da": "Dansk",
+  "no": "Norsk",
+  "fa": "فارسی",
 };
+
+const getLocaleInfo = (locale: string): { name: string; code: string } => ({
+  name: LOCALE_NAMES[locale] || locale,
+  code: locale.split("-")[0].toUpperCase(),
+});
 
 interface LanguageSwitcherProps {
   className?: string;
@@ -125,7 +129,6 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
         >
           <Globe className="size-5" />
           <span className="text-sm font-medium">{getLocaleInfo(locale).name}</span>
-          <span className="text-lg">{getLocaleInfo(locale).flag}</span>
         </Button>
       )}
 
@@ -142,11 +145,11 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
         }}
       >
         <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-2xl max-h-[80vh] flex flex-col" data-i18n-skip="true">
-          <DialogTitle className="sr-only">Selecionar Idioma</DialogTitle>
+          <DialogTitle className="sr-only">{translate("Select Language")}</DialogTitle>
 
           {/* Modal header */}
           <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5">
-            <h2 className="text-lg font-semibold text-text-main">Selecionar Idioma</h2>
+            <h2 className="text-lg font-semibold text-text-main">{translate("Select Language")}</h2>
           </div>
 
           {/* Modal body - fixed grid columns, equal sizing */}
@@ -161,19 +164,19 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
                     variant={active ? "default" : "ghost"}
                     onClick={() => handleSetLocale(item)}
                     disabled={isPending}
-                    className={`flex flex-col items-center justify-start gap-1 px-2 py-3 rounded-lg text-xs font-medium w-full ${
+                    className={`relative flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-lg px-2 py-3 text-xs font-medium ${
                       active
                         ? "bg-primary/15 text-primary ring-2 ring-primary"
                         : "text-text-main hover:bg-surface-2/50"
                     } ${isPending ? "opacity-70 cursor-wait" : ""}`}
                     title={info.name}
                   >
-                    <span className="text-2xl">{info.flag}</span>
-                    {/* Fixed 2-line height so all cards are uniform */}
-                    <span className="text-center leading-tight line-clamp-2 h-8 flex items-center">{info.name}</span>
                     {active && (
-                      <Check className="size-4" />
+                      <Check className="absolute right-1.5 top-1.5 size-3.5" />
                     )}
+                    <span className="rounded bg-surface-2/70 px-1.5 py-0.5 text-[10px] font-bold tracking-wide">{info.code}</span>
+                    {/* Fixed 2-line height so all cards are uniform */}
+                    <span className="flex h-8 items-center text-center leading-tight line-clamp-2">{info.name}</span>
                   </Button>
                 );
               })}

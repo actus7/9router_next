@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface FieldSchema {
   label: string;
@@ -12,17 +13,17 @@ interface FieldSchema {
 
 // Only show fields user actually cares about
 const FIELD_SCHEMA: Record<string, FieldSchema> = {
-  mode:             { label: "Modo",       format: (v) => String(v) },
-  defaultModel:     { label: "Modelo",      format: (v) => String(v), mono: true },
-  baseUrl:          { label: "Endpoint",   format: (v) => String(v), isLink: true, mono: true },
-  costPerQuery:     { label: "Custo / chamada", format: (v) => v === 0 ? "Grátis" : `$${(v as number).toFixed(4)}` },
-  pricingUrl:       { label: "Preços",    format: () => "Ver preços", isLink: true },
-  freeTier:         { label: "Tier grátis",  format: (v) => String(v) },
-  freeMonthlyQuota: { label: "Cota grátis",  format: (v) => v === 0 ? "—" : (v as number) >= 999999 ? "Ilimitado" : `${(v as number).toLocaleString()} / mês` },
-  searchTypes:      { label: "Tipos",      format: (v) => (v as string[]).join(", ") },
-  formats:          { label: "Formatos",    format: (v) => (v as string[]).join(", ") },
-  maxMaxResults:    { label: "Máx. resultados", format: (v) => String(v) },
-  maxCharacters:    { label: "Máx. caracteres",  format: (v) => (v as number).toLocaleString() },
+  mode:             { label: translate("Mode") ?? "Mode",       format: (v) => String(v) },
+  defaultModel:     { label: translate("Model") ?? "Model",      format: (v) => String(v), mono: true },
+  baseUrl:          { label: translate("Endpoint") ?? "Endpoint",   format: (v) => String(v), isLink: true, mono: true },
+  costPerQuery:     { label: translate("Cost per call") ?? "Cost per call", format: (v) => v === 0 ? (translate("Free") ?? "Free") : `$${(v as number).toFixed(4)}` },
+  pricingUrl:       { label: translate("Pricing") ?? "Pricing",    format: () => translate("View pricing") ?? "View pricing", isLink: true },
+  freeTier:         { label: translate("Free tier") ?? "Free tier",  format: (v) => String(v) },
+  freeMonthlyQuota: { label: translate("Free quota") ?? "Free quota",  format: (v) => v === 0 ? "—" : (v as number) >= 999999 ? (translate("Unlimited") ?? "Unlimited") : `${(v as number).toLocaleString()} / ${translate("month") ?? "month"}` },
+  searchTypes:      { label: translate("Types") ?? "Types",      format: (v) => (v as string[]).join(", ") },
+  formats:          { label: translate("Formats") ?? "Formats",    format: (v) => (v as string[]).join(", ") },
+  maxMaxResults:    { label: translate("Max results") ?? "Max results", format: (v) => String(v) },
+  maxCharacters:    { label: translate("Max characters") ?? "Max characters",  format: (v) => (v as number).toLocaleString() },
 };
 
 interface ProviderNotice {
@@ -41,7 +42,7 @@ interface ProviderInfoCardProps {
   title?: string;
 }
 
-export default function ProviderInfoCard({ config, provider, title = "Informações do Provedor" }: ProviderInfoCardProps) {
+export default function ProviderInfoCard({ config, provider, title = translate("Provider Information") ?? "Provider Information" }: ProviderInfoCardProps) {
   if (!config) return null;
 
   const rows = Object.entries(FIELD_SCHEMA)
@@ -71,7 +72,7 @@ export default function ProviderInfoCard({ config, provider, title = "Informaç�
               className="text-xs text-primary hover:underline inline-flex items-center gap-1"
             >
               <ExternalLink className="size-4" />
-              Obter Chave API
+              {translate("Get API Key")}
             </a>
           )}
         </div>
@@ -97,7 +98,7 @@ export default function ProviderInfoCard({ config, provider, title = "Informaç�
           ))}
           {noticeText && (
             <div className="flex items-start gap-3 min-w-0 sm:col-span-2">
-              <span className="text-xs text-text-muted w-28 shrink-0 mt-0.5">Aviso</span>
+              <span className="text-xs text-text-muted w-28 shrink-0 mt-0.5">{translate("Notice")}</span>
               <span className="text-sm text-text-main leading-relaxed">{noticeText}</span>
             </div>
           )}

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const REGISTRY_ENDPOINT = "/api/cli-tools/cowork-mcp-registry";
 const TOOLS_ENDPOINT = "/api/cli-tools/cowork-mcp-tools";
@@ -156,9 +157,9 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            Explorar Marketplace MCP
+            {translate("Browse MCP Marketplace") || "Browse MCP Marketplace"}
           </DialogTitle>
-          <Button onClick={onClose} aria-label="Fechar" variant="ghost" size="icon-sm">
+          <Button onClick={onClose} aria-label={translate("Close") || "Close"} variant="ghost" size="icon-sm">
             <X className="size-5" />
           </Button>
         </div>
@@ -169,16 +170,16 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar por nome ou descrição..."
+            placeholder={translate("Search by name or description...") || "Search by name or description..."}
             className="flex-1 px-2 py-1.5 text-xs"
           />
           <Select value={filter} onValueChange={(v) => setFilter(v ?? "all")}>
             <SelectTrigger className="px-2 py-1.5 bg-surface rounded text-xs">
-              <SelectValue placeholder="Filtrar" />
+              <SelectValue placeholder={translate("Filter") || "Filter"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="authless">Sem autenticação</SelectItem>
+              <SelectItem value="all">{translate("All") || "All"}</SelectItem>
+              <SelectItem value="authless">{translate("Authless") || "Authless"}</SelectItem>
               <SelectItem value="oauth">OAuth</SelectItem>
             </SelectContent>
           </Select>
@@ -191,14 +192,14 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
         {loading && (
           <div className="flex items-center gap-2 text-text-muted text-xs py-4 justify-center">
             <Loader2 className="size-5" />
-            <span>Carregando registro...</span>
+            <span>{translate("Loading registry...") || "Loading registry..."}</span>
           </div>
         )}
 
         {!loading && (
           <div className="flex flex-col gap-1 max-h-[60vh] overflow-y-auto">
             {filtered.length === 0 && (
-              <div className="text-center text-xs text-text-muted py-6">Nenhum servidor corresponde ao filtro</div>
+              <div className="text-center text-xs text-text-muted py-6">{translate("No servers match filter") || "No servers match filter"}</div>
             )}
             {filtered.map((s) => {
               const added = addedSet.has(s.slug || s.name || "");
@@ -222,10 +223,10 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                         {s.oauth ? (
                           <span className="px-1 py-0.5 text-[9px] rounded bg-amber-500/10 text-amber-600">OAuth</span>
                         ) : (
-                          <span className="px-1 py-0.5 text-[9px] rounded bg-green-500/10 text-green-600">Sem autenticação</span>
+                          <span className="px-1 py-0.5 text-[9px] rounded bg-green-500/10 text-green-600">{translate("Authless") || "Authless"}</span>
                         )}
                         {s.toolCount && s.toolCount > 0 && (
-                          <span className="text-[10px] text-text-muted">{s.toolCount} ferramentas</span>
+                          <span className="text-[10px] text-text-muted">{s.toolCount} {translate("Tools") || "Tools"}</span>
                         )}
                       </div>
                       {s.description && (
@@ -243,7 +244,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                           : ""
                       }`}
                     >
-                      {added ? "Adicionado" : expanded ? "Cancelar" : "+ Adicionar"}
+                      {added ? translate("Added") || "Added" : expanded ? translate("Cancel") || "Cancel" : `+ ${translate("Add") || "Add"}`}
                     </Button>
                   </div>
                   {expanded && (
@@ -251,28 +252,28 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                       {isLoadingTools && (
                         <div className="flex items-center gap-2 text-text-muted text-[10px] py-1">
                           <Loader2 className="size-4" />
-                          <span>Verificando ferramentas do servidor...</span>
+                          <span>{translate("Probing server for tools...") || "Probing server for tools..."}</span>
                         </div>
                       )}
                       {!isLoadingTools && cache?.requiresAuth && (
                         <p className="text-[10px] text-amber-600 bg-amber-500/10 px-2 py-1 rounded">
-                          🔐 OAuth necessário. Adicione agora e autentique após Aplicar; a lista de ferramentas será descoberta após a primeira conexão.
+                          🔐 {translate("OAuth required. Add now and authenticate after Apply; the tool list will be discovered after the first connection.") || "OAuth required. Add now and authenticate after Apply; the tool list will be discovered after the first connection."}
                         </p>
                       )}
                       {!isLoadingTools && cache?.error && !cache?.requiresAuth && (
-                        <p className="text-[10px] text-red-600 bg-red-500/10 px-2 py-1 rounded">Falha na verificação: {cache.error}</p>
+                        <p className="text-[10px] text-red-600 bg-red-500/10 px-2 py-1 rounded">{translate("Verification failed") || "Verification failed"}: {cache.error}</p>
                       )}
                       {!isLoadingTools && toolKeys.length === 0 && !cache?.requiresAuth && !cache?.error && (
-                        <p className="text-[10px] text-text-muted">Nenhuma ferramenta anunciada pelo servidor.</p>
+                        <p className="text-[10px] text-text-muted">{translate("No tools advertised by server.") || "No tools advertised by server."}</p>
                       )}
                       {!isLoadingTools && toolKeys.length > 0 && (
                         <>
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-text-muted">{selectedCount}/{toolKeys.length} ferramentas habilitadas</span>
+                            <span className="text-[10px] text-text-muted">{selectedCount}/{toolKeys.length} {translate("tools enabled") || "tools enabled"}</span>
                             <div className="flex gap-1">
-                              <Button onClick={() => setAllTools(s.url, true)} variant="ghost" size="xs" className="text-[10px] text-primary hover:underline">Todas</Button>
+                              <Button onClick={() => setAllTools(s.url, true)} variant="ghost" size="xs" className="text-[10px] text-primary hover:underline">{translate("All") || "All"}</Button>
                               <span className="text-[10px] text-text-muted">·</span>
-                              <Button onClick={() => setAllTools(s.url, false)} variant="ghost" size="xs" className="text-[10px] text-primary hover:underline">Nenhuma</Button>
+                              <Button onClick={() => setAllTools(s.url, false)} variant="ghost" size="xs" className="text-[10px] text-primary hover:underline">{translate("None") || "None"}</Button>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto">
@@ -295,7 +296,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                         size="sm"
                         className="self-end px-2 py-1 rounded text-[10px] font-medium"
                       >
-                        ✓ Confirmar Adição
+                        ✓ {translate("Confirm Add") || "Confirm Add"}
                       </Button>
                     </div>
                   )}
@@ -306,7 +307,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
         )}
 
         <div className="text-[10px] text-text-muted text-right">
-          {filtered.length} de {servers.length} servidores
+          {filtered.length} {translate("of") || "of"} {servers.length} {translate("servers") || "servers"}
         </div>
         </div>
         </div>

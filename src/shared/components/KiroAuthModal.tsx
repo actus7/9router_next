@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Braces, Building, CheckCircle2, CircleUser, Code, Info, Key, Loader2, Shield, Upload, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface IdcCredentials {
   clientId: string;
@@ -212,9 +213,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            Conectar Kiro
+            {translate("Connect Kiro")}
           </DialogTitle>
-          <Button onClick={onClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={onClose} aria-label={translate("Close") ?? "Close"} variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -224,7 +225,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
         {!selectedMethod && (
           <div className="space-y-3">
             <p className="text-sm text-text-muted mb-4">
-              Escolha seu método de autenticação:
+              {translate("Choose your authentication method:")}
             </p>
 
             {/* AWS Builder ID */}
@@ -236,9 +237,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex items-start gap-3">
                 <Shield className="size-4" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold mb-1">AWS Builder ID</h3>
+                  <h3 className="font-semibold mb-1">{translate("AWS Builder ID")}</h3>
                   <p className="text-sm text-text-muted">
-                    Recomendado para a maioria dos usuários. Conta AWS gratuita necessária.
+                    {translate("Recommended for most users. Free AWS account required.")}
                   </p>
                 </div>
               </div>
@@ -253,9 +254,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex items-start gap-3">
                 <Building className="size-4" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold mb-1">AWS IAM Identity Center</h3>
+                  <h3 className="font-semibold mb-1">{translate("AWS IAM Identity Center")}</h3>
                   <p className="text-sm text-text-muted">
-                    Para usuários corporativos com AWS IAM Identity Center personalizado.
+                    {translate("For enterprise users with custom AWS IAM Identity Center.")}
                   </p>
                 </div>
               </div>
@@ -270,9 +271,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex items-start gap-3">
                 <Key className="size-4" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold mb-1">Chave API</h3>
+                  <h3 className="font-semibold mb-1">{translate("API Key")}</h3>
                   <p className="text-sm text-text-muted">
-                    Use uma chave API Kiro/CodeWhisperer de longa duração (autenticação headless).
+                    {translate("Use a long-lived Kiro/CodeWhisperer API key (headless authentication).")}
                   </p>
                 </div>
               </div>
@@ -287,9 +288,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex items-start gap-3">
                 <CircleUser className="size-4" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold mb-1">Conta Google</h3>
+                  <h3 className="font-semibold mb-1">{translate("Google Account")}</h3>
                   <p className="text-sm text-text-muted">
-                    Entrar com sua conta Google (callback manual).
+                    {translate("Login with your Google account (manual callback).")}
                   </p>
                 </div>
               </div>
@@ -304,9 +305,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex items-start gap-3">
                 <Code className="size-4" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold mb-1">Conta GitHub</h3>
+                  <h3 className="font-semibold mb-1">{translate("GitHub Account")}</h3>
                   <p className="text-sm text-text-muted">
-                    Entrar com sua conta GitHub (callback manual).
+                    {translate("Login with your GitHub account (manual callback).")}
                   </p>
                 </div>
               </div>
@@ -321,9 +322,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex items-start gap-3">
                 <Upload className="size-4" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold mb-1">Importar Token</h3>
+                  <h3 className="font-semibold mb-1">{translate("Import Token")}</h3>
                   <p className="text-sm text-text-muted">
-                    Cole o refresh token do Kiro IDE.
+                    {translate("Paste refresh token from Kiro IDE.")}
                   </p>
                 </div>
               </div>
@@ -338,9 +339,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex items-start gap-3">
                 <Braces className="size-4" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold mb-1">Importar JSON CLIProxyAPI</h3>
+                  <h3 className="font-semibold mb-1">{translate("Import CLIProxyAPI JSON")}</h3>
                   <p className="text-sm text-text-muted">
-                    Cole o JSON de autenticação external_idp do login Microsoft CLIProxyAPI/Kiro.
+                    {translate("Paste the external_idp auth JSON from Microsoft CLIProxyAPI/Kiro login.")}
                   </p>
                 </div>
               </div>
@@ -353,7 +354,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
           <div className="space-y-4">
             <div>
               <Label className="block mb-2">
-                URL Inicial do IDC <span className="text-red-500">*</span>
+                {translate("IDC Start URL")} <span className="text-red-500">*</span>
               </Label>
               <Input
                 value={idcStartUrl}
@@ -362,13 +363,13 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                 className="font-mono text-sm"
               />
               <p className="text-xs text-text-muted mt-1">
-                URL do AWS IAM Identity Center da sua organização
+                {translate("Your organization's AWS IAM Identity Center URL")}
               </p>
             </div>
 
             <div>
               <Label className="block mb-2">
-                Região AWS
+                {translate("AWS Region")}
               </Label>
               <Input
                 value={idcRegion}
@@ -377,7 +378,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                 className="font-mono text-sm"
               />
               <p className="text-xs text-text-muted mt-1">
-                Região AWS do seu Identity Center (padrão: us-east-1)
+                {translate("AWS region for your Identity Center (default: us-east-1)")}
               </p>
             </div>
 
@@ -387,10 +388,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
 
             <div className="flex gap-2">
               <Button onClick={handleIdcContinue} fullWidth>
-                Continuar
+                {translate("Continue")}
               </Button>
               <Button onClick={handleBack} variant="ghost" fullWidth>
-                Voltar
+                {translate("Back")}
               </Button>
             </div>
           </div>
@@ -403,27 +404,26 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex gap-2">
                 <Info className="size-4" />
                 <p className="text-sm text-blue-800 dark:text-blue-200">
-                  Cole uma chave API Kiro/CodeWhisperer de longa duração. Ela é validada
-                  contra o AWS e armazenada diretamente como credencial bearer (sem refresh).
+                  {translate("Paste a long-lived Kiro/CodeWhisperer API key. It is validated against AWS and stored directly as a bearer credential (no refresh).")}
                 </p>
               </div>
             </div>
 
             <div>
               <Label className="block mb-2">
-                Chave API <span className="text-red-500">*</span>
+                {translate("API Key")} <span className="text-red-500">*</span>
               </Label>
               <Input
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Cole sua chave API Kiro..."
+                placeholder={translate("Paste your Kiro API key...") ?? "Paste your Kiro API key..."}
                 className="font-mono text-sm"
               />
             </div>
 
             <div>
               <Label className="block mb-2">
-                Região AWS
+                {translate("AWS Region")}
               </Label>
               <Input
                 value={apiKeyRegion}
@@ -432,7 +432,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                 className="font-mono text-sm"
               />
               <p className="text-xs text-text-muted mt-1">
-                Região AWS para a chave (padrão: us-east-1)
+                {translate("AWS region for the key (default: us-east-1)")}
               </p>
             </div>
 
@@ -444,10 +444,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
 
             <div className="flex gap-2">
               <Button onClick={handleApiKeyImport} fullWidth disabled={importing || !apiKey.trim()}>
-                {importing ? "Validando..." : "Adicionar Chave API"}
+                {importing ? (translate("Validating...") ?? "Validating...") : (translate("Add API Key") ?? "Add API Key")}
               </Button>
               <Button onClick={handleBack} variant="ghost" fullWidth>
-                Voltar
+                {translate("Back")}
               </Button>
             </div>
           </div>
@@ -461,10 +461,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                 <Info className="size-4" />
                 <div className="flex-1 text-sm">
                   <p className="font-medium text-amber-900 dark:text-amber-100 mb-1">
-                    Callback Manual Necessário
+                    {translate("Manual Callback Required")}
                   </p>
                   <p className="text-amber-800 dark:text-amber-200">
-                    Após o login, você precisará copiar a URL de callback do seu navegador e colá-la aqui.
+                    {translate("After authorization, copy the full URL from your browser address bar.")}
                   </p>
                 </div>
               </div>
@@ -472,10 +472,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
 
             <div className="flex gap-2">
               <Button onClick={() => handleSocialLogin("google")} fullWidth>
-                Continuar com Google
+                {translate("Continue with Google")}
               </Button>
               <Button onClick={handleBack} variant="ghost" fullWidth>
-                Voltar
+                {translate("Back")}
               </Button>
             </div>
           </div>
@@ -489,10 +489,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                 <Info className="size-4" />
                 <div className="flex-1 text-sm">
                   <p className="font-medium text-amber-900 dark:text-amber-100 mb-1">
-                    Callback Manual Necessário
+                    {translate("Manual Callback Required")}
                   </p>
                   <p className="text-amber-800 dark:text-amber-200">
-                    Após o login, você precisará copiar a URL de callback do seu navegador e colá-la aqui.
+                    {translate("After authorization, copy the full URL from your browser address bar.")}
                   </p>
                 </div>
               </div>
@@ -500,10 +500,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
 
             <div className="flex gap-2">
               <Button onClick={() => handleSocialLogin("github")} fullWidth>
-                Continuar com GitHub
+                {translate("Continue with GitHub")}
               </Button>
               <Button onClick={handleBack} variant="ghost" fullWidth>
-                Voltar
+                {translate("Back")}
               </Button>
             </div>
           </div>
@@ -518,9 +518,9 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                 <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
                   <Loader2 className="size-4" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Detectando token automaticamente...</h3>
+                <h3 className="text-lg font-semibold mb-2">{translate("Auto-detecting token...")}</h3>
                 <p className="text-sm text-text-muted">
-                  Lendo do cache AWS SSO
+                  {translate("Reading from AWS SSO cache")}
                 </p>
               </div>
             )}
@@ -534,7 +534,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                     <div className="flex gap-2">
                       <CheckCircle2 className="size-4" />
                       <p className="text-sm text-green-800 dark:text-green-200">
-                        Token detectado automaticamente do Kiro IDE com sucesso!
+                        {translate("Token auto-detected from Kiro IDE successfully!")}
                       </p>
                     </div>
                   </div>
@@ -546,7 +546,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                     <div className="flex gap-2">
                       <Info className="size-4" />
                       <p className="text-sm text-blue-800 dark:text-blue-200">
-                        Kiro IDE não detectado. Por favor, cole seu refresh token manualmente.
+                        {translate("Kiro IDE not detected. Please paste your refresh token manually.")}
                       </p>
                     </div>
                   </div>
@@ -559,7 +559,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
                   <Input
                     value={refreshToken}
                     onChange={(e) => setRefreshToken(e.target.value)}
-                    placeholder="O token será preenchido automaticamente..."
+                    placeholder={translate("The token will be auto-filled...") ?? "The token will be auto-filled..."}
                     className="font-mono text-sm"
                   />
                 </div>
@@ -572,10 +572,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
 
                 <div className="flex gap-2">
                   <Button onClick={handleImportToken} fullWidth disabled={importing || !refreshToken.trim()}>
-                    {importing ? "Importando..." : "Importar Token"}
+                    {importing ? (translate("Importing...") ?? "Importing...") : (translate("Import Token") ?? "Import Token")}
                   </Button>
                   <Button onClick={handleBack} variant="ghost" fullWidth>
-                    Voltar
+                    {translate("Back")}
                   </Button>
                 </div>
               </>
@@ -590,14 +590,14 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
               <div className="flex gap-2">
                 <Info className="size-4" />
                 <p className="text-sm text-blue-800 dark:text-blue-200">
-                  Cole o JSON de autenticação CLIProxyAPI do Kiro contendo auth_method=external_idp. Apenas endpoints de token de login Microsoft são aceitos.
+                  {translate("Paste the CLIProxyAPI auth JSON from Kiro containing auth_method=external_idp. Only Microsoft login token endpoints are accepted.")}
                 </p>
               </div>
             </div>
 
             <div>
               <Label className="block mb-2">
-                JSON de Autenticação CLIProxyAPI <span className="text-red-500">*</span>
+                {translate("CLIProxyAPI Auth JSON")} <span className="text-red-500">*</span>
               </Label>
               <Textarea
                 value={cliProxyJson}
@@ -615,10 +615,10 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
 
             <div className="flex gap-2">
               <Button onClick={handleImportCliProxyJson} fullWidth disabled={importing || !cliProxyJson.trim()}>
-                {importing ? "Importando..." : "Importar JSON CLIProxyAPI"}
+                {importing ? (translate("Importing...") ?? "Importing...") : (translate("Import CLIProxyAPI JSON") ?? "Import CLIProxyAPI JSON")}
               </Button>
               <Button onClick={handleBack} variant="ghost" fullWidth>
-                Voltar
+                {translate("Back")}
               </Button>
             </div>
           </div>

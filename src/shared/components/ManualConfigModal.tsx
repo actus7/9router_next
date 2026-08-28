@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import Button from "./Button";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Check, Copy, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface ConfigItem {
   filename: string;
@@ -19,7 +20,7 @@ interface ManualConfigModalProps {
   configs?: ConfigItem[];
 }
 
-export default function ManualConfigModal({ isOpen, onClose, title = "Configura√ß√£o Manual", configs = [] }: ManualConfigModalProps) {
+export default function ManualConfigModal({ isOpen, onClose, title = "Manual Config", configs = [] }: ManualConfigModalProps) {
   const { copy } = useCopyToClipboard();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
@@ -41,9 +42,9 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Configura√
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            {title}
+            {translate(title) ?? title}
           </DialogTitle>
-          <Button onClick={onClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={onClose} aria-label={translate("Close") ?? "Close"} variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -59,7 +60,7 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Configura√
                 onClick={() => copyConfig(config.content, index)}
               >
                 {copiedIndex === index ? <Check className="size-4 mr-1" /> : <Copy className="size-4 mr-1" />}
-                {copiedIndex === index ? "Copiado!" : "Copiar"}
+                {copiedIndex === index ? (translate("Copied!") ?? "Copied!") : (translate("Copy") ?? "Copy")}
               </Button>
             </div>
             <pre className="px-3 py-2 bg-surface-2/50 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-60 overflow-y-auto border border-border">

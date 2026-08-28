@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button, Input, Modal, Select } from "@/shared/components";
 import { Badge } from "@/components/ui/badge";
+import { translate } from "@/i18n/runtime";
 
 interface ProviderNode {
   id?: string;
@@ -151,10 +152,10 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
         )}
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={!formData.name.trim() || !formData.prefix.trim() || !formData.baseUrl.trim() || saving}>
-            {saving ? "Salvando..." : "Salvar"}
+            {saving ? translate("Saving...") : translate("Save")}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>
-            Cancelar
+            {translate("Cancel")}
           </Button>
         </div>
       </div>

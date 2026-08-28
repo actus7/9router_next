@@ -6,12 +6,13 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Unlock } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const NONE_PROXY_POOL_VALUE = "__none__";
 const STRATEGIES = [
-  { value: "none", label: "Nenhum (pool única)" },
+  { value: "none", label: translate("None (single pool)") ?? "None (single pool)" },
   { value: "round-robin", label: "Round-robin" },
-  { value: "random", label: "Aleatório" },
+  { value: "random", label: translate("Random") ?? "Random" },
 ];
 
 interface ProxyPool {
@@ -93,38 +94,38 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
             <Unlock className="size-5" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium">Nenhuma autenticação necessária</p>
-            <p className="text-xs text-text-muted">Este provedor está pronto para uso. Opcionalmente, direcione requisições através de um pool de proxy para contornar limites baseados em IP.</p>
+            <p className="text-sm font-medium">{translate("No authentication required")}</p>
+            <p className="text-xs text-text-muted">{translate("This provider is ready for use. Optionally, route requests through a proxy pool to bypass IP-based limits.")}</p>
           </div>
-          {savedFlash && <Badge variant="default" className="h-auto px-2 py-0.5 text-[10px] bg-green-500/10 text-green-600 dark:text-green-400">Salvo</Badge>}
+          {savedFlash && <Badge variant="default" className="h-auto px-2 py-0.5 text-[10px] bg-green-500/10 text-green-600 dark:text-green-400">{translate("Saved")}</Badge>}
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-text-main">Pool de Proxy</Label>
+          <Label className="text-text-main">{translate("Proxy Pool")}</Label>
           <Select
             value={proxyPoolId}
             onValueChange={(val) => handlePoolChange(val ?? NONE_PROXY_POOL_VALUE)}
             disabled={saving || isRotation}
-            items={[{ value: NONE_PROXY_POOL_VALUE, label: "Nenhum (direto)" }, ...proxyPools.map((pool) => ({ value: pool.id, label: pool.name }))]}
+            items={[{ value: NONE_PROXY_POOL_VALUE, label: translate("None (direct)") ?? "None (direct)" }, ...proxyPools.map((pool) => ({ value: pool.id, label: pool.name }))]}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecione um pool" />
+              <SelectValue placeholder={translate("Select a pool") ?? "Select a pool"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE_PROXY_POOL_VALUE}>Nenhum (direto)</SelectItem>
+              <SelectItem value={NONE_PROXY_POOL_VALUE}>{translate("None (direct)") ?? "None (direct)"}</SelectItem>
               {proxyPools.map((pool) => (
                 <SelectItem key={pool.id} value={pool.id}>{pool.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {isRotation && <p className="text-xs text-text-muted">O seletor de pool é ignorado quando a rotação está ativa — todos os pools ativos são usados.</p>}
+          {isRotation && <p className="text-xs text-text-muted">{translate("The pool selector is ignored when rotation is active — all active pools are used.")}</p>}
         </div>
 
         <div className="flex flex-col gap-2 mt-4">
-          <Label className="text-text-main">Estratégia de Rotação</Label>
+          <Label className="text-text-main">{translate("Rotation Strategy")}</Label>
           <Select value={rotateStrategy} onValueChange={(v) => handleStrategyChange(v ?? "none")} disabled={saving}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecione a estratégia" />
+              <SelectValue placeholder={translate("Select strategy") ?? "Select strategy"} />
             </SelectTrigger>
             <SelectContent>
               {STRATEGIES.map((s) => (
@@ -136,12 +137,12 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
           </Select>
           <p className="text-xs text-text-muted">
             {!canRotate
-              ? `Necessário pelo menos 2 pools de proxy ativos para rotação.`
+              ? translate("At least 2 active proxy pools required for rotation.")
               : isRotation
                 ? rotateStrategy === "round-robin"
-                  ? `Rotacionando entre todos os ${proxyPools.length} pools ativos em ordem. O estado é em memória (reinicia ao reiniciar).`
-                  : `Selecionando um pool aleatório entre ${proxyPools.length} pools ativos a cada requisição.`
-                : `Usa o pool selecionado acima. Defina como Round-robin ou Aleatório para rotacionar entre todos os pools ativos.`}
+                  ? translate("Rotating among all") + " " + proxyPools.length + " " + translate("active pools in order. State is in-memory (resets on restart).")
+                  : translate("Selecting a random pool among") + " " + proxyPools.length + " " + translate("active pools per request.")
+                : translate("Uses the selected pool above. Set to Round-robin or Random to rotate among all active pools.")}
           </p>
         </div>
       </CardContent>

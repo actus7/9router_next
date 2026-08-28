@@ -15,6 +15,7 @@ import { TtsExampleCard } from "./components/TtsExampleCard";
 import { GenericExampleCard } from "./components/GenericExampleCard";
 import { SttExampleCard } from "./components/SttExampleCard";
 import { ArrowLeft, ExternalLink, Info, Pencil, Trash2, TriangleAlert } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface CustomNode {
   id: string;
@@ -233,8 +234,8 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
         }}
         title="Delete Custom Embedding"
         message="Delete this Custom Embedding node?"
-        confirmText="Excluir"
-        cancelText="Cancelar"
+        confirmText={translate("Delete") || "Delete"}
+        cancelText={translate("Cancel") || "Cancel"}
         variant="danger"
       />
     </div>

@@ -150,6 +150,7 @@ export {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogHeader,
   DialogOverlay,
   DialogPortal,
   DialogTitle,

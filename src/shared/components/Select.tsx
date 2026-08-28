@@ -12,6 +12,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { AlertCircle } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface SelectOption {
   value: string;
@@ -38,7 +39,7 @@ export default function Select({
   options = [],
   value,
   onChange,
-  placeholder = "Selecione uma opção",
+  placeholder = "Select an option",
   error,
   hint,
   disabled = false,
@@ -73,7 +74,7 @@ export default function Select({
             error && "border-red-500/40 focus-visible:ring-red-500/40 aria-invalid:border-red-500/40 aria-invalid:ring-red-500/20"
           )}
         >
-          <SelectValue placeholder={placeholder} />
+          <SelectValue placeholder={translate(placeholder) || placeholder} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>

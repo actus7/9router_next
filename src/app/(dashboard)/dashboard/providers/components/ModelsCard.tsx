@@ -8,6 +8,7 @@ import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, Plus, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 // ── ModelRow ───────────────────────────────────────────────────
 interface ModelRowProps {
@@ -45,7 +46,7 @@ function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFr
               </span>
             </Button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-              {isTesting ? "Testando..." : "Testar"}
+              {isTesting ? translate("Testing...") : translate("Test")}
             </span>
           </div>
         )}
@@ -85,10 +86,10 @@ function AddCustomModelModal({ isOpen, onSave, onClose }: AddCustomModelModalPro
   };
 
   return (
-    <Modal isOpen={isOpen} title="Adicionar Modelo Customizado" onClose={onClose}>
+    <Modal isOpen={isOpen} title={translate("Add Custom Model") || "Add Custom Model"} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div>
-          <Label className="text-xs text-text-muted mb-1 block">ID do Modelo</Label>
+          <Label className="text-xs text-text-muted mb-1 block">{translate("Model ID")}</Label>
           <Input
             className="w-full px-3 py-2 text-sm"
             value={modelId}
@@ -99,8 +100,8 @@ function AddCustomModelModal({ isOpen, onSave, onClose }: AddCustomModelModalPro
           />
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleSave} fullWidth disabled={!modelId.trim()}>Adicionar</Button>
-          <Button onClick={onClose} variant="ghost" fullWidth>Cancelar</Button>
+          <Button onClick={handleSave} fullWidth disabled={!modelId.trim()}>{translate("Add")}</Button>
+          <Button onClick={onClose} variant="ghost" fullWidth>{translate("Cancel")}</Button>
         </div>
       </div>
     </Modal>
@@ -244,7 +245,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     <>
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Modelos{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
+          <h2 className="text-lg font-semibold">{translate("Models")}{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
         </div>
         {testError && <p className="text-xs text-red-500 mb-3 break-words">{testError}</p>}
 
@@ -290,7 +291,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
             className="border-dashed border-black/15 dark:border-white/15 text-xs"
           >
             <Plus className="size-4" />
-            Adicionar Modelo
+            {translate("Add Model")}
           </Button>
         </div>
       </Card>

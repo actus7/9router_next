@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, Info, Loader2, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface CursorAuthModalProps {
   isOpen: boolean;
@@ -110,9 +111,9 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            Conectar Cursor IDE
+            {translate("Connect Cursor IDE")}
           </DialogTitle>
-          <Button onClick={onClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={onClose} aria-label={translate("Close") ?? "Close"} variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -124,9 +125,9 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
             <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
               <Loader2 className="size-4" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Detectando tokens automaticamente...</h3>
+            <h3 className="text-lg font-semibold mb-2">{translate("Auto-detecting tokens...")}</h3>
             <p className="text-sm text-text-muted">
-              Lendo do banco de dados do Cursor IDE
+              {translate("Reading from Cursor IDE database")}
             </p>
           </div>
         )}
@@ -139,8 +140,8 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
               <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="flex gap-2">
                   <CheckCircle2 className="size-4" />
-                  <p className="text-sm text-green-800 dark:text-green-200">
-                    Tokens detectados automaticamente do Cursor IDE com sucesso!
+                    <p className="text-sm text-green-800 dark:text-green-200">
+                    {translate("Tokens auto-detected from Cursor IDE successfully!")}
                   </p>
                 </div>
               </div>
@@ -152,14 +153,14 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
                 <div className="flex gap-2 items-center">
                   <Info className="size-4" />
                   <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    Não foi possível ler o banco de dados do Cursor automaticamente.
+                    {translate("Could not read Cursor database automatically.")}
                   </p>
                 </div>
                 <p className="text-xs text-amber-700 dark:text-amber-300">
-                  Certifique-se de que o Cursor IDE foi aberto pelo menos uma vez, depois clique em <strong>Tentar novamente</strong>. Se o problema persistir, cole seus tokens manualmente abaixo.
+                  {translate("Make sure Cursor IDE has been opened at least once, then click")} <strong>{translate("Try Again")}</strong>. {translate("If the problem persists, paste your tokens manually below.")}
                 </p>
                 <Button onClick={runAutoDetect} variant="outline" fullWidth>
-                  Tentar novamente
+                  {translate("Try Again")}
                 </Button>
               </div>
             )}
@@ -169,8 +170,8 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex gap-2">
                   <Info className="size-4" />
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    Cursor IDE não detectado. Por favor, cole seus tokens manualmente.
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                    {translate("Cursor IDE not detected. Please paste your tokens manually.")}
                   </p>
                 </div>
               </div>
@@ -179,12 +180,12 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
             {/* Access Token Input */}
             <div>
               <Label className="block mb-2">
-                Token de Acesso <span className="text-red-500">*</span>
+                {translate("Access Token")} <span className="text-red-500">*</span>
               </Label>
               <Textarea
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="O token de acesso será preenchido automaticamente..."
+                placeholder={translate("Access token will be auto-filled...") ?? "Access token will be auto-filled..."}
                 rows={3}
                 className="font-mono resize-none"
               />
@@ -193,12 +194,12 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
             {/* Machine ID Input */}
             <div>
               <Label className="block mb-2">
-                ID da Máquina <span className="text-red-500">*</span>
+                {translate("Machine ID")} <span className="text-red-500">*</span>
               </Label>
               <Input
                 value={machineId}
                 onChange={(e) => setMachineId(e.target.value)}
-                placeholder="O ID da máquina será preenchido automaticamente..."
+                placeholder={translate("Machine ID will be auto-filled...") ?? "Machine ID will be auto-filled..."}
                 className="font-mono text-sm"
               />
             </div>
@@ -217,10 +218,10 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }: CursorAu
                 fullWidth
                 disabled={importing || !accessToken.trim() || !machineId.trim()}
               >
-                {importing ? "Importando..." : "Importar Token"}
+                {importing ? (translate("Importing...") ?? "Importing...") : (translate("Import Token") ?? "Import Token")}
               </Button>
               <Button onClick={onClose} variant="ghost" fullWidth>
-                Cancelar
+                {translate("Cancel")}
               </Button>
             </div>
           </>

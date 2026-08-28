@@ -10,6 +10,7 @@ import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS,
 import { cn } from "@/lib/utils";
 import { Search, SearchX, X } from "lucide-react";
 import type { ActiveProvider } from "./ModelSelectModal";
+import { translate } from "@/i18n/runtime";
 
 type RawModel = { id: string; name: string; [key: string]: unknown };
 
@@ -59,15 +60,15 @@ function fmtPrice(n: number): string {
 function priceTierBadge(price: ModelPriceInfo | undefined): { label: string; className: string } | null {
   if (!price || price.outputPrice === null) return null;
   const output = price.outputPrice;
-  if (output === 0) return { label: "grátis", className: "bg-emerald-500/15 text-emerald-500" };
-  if (output <= 0.5) return { label: "barato", className: "bg-emerald-500/15 text-emerald-500" };
-  if (output <= 4) return { label: "médio", className: "bg-amber-500/15 text-amber-500" };
-  return { label: "caro", className: "bg-red-500/15 text-red-500" };
+  if (output === 0) return { label: translate("Free") || "Free", className: "bg-emerald-500/15 text-emerald-500" };
+  if (output <= 0.5) return { label: translate("Cheap") || "Cheap", className: "bg-emerald-500/15 text-emerald-500" };
+  if (output <= 4) return { label: translate("Medium") || "Medium", className: "bg-amber-500/15 text-amber-500" };
+  return { label: translate("Expensive") || "Expensive", className: "bg-red-500/15 text-red-500" };
 }
 
 function priceLine(price: ModelPriceInfo | undefined): string {
-  if (!price || price.inputPrice === null || price.outputPrice === null) return "preço não catalogado";
-  return `${fmtPrice(price.inputPrice)} entrada · ${fmtPrice(price.outputPrice)} saída / 1M`;
+  if (!price || price.inputPrice === null || price.outputPrice === null) return translate("price not catalogued") || "price not catalogued";
+  return `${fmtPrice(price.inputPrice)} ${translate("input") || "input"} · ${fmtPrice(price.outputPrice)} ${translate("output") || "output"} / 1M`;
 }
 
 export default function TierModelPickerModal({
@@ -75,7 +76,7 @@ export default function TierModelPickerModal({
   onClose,
   onSelect,
   title,
-  subtitle = "O fallback é usado quando o modelo acima falha ou está indisponível.",
+  subtitle = translate("The fallback is used when the model above fails or is unavailable.") || "The fallback is used when the model above fails or is unavailable.",
   activeProviders = [],
   modelAliases = {},
   addedModelValues = [],
@@ -228,7 +229,7 @@ export default function TierModelPickerModal({
           <p className="truncate text-xs text-text-muted">{priceLine(priceByModel[model.value])}</p>
         </div>
         {isUsed ? (
-          <span className="shrink-0 text-xs text-text-muted">já usado</span>
+          <span className="shrink-0 text-xs text-text-muted">{translate("already used") || "already used"}</span>
         ) : badge ? (
           <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", badge.className)}>{badge.label}</span>
         ) : null}
@@ -247,7 +248,7 @@ export default function TierModelPickerModal({
             <DialogTitle className="text-lg font-semibold text-text-main">{title}</DialogTitle>
             <p className="mt-0.5 text-sm text-text-muted">{subtitle}</p>
           </div>
-          <Button onClick={onClose} aria-label="Fechar" variant="ghost" size="icon-sm" className="shrink-0">
+          <Button onClick={onClose} aria-label={translate("Close") || "Close"} variant="ghost" size="icon-sm" className="shrink-0">
             <X className="size-5" />
           </Button>
         </div>
@@ -257,7 +258,7 @@ export default function TierModelPickerModal({
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
             <Input
               type="text"
-              placeholder="Buscar por modelo ou provedor..."
+              placeholder={translate("Search by model or provider...") || "Search by model or provider..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -275,7 +276,7 @@ export default function TierModelPickerModal({
                 selectedProviderId === null ? "bg-primary text-primary-foreground" : "hover:bg-muted text-text-main",
               )}
             >
-              <span>Todos os provedores</span>
+              <span>{translate("All providers") || "All providers"}</span>
               <span className={cn("text-xs", selectedProviderId === null ? "text-primary-foreground/80" : "text-text-muted")}>{totalCount}</span>
             </button>
             {sortedProviderIds.map((providerId) => (
@@ -314,7 +315,7 @@ export default function TierModelPickerModal({
             {(selectedProviderId ? (flatModelsSorted || []).length === 0 : visibleGroups.length === 0) && (
               <div className="flex flex-col items-center gap-2 py-10 text-text-muted">
                 <SearchX className="size-5" />
-                <p className="text-sm">Nenhum modelo encontrado</p>
+                <p className="text-sm">{translate("No models found") || "No models found"}</p>
               </div>
             )}
           </div>

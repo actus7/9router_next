@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 import { getI18nProps } from "@/i18n/server";
+import { ACCENT_COLOR_COOKIE, isValidAccentColor } from "@/shared/constants/accentColors";
 import "./globals.css";
 import "@/lib/network/initOutboundProxy";
 import "@/shared/services/bootstrap";
@@ -37,10 +39,17 @@ export default async function RootLayout({
   // Read locale and translations on the server to prevent hydration mismatches
   const { locale, translations } = await getI18nProps();
 
+  // Read the accent color preference on the server too, so <html> is painted
+  // with the right data-accent attribute on first byte — no flash, no client script.
+  const cookieStore = await cookies();
+  const rawAccent = cookieStore.get(ACCENT_COLOR_COOKIE)?.value;
+  const accent = isValidAccentColor(rawAccent) && rawAccent !== "default" ? rawAccent : undefined;
+
   return (
     <html
       lang={locale}
       suppressHydrationWarning
+      data-accent={accent}
       className={`${inter.variable} h-full antialiased`}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col font-sans">

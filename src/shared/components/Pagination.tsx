@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import Button from "@/shared/components/Button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface PaginationProps {
   currentPage: number;
@@ -56,9 +57,9 @@ export default function Pagination({
       {/* Info text */}
       {totalItems > 0 && (
         <div className="text-sm text-text-muted">
-          Mostrando <span className="font-medium text-text-main">{startItem}</span> até{" "}
-          <span className="font-medium text-text-main">{endItem}</span> de{" "}
-          <span className="font-medium text-text-main">{totalItems}</span> resultados
+          {translate("Showing") || "Showing"} <span className="font-medium text-text-main">{startItem}</span> {translate("to") || "to"}{" "}
+          <span className="font-medium text-text-main">{endItem}</span> {translate("of") || "of"}{" "}
+          <span className="font-medium text-text-main">{totalItems}</span> {translate("results") || "results"}
         </div>
       )}
 
@@ -66,10 +67,10 @@ export default function Pagination({
         {/* Page size selector */}
         {onPageSizeChange && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-text-muted">Linhas:</span>
+            <span className="text-sm text-text-muted">{translate("Rows:") || "Rows:"}</span>
             <Select value={String(pageSize)} onValueChange={(val) => onPageSizeChange(Number(val))}>
               <SelectTrigger className="h-9 w-auto">
-                <SelectValue placeholder="Linhas" />
+                <SelectValue placeholder={translate("Rows:") || "Rows:"} />
               </SelectTrigger>
               <SelectContent>
                 {[10, 20, 50].map((size) => (

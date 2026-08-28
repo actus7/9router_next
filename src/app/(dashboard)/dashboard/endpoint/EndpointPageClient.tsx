@@ -19,6 +19,7 @@ import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
 import { AlertCircle, Check, CheckCircle2, CloudUpload, Copy, ExternalLink, Eye, EyeOff, KeyRound, Loader2, Lock, Plus, Power, Trash2, Webhook } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 interface ApiKey {
   id: string;
   name: string;
@@ -114,8 +115,8 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
   // Security gate: block remote exposure while dashboard uses default password or login is off.
   const isLoginUnsafe = !requireLogin || !hasPassword;
   const unsafeReason = !requireLogin
-    ? "Habilite \"Exigir login\" e defina uma senha personalizada antes de ativar o túnel."
-    : "Altere a senha padrão do dashboard antes de ativar o túnel.";
+    ? (translate("Enable \"Require login\" and set a custom password before enabling the tunnel.") || "Enable \"Require login\" and set a custom password before enabling the tunnel.")
+    : (translate("Change the dashboard default password before enabling the tunnel.") || "Change the dashboard default password before enabling the tunnel.");
 
   // Auto-scroll install log
   useEffect(() => {
@@ -311,7 +312,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
   // Ping tunnel health until reachable. Race multiple URLs (shortlink + direct) — 1 OK is enough.
   const pingTunnelHealth = async (...urls: string[]) => {
     setTunnelLoading(true);
-    setTunnelProgress("Aguardando túnel ficar pronto...");
+    setTunnelProgress(translate("Waiting for tunnel to be ready...") || "Waiting for tunnel to be ready...");
     const targets = urls.filter(Boolean).map((u) => `${u}/api/health`);
     const start = Date.now();
     while (Date.now() - start < TUNNEL_PING_MAX_MS) {
@@ -334,7 +335,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
           if (statusRes.ok) {
             const status = await statusRes.json();
             if (!status.tunnel?.enabled) {
-              setTunnelStatus({ type: "error", message: "O processo do túnel parou inesperadamente." });
+              setTunnelStatus({ type: "error", message: translate("Tunnel process stopped unexpectedly.") || "Tunnel process stopped unexpectedly." });
               setTunnelLoading(false);
               setTunnelProgress("");
               return false;
@@ -343,7 +344,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         } catch { /* ignore */ }
       }
     }
-    setTunnelStatus({ type: "error", message: "Túnel criado mas não acessível. Por favor, tente novamente." });
+    setTunnelStatus({ type: "error", message: translate("Tunnel created but not reachable. Please try again.") || "Tunnel created but not reachable. Please try again." });
     setTunnelLoading(false);
     setTunnelProgress("");
     return false;
@@ -353,7 +354,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
     setShowEnableTunnelModal(false);
     setTunnelLoading(true);
     setTunnelStatus(null);
-    setTunnelProgress("Criando túnel...");
+    setTunnelProgress(translate("Creating tunnel...") || "Creating tunnel...");
 
     // Poll download progress while enable request is pending
     let polling = true;
@@ -364,9 +365,9 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
           if (r.ok) {
             const s = await r.json();
             if (s.download?.downloading) {
-              setTunnelProgress(`Baixando cloudflared... ${s.download.progress}%`);
+              setTunnelProgress(`${translate("Downloading cloudflared...") || "Downloading cloudflared..."} ${s.download.progress}%`);
             } else if (polling) {
-              setTunnelProgress("Criando túnel...");
+              setTunnelProgress(translate("Creating tunnel...") || "Creating tunnel...");
             }
           }
         } catch { /* ignore */ }
@@ -380,13 +381,13 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       polling = false;
       const data = await res.json();
       if (!res.ok) {
-        setTunnelStatus({ type: "error", message: data.error || "Falha ao habilitar túnel" });
+        setTunnelStatus({ type: "error", message: data.error || (translate("Failed to enable tunnel") || "Failed to enable tunnel") });
         return;
       }
 
       const url = data.tunnelUrl;
       if (!url) {
-        setTunnelStatus({ type: "error", message: "Nenhuma URL de túnel retornada" });
+        setTunnelStatus({ type: "error", message: translate("No tunnel URL returned") || "No tunnel URL returned" });
         return;
       }
 
@@ -412,9 +413,9 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         setTunnelEnabled(false);
         setTunnelUrl("");
         setShowDisableTunnelModal(false);
-        setTunnelStatus({ type: "success", message: "Túnel desabilitado" });
+        setTunnelStatus({ type: "success", message: translate("Tunnel disabled") || "Tunnel disabled" });
       } else {
-        setTunnelStatus({ type: "error", message: data.error || "Falha ao desabilitar túnel" });
+        setTunnelStatus({ type: "error", message: data.error || (translate("Failed to disable tunnel") || "Failed to disable tunnel") });
       }
     } catch (e: unknown) {
       setTunnelStatus({ type: "error", message: e instanceof Error ? e.message : String(e) });
@@ -480,7 +481,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             handleConnectTailscale();
             return;
           } else if (event === "error") {
-            setTsStatus({ type: "error", message: data.error || "Falha na instalação" });
+            setTsStatus({ type: "error", message: data.error || (translate("Installation failed") || "Installation failed") });
           }
         }
       }
@@ -493,7 +494,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
 
   // Ping Tailscale health until reachable
   const pingTsHealth = async (url: string) => {
-    setTsProgress("Aguardando Tailscale ficar pronto...");
+    setTsProgress(translate("Waiting for Tailscale to be ready...") || "Waiting for Tailscale to be ready...");
     const healthUrl = `${url}/api/health`;
     const start = Date.now();
     while (Date.now() - start < TUNNEL_PING_MAX_MS) {
@@ -523,7 +524,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
     setTsConnecting(true);
     setTsLoading(true);
     setTsStatus(null);
-    setTsProgress("Conectando...");
+    setTsProgress(translate("Connecting...") || "Connecting...");
     clearUserAuth();
     try {
       const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
@@ -533,13 +534,13 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         setTsUrl(data.tunnelUrl || "");
         const reachable = await pingTsHealth(data.tunnelUrl);
         setTsEnabled(true);
-        setTsStatus(reachable ? null : { type: "warning", message: "Conectado mas ainda não acessível." });
+        setTsStatus(reachable ? null : { type: "warning", message: translate("Connected but not reachable yet.") || "Connected but not reachable yet." });
         return;
       }
 
       if (data.needsLogin && data.authUrl) {
-        requestUserAuth(data.authUrl, "Abrir Página de Login");
-        setTsProgress("Login necessário — clique em \"Abrir Página de Login\" para continuar");
+        requestUserAuth(data.authUrl, translate("Open Login Page") || "Open Login Page");
+        setTsProgress(`${translate("Login required — click") || "Login required — click"} "${translate("Open Login Page") || "Open Login Page"}" ${translate("to continue") || "to continue"}`);
         for (let i = 0; i < 40; i++) {
           await new Promise((r) => setTimeout(r, 3000));
           try {
@@ -548,7 +549,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               const check = await r2.json();
               if (check.loggedIn) {
                 clearUserAuth();
-                setTsProgress("Iniciando funnel...");
+                setTsProgress(translate("Starting funnel...") || "Starting funnel...");
                 const res2 = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
                 const data2 = await res2.json();
                 if (res2.ok && data2.success) {
@@ -559,7 +560,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                 } else if (data2.funnelNotEnabled && data2.enableUrl) {
                   await pollFunnelEnable(data2.enableUrl);
                 } else {
-                  setTsStatus({ type: "error", message: data2.error || "Falha ao iniciar funnel" });
+                  setTsStatus({ type: "error", message: data2.error || (translate("Failed to start funnel") || "Failed to start funnel") });
                 }
                 return;
               }
@@ -567,7 +568,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
           } catch { /* retry */ }
         }
         clearUserAuth();
-        setTsStatus({ type: "error", message: "Login expirou. Por favor, tente novamente." });
+        setTsStatus({ type: "error", message: translate("Login expired. Please try again.") || "Login expired. Please try again." });
         return;
       }
 
@@ -576,7 +577,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         return;
       }
 
-      setTsStatus({ type: "error", message: data.error || "Falha ao conectar" });
+      setTsStatus({ type: "error", message: data.error || (translate("Failed to connect") || "Failed to connect") });
     } catch (e: unknown) {
       setTsStatus({ type: "error", message: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -588,8 +589,8 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
   };
 
   const pollFunnelEnable = async (enableUrl: string) => {
-    requestUserAuth(enableUrl, "Abrir Configurações do Funnel");
-    setTsProgress("Clique em \"Abrir Configurações do Funnel\" para habilitar o Funnel...");
+    requestUserAuth(enableUrl, translate("Open Funnel Settings") || "Open Funnel Settings");
+    setTsProgress(`${translate("Click") || "Click"} "${translate("Open Funnel Settings") || "Open Funnel Settings"}" ${translate("to enable Funnel...") || "to enable Funnel..."}`);
     for (let i = 0; i < 40; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       try {
@@ -612,7 +613,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       } catch { /* retry */ }
     }
     clearUserAuth();
-    setTsStatus({ type: "error", message: "Tempo esgotado aguardando o Funnel ser habilitado." });
+    setTsStatus({ type: "error", message: translate("Timed out waiting for Funnel to be enabled.") || "Timed out waiting for Funnel to be enabled." });
   };
 
   const handleDisableTailscale = async () => {
@@ -625,9 +626,9 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
         setTsEnabled(false);
         setTsUrl("");
         setShowDisableTsModal(false);
-        setTsStatus({ type: "success", message: "Tailscale desabilitado" });
+        setTsStatus({ type: "success", message: translate("Tailscale disabled") || "Tailscale disabled" });
       } else {
-        setTsStatus({ type: "error", message: data.error || "Falha ao desabilitar Tailscale" });
+        setTsStatus({ type: "error", message: data.error || (translate("Failed to disable Tailscale") || "Failed to disable Tailscale") });
       }
     } catch (e: unknown) {
       setTsStatus({ type: "error", message: e instanceof Error ? e.message : String(e) });
@@ -671,8 +672,8 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
 
   const handleDeleteKey = async (id: string) => {
     setConfirmState({
-      title: "Excluir Chave de API",
-      message: "Excluir esta chave de API?",
+      title: translate("Delete API Key") || "Delete API Key",
+      message: translate("Delete this API key?") || "Delete this API key?",
       onConfirm: async () => {
         setConfirmState(null);
         try {
@@ -779,7 +780,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDisableTunnelModal(true)}
-                  title="Desabilitar Túnel"
+                  title={translate("Disable Tunnel") || "Disable Tunnel"}
                 >
                   <Power className="size-5" />
                 </Button>
@@ -788,13 +789,13 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
                   <Loader2 className="size-4" />
-                  {tunnelEverReachable ? "Túnel reconectando..." : "Túnel verificando..."}
+                  {tunnelEverReachable ? (translate("Tunnel reconnecting...") || "Tunnel reconnecting...") : (translate("Tunnel checking...") || "Tunnel checking...")}
                 </div>
                 <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDisableTunnelModal(true)}
-                  title="Desabilitar Túnel"
+                  title={translate("Disable Tunnel") || "Disable Tunnel"}
                 >
                   <Power className="size-5" />
                 </Button>
@@ -803,7 +804,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
                   <Loader2 className="size-4" />
-                  {tunnelProgress || "Criando túnel..."}
+                  {tunnelProgress || (translate("Creating tunnel...") || "Creating tunnel...")}
                 </div>
                 <Button
                   variant="destructive"
@@ -826,7 +827,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
                   <Loader2 className="size-4" />
-                  Verificando...
+                  {translate("Checking...") || "Checking..."}
                 </div>
                 <Button
                   variant="destructive"
@@ -843,11 +844,11 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                 icon={<CloudUpload className="size-4" />}
                 onClick={() => {
                   if (isLoginUnsafe) {
-                    setTunnelStatus({ type: "error", message: `Segurança necessária: ${unsafeReason}` });
+                    setTunnelStatus({ type: "error", message: `${translate("Security required:") || "Security required:"} ${unsafeReason}` });
                     return;
                   }
                   if (!requireApiKey) {
-                    setTunnelStatus({ type: "error", message: "Segurança necessária: Habilite \"Exigir chave de API\" antes de ativar o túnel." });
+                    setTunnelStatus({ type: "error", message: `${translate("Security required:") || "Security required:"} ${translate("Enable \"Require API key\" before enabling the tunnel.") || "Enable \"Require API key\" before enabling the tunnel."}` });
                     return;
                   }
                   setShowEnableTunnelModal(true);
@@ -876,7 +877,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDisableTsModal(true)}
-                  title="Desabilitar Tailscale"
+                  title={translate("Disable Tailscale") || "Disable Tailscale"}
                 >
                   <Power className="size-5" />
                 </Button>
@@ -885,13 +886,13 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
                   <Loader2 className="size-4" />
-                  {tsEverReachable ? "Tailscale reconectando..." : "Tailscale verificando..."}
+                  {tsEverReachable ? (translate("Tailscale reconnecting...") || "Tailscale reconnecting...") : (translate("Tailscale checking...") || "Tailscale checking...")}
                 </div>
                 <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDisableTsModal(true)}
-                  title="Desabilitar Tailscale"
+                  title={translate("Disable Tailscale") || "Disable Tailscale"}
                 >
                   <Power className="size-5" />
                 </Button>
@@ -900,7 +901,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
                   <Loader2 className="size-4" />
-                  {tsProgress || "Conectando..."}
+                  {tsProgress || (translate("Connecting...") || "Connecting...")}
                 </div>
                 {tsAuthUrl && (
                   <Button
@@ -952,7 +953,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
           <div className="mt-4">
             <SecurityWarning
               message={unsafeReason}
-              action={{ label: "Abrir configurações", href: "/dashboard/profile" }}
+              action={{ label: translate("Open settings") || "Open settings", href: "/dashboard/profile" }}
             />
           </div>
         )}
@@ -962,19 +963,19 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
           <div className="mt-4 flex flex-col gap-2">
             {!requireApiKey && (
               <SecurityWarning
-                message="Exigir chave de API está desabilitado — seu endpoint está publicamente acessível sem autenticação."
-                action={{ label: "Habilitar", href: "#require-api-key" }}
+                message={translate("Require API key is disabled — your endpoint is publicly accessible without authentication.") || "Require API key is disabled — your endpoint is publicly accessible without authentication."}
+                action={{ label: translate("Enable") || "Enable", href: "#require-api-key" }}
               />
             )}
             {(!requireLogin || !hasPassword) && (
               <SecurityWarning
                 message={
                   !requireLogin
-                    ? "Exigir login está desabilitado — qualquer pessoa pode acessar seu dashboard via túnel."
-                    : "O dashboard usa a senha padrão — altere nas configurações de Perfil."
+                    ? (translate("Require login is disabled — anyone can access your dashboard via tunnel.") || "Require login is disabled — anyone can access your dashboard via tunnel.")
+                    : (translate("Dashboard uses the default password — change in Profile settings.") || "Dashboard uses the default password — change in Profile settings.")
                 }
                 action={{
-                  label: !requireLogin ? "Habilitar" : "Alterar senha",
+                  label: !requireLogin ? (translate("Enable") || "Enable") : (translate("Change password") || "Change password"),
                   href: "/dashboard/profile",
                 }}
               />
@@ -990,8 +991,8 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               onCheckedChange={() => handleTunnelDashboardAccess(!tunnelDashboardAccess)}
             />
             <div className="flex items-center gap-1.5">
-              <p className="font-medium text-sm">Permitir acesso ao dashboard via túnel</p>
-              <Tooltip text="Quando habilitado, o dashboard pode ser acessado através do seu túnel ou URL do Tailscale (login ainda necessário). Quando desabilitado, o acesso ao dashboard via túnel/Tailscale é completamente bloqueado." />
+              <p className="font-medium text-sm">{translate("Allow dashboard access via tunnel") || "Allow dashboard access via tunnel"}</p>
+              <Tooltip text={translate("When enabled, the dashboard can be accessed through your tunnel or Tailscale URL (login still required). When disabled, dashboard access via tunnel/Tailscale is completely blocked.") || "When enabled, the dashboard can be accessed through your tunnel or Tailscale URL (login still required). When disabled, dashboard access via tunnel/Tailscale is completely blocked."} />
             </div>
           </div>
         )}
@@ -1005,15 +1006,15 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             API Keys
           </h2>
           <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>
-            Criar Chave
+            {translate("Create Key") || "Create Key"}
           </Button>
         </div>
 
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
           <div>
-            <p className="font-medium">Exigir chave de API</p>
+            <p className="font-medium">{translate("Require API key") || "Require API key"}</p>
             <p className="text-sm text-text-muted">
-              Requisições sem uma chave válida serão rejeitadas
+              {translate("Requests without a valid key will be rejected") || "Requests without a valid key will be rejected"}
             </p>
           </div>
           <Switch
@@ -1024,7 +1025,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
 
         {isRemoteHost && !requireApiKey && (
           <div className="mb-4 -mt-2">
-            <SecurityWarning message="O endpoint está exposto sem uma chave de API." />
+            <SecurityWarning message={translate("Endpoint is exposed without an API key.") || "Endpoint is exposed without an API key."} />
           </div>
         )}
 
@@ -1033,10 +1034,10 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
               <KeyRound className="size-8" />
             </div>
-            <p className="text-text-main font-medium mb-1">Nenhuma chave de API ainda</p>
-            <p className="text-sm text-text-muted mb-4">Crie sua primeira chave de API para começar</p>
+            <p className="text-text-main font-medium mb-1">{translate("No API keys yet") || "No API keys yet"}</p>
+            <p className="text-sm text-text-muted mb-4">{translate("Create your first API key to get started") || "Create your first API key to get started"}</p>
             <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>
-              Criar Chave
+              {translate("Create Key") || "Create Key"}
             </Button>
           </div>
         ) : (
@@ -1068,11 +1069,11 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                       {copied === key.id ? <Check className="size-4" /> : <Copy className="size-4" />}
                     </Button>
                   </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    Criada em {new Date(key.createdAt).toLocaleDateString()}
-                  </p>
-                  {key.isActive === false && (
-                    <p className="text-xs text-orange-500 mt-1">Pausada</p>
+                    <p className="text-xs text-text-muted mt-1">
+                      {translate("Created on") || "Created on"} {new Date(key.createdAt).toLocaleDateString()}
+                    </p>
+                    {key.isActive === false && (
+                      <p className="text-xs text-orange-500 mt-1">{translate("Paused") || "Paused"}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -1082,8 +1083,8 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                     onCheckedChange={(checked) => {
                       if (key.isActive && !checked) {
                         setConfirmState({
-                          title: "Pausar Chave de API",
-                          message: `Pausar chave de API "${key.name}"?\n\nEsta chave parará de funcionar imediatamente, mas pode ser retomada depois.`,
+                          title: translate("Pause API Key") || "Pause API Key",
+                          message: `${translate("Pause API key") || "Pause API key"} "${key.name}"?\n\n${translate("This key will stop working immediately, but can be resumed later.") || "This key will stop working immediately, but can be resumed later."}`,
                           onConfirm: async () => {
                             setConfirmState(null);
                             handleToggleKey(key.id, checked);
@@ -1113,7 +1114,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       {/* Add Key Modal */}
       <Modal
         isOpen={showAddModal}
-        title="Criar Chave de API"
+        title={translate("Create API Key") || "Create API Key"}
         onClose={() => {
           setShowAddModal(false);
           setNewKeyName("");
@@ -1121,14 +1122,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       >
         <div className="flex flex-col gap-4">
           <Input
-            label="Nome da Chave"
+            label={translate("Key Name") || "Key Name"}
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Chave de Produção"
+            placeholder={translate("Production Key") || "Production Key"}
           />
           <div className="flex gap-2">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
-              Criar
+              {translate("Create") || "Create"}
             </Button>
             <Button
               onClick={() => {
@@ -1138,7 +1139,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               variant="ghost"
               fullWidth
             >
-              Cancelar
+              {translate("Cancel") || "Cancel"}
             </Button>
           </div>
         </div>
@@ -1147,17 +1148,17 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       {/* Created Key Modal */}
       <Modal
         isOpen={!!createdKey}
-        title="Chave de API Criada"
+        title={translate("API Key Created") || "API Key Created"}
         onClose={() => setCreatedKey(null)}
       >
         <div className="flex flex-col gap-4">
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
-              Salve esta chave agora!
-            </p>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              Esta é a única vez que você verá esta chave. Armazene-a com segurança.
-            </p>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
+                {translate("Save this key now!") || "Save this key now!"}
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                {translate("This is the only time you will see this key. Store it securely.") || "This is the only time you will see this key. Store it securely."}
+              </p>
           </div>
           <div className="flex gap-2">
             <Input
@@ -1170,11 +1171,11 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
               icon={copied === "created_key" ? <Check className="size-4" /> : <Copy className="size-4" />}
               onClick={() => copy(createdKey ?? "", "created_key")}
             >
-              {copied === "created_key" ? "Copiado!" : "Copiar"}
+              {copied === "created_key" ? (translate("Copied!") || "Copied!") : (translate("Copy") || "Copy")}
             </Button>
           </div>
-          <Button onClick={() => setCreatedKey(null)} fullWidth>
-            Concluído
+            <Button onClick={() => setCreatedKey(null)} fullWidth>
+              {translate("Done") || "Done"}
           </Button>
         </div>
       </Modal>
@@ -1182,7 +1183,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       {/* Enable Tunnel Modal */}
       <Modal
         isOpen={showEnableTunnelModal}
-        title="Habilitar Túnel"
+        title={translate("Enable Tunnel") || "Enable Tunnel"}
         onClose={() => setShowEnableTunnelModal(false)}
       >
         <div className="flex flex-col gap-4">
@@ -1194,7 +1195,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
                   Cloudflare Tunnel
                 </p>
                 <p className="text-sm text-text-muted">
-                  Exponha seu 9Router local para a internet. Sem encaminhamento de porta, sem IP estático necessário. Compartilhe a URL do endpoint com sua equipe ou use no Cursor, Cline e outras ferramentas de IA de qualquer lugar.
+                  {translate("Expose your local 9Router to the internet. No port forwarding, no static IP required. Share the endpoint URL with your team or use in Cursor, Cline and other AI tools from anywhere.") || "Expose your local 9Router to the internet. No port forwarding, no static IP required. Share the endpoint URL with your team or use in Cursor, Cline and other AI tools from anywhere."}
                 </p>
               </div>
             </div>
@@ -1211,12 +1212,12 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
           </div>
 
           <p className="text-xs text-text-muted">
-            Requer porta de saída 7844 (TCP/UDP). A conexão pode levar 10-30s.
+            {translate("Requires outbound port 7844 (TCP/UDP). Connection may take 10-30s.") || "Requires outbound port 7844 (TCP/UDP). Connection may take 10-30s."}
           </p>
 
           <div className="flex gap-2">
             <Button onClick={handleEnableTunnel} fullWidth>
-              Iniciar Túnel
+              {translate("Start Tunnel") || "Start Tunnel"}
             </Button>
             <Button onClick={() => setShowEnableTunnelModal(false)} variant="ghost" fullWidth>Cancel</Button>
           </div>
@@ -1226,14 +1227,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       {/* Disable Cloudflare Tunnel Modal */}
       <Modal
         isOpen={showDisableTunnelModal}
-        title="Desabilitar Túnel"
+        title={translate("Disable Tunnel") || "Disable Tunnel"}
         onClose={() => !tunnelLoading && setShowDisableTunnelModal(false)}
       >
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-text-muted">O túnel Cloudflare será desconectado. O acesso remoto via URL do túnel parará de funcionar.</p>
+          <p className="text-sm text-text-muted">{translate("The Cloudflare tunnel will be disconnected. Remote access via tunnel URL will stop working.") || "The Cloudflare tunnel will be disconnected. Remote access via tunnel URL will stop working."}</p>
           <div className="flex gap-2">
             <Button onClick={handleDisableTunnel} fullWidth disabled={tunnelLoading} variant="danger">
-              {tunnelLoading ? "Desabilitando..." : "Desabilitar"}
+              {tunnelLoading ? (translate("Disabling...") || "Disabling...") : (translate("Disable") || "Disable")}
             </Button>
             <Button onClick={() => setShowDisableTunnelModal(false)} variant="ghost" fullWidth disabled={tunnelLoading}>Cancel</Button>
           </div>
@@ -1251,17 +1252,17 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
           {tsInstalled === null && (
             <p className="text-sm text-text-muted flex items-center gap-2">
               <Loader2 className="size-4" />
-              Verificando...
+              {translate("Checking...") || "Checking..."}
             </p>
           )}
 
           {/* Not installed */}
           {tsInstalled === false && !tsInstalling && (
             <div className="flex flex-col gap-3">
-              <p className="text-sm text-text-muted">Tailscale não está instalado. Instale-o para habilitar o Funnel.</p>
+              <p className="text-sm text-text-muted">{translate("Tailscale is not installed. Install it to enable Funnel.") || "Tailscale is not installed. Install it to enable Funnel."}</p>
               <div className="flex gap-2">
                 <Button onClick={handleInstallTailscale} fullWidth>
-                  Instalar Tailscale
+                  {translate("Install Tailscale") || "Install Tailscale"}
                 </Button>
                 <Button onClick={() => setShowTsModal(false)} variant="ghost" fullWidth>Cancel</Button>
               </div>
@@ -1273,7 +1274,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2 text-sm text-text-muted">
                 <Loader2 className="size-4" />
-                Instalando Tailscale...
+                {translate("Installing Tailscale...") || "Installing Tailscale..."}
               </div>
               {tsInstallLog.length > 0 && (
                 <div ref={tsLogRef} className="bg-black/5 dark:bg-white/5 rounded p-2 max-h-40 overflow-y-auto font-mono text-xs text-text-muted">
@@ -1290,14 +1291,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                 <CheckCircle2 className="size-4" />
-                Tailscale instalado
+                {translate("Tailscale installed") || "Tailscale installed"}
               </div>
               <div className="flex gap-2">
                 <Button
                   onClick={() => handleConnectTailscale()}
                   fullWidth
                 >
-                  Conectar
+                  {translate("Connect") || "Connect"}
                 </Button>
                 <Button onClick={() => setShowTsModal(false)} variant="ghost" fullWidth>Cancel</Button>
               </div>
@@ -1311,14 +1312,14 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       {/* Disable Tailscale Modal */}
       <Modal
         isOpen={showDisableTsModal}
-        title="Desabilitar Tailscale"
+        title={translate("Disable Tailscale") || "Disable Tailscale"}
         onClose={() => !tsLoading && setShowDisableTsModal(false)}
       >
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-text-muted">O Tailscale Funnel será parado. O acesso remoto via URL do Tailscale parará de funcionar.</p>
+          <p className="text-sm text-text-muted">{translate("Tailscale Funnel will be stopped. Remote access via Tailscale URL will stop working.") || "Tailscale Funnel will be stopped. Remote access via Tailscale URL will stop working."}</p>
           <div className="flex gap-2">
             <Button onClick={handleDisableTailscale} fullWidth disabled={tsLoading} variant="danger">
-              {tsLoading ? "Desabilitando..." : "Desabilitar"}
+              {tsLoading ? (translate("Disabling...") || "Disabling...") : (translate("Disable") || "Disable")}
             </Button>
             <Button onClick={() => setShowDisableTsModal(false)} variant="ghost" fullWidth disabled={tsLoading}>Cancel</Button>
           </div>

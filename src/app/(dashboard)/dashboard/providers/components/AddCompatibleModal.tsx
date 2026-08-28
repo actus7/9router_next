@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button, Input, Modal, Select } from "@/shared/components";
 import { Badge } from "@/components/ui/badge";
+import { translate } from "@/i18n/runtime";
 
 type Variant = "openai" | "anthropic";
 
@@ -20,25 +21,25 @@ interface VariantConfig {
 
 const VARIANT_CONFIG: Record<Variant, VariantConfig> = {
   openai: {
-    title: "Adicionar Compatível OpenAI",
+    title: "Add OpenAI Compatible",
     type: "openai-compatible",
     defaultBaseUrl: "https://api.openai.com/v1",
-    namePlaceholder: "Compatível OpenAI (Prod)",
+    namePlaceholder: "OpenAI Compatible (Prod)",
     prefixPlaceholder: "oc-prod",
-    baseUrlHint: "Use a URL base (terminando em /v1) para sua API compatível com OpenAI.",
+    baseUrlHint: "Use the base URL (ending in /v1) for your OpenAI-compatible API.",
     modelIdPlaceholder: "e.g. gpt-4, claude-3-opus",
-    errorLabel: "Compatível OpenAI",
+    errorLabel: "OpenAI Compatible",
     hasApiType: true,
   },
   anthropic: {
-    title: "Adicionar Compatível Anthropic",
+    title: "Add Anthropic Compatible",
     type: "anthropic-compatible",
     defaultBaseUrl: "https://api.anthropic.com/v1",
-    namePlaceholder: "Compatível Anthropic (Prod)",
+    namePlaceholder: "Anthropic Compatible (Prod)",
     prefixPlaceholder: "ac-prod",
-    baseUrlHint: "Use a URL base (terminando em /v1) para sua API compatível com Anthropic. O sistema adicionará /messages.",
+    baseUrlHint: "Use the base URL (ending in /v1) for your Anthropic-compatible API. The system will append /messages.",
     modelIdPlaceholder: "e.g. claude-3-opus",
-    errorLabel: "Compatível Anthropic",
+    errorLabel: "Anthropic Compatible",
     hasApiType: false,
   },
 };
@@ -163,21 +164,21 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }: AddCompatib
   };
 
   return (
-    <Modal isOpen={isOpen} title={config.title} onClose={onClose}>
+    <Modal isOpen={isOpen} title={translate(config.title) || config.title} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <Input
           label="Name"
           value={formData.name}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
           placeholder={config.namePlaceholder}
-          hint="Obrigatório. Um rótulo amigável para este nó."
+          hint={translate("Required. A friendly label for this node.") || "Required. A friendly label for this node."}
         />
         <Input
           label="Prefix"
           value={formData.prefix}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, prefix: e.target.value })}
           placeholder={config.prefixPlaceholder}
-          hint="Obrigatório. Usado como prefixo do provedor para IDs de modelos."
+          hint={translate("Required. Used as the provider prefix for model IDs.") || "Required. Used as the provider prefix for model IDs."}
         />
         {config.hasApiType && (
           <Select
@@ -192,20 +193,20 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }: AddCompatib
           value={formData.baseUrl}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, baseUrl: e.target.value })}
           placeholder={config.defaultBaseUrl}
-          hint={config.baseUrlHint}
+          hint={translate(config.baseUrlHint) || config.baseUrlHint}
         />
         <Input
-          label="Chave de API (para Verificação)"
+          label={translate("API Key (for Check)") || "API Key (for Check)"}
           type="password"
           value={checkKey}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCheckKey(e.target.value)}
         />
         <Input
-          label="ID do Modelo (opcional)"
+          label={translate("Model ID (optional)") || "Model ID (optional)"}
           value={checkModelId}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCheckModelId(e.target.value)}
           placeholder={config.modelIdPlaceholder}
-          hint="Se o provedor não tem endpoint /models, insira um ID de modelo para validar via chat/completions."
+          hint={translate("If provider lacks /models endpoint, enter a model ID to validate via chat/completions instead.") || "If provider lacks /models endpoint, enter a model ID to validate via chat/completions instead."}
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button
@@ -214,7 +215,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }: AddCompatib
             variant="secondary"
             className="w-full sm:w-auto"
           >
-            {validating ? "Verificando..." : "Verificar"}
+            {validating ? translate("Checking...") : translate("Check")}
           </Button>
           {renderValidationResult()}
         </div>
@@ -229,7 +230,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }: AddCompatib
               submitting
             }
           >
-            {submitting ? "Criando..." : "Criar"}
+            {submitting ? translate("Creating...") : translate("Create")}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>
             Cancel

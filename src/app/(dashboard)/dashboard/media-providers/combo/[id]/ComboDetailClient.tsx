@@ -10,6 +10,7 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { ArrowDown, ArrowLeft, ArrowUp, Download, Layers, Play, Plus, Trash2, X } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
+import { translate } from "@/i18n/runtime";
 
 interface Combo {
   id: string;
@@ -440,8 +441,8 @@ export default function ComboDetailClient({
         }}
         title="Delete Combo"
         message={`Delete combo "${combo!.name}"?`}
-        confirmText="Excluir"
-        cancelText="Cancelar"
+        confirmText={translate("Delete") || "Delete"}
+        cancelText={translate("Cancel") || "Cancel"}
         variant="danger"
       />
     </div>

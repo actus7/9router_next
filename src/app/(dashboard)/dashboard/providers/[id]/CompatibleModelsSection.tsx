@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 import { Beaker, Bot, Check, CheckCircle2, Copy, Download, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
+import { translate } from "@/i18n/runtime";
 
 interface CompatibleModelRowProps {
   modelId: string;
@@ -71,7 +72,7 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
                 </span>
               </Button>
               <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-                {isTesting ? "Testando..." : "Testar"}
+                {isTesting ? translate("Testing...") : translate("Test")}
               </span>
             </div>
           )}
@@ -153,7 +154,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     if (!newModel.trim() || adding) return;
     const modelId = newModel.trim();
     if (allModels.some((model: { id: string }) => model.id === modelId)) {
-      notify.warning("Modelo já existe para este provedor.");
+      notify.warning(translate("Model already exists for this provider.") || "Model already exists for this provider.");
       return;
     }
 
@@ -178,12 +179,12 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       const res = await fetch(`/api/providers/${activeConnection.id}/models`);
       const data = await res.json();
       if (!res.ok) {
-        notify.error(data.error || "Falha ao importar modelos");
+        notify.error(data.error || translate("Failed to import models") || "Failed to import models");
         return;
       }
       const models = data.models || [];
       if (models.length === 0) {
-        notify.warning("Nenhum modelo retornado de /models.");
+        notify.warning(translate("No models returned from /models.") || "No models returned from /models.");
         return;
       }
       let importedCount = 0;
@@ -195,7 +196,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         importedCount += 1;
       }
       if (importedCount === 0) {
-        notify.warning("Nenhum modelo novo foi adicionado.");
+        notify.warning(translate("No new models were added.") || "No new models were added.");
       }
     } catch (error) {
       console.error("Error importing models:", error);
@@ -209,12 +210,12 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-text-muted">
-        Adicione modelos compatíveis com {isAnthropic ? "Anthropic" : "OpenAI"} manualmente ou importe-os do endpoint /models.
+        {translate("Add compatible models with")} {isAnthropic ? "Anthropic" : "OpenAI"} {translate("manually or import from /models endpoint.")}
       </p>
 
       <div className="flex items-end gap-2 flex-wrap">
         <div className="flex-1 min-w-[240px]">
-          <Label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">ID do Modelo</Label>
+          <Label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">{translate("Model ID")}</Label>
           <Input
             id="new-compatible-model-input"
             type="text"
@@ -226,16 +227,16 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
           />
         </div>
         <Button size="sm" icon={<Plus className="size-4" />} onClick={handleAdd} disabled={!newModel.trim() || adding}>
-          {adding ? "Adicionando..." : "Adicionar"}
+          {adding ? translate("Adding...") : translate("Add")}
         </Button>
         <Button size="sm" variant="secondary" icon={<Download className="size-4" />} onClick={handleImport} disabled={!canImport || importing}>
-          {importing ? "Importando..." : "Importar de /models"}
+          {importing ? translate("Importing...") : translate("Import from /models")}
         </Button>
       </div>
 
       {!canImport && (
         <p className="text-xs text-text-muted">
-          Adicione uma conexão para habilitar a importação de modelos.
+          {translate("Add a connection to enable importing models.")}
         </p>
       )}
 

@@ -5,12 +5,12 @@ import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import Button from "./Button";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
 
@@ -22,7 +22,6 @@ interface ModalProps {
   footer?: ReactNode;
   size?: ModalSize;
   closeOnOverlay?: boolean;
-  showTrafficLights?: boolean;
   className?: string;
 }
 
@@ -34,7 +33,6 @@ export default function Modal({
   footer,
   size = "md",
   closeOnOverlay = true,
-  showTrafficLights = true,
   className,
 }: ModalProps) {
   const sizes: Record<ModalSize, string> = {
@@ -53,62 +51,11 @@ export default function Modal({
       }}
       disablePointerDismissal={!closeOnOverlay}
     >
-      <DialogContent
-        showCloseButton={false}
-        className={cn(
-          "bg-surface border border-border-subtle rounded-[14px]",
-          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
-          sizes[size],
-          className
-        )}
-      >
-        {/* Header */}
-        {(title || showTrafficLights) && (
-          <div className="flex items-center justify-between p-2 border-b border-border-subtle">
-            <div className="flex items-center">
-              {/* Traffic lights — desktop only */}
-              {showTrafficLights && (
-                <div className="hidden md:flex items-center gap-2 mr-4 ml-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger render={<span className="inline-flex" />}>
-                        <Button
-                          onClick={onClose}
-                          aria-label="Fechar"
-                          title="Fechar"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="w-4 h-4 rounded-full bg-[#FF5F56] hover:brightness-90 transition-all cursor-pointer flex items-center justify-center group/dot"
-                        >
-                          <span className="text-[9px] font-bold text-white opacity-0 group-hover/dot:opacity-100 transition-opacity leading-none">
-                            ✕
-                          </span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent style={{ backgroundColor: "#FF5F56" }} className="text-white">Fechar</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <div className="w-4 h-4 rounded-full bg-[#3a3a3a]/20 dark:bg-white/15 cursor-not-allowed" />
-                  <div className="w-4 h-4 rounded-full bg-[#3a3a3a]/20 dark:bg-white/15 cursor-not-allowed" />
-                </div>
-              )}
-              {title && (
-                <DialogTitle className="text-lg font-semibold text-text-main">
-                  {title}
-                </DialogTitle>
-              )}
-            </div>
-            {/* X button — mobile only */}
-            <Button
-              onClick={onClose}
-              aria-label="Fechar"
-              variant="ghost"
-              size="sm"
-              className="md:hidden p-1.5"
-            >
-              <X className="size-5" />
-            </Button>
-          </div>
+      <DialogContent className={cn("gap-0 p-0", sizes[size], className)}>
+        {title && (
+          <DialogHeader className="border-b border-border p-4">
+            <DialogTitle>{translate(title) || title}</DialogTitle>
+          </DialogHeader>
         )}
 
         {/* Body */}
@@ -118,7 +65,7 @@ export default function Modal({
 
         {/* Footer */}
         {footer && (
-          <DialogFooter className="flex items-center justify-end gap-3 p-6 border-t border-border-subtle rounded-b-xl">
+          <DialogFooter className="justify-end gap-3">
             {footer}
           </DialogFooter>
         )}
@@ -149,10 +96,10 @@ export function ConfirmModal({
   isOpen,
   onClose,
   onConfirm,
-  title = "Confirmar",
+  title = "Confirm",
   message,
-  confirmText = "Confirmar",
-  cancelText = "Cancelar",
+  confirmText = "Confirm",
+  cancelText = "Cancel",
   variant = "danger",
   loading = false,
 }: ConfirmModalProps) {
@@ -165,10 +112,10 @@ export function ConfirmModal({
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={loading}>
-            {cancelText}
+            {translate(cancelText) || cancelText}
           </Button>
           <Button variant={variant} onClick={onConfirm} loading={loading}>
-            {confirmText}
+            {translate(confirmText) || confirmText}
           </Button>
         </>
       }

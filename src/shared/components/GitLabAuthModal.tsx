@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button, Input, OAuthModal } from "@/shared/components";
 import { cn } from "@/lib/utils";
 import { Key, Unlock, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const GITLAB_COM = "https://gitlab.com";
 
@@ -121,9 +122,9 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            Conectar GitLab Duo
+            {translate("Connect GitLab Duo")}
           </DialogTitle>
-          <Button onClick={handleClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={handleClose} aria-label={translate("Close") ?? "Close"} variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -133,7 +134,7 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
         {!mode && (
           <>
             <p className="text-sm text-text-muted">
-              Escolha como autenticar com o GitLab Duo:
+              {translate("Choose how to authenticate with GitLab Duo:")}
             </p>
             <div className="grid grid-cols-2 gap-3">
               <Button
@@ -143,8 +144,8 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
               >
                 <Unlock className="size-4" />
                 <div>
-                  <p className="text-sm font-medium">Aplicação OAuth</p>
-                  <p className="text-xs text-text-muted">Use uma aplicação OAuth do GitLab</p>
+                  <p className="text-sm font-medium">{translate("OAuth App")}</p>
+                  <p className="text-xs text-text-muted">{translate("Use a GitLab OAuth application")}</p>
                 </div>
               </Button>
               <Button
@@ -154,8 +155,8 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
               >
                 <Key className="size-4" />
                 <div>
-                  <p className="text-sm font-medium">Token de Acesso Pessoal</p>
-                  <p className="text-xs text-text-muted">Use um PAT do GitLab com escopo api</p>
+                  <p className="text-sm font-medium">{translate("Personal Access Token")}</p>
+                  <p className="text-xs text-text-muted">{translate("Use a GitLab PAT with api scope")}</p>
                 </div>
               </Button>
             </div>
@@ -166,23 +167,23 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
         {mode === "oauth" && (
           <>
             <p className="text-xs text-text-muted">
-              Crie uma aplicação OAuth em{" "}
+              {translate("Create an OAuth application at")}{" "}
               <a href={`${baseUrl.trim() || GITLAB_COM}/-/profile/applications`} target="_blank" rel="noreferrer" className="text-primary underline">
                 GitLab Applications
               </a>{" "}
-              com URI de redirecionamento{" "}
+              {translate("with redirect URI")}{" "}
               <code className="bg-sidebar px-1 rounded text-xs">{getRedirectUri()}</code>
             </p>
-            <Input label="URL Base do GitLab" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
-            <Input label="ID do Cliente" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="ID do cliente da aplicação OAuth" />
-            <Input label="Segredo do Cliente (opcional para PKCE)" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="Deixe vazio para aplicação PKCE pública" />
+            <Input label={translate("GitLab Base URL") ?? "GitLab Base URL"} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
+            <Input label={translate("Client ID") ?? "Client ID"} value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder={translate("Your OAuth application client ID") ?? "Your OAuth application client ID"} />
+            <Input label={translate("Client Secret (optional for PKCE)") ?? "Client Secret (optional for PKCE)"} value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder={translate("Leave empty for public PKCE app") ?? "Leave empty for public PKCE app"} />
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2">
               <Button onClick={handleOAuthStart} fullWidth disabled={!clientId.trim()}>
-                Autorizar
+                {translate("Authorize")}
               </Button>
               <Button onClick={() => { setMode(null); setError(null); }} variant="ghost" fullWidth>
-                Voltar
+                {translate("Back")}
               </Button>
             </div>
           </>
@@ -192,23 +193,23 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
         {mode === "pat" && (
           <>
             <p className="text-xs text-text-muted">
-              Crie um PAT em{" "}
+              {translate("Create a PAT at")}{" "}
               <a href={`${baseUrl.trim() || GITLAB_COM}/-/user_settings/personal_access_tokens`} target="_blank" rel="noreferrer" className="text-primary underline">
                 GitLab Access Tokens
               </a>{" "}
-              com escopos: <code className="bg-sidebar px-1 rounded text-xs">api</code>,{" "}
+              {translate("with scopes")}{" "}<code className="bg-sidebar px-1 rounded text-xs">api</code>,{" "}
               <code className="bg-sidebar px-1 rounded text-xs">read_user</code>, and{" "}
               <code className="bg-sidebar px-1 rounded text-xs">ai_features</code>.
             </p>
-            <Input label="URL Base do GitLab" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
-            <Input label="Token de Acesso Pessoal" value={pat} onChange={(e) => setPat(e.target.value)} placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" type="password" />
+            <Input label={translate("GitLab Base URL") ?? "GitLab Base URL"} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
+            <Input label={translate("Personal Access Token") ?? "Personal Access Token"} value={pat} onChange={(e) => setPat(e.target.value)} placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" type="password" />
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2">
               <Button onClick={handlePATSubmit} fullWidth disabled={!pat.trim() || loading} loading={loading}>
-                Conectar
+                {translate("Connect")}
               </Button>
               <Button onClick={() => { setMode(null); setError(null); }} variant="ghost" fullWidth>
-                Voltar
+                {translate("Back")}
               </Button>
             </div>
           </>

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { planBulkAdd } from "@/shared/utils/bulkAdd";
+import { translate } from "@/i18n/runtime";
 
 const BULK_PLACEHOLDER = `name1|sk-key1\nname2|sk-key2\nsk-key-only-auto-named`;
 
@@ -412,10 +413,10 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
 
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !formData.apiKey)) || (isCompatible && !formData.defaultModel.trim()) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
-            {saving ? "Salvando..." : "Salvar"}
+            {saving ? translate("Saving...") : translate("Save")}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>
-            Cancelar
+            {translate("Cancel")}
           </Button>
         </div>
         </>)}

@@ -17,6 +17,7 @@ import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import type { Combo, Connection, Settings } from "@/lib/data-access";
 import { useNotificationStore } from "@/store/notificationStore";
 import { cn } from "@/lib/utils";
+import { translate } from "@/i18n/runtime";
 import Link from "next/link";
 import { AudioLines, ArrowDown, ArrowUp, BrainCircuit, Check, Copy, Eye, Gavel, GripVertical, Layers, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -182,8 +183,8 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
 
   const handleDelete = async (id: string) => {
     setConfirmState({
-      title: "Excluir Combo",
-      message: "Excluir este combo?",
+      title: translate("Delete Combo") || "Delete Combo",
+      message: translate("Delete this combo?") || "Delete this combo?",
       onConfirm: async () => {
         setConfirmState(null);
         try {
@@ -191,7 +192,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
           if (res.ok) {
             setCombos((currentCombos) => currentCombos.filter((combo) => combo.id !== id));
           } else {
-            notify.error("Falha ao excluir combo");
+            notify.error(translate("Failed to delete combo") || "Failed to delete combo");
           }
         } catch (error) {
           console.error("Error deleting combo:", error);
@@ -233,26 +234,26 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
       <section aria-labelledby="combo-strategies" className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p id="combo-strategies" className="mt-1 text-sm text-text-muted">
-            Agrupe modelos sob um nome e escolha uma estratégia por combo:
+            {translate("Group models under a name and choose a strategy per combo:")}
           </p>
           <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm text-text-muted lg:grid-cols-3">
             <div>
               <dt className="font-medium text-text-main">Fallback</dt>
-              <dd>Tenta modelos em ordem e passa para o próximo após uma falha.</dd>
+              <dd>{translate("Tries models in order and moves to the next after a failure.")}</dd>
             </div>
             <div>
               <dt className="font-medium text-text-main">Round Robin</dt>
-              <dd>Rotaciona modelos entre requisições para distribuir carga.</dd>
+              <dd>{translate("Rotates models between requests to distribute load.")}</dd>
             </div>
             <div>
               <dt className="font-medium text-text-main">Fusion</dt>
-              <dd>Executa o painel em paralelo e deixa um juiz sintetizar a resposta (chamadas N+1).</dd>
+              <dd>{translate("Runs the panel in parallel and lets a judge synthesize the response (N+1 calls).")}</dd>
             </div>
           </dl>
         </div>
         <Button size="lg" onClick={() => setShowCreateModal(true)} className="min-h-11 w-full whitespace-nowrap sm:w-auto">
           <Plus data-icon="inline-start" />
-          Criar Combo
+          {translate("Create Combo") || "Create Combo"}
         </Button>
       </section>
 
@@ -263,10 +264,10 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
               <Layers className="size-8" />
             </div>
-            <p className="text-text-main font-medium mb-1">Nenhum combo ainda</p>
-            <p className="text-sm text-text-muted mb-4">Crie combos de modelos com suporte a fallback</p>
+            <p className="text-text-main font-medium mb-1">{translate("No combos yet") || "No combos yet"}</p>
+            <p className="text-sm text-text-muted mb-4">{translate("Create model combos with fallback support") || "Create model combos with fallback support"}</p>
             <Button icon={<Plus className="size-4" />} onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
-              Criar Combo
+              {translate("Create Combo") || "Create Combo"}
             </Button>
           </div>
         </Card>
@@ -335,9 +336,9 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
 }
 
 const STRATEGY_OPTIONS = [
-  { value: "fallback", label: "Fallback — tentar em ordem" },
-  { value: "round-robin", label: "Round Robin — rotacionar" },
-  { value: "fusion", label: "Fusion — painel + juiz" },
+  { value: "fallback", label: translate("Fallback — try in order") || "Fallback — try in order" },
+  { value: "round-robin", label: translate("Round Robin — rotate") || "Round Robin — rotate" },
+  { value: "fusion", label: translate("Fusion — panel + judge") || "Fusion — panel + judge" },
 ];
 
 function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy }: {
@@ -371,9 +372,9 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
             </div>
             <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
               {isSmart && combo.models.length === 0 ? (
-                <span className="text-xs text-text-muted">Inventário ativo classificado dinamicamente</span>
+                <span className="text-xs text-text-muted">{translate("Active inventory dynamically ranked")}</span>
               ) : combo.models.length === 0 ? (
-                <span className="text-xs text-text-muted italic">Sem modelos</span>
+                <span className="text-xs text-text-muted italic">{translate("No models")}</span>
               ) : (
                 combo.models.slice(0, 3).map((model) => (
                   <code key={model} className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 font-mono text-xs text-text-muted">
@@ -383,13 +384,13 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
                 ))
               )}
               {combo.models.length > 3 && (
-                <span className="text-xs text-text-muted">+{combo.models.length - 3} mais</span>
+                <span className="text-xs text-text-muted">+{combo.models.length - 3} {translate("more") || "more"}</span>
               )}
             </div>
             {/* Fusion: judge picker (Auto = first model) */}
             {isFusion && (
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="text-xs font-medium text-text-muted">Juiz</span>
+                <span className="text-xs font-medium text-text-muted">{translate("Judge") || "Judge"}</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -398,7 +399,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
                   title="Pick the model that fuses panel answers"
                 >
                   <Gavel data-icon="inline-start" />
-                  <span className="truncate">{judge || `Auto — ${combo.models[0] || "primeiro modelo"}`}</span>
+                  <span className="truncate">{judge || `Auto — ${combo.models[0] || (translate("first model") || "first model")}`}</span>
                 </Button>
                 {judge && (
                   <Button
@@ -421,11 +422,11 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
         <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)] lg:w-auto lg:grid-cols-[220px_auto] lg:items-end">
           {isSmart ? (
             <div className="flex min-h-10 items-center rounded-lg bg-muted px-3 text-xs text-text-muted">
-              Complexidade + tarefa + capacidades
+              {translate("Complexity + task + capabilities")}
             </div>
           ) : (
             <div className="min-w-0">
-              <span className="mb-1.5 block text-xs font-medium text-text-muted">Estratégia</span>
+              <span className="mb-1.5 block text-xs font-medium text-text-muted">{translate("Strategy")}</span>
               <Select
                 options={STRATEGY_OPTIONS}
                 value={current}
@@ -445,7 +446,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
               aria-label="Copy combo name"
             >
               {copied === `combo-${combo.id}` ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
-              <span>{copied === `combo-${combo.id}` ? "Copiado" : "Copiar"}</span>
+              <span>{copied === `combo-${combo.id}` ? (translate("Copied") || "Copied") : (translate("Copy") || "Copy")}</span>
             </Button>
             {isSmart ? (
               <Link
@@ -454,7 +455,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
                 className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-h-11 sm:min-h-10")}
               >
                 <BrainCircuit data-icon="inline-start" />
-                <span>Configurar</span>
+                <span>{translate("Configure") || "Configure"}</span>
               </Link>
             ) : (
               <Button
@@ -466,7 +467,7 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
                 aria-label={`Edit ${combo.name}`}
               >
                 <Pencil data-icon="inline-start" />
-                <span>Editar</span>
+                <span>{translate("Edit") || "Edit"}</span>
               </Button>
             )}
             <Button
@@ -474,11 +475,11 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
               size="sm"
               onClick={onDelete}
               className="min-h-11 sm:min-h-10"
-              title="Excluir"
+              title={translate("Delete") || "Delete"}
               aria-label={`Delete ${combo.name}`}
             >
               <Trash2 data-icon="inline-start" />
-              <span>Excluir</span>
+              <span>{translate("Delete")}</span>
             </Button>
           </div>
         </div>
@@ -509,9 +510,9 @@ function CapacityAdapterSection({ capacityAdapter, onChange, activeProviders, ge
   return (
     <section aria-labelledby="capacity-adapters-heading" className="flex flex-col gap-3">
       <div className="min-w-0">
-        <h2 id="capacity-adapters-heading" className="text-base font-semibold text-text-main">Visão &amp; Áudio</h2>
+        <h2 id="capacity-adapters-heading" className="text-base font-semibold text-text-main">{translate("Vision & Audio")}</h2>
         <p className="mt-1 max-w-3xl text-sm text-text-muted">
-          Redirecione entradas de imagem ou áudio não suportadas para um modelo fallback compatível.
+          {translate("Redirect unsupported image or audio inputs to a compatible fallback model.")}
         </p>
       </div>
       <div className="flex flex-col gap-4">
@@ -582,7 +583,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
 
           <div className="grid w-full grid-cols-2 gap-2 lg:w-auto lg:grid-cols-[auto_auto_auto]">
             <Label className="flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 rounded-lg bg-muted px-3 text-xs text-text-muted">
-              <span>Habilitado</span>
+              <span>{translate("Enabled") || "Enabled"}</span>
               <Switch
                 checked={enabled}
                 onCheckedChange={(value: boolean) => patch({ enabled: value })}
@@ -607,13 +608,13 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
               className="col-span-2 min-h-11 lg:col-span-1"
             >
               <Plus data-icon="inline-start" />
-              Adicionar Modelo
+              {translate("Add Model") || "Add Model"}
             </Button>
           </div>
         </div>
 
         {models.length === 0 ? (
-          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-text-muted">Nenhum modelo selecionado</p>
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-text-muted">{translate("No models selected") || "No models selected"}</p>
         ) : (
           <ul aria-label={`${cap.label} fallback models`} className="grid min-w-0 gap-2 xl:grid-cols-2">
             {models.map((model, index) => (
@@ -837,11 +838,11 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
 
   const validateName = (value: string) => {
     if (!value.trim()) {
-      setNameError("Nome é obrigatório");
+      setNameError(translate("Name is required") || "Name is required");
       return false;
     }
     if (!VALID_NAME_REGEX.test(value)) {
-      setNameError("Apenas letras, números, -, _ e . permitidos");
+      setNameError(translate("Only letters, numbers, -, _ and . allowed") || "Only letters, numbers, -, _ and . allowed");
       return false;
     }
     setNameError("");
@@ -897,42 +898,42 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={isEdit ? "Editar Combo" : "Criar Combo"}
+        title={isEdit ? (translate("Edit Combo") || "Edit Combo") : (translate("Create Combo") || "Create Combo")}
       >
         <div className="flex flex-col gap-3">
           {/* Name */}
           <div>
             <Input
-              label="Nome do Combo"
+              label={translate("Combo Name") || "Combo Name"}
               value={name}
               onChange={handleNameChange}
               placeholder="meu-combo"
               error={nameError}
             />
             <p className="mt-1 text-xs text-text-muted">
-              Apenas letras, números, -, _ e . são permitidos
+              {translate("Only letters, numbers, -, _ and . are allowed")}
             </p>
           </div>
 
           {!isEdit && (
             <div>
-              <Label className="mb-1.5 block">Tipo</Label>
+              <Label className="mb-1.5 block">{translate("Type") || "Type"}</Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => setComboType("llm")}
                   className={cn("rounded-lg border p-3 text-left transition-colors", comboType === "llm" ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}
                 >
-                  <span className="block text-sm font-medium text-text-main">Lista de modelos</span>
-                  <span className="mt-1 block text-xs text-text-muted">Fallback, round robin ou fusion em ordem manual.</span>
+                  <span className="block text-sm font-medium text-text-main">{translate("Model list") || "Model list"}</span>
+                  <span className="mt-1 block text-xs text-text-muted">{translate("Fallback, round robin or fusion in manual order.") || "Fallback, round robin or fusion in manual order."}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setComboType("smart")}
                   className={cn("rounded-lg border p-3 text-left transition-colors", comboType === "smart" ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}
                 >
-                  <span className="block text-sm font-medium text-text-main">Roteamento inteligente</span>
-                  <span className="mt-1 block text-xs text-text-muted">Escolhe por tarefa, complexidade, custo e capacidades.</span>
+                  <span className="block text-sm font-medium text-text-main">{translate("Smart routing") || "Smart routing"}</span>
+                  <span className="mt-1 block text-xs text-text-muted">{translate("Chooses by task, complexity, cost and capabilities.") || "Chooses by task, complexity, cost and capabilities."}</span>
                 </button>
               </div>
             </div>
@@ -940,12 +941,12 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
 
           {/* Models */}
           <div>
-            <Label className="mb-1.5 block">{comboType === "smart" ? "Overrides globais (opcional)" : "Models"}</Label>
+            <Label className="mb-1.5 block">{comboType === "smart" ? (translate("Global overrides (optional)") || "Global overrides (optional)") : "Models"}</Label>
 
             {models.length === 0 ? (
               <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted/50 py-4 text-center">
                 <Layers className="text-text-muted" />
-                <p className="text-xs text-text-muted">{comboType === "smart" ? "O inventário ativo será usado automaticamente" : "Nenhum modelo adicionado ainda"}</p>
+                <p className="text-xs text-text-muted">{comboType === "smart" ? (translate("Active inventory will be used automatically") || "Active inventory will be used automatically") : (translate("No models added yet") || "No models added yet")}</p>
               </div>
             ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
@@ -982,14 +983,14 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
               className="mt-2 min-h-10 w-full border-dashed"
             >
               <Plus data-icon="inline-start" />
-              Adicionar Modelo
+              {translate("Add Model") || "Add Model"}
             </Button>
           </div>
 
           {/* Actions */}
           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
             <Button onClick={onClose} variant="ghost" fullWidth size="sm" className="min-h-11 sm:min-h-9">
-              Cancelar
+              {translate("Cancel") || "Cancel"}
             </Button>
             <Button
               onClick={handleSave}
@@ -998,7 +999,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
               className="min-h-11 sm:min-h-9"
               disabled={!name.trim() || !!nameError || saving}
             >
-              {saving ? "Salvando..." : isEdit ? "Salvar" : "Criar"}
+              {saving ? translate("Saving...") || "Saving..." : isEdit ? translate("Save") : translate("Create")}
             </Button>
           </div>
         </div>
@@ -1013,7 +1014,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
           onDeselect={handleDeselectModel}
           activeProviders={activeProviders as unknown as ActiveProvider[]}
           modelAliases={modelAliases}
-          title="Adicionar Modelo ao Combo"
+          title={translate("Add Model to Combo") || "Add Model to Combo"}
           kindFilter={kindFilter}
           addedModelValues={models}
           closeOnSelect={false}

@@ -10,6 +10,7 @@ import Button from "./Button";
 import ModelSelectModal from "./ModelSelectModal";
 import type { ActiveProvider } from "./ModelSelectModal";
 import { ArrowDown, ArrowUp, Layers, Plus, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
@@ -46,19 +47,19 @@ function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown
           className="min-w-0 flex-1 px-1.5 py-0.5 font-mono text-xs text-text-main" />
       ) : (
         <div className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-surface-2/50"
-          onClick={() => setEditing(true)} title="Clique para editar">{model}</div>
+          onClick={() => setEditing(true)} title={translate("Click to edit") || "Click to edit"}>{model}</div>
       )}
       <div className="flex shrink-0 items-center gap-0.5">
         <Button onClick={onMoveUp} disabled={isFirst} variant="ghost" size="icon-xs"
-          className={`${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title="Mover para cima">
+          className={`${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title={translate("Move up") || "Move up"}>
           <ArrowUp className="size-3" />
         </Button>
         <Button onClick={onMoveDown} disabled={isLast} variant="ghost" size="icon-xs"
-          className={`${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title="Mover para baixo">
+          className={`${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title={translate("Move down") || "Move down"}>
           <ArrowDown className="size-3" />
         </Button>
       </div>
-      <Button onClick={onRemove} variant="ghost" size="icon-xs" className="hover:bg-red-500/10 text-text-muted hover:text-red-500 transition-all" title="Remover">
+      <Button onClick={onRemove} variant="ghost" size="icon-xs" className="hover:bg-red-500/10 text-text-muted hover:text-red-500 transition-all" title={translate("Remove") || "Remove"}>
         <X className="size-3" />
       </Button>
     </div>
@@ -100,9 +101,9 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
   }, [isOpen]);
 
   const validateName = (value: string): boolean => {
-    if (!value.trim()) { setNameError("Nome é obrigatório"); return false; }
+    if (!value.trim()) { setNameError(translate("Name is required") || "Name is required"); return false; }
     const full = forcePrefix + value;
-    if (!VALID_NAME_REGEX.test(full)) { setNameError("Apenas letras, números, -, _ e . permitidos"); return false; }
+    if (!VALID_NAME_REGEX.test(full)) { setNameError(translate("Only letters, numbers, -, _ and .") || "Only letters, numbers, -, _ and ."); return false; }
     setNameError("");
     return true;
   };
@@ -153,9 +154,9 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
         >
           <div className="flex items-center justify-between p-2 border-b border-border-subtle">
             <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-              {title || (isEdit ? "Editar Combo" : "Criar Combo")}
+              {title || (isEdit ? translate("Edit Combo") || "Edit Combo" : translate("Create Combo") || "Create Combo")}
             </DialogTitle>
-            <Button onClick={onClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
+            <Button onClick={onClose} aria-label={translate("Close") || "Close"} variant="ghost" size="sm" className="p-1.5">
               <X className="size-5" />
             </Button>
           </div>
@@ -164,7 +165,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
               <div>
                 {forcePrefix ? (
                   <>
-                    <Label className="mb-1 block">Nome do Combo</Label>
+                    <Label className="mb-1 block">{translate("Combo Name") || "Combo Name"}</Label>
                     <div className="flex items-stretch">
                       <span className="inline-flex items-center px-2 rounded-l border border-r-0 border-black/10 dark:border-white/10 bg-black/[0.04] dark:bg-white/[0.04] text-text-muted font-mono text-sm">{forcePrefix}</span>
                       <RawInput value={name} onChange={handleNameChange} placeholder="my-combo"
@@ -173,19 +174,19 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
                     {nameError && <p className="text-[11px] text-red-500 mt-0.5">{nameError}</p>}
                   </>
                 ) : (
-                  <Input label="Nome do Combo" value={name} onChange={handleNameChange} placeholder="meu-combo" error={nameError} />
+                  <Input label={translate("Combo Name") || "Combo Name"} value={name} onChange={handleNameChange} placeholder="meu-combo" error={nameError} />
                 )}
                 <p className="text-[10px] text-text-muted mt-0.5">
-                  {forcePrefix ? `Prefixo automático "${forcePrefix}". ` : ""}Apenas letras, números, -, _ e . permitidos
+                  {forcePrefix ? translate("Auto prefix") + ` "${forcePrefix}". ` : ""}{translate("Only letters, numbers, -, _ and .") || "Only letters, numbers, -, _ and ."}
                 </p>
               </div>
 
               <div>
-                <Label className="mb-1.5 block">Modelos</Label>
+                <Label className="mb-1.5 block">{translate("Models") || "Models"}</Label>
                 {models.length === 0 ? (
                   <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
                     <Layers className="size-4" />
-                    <p className="text-xs text-text-muted">Nenhum modelo adicionado ainda</p>
+                    <p className="text-xs text-text-muted">{translate("No models added yet") || "No models added yet"}</p>
                   </div>
                 ) : (
                   <div className="flex max-h-[55vh] min-w-0 flex-col gap-1 overflow-y-auto sm:max-h-[350px]">
@@ -202,14 +203,14 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
                 <Button onClick={() => setShowModelSelect(true)} variant="outline" size="sm"
                   className="w-full mt-2 py-2 border-dashed text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1">
                   <Plus className="size-4" />
-                  Adicionar Modelo
+                  {translate("Add Model") || "Add Model"}
                 </Button>
               </div>
 
               <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-                <Button onClick={onClose} variant="ghost" fullWidth size="sm">Cancelar</Button>
+                <Button onClick={onClose} variant="ghost" fullWidth size="sm">{translate("Cancel") || "Cancel"}</Button>
                 <Button onClick={handleSave} fullWidth size="sm" disabled={!name.trim() || !!nameError || saving}>
-                  {saving ? "Salvando..." : isEdit ? "Salvar" : "Criar"}
+                  {saving ? translate("Saving...") || "Saving..." : isEdit ? translate("Save") || "Save" : translate("Create") || "Create"}
                 </Button>
               </div>
             </div>
@@ -221,7 +222,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
         <ModelSelectModal isOpen={showModelSelect} onClose={() => setShowModelSelect(false)}
           onSelect={handleAddModel} onDeselect={handleDeselectModel}
           activeProviders={activeProviders} modelAliases={modelAliases}
-          title="Adicionar Modelo ao Combo" kindFilter={kindFilter}
+          title={translate("Add Model to Combo") || "Add Model to Combo"} kindFilter={kindFilter}
           addedModelValues={models} closeOnSelect={false} />
       )}
     </>

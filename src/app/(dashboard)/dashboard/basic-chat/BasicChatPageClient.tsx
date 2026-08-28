@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
 import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, MessageSquare, Paperclip, Square, Trash2, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const STORAGE_KEYS = {
   sessions: "basic-chat.sessions",
@@ -112,7 +113,7 @@ function formatRelativeTime(value: string | undefined | null) {
 
 function makeSessionTitle(text = ""): string {
   const normalized = textValue(text).replace(/\s+/g, " ").trim();
-  if (!normalized) return "Nova conversa";
+  if (!normalized) return translate("New conversation") || "New conversation";
   return normalized.length > 52 ? `${normalized.slice(0, 52).trimEnd()}…` : normalized;
 }
 
@@ -280,7 +281,7 @@ export default function BasicChatPageClient() {
         if (connections.length === 0) {
           if (!cancelled) {
             setProviderGroups([]);
-            setLoadError("Nenhum provedor conectado ainda.");
+            setLoadError(translate("No providers connected yet.") || "No providers connected yet.");
           }
           return;
         }
@@ -351,12 +352,12 @@ export default function BasicChatPageClient() {
         if (!cancelled) {
           setProviderGroups(normalized);
           if (normalized.length === 0) {
-            setLoadError("Provedores conectados mas nenhum modelo disponível.");
+            setLoadError(translate("Providers connected but no models available.") || "Providers connected but no models available.");
           }
         }
       } catch (error) {
         if (!cancelled) {
-          setLoadError(textValue((error as Record<string, unknown>)?.message) || "Falha ao carregar provedores/modelos.");
+          setLoadError(textValue((error as Record<string, unknown>)?.message) || (translate("Failed to load providers/models.") || "Failed to load providers/models."));
           setProviderGroups([]);
         }
       } finally {
@@ -451,7 +452,7 @@ export default function BasicChatPageClient() {
 
     const session = {
       id: createId(),
-      title: "Nova conversa",
+      title: translate("New conversation") || "New conversation",
       providerId: savedProvider.providerId,
       providerName: savedProvider.providerName,
       modelId: savedModel.id,
@@ -476,7 +477,7 @@ export default function BasicChatPageClient() {
     if (!model) return undefined;
     return {
       id: createId(),
-      title: "Nova conversa",
+      title: translate("New conversation") || "New conversation",
       providerId: model.providerId,
       providerName: model.providerName,
       modelId: model.id,
@@ -618,7 +619,7 @@ export default function BasicChatPageClient() {
     const title = makeSessionTitle(titleSeed);
     updateSession(sessionId, (session) => ({
       ...session,
-      title: session.title === "Nova conversa" ? title : session.title,
+      title: session.title === (translate("New conversation") || "New conversation") ? title : session.title,
       updatedAt: new Date().toISOString(),
     }));
   };
@@ -672,7 +673,7 @@ export default function BasicChatPageClient() {
       modelName: model.name,
       messages: nextMessages,
       updatedAt: new Date().toISOString(),
-      title: item.title === "Nova conversa" ? makeSessionTitle(userText) : item.title,
+        title: item.title === (translate("New conversation") || "New conversation") ? makeSessionTitle(userText) : item.title,
     } : item)));
     setDraft("");
     setAttachments([]);
@@ -789,8 +790,8 @@ export default function BasicChatPageClient() {
     }
   };
 
-  const modelLabel = activeModel ? `${activeModel.name}` : "Selecionar modelo";
-  const modelSubLabel = activeModel ? activeModel.requestModel : "Escolha entre provedores conectados";
+  const modelLabel = activeModel ? `${activeModel.name}` : (translate("Select model") || "Select model");
+  const modelSubLabel = activeModel ? activeModel.requestModel : (translate("Choose from connected providers") || "Choose from connected providers");
 
   return (
     <div className="relative flex-1 flex flex-col h-full min-h-0 min-w-0 bg-[#212121] text-white overflow-hidden">
@@ -815,8 +816,8 @@ export default function BasicChatPageClient() {
             {modelMenuOpen ? (
               <div className="absolute left-0 top-[calc(100%+10px)] z-30 w-[min(520px,calc(100vw-2rem))] overflow-hidden rounded-[20px] border border-white/10 bg-[#262626] shadow-2xl shadow-black/50">
                 <div className="border-b border-white/10 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.22em] text-white/45">Modelos</p>
-                  <p className="text-sm text-white/75">Apenas de provedores conectados</p>
+                  <p className="text-xs uppercase tracking-[0.22em] text-white/45">{translate("Models") || "Models"}</p>
+                  <p className="text-sm text-white/75">{translate("Only from connected providers") || "Only from connected providers"}</p>
                 </div>
                 <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
                   {providerGroups.map((group) => (
@@ -861,10 +862,10 @@ export default function BasicChatPageClient() {
               onClick={() => setHistoryOpen((value) => !value)}
               className="rounded-2xl border-white/10 bg-white/5 px-4 py-3 h-auto text-sm text-white/80 hover:bg-white/8"
             >
-              Histórico
+              {translate("History") || "History"}
             </Button>
             <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={handleDeleteCurrentChat} disabled={!activeSessionId || sessions.length === 0}>
-              Limpar
+              {translate("Clear") || "Clear"}
             </Button>
           </div>
         </div>
@@ -872,12 +873,12 @@ export default function BasicChatPageClient() {
         {historyOpen ? (
           <div ref={historyMenuRef} className="absolute right-4 top-[72px] z-20 w-[min(360px,calc(100vw-2rem))] rounded-[20px] border border-white/10 bg-[#262626] p-2 shadow-2xl shadow-black/50 lg:right-6">
             <div className="px-3 py-2">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/45">Conversas recentes</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-white/45">{translate("Recent conversations") || "Recent conversations"}</p>
             </div>
             <div className="max-h-[48vh] space-y-2 overflow-y-auto p-1 custom-scrollbar">
               {sessionItems.length === 0 ? (
                 <div className="rounded-[16px] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-white/55">
-                  Nenhuma conversa ainda.
+                  {translate("No conversations yet.") || "No conversations yet."}
                 </div>
               ) : sessionItems.map((session) => {
                 const isActive = session.id === activeSessionId;
@@ -893,7 +894,7 @@ export default function BasicChatPageClient() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-white">{session.title}</p>
-                        <p className="mt-1 truncate text-xs text-white/50">{textValue(latestMessage?.content) || "Conversa vazia"}</p>
+                        <p className="mt-1 truncate text-xs text-white/50">{textValue(latestMessage?.content) || (translate("Empty conversation") || "Empty conversation")}</p>
                       </div>
                       <span className="text-[10px] text-white/40 shrink-0">{formatRelativeTime(session.updatedAt)}</span>
                     </div>
@@ -922,9 +923,9 @@ export default function BasicChatPageClient() {
                     <MessageSquare className="size-8" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-semibold text-white">Inicie uma conversa</h2>
+                    <h2 className="text-2xl font-semibold text-white">{translate("Start a conversation") || "Start a conversation"}</h2>
                     <p className="text-sm leading-6 text-white/60">
-                      Interface de chat simples para interagir com qualquer modelo de IA dos provedores conectados. Selecione um modelo e comece a conversar!
+                      {translate("Simple chat interface to interact with any AI model from connected providers. Select a model and start chatting!") || "Simple chat interface to interact with any AI model from connected providers. Select a model and start chatting!"}
                     </p>
                   </div>
                 </div>
@@ -942,7 +943,7 @@ export default function BasicChatPageClient() {
                   <div key={message.id} className={`flex w-full ${isUser ? "justify-end" : "justify-start"} mb-6`}>
                     <div className={`max-w-[min(88%,42rem)] ${isUser ? "rounded-3xl bg-[#2f2f2f] px-5 py-3.5 text-white" : "text-white/90"}`}>
                       <div className="mb-1 flex items-center justify-between gap-3">
-                        <span className="text-xs font-semibold">{isUser ? "Você" : activeModel?.name || "Assistente"}</span>
+                        <span className="text-xs font-semibold">{isUser ? (translate("You") || "You") : activeModel?.name || (translate("Assistant") || "Assistant")}</span>
                       </div>
 
                       {message.attachments?.length ? (
@@ -986,27 +987,27 @@ export default function BasicChatPageClient() {
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Mensagem para IA"
+                  placeholder={translate("Message to AI") || "Message to AI"}
                   rows={1}
                   className="resize-none border-0 bg-transparent px-2 text-[15px] leading-6 text-white placeholder:text-white/40 custom-scrollbar max-h-[25vh] focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
 
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" type="button" aria-label="Anexar imagem" onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="text-white/50 hover:text-white rounded-full hover:bg-white/5">
+                    <Button variant="ghost" size="icon" type="button" aria-label={translate("Attach image") || "Attach image"} onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="text-white/50 hover:text-white rounded-full hover:bg-white/5">
                       <Paperclip className="size-5" />
                     </Button>
                     <Input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAttachFiles} />
-                    <span className="text-xs font-medium text-white/30 truncate max-w-[120px]">{activeModel ? activeModel.name : "Sem modelo"}</span>
+                    <span className="text-xs font-medium text-white/30 truncate max-w-[120px]">{activeModel ? activeModel.name : (translate("No model") || "No model")}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {isSending ? (
-                      <Button variant="secondary" size="icon" type="button" aria-label="Parar geração" onClick={handleStop} className="rounded-full">
+                      <Button variant="secondary" size="icon" type="button" aria-label={translate("Stop generation") || "Stop generation"} onClick={handleStop} className="rounded-full">
                         <Square className="size-4" />
                       </Button>
                     ) : null}
-                    <Button variant="secondary" size="icon" aria-label="Enviar mensagem" onClick={sendMessage} disabled={!canSend} className={`rounded-full ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30'}`}>
+                    <Button variant="secondary" size="icon" aria-label={translate("Send message") || "Send message"} onClick={sendMessage} disabled={!canSend} className={`rounded-full ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30'}`}>
                       <ArrowUp className="size-4" />
                     </Button>
                   </div>
@@ -1016,7 +1017,7 @@ export default function BasicChatPageClient() {
           </div>
 
           <p className="mx-auto mt-2 max-w-3xl px-4 pb-4 text-center text-[11px] text-white/30">
-            A lista de modelos é filtrada dos provedores conectados.
+            {translate("Model list is filtered from connected providers.") || "Model list is filtered from connected providers."}
           </p>
         </div>
       </div>

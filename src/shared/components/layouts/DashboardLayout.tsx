@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
 import Button from "@/shared/components/Button";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AlertCircle, CheckCircle, Info, TriangleAlert, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
@@ -40,23 +42,22 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const notifications = useNotificationStore((state) => state.notifications);
   const removeNotification = useNotificationStore((state) => state.removeNotification);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-bg">
+    <SidebarProvider className="min-h-0 h-screen w-full overflow-hidden bg-bg">
       {/* Skip to content for keyboard users */}
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-primary focus:text-white focus:outline-none"
       >
-        Pular para o conteúdo
+        {translate("Skip to content") || "Skip to content"}
       </a>
       <div
         aria-live="polite"
-        aria-label="Notificações"
+        aria-label={translate("Notifications") || "Notifications"}
         className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2"
       >
         {notifications.map((n) => {
@@ -79,7 +80,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     size="icon-xs"
                     onClick={() => removeNotification(n.id)}
                     className="text-current/70 hover:text-current"
-                    aria-label="Dispensar notificação"
+                    aria-label={translate("Dismiss notification") || "Dismiss notification"}
                   >
                     <X className="size-4" />
                   </Button>
@@ -89,41 +90,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           );
         })}
       </div>
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/20 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
 
-      {/* Sidebar - Desktop */}
-      <div className="hidden lg:flex">
-        <Sidebar />
-      </div>
+      <Sidebar />
 
-      {/* Sidebar - Mobile */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Menu de navegação"
-        className={`fixed inset-y-0 left-0 z-50 transform lg:hidden transition-transform duration-300 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <Sidebar onClose={() => setSidebarOpen(false)} />
-      </div>
-
-      {/* Main content */}
-      <main id="main-content" className="flex flex-col flex-1 h-full min-w-0 relative transition-colors duration-300 isolate">
+      <SidebarInset id="main-content" className="relative overflow-hidden transition-colors duration-300 isolate">
         {/* Faint grid background */}
         <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
-        <Header key={pathname} onMenuClick={() => setSidebarOpen(true)} />
+        <Header key={pathname} />
         <div className={`flex-1 overflow-y-auto custom-scrollbar ${pathname === "/dashboard/basic-chat" ? "" : "p-6 lg:p-10"} ${pathname === "/dashboard/basic-chat" ? "flex flex-col overflow-hidden" : ""}`}>
           <div className={`${pathname === "/dashboard/basic-chat" ? "flex-1 w-full h-full flex flex-col" : "max-w-7xl mx-auto"}`}>{children}</div>
         </div>
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

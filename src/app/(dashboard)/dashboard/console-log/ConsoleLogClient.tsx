@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card, Button } from "@/shared/components";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 import { Trash2 } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const LOG_LEVEL_COLORS: Record<string, string> = {
   LOG: "text-green-400",
@@ -74,7 +75,7 @@ export default function ConsoleLogClient() {
       <Card>
         <div className="flex items-center justify-end px-4 pt-3 pb-2">
           <Button size="sm" variant="outline" icon={<Trash2 className="size-4" />} onClick={handleClear}>
-            Limpar
+            {translate("Clear")}
           </Button>
         </div>
         <div
@@ -82,7 +83,7 @@ export default function ConsoleLogClient() {
           className="bg-black rounded-b-lg p-4 text-xs font-mono h-[calc(100vh-220px)] overflow-y-auto"
         >
           {logs.length === 0 ? (
-            <span className="text-text-muted">Nenhum log de console ainda.</span>
+            <span className="text-text-muted">{translate("No console logs yet.")}</span>
           ) : (
             <div className="space-y-0.5">
               {logs.map((line, i) => (

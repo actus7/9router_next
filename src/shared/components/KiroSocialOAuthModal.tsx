@@ -6,6 +6,7 @@ import { Button, Input } from "@/shared/components";
 import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { AlertCircle, Check, CheckCircle2, Copy, Loader2, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface AuthData {
   authUrl: string;
@@ -132,9 +133,9 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            {`Conectar Kiro via ${providerName}`}
+            {translate("Connect Kiro via") + " " + providerName}
           </DialogTitle>
-          <Button onClick={onClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={onClose} aria-label={translate("Close") ?? "Close"} variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -146,9 +147,9 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
             <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
               <Loader2 className="size-4" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Inicializando...</h3>
+            <h3 className="text-lg font-semibold mb-2">{translate("Initializing...")}</h3>
             <p className="text-sm text-text-muted">
-              Configurando autenticação {providerName}
+              {translate("Setting up authentication") + " " + providerName}
             </p>
           </div>
         )}
@@ -158,7 +159,7 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
           <>
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-medium mb-2">Passo 1: Abra esta URL no seu navegador</p>
+                <p className="text-sm font-medium mb-2">{translate("Step 1: Open this URL in your browser")}</p>
                 <div className="flex gap-2">
                   <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
                   <Button 
@@ -166,15 +167,15 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
                     icon={copied === "auth_url" ? <Check className="size-4" /> : <Copy className="size-4" />} 
                     onClick={() => copy(authUrl, "auth_url")}
                   >
-                    Copiar
+                    {translate("Copy")}
                   </Button>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium mb-2">Passo 2: Cole a URL de callback aqui</p>
+                <p className="text-sm font-medium mb-2">{translate("Step 2: Paste the callback URL here")}</p>
                 <p className="text-xs text-text-muted mb-2">
-                  Após autorizar, copie a URL completa da barra de endereços do seu navegador.
+                  {translate("After authorization, copy the full URL from your browser address bar.")}
                 </p>
                 <Input
                   value={callbackUrl}
@@ -187,10 +188,10 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
 
             <div className="flex gap-2">
               <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>
-                Conectar
+                {translate("Connect")}
               </Button>
               <Button onClick={onClose} variant="ghost" fullWidth>
-                Cancelar
+                {translate("Cancel")}
               </Button>
             </div>
           </>
@@ -202,12 +203,12 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
             <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
               <CheckCircle2 className="size-4" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Conectado com Sucesso!</h3>
+            <h3 className="text-lg font-semibold mb-2">{translate("Connected Successfully!")}</h3>
             <p className="text-sm text-text-muted mb-4">
-              Sua conta Kiro via {providerName} foi conectada.
+              {translate("Your Kiro account via") + " " + providerName + " " + translate("has been connected.")}
             </p>
             <Button onClick={onClose} fullWidth>
-              Concluído
+              {translate("Done")}
             </Button>
           </div>
         )}
@@ -218,14 +219,14 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
             <div className="size-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
               <AlertCircle className="size-4" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Falha na Conexão</h3>
+            <h3 className="text-lg font-semibold mb-2">{translate("Connection Failed")}</h3>
             <p className="text-sm text-red-600 mb-4">{error}</p>
             <div className="flex gap-2">
               <Button onClick={() => setStep("input")} variant="secondary" fullWidth>
-                Tentar Novamente
+                {translate("Try Again")}
               </Button>
               <Button onClick={onClose} variant="ghost" fullWidth>
-                Cancelar
+                {translate("Cancel")}
               </Button>
             </div>
           </div>

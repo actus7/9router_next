@@ -361,8 +361,8 @@ export default function ProviderDetailClient({
   const handleDisableAll = async (ids: string[]) => {
     if (!ids.length) return;
     setConfirmState({
-      title: "Desabilitar Todos os Modelos",
-      message: `Desabilitar todos os ${ids.length} modelo(s)?`,
+      title: translate("Disable All") + " " + translate("Models"),
+      message: translate("Disable All") + ` ${ids.length} ` + translate("Models") + "?",
       onConfirm: async () => {
         setConfirmState(null);
         try {
@@ -909,8 +909,8 @@ export default function ProviderDetailClient({
 
   const handleDelete = async (id: string) => {
     setConfirmState({
-      title: "Excluir Conexão",
-      message: "Excluir esta conexão?",
+      title: translate("Delete connection") || "Delete connection",
+      message: translate("Delete this connection?") || "Delete this connection?",
       onConfirm: async () => {
         setConfirmState(null);
         try {
@@ -929,8 +929,8 @@ export default function ProviderDetailClient({
     const count = selectedConnectionIds.length;
     if (count === 0) return;
     setConfirmState({
-      title: `Excluir ${count} Conexão${count > 1 ? "ões" : ""}`,
-      message: `Excluir ${count} conexão${count > 1 ? "ões" : ""}? Isso não pode ser desfeito.`,
+      title: translate("Delete") + ` ${count} ` + translate("Connection(s)") || `Delete ${count} connection(s)`,
+      message: translate("Delete") + ` ${count} ` + translate("connection(s)") + "? " + translate("This cannot be undone.") || `Delete ${count} connection(s)? This cannot be undone.`,
       onConfirm: async () => {
         setConfirmState(null);
         let failed = 0;
@@ -946,7 +946,7 @@ export default function ProviderDetailClient({
         }
         setConnections(prev => prev.filter(c => !idsToDelete.includes(c.id)));
         setSelectedConnectionIds([]);
-        if (failed > 0) notify.warning(`Excluídas ${idsToDelete.length - failed} conexão(ões), ${failed} falharam.`);
+        if (failed > 0) notify.warning(translate("Deleted") + ` ${idsToDelete.length - failed} ` + translate("connection(s)") + `, ${failed} ` + translate("failed") + ".");
       }
     });
   };
@@ -983,10 +983,10 @@ export default function ProviderDetailClient({
         return;
       }
 
-      setAddConnectionError(data?.error || "Falha ao salvar conexão");
+      setAddConnectionError(data?.error || translate("Failed to save connection") || "Failed to save connection");
     } catch (error) {
       console.error("Error saving connection:", error);
-      setAddConnectionError("Falha ao salvar conexão");
+      setAddConnectionError(translate("Failed to save connection") || "Failed to save connection");
     }
   };
 
@@ -1115,7 +1115,7 @@ export default function ProviderDetailClient({
           failed += 1;
         }
       }
-      if (failed > 0) notify.warning(`Atualizado com ${failed} requisição(ões) falhada(s).`);
+      if (failed > 0) notify.warning(translate("Updated with") + ` ${failed} ` + translate("failed request(s)") + ".");
       await fetchConnections();
       setShowBulkProxyModal(false);
     } finally {
@@ -1131,7 +1131,7 @@ export default function ProviderDetailClient({
   const handleApplyOneToOne = () => {
     const activePools = proxyPools.filter((p) => p.isActive === true);
     if (activePools.length === 0) {
-      notify.warning("Nenhum pool de proxy ativo disponível.");
+      notify.warning(translate("No active proxy pools available.") || "No active proxy pools available.");
       return;
     }
     const targets = connections.map((c, i) => ({
@@ -1213,7 +1213,7 @@ export default function ProviderDetailClient({
     <Modal
       isOpen={showBulkProxyModal}
       onClose={closeBulkProxyModal}
-      title={`Aplicar Proxy (${connections.length} conexões)`}
+      title={`${translate("Apply Proxy")} (${connections.length} ${translate("connections")})`}
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col">
@@ -1224,7 +1224,7 @@ export default function ProviderDetailClient({
             className="justify-start gap-2"
           >
             <ArrowLeftRight className="size-5" />
-            <span className="text-sm text-text-main">Um-para-um (rotacionar)</span>
+            <span className="text-sm text-text-main">{translate("One-to-one (rotate)")}</span>
           </Button>
           <Button
             variant="ghost"
@@ -1233,7 +1233,7 @@ export default function ProviderDetailClient({
             className="justify-start gap-2"
           >
             <Unlink className="size-5" />
-            <span className="text-sm text-text-main">Nenhum (desvincular todos)</span>
+            <span className="text-sm text-text-main">{translate("None (unbind all)")}</span>
           </Button>
           {proxyPools.map((pool) => (
             <Button
@@ -1246,16 +1246,16 @@ export default function ProviderDetailClient({
               <Network className="size-5" />
               <span className="truncate text-sm text-text-main">{pool.name}</span>
               {pool.isActive !== true && (
-                <span className="text-[10px] text-text-muted">(inativo)</span>
+                <span className="text-[10px] text-text-muted">({translate("Inactive")})</span>
               )}
             </Button>
           ))}
         </div>
 
-        {bulkUpdatingProxy && <p className="text-xs text-text-muted">Aplicando...</p>}
+        {bulkUpdatingProxy && <p className="text-xs text-text-muted">{translate("Applying...")}</p>}
 
         <Button onClick={closeBulkProxyModal} variant="ghost" fullWidth disabled={bulkUpdatingProxy}>
-          Cancelar
+          {translate("Cancel")}
         </Button>
       </div>
     </Modal>
@@ -1272,10 +1272,10 @@ export default function ProviderDetailClient({
       });
       const data = await res.json();
       setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
-      setModelsTestError(data.ok ? "" : (data.error || "Modelo não acessível"));
+      setModelsTestError(data.ok ? "" : (data.error || translate("Model is not reachable")));
     } catch {
       setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
-      setModelsTestError("Erro de rede");
+      setModelsTestError(translate("Network error") || "Network error");
     } finally {
       setTestingModelIds((prev) => { const n = new Set(prev); n.delete(modelId); return n; });
     }
@@ -1869,7 +1869,7 @@ export default function ProviderDetailClient({
               disabled={refreshingModels}
             >
               <RefreshCw className={`size-4 mr-1.5 ${refreshingModels ? "animate-spin" : ""}`} />
-              {refreshingModels ? "Atualizando..." : "Atualizar Modelos"}
+              {refreshingModels ? translate("Refreshing...") : translate("Refresh Models")}
             </Button>
             {!isCompatible && (() => {
               const allIds = [
@@ -2003,7 +2003,7 @@ export default function ProviderDetailClient({
         title="Risk Notice"
         message={providerInfo?.deprecationNotice}
         confirmText="I Understand, Continue"
-        cancelText="Cancelar"
+        cancelText={translate("Cancel") || "Cancel"}
         variant="danger"
       />
 

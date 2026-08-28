@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
+import { translate } from "@/i18n/runtime";
 
 const fmtTokens = (n: number) => {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -67,14 +68,14 @@ export default function UsageChart({ period = "7d" }: UsageChartProps) {
           size="sm"
           onClick={() => setViewMode("cost")}
         >
-          Custo
+          {translate("Cost")}
         </Button>
       </div>
 
       {loading ? (
-        <div className="h-48 flex items-center justify-center text-text-muted text-sm">Carregando...</div>
+        <div className="h-48 flex items-center justify-center text-text-muted text-sm">{translate("Loading...")}</div>
       ) : !hasData ? (
-        <div className="h-48 flex items-center justify-center text-text-muted text-sm">Sem dados para este período</div>
+        <div className="h-48 flex items-center justify-center text-text-muted text-sm">{translate("No data for this period")}</div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>

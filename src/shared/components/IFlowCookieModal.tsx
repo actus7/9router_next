@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface IFlowCookieModalProps {
   isOpen: boolean;
@@ -77,9 +78,9 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            Autenticação por Cookie iFlow
+            {translate("iFlow Cookie Authentication")}
           </DialogTitle>
-          <Button onClick={handleClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={handleClose} aria-label={translate("Close") ?? "Close"} variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -88,14 +89,14 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
         {success ? (
           <div className="text-center py-8">
             <div className="text-6xl mb-4">✅</div>
-            <p className="text-lg font-medium text-text-primary">Autenticação Bem-sucedida!</p>
-            <p className="text-sm text-text-muted mt-2">Chave API fresca obtida</p>
+            <p className="text-lg font-medium text-text-primary">{translate("Authentication Successful!")}</p>
+            <p className="text-sm text-text-muted mt-2">{translate("Fresh API key obtained")}</p>
           </div>
         ) : (
           <>
             <div className="space-y-2">
               <p className="text-sm text-text-muted">
-                Para obter uma chave API fresca, cole o cookie do seu navegador de{" "}
+                {translate("To get a fresh API key, paste your browser cookie from")}{" "}
                 <a
                   href="https://platform.iflow.cn"
                   target="_blank"
@@ -106,20 +107,20 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
                 </a>
               </p>
               <div className="bg-surface-secondary p-3 rounded-lg text-xs space-y-2">
-                <p className="font-medium text-text-primary">Como obter o cookie:</p>
+                <p className="font-medium text-text-primary">{translate("How to get cookie:")}</p>
                 <ol className="list-decimal list-inside space-y-1 text-text-muted">
-                  <li>Abra platform.iflow.cn no seu navegador</li>
-                  <li>Faça login na sua conta</li>
-                  <li>Abra as DevTools (F12) → Application/Storage → Cookies</li>
-                  <li>Copie toda a string do cookie (deve incluir BXAuth)</li>
-                  <li>Cole abaixo</li>
+                  <li>{translate("Open platform.iflow.cn in your browser")}</li>
+                  <li>{translate("Log in to your account")}</li>
+                  <li>{translate("Open DevTools (F12) → Application/Storage → Cookies")}</li>
+                  <li>{translate("Copy the entire cookie string (must include BXAuth)")}</li>
+                  <li>{translate("Paste it below")}</li>
                 </ol>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label className="block text-text-primary">
-                String do Cookie
+                {translate("Cookie String")}
               </Label>
               <Textarea
                 value={cookie}
@@ -139,10 +140,10 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
 
             <div className="flex gap-3 pt-2">
               <Button variant="secondary" onClick={handleClose} disabled={loading} fullWidth>
-                Cancelar
+                {translate("Cancel")}
               </Button>
               <Button onClick={handleSubmit} loading={loading} fullWidth>
-                Autenticar
+                {translate("Authenticate")}
               </Button>
             </div>
           </>

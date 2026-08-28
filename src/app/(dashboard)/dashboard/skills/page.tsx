@@ -7,7 +7,8 @@ import {
   getSkillBlobUrl,
 } from "@/shared/constants/skills";
 import { CopyButton } from "./CopyButton";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ImageIcon, Languages, MessageSquare, Mic, Network, ScatterChart, Search } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface Skill {
   id: string;
@@ -18,8 +19,22 @@ interface Skill {
   isEntry?: boolean;
 }
 
+// Skill.icon stores a legacy Material Symbols ligature name; map it to the
+// lucide-react icon the rest of the app renders instead of showing raw text.
+const SKILL_ICON_MAP: Record<string, LucideIcon> = {
+  hub: Network,
+  chat: MessageSquare,
+  image: ImageIcon,
+  record_voice_over: Mic,
+  mic: Mic,
+  scatter_plot: ScatterChart,
+  search: Search,
+  language: Languages,
+};
+
 function SkillRow({ skill }: { skill: Skill }) {
   const url = getSkillRawUrl(skill.id);
+  const Icon = SKILL_ICON_MAP[skill.icon] || Network;
   return (
     <div
       className={`flex items-start gap-3 p-4 rounded-[14px] border shadow-[var(--shadow-soft)] transition-colors ${
@@ -33,7 +48,7 @@ function SkillRow({ skill }: { skill: Skill }) {
           skill.isEntry ? "bg-primary text-white" : "bg-primary/10 text-primary"
         }`}
       >
-        <span className="text-[18px]">{skill.icon}</span>
+        <Icon className="size-[18px]" />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -69,7 +84,7 @@ export default function SkillsPage() {
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       <Card padding="md">
-        <div className="text-xs text-text-muted mb-2">Cole isso na sua IA:</div>
+        <div className="text-xs text-text-muted mb-2">Paste this into your AI:</div>
         <div className="px-3 py-2 rounded bg-surface-2 font-mono text-[12px] text-text-main">
           Read this skill and use it: {getSkillRawUrl("9router")}
         </div>
@@ -84,9 +99,9 @@ export default function SkillsPage() {
       <Card padding="md">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-sm font-semibold text-text-main">Mais no GitHub</h2>
+            <h2 className="text-sm font-semibold text-text-main">More on GitHub</h2>
             <p className="text-xs text-text-muted mt-0.5">
-              Navegue pelo código-fonte, README e exemplos.
+              Browse the source code, README and examples.
             </p>
           </div>
           <a
@@ -96,7 +111,7 @@ export default function SkillsPage() {
             className="text-sm text-primary hover:underline inline-flex items-center gap-1"
           >
             <ExternalLink className="size-4" />
-            Ver no GitHub
+            View on GitHub
           </a>
         </div>
       </Card>

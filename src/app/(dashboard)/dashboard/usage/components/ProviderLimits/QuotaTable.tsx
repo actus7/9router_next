@@ -6,6 +6,7 @@ import Button from "@/shared/components/Button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { EyeOff } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const PAGE_SIZE = 10;
 
@@ -24,9 +25,9 @@ function formatResetTimeDisplay(resetTime: string | null | undefined) {
 
     let dayStr = "";
     if (date >= today && date < tomorrow) {
-      dayStr = "Hoje";
+      dayStr = translate("Today") || "Today";
     } else if (date >= tomorrow && date < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)) {
-      dayStr = "Amanhã";
+      dayStr = translate("Tomorrow") || "Tomorrow";
     } else {
       dayStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
@@ -156,7 +157,7 @@ export default function QuotaTable({
   const nameText = compact ? "text-[11px]" : "text-sm";
   const resetPrimary = compact ? "text-[11px]" : "text-sm";
   const resetSecondary = compact ? "text-[10px] leading-tight" : "text-xs";
-  const sortLabel = "Ordenado por saldo restante";
+  const sortLabel = translate("Sorted by remaining balance") || "Sorted by remaining balance";
   const hasHideAction = typeof onHideQuota === "function";
 
   return (
@@ -273,10 +274,10 @@ export default function QuotaTable({
         <div className="rounded-md border border-black/10 bg-black/[0.02] px-2 py-1.5 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="flex items-center justify-between gap-2 text-[10px] text-text-muted">
             <span>
-              Mostrando {pageStart}-{pageEnd} de {sortedQuotas.length}
+              {translate("Showing") || "Showing"} {pageStart}-{pageEnd} {translate("of") || "of"} {sortedQuotas.length}
             </span>
             <span>
-              Página {page} / {totalPages}
+              {translate("Page") || "Page"} {page} / {totalPages}
             </span>
           </div>
           <div className="mt-1.5 flex items-center justify-end gap-1">
@@ -287,7 +288,7 @@ export default function QuotaTable({
               onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
               disabled={page === 1}
             >
-              Anterior
+              {translate("Previous") || "Previous"}
             </Button>
             <Button
               type="button"
@@ -296,7 +297,7 @@ export default function QuotaTable({
               onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
               disabled={page === totalPages}
             >
-              Próximo
+              {translate("Next") || "Next"}
             </Button>
           </div>
         </div>

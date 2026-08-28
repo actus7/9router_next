@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { translate } from "@/i18n/runtime";
 
 export default function RequestLogger() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -42,10 +43,10 @@ export default function RequestLogger() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Logs de Requisições</h2>
+        <h2 className="text-xl font-semibold">{translate("Request Logs")}</h2>
         <div className="flex items-center gap-2">
           <Label className="text-sm font-medium text-text-muted flex items-center gap-2 cursor-pointer">
-            <span>Auto-atualizar (3s)</span>
+            <span>{translate("Auto Refresh (3s)")}</span>
             <div
               onClick={() => setAutoRefresh(!autoRefresh)}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${autoRefresh ? "bg-primary" : "bg-bg-subtle border border-border"
@@ -64,20 +65,20 @@ export default function RequestLogger() {
         <CardContent>
           <div className="p-0 max-h-[600px] overflow-y-auto font-mono text-xs">
           {loading && logs.length === 0 ? (
-            <div className="p-8 text-center text-text-muted">Carregando logs...</div>
+            <div className="p-8 text-center text-text-muted">{translate("Loading logs...")}</div>
           ) : logs.length === 0 ? (
-            <div className="p-8 text-center text-text-muted">Nenhum log registrado ainda.</div>
+            <div className="p-8 text-center text-text-muted">{translate("No logs recorded yet.")}</div>
           ) : (
             <Table className="whitespace-nowrap">
               <TableHeader className="sticky top-0 bg-bg-subtle z-10">
                 <TableRow>
-                  <TableHead className="px-3 py-2 border-r border-border">Data/Hora</TableHead>
-                  <TableHead className="px-3 py-2 border-r border-border">Modelo</TableHead>
-                  <TableHead className="px-3 py-2 border-r border-border">Provedor</TableHead>
-                  <TableHead className="px-3 py-2 border-r border-border">Conta</TableHead>
-                  <TableHead className="px-3 py-2 border-r border-border">Entrada</TableHead>
-                  <TableHead className="px-3 py-2 border-r border-border">Saída</TableHead>
-                  <TableHead className="px-3 py-2">Status</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">{translate("Date")}/{translate("Time")}</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">{translate("Model")}</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">{translate("Provider")}</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">{translate("Account")}</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">{translate("Input")}</TableHead>
+                  <TableHead className="px-3 py-2 border-r border-border">{translate("Output")}</TableHead>
+                  <TableHead className="px-3 py-2">{translate("Status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -118,7 +119,7 @@ export default function RequestLogger() {
         </CardContent>
       </Card>
       <div className="text-[10px] text-text-muted italic">
-        Os logs são carregados do banco de dados de histórico de requisições.
+        {translate("Logs are loaded from the request history database.")}
       </div>
     </div>
   );

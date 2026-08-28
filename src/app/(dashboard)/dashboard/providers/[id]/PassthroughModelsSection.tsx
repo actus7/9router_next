@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
+import { translate } from "@/i18n/runtime";
 
 interface PassthroughModelRowProps {
   modelId: string;
@@ -73,7 +74,7 @@ function PassthroughModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias
                 </span>
               </Button>
               <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-                {isTesting ? "Testando..." : "Testar"}
+                {isTesting ? translate("Testing...") : translate("Test")}
               </span>
             </div>
           )}
@@ -129,7 +130,7 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
     const modelId = newModel.trim();
 
     if (allModels.some((model: { id: string }) => model.id === modelId)) {
-      notify.warning("Modelo já existe para este provedor.");
+      notify.warning(translate("Model already exists for this provider.") || "Model already exists for this provider.");
       return;
     }
 
@@ -147,13 +148,13 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-text-muted">
-        OpenRouter suporta qualquer modelo. Adicione modelos e crie aliases para acesso rápido.
+        {translate("OpenRouter supports any model. Add models and create aliases for quick access.")}
       </p>
 
       {/* Add new model */}
       <div className="flex items-end gap-2">
         <div className="flex-1">
-          <Label htmlFor="new-model-input" className="text-xs text-text-muted mb-1 block">ID do Modelo (do OpenRouter)</Label>
+          <Label htmlFor="new-model-input" className="text-xs text-text-muted mb-1 block">{translate("Model ID (from OpenRouter)")}</Label>
           <Input
             id="new-model-input"
             type="text"
@@ -165,7 +166,7 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
           />
         </div>
         <Button size="sm" icon={<Plus className="size-4" />} onClick={handleAdd} disabled={!newModel.trim() || adding}>
-          {adding ? "Adicionando..." : "Adicionar"}
+          {adding ? translate("Adding...") : translate("Add")}
         </Button>
       </div>
 

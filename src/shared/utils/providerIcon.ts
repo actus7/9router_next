@@ -1,5 +1,9 @@
 // Provider icon paths under /public/providers.
+// Icon files are named after the canonical provider id (e.g. kiro.png, opencode.png),
+// but callers often only have the short routing alias (kr, oc). Resolve alias -> id first.
 // Alias related brands; session-cache 404s so one miss never spams again.
+
+import { resolveProviderId } from "@/shared/constants/providers";
 
 const ICON_ALIASES: Record<string, string> = {
   "perplexity-agent": "perplexity",
@@ -17,8 +21,9 @@ function normalizeId(providerId: string | null | undefined): string {
 
 /** Resolve icon file id (after alias). Empty if previously failed this session. */
 function resolveProviderIconId(providerId: string | null | undefined): string {
-  const id = normalizeId(providerId);
-  if (!id) return "";
+  const raw = normalizeId(providerId);
+  if (!raw) return "";
+  const id = normalizeId(resolveProviderId(raw)) || raw;
   if (failedIds.has(id)) return "";
   const aliased = ICON_ALIASES[id] || id;
   if (failedIds.has(aliased)) return "";

@@ -52,6 +52,7 @@ import { ConfirmModal, EditConnectionModal } from "@/shared/components";
 import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { AlertCircle, Ban, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CloudOff, Copy, EyeOff, Hourglass, LayoutGrid, Loader2, Pencil, RefreshCw, ToggleLeft, ToggleRight, Trash2, X, Zap } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 const EMPTY_STATE_ICON_MAP: Record<string, React.ElementType> = {
   cloud_off: CloudOff,
@@ -266,9 +267,6 @@ export default function ProviderLimits() {
     setErrors((prev) => ({ ...prev, [connectionId]: null }));
 
     try {
-      console.error(
-        `[ProviderLimits] Fetching quota for ${provider} (${connectionId})`,
-      );
       const url = `/api/usage/${connectionId}${force ? "?force=1" : ""}`;
       const response = await fetch(url);
 
@@ -307,7 +305,6 @@ export default function ProviderLimits() {
       }
 
       const data = await response.json();
-      console.error(`[ProviderLimits] Got quota for ${provider}:`, data);
 
       // Parse quota data using provider-specific parser
       const parsedQuotas = parseQuotaData(provider, data);
@@ -796,7 +793,7 @@ export default function ProviderLimits() {
   };
 
   const selectedProviderLabel =
-    providerFilter === "all" ? "Todos os provedores" : providerFilter;
+    providerFilter === "all" ? translate("All providers") || "All providers" : providerFilter;
   const hasEligibleConnections = totals.eligibleConnections > 0;
   const hasVisibleConnections = sortedConnections.length > 0;
   const emptyState = getConnectionsEmptyMessage(
@@ -814,11 +811,10 @@ export default function ProviderLimits() {
         <div className="text-center py-12">
           <CloudOff className="size-16 text-text-muted opacity-20" />
           <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            Nenhum Provedor Conectado
+            {translate("No Providers Connected") || "No Providers Connected"}
           </h3>
           <p className="mt-2 text-sm text-text-muted max-w-md mx-auto">
-            Conecte-se a provedores com OAuth para acompanhar seus limites de
-            cota e uso da API.
+            {translate("Connect to OAuth providers to track their quota limits and API usage.") || "Connect to OAuth providers to track their quota limits and API usage."}
           </p>
         </div>
       </Card>
@@ -902,7 +898,7 @@ export default function ProviderLimits() {
                     className={`w-full justify-start gap-3 rounded-xl px-3 py-2.5 ${providerFilter === "all" ? "bg-primary/10 text-primary" : ""}`}
                   >
                     <LayoutGrid className="size-5" />
-                    <span className="font-medium">Todos os provedores</span>
+                    <span className="font-medium">{translate("All providers") || "All providers"}</span>
                     {providerFilter === "all" && (
                       <Check className="size-5" />
                     )}
@@ -992,7 +988,7 @@ export default function ProviderLimits() {
             title="Sort accounts by earliest quota reset time"
           >
             <Hourglass className="size-3.5" />
-            <span className="hidden sm:inline">Expirando primeiro</span>
+            <span className="hidden sm:inline">{translate("Expiring first") || "Expiring first"}</span>
           </Button>
 
           {/* Bulk: disable depleted */}
@@ -1005,7 +1001,7 @@ export default function ProviderLimits() {
             title="Disable connections with depleted quota on the current page"
           >
             <Ban className="size-4" />
-            <span className="hidden sm:inline">Desativar Esgotados</span>
+            <span className="hidden sm:inline">{translate("Disable Depleted") || "Disable Depleted"}</span>
           </Button>
 
           {/* Bulk: enable available */}
@@ -1018,7 +1014,7 @@ export default function ProviderLimits() {
             title="Enable connections that still have quota on the current page"
           >
             <CheckCircle2 className="size-4" />
-            <span className="hidden sm:inline">Ativar Disponíveis</span>
+            <span className="hidden sm:inline">{translate("Activate Available") || "Activate Available"}</span>
           </Button>
 
           {/* Auto-refresh toggle */}
@@ -1034,7 +1030,7 @@ export default function ProviderLimits() {
               <ToggleLeft className="size-3.5 text-text-muted" />
             )}
             <span className="hidden text-text-primary sm:inline">
-              Atualização automática
+              {translate("Auto-refresh") || "Auto-refresh"}
             </span>
             {autoRefresh && (
               <span className="text-[10px] text-text-muted tabular-nums">
@@ -1051,7 +1047,7 @@ export default function ProviderLimits() {
             size="icon"
             onClick={() => refreshAll(true)}
             disabled={refreshingAll}
-            title="Atualizar todos"
+            title={translate("Refresh all") || "Refresh all"}
           >
             <RefreshCw className={`size-3.5 ${refreshingAll ? "animate-spin" : ""}`} />
           </Button>
@@ -1061,8 +1057,7 @@ export default function ProviderLimits() {
       {/* Provider cards: 2 columns, compact */}
       {expiringFirst && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-          A ordenação por expirando primeiro reordena contas dentro da página atual.
-          A ordenação entre páginas segue a paginação do backend.
+          {translate("The expiring-first sort reorders accounts within the current page. Sort between pages follows backend pagination.") || "The expiring-first sort reorders accounts within the current page. Sort between pages follows backend pagination."}
         </div>
       )}
 
@@ -1332,7 +1327,7 @@ export default function ProviderLimits() {
                 {hiddenQuotaRows.length > 0 && (
                   <div className="mt-2 flex min-w-0 items-center gap-1 border-t border-black/5 pt-2 text-[10px] text-text-muted dark:border-white/5">
                     <EyeOff className="size-4" />
-                    <span className="shrink-0">Ocultos:</span>
+                    <span className="shrink-0">{translate("Hidden:") || "Hidden:"}</span>
                     <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pb-2">
                       {hiddenQuotaRows.map((quotaRow) => (
                         <Button
@@ -1494,10 +1489,10 @@ export default function ProviderLimits() {
             setPendingDeleteId(null);
           }
         }}
-        title="Delete Connection"
-        message="Delete this connection?"
-        confirmText="Excluir"
-        cancelText="Cancelar"
+        title={translate("Delete") || "Delete"}
+        message={translate("Delete this connection?") || "Delete this connection?"}
+        confirmText={translate("Delete") || "Delete"}
+        cancelText={translate("Cancel") || "Cancel"}
         variant="danger"
       />
 
@@ -1512,10 +1507,10 @@ export default function ProviderLimits() {
           await handleResetCodexLimit(connection.id, connection.provider);
           setResetConfirmState(null);
         }}
-        title="Reset Codex limit?"
+        title={translate("Reset Codex limit?") || "Reset Codex limit?"}
         message={`Use 1 Codex reset credit for ${(resetConfirmState?.connection ? getConnectionLabel(resetConfirmState.connection) : null) || "this account"}. This cannot be undone. Remaining credits: ${resetConfirmState?.resetCreditCount ?? 0}.`}
-        confirmText="Reset limit"
-        cancelText="Cancelar"
+        confirmText={translate("Reset limit") || "Reset limit"}
+        cancelText={translate("Cancel") || "Cancel"}
         variant="danger"
         loading={Boolean(resettingLimitId)}
       />
@@ -1546,7 +1541,7 @@ export default function ProviderLimits() {
               {resetCreditsState.loading ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
                   <Loader2 className="size-5" />
-                  Loading reset credits...
+                  {translate("Loading reset credits...") || "Loading reset credits..."}
                 </div>
               ) : resetCreditsState.error ? (
                 <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300">
@@ -1587,7 +1582,7 @@ export default function ProviderLimits() {
                 </div>
               ) : (
                 <div className="rounded-xl border border-black/10 bg-black/[0.02] px-3 py-8 text-center text-sm text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
-                  No reset credit details returned for this account.
+                  {translate("No reset credit details returned for this account.") || "No reset credit details returned for this account."}
                 </div>
               )}
             </div>
