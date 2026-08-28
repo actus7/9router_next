@@ -1,4 +1,4 @@
-﻿// Public server API of the LLM gateway â€” usage tracking & executor access.
+// Public server API of the LLM gateway — usage tracking & executor access.
 import "server-only";
 import "@/server/llm-gateway/engine/utils/proxyFetch"; // global fetch patch must load before upstream calls
 

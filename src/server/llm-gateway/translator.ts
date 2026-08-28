@@ -1,4 +1,4 @@
-﻿// Public server API of the LLM gateway â€” protocol translation utilities.
+// Public server API of the LLM gateway — protocol translation utilities.
 import "server-only";
 
 export {

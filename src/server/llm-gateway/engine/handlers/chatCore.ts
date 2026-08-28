@@ -1,4 +1,4 @@
-import { detectFormat, getTargetFormat, resolveTransport } from "../services/provider";
+﻿import { detectFormat, getTargetFormat, resolveTransport } from "../services/provider";
 import { translateRequest } from "../translator/index";
 import { applyThinking, extractThinking, stripThinkingSuffix } from "../translator/concerns/thinkingUnified";
 import { FORMATS } from "../translator/formats";
@@ -11,7 +11,7 @@ import { PROVIDERS } from "../config/providers";
 import { createErrorResult, parseUpstreamError, formatProviderError } from "../utils/error";
 import { HTTP_STATUS, TOKEN_SAVER_HEADER } from "../config/runtimeConfig";
 import { handleBypassRequest } from "../utils/bypassHandler";
-import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "@/lib/usageDb";
+import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "../host/usage";
 import { getExecutor } from "../executors/index";
 import { supportsGrokCliReasoningEffort } from "../config/grokCli";
 import { buildRequestDetail, extractRequestConfig } from "./chatCore/requestDetail";
@@ -40,8 +40,8 @@ import type { HandleChatCoreOptions, HeadroomDiagnostics, PxpipeSummary } from "
  */
 /**
  * Remove translator-internal continuity fields from the outbound upstream
- * body. The Responses→Chat request translator stashes reasoning
- * `encrypted_content` on assistant messages so a later openai→responses
+ * body. The Responsesâ†’Chat request translator stashes reasoning
+ * `encrypted_content` on assistant messages so a later openaiâ†’responses
  * round-trip can restore the store=false continuity blob; that stash must
  * never reach an upstream provider. Chat-native proxies reject the unknown
  * assistant-message field and answer every turn with a literal "400" body
@@ -79,16 +79,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
   const modelTargetFormat = getModelTargetFormat(alias, model);
-  // Multi-endpoint providers: pick transport matching sourceFormat → zero translation.
+  // Multi-endpoint providers: pick transport matching sourceFormat â†’ zero translation.
   // Per-model guard: only use the transport when the model declares support for that
-  // sourceFormat — opencode-go models differ in endpoint support (kimi/glm only do
+  // sourceFormat â€” opencode-go models differ in endpoint support (kimi/glm only do
   // /chat/completions), so without this guard a claude-format request would wrongly
   // route kimi to /messages.
   const modelSupportedFormats = getModelSupportedFormats(alias, model);
   const runtimeTransport = resolveTransport(provider, sourceFormat);
   // Per-model guard: when a model declares supportedFormats, only use the
   // sourceFormat-matched transport if that format is declared (opencode-go models
-  // differ — kimi/glm only do /chat/completions). Undeclared models keep the
+  // differ â€” kimi/glm only do /chat/completions). Undeclared models keep the
   // upstream default (use the transport), preserving behavior for glm/deepseek/...
   const useTransport = (!modelSupportedFormats || (modelSupportedFormats as string[]).includes(sourceFormat)) ? runtimeTransport : null;
   const targetFormat = modelTargetFormat || useTransport?.format || getTargetFormat(provider, credentials as Record<string, unknown>);
@@ -97,7 +97,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const upstreamModel = getModelUpstreamId(alias, model);
 
   // Inject provider-level thinking config override (only if client hasn't set)
-  // on/off → extended type (body.thinking), none/low/medium/high → effort type (body.reasoning_effort)
+  // on/off â†’ extended type (body.thinking), none/low/medium/high â†’ effort type (body.reasoning_effort)
   if (providerThinking?.mode && providerThinking.mode !== "auto") {
     const mode = providerThinking.mode;
     if (mode === "on" && !body.thinking) {
@@ -139,10 +139,10 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const reqLogger = await createRequestLogger(sourceFormat, targetFormat, model);
   if (clientRawRequest) reqLogger.logClientRawRequest(clientRawRequest.endpoint as string, clientRawRequest.body, clientRawRequest.headers);
   reqLogger.logRawRequest(body);
-  log?.debug?.("FORMAT", `${sourceFormat} → ${targetFormat} | stream=${stream}`);
+  log?.debug?.("FORMAT", `${sourceFormat} â†’ ${targetFormat} | stream=${stream}`);
 
   // Native passthrough: CLI tool and provider are the same ecosystem
-  // Skip all translation/normalization — only model and Bearer are swapped
+  // Skip all translation/normalization â€” only model and Bearer are swapped
   const clientTool = detectClientTool(clientRawRequest?.headers || {}, body);
   const passthrough = isNativePassthrough(clientTool, provider);
 
@@ -166,7 +166,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   let toolNameMap;
   let customToolNames;
   if (passthrough) {
-    log?.debug?.("PASSTHROUGH", `${clientTool} → ${provider} | native lossless`);
+    log?.debug?.("PASSTHROUGH", `${clientTool} â†’ ${provider} | native lossless`);
     translatedBody = { ...body, model: stripThinkingSuffix(upstreamModel) };
     if (provider === "codex") {
       const suffixThinking: Record<string, unknown> = {};
@@ -186,7 +186,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
     if (!translatedBody) {
       trackPendingRequest(model, provider, connectionId, false, true);
-      return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`, undefined);
+      return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} â†’ ${targetFormat}`, undefined);
     }
     toolNameMap = translatedBody._toolNameMap;
     delete translatedBody._toolNameMap;
@@ -214,12 +214,12 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     const clientModel = clientRawRequest?.body?.model || `${provider}/${model}`;
     const msgN = (translatedBody as Record<string, unknown>).messages && ((translatedBody as Record<string, unknown>).messages as unknown[]).length || (translatedBody as Record<string, unknown>).input && ((translatedBody as Record<string, unknown>).input as unknown[]).length || (translatedBody as Record<string, unknown>).contents && ((translatedBody as Record<string, unknown>).contents as unknown[]).length || (body.messages as unknown[])?.length || (body.input as unknown[])?.length || 0;
     const toolN = ((translatedBody as Record<string, unknown>).tools as unknown[])?.length || (body.tools as unknown[])?.length || 0;
-    const fmtStr = passthrough ? `FMT: ${sourceFormat} (passthrough)` : `FMT: ${sourceFormat}→${targetFormat}`;
+    const fmtStr = passthrough ? `FMT: ${sourceFormat} (passthrough)` : `FMT: ${sourceFormat}â†’${targetFormat}`;
     const showThinking = provider !== "grok-cli" || supportsGrokCliReasoningEffort(model);
     const think = showThinking ? log.fmtThink?.(extractThinking(translatedBody)) : null;
     const acc = credentials?.connectionName || credentials?.connectionId?.slice(0, 8) || "-";
     const parts = [
-      `POST ${clientModel} → ${provider}/${model}`,
+      `POST ${clientModel} â†’ ${provider}/${model}`,
       fmtStr,
       stream ? "STREAM" : "JSON",
       `${msgN} MSG`,
@@ -227,7 +227,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     if (toolN) parts.push(`${toolN} TOOL`);
     if (think) parts.push(`THINK:${think}`);
     parts.push(`ACC:${acc}`);
-    log.line(reqTag, "▶", parts.join(" · "));
+    log.line(reqTag, "â–¶", parts.join(" Â· "));
   }
 
   // TTS models don't support tool messages/function calling
@@ -256,7 +256,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
   } else if (tokenSaverEnabled && headroomEnabled) log?.warn?.("HEADROOM", `skipped: ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` (${headroomDiagnostics.endpoint})` : ""}`);
 
-  // Token-saver flags accumulator for the single "⚙" log line below.
+  // Token-saver flags accumulator for the single "âš™" log line below.
   const xf = [];
 
   // Caveman: inject terse-style system prompt
@@ -284,9 +284,9 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
   }
 
-  if (xf.length && log?.line) log.line(reqTag, "⚙", xf.join(" · "));
+  if (xf.length && log?.line) log.line(reqTag, "âš™", xf.join(" Â· "));
 
-  // Pin cache breakpoints to the final body — every saver above can reshape
+  // Pin cache breakpoints to the final body â€” every saver above can reshape
   // system/tools/messages, and a stale anchor costs a full prefix rewrite.
   if (passthrough && clientTool === "claude") anchorClaudeCache(translatedBody);
 
@@ -373,7 +373,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
     const errMsg = formatProviderError(err as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, HTTP_STATUS.BAD_GATEWAY);
     if (log?.errorLine) {
-      log.errorLine(reqTag, "✗", `ERROR 502 · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${errMsg}${err.stack ? `\n    ${err.stack}` : ""}`);
+      log.errorLine(reqTag, "âœ—", `ERROR 502 Â· ${provider}/${model} Â· ${Date.now() - requestStartTime}ms\n    ${errMsg}${err.stack ? `\n    ${err.stack}` : ""}`);
     }
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg, undefined);
   }
@@ -383,8 +383,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     try {
       // Mutate credentials after each successful refresh: rotating refresh_token
       // providers (xAI/grok-cli) issue a new RT on every refresh; without this,
-      // refreshWithRetry's 2nd/3rd attempt reuses the already-consumed RT →
-      // invalid_grant → auth_failed retryable=false.
+      // refreshWithRetry's 2nd/3rd attempt reuses the already-consumed RT â†’
+      // invalid_grant â†’ auth_failed retryable=false.
       const newCredentials = await refreshWithRetry(async () => {
         const result = await executor.refreshCredentials(credentials, log);
         if (result?.refreshToken && result.refreshToken !== credentials.refreshToken) {
@@ -394,7 +394,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
         return result;
       }, 3, log);
       if (newCredentials?.accessToken || newCredentials?.copilotToken) {
-        if (log?.line) log.line(reqTag, "🔑", `TOKEN REFRESHED · ${provider}/${model}`);
+        if (log?.line) log.line(reqTag, "ðŸ”‘", `TOKEN REFRESHED Â· ${provider}/${model}`);
         Object.assign(credentials, newCredentials);
         if (onCredentialsRefreshed) {
           try { await onCredentialsRefreshed(newCredentials); } catch (e: unknown) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e instanceof Error ? e.message : String(e)}`); }
@@ -434,7 +434,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     const errMsg = formatProviderError(new Error(message) as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, statusCode);
     if (log?.errorLine) {
       const urlStr = providerUrl ? `\n    URL: ${providerUrl}` : "";
-      log.errorLine(reqTag, "✗", `ERROR ${statusCode} · ${provider}/${model} · ${Date.now() - requestStartTime}ms${urlStr}\n    ${errMsg}`);
+      log.errorLine(reqTag, "âœ—", `ERROR ${statusCode} Â· ${provider}/${model} Â· ${Date.now() - requestStartTime}ms${urlStr}\n    ${errMsg}`);
     }
     reqLogger.logError(new Error(message), finalBody || translatedBody);
     return createErrorResult(statusCode, errMsg, resetsAtMs);

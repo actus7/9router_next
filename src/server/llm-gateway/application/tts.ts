@@ -1,4 +1,4 @@
-﻿import {
+import {
   extractApiKey, isValidApiKey,
   getProviderCredentials, markAccountUnavailable,
 } from "../auth/accountSelection";
@@ -59,7 +59,7 @@ export async function handleTts(request: Request): Promise<Response> {
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible TTS model is active");
       attachRoutingDecision(body, routing.meta);
-      log.info("ROUTING", `Smart combo "${modelStr}" â†’ tts/${routing.meta.tier} â†’ ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${modelStr}" → tts/${routing.meta.tier} → ${routing.models[0]}`);
       return handleComboChat({
         body,
         models: routing.models,

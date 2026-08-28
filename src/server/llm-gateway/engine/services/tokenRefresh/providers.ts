@@ -1,8 +1,8 @@
-import { PROVIDERS, PROVIDER_OAUTH } from "../../config/providers";
+﻿import { PROVIDERS, PROVIDER_OAUTH } from "../../config/providers";
 import { OAUTH_ENDPOINTS, GITHUB_COPILOT, buildKimiHeaders } from "../../config/appConstants";
 import { proxyAwareFetch } from "../../utils/proxyFetch";
 import { dedupRefresh } from "./dedup";
-import { buildExternalIdpRefreshParams } from "@/lib/oauth/kiroExternalIdp";
+import { buildExternalIdpRefreshParams, getXaiRefreshService, fetchKiroProfileArn } from "../../host/oauth";
 import type { Credentials, RefreshResult, Logger, ProviderSpecificData, OAuthProviderConfig, ProviderConfig, RefreshProfile } from "../types";
 
 let _xaiServiceSingleton: { refreshAccessToken(token: string): Promise<Record<string, unknown>> } | null = null;
@@ -11,8 +11,7 @@ export async function refreshXaiToken(refreshToken: string, log?: Logger): Promi
   return dedupRefresh<RefreshResult | null>("xai", refreshToken, async () => {
     try {
       if (!_xaiServiceSingleton) {
-        const mod = await import("@/lib/oauth/services/xai") as unknown as { XaiService: new () => { refreshAccessToken(token: string): Promise<Record<string, unknown>> } };
-        _xaiServiceSingleton = new mod.XaiService();
+        _xaiServiceSingleton = await getXaiRefreshService();
       }
       const tokens = await _xaiServiceSingleton!.refreshAccessToken(refreshToken);
       return {
@@ -144,7 +143,7 @@ export async function refreshAccessToken(provider: string, refreshToken: string,
 }
 
 // CLIProxyAPI DeviceFlowClient.RefreshToken: form body (no client_secret) + X-Msh-* headers
-// Delegate to refreshAccessToken("kimi", ...) — profile carries the X-Msh headers.
+// Delegate to refreshAccessToken("kimi", ...) â€” profile carries the X-Msh headers.
 export async function refreshKimiToken(refreshToken: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   return refreshAccessToken("kimi", refreshToken, credentials, log);
 }
@@ -273,7 +272,6 @@ async function resolveKiroProfileArnPatch(providerSpecificData: ProviderSpecific
   if (providerSpecificData?.profileArn) return {};
   let profileArn = refreshedArn?.trim?.() || null;
   if (!profileArn) {
-    const { fetchKiroProfileArn } = await import("@/lib/oauth/providerHelpers") as { fetchKiroProfileArn: (token: string) => Promise<string | null> };
     profileArn = await fetchKiroProfileArn(accessToken);
   }
   return profileArn ? { providerSpecificData: { profileArn } as ProviderSpecificData } : {};
@@ -467,7 +465,7 @@ export async function refreshCopilotToken(githubAccessToken: string, log?: Logge
   }, log);
 }
 
-// CodeBuddy (Tencent) refresh — POST /v2/plugin/auth/token/refresh with the
+// CodeBuddy (Tencent) refresh â€” POST /v2/plugin/auth/token/refresh with the
 // refresh token carried in the X-Refresh-Token header (not a form body),
 // matching the official CodeBuddy CLI. Response: { code: 0, data: <token> }.
 export async function refreshCodebuddyToken(refreshToken: string, log?: Logger): Promise<RefreshResult | null> {
@@ -574,7 +572,7 @@ export async function refreshCodebuddyIntlToken(refreshToken: string, log?: Logg
   }, log);
 }
 
-// Trae refresh — POST ExchangeToken with JSON body {ClientID, RefreshToken, ClientSecret, UserID}.
+// Trae refresh â€” POST ExchangeToken with JSON body {ClientID, RefreshToken, ClientSecret, UserID}.
 // Response: {Result: {AccessToken, RefreshToken, TokenType, ExpiresAt}}.
 export async function refreshTraeToken(refreshToken: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   if (!refreshToken) return null;
@@ -648,7 +646,7 @@ export async function refreshTraeToken(refreshToken: string, credentials: Creden
 }
 
 // Zed access_token is long-lived; auth flow returns no refresh_token.
-// No refresh possible — re-login required when token expires/revoked.
+// No refresh possible â€” re-login required when token expires/revoked.
 // Mirrors cursor/kilocode null-refresh pattern.
 export function refreshZedToken(): null {
   return null;
@@ -661,7 +659,7 @@ export function refreshZedToken(): null {
 export async function refreshWindsurfToken(credentials: Credentials, log?: Logger): Promise<null> {
   log?.info?.(
     "TOKEN_REFRESH",
-    "windsurf: apiKey is long-lived (no refresh_token flow) — skipping"
+    "windsurf: apiKey is long-lived (no refresh_token flow) â€” skipping"
   );
   return null;
 }

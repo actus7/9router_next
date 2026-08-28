@@ -32,14 +32,14 @@ export function getTtsAdapter(provider: string) {
 
 // Generic config-driven dispatcher (uses ttsConfig.format)
 export async function synthesizeViaConfig(provider: string, text: string, model: string, credentials: Record<string, unknown>): Promise<{ base64: string; format: string } | null> {
-  const { AI_PROVIDERS } = await import("@/shared/constants/providers");
+  const { AI_PROVIDERS } = await import("../../host/catalog");
   const cfg = (AI_PROVIDERS[provider]?.ttsConfig || {}) as Record<string, unknown>;
   if (!cfg) return null;
   const handler = FORMAT_HANDLERS[cfg.format as string];
   if (!handler) return null;
   const apiKey = credentials?.apiKey as string;
   if (cfg.authType !== "none" && !apiKey) throw new Error(`${provider} API key required`);
-  const { PROVIDER_MODELS } = await import("@/server/llm-gateway/engine/config/providerModels");
+  const { PROVIDER_MODELS } = await import("../../config/providerModels");
   const ttsModels = ((PROVIDER_MODELS[provider] || []) as Array<{ id?: string; kind?: string; type?: string }>).filter(m => (m.kind || m.type) === "tts");
   const defaultModel = ttsModels[0]?.id || "";
   const { modelId, voiceId } = parseModelVoice(model, defaultModel, "", ttsModels);

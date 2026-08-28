@@ -231,11 +231,11 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             <Button
               onClick={() => onMethodSelect("builder-id")}
               variant="outline"
-              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
             >
               <div className="flex items-start gap-3">
                 <Shield className="size-4" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold mb-1">AWS Builder ID</h3>
                   <p className="text-sm text-text-muted">
                     Recomendado para a maioria dos usuários. Conta AWS gratuita necessária.
@@ -248,11 +248,11 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             <Button
               onClick={() => handleMethodSelect("idc")}
               variant="outline"
-              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
             >
               <div className="flex items-start gap-3">
                 <Building className="size-4" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold mb-1">AWS IAM Identity Center</h3>
                   <p className="text-sm text-text-muted">
                     Para usuários corporativos com AWS IAM Identity Center personalizado.
@@ -265,11 +265,11 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             <Button
               onClick={() => handleMethodSelect("api-key")}
               variant="outline"
-              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
             >
               <div className="flex items-start gap-3">
                 <Key className="size-4" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold mb-1">Chave API</h3>
                   <p className="text-sm text-text-muted">
                     Use uma chave API Kiro/CodeWhisperer de longa duração (autenticação headless).
@@ -282,11 +282,11 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             <Button
               onClick={() => handleMethodSelect("social-google")}
               variant="outline"
-              className="hidden w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
+              className="hidden w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
             >
               <div className="flex items-start gap-3">
                 <CircleUser className="size-4" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold mb-1">Conta Google</h3>
                   <p className="text-sm text-text-muted">
                     Entrar com sua conta Google (callback manual).
@@ -299,11 +299,11 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             <Button
               onClick={() => handleMethodSelect("social-github")}
               variant="outline"
-              className="hidden w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
+              className="hidden w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
             >
               <div className="flex items-start gap-3">
                 <Code className="size-4" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold mb-1">Conta GitHub</h3>
                   <p className="text-sm text-text-muted">
                     Entrar com sua conta GitHub (callback manual).
@@ -316,11 +316,11 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             <Button
               onClick={() => handleMethodSelect("import")}
               variant="outline"
-              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
             >
               <div className="flex items-start gap-3">
                 <Upload className="size-4" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold mb-1">Importar Token</h3>
                   <p className="text-sm text-text-muted">
                     Cole o refresh token do Kiro IDE.
@@ -333,11 +333,11 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }: KiroA
             <Button
               onClick={() => handleMethodSelect("import-cli-proxy")}
               variant="outline"
-              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start"
+              className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
             >
               <div className="flex items-start gap-3">
                 <Braces className="size-4" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-semibold mb-1">Importar JSON CLIProxyAPI</h3>
                   <p className="text-sm text-text-muted">
                     Cole o JSON de autenticação external_idp do login Microsoft CLIProxyAPI/Kiro.

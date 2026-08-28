@@ -1,4 +1,4 @@
-import { FORMATS } from "../../translator/formats";
+﻿import { FORMATS } from "../../translator/formats";
 import { needsTranslation } from "../../translator/index";
 import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger } from "../../utils/stream";
 import { pipeWithDisconnect } from "../../utils/streamHandler";
@@ -6,11 +6,11 @@ import { PROVIDERS } from "../../config/providers";
 import { STREAM_STALL_TIMEOUT_MS } from "../../config/runtimeConfig";
 import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail";
-import { saveRequestDetail } from "@/lib/usageDb";
+import { saveRequestDetail } from "../../host/usage";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants";
 import type { StreamingHandlerContext, OnStreamCompleteContext } from "./types";
 
-// Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
+// Codex returns Responses API SSE â†’ which client format to translate INTO, by request sourceFormat.
 const CODEX_SOURCE_TO_TARGET: Record<string, string> = {
   [FORMATS.OPENAI_RESPONSES]: FORMATS.OPENAI_RESPONSES,
   [FORMATS.CLAUDE]: FORMATS.CLAUDE,
@@ -43,7 +43,7 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
   // reqLogger/toolNameMap/customToolNames have genuinely mismatched shapes across this call
   // chain (see chatCore/types.ts RequestLogger vs the real createRequestLogger() return type,
   // and toolNameMap's Map<string,string> runtime shape vs its Record<string,string> param type)
-  // — cast narrowly to each function's own parameter type instead of blanket-casting every
+  // â€” cast narrowly to each function's own parameter type instead of blanket-casting every
   // argument to `null`, which used to erase real type-checking on the other positions too.
   const loggerArg = reqLogger as unknown as Parameters<typeof createSSETransformStreamWithLogger>[3];
   const toolMapArg = toolNameMap as unknown as Parameters<typeof createSSETransformStreamWithLogger>[4];
@@ -62,7 +62,7 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
 }
 
 /**
- * Handle streaming response — pipe provider SSE through transform stream to client.
+ * Handle streaming response â€” pipe provider SSE through transform stream to client.
  */
 export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }: StreamingHandlerContext) {
   if (onRequestSuccess) {
@@ -81,7 +81,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     const shortMsg = sanitizedTitle
       || (bodyText.length < 200 ? bodyText.replace(/<[^>]*>/g, '').trim().slice(0, 160) : `Upstream returned non-SSE response (${upstreamContentType})`);
     const status = providerResponse.status || 502;
-    if (log?.errorLine) log.errorLine(reqTag, "✗", `BLOCKED ${status} · ${provider}/${model} · non-SSE (${upstreamContentType})\n    ${shortMsg}`);
+    if (log?.errorLine) log.errorLine(reqTag, "âœ—", `BLOCKED ${status} Â· ${provider}/${model} Â· non-SSE (${upstreamContentType})\n    ${shortMsg}`);
     else console.warn(`[STREAM] ${provider} | ${model} | blocked pipe: ${shortMsg} [${status}]`);
     streamController?.handleError?.(new Error(`upstream non-SSE: ${status}`));
     return {
@@ -149,7 +149,7 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
     });
 
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true });
-    if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
+    if (log?.line) log.line(reqTag, "ðŸ“Š", formatDoneLine({ usage, latency }));
   };
 
   return { onStreamComplete, streamDetailId };

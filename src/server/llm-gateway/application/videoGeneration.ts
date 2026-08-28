@@ -1,4 +1,4 @@
-﻿import {
+import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
@@ -98,7 +98,7 @@ function withConnectionHeader(response: Response, connectionId: string | null): 
 }
 
 /**
- * POST /v1/videos/{generations|edits|extensions} â€” async job creation proxy.
+ * POST /v1/videos/{generations|edits|extensions} — async job creation proxy.
  */
 export async function handleVideoCreate(request: Request, action: string): Promise<Response> {
   const authError: Response | null = await requireValidApiKey(request);
@@ -123,7 +123,7 @@ export async function handleVideoCreate(request: Request, action: string): Promi
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible video model is active");
       attachRoutingDecision(parsedBody, routing.meta);
-      log.info("ROUTING", `Smart combo "${requestedModel}" â†’ video_generation/${routing.meta.tier} â†’ ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${requestedModel}" → video_generation/${routing.meta.tier} → ${routing.models[0]}`);
       return handleComboChat({
         body: parsedBody,
         models: routing.models,
@@ -175,10 +175,7 @@ export async function handleVideoCreate(request: Request, action: string): Promi
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
-    if (!credentials.connectionId) {
-      return errorResponse(HTTP_STATUS.BAD_REQUEST, `Provider ${provider} returned credentials without an identifier`);
-    }
-    const connectionId = credentials.connectionId;
+    const connectionId: string = credentials.connectionId || "";
     const refreshedCredentials = await checkAndRefreshToken(provider, credentials) as CredentialsResult;
 
     const result = await handleVideoProxyCore({
@@ -222,7 +219,7 @@ export async function handleVideoCreate(request: Request, action: string): Promi
 }
 
 /**
- * GET /v1/videos/{request_id} â€” poll job status.
+ * GET /v1/videos/{request_id} — poll job status.
  */
 export async function handleVideoGet(request: Request, requestId: string): Promise<Response> {
   const authError: Response | null = await requireValidApiKey(request);
@@ -237,10 +234,7 @@ export async function handleVideoGet(request: Request, requestId: string): Promi
   if (!credentials || credentials.allRateLimited) {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `No credentials for provider: ${provider}`);
   }
-  if (!credentials.connectionId) {
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, `Provider ${provider} returned credentials without an identifier`);
-  }
-  const connectionId = credentials.connectionId;
+  const connectionId: string = credentials.connectionId || "";
 
   const refreshedCredentials = await checkAndRefreshToken(provider, credentials) as CredentialsResult;
 

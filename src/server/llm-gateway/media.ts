@@ -1,4 +1,4 @@
-﻿// Public server API of the LLM gateway â€” media modalities (TTS/STT/image/video).
+// Public server API of the LLM gateway — media modalities (TTS/STT/image/video).
 import "server-only";
 
 export { handleTts } from "./application/tts";

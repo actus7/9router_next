@@ -1,4 +1,4 @@
-﻿import {
+import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
@@ -102,7 +102,7 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible embedding model is active");
       attachRoutingDecision(body, routing.meta);
-      log.info("ROUTING", `Smart combo "${modelStr}" â†’ embeddings/${routing.meta.tier} â†’ ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${modelStr}" → embeddings/${routing.meta.tier} → ${routing.models[0]}`);
       return handleComboChat({
         body,
         models: routing.models,
@@ -131,7 +131,7 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
   const { provider, model } = modelInfo;
 
   if (modelStr !== `${provider}/${model}`) {
-    log.info("ROUTING", `${modelStr} â†’ ${provider}/${model}`);
+    log.info("ROUTING", `${modelStr} → ${provider}/${model}`);
   } else {
     log.info("ROUTING", `Provider: ${provider}, Model: ${model}`);
   }

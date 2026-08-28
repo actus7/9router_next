@@ -1,4 +1,4 @@
-﻿import {
+import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
@@ -79,7 +79,7 @@ export async function handleSearch(request: Request): Promise<Response> {
       const providers = [...new Set(routing.models.map((candidate) => candidate.split("/", 1)[0]).filter(Boolean))];
       if (providers.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible web search provider is active");
       attachRoutingDecision(body, routing.meta);
-      log.info("ROUTING", `Smart combo "${providerInput}" â†’ web_search/${routing.meta.tier} â†’ ${providers[0]}`);
+      log.info("ROUTING", `Smart combo "${providerInput}" → web_search/${routing.meta.tier} → ${providers[0]}`);
       return handleComboChat({
         body,
         models: providers,
@@ -134,7 +134,7 @@ async function handleSingleProviderSearch(body: Record<string, unknown>, provide
   }
 
   if (providerInput !== providerId) {
-    log.info("ROUTING", `${providerInput} â†’ ${providerId}`);
+    log.info("ROUTING", `${providerInput} → ${providerId}`);
   } else {
     log.info("ROUTING", `Provider: ${providerId}`);
   }

@@ -1,4 +1,4 @@
-import { FORMATS } from "../../translator/formats";
+﻿import { FORMATS } from "../../translator/formats";
 import { needsTranslation } from "../../translator/index";
 import { fromOpenAIFinish } from "../../translator/concerns/finishReason";
 import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai";
@@ -7,7 +7,7 @@ import { createErrorResult } from "../../utils/error";
 import { HTTP_STATUS } from "../../config/runtimeConfig";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail";
-import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb";
+import { appendRequestLog, saveRequestDetail } from "../../host/usage";
 import { decloakToolNames } from "../../utils/claudeCloaking";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index";
 import type { NonStreamingHandlerContext } from "./types";
@@ -69,7 +69,7 @@ function openAICompletionToClaudeMessage(responseBody: JsonObject): JsonObject {
 /**
  * Convert an OpenAI Chat Completions non-streaming response body into the
  * OpenAI Responses API shape. Used when a Responses-format client (e.g. Codex)
- * is routed to a Chat Completions upstream and `stream:false` — the streaming
+ * is routed to a Chat Completions upstream and `stream:false` â€” the streaming
  * path already emits Responses events, but the JSON path returned a raw
  * `chat.completion` body, so tool_calls were invisible to Responses clients.
  */
@@ -89,7 +89,7 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
   const message = (choice.message as JsonObject) || {};
   const output: JsonObject[] = [];
 
-  // Reasoning → a reasoning item (summary text), mirroring the streaming path.
+  // Reasoning â†’ a reasoning item (summary text), mirroring the streaming path.
   const reasoning = (message.reasoning_content as string) || (message.reasoning as string);
   if (typeof reasoning === "string" && reasoning.length > 0) {
     output.push({
@@ -98,7 +98,7 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
     });
   }
 
-  // Assistant text → a message item with output_text content.
+  // Assistant text â†’ a message item with output_text content.
   const text = typeof message.content === "string" ? message.content : "";
   if (text.length > 0) {
     output.push({
@@ -108,7 +108,7 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
     });
   }
 
-  // tool_calls → function_call/custom_tool_call items (Responses-native tool shape).
+  // tool_calls â†’ function_call/custom_tool_call items (Responses-native tool shape).
   for (const tc of (message.tool_calls as JsonObject[]) || []) {
     const fn = (tc.function as JsonObject) || {};
     const custom = customToolNames?.has(fn.name as string);
@@ -144,12 +144,12 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
 }
 
 /**
- * Translate non-streaming response body from provider format → OpenAI format.
+ * Translate non-streaming response body from provider format â†’ OpenAI format.
  */
 export function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: string, sourceFormat: string, customToolNames: Set<string> | null = null): JsonObject {
   if (targetFormat === sourceFormat) return responseBody;
   // Provider responded in OpenAI Chat Completions shape but the client speaks
-  // Responses API — convert so tool_calls/text surface as Responses `output`.
+  // Responses API â€” convert so tool_calls/text surface as Responses `output`.
   if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.OPENAI_RESPONSES) {
     return openAICompletionToResponses(responseBody, customToolNames);
   }
@@ -229,7 +229,7 @@ export function translateNonStreamingResponse(responseBody: JsonObject, targetFo
     // Early return if the response is already in OpenAI format (has choices array)
     // or if it has content as a non-array value (likely a different non-Claude format).
     // Some providers (e.g. xiaomi-tokenplan) return OpenAI-format responses even when
-    // the request was translated to Claude format — the targetFormat is Claude but the
+    // the request was translated to Claude format â€” the targetFormat is Claude but the
     // actual response is OpenAI-native and needs no further translation.
     if (responseBody.choices || (responseBody.content && !Array.isArray(responseBody.content))) return responseBody;
 
@@ -326,7 +326,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });
   saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
-  if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
+  if (log?.line) log.line(reqTag, "ðŸ“Š", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
   const translatedResponse = needsTranslation(targetFormat, sourceFormat)
     ? translateNonStreamingResponse(responseBody, targetFormat, sourceFormat, customToolNames)

@@ -1,4 +1,4 @@
-﻿// Public server API of the LLM gateway â€” auth, account selection and token lifecycle.
+// Public server API of the LLM gateway — auth, account selection and token lifecycle.
 import "server-only";
 
 // API-key validation + account selection/fallback

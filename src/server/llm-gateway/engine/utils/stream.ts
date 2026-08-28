@@ -1,6 +1,6 @@
-import { translateResponse, initState } from "../translator/index";
+﻿import { translateResponse, initState } from "../translator/index";
 import { FORMATS } from "../translator/formats";
-import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb";
+import { trackPendingRequest, appendRequestLog } from "../host/usage";
 import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers";
@@ -11,7 +11,7 @@ import { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER } from "./sseConstants";
 export { COLORS, formatSSE };
 export { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER };
 
-// sharedEncoder is stateless — safe to share across streams
+// sharedEncoder is stateless â€” safe to share across streams
 const sharedEncoder = new TextEncoder();
 
 // Helper: translateResponse attaches _openaiIntermediate as a non-standard array property
@@ -156,7 +156,7 @@ export function createSSEStream(options: SSEStreamOptions = {}) {
               // Strip empty tool_calls arrays that break AI SDK reasoning tracking.
               // Some providers (e.g. CodeBuddy CN) include `"tool_calls": []` in
               // every streaming delta. @ai-sdk/openai-compatible checks
-              // `delta.tool_calls != null` — an empty array passes this check,
+              // `delta.tool_calls != null` â€” an empty array passes this check,
               // causing premature `reasoning-end` on every chunk.
               if (parsed?.choices) {
                 for (const choice of parsed.choices) {
@@ -205,7 +205,7 @@ export function createSSEStream(options: SSEStreamOptions = {}) {
                 injectedUsage = true;
               }
             } catch {
-              // Skip non-JSON data lines silently — don't forward garbage to clients.
+              // Skip non-JSON data lines silently â€” don't forward garbage to clients.
               // Upstream providers sometimes return plain-text errors (HTML, rate-limit
               // messages) in the SSE stream that would break downstream JSON decoders.
               continue;

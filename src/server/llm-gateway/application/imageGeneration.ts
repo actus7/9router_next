@@ -1,4 +1,4 @@
-﻿import {
+import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
@@ -66,7 +66,7 @@ export async function handleImageGeneration(request: Request): Promise<Response>
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible image model is active");
       attachRoutingDecision(body, routing.meta);
-      log.info("ROUTING", `Smart combo "${modelStr}" â†’ image_generation/${routing.meta.tier} â†’ ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${modelStr}" → image_generation/${routing.meta.tier} → ${routing.models[0]}`);
       return handleComboChat({
         body,
         models: routing.models,

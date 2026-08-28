@@ -1,12 +1,12 @@
-/**
+﻿/**
  * Search Provider Request Builders
  *
  * Builds HTTP request `{ url, init }` for 10 search providers.
  */
 
-import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
+import { assertPublicUrl } from "../../host/ssrf";
 
-// ── Types ─────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface SearchProviderConfig {
   id: string;
@@ -30,7 +30,7 @@ interface SearchRequestParams {
   providerSpecificData?: Record<string, unknown>;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Split domain filter into includes / excludes (excludes prefixed with "-").
@@ -85,7 +85,7 @@ export function toPageNumber(offset: number | undefined, maxResults: number): nu
   return Math.floor(offset / maxResults) + 1;
 }
 
-// ── Provider Request Builders ───────────────────────────────────────────
+// â”€â”€ Provider Request Builders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildSerperRequest(config: SearchProviderConfig, params: SearchRequestParams): { url: string; init: RequestInit } {
   const endpoint = params.searchType === "news" ? "/news" : "/search";
@@ -328,7 +328,7 @@ function buildSearxngRequest(config: SearchProviderConfig, params: SearchRequest
   };
 }
 
-// ── Dispatcher ──────────────────────────────────────────────────────────
+// â”€â”€ Dispatcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const BUILDERS: Record<string, (config: SearchProviderConfig, params: SearchRequestParams) => { url: string; init: RequestInit }> = {
   "serper": buildSerperRequest,

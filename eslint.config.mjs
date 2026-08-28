@@ -49,6 +49,27 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // FASE 4 (PLANOMIGRACAOOPENSSE.md): the engine (server/llm-gateway/engine)
+  // must not import host modules directly — host integration goes through
+  // the documented adapters in engine/host/. Enforced both here and by
+  // tests/unit/hostSeam.test.ts.
+  {
+    files: ["src/server/llm-gateway/engine/**/*.ts"],
+    ignores: ["src/server/llm-gateway/engine/host/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/lib", "@/lib/*", "@/shared", "@/shared/*", "@/app", "@/app/*", "@/server/llm-gateway", "@/server/llm-gateway/*"],
+              message: "Engine must consume host capabilities via engine/host/* adapters (usage, store, catalog, oauth, ssrf).",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

@@ -1,4 +1,4 @@
-﻿// Public server API of the LLM gateway â€” model/provider catalog & pricing.
+// Public server API of the LLM gateway — model/provider catalog & pricing.
 import "server-only";
 
 // Static model matrix

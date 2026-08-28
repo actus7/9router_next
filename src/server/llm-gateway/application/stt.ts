@@ -1,4 +1,4 @@
-﻿import {
+import {
   extractApiKey, isValidApiKey,
   getProviderCredentials, markAccountUnavailable,
 } from "../auth/accountSelection";
@@ -60,7 +60,7 @@ export async function handleStt(request: Request): Promise<Response> {
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible transcription model is active");
       attachRoutingDecision(routingBody, routing.meta);
-      log.info("ROUTING", `Smart combo "${modelStr}" â†’ stt/${routing.meta.tier} â†’ ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${modelStr}" → stt/${routing.meta.tier} → ${routing.models[0]}`);
       return handleComboChat({
         body: routingBody,
         models: routing.models,

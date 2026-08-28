@@ -1,4 +1,4 @@
-﻿import { handleSingleModelChat } from "./chat";
+import { handleSingleModelChat } from "./chat";
 import type { LlmRoutingClassification } from "@/server/llm-gateway/engine/services/smart-routing/router";
 
 function asRecord(value: unknown): Record<string, unknown> {
