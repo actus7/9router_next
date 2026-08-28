@@ -1,7 +1,7 @@
-import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
+﻿import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
-import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "@/lib/open-sse/services/accountFallback";
-import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/lib/open-sse/config/errorConfig";
+import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "@/server/llm-gateway/engine/services/accountFallback";
+import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/server/llm-gateway/engine/config/errorConfig";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
 import type { Connection, Settings } from "@/lib/data-access";
@@ -159,7 +159,7 @@ export async function getProviderCredentials(
       const locked: boolean = isModelLockActive(connection as unknown as Parameters<typeof isModelLockActive>[0], model);
       if (excluded || locked) {
         const lockUntil = getEarliestModelLockUntil(connection as unknown as Parameters<typeof getEarliestModelLockUntil>[0]);
-        log.debug("AUTH", `  → ${connection.id.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
+        log.debug("AUTH", `  â†’ ${connection.id.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
       }
     });
 
@@ -271,7 +271,7 @@ interface MarkUnavailableResult {
 }
 
 /**
- * Mark account+model as unavailable — locks modelLock_${model} in DB.
+ * Mark account+model as unavailable â€” locks modelLock_${model} in DB.
  */
 export async function markAccountUnavailable(
   connectionId: string,
@@ -319,7 +319,7 @@ export async function markAccountUnavailable(
   log.warn("AUTH", `${connName} locked ${lockKey} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
 
   if (provider && status && reason) {
-    console.error(`❌ ${provider} [${status}]: ${reason}`);
+    console.error(`âŒ ${provider} [${status}]: ${reason}`);
   }
 
   return { shouldFallback: true, cooldownMs };

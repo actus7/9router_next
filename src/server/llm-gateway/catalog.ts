@@ -17,13 +17,13 @@ export {
   getModelUpstreamId,
   getModelQuotaFamily,
   getModelStrip,
-} from "@/lib/open-sse/config/providerModels";
+} from "@/server/llm-gateway/engine/config/providerModels";
 
 // Capabilities
 export {
   getCapabilitiesForModel,
   capabilitiesFromServiceKind,
-} from "@/lib/open-sse/providers/capabilities";
+} from "@/server/llm-gateway/engine/providers/capabilities";
 
 // Pricing
 export {
@@ -32,27 +32,27 @@ export {
   calculateCostFromTokens,
   PROVIDER_PRICING,
   MODEL_PRICING,
-} from "@/lib/open-sse/providers/pricing";
+} from "@/server/llm-gateway/engine/providers/pricing";
 
 // Provider config helpers
 export {
   PROVIDERS,
   resolveOllamaLocalHost,
   resolveXiaomiTokenplanBaseUrl,
-} from "@/lib/open-sse/config/providers";
+} from "@/server/llm-gateway/engine/config/providers";
 
 // Ollama static tags
-export { ollamaModels } from "@/lib/open-sse/config/ollamaModels";
+export { ollamaModels } from "@/server/llm-gateway/engine/config/ollamaModels";
 
 // Live model resolvers (fetch from provider APIs with credentials)
-export { resolveKiroModels } from "@/lib/open-sse/services/kiroModels";
-export { resolveKimchiModels } from "@/lib/open-sse/services/kimchiModels";
-export { resolveQoderModels, resolveQoderCredentials } from "@/lib/open-sse/services/qoderModels";
-export { resolveGrokCliModels } from "@/lib/open-sse/services/grokCliModels";
-export { resolveCursorModels } from "@/lib/open-sse/services/cursorModels";
-export { resolveCopilotModels } from "@/lib/open-sse/services/copilotModels";
-export { resolveClinepassModels } from "@/lib/open-sse/services/clinepassModels";
-export { resolveZedModels } from "@/lib/open-sse/shared/zedAuth";
+export { resolveKiroModels } from "@/server/llm-gateway/engine/services/kiroModels";
+export { resolveKimchiModels } from "@/server/llm-gateway/engine/services/kimchiModels";
+export { resolveQoderModels, resolveQoderCredentials } from "@/server/llm-gateway/engine/services/qoderModels";
+export { resolveGrokCliModels } from "@/server/llm-gateway/engine/services/grokCliModels";
+export { resolveCursorModels } from "@/server/llm-gateway/engine/services/cursorModels";
+export { resolveCopilotModels } from "@/server/llm-gateway/engine/services/copilotModels";
+export { resolveClinepassModels } from "@/server/llm-gateway/engine/services/clinepassModels";
+export { resolveZedModels } from "@/server/llm-gateway/engine/shared/zedAuth";
 
 // Combo rotation state (server singleton)
-export { resetComboRotation } from "@/lib/open-sse/services/combo";
+export { resetComboRotation } from "@/server/llm-gateway/engine/services/combo";

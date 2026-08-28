@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
-import { sseChunk, chatChunkSse } from "@/lib/open-sse/utils/sse";
-import { parseSSELine, formatSSE } from "@/lib/open-sse/utils/streamHelpers";
+﻿import { describe, it, expect } from "vitest";
+import { sseChunk, chatChunkSse } from "@/server/llm-gateway/engine/utils/sse";
+import { parseSSELine, formatSSE } from "@/server/llm-gateway/engine/utils/streamHelpers";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Simulate the incremental TextDecoder pattern used in stream.ts */
 function decodeChunks(chunks: Uint8Array[]): string {
   const decoder = new TextDecoder("utf-8", { fatal: false });
@@ -24,7 +24,7 @@ function splitBytes(bytes: Uint8Array, n: number): Uint8Array[] {
   return out;
 }
 
-// ── (a) parsing a complete data: {...}\n\n frame ─────────────────────────────
+// â”€â”€ (a) parsing a complete data: {...}\n\n frame â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("SSE frame building + parsing round-trip", () => {
   it("sseChunk produces parseable data line", () => {
     const payload = { id: "chatcmpl-1", choices: [{ delta: { content: "hi" } }] };
@@ -56,7 +56,7 @@ describe("SSE frame building + parsing round-trip", () => {
   });
 });
 
-// ── (b) incremental feeding — one SSE event split across 2-3 chunks ─────────
+// â”€â”€ (b) incremental feeding â€” one SSE event split across 2-3 chunks â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("incremental SSE feeding", () => {
   it("2-chunk split parses identically to single-shot", () => {
     const full = 'data: {"id":"1","model":"gpt-4o","choices":[{"delta":{"content":"hello world"}}]}\n\n';
@@ -88,12 +88,12 @@ describe("incremental SSE feeding", () => {
   });
 });
 
-// ── (c) UTF-8 multibyte chars split at arbitrary byte boundaries ─────────────
+// â”€â”€ (c) UTF-8 multibyte chars split at arbitrary byte boundaries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("UTF-8 multibyte reassembly across chunks", () => {
-  it("re-assembles 'ção' (2-byte chars) split at odd boundary", () => {
-    const text = 'data: {"text":"ção"}\n\n';
+  it("re-assembles 'Ã§Ã£o' (2-byte chars) split at odd boundary", () => {
+    const text = 'data: {"text":"Ã§Ã£o"}\n\n';
     const bytes = new TextEncoder().encode(text);
-    // ç = 0xC3 0xA7 (2 bytes), ã = 0xC3 0xA3 (2 bytes)
+    // Ã§ = 0xC3 0xA7 (2 bytes), Ã£ = 0xC3 0xA3 (2 bytes)
     // Feed in 3-byte chunks to split multi-byte chars
     const chunks: Uint8Array[] = [];
     for (let i = 0; i < bytes.length; i += 3) {
@@ -101,37 +101,37 @@ describe("UTF-8 multibyte reassembly across chunks", () => {
     }
     const decoded = decodeChunks(chunks);
     const parsed = parseSSELine(decoded.trim());
-    expect(parsed).toEqual({ text: "ção" });
+    expect(parsed).toEqual({ text: "Ã§Ã£o" });
   });
 
-  it("re-assembles emoji '🚀' (4-byte char) split mid-codepoint", () => {
-    const text = 'data: {"emoji":"🚀"}\n\n';
+  it("re-assembles emoji 'ðŸš€' (4-byte char) split mid-codepoint", () => {
+    const text = 'data: {"emoji":"ðŸš€"}\n\n';
     const bytes = new TextEncoder().encode(text);
-    // 🚀 = F0 9F 9A 80 — feed in 2-byte chunks to split the 4-byte sequence
+    // ðŸš€ = F0 9F 9A 80 â€” feed in 2-byte chunks to split the 4-byte sequence
     const chunks: Uint8Array[] = [];
     for (let i = 0; i < bytes.length; i += 2) {
       chunks.push(bytes.slice(i, Math.min(i + 2, bytes.length)));
     }
     const decoded = decodeChunks(chunks);
     const parsed = parseSSELine(decoded.trim());
-    expect(parsed).toEqual({ emoji: "🚀" });
+    expect(parsed).toEqual({ emoji: "ðŸš€" });
   });
 
   it("re-assembles mixed ASCII + multibyte fed byte-by-byte", () => {
-    const text = 'data: {"mix":"olá mundo 🌍"}\n\n';
+    const text = 'data: {"mix":"olÃ¡ mundo ðŸŒ"}\n\n';
     const bytes = new TextEncoder().encode(text);
-    // Feed one byte at a time — worst case for split
+    // Feed one byte at a time â€” worst case for split
     const chunks: Uint8Array[] = [];
     for (let i = 0; i < bytes.length; i++) {
       chunks.push(bytes.slice(i, i + 1));
     }
     const decoded = decodeChunks(chunks);
     const parsed = parseSSELine(decoded.trim());
-    expect(parsed).toEqual({ mix: "olá mundo 🌍" });
+    expect(parsed).toEqual({ mix: "olÃ¡ mundo ðŸŒ" });
   });
 });
 
-// ── (d) data: [DONE] terminal handling ───────────────────────────────────────
+// â”€â”€ (d) data: [DONE] terminal handling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("data: [DONE] terminal", () => {
   it("parseSSELine returns {done: true} for 'data: [DONE]'", () => {
     expect(parseSSELine("data: [DONE]")).toEqual({ done: true });
@@ -146,7 +146,7 @@ describe("data: [DONE] terminal", () => {
   });
 });
 
-// ── (e) named events (event: foo\ndata: ...) ────────────────────────────────
+// â”€â”€ (e) named events (event: foo\ndata: ...) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("named SSE events", () => {
   it("formatSSE with event+data produces named event frame", () => {
     const output = formatSSE(

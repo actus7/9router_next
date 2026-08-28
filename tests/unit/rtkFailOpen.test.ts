@@ -1,24 +1,24 @@
-import { describe, it, expect } from "vitest";
-import { compressMessages, formatRtkLog } from "@/lib/open-sse/rtk";
+﻿import { describe, it, expect } from "vitest";
+import { compressMessages, formatRtkLog } from "@/server/llm-gateway/engine/rtk";
 
-// ── (a) null/undefined input → returns null (no throw) ──────────────────────
+// â”€â”€ (a) null/undefined input â†’ returns null (no throw) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("compressMessages fail-open: null/undefined input", () => {
-  it("null body → null", () => {
+  it("null body â†’ null", () => {
     expect(compressMessages(null, true)).toBeNull();
   });
 
-  it("undefined body → null", () => {
+  it("undefined body â†’ null", () => {
     expect(compressMessages(undefined, true)).toBeNull();
   });
 
-  it("enabled=false → null regardless of body", () => {
+  it("enabled=false â†’ null regardless of body", () => {
     expect(compressMessages({ messages: [{ role: "user", content: "hi" }] }, false)).toBeNull();
   });
 });
 
-// ── (b) body with empty messages → no crash ─────────────────────────────────
+// â”€â”€ (b) body with empty messages â†’ no crash â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("compressMessages: empty / missing messages", () => {
-  it("empty messages array → returns stats with no hits", () => {
+  it("empty messages array â†’ returns stats with no hits", () => {
     const result = compressMessages({ messages: [] }, true);
     expect(result).toBeDefined();
     expect(result!.hits).toEqual([]);
@@ -26,19 +26,19 @@ describe("compressMessages: empty / missing messages", () => {
     expect(result!.bytesAfter).toBe(0);
   });
 
-  it("no messages and no input → null", () => {
+  it("no messages and no input â†’ null", () => {
     expect(compressMessages({ model: "gpt-4o" }, true)).toBeNull();
   });
 
-  it("messages with null entries → no crash", () => {
+  it("messages with null entries â†’ no crash", () => {
     const body = { messages: [null, undefined, { role: "user", content: "hi" }] };
     expect(() => compressMessages(body, true)).not.toThrow();
   });
 });
 
-// ── (c) huge tool_result (50KB) + enabled → never throws ────────────────────
+// â”€â”€ (c) huge tool_result (50KB) + enabled â†’ never throws â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("compressMessages: large payloads never throw", () => {
-  it("50KB string tool_result → returns stats, never throws", () => {
+  it("50KB string tool_result â†’ returns stats, never throws", () => {
     const hugeContent = "x".repeat(50 * 1024);
     const body = {
       messages: [{ role: "tool", content: hugeContent }],
@@ -49,7 +49,7 @@ describe("compressMessages: large payloads never throw", () => {
     expect(result!.bytesBefore).toBeGreaterThan(0);
   });
 
-  it("50KB Claude tool_result block → returns stats, never throws", () => {
+  it("50KB Claude tool_result block â†’ returns stats, never throws", () => {
     const hugeContent = "x".repeat(50 * 1024);
     const body = {
       messages: [
@@ -64,7 +64,7 @@ describe("compressMessages: large payloads never throw", () => {
     expect(() => compressMessages(body, true)).not.toThrow();
   });
 
-  it("OpenAI Responses function_call_output → returns stats, never throws", () => {
+  it("OpenAI Responses function_call_output â†’ returns stats, never throws", () => {
     const hugeContent = "x".repeat(50 * 1024);
     const body = {
       input: [{ type: "function_call_output", output: hugeContent }],
@@ -73,9 +73,9 @@ describe("compressMessages: large payloads never throw", () => {
   });
 });
 
-// ── (d) is_error: true tool results are NOT compressed ──────────────────────
+// â”€â”€ (d) is_error: true tool results are NOT compressed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("compressMessages: is_error=true skipped", () => {
-  it("Claude is_error=true tool_result → no compression hits", () => {
+  it("Claude is_error=true tool_result â†’ no compression hits", () => {
     const errorContent = "Error trace: ".repeat(200); // well above MIN_COMPRESS_SIZE
     const body = {
       messages: [
@@ -89,11 +89,11 @@ describe("compressMessages: is_error=true skipped", () => {
     };
     const result = compressMessages(body, true);
     expect(result).toBeDefined();
-    // is_error blocks must be skipped — zero hits
+    // is_error blocks must be skipped â€” zero hits
     expect(result!.hits).toEqual([]);
   });
 
-  it("Kiro status:'error' tool result → no compression hits", () => {
+  it("Kiro status:'error' tool result â†’ no compression hits", () => {
     const errorContent = "Error trace: ".repeat(200);
     const body = {
       conversationState: {
@@ -114,21 +114,21 @@ describe("compressMessages: is_error=true skipped", () => {
   });
 });
 
-// ── formatRtkLog ─────────────────────────────────────────────────────────────
+// â”€â”€ formatRtkLog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("formatRtkLog", () => {
-  it("null → null", () => {
+  it("null â†’ null", () => {
     expect(formatRtkLog(null)).toBeNull();
   });
 
-  it("undefined → null", () => {
+  it("undefined â†’ null", () => {
     expect(formatRtkLog(undefined)).toBeNull();
   });
 
-  it("empty hits → null", () => {
+  it("empty hits â†’ null", () => {
     expect(formatRtkLog({ bytesBefore: 100, bytesAfter: 100, hits: [] })).toBeNull();
   });
 
-  it("with hits → formatted string containing [RTK]", () => {
+  it("with hits â†’ formatted string containing [RTK]", () => {
     const stats = {
       bytesBefore: 10000,
       bytesAfter: 3000,

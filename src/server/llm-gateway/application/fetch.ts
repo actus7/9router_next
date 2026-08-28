@@ -7,15 +7,15 @@
 } from "../auth/accountSelection";
 import { getSettings, getCombos } from "@/lib/localDb";
 import { AI_PROVIDERS, resolveProviderId } from "@/shared/constants/providers";
-import { handleFetchCore } from "@/lib/open-sse/handlers/fetch/index";
-import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
-import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
+import { handleFetchCore } from "@/server/llm-gateway/engine/handlers/fetch/index";
+import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
+import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
-import { handleComboChat, getComboModelsFromData } from "@/lib/open-sse/services/combo";
+import { handleComboChat, getComboModelsFromData } from "@/server/llm-gateway/engine/services/combo";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
-import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
-import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
+import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
+import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { classifySmartRouting } from "./smartRoutingClassifier";
 
 /**

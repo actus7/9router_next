@@ -7,7 +7,7 @@ export {
   rankSmartProfiles,
   resolveRequestedTier,
   getSmartTierOrder,
-} from "@/lib/open-sse/services/smart-routing/inventory";
+} from "@/server/llm-gateway/engine/services/smart-routing/inventory";
 export {
   resolveSmartRouting,
   getSmartCombo,
@@ -15,12 +15,12 @@ export {
   parseRoutingTierHeader,
   validateSmartRoutingConfig,
   normalizeSmartRoutingConfig,
-} from "@/lib/open-sse/services/smart-routing/router";
+} from "@/server/llm-gateway/engine/services/smart-routing/router";
 export {
   ROUTING_TIERS,
   ROUTE_NEEDS,
   DEFAULT_SMART_ROUTING_CONFIG,
-} from "@/lib/open-sse/services/smart-routing/types";
+} from "@/server/llm-gateway/engine/services/smart-routing/types";
 export type {
   RoutingTier,
   RoutingTierOrDefault,
@@ -30,4 +30,4 @@ export type {
   RoutingDecisionMeta,
   SmartComboEntry,
   SmartRoutingConfig,
-} from "@/lib/open-sse/services/smart-routing/types";
+} from "@/server/llm-gateway/engine/services/smart-routing/types";

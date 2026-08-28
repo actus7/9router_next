@@ -31,5 +31,5 @@ export {
 export {
   refreshProviderCredentials,
   shouldRefreshCredentials,
-} from "@/lib/open-sse/services/oauthCredentialManager";
-export { buildClineHeaders } from "@/lib/open-sse/shared/clineAuth";
+} from "@/server/llm-gateway/engine/services/oauthCredentialManager";
+export { buildClineHeaders } from "@/server/llm-gateway/engine/shared/clineAuth";

@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import {
   parseModel,
   resolveProviderAlias,
   resolveModelAliasFromMap,
-} from "@/lib/open-sse/services/model";
+} from "@/server/llm-gateway/engine/services/model";
 
-// ── parseModel ───────────────────────────────────────────────────────────────
+// â”€â”€ parseModel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("parseModel", () => {
-  it("'openai/gpt-4o' → provider openai + model gpt-4o", () => {
+  it("'openai/gpt-4o' â†’ provider openai + model gpt-4o", () => {
     const r = parseModel("openai/gpt-4o");
     expect(r.provider).toBe("openai");
     expect(r.model).toBe("gpt-4o");
@@ -15,14 +15,14 @@ describe("parseModel", () => {
     expect(r.providerAlias).toBe("openai");
   });
 
-  it("'anthropic/claude-sonnet-4-20250514' → provider anthropic", () => {
+  it("'anthropic/claude-sonnet-4-20250514' â†’ provider anthropic", () => {
     const r = parseModel("anthropic/claude-sonnet-4-20250514");
     expect(r.provider).toBe("anthropic");
     expect(r.model).toBe("claude-sonnet-4-20250514");
     expect(r.isAlias).toBe(false);
   });
 
-  it("bare model (no slash) → isAlias=true, provider=null", () => {
+  it("bare model (no slash) â†’ isAlias=true, provider=null", () => {
     const r = parseModel("gpt-4o");
     expect(r.provider).toBeNull();
     expect(r.model).toBe("gpt-4o");
@@ -30,13 +30,13 @@ describe("parseModel", () => {
     expect(r.providerAlias).toBeNull();
   });
 
-  it("empty string → all null, isAlias=false", () => {
+  it("empty string â†’ all null, isAlias=false", () => {
     const r = parseModel("");
     expect(r).toEqual({ provider: null, model: null, isAlias: false, providerAlias: null });
   });
 
-  it("malformed '///' → does not throw, captures actual behavior", () => {
-    // first slash at index 0 → providerOrAlias=""  model="//"
+  it("malformed '///' â†’ does not throw, captures actual behavior", () => {
+    // first slash at index 0 â†’ providerOrAlias=""  model="//"
     expect(() => parseModel("///")).not.toThrow();
     const r = parseModel("///");
     expect(r.provider).toBe("");
@@ -44,21 +44,21 @@ describe("parseModel", () => {
     expect(r.isAlias).toBe(false);
   });
 
-  it("no-slash model 'claude-sonnet-4-20250514' → isAlias=true", () => {
+  it("no-slash model 'claude-sonnet-4-20250514' â†’ isAlias=true", () => {
     const r = parseModel("claude-sonnet-4-20250514");
     expect(r.provider).toBeNull();
     expect(r.model).toBe("claude-sonnet-4-20250514");
     expect(r.isAlias).toBe(true);
   });
 
-  it("provider/model with multiple slashes → splits at first slash only", () => {
+  it("provider/model with multiple slashes â†’ splits at first slash only", () => {
     const r = parseModel("openrouter/deepseek/deepseek-chat");
     expect(r.provider).toBe("openrouter");
     expect(r.model).toBe("deepseek/deepseek-chat");
   });
 });
 
-// ── resolveProviderAlias ─────────────────────────────────────────────────────
+// â”€â”€ resolveProviderAlias â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("resolveProviderAlias", () => {
   it("known id resolves to itself", () => {
     expect(resolveProviderAlias("openai")).toBe("openai");
@@ -69,7 +69,7 @@ describe("resolveProviderAlias", () => {
   });
 });
 
-// ── resolveModelAliasFromMap ─────────────────────────────────────────────────
+// â”€â”€ resolveModelAliasFromMap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("resolveModelAliasFromMap", () => {
   const aliases = {
     fast: "openai/gpt-4o-mini",
@@ -86,19 +86,19 @@ describe("resolveModelAliasFromMap", () => {
     expect(r).toEqual({ provider: "anthropic", model: "claude-sonnet-4-20250514" });
   });
 
-  it("missing key → null", () => {
+  it("missing key â†’ null", () => {
     expect(resolveModelAliasFromMap("nonexistent", aliases)).toBeNull();
   });
 
-  it("null aliases map → null", () => {
+  it("null aliases map â†’ null", () => {
     expect(resolveModelAliasFromMap("fast", null)).toBeNull();
   });
 
-  it("undefined aliases map → null", () => {
+  it("undefined aliases map â†’ null", () => {
     expect(resolveModelAliasFromMap("fast", undefined)).toBeNull();
   });
 
-  it("empty aliases map → null", () => {
+  it("empty aliases map â†’ null", () => {
     expect(resolveModelAliasFromMap("fast", {})).toBeNull();
   });
 });

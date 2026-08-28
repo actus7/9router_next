@@ -1,4 +1,4 @@
-import { EventEmitter } from "events";
+﻿import { EventEmitter } from "events";
 import { getAdapter } from "../driver";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { getMeta, setMeta } from "../helpers/metaStore";
@@ -229,7 +229,7 @@ async function calculateCost(provider: string, model: string, tokens: Record<str
     const pricing = await getPricingForModel(provider, model);
     if (!pricing) return 0;
 
-    const { calculateCostFromTokens } = await import("@/lib/open-sse/providers/pricing");
+    const { calculateCostFromTokens } = await import("@/server/llm-gateway/engine/providers/pricing");
     return calculateCostFromTokens(tokens as Record<string, number | undefined>, pricing as Record<string, number | undefined>);
   } catch (e: unknown) {
     console.error("Error calculating cost:", e);

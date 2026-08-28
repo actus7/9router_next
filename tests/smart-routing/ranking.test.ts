@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { getSmartTierOrder, rankSmartProfiles } from "@/lib/open-sse/services/smart-routing/inventory";
-import { attachRoutingDecision, getRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
-import { DEFAULT_SMART_ROUTING_CONFIG, type RoutingTier, type SmartModelProfile } from "@/lib/open-sse/services/smart-routing/types";
+﻿import { describe, expect, it } from "vitest";
+import { getSmartTierOrder, rankSmartProfiles } from "@/server/llm-gateway/engine/services/smart-routing/inventory";
+import { attachRoutingDecision, getRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
+import { DEFAULT_SMART_ROUTING_CONFIG, type RoutingTier, type SmartModelProfile } from "@/server/llm-gateway/engine/services/smart-routing/types";
 
 function profile(modelKey: string, tier: RoutingTier, options: Partial<SmartModelProfile> = {}): SmartModelProfile {
   const [provider, ...modelParts] = modelKey.split("/");

@@ -5,4 +5,4 @@ export { handleTts } from "./application/tts";
 export { handleStt } from "./application/stt";
 export { handleImageGeneration } from "./application/imageGeneration";
 export { handleVideoCreate, handleVideoGet } from "./application/videoGeneration";
-export { VOICE_FETCHERS, fetchElevenLabsVoices } from "@/lib/open-sse/handlers/ttsCore";
+export { VOICE_FETCHERS, fetchElevenLabsVoices } from "@/server/llm-gateway/engine/handlers/ttsCore";

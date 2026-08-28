@@ -1,9 +1,9 @@
-// Client-safe LLM catalog surface: pure types/metadata shared by server and
+﻿// Client-safe LLM catalog surface: pure types/metadata shared by server and
 // client components. MUST NOT import node:*, database, secrets, executors,
-// OAuth services or `server-only` — anything server-side belongs behind
+// OAuth services or `server-only` â€” anything server-side belongs behind
 // @/server/llm-gateway/*.
 //
-// Re-export point only: the engine still lives at @/lib/open-sse until the
+// Re-export point only: the engine still lives at @/server/llm-gateway/engine until the
 // Phase 3 rename; after that this barrel follows the move.
 
 // Static model catalog (alias -> models matrix)
@@ -17,7 +17,7 @@ export {
   findModelName,
   getModelType,
   getModelsByProviderId,
-} from "@/lib/open-sse/config/providerModels";
+} from "@/server/llm-gateway/engine/config/providerModels";
 
 // Model capabilities (pure pattern matching, no I/O)
 export {
@@ -26,24 +26,24 @@ export {
   PROVIDER_CAPABILITIES,
   getCapabilitiesForModel,
   capabilitiesFromServiceKind,
-} from "@/lib/open-sse/providers/capabilities";
+} from "@/server/llm-gateway/engine/providers/capabilities";
 
 // Provider registry display metadata (pure data definitions)
-export { default as REGISTRY } from "@/lib/open-sse/providers/registry/index";
+export { default as REGISTRY } from "@/server/llm-gateway/engine/providers/registry/index";
 
 // Thinking levels (pure lookup)
-export { getThinkingLevels } from "@/lib/open-sse/providers/thinkingLevels";
+export { getThinkingLevels } from "@/server/llm-gateway/engine/providers/thinkingLevels";
 
 // TTS catalog (pure data)
-export { getTtsVoicesForModel } from "@/lib/open-sse/config/ttsModels";
-export { GOOGLE_TTS_LANGUAGES } from "@/lib/open-sse/config/googleTtsLanguages";
+export { getTtsVoicesForModel } from "@/server/llm-gateway/engine/config/ttsModels";
+export { GOOGLE_TTS_LANGUAGES } from "@/server/llm-gateway/engine/config/googleTtsLanguages";
 
 // Smart routing contract (types + pure defaults)
 export {
   ROUTING_TIERS,
   ROUTE_NEEDS,
   DEFAULT_SMART_ROUTING_CONFIG,
-} from "@/lib/open-sse/services/smart-routing/types";
+} from "@/server/llm-gateway/engine/services/smart-routing/types";
 export type {
   RoutingTier,
   RoutingTierOrDefault,
@@ -55,4 +55,4 @@ export type {
   RoutingReason,
   RoutingDecisionMeta,
   SmartComboEntry,
-} from "@/lib/open-sse/services/smart-routing/types";
+} from "@/server/llm-gateway/engine/services/smart-routing/types";

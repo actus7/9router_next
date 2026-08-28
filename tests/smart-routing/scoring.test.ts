@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { extractRoutingSignals, peelRoutingEnvelope, scoreRoutingRequest } from "@/lib/open-sse/services/smart-routing/scoring";
-import { normalizeSmartRoutingConfig, parseRoutingTierHeader, validateSmartRoutingConfig } from "@/lib/open-sse/services/smart-routing/router";
+﻿import { describe, expect, it } from "vitest";
+import { extractRoutingSignals, peelRoutingEnvelope, scoreRoutingRequest } from "@/server/llm-gateway/engine/services/smart-routing/scoring";
+import { normalizeSmartRoutingConfig, parseRoutingTierHeader, validateSmartRoutingConfig } from "@/server/llm-gateway/engine/services/smart-routing/router";
 
 describe("smart routing scorer", () => {
   it("routes a short greeting to the simple tier", () => {
@@ -10,7 +10,7 @@ describe("smart routing scorer", () => {
   });
 
   it("forces formal proofs to reasoning in Portuguese", () => {
-    const result = scoreRoutingRequest({ messages: [{ role: "user", content: "Demonstre por contradição que o teorema é válido." }] });
+    const result = scoreRoutingRequest({ messages: [{ role: "user", content: "Demonstre por contradiÃ§Ã£o que o teorema Ã© vÃ¡lido." }] });
     expect(result.tier).toBe("reasoning");
     expect(result.reason).toBe("formal_logic_override");
   });
@@ -44,7 +44,7 @@ describe("smart routing scorer", () => {
 
   it("extracts Responses and Gemini text shapes", () => {
     expect(extractRoutingSignals({ input: [{ role: "user", content: [{ type: "input_text", text: "hello" }] }] }).lastUserText).toBe("hello");
-    expect(extractRoutingSignals({ contents: [{ role: "user", parts: [{ text: "olá" }] }] }).lastUserText).toBe("olá");
+    expect(extractRoutingSignals({ contents: [{ role: "user", parts: [{ text: "olÃ¡" }] }] }).lastUserText).toBe("olÃ¡");
   });
 });
 

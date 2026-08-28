@@ -1,6 +1,6 @@
-import { getAdapter } from "../driver";
+﻿import { getAdapter } from "../driver";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
-import type { SmartModelProfile } from "@/lib/open-sse/services/smart-routing/types";
+import type { SmartModelProfile } from "@/server/llm-gateway/engine/services/smart-routing/types";
 
 interface ProfileRow {
   modelKey: string;

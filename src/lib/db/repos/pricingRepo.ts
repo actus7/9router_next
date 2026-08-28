@@ -1,4 +1,4 @@
-import { getAdapter } from "../driver";
+﻿import { getAdapter } from "../driver";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { makeKv } from "../helpers/kvStore";
 
@@ -25,7 +25,7 @@ export async function getPricing(): Promise<Record<string, Record<string, unknow
   if (cache.value && cache.expiresAt > now) return cache.value;
 
   const userPricing: Record<string, Record<string, unknown>> = await getUserPricing();
-  const { PROVIDER_PRICING } = await import("@/lib/open-sse/providers/pricing");
+  const { PROVIDER_PRICING } = await import("@/server/llm-gateway/engine/providers/pricing");
   const merged: Record<string, Record<string, unknown>> = {};
 
   for (const [provider, models] of Object.entries(PROVIDER_PRICING as Record<string, Record<string, unknown>>)) {
@@ -57,7 +57,7 @@ export async function getPricingForModel(provider: string, model: string): Promi
   if (!model) return null;
   const userPricing: Record<string, Record<string, unknown>> = await getUserPricing();
   if (provider && userPricing[provider]?.[model]) return userPricing[provider][model];
-  const { getPricingForModel: resolveConst } = await import("@/lib/open-sse/providers/pricing");
+  const { getPricingForModel: resolveConst } = await import("@/server/llm-gateway/engine/providers/pricing");
   return resolveConst(provider, model);
 }
 

@@ -4,18 +4,18 @@ import { updateProviderConnection } from "@/lib/localDb";
 import {
   getProjectIdForConnection,
   invalidateProjectId,
-} from "@/lib/open-sse/services/projectId";
+} from "@/server/llm-gateway/engine/services/projectId";
 import {
   TOKEN_EXPIRY_BUFFER_MS as BUFFER_MS,
   refreshGoogleToken as _refreshGoogleToken,
   refreshCodexToken as _refreshCodexToken,
   refreshCopilotToken as _refreshCopilotToken,
   getRefreshLeadMs as _getRefreshLeadMs
-} from "@/lib/open-sse/services/tokenRefresh";
+} from "@/server/llm-gateway/engine/services/tokenRefresh";
 import {
   refreshProviderCredentials as _refreshProviderCredentials,
   shouldRefreshCredentials as _shouldRefreshCredentials,
-} from "@/lib/open-sse/services/oauthCredentialManager";
+} from "@/server/llm-gateway/engine/services/oauthCredentialManager";
 
 const TOKEN_EXPIRY_BUFFER_MS: number = BUFFER_MS;
 

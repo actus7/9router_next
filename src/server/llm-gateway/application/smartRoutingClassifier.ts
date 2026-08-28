@@ -1,5 +1,5 @@
 ﻿import { handleSingleModelChat } from "./chat";
-import type { LlmRoutingClassification } from "@/lib/open-sse/services/smart-routing/router";
+import type { LlmRoutingClassification } from "@/server/llm-gateway/engine/services/smart-routing/router";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};

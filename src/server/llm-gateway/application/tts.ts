@@ -4,14 +4,14 @@
 } from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "./modelResolution";
-import { handleTtsCore } from "@/lib/open-sse/handlers/ttsCore";
-import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
-import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
+import { handleTtsCore } from "@/server/llm-gateway/engine/handlers/ttsCore";
+import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
+import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
-import { handleComboChat } from "@/lib/open-sse/services/combo";
+import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
 import * as log from "../utils/logger";
-import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
-import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
+import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
+import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { classifySmartRouting } from "./smartRoutingClassifier";
 
 const CREDENTIALED_PROVIDERS: Set<string> = new Set(

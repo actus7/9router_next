@@ -3,5 +3,5 @@
 import "server-only";
 
 export { handleChat, handleSingleModelChat } from "./application/chat";
-export { initTranslators } from "@/lib/open-sse/translator/index";
-export { transformToOllama } from "@/lib/open-sse/utils/ollamaTransform";
+export { initTranslators } from "@/server/llm-gateway/engine/translator/index";
+export { transformToOllama } from "@/server/llm-gateway/engine/utils/ollamaTransform";

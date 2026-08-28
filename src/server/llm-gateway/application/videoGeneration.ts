@@ -8,14 +8,14 @@
 } from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "./modelResolution";
-import { handleVideoProxyCore, getVideoConfig, sanitizeSecrets } from "@/lib/open-sse/handlers/videoCore";
-import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
-import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
+import { handleVideoProxyCore, getVideoConfig, sanitizeSecrets } from "@/server/llm-gateway/engine/handlers/videoCore";
+import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
+import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
 import * as log from "../utils/logger";
-import { handleComboChat } from "@/lib/open-sse/services/combo";
-import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
-import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
+import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
+import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
+import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { classifySmartRouting } from "./smartRoutingClassifier";
 
 const DEFAULT_VIDEO_PROVIDER: string = "xai";

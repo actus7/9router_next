@@ -1,5 +1,5 @@
-// Ensure outbound fetch respects HTTP(S)_PROXY/ALL_PROXY in Node runtime
-import "@/lib/open-sse/utils/proxyFetch";
+﻿// Ensure outbound fetch respects HTTP(S)_PROXY/ALL_PROXY in Node runtime
+import "@/server/llm-gateway/engine/utils/proxyFetch";
 
 import { generatePKCE } from "../utils/pkce";
 import { extractCodexAccountInfo, fetchKiroProfileArn } from "../providerHelpers";
@@ -75,7 +75,7 @@ export { extractCodexAccountInfo };
  * Get provider handler
  */
 export function getProvider(name: string): ProviderHandler {
-  // Legacy kimi-coding → kimi (dual-auth merge)
+  // Legacy kimi-coding â†’ kimi (dual-auth merge)
   const key: string = name === "kimi-coding" ? "kimi" : name;
   const provider: ProviderHandler | undefined = PROVIDERS[key];
   if (!provider) {

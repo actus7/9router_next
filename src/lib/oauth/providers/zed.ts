@@ -1,11 +1,11 @@
-import { ZED_HOSTED_CONFIG } from "../constants/oauth";
+﻿import { ZED_HOSTED_CONFIG } from "../constants/oauth";
 import {
   createZedNativeAuthData,
   parseZedCallbackPayload,
   decryptZedAccessToken,
   fetchZedAuthenticatedUser,
   resolveZedOrganizationId,
-} from "@/lib/open-sse/shared/zedAuth";
+} from "@/server/llm-gateway/engine/shared/zedAuth";
 
 interface ProviderConfig {
   defaultNativeAppPort: number;

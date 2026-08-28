@@ -15,4 +15,4 @@ export * from "./translator";
 export * from "./usage";
 
 // Runtime knobs consumed directly by routes
-export { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "@/lib/open-sse/config/runtimeConfig";
+export { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "@/server/llm-gateway/engine/config/runtimeConfig";

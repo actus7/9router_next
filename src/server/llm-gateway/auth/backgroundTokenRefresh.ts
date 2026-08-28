@@ -2,8 +2,8 @@
 // Fail-open everywhere: tick errors and per-connection failures never kill the interval.
 
 import * as log from "../utils/logger";
-import { getRefreshLeadMs } from "@/lib/open-sse/services/tokenRefresh";
-import { getCredentialExpiryMs } from "@/lib/open-sse/services/oauthCredentialManager";
+import { getRefreshLeadMs } from "@/server/llm-gateway/engine/services/tokenRefresh";
+import { getCredentialExpiryMs } from "@/server/llm-gateway/engine/services/oauthCredentialManager";
 
 /** Refresh when expiry is within 30 minutes (or the provider on-request lead, whichever larger). */
 export const BACKGROUND_REFRESH_LEAD_MS: number = 30 * 60 * 1000;

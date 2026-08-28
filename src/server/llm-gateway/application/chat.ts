@@ -1,5 +1,5 @@
 ﻿// Patch global fetch with proxy support (must be first)
-import "@/lib/open-sse/utils/proxyFetch";
+import "@/server/llm-gateway/engine/utils/proxyFetch";
 
 import {
   getProviderCredentials,
@@ -11,28 +11,28 @@ import {
 } from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "./modelResolution";
-import { handleChatCore } from "@/lib/open-sse/handlers/chatCore";
+import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 import { getTransform as getPxpipeTransform } from "@/lib/pxpipe/loader";
 import { appendPxpipeEvent } from "@/lib/pxpipe/events";
-import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
-import { handleComboChat, handleFusionChat, detectRequiredCapabilities } from "@/lib/open-sse/services/combo";
-import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/lib/open-sse/services/capacityAdapter";
-import { handleBypassRequest } from "@/lib/open-sse/utils/bypassHandler";
-import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
-import { detectFormatByEndpoint } from "@/lib/open-sse/translator/formats";
+import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
+import { handleComboChat, handleFusionChat, detectRequiredCapabilities } from "@/server/llm-gateway/engine/services/combo";
+import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/server/llm-gateway/engine/services/capacityAdapter";
+import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
+import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
+import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
-import { getProjectIdForConnection } from "@/lib/open-sse/services/projectId";
-import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
+import { getProjectIdForConnection } from "@/server/llm-gateway/engine/services/projectId";
+import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import {
   deriveRoutingSessionKey,
   getSmartCombo,
   resolveSmartRouting,
   type LlmRoutingClassification,
-} from "@/lib/open-sse/services/smart-routing/router";
-import type { ClientRawRequest as CoreClientRawRequest, ProviderThinkingConfig } from "@/lib/open-sse/handlers/chatCore/types";
-import type { RequestBody } from "@/lib/open-sse/services/types";
+} from "@/server/llm-gateway/engine/services/smart-routing/router";
+import type { ClientRawRequest as CoreClientRawRequest, ProviderThinkingConfig } from "@/server/llm-gateway/engine/handlers/chatCore/types";
+import type { RequestBody } from "@/server/llm-gateway/engine/services/types";
 
 type ChatBody = RequestBody;
 type ClientRawRequest = CoreClientRawRequest;

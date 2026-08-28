@@ -7,15 +7,15 @@
 } from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "./modelResolution";
-import { handleEmbeddingsCore } from "@/lib/open-sse/handlers/embeddingsCore";
-import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
-import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
+import { handleEmbeddingsCore } from "@/server/llm-gateway/engine/handlers/embeddingsCore";
+import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
+import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
 import { saveRequestUsage } from "@/lib/usageDb";
-import { handleComboChat } from "@/lib/open-sse/services/combo";
-import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
-import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
+import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
+import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
+import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { classifySmartRouting } from "./smartRoutingClassifier";
 
 interface EmbeddingUsage {

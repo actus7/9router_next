@@ -1,14 +1,14 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import {
   translateRequest,
   translateResponse,
   initState,
   needsTranslation,
   initTranslators,
-} from "@/lib/open-sse/translator";
-import { FORMATS } from "@/lib/open-sse/translator/formats";
+} from "@/server/llm-gateway/engine/translator";
+import { FORMATS } from "@/server/llm-gateway/engine/translator/formats";
 
-// ── (a) import completes without throwing ────────────────────────────────────
+// â”€â”€ (a) import completes without throwing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("translator registry import", () => {
   it("all expected exports are defined", () => {
     expect(typeof translateRequest).toBe("function");
@@ -30,7 +30,7 @@ describe("translator registry import", () => {
   });
 });
 
-// ── (b) critical pairs exist ─────────────────────────────────────────────────
+// â”€â”€ (b) critical pairs exist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("critical translator pairs", () => {
   const criticalPairs: [string, string][] = [
     [FORMATS.OPENAI, FORMATS.CLAUDE],
@@ -49,13 +49,13 @@ describe("critical translator pairs", () => {
     });
   }
 
-  it("same format → needsTranslation returns false", () => {
+  it("same format â†’ needsTranslation returns false", () => {
     expect(needsTranslation(FORMATS.OPENAI, FORMATS.OPENAI)).toBe(false);
   });
 });
 
-// ── (c) translateRequest round-trip smoke ────────────────────────────────────
-describe("translateRequest openai→claude", () => {
+// â”€â”€ (c) translateRequest round-trip smoke â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+describe("translateRequest openaiâ†’claude", () => {
   it("produces object with messages array and system extracted", () => {
     const body = {
       model: "claude-sonnet-4-20250514",
@@ -86,13 +86,13 @@ describe("translateRequest openai→claude", () => {
   it("same-format passthrough returns body (possibly mutated)", () => {
     const body = { model: "gpt-4o", messages: [{ role: "user", content: "Hi" }] };
     const result = translateRequest(FORMATS.OPENAI, FORMATS.OPENAI, "gpt-4o", body, true);
-    // Same format → no translation, but hooks still run (ensureToolCallIds etc.)
+    // Same format â†’ no translation, but hooks still run (ensureToolCallIds etc.)
     expect(result).toBeDefined();
     expect((result as Record<string, unknown>).messages).toBeDefined();
   });
 });
 
-// ── (d) initState returns usable state object ───────────────────────────────
+// â”€â”€ (d) initState returns usable state object â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 describe("initState", () => {
   it("returns base state for openai format", () => {
     const state = initState(FORMATS.OPENAI);

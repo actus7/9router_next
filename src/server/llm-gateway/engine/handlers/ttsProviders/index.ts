@@ -1,4 +1,4 @@
-// TTS provider registry
+﻿// TTS provider registry
 import googleTts from "./googleTts";
 import edgeTts, { fetchEdgeTtsVoices } from "./edgeTts";
 import localDevice, { fetchLocalDeviceVoices } from "./localDevice";
@@ -39,7 +39,7 @@ export async function synthesizeViaConfig(provider: string, text: string, model:
   if (!handler) return null;
   const apiKey = credentials?.apiKey as string;
   if (cfg.authType !== "none" && !apiKey) throw new Error(`${provider} API key required`);
-  const { PROVIDER_MODELS } = await import("@/lib/open-sse/config/providerModels");
+  const { PROVIDER_MODELS } = await import("@/server/llm-gateway/engine/config/providerModels");
   const ttsModels = ((PROVIDER_MODELS[provider] || []) as Array<{ id?: string; kind?: string; type?: string }>).filter(m => (m.kind || m.type) === "tts");
   const defaultModel = ttsModels[0]?.id || "";
   const { modelId, voiceId } = parseModelVoice(model, defaultModel, "", ttsModels);

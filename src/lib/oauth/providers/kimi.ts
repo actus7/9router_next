@@ -1,4 +1,4 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
 import { KIMI_CONFIG } from "../constants/oauth";
 
 interface ProviderConfig {
@@ -38,7 +38,7 @@ const kimi = {
   config: KIMI_CONFIG as ProviderConfig,
   flowType: "device_code",
   requestDeviceCode: async (config: ProviderConfig): Promise<DeviceCodeResponse> => {
-    const { buildKimiHeaders } = await import("@/lib/open-sse/config/appConstants");
+    const { buildKimiHeaders } = await import("@/server/llm-gateway/engine/config/appConstants");
     const deviceId: string = crypto.randomUUID();
     const headers: Record<string, string> = {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -69,7 +69,7 @@ const kimi = {
     };
   },
   pollToken: async (config: ProviderConfig, deviceCode: string, _codeVerifier: string, extraData: Record<string, unknown>): Promise<PollResult> => {
-    const { buildKimiHeaders } = await import("@/lib/open-sse/config/appConstants");
+    const { buildKimiHeaders } = await import("@/server/llm-gateway/engine/config/appConstants");
     const deviceId: string = extraData?._kimiDeviceId as string;
     const headers: Record<string, string> = {
       "Content-Type": "application/x-www-form-urlencoded",
