@@ -27,6 +27,16 @@ export {
   createProxyPool, updateProxyPool, deleteProxyPool,
 } from "./repos/proxyPoolsRepo";
 
+// Cloud deploy
+export {
+  getCloudConnections, getCloudConnectionByProvider, getCloudConnectionById,
+  createCloudConnection, deleteCloudConnection,
+} from "./repos/cloudConnectionsRepo";
+export {
+  getCloudDeployments, getCloudDeploymentById,
+  createCloudDeployment, updateCloudDeployment, deleteCloudDeployment,
+} from "./repos/cloudDeploymentsRepo";
+
 // API keys
 export {
   getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey,

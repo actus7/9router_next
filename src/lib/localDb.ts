@@ -18,5 +18,9 @@ export {
   getModelAliases, setModelAlias, deleteModelAlias,
   getCustomModels, addCustomModel, deleteCustomModel,
   getPricing, updatePricing, resetPricing, resetAllPricing,
+  getCloudConnections, getCloudConnectionByProvider, getCloudConnectionById,
+  createCloudConnection, deleteCloudConnection,
+  getCloudDeployments, getCloudDeploymentById,
+  createCloudDeployment, updateCloudDeployment, deleteCloudDeployment,
   exportDb, importDb,
 } from "@/lib/db/index";

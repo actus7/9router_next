@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION: number = 2;
+export const SCHEMA_VERSION: number = 3;
 
 export const PRAGMA_SQL: string = `
 PRAGMA journal_mode = WAL;
@@ -174,6 +174,37 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_rd_provider ON requestDetails(provider)",
       "CREATE INDEX IF NOT EXISTS idx_rd_model ON requestDetails(model)",
       "CREATE INDEX IF NOT EXISTS idx_rd_conn ON requestDetails(connectionId)",
+    ],
+  },
+  cloudConnections: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      provider: "TEXT NOT NULL",
+      label: "TEXT",
+      data: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_provider ON cloudConnections(provider)",
+    ],
+  },
+  cloudDeployments: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      connectionId: "TEXT NOT NULL",
+      provider: "TEXT NOT NULL",
+      toolId: "TEXT NOT NULL",
+      status: "TEXT NOT NULL",
+      publicUrl: "TEXT",
+      data: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_cd_connection ON cloudDeployments(connectionId)",
+      "CREATE INDEX IF NOT EXISTS idx_cd_tool ON cloudDeployments(toolId)",
+      "CREATE INDEX IF NOT EXISTS idx_cd_status ON cloudDeployments(status)",
     ],
   },
 };
