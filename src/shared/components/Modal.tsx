@@ -112,7 +112,7 @@ export default function Modal({
         )}
 
         {/* Body */}
-        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
+        <div className="min-w-0 overflow-x-hidden overflow-y-auto max-h-[calc(85vh-100px)] p-6 custom-scrollbar">
           {children}
         </div>
 

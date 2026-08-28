@@ -411,22 +411,34 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         />
       )}
 
-      <Modal isOpen={!!preview} onClose={() => setPreview(null)} title="Pré-visualizar perfis sugeridos">
+      <Modal isOpen={!!preview} onClose={() => setPreview(null)} title="Pré-visualizar perfis sugeridos" size="full">
         {preview && (
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <div className="rounded-lg bg-muted p-3 text-sm text-text-muted">
-              <p><span className="font-medium text-text-main">Decisor:</span> {preview.classifierModel}</p>
+              <p className="truncate"><span className="font-medium text-text-main">Decisor:</span> {preview.classifierModel}</p>
               <p className="mt-1"><span className="font-medium text-text-main">Pesquisa web:</span> {preview.webResearchUsed ? `sim, via ${preview.researchProvider}` : "indisponível; sugestão conservadora"}</p>
               {preview.truncated && <p className="mt-1 text-amber-600">O inventário excedeu o limite desta rodada; os demais perfis ficaram inalterados.</p>}
             </div>
-            <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-border">
-              {preview.profiles.map((profile) => (
-                <div key={profile.modelKey} className="flex items-center gap-3 border-b border-border px-3 py-2 last:border-0">
-                  <code className="min-w-0 flex-1 truncate font-mono text-xs">{profile.modelKey}</code>
-                  <span className="text-xs text-text-muted">{TIER_LABELS[profile.recommendedTier]}</span>
-                  <span className="text-xs text-text-muted">{Math.round(profile.quality * 100)}%</span>
-                </div>
-              ))}
+            <p className="text-xs text-text-muted">Assim ficará organizado por nível de complexidade, do jeito que aparece no board acima.</p>
+            <div className="grid max-h-[55vh] gap-3 overflow-y-auto custom-scrollbar sm:grid-cols-2 lg:grid-cols-4">
+              {ROUTING_TIERS.map((tier) => {
+                const tierProfiles = preview.profiles.filter((profile) => profile.recommendedTier === tier);
+                return (
+                  <div key={tier} className="min-w-0 rounded-lg border border-border bg-muted/20 p-2">
+                    <p className="mb-2 truncate text-xs font-semibold text-text-main">{TIER_LABELS[tier]} <span className="font-normal text-text-muted">({tierProfiles.length})</span></p>
+                    <div className="flex flex-col gap-1.5">
+                      {tierProfiles.length === 0 ? (
+                        <p className="text-xs text-text-muted">Nenhum modelo sugerido.</p>
+                      ) : tierProfiles.map((profile) => (
+                        <div key={profile.modelKey} className="flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1.5">
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-main" title={profile.modelKey}>{profile.displayName || profile.modelKey}</span>
+                          <span className="shrink-0 text-[11px] text-text-muted">{Math.round(profile.quality * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button variant="ghost" fullWidth onClick={() => setPreview(null)}>Cancelar</Button>
