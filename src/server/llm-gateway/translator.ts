@@ -1,4 +1,4 @@
-// Public server API of the LLM gateway — protocol translation utilities.
+﻿// Public server API of the LLM gateway â€” protocol translation utilities.
 import "server-only";
 
 export {
@@ -12,4 +12,4 @@ export {
   getTargetFormat,
 } from "@/lib/open-sse/services/provider";
 export { openaiToCommandCodeRequest } from "@/lib/open-sse/translator/request/openai-to-commandcode";
-export { getModelInfo } from "@/sse/services/model";
+export { getModelInfo } from "./application/modelResolution";

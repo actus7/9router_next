@@ -1,9 +1,9 @@
-import {
+﻿import {
   extractApiKey, isValidApiKey,
   getProviderCredentials, markAccountUnavailable,
-} from "../services/auth";
+} from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
-import { getModelInfo } from "../services/model";
+import { getModelInfo } from "./modelResolution";
 import { handleSttCore } from "@/lib/open-sse/handlers/sttCore";
 import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
 import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
@@ -12,7 +12,7 @@ import * as log from "../utils/logger";
 import { handleComboChat } from "@/lib/open-sse/services/combo";
 import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
-import { classifySmartRouting } from "../services/smartRoutingClassifier";
+import { classifySmartRouting } from "./smartRoutingClassifier";
 
 const CREDENTIALED_PROVIDERS: Set<string> = new Set(
   Object.entries(AI_PROVIDERS)
@@ -60,7 +60,7 @@ export async function handleStt(request: Request): Promise<Response> {
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible transcription model is active");
       attachRoutingDecision(routingBody, routing.meta);
-      log.info("ROUTING", `Smart combo "${modelStr}" → stt/${routing.meta.tier} → ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${modelStr}" â†’ stt/${routing.meta.tier} â†’ ${routing.models[0]}`);
       return handleComboChat({
         body: routingBody,
         models: routing.models,

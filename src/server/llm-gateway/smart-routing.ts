@@ -1,4 +1,4 @@
-// Public server API of the LLM gateway — smart routing.
+﻿// Public server API of the LLM gateway â€” smart routing.
 import "server-only";
 
 export {

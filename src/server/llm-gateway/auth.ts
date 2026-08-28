@@ -1,4 +1,4 @@
-// Public server API of the LLM gateway — auth, account selection and token lifecycle.
+﻿// Public server API of the LLM gateway â€” auth, account selection and token lifecycle.
 import "server-only";
 
 // API-key validation + account selection/fallback
@@ -8,7 +8,7 @@ export {
   clearAccountError,
   extractApiKey,
   isValidApiKey,
-} from "@/sse/services/auth";
+} from "./auth/accountSelection";
 
 // Token refresh + credential persistence
 export {
@@ -16,7 +16,7 @@ export {
   refreshCodexToken,
   updateProviderCredentials,
   checkAndRefreshToken,
-} from "@/sse/services/tokenRefresh";
+} from "./auth/tokenRefresh";
 
 // Proactive background refresh scheduler
 export {
@@ -25,7 +25,7 @@ export {
   runBackgroundTokenRefreshTick,
   startBackgroundTokenRefresh,
   stopBackgroundTokenRefresh,
-} from "@/sse/services/backgroundTokenRefresh";
+} from "./auth/backgroundTokenRefresh";
 
 // Credential manager internals used by provider testing utilities
 export {

@@ -1,4 +1,4 @@
-import { handleSingleModelChat } from "../handlers/chat";
+﻿import { handleSingleModelChat } from "./chat";
 import type { LlmRoutingClassification } from "@/lib/open-sse/services/smart-routing/router";
 
 function asRecord(value: unknown): Record<string, unknown> {

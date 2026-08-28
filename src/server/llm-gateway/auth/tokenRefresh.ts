@@ -1,6 +1,6 @@
-// Re-export from open-sse with local logger
+﻿// Re-export from open-sse with local logger
 import * as log from "../utils/logger";
-import { updateProviderConnection } from "../../lib/localDb";
+import { updateProviderConnection } from "@/lib/localDb";
 import {
   getProjectIdForConnection,
   invalidateProjectId,
@@ -19,7 +19,7 @@ import {
 
 const TOKEN_EXPIRY_BUFFER_MS: number = BUFFER_MS;
 
-// ─── Re-exports wrapped with local logger ─────────────────────────────────────
+// â”€â”€â”€ Re-exports wrapped with local logger â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const refreshGoogleToken = (refreshToken: string, clientId: string, clientSecret: string) =>
   _refreshGoogleToken(refreshToken, clientId, clientSecret, log);
@@ -30,7 +30,7 @@ export const refreshCodexToken = (refreshToken: string) =>
 const refreshCopilotToken = (githubAccessToken: string): Promise<{ token: string; expiresAt: number } | null> =>
   _refreshCopilotToken(githubAccessToken, log) as Promise<{ token: string; expiresAt: number } | null>;
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Compute an ISO expiry timestamp from a relative expiresIn (seconds).
@@ -79,7 +79,7 @@ function _refreshProjectId(provider: string, connectionId: string, accessToken: 
     });
 }
 
-// ─── Local-specific: persist credentials to localDb ──────────────────────────
+// â”€â”€â”€ Local-specific: persist credentials to localDb â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface NewCredentials {
   accessToken?: string;
@@ -148,7 +148,7 @@ export async function updateProviderCredentials(connectionId: string, newCredent
   }
 }
 
-// ─── Local-specific: proactive token refresh ─────────────────────────────────
+// â”€â”€â”€ Local-specific: proactive token refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ProviderSpecificData extends Record<string, unknown> {
   copilotToken?: string;
@@ -184,7 +184,7 @@ export async function checkAndRefreshToken(provider: string, credentials: Creden
 
   const force: boolean = options?.force === true;
 
-  // ── 1. Regular access-token expiry ────────────────────────────────────────
+  // â”€â”€ 1. Regular access-token expiry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (force || _shouldRefreshCredentials(provider, creds as Parameters<typeof _shouldRefreshCredentials>[1])) {
     const expiresAt: number | null = creds.expiresAt ? new Date(creds.expiresAt).getTime() : null;
     const remaining: number | null = expiresAt ? expiresAt - Date.now() : null;
@@ -225,7 +225,7 @@ export async function checkAndRefreshToken(provider: string, credentials: Creden
     }
   }
 
-  // ── 2. GitHub Copilot token expiry ────────────────────────────────────────
+  // â”€â”€ 2. GitHub Copilot token expiry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (provider === "github") {
     const copilotToken: string | undefined = creds.providerSpecificData?.copilotToken;
     const copilotExpirySeconds = creds.providerSpecificData?.copilotTokenExpiresAt;

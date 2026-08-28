@@ -1,8 +1,8 @@
-// Public server API of the LLM gateway — media modalities (TTS/STT/image/video).
+﻿// Public server API of the LLM gateway â€” media modalities (TTS/STT/image/video).
 import "server-only";
 
-export { handleTts } from "@/sse/handlers/tts";
-export { handleStt } from "@/sse/handlers/stt";
-export { handleImageGeneration } from "@/sse/handlers/imageGeneration";
-export { handleVideoCreate, handleVideoGet } from "@/sse/handlers/videoGeneration";
+export { handleTts } from "./application/tts";
+export { handleStt } from "./application/stt";
+export { handleImageGeneration } from "./application/imageGeneration";
+export { handleVideoCreate, handleVideoGet } from "./application/videoGeneration";
 export { VOICE_FETCHERS, fetchElevenLabsVoices } from "@/lib/open-sse/handlers/ttsCore";

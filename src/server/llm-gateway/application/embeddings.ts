@@ -1,22 +1,22 @@
-import {
+﻿import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
   isValidApiKey,
-} from "../services/auth";
+} from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
-import { getModelInfo } from "../services/model";
+import { getModelInfo } from "./modelResolution";
 import { handleEmbeddingsCore } from "@/lib/open-sse/handlers/embeddingsCore";
 import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
 import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
 import * as log from "../utils/logger";
-import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh";
+import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
 import { saveRequestUsage } from "@/lib/usageDb";
 import { handleComboChat } from "@/lib/open-sse/services/combo";
 import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
-import { classifySmartRouting } from "../services/smartRoutingClassifier";
+import { classifySmartRouting } from "./smartRoutingClassifier";
 
 interface EmbeddingUsage {
   prompt_tokens: number;
@@ -102,7 +102,7 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible embedding model is active");
       attachRoutingDecision(body, routing.meta);
-      log.info("ROUTING", `Smart combo "${modelStr}" → embeddings/${routing.meta.tier} → ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${modelStr}" â†’ embeddings/${routing.meta.tier} â†’ ${routing.models[0]}`);
       return handleComboChat({
         body,
         models: routing.models,
@@ -131,7 +131,7 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
   const { provider, model } = modelInfo;
 
   if (modelStr !== `${provider}/${model}`) {
-    log.info("ROUTING", `${modelStr} → ${provider}/${model}`);
+    log.info("ROUTING", `${modelStr} â†’ ${provider}/${model}`);
   } else {
     log.info("ROUTING", `Provider: ${provider}, Model: ${model}`);
   }

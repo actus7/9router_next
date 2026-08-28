@@ -1,4 +1,4 @@
-// Public server API of the LLM gateway — umbrella entrypoint.
+﻿// Public server API of the LLM gateway â€” umbrella entrypoint.
 // Prefer the per-modality modules (chat/embeddings/media/search/auth/catalog/
 // smart-routing/translator/usage); this barrel exists for consumers that need
 // the whole surface.

@@ -1,4 +1,4 @@
-// Background proactive OAuth token refresh — independent of inbound requests.
+﻿// Background proactive OAuth token refresh â€” independent of inbound requests.
 // Fail-open everywhere: tick errors and per-connection failures never kill the interval.
 
 import * as log from "../utils/logger";
@@ -75,7 +75,7 @@ export function selectConnectionsNeedingRefresh(connections: Connection[], nowMs
 }
 
 async function loadActiveConnections(): Promise<Connection[]> {
-  const { getProviderConnections } = await import("../../lib/db/repos/connectionsRepo");
+  const { getProviderConnections } = await import("@/lib/db/repos/connectionsRepo");
   return getProviderConnections({ isActive: true });
 }
 

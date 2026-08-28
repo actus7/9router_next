@@ -1,21 +1,21 @@
-import {
+﻿import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
   isValidApiKey,
-} from "../services/auth";
+} from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
-import { getModelInfo, getComboModels } from "../services/model";
+import { getModelInfo, getComboModels } from "./modelResolution";
 import { handleImageGenerationCore } from "@/lib/open-sse/handlers/imageGenerationCore";
 import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
 import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
-import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh";
+import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
 import { handleComboChat } from "@/lib/open-sse/services/combo";
 import * as log from "../utils/logger";
 import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
-import { classifySmartRouting } from "../services/smartRoutingClassifier";
+import { classifySmartRouting } from "./smartRoutingClassifier";
 
 const NO_AUTH_PROVIDERS: Set<string> = new Set(["sdwebui", "comfyui"]);
 
@@ -66,7 +66,7 @@ export async function handleImageGeneration(request: Request): Promise<Response>
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible image model is active");
       attachRoutingDecision(body, routing.meta);
-      log.info("ROUTING", `Smart combo "${modelStr}" → image_generation/${routing.meta.tier} → ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${modelStr}" â†’ image_generation/${routing.meta.tier} â†’ ${routing.models[0]}`);
       return handleComboChat({
         body,
         models: routing.models,

@@ -1,9 +1,9 @@
-import {
+﻿import {
   extractApiKey, isValidApiKey,
   getProviderCredentials, markAccountUnavailable,
-} from "../services/auth";
+} from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
-import { getModelInfo, getComboModels } from "../services/model";
+import { getModelInfo, getComboModels } from "./modelResolution";
 import { handleTtsCore } from "@/lib/open-sse/handlers/ttsCore";
 import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
 import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
@@ -12,7 +12,7 @@ import { handleComboChat } from "@/lib/open-sse/services/combo";
 import * as log from "../utils/logger";
 import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
-import { classifySmartRouting } from "../services/smartRoutingClassifier";
+import { classifySmartRouting } from "./smartRoutingClassifier";
 
 const CREDENTIALED_PROVIDERS: Set<string> = new Set(
   Object.entries(AI_PROVIDERS)
@@ -59,7 +59,7 @@ export async function handleTts(request: Request): Promise<Response> {
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible TTS model is active");
       attachRoutingDecision(body, routing.meta);
-      log.info("ROUTING", `Smart combo "${modelStr}" → tts/${routing.meta.tier} → ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${modelStr}" â†’ tts/${routing.meta.tier} â†’ ${routing.models[0]}`);
       return handleComboChat({
         body,
         models: routing.models,

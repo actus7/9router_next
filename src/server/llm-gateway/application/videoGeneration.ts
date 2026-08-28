@@ -1,22 +1,22 @@
-import {
+﻿import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
   isValidApiKey,
   type CredentialsResult,
-} from "../services/auth";
+} from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
-import { getModelInfo } from "../services/model";
+import { getModelInfo } from "./modelResolution";
 import { handleVideoProxyCore, getVideoConfig, sanitizeSecrets } from "@/lib/open-sse/handlers/videoCore";
 import { errorResponse, unavailableResponse } from "@/lib/open-sse/utils/error";
 import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
-import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh";
+import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
 import * as log from "../utils/logger";
 import { handleComboChat } from "@/lib/open-sse/services/combo";
 import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
-import { classifySmartRouting } from "../services/smartRoutingClassifier";
+import { classifySmartRouting } from "./smartRoutingClassifier";
 
 const DEFAULT_VIDEO_PROVIDER: string = "xai";
 
@@ -98,7 +98,7 @@ function withConnectionHeader(response: Response, connectionId: string | null): 
 }
 
 /**
- * POST /v1/videos/{generations|edits|extensions} — async job creation proxy.
+ * POST /v1/videos/{generations|edits|extensions} â€” async job creation proxy.
  */
 export async function handleVideoCreate(request: Request, action: string): Promise<Response> {
   const authError: Response | null = await requireValidApiKey(request);
@@ -123,7 +123,7 @@ export async function handleVideoCreate(request: Request, action: string): Promi
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible video model is active");
       attachRoutingDecision(parsedBody, routing.meta);
-      log.info("ROUTING", `Smart combo "${requestedModel}" → video_generation/${routing.meta.tier} → ${routing.models[0]}`);
+      log.info("ROUTING", `Smart combo "${requestedModel}" â†’ video_generation/${routing.meta.tier} â†’ ${routing.models[0]}`);
       return handleComboChat({
         body: parsedBody,
         models: routing.models,
@@ -222,7 +222,7 @@ export async function handleVideoCreate(request: Request, action: string): Promi
 }
 
 /**
- * GET /v1/videos/{request_id} — poll job status.
+ * GET /v1/videos/{request_id} â€” poll job status.
  */
 export async function handleVideoGet(request: Request, requestId: string): Promise<Response> {
   const authError: Response | null = await requireValidApiKey(request);

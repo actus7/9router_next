@@ -1,4 +1,4 @@
-// Patch global fetch with proxy support (must be first)
+﻿// Patch global fetch with proxy support (must be first)
 import "@/lib/open-sse/utils/proxyFetch";
 
 import {
@@ -8,9 +8,9 @@ import {
   extractApiKey,
   isValidApiKey,
   type CredentialsResult,
-} from "../services/auth";
+} from "../auth/accountSelection";
 import { getSettings } from "@/lib/localDb";
-import { getModelInfo, getComboModels } from "../services/model";
+import { getModelInfo, getComboModels } from "./modelResolution";
 import { handleChatCore } from "@/lib/open-sse/handlers/chatCore";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 import { getTransform as getPxpipeTransform } from "@/lib/pxpipe/loader";
@@ -22,7 +22,7 @@ import { handleBypassRequest } from "@/lib/open-sse/utils/bypassHandler";
 import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
 import { detectFormatByEndpoint } from "@/lib/open-sse/translator/formats";
 import * as log from "../utils/logger";
-import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh";
+import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
 import { getProjectIdForConnection } from "@/lib/open-sse/services/projectId";
 import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
 import {
@@ -183,7 +183,7 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
       return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `No compatible active model found for smart combo: ${modelStr}`);
     }
     attachRoutingDecision(body, routing.meta);
-    log.info("ROUTING", `Smart combo "${modelStr}" → ${routing.meta.need}/${routing.meta.tier} → ${routing.models[0]}`);
+    log.info("ROUTING", `Smart combo "${modelStr}" â†’ ${routing.meta.need}/${routing.meta.tier} â†’ ${routing.models[0]}`);
     return handleComboChat({
       body,
       models: routing.models,
@@ -244,7 +244,7 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
   const soloAugmented: string[] = augmentModelsWithCapacityAdapter([modelStr], requiredCapabilities, settings);
   if (soloAugmented.length > 1) {
     const adapterAdded: string[] = soloAugmented.filter((m: string) => m !== modelStr);
-    log.info("CHAT", `Capacity adapter for [${[...requiredCapabilities].join(",")}] on "${modelStr}" → trying ${soloAugmented.join(", ")}`);
+    log.info("CHAT", `Capacity adapter for [${[...requiredCapabilities].join(",")}] on "${modelStr}" â†’ trying ${soloAugmented.join(", ")}`);
     return handleComboChat({
       body,
       models: soloAugmented,
@@ -410,7 +410,7 @@ export async function handleSingleModelChat(
     const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null);
 
     if (shouldFallback) {
-      log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
+      log.warn("FALLBACK", `â‡„ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) â†’ NEXT ACCOUNT`);
       excludeConnectionIds.add(connectionId);
       lastError = result.error;
       lastStatus = result.status;

@@ -1,4 +1,4 @@
-// Public server API of the LLM gateway — embeddings modality.
+﻿// Public server API of the LLM gateway â€” embeddings modality.
 import "server-only";
 
-export { handleEmbeddings } from "@/sse/handlers/embeddings";
+export { handleEmbeddings } from "./application/embeddings";
