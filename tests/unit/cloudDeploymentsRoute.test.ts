@@ -10,7 +10,7 @@ vi.mock("@/server/cloud/providers/registry", () => ({ getCloudProviderDriver: vi
 vi.mock("@/server/cloud/gatewayConfig", () => ({ resolveGatewayConfig: vi.fn() }));
 
 import { POST } from "@/app/api/cloud/deployments/route";
-import { createCloudDeployment, getCloudConnectionByProvider } from "@/models";
+import { createCloudDeployment, getCloudConnectionByProvider, getCloudDeployments } from "@/models";
 import { getCloudTool } from "@/server/cloud/tools/registry";
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { resolveGatewayConfig } from "@/server/cloud/gatewayConfig";
@@ -42,6 +42,7 @@ describe("POST /api/cloud/deployments", () => {
   it("creates a deployment end to end", async () => {
     vi.mocked(getCloudTool).mockReturnValue({ id: "openclaw", image: "img", port: 10000 } as never);
     vi.mocked(getCloudConnectionByProvider).mockResolvedValue({ id: "conn1", token: "tok" } as never);
+    vi.mocked(getCloudDeployments).mockResolvedValue([]);
     vi.mocked(resolveGatewayConfig).mockResolvedValue({ gatewayApiUrl: "https://squid.example.com/v1", apiKeys: [] });
     vi.mocked(getCloudProviderDriver).mockReturnValue({
       createDeployment: vi.fn().mockResolvedValue({
@@ -60,5 +61,15 @@ describe("POST /api/cloud/deployments", () => {
     const json = await res.json();
     expect(json.deployment.id).toBe("d1");
     expect(json.deployment.gatewayToken).toBeUndefined();
+  });
+
+  it("rejects a duplicate deploy for the same tool+provider", async () => {
+    vi.mocked(getCloudTool).mockReturnValue({ id: "openclaw", image: "img", port: 10000 } as never);
+    vi.mocked(getCloudProviderDriver).mockReturnValue({ createDeployment: vi.fn() } as never);
+    vi.mocked(getCloudConnectionByProvider).mockResolvedValue({ id: "conn1", token: "tok" } as never);
+    vi.mocked(getCloudDeployments).mockResolvedValue([{ id: "d1", status: "healthy" } as never]);
+
+    const res = await POST(req({ provider: "render", toolId: "openclaw", model: "gpt-4o", modelProvider: "openai", gatewayApiKey: "sk-x" }) as never);
+    expect(res.status).toBe(409);
   });
 });

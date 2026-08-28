@@ -18,10 +18,6 @@ export type DeployResult = {
   gatewayToken: string;
 };
 
-export type UpdateResult = {
-  externalDeployId: string | null;
-};
-
 export type RefreshResult = {
   externalDeployId: string | null;
   publicUrl: string | null;
@@ -66,19 +62,12 @@ export interface CloudProviderDriver {
     tool: CloudToolManifest,
     env: CloudToolEnvInput,
   ): Promise<DeployResult>;
-  updateDeployment(
-    token: string,
-    externalServiceId: string,
-    tool: CloudToolManifest,
-    env: CloudToolEnvInput,
-  ): Promise<UpdateResult>;
   refresh(
     token: string,
     externalServiceId: string,
     externalDeployId: string | null,
   ): Promise<RefreshResult>;
   deleteService(token: string, externalServiceId: string): Promise<"deleted" | "missing">;
-  isFreeTierError(error: unknown): boolean;
 }
 
 export function formatCloudProviderError(error: CloudProviderError): string {

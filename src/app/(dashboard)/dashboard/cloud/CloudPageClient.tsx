@@ -40,6 +40,7 @@ export default function CloudPageClient() {
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [selectedToolId, setSelectedToolId] = useState(CLOUD_TOOL_CATALOG[0]?.id ?? "");
   const [isLoading, setIsLoading] = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     const [connectionsRes, deploymentsRes, settingsRes, keysRes] = await Promise.all([
@@ -77,21 +78,39 @@ export default function CloudPageClient() {
   };
 
   const handleDeploy = async (toolId: string, input: { provider: string; model: string; modelProvider: string; gatewayApiKey: string }) => {
-    await fetch("/api/cloud/deployments", {
+    const res = await fetch("/api/cloud/deployments", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ toolId, ...input }),
     });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setActionError(json?.error ?? "Falha na operação");
+      return;
+    }
+    setActionError(null);
     await loadAll();
   };
 
   const handleRefresh = async (id: string) => {
-    await fetch(`/api/cloud/deployments/${id}/refresh`, { method: "POST" });
+    const res = await fetch(`/api/cloud/deployments/${id}/refresh`, { method: "POST" });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setActionError(json?.error ?? "Falha na operação");
+      return;
+    }
+    setActionError(null);
     await loadAll();
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/cloud/deployments/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/cloud/deployments/${id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setActionError(json?.error ?? "Falha na operação");
+      return;
+    }
+    setActionError(null);
     await loadAll();
   };
 
@@ -137,6 +156,7 @@ export default function CloudPageClient() {
 
           <div className="flex flex-col gap-3">
             <h2 className="text-sm font-medium">Seus ambientes</h2>
+            {actionError && <p className="text-sm text-red-500">{actionError}</p>}
             {deployments.length === 0 ? (
               <p className="text-sm text-text-muted">Nenhum ambiente criado. Conecte um provedor, escolha o modelo e clique em Deploy.</p>
             ) : (

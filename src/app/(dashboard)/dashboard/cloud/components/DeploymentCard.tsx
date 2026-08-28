@@ -52,7 +52,15 @@ export default function DeploymentCard({ deployment, toolName, onRefresh, onDele
         <Button variant="outline" size="sm" onClick={() => onRefresh(deployment.id)}>
           <RefreshCw className="size-3.5" /> Atualizar
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onDelete(deployment.id)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (window.confirm("Apagar este ambiente? Isso remove o serviço na nuvem permanentemente.")) {
+              onDelete(deployment.id);
+            }
+          }}
+        >
           <Trash2 className="size-3.5" /> Apagar
         </Button>
       </div>

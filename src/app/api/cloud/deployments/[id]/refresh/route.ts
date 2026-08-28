@@ -11,8 +11,9 @@ export async function POST(_request: NextRequest, { params }: Params) {
   if (!deployment) return NextResponse.json({ error: "Deployment não encontrado" }, { status: 404 });
 
   const connection = await getCloudConnectionById(deployment.connectionId);
+  if (!connection) return NextResponse.json({ error: "Conexão não encontrada — pode ter sido desconectada." }, { status: 400 });
   const driver = getCloudProviderDriver(deployment.provider);
-  if (!connection || !driver) return NextResponse.json({ error: "Provider não suportado" }, { status: 400 });
+  if (!driver) return NextResponse.json({ error: "Provider não suportado" }, { status: 400 });
 
   try {
     const refreshed = await driver.refresh(connection.token, deployment.externalServiceId, deployment.externalDeployId);

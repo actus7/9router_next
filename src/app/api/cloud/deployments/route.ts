@@ -36,6 +36,14 @@ export async function POST(request: NextRequest) {
   const connection = await getCloudConnectionByProvider(provider);
   if (!connection) return NextResponse.json({ error: "Conecte sua conta antes de fazer deploy" }, { status: 400 });
 
+  const existingDeployments = await getCloudDeployments({ toolId, provider });
+  if (existingDeployments.some((d) => d.status !== "failed")) {
+    return NextResponse.json(
+      { error: "Já existe um deployment ativo para esta ferramenta neste provider. Apague-o antes de criar outro." },
+      { status: 409 },
+    );
+  }
+
   const { gatewayApiUrl } = await resolveGatewayConfig();
   if (!gatewayApiUrl) return NextResponse.json({ error: "Configure a URL pública do squid (Cloud/Tunnel) antes de fazer deploy" }, { status: 400 });
   if (!gatewayApiKey) return NextResponse.json({ error: "gatewayApiKey é obrigatório" }, { status: 400 });

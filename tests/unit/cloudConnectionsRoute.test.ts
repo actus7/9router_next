@@ -4,13 +4,14 @@ vi.mock("@/models", () => ({
   createCloudConnection: vi.fn(),
   deleteCloudConnection: vi.fn(),
   getCloudConnectionByProvider: vi.fn(),
+  getCloudDeployments: vi.fn(),
 }));
 vi.mock("@/server/cloud/providers/registry", () => ({
   getCloudProviderDriver: vi.fn(),
 }));
 
 import { POST, DELETE } from "@/app/api/cloud/connections/[provider]/route";
-import { createCloudConnection, deleteCloudConnection, getCloudConnectionByProvider } from "@/models";
+import { createCloudConnection, deleteCloudConnection, getCloudConnectionByProvider, getCloudDeployments } from "@/models";
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 
 function req(body: unknown): Request {
@@ -64,8 +65,17 @@ describe("DELETE /api/cloud/connections/[provider]", () => {
 
   it("deletes an existing connection", async () => {
     vi.mocked(getCloudConnectionByProvider).mockResolvedValue({ id: "conn1" } as never);
+    vi.mocked(getCloudDeployments).mockResolvedValue([]);
     const res = await DELETE(new Request("http://localhost") as never, { params: Promise.resolve({ provider: "render" }) });
     expect(res.status).toBe(200);
     expect(deleteCloudConnection).toHaveBeenCalledWith("conn1");
+  });
+
+  it("rejects when deployments still reference the connection", async () => {
+    vi.mocked(getCloudConnectionByProvider).mockResolvedValue({ id: "conn1" } as never);
+    vi.mocked(getCloudDeployments).mockResolvedValue([{ id: "d1", connectionId: "conn1", provider: "render" } as never]);
+    const res = await DELETE(new Request("http://localhost") as never, { params: Promise.resolve({ provider: "render" }) });
+    expect(res.status).toBe(409);
+    expect(deleteCloudConnection).not.toHaveBeenCalled();
   });
 });

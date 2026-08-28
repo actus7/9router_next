@@ -1,5 +1,5 @@
 import type { CloudToolManifest, CloudToolEnvInput, CloudToolStartup } from "../tools/types";
-import type { CloudProviderDriver, AccountMetadata, DeployResult, UpdateResult, RefreshResult, CloudDeploymentStatus } from "./driver";
+import type { CloudProviderDriver, AccountMetadata, DeployResult, RefreshResult, CloudDeploymentStatus } from "./driver";
 import { CloudProviderError, CloudProviderErrorType } from "./driver";
 
 const RENDER_API_BASE = "https://api.render.com/v1";
@@ -211,26 +211,6 @@ export const renderDriver: CloudProviderDriver = {
     }
   },
 
-  async updateDeployment(token: string, externalServiceId: string, tool: CloudToolManifest, env: CloudToolEnvInput): Promise<UpdateResult> {
-    try {
-      const id = encodeURIComponent(externalServiceId);
-      const envVars = tool.buildEnv(env);
-      const dockerCommand = buildRenderDockerCommand(tool.startup);
-      await renderRequest(token, `/services/${id}/env-vars`, { body: JSON.stringify(envVars), method: "PUT" });
-      await renderRequest(token, `/services/${id}`, {
-        body: JSON.stringify({ serviceDetails: { envSpecificDetails: { dockerCommand }, healthCheckPath: "", runtime: "image" } }),
-        method: "PATCH",
-      });
-      type DeployResponse = { deploy?: { id?: string } } | { id?: string };
-      const deployReply = await renderRequest<DeployResponse>(token, `/services/${id}/deploys`, {
-        body: JSON.stringify({ clearCache: "do_not_clear" }), method: "POST",
-      });
-      return { externalDeployId: ("deploy" in deployReply ? deployReply.deploy?.id : (deployReply as { id?: string }).id) ?? null };
-    } catch (error) {
-      throw toRenderError(error);
-    }
-  },
-
   async refresh(token: string, externalServiceId: string, externalDeployId: string | null): Promise<RefreshResult> {
     try {
       const id = encodeURIComponent(externalServiceId);
@@ -268,6 +248,4 @@ export const renderDriver: CloudProviderDriver = {
       throw toRenderError(error);
     }
   },
-
-  isFreeTierError: isRenderFreeTierError,
 };

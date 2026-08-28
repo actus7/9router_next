@@ -1,5 +1,5 @@
 import type { CloudToolManifest, CloudToolEnvInput, CloudToolStartup } from "../tools/types";
-import type { CloudProviderDriver, AccountMetadata, DeployResult, UpdateResult, RefreshResult, CloudDeploymentStatus } from "./driver";
+import type { CloudProviderDriver, AccountMetadata, DeployResult, RefreshResult, CloudDeploymentStatus } from "./driver";
 import { CloudProviderError, CloudProviderErrorType } from "./driver";
 
 const RAILWAY_API_BASE = "https://backboard.railway.app/graphql/v2";
@@ -80,12 +80,6 @@ function mapRailwayDeploymentStatus(status: string): { status: CloudDeploymentSt
   }
 }
 
-function isRailwayFreeTierError(error: unknown): boolean {
-  if (!(error instanceof CloudProviderError)) return false;
-  const text = `${error.message} ${error.originalError ? JSON.stringify(error.originalError) : ""}`.toLowerCase();
-  return ["credit", "credits", "limit", "quota", "plan", "upgrade", "billing", "payment"].some((k) => text.includes(k));
-}
-
 // Railway validates the start command as a Docker exec form; `sh -c` with
 // single quotes avoids shell-escaping issues since the JSON config may
 // contain double quotes. `printf` (not `echo`) handles arbitrary content
@@ -142,13 +136,6 @@ async function createRailwayDeployment(token: string, resourceName: string, tool
     serviceId, environmentId, input: { startCommand: buildRailwayStartCommand(tool.startup) },
   });
 
-  const envVars = tool.buildEnv({ ...env, serviceUrl: "" });
-  const variables: Record<string, string> = {};
-  for (const { key, value } of envVars) variables[key] = value;
-  await railwayRequest(token, UPSERT_VARIABLES_MUTATION, { input: { projectId, environmentId, serviceId, variables } });
-
-  await railwayRequest(token, TRIGGER_DEPLOY_MUTATION, { input: { environmentId, projectId, serviceId } });
-
   let generatedDomain: string | null = null;
   try {
     const domainResult = await railwayRequest<{ serviceDomainCreate: { domain: string } }>(token, CREATE_SERVICE_DOMAIN_MUTATION, {
@@ -158,25 +145,19 @@ async function createRailwayDeployment(token: string, resourceName: string, tool
   } catch {
     // Best-effort — refresh will retry via GET_SERVICE_URL_QUERY.
   }
-
   const publicUrl = generatedDomain ? `https://${generatedDomain}` : null;
+
+  const envVars = tool.buildEnv({ ...env, serviceUrl: publicUrl ?? "" });
+  const variables: Record<string, string> = {};
+  for (const { key, value } of envVars) variables[key] = value;
+  await railwayRequest(token, UPSERT_VARIABLES_MUTATION, { input: { projectId, environmentId, serviceId, variables } });
+
+  await railwayRequest(token, TRIGGER_DEPLOY_MUTATION, { input: { environmentId, projectId, serviceId } });
   // Encode projectId/environmentId into the composite id so update/refresh/delete
   // don't need a separate DB lookup to find them.
   const compositeServiceId = `${serviceId}:${projectId}:${environmentId}`;
 
   return { externalServiceId: compositeServiceId, externalDeployId: null, publicUrl, status: "provisioning", gatewayToken: env.gatewayToken };
-}
-
-async function updateRailwayDeployment(token: string, compositeServiceId: string, tool: CloudToolManifest, env: CloudToolEnvInput): Promise<UpdateResult> {
-  const [serviceId, projectId, environmentId] = compositeServiceId.split(":");
-  if (projectId && environmentId) {
-    const envVars = tool.buildEnv(env);
-    const variables: Record<string, string> = {};
-    for (const { key, value } of envVars) variables[key] = value;
-    await railwayRequest(token, UPSERT_VARIABLES_MUTATION, { input: { projectId, environmentId, serviceId, variables } });
-  }
-  await railwayRequest(token, TRIGGER_DEPLOY_MUTATION, { input: { environmentId, projectId, serviceId } });
-  return { externalDeployId: null };
 }
 
 async function refreshRailwayDeployment(token: string, compositeServiceId: string, externalDeployId: string | null): Promise<RefreshResult> {
@@ -259,14 +240,6 @@ export const railwayDriver: CloudProviderDriver = {
     }
   },
 
-  async updateDeployment(token, externalServiceId, tool, env) {
-    try {
-      return await updateRailwayDeployment(token, externalServiceId, tool, env);
-    } catch (error) {
-      throw toRailwayError(error);
-    }
-  },
-
   async refresh(token, externalServiceId, externalDeployId) {
     try {
       return await refreshRailwayDeployment(token, externalServiceId, externalDeployId);
@@ -282,6 +255,4 @@ export const railwayDriver: CloudProviderDriver = {
       throw toRailwayError(error);
     }
   },
-
-  isFreeTierError: isRailwayFreeTierError,
 };

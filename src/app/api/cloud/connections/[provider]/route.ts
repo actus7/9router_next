@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createCloudConnection, deleteCloudConnection, getCloudConnectionByProvider } from "@/models";
+import { createCloudConnection, deleteCloudConnection, getCloudConnectionByProvider, getCloudDeployments } from "@/models";
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { isCloudProviderError, formatCloudProviderError } from "@/server/cloud/providers/driver";
 
@@ -54,6 +54,21 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   if (!existing) {
     return NextResponse.json({ error: "Conexão não encontrada" }, { status: 404 });
   }
+
+  const deployments = await getCloudDeployments({ provider });
+  if (deployments.some((d) => d.connectionId === existing.id)) {
+    return NextResponse.json(
+      { error: "Existem ambientes provisionados usando esta conexão. Apague-os antes de desconectar." },
+      { status: 409 },
+    );
+  }
+
+  // Note: this only blocks deletion; it does not cascade-delete deployments.
+  // If a connection is ever deleted while deployments still reference it (not
+  // possible via this guard, but e.g. via direct DB manipulation), the remote
+  // cloud service would be orphaned since deployment delete/refresh routes
+  // need the connection to reach the provider API — a future UI could surface
+  // that state, but this fix pass only adds the guard above.
   await deleteCloudConnection(existing.id);
   return NextResponse.json({ success: true });
 }
