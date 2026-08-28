@@ -12,7 +12,7 @@ import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { ArrowLeftFromLine, ArrowRightToLine, Brain, ChevronRight, Code2, Image, Languages, Loader2 } from "lucide-react";
+import { ArrowLeftFromLine, ArrowRightToLine, Brain, ChevronRight, Code2, Image as ImageIcon, Languages, Loader2 } from "lucide-react";
 
 interface TokenUsage {
   cached_tokens?: number;
@@ -239,8 +239,8 @@ export default function RequestDetailsTab() {
               onValueChange={(val) => setFilters({ ...filters, provider: val === "__all__" ? "" : (val ?? "") })}
             >
               <SelectTrigger id="provider-filter" className="w-full h-9">
-                <SelectValue placeholder="All Providers">
-                  {(val) => val === "__all__" ? "All Providers" : (providers.find((p) => p.id === val)?.name || val)}
+                <SelectValue placeholder="Todos os Provedores">
+                  {(val) => val === "__all__" ? "Todos os Provedores" : (providers.find((p) => p.id === val)?.name || val)}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -457,7 +457,7 @@ export default function RequestDetailsTab() {
             {selectedDetail.pxpipe && (
               <div className="rounded-lg border border-black/5 dark:border-white/5 p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Image className="size-5" />
+                  <ImageIcon className="size-5" />
                   <span className="font-semibold text-sm text-text-main">PXPIPE</span>
                   <span className={cn(
                     "text-xs px-2 py-0.5 rounded",

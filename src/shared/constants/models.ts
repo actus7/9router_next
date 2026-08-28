@@ -1,12 +1,11 @@
-// Import directly from file to avoid pulling in server-side dependencies via index.js
 export {
   PROVIDER_MODELS,
   PROVIDER_ID_TO_ALIAS,
   getModelsByProviderId,
-} from "@/lib/open-sse/config/providerModels";
+} from "@/shared/llm-catalog";
 
 import { AI_PROVIDERS, isOpenAICompatibleProvider } from "./providers";
-import { PROVIDER_MODELS as MODELS } from "@/lib/open-sse/config/providerModels";
+import { PROVIDER_MODELS as MODELS } from "@/shared/llm-catalog";
 
 // Providers that accept any model (passthrough)
 const PASSTHROUGH_PROVIDERS = new Set(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getCapabilitiesForModel } from "@/lib/open-sse/providers/capabilities";
+import { getCapabilitiesForModel } from "@/shared/llm-catalog";
 
 interface ModelCapabilities {
   vision: boolean;

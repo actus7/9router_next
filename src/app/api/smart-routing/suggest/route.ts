@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refreshDeterministicSmartProfiles } from "@/lib/open-sse/services/smart-routing/inventory";
-import { handleSingleModelChat } from "@/sse/handlers/chat";
-import { handleSearch } from "@/sse/handlers/search";
-import type { SmartModelProfile } from "@/lib/open-sse/services/smart-routing/types";
+import { refreshDeterministicSmartProfiles, type SmartModelProfile } from "@/server/llm-gateway/smart-routing";
+import { handleSingleModelChat } from "@/server/llm-gateway/chat";
+import { handleSearch } from "@/server/llm-gateway/search";
 
 const BATCH_SIZE = 30;
 const MAX_PROFILES = 180;

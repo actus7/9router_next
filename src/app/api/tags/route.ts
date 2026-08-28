@@ -1,4 +1,4 @@
-import { ollamaModels } from "@/lib/open-sse/config/ollamaModels";
+import { ollamaModels } from "@/server/llm-gateway/catalog";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",

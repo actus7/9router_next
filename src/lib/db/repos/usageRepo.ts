@@ -52,7 +52,6 @@ interface RingEntry {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var _pendingRequests: PendingRequests | undefined;
   var _lastErrorProvider: LastErrorProvider | undefined;
   var _statsEmitter: EventEmitter | undefined;

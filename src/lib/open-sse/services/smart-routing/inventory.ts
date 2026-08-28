@@ -246,7 +246,21 @@ function deterministicProfile(item: InventoryModel): SmartModelProfile {
   };
 }
 
+// ponytail: rebuilding the whole inventory (DB reads + per-model capability/price
+// lookups) on every chat request through a smart combo is wasteful; cache briefly
+// and bypass on persist=true (explicit "refresh inventory" / profile-confirm calls).
+const PROFILE_CACHE_TTL_MS = 10_000;
+let profileCache: { expiresAt: number; profiles: SmartModelProfile[] } | null = null;
+
+/** Drop the cached inventory so the next call recomputes it (e.g. after confirming profiles directly via upsertSmartModelProfiles). */
+export function invalidateSmartProfileCache(): void {
+  profileCache = null;
+}
+
 export async function refreshDeterministicSmartProfiles(persist = false): Promise<SmartModelProfile[]> {
+  if (!persist && profileCache && profileCache.expiresAt > Date.now()) {
+    return profileCache.profiles;
+  }
   const inventory = await loadInventory();
   const deterministic = inventory.map(deterministicProfile);
   const persisted = await getSmartModelProfiles();
@@ -262,6 +276,7 @@ export async function refreshDeterministicSmartProfiles(persist = false): Promis
     };
   });
   if (persist) await upsertSmartModelProfiles(profiles);
+  profileCache = { expiresAt: Date.now() + PROFILE_CACHE_TTL_MS, profiles };
   return profiles;
 }
 

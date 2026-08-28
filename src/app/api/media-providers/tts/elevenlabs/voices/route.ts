@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse  } from "next/server";
 import { getProviderConnections } from "@/lib/localDb";
-import { fetchElevenLabsVoices } from "@/lib/open-sse/handlers/ttsCore";
+import { fetchElevenLabsVoices } from "@/server/llm-gateway/media";
 
 const langNames = new Intl.DisplayNames(["en"], { type: "language" });
 

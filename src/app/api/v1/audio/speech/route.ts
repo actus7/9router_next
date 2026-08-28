@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { handleTts } from "@/sse/handlers/tts";
+import { handleTts } from "@/server/llm-gateway/media";
 
 export async function OPTIONS() {
   return new Response(null, {

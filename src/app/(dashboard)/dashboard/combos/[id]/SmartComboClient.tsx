@@ -20,7 +20,7 @@ import {
   type RoutingTierOrDefault,
   type SmartModelProfile,
   type SmartRoutingConfig,
-} from "@/lib/open-sse/services/smart-routing/types";
+} from "@/shared/llm-catalog";
 
 interface ComboData {
   id: string;
@@ -92,9 +92,11 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
   const notify = useNotificationStore();
   const [name, setName] = useState(initialCombo.name);
   const [config, setConfig] = useState<SmartRoutingConfig>(() => normalizeConfig(initialCombo.routing));
+  const [globalModels, setGlobalModels] = useState<string[]>(initialCombo.models || []);
   const [selectedNeed, setSelectedNeed] = useState<RouteNeed>("general");
   const [selectedTier, setSelectedTier] = useState<RoutingTierOrDefault>("default");
   const [showModelSelect, setShowModelSelect] = useState(false);
+  const [showGlobalModelSelect, setShowGlobalModelSelect] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profiles, setProfiles] = useState<SmartModelProfile[]>(initialProfiles);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
@@ -128,7 +130,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
       const response = await fetch(`/api/combos/${initialCombo.id}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), kind: "smart", models: initialCombo.models, routing: config }),
+        body: JSON.stringify({ name: name.trim(), kind: "smart", models: globalModels, routing: config }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Falha ao salvar");
@@ -230,13 +232,38 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
             <Label className="flex min-h-12 items-center justify-between gap-3 rounded-lg bg-muted px-3">
               <span><span className="block text-sm font-medium">Complexidade</span><span className="block text-xs text-text-muted">Simples até raciocínio</span></span>
-              <Switch checked={config.complexity.enabled} onCheckedChange={(enabled) => setConfig((current) => ({ ...current, complexity: { enabled } }))} />
+              <Switch aria-label="Ativar roteamento por complexidade" checked={config.complexity.enabled} onCheckedChange={(enabled) => setConfig((current) => ({ ...current, complexity: { enabled } }))} />
             </Label>
             <Label className="flex min-h-12 items-center justify-between gap-3 rounded-lg bg-muted px-3">
               <span><span className="block text-sm font-medium">Tipo de tarefa</span><span className="block text-xs text-text-muted">Código, mídia, busca e mais</span></span>
-              <Switch checked={config.task.enabled} onCheckedChange={(enabled) => setConfig((current) => ({ ...current, task: { ...current.task, enabled } }))} />
+              <Switch aria-label="Ativar roteamento por tipo de tarefa" checked={config.task.enabled} onCheckedChange={(enabled) => setConfig((current) => ({ ...current, task: { ...current.task, enabled } }))} />
             </Label>
           </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-text-main">Overrides globais</h2>
+              <p className="mt-1 text-sm text-text-muted">Modelos aqui entram como candidatos para qualquer tarefa/tier, além dos overrides específicos abaixo. Deixe vazio para usar só o inventário ativo.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowGlobalModelSelect(true)}><Plus data-icon="inline-start" /> Adicionar modelo</Button>
+          </div>
+          {globalModels.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-text-muted">Nenhum override global; o ranking será totalmente dinâmico.</p>
+          ) : (
+            <ul className="grid gap-2 lg:grid-cols-2">
+              {globalModels.map((model, index) => (
+                <li key={model} className="flex min-w-0 items-center gap-2 rounded-lg bg-muted px-3 py-2">
+                  <span className="text-xs text-text-muted">{index + 1}</span>
+                  <code className="min-w-0 flex-1 truncate font-mono text-xs">{model}</code>
+                  <Button variant="ghost" size="icon-sm" onClick={() => setGlobalModels(globalModels.filter((item) => item !== model))} aria-label={`Remover ${model}`}><Trash2 /></Button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </Card>
 
@@ -249,7 +276,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Label className="flex min-h-11 items-center justify-between rounded-lg bg-muted px-3 text-sm">
               Habilitado
-              <Switch checked={config.classifier.enabled} onCheckedChange={(enabled) => setConfig((current) => ({ ...current, classifier: { ...current.classifier, enabled } }))} />
+              <Switch aria-label="Ativar classificador de ambiguidade" checked={config.classifier.enabled} onCheckedChange={(enabled) => setConfig((current) => ({ ...current, classifier: { ...current.classifier, enabled } }))} />
             </Label>
             <div>
               <Label className="mb-1.5 block text-xs text-text-muted">Confiança mínima</Label>
@@ -339,6 +366,20 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           modelAliases={modelAliases}
           title={`Override: ${NEED_LABELS[selectedNeed]} / ${TIER_LABELS[selectedTier]}`}
           addedModelValues={currentModels}
+          closeOnSelect={false}
+        />
+      )}
+
+      {showGlobalModelSelect && (
+        <ModelSelectModal
+          isOpen={showGlobalModelSelect}
+          onClose={() => setShowGlobalModelSelect(false)}
+          onSelect={(model: { value: string }) => { if (!globalModels.includes(model.value)) setGlobalModels([...globalModels, model.value]); }}
+          onDeselect={(model: { value: string }) => setGlobalModels(globalModels.filter((item) => item !== model.value))}
+          activeProviders={activeProviders as unknown as ActiveProvider[]}
+          modelAliases={modelAliases}
+          title="Adicionar override global"
+          addedModelValues={globalModels}
           closeOnSelect={false}
         />
       )}

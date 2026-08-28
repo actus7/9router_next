@@ -10,9 +10,6 @@ import { saveRequestDetail } from "@/lib/usageDb";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants";
 import type { StreamingHandlerContext, OnStreamCompleteContext } from "./types";
 
-// Local types
-interface JsonObject { [key: string]: unknown }
-
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
 const CODEX_SOURCE_TO_TARGET: Record<string, string> = {
   [FORMATS.OPENAI_RESPONSES]: FORMATS.OPENAI_RESPONSES,
@@ -43,22 +40,31 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
   const isResponsesProvider = (PROVIDERS[provider] as Record<string, unknown>)?.format === FORMATS.OPENAI_RESPONSES;
   const needsCodexTranslation = isResponsesProvider && targetFormat === FORMATS.OPENAI_RESPONSES && !isDroidCLI;
 
+  // reqLogger/toolNameMap/customToolNames have genuinely mismatched shapes across this call
+  // chain (see chatCore/types.ts RequestLogger vs the real createRequestLogger() return type,
+  // and toolNameMap's Map<string,string> runtime shape vs its Record<string,string> param type)
+  // — cast narrowly to each function's own parameter type instead of blanket-casting every
+  // argument to `null`, which used to erase real type-checking on the other positions too.
+  const loggerArg = reqLogger as unknown as Parameters<typeof createSSETransformStreamWithLogger>[3];
+  const toolMapArg = toolNameMap as unknown as Parameters<typeof createSSETransformStreamWithLogger>[4];
+  const customToolNamesArg = customToolNames as unknown as Parameters<typeof createSSETransformStreamWithLogger>[10];
+
   if (needsCodexTranslation) {
     const codexTarget = CODEX_SOURCE_TO_TARGET[sourceFormat] || FORMATS.OPENAI;
-    return createSSETransformStreamWithLogger(FORMATS.OPENAI_RESPONSES, codexTarget, provider as unknown as null, reqLogger as unknown as null, toolNameMap as unknown as null, model as unknown as null, connectionId as unknown as null, body as unknown as null, onStreamComplete as unknown as null, apiKey as unknown as null, customToolNames as unknown as null);
+    return createSSETransformStreamWithLogger(FORMATS.OPENAI_RESPONSES, codexTarget, provider, loggerArg, toolMapArg, model, connectionId, body, onStreamComplete, apiKey, customToolNamesArg);
   }
 
   if (needsTranslation(targetFormat, sourceFormat)) {
-    return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider as unknown as null, reqLogger as unknown as null, toolNameMap as unknown as null, model as unknown as null, connectionId as unknown as null, body as unknown as null, onStreamComplete as unknown as null, apiKey as unknown as null, customToolNames as unknown as null);
+    return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, loggerArg, toolMapArg, model, connectionId, body, onStreamComplete, apiKey, customToolNamesArg);
   }
 
-  return createPassthroughStreamWithLogger(provider as unknown as null, reqLogger as unknown as null, model as unknown as null, connectionId as unknown as null, body as unknown as null, onStreamComplete as unknown as null, apiKey as unknown as null);
+  return createPassthroughStreamWithLogger(provider, loggerArg as unknown as Parameters<typeof createPassthroughStreamWithLogger>[1], model, connectionId, body, onStreamComplete, apiKey);
 }
 
 /**
  * Handle streaming response — pipe provider SSE through transform stream to client.
  */
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }: StreamingHandlerContext) {
+export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }: StreamingHandlerContext) {
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { handleEmbeddings } from "@/sse/handlers/embeddings";
+import { handleEmbeddings } from "@/server/llm-gateway/embeddings";
 
 /**
  * Handle CORS preflight

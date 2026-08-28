@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refreshDeterministicSmartProfiles } from "@/lib/open-sse/services/smart-routing/inventory";
+import { refreshDeterministicSmartProfiles } from "@/server/llm-gateway/smart-routing";
 
 export const dynamic = "force-dynamic";
 

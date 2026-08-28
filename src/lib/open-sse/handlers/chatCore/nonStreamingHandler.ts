@@ -13,7 +13,6 @@ import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index";
 import type { NonStreamingHandlerContext } from "./types";
 
 // Local types for dynamic JSON structures
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface JsonObject { [key: string]: unknown }
 type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
 

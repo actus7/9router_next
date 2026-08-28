@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, Button, Input } from "@/shared/components";
@@ -53,6 +54,7 @@ function getLocaleFromCookie() {
 }
 
 export default function ProfileClient({ initialSettings, initialDbInfo }: ProfileClientProps) {
+  const router = useRouter();
   const { theme, setTheme, isDark } = useTheme();
   const [locale, setLocale] = useState(() => getLocaleFromCookie());
   const [langOpen, setLangOpen] = useState(false);
@@ -732,7 +734,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
     try {
       const res = await fetch("/api/auth/logout", { method: "POST" });
       if (res.ok) {
-        window.location.assign("/login");
+        router.replace("/login");
       }
     } catch (err) {
       console.error("Falha ao sair:", err);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPricing, updatePricing, resetPricing, resetAllPricing } from "@/lib/localDb";
-import { getDefaultPricing } from "@/lib/open-sse/providers/pricing";
+import { getDefaultPricing } from "@/server/llm-gateway/catalog";
 
 interface PricingEntry {
   input?: number;

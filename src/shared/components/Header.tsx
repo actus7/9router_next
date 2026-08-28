@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderMenu from "@/shared/components/HeaderMenu";
@@ -193,6 +193,7 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [loginMethod, setLoginMethod] = useState("");
 
@@ -230,7 +231,7 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
     try {
       const res = await fetch("/api/auth/logout", { method: "POST" });
       if (res.ok) {
-        window.location.assign("/login");
+        router.replace("/login");
       }
     } catch (err) {
       console.error("Failed to logout:", err);

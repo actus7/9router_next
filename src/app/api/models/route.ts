@@ -3,7 +3,7 @@ import { getModelAliases, setModelAlias } from "@/models";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { AI_MODELS } from "@/shared/constants/config";
 import { getProviderAlias } from "@/shared/constants/providers";
-import { getCapabilitiesForModel } from "@/lib/open-sse/providers/capabilities";
+import { getCapabilitiesForModel } from "@/server/llm-gateway/catalog";
 
 // GET /api/models - Get models with aliases
 export async function GET(): Promise<NextResponse> {

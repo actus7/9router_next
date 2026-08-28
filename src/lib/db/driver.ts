@@ -18,7 +18,6 @@ interface DbAdapterState {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var _dbAdapter: DbAdapterState | undefined;
 }
 

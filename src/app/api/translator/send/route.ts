@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getProviderConnections, updateProviderConnection } from "@/lib/localDb";
-import { getExecutor } from "@/lib/open-sse/executors/index";
+import { getExecutor } from "@/server/llm-gateway/usage";
 
 async function persistRefreshedCredentials(connection: Record<string, unknown>, newCredentials: Record<string, unknown>) {
   const updateData: Record<string, unknown> = {};

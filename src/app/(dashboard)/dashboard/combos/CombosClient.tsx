@@ -837,11 +837,11 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
 
   const validateName = (value: string) => {
     if (!value.trim()) {
-      setNameError("Name is required");
+      setNameError("Nome é obrigatório");
       return false;
     }
     if (!VALID_NAME_REGEX.test(value)) {
-      setNameError("Only letters, numbers, -, _ and . allowed");
+      setNameError("Apenas letras, números, -, _ e . permitidos");
       return false;
     }
     setNameError("");
@@ -903,10 +903,10 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
           {/* Name */}
           <div>
             <Input
-              label="Combo Name"
+              label="Nome do Combo"
               value={name}
               onChange={handleNameChange}
-              placeholder="my-combo"
+              placeholder="meu-combo"
               error={nameError}
             />
             <p className="mt-1 text-xs text-text-muted">
@@ -989,7 +989,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
           {/* Actions */}
           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
             <Button onClick={onClose} variant="ghost" fullWidth size="sm" className="min-h-11 sm:min-h-9">
-              Cancel
+              Cancelar
             </Button>
             <Button
               onClick={handleSave}
@@ -1013,7 +1013,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
           onDeselect={handleDeselectModel}
           activeProviders={activeProviders as unknown as ActiveProvider[]}
           modelAliases={modelAliases}
-          title="Add Model to Combo"
+          title="Adicionar Modelo ao Combo"
           kindFilter={kindFilter}
           addedModelValues={models}
           closeOnSelect={false}

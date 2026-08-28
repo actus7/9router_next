@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { PROVIDER_MODELS } from "@/lib/open-sse/config/providerModels";
+import { PROVIDER_MODELS } from "@/server/llm-gateway/catalog";
 import { AI_PROVIDERS, ALIAS_TO_ID } from "@/shared/constants/providers";
 import { getModelKind } from "@/shared/constants/models";
 

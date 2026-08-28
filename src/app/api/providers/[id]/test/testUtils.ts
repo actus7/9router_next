@@ -2,12 +2,12 @@ import { getProviderConnectionById, updateProviderConnection } from "@/lib/local
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { testProxyUrl } from "@/lib/network/proxyTest";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
-import { getDefaultModel } from "@/lib/open-sse/config/providerModels";
-import { resolveOllamaLocalHost, PROVIDERS } from "@/lib/open-sse/config/providers";
+import { getDefaultModel, resolveOllamaLocalHost, PROVIDERS } from "@/server/llm-gateway/catalog";
 import {
   refreshProviderCredentials,
   shouldRefreshCredentials,
-} from "@/lib/open-sse/services/oauthCredentialManager";
+  buildClineHeaders,
+} from "@/server/llm-gateway/auth";
 import {
   GEMINI_CONFIG,
   ANTIGRAVITY_CONFIG,
@@ -17,7 +17,6 @@ import {
   KILOCODE_CONFIG,
   KIMCHI_CONFIG,
 } from "@/lib/oauth/constants/oauth";
-import { buildClineHeaders } from "@/lib/open-sse/shared/clineAuth";
 
 interface OAuthTestConfig {
   url?: string;
@@ -478,7 +477,7 @@ async function testOAuthConnection(connection: Record<string, unknown>, effectiv
 
 async function fetchWithConnectionProxy(url: string, options: RequestInit = {}, effectiveProxy: ConnectionProxyConfig | null = null): Promise<Response> {
   if (effectiveProxy?.vercelRelayUrl) {
-    const { proxyAwareFetch } = await import("@/lib/open-sse/utils/proxyFetch");
+    const { proxyAwareFetch } = await import("@/server/llm-gateway/usage");
     return proxyAwareFetch(url, options, {
       vercelRelayUrl: effectiveProxy.vercelRelayUrl,
     });
@@ -488,7 +487,7 @@ async function fetchWithConnectionProxy(url: string, options: RequestInit = {}, 
     return fetch(url, options);
   }
 
-  const { proxyAwareFetch } = await import("@/lib/open-sse/utils/proxyFetch");
+  const { proxyAwareFetch } = await import("@/server/llm-gateway/usage");
   return proxyAwareFetch(url, options, {
     connectionProxyEnabled: true,
     connectionProxyUrl: effectiveProxy.connectionProxyUrl,

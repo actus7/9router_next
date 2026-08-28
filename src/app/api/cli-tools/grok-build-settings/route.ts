@@ -4,7 +4,7 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
-import { getCapabilitiesForModel } from "@/lib/open-sse/providers/capabilities";
+import { getCapabilitiesForModel } from "@/server/llm-gateway/catalog";
 import {
   applyGrokBuildConfig,
   GROK_SUBAGENT_TYPES,

@@ -8,17 +8,9 @@ import {
 } from "@/shared/constants/providers";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
-import { resolveKiroModels } from "@/lib/open-sse/services/kiroModels";
-import { resolveKimchiModels } from "@/lib/open-sse/services/kimchiModels";
-import { resolveQoderModels } from "@/lib/open-sse/services/qoderModels";
-import { resolveCopilotModels } from "@/lib/open-sse/services/copilotModels";
-import { resolveClinepassModels } from "@/lib/open-sse/services/clinepassModels";
-import { resolveGrokCliModels } from "@/lib/open-sse/services/grokCliModels";
-import { resolveCursorModels } from "@/lib/open-sse/services/cursorModels";
-import { resolveZedModels } from "@/lib/open-sse/shared/zedAuth";
-import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
+import { resolveKiroModels, resolveKimchiModels, resolveQoderModels, resolveCopilotModels, resolveClinepassModels, resolveGrokCliModels, resolveCursorModels, resolveZedModels, capabilitiesFromServiceKind, getCapabilitiesForModel } from "@/server/llm-gateway/catalog";
+import { updateProviderCredentials } from "@/server/llm-gateway/auth";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
-import { capabilitiesFromServiceKind, getCapabilitiesForModel } from "@/lib/open-sse/providers/capabilities";
 
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
@@ -268,31 +260,31 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
   try {
     connections = (await getProviderConnections()) as unknown as ConnectionRecord[];
     connections = connections.filter((c) => c.isActive !== false);
-  } catch ($1) { console.error("Could not fetch providers, returning all models");
+  } catch { console.error("Could not fetch providers, returning all models");
   }
 
   let combos: Record<string, unknown>[] = [];
   try {
     combos = (await getCombos()) as unknown as Record<string, unknown>[];
-  } catch ($1) { console.error("Could not fetch combos");
+  } catch { console.error("Could not fetch combos");
   }
 
   let customModels: Record<string, unknown>[] = [];
   try {
     customModels = (await getCustomModels()) as unknown as Record<string, unknown>[];
-  } catch ($1) { console.error("Could not fetch custom models");
+  } catch { console.error("Could not fetch custom models");
   }
 
   let modelAliases: Record<string, unknown> = {};
   try {
     modelAliases = (await getModelAliases()) as unknown as Record<string, unknown>;
-  } catch ($1) { console.error("Could not fetch model aliases");
+  } catch { console.error("Could not fetch model aliases");
   }
 
   let disabledByAlias: Record<string, string[]> = {};
   try {
     disabledByAlias = (await getDisabledModels()) as unknown as Record<string, string[]>;
-  } catch ($1) { console.error("Could not fetch disabled models");
+  } catch { console.error("Could not fetch disabled models");
   }
   const isDisabled = (alias: string, modelId: string) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
@@ -412,7 +404,7 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
                 .map((m) => [m.id, m.capabilities])
             );
           }
-        } catch ($1) { console.error(`Live model fetch failed for ${providerId}: ${($1 instanceof Error ? $1.message : String($1))}`);
+        } catch (error) { console.error(`Live model fetch failed for ${providerId}: ${(error instanceof Error ? error.message : String(error))}`);
         }
       }
 

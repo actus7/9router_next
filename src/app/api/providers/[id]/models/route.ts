@@ -2,15 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProviderConnectionById } from "@/models";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { GEMINI_CONFIG } from "@/lib/oauth/constants/oauth";
-import { refreshGoogleToken, refreshCodexToken, updateProviderCredentials } from "@/sse/services/tokenRefresh";
-import { resolveOllamaLocalHost } from "@/lib/open-sse/config/providers";
-import { getModelsByProviderId } from "@/lib/open-sse/config/providerModels";
-import { resolveKiroModels } from "@/lib/open-sse/services/kiroModels";
-import { resolveKimchiModels } from "@/lib/open-sse/services/kimchiModels";
-import { resolveQoderModels } from "@/lib/open-sse/services/qoderModels";
-import { resolveGrokCliModels } from "@/lib/open-sse/services/grokCliModels";
+import { refreshGoogleToken, refreshCodexToken, updateProviderCredentials } from "@/server/llm-gateway/auth";
+import { resolveOllamaLocalHost, getModelsByProviderId, resolveKiroModels, resolveKimchiModels, resolveQoderModels, resolveGrokCliModels, resolveCursorModels } from "@/server/llm-gateway/catalog";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
-import { resolveCursorModels } from "@/lib/open-sse/services/cursorModels";
 
 interface RouteContext {
   params: Promise<{ id: string }>;

@@ -1,10 +1,6 @@
 // Quota auto-ping scheduler: warms 5h windows by sending tiny opt-in requests right after reset.
 import { getSettings, getProviderConnections, updateProviderConnection } from "@/lib/localDb";
-import { getClaudeUsage } from "@/lib/open-sse/services/usage/claude";
-import { getCodexUsage } from "@/lib/open-sse/services/usage/codex";
-import { getExecutor } from "@/lib/open-sse/executors/index";
-import { CLAUDE_CLI_SPOOF_HEADERS } from "@/lib/open-sse/providers/shared";
-import { proxyAwareFetch } from "@/lib/open-sse/utils/proxyFetch";
+import { getClaudeUsage, getCodexUsage, getExecutor, CLAUDE_CLI_SPOOF_HEADERS, proxyAwareFetch } from "@/server/llm-gateway/usage";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "@/app/api/usage/[connectionId]/route";
 import { QUOTA_AUTOPING_CONFIG } from "@/shared/constants/config";
@@ -112,7 +108,6 @@ const providerHandlers: Record<string, ProviderHandler> = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __quotaAutoPing: AutoPingState | undefined;
 }
 

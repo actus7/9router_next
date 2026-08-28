@@ -11,7 +11,6 @@ interface ConsoleLogBufferState {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var _consoleLogBufferState: ConsoleLogBufferState | undefined;
 }
 

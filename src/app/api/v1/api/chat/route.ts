@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
-import { handleChat } from "@/sse/handlers/chat";
-import { initTranslators } from "@/lib/open-sse/translator/index";
-import { transformToOllama } from "@/lib/open-sse/utils/ollamaTransform";
+import { handleChat, transformToOllama } from "@/server/llm-gateway/chat";
+import { initTranslators } from "@/server/llm-gateway/translator";
 
 let initialized = false;
 

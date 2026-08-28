@@ -7,7 +7,6 @@ const isBuildPhase: boolean =
   process.env.NEXT_PHASE === "phase-static";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __appBootstrapped: boolean | undefined;
 }
 

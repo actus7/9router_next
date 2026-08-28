@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { handleImageGeneration } from "@/sse/handlers/imageGeneration";
+import { handleImageGeneration } from "@/server/llm-gateway/media";
 
 export async function OPTIONS() {
   return new Response(null, {

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, Button, Input } from "@/shared/components";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/shared/components/Loading";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [resetHint, setResetHint] = useState("");
@@ -43,7 +45,7 @@ export default function LoginPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.authenticated === true || data.requireLogin === false) {
-            window.location.assign("/dashboard");
+            router.replace("/dashboard");
             return;
           }
           setHasPassword(!!data.hasPassword);
@@ -63,7 +65,7 @@ export default function LoginPage() {
       }
     }
     checkAuth();
-  }, []);
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,7 +86,7 @@ export default function LoginPage() {
           setMustChange(true);
           return;
         }
-        window.location.assign("/dashboard");
+        router.replace("/dashboard");
       } else {
         const data = await res.json();
         setError(data.error || "Senha inválida");
@@ -110,7 +112,7 @@ export default function LoginPage() {
         body: JSON.stringify({ currentPassword: password, newPassword }),
       });
       if (res.ok) {
-        window.location.assign("/dashboard");
+        router.replace("/dashboard");
       } else {
         const data = await res.json();
         setError(data.error || "Falha ao definir senha");
@@ -123,10 +125,14 @@ export default function LoginPage() {
   };
 
   const handleOidcLogin = () => {
+    // This endpoint delegates to an identity provider and requires a document navigation.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/api/auth/oidc/start";
   };
 
   const handleSamlLogin = () => {
+    // This endpoint delegates to an identity provider and requires a document navigation.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/api/auth/saml/start";
   };
 

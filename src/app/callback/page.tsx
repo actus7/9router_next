@@ -58,7 +58,7 @@ function CallbackContent() {
         try {
           (window.opener as Window).postMessage({ type: "oauth_callback", data: callbackData }, origin);
           relayed = true;
-        } catch ($1) { console.error("postMessage failed:", $1);
+        } catch (error) { console.error("postMessage failed:", error);
         }
       }
     }
@@ -69,14 +69,14 @@ function CallbackContent() {
       channel.postMessage(callbackData);
       channel.close();
       relayed = true;
-    } catch ($1) { console.error("BroadcastChannel failed:", $1);
+    } catch (error) { console.error("BroadcastChannel failed:", error);
     }
 
     // Method 3: localStorage event (fallback)
     try {
       localStorage.setItem("oauth_callback", JSON.stringify({ ...callbackData, timestamp: Date.now() }));
       relayed = true;
-    } catch ($1) { console.error("localStorage failed:", $1);
+    } catch (error) { console.error("localStorage failed:", error);
     }
 
     if (!(code || token || error)) {

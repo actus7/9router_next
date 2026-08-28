@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getComboById } from "@/lib/localDb";
 import { getProviders, getModelAliases } from "@/lib/data-access";
 import SmartComboClient from "./SmartComboClient";
-import { refreshDeterministicSmartProfiles } from "@/lib/open-sse/services/smart-routing/inventory";
+import { refreshDeterministicSmartProfiles } from "@/server/llm-gateway/smart-routing";
 
 interface PageProps {
   params: Promise<{ id: string }>;

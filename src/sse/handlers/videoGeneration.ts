@@ -103,6 +103,7 @@ function withConnectionHeader(response: Response, connectionId: string | null): 
 export async function handleVideoCreate(request: Request, action: string): Promise<Response> {
   const authError: Response | null = await requireValidApiKey(request);
   if (authError) return authError;
+  const apiKey: string | null = extractApiKey(request);
 
   const bodyInfo: ForwardableBody = await readForwardableBody(request);
   if (bodyInfo.error) return bodyInfo.error;
@@ -118,7 +119,7 @@ export async function handleVideoCreate(request: Request, action: string): Promi
         headers: request.headers,
         endpointNeed: "video_generation",
         sessionKey: deriveRoutingSessionKey(request.headers, parsedBody),
-        classifyWithModel: (classifierModel, prompt, timeoutMs) => classifySmartRouting(classifierModel, prompt, timeoutMs, request),
+        classifyWithModel: (classifierModel, prompt, timeoutMs) => classifySmartRouting(classifierModel, prompt, timeoutMs, request, apiKey),
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible video model is active");
       attachRoutingDecision(parsedBody, routing.meta);

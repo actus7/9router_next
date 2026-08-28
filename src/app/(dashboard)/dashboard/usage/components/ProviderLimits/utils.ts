@@ -1,4 +1,4 @@
-import { getModelsByProviderId } from "@/lib/open-sse/config/providerModels";
+import { getModelsByProviderId } from "@/shared/llm-catalog";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 export const QUOTA_CACHE_KEY = "quotaCacheData";

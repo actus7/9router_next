@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { handleSearch } from "@/sse/handlers/search";
+import { handleSearch } from "@/server/llm-gateway/search";
 
 /**
  * Handle CORS preflight

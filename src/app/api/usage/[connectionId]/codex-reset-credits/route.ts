@@ -1,9 +1,8 @@
 import { NextRequest } from "next/server";
 // Ensure proxyFetch is loaded to patch globalThis.fetch
-import "@/lib/open-sse/utils/proxyFetch";
+import { consumeCodexRateLimitResetCredit, getCodexRateLimitResetCredits } from "@/server/llm-gateway/usage";
 
 import { getProviderConnectionById } from "@/lib/localDb";
-import { consumeCodexRateLimitResetCredit, getCodexRateLimitResetCredits } from "@/lib/open-sse/services/usage";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "../route";
 

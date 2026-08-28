@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { handleStt } from "@/sse/handlers/stt";
+import { handleStt } from "@/server/llm-gateway/media";
 
 // Allow large audio uploads — 5min for processing large files
 export const maxDuration = 300;

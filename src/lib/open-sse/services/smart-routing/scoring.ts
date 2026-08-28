@@ -1,6 +1,6 @@
 /**
  * Local routing scorer inspired by Manifest's former smart-routing scorer.
- * Manifest is MIT licensed: https://github.com/MadAppGang/manifest
+ * Manifest is MIT licensed: https://github.com/mnfst/manifest
  * This implementation is original and extends the approach for Portuguese,
  * endpoint capabilities, task classification, and RouterX request shapes.
  */

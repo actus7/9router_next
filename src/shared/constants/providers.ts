@@ -1,5 +1,5 @@
 // Provider definitions
-import REGISTRY from "@/lib/open-sse/providers/registry/index";
+import { REGISTRY } from "@/shared/llm-catalog";
 import { RISK_NOTICE } from "@/shared/constants/providersDisplay";
 
 const MEDIA_ENTRY_KEYS = [

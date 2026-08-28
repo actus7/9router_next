@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertSmartModelProfiles } from "@/lib/localDb";
-import { refreshDeterministicSmartProfiles } from "@/lib/open-sse/services/smart-routing/inventory";
-import { ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTier, type SmartModelProfile } from "@/lib/open-sse/services/smart-routing/types";
+import { refreshDeterministicSmartProfiles, invalidateSmartProfileCache, ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTier, type SmartModelProfile } from "@/server/llm-gateway/smart-routing";
 
 function clamp(value: unknown, fallback: number): number {
   const number = Number(value);
@@ -45,6 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     if (accepted.length === 0) return NextResponse.json({ error: "No profiles matched the current active inventory" }, { status: 400 });
     await upsertSmartModelProfiles(accepted);
+    invalidateSmartProfileCache();
     return NextResponse.json({ profiles: accepted, saved: accepted.length });
   } catch (error) {
     console.error("Error confirming smart model profiles:", error);

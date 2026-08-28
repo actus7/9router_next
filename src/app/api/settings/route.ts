@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSettings, updateSettings } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
-import { resetComboRotation } from "@/lib/open-sse/services/combo";
+import { resetComboRotation } from "@/server/llm-gateway/catalog";
 import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";

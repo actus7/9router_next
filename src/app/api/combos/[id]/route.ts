@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/localDb";
-import { resetComboRotation } from "@/lib/open-sse/services/combo";
-import { DEFAULT_SMART_ROUTING_CONFIG } from "@/lib/open-sse/services/smart-routing/types";
-import { validateSmartRoutingConfig } from "@/lib/open-sse/services/smart-routing/router";
+import { resetComboRotation } from "@/server/llm-gateway/catalog";
+import { DEFAULT_SMART_ROUTING_CONFIG, validateSmartRoutingConfig } from "@/server/llm-gateway/smart-routing";
 
 interface RouteContext {
   params: Promise<{ id: string }>;

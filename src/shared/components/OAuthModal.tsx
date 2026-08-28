@@ -513,7 +513,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     try {
       channel = new BroadcastChannel("oauth_callback");
       channel.onmessage = (event) => handleCallback(event.data);
-    } catch ($1) { console.error("BroadcastChannel not supported");
+    } catch { console.error("BroadcastChannel not supported");
     }
 
     const handleStorage = (event: StorageEvent) => {

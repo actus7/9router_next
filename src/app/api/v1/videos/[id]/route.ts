@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { handleVideoGet } from "@/sse/handlers/videoGeneration";
+import { handleVideoGet } from "@/server/llm-gateway/media";
 
 export async function OPTIONS() {
   return new Response(null, {

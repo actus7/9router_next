@@ -618,7 +618,7 @@ export default function BasicChatPageClient() {
     const title = makeSessionTitle(titleSeed);
     updateSession(sessionId, (session) => ({
       ...session,
-      title: session.title === "New chat" ? title : session.title,
+      title: session.title === "Nova conversa" ? title : session.title,
       updatedAt: new Date().toISOString(),
     }));
   };
@@ -672,7 +672,7 @@ export default function BasicChatPageClient() {
       modelName: model.name,
       messages: nextMessages,
       updatedAt: new Date().toISOString(),
-      title: item.title === "New chat" ? makeSessionTitle(userText) : item.title,
+      title: item.title === "Nova conversa" ? makeSessionTitle(userText) : item.title,
     } : item)));
     setDraft("");
     setAttachments([]);
@@ -993,7 +993,7 @@ export default function BasicChatPageClient() {
 
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="text-white/50 hover:text-white rounded-full hover:bg-white/5">
+                    <Button variant="ghost" size="icon" type="button" aria-label="Anexar imagem" onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="text-white/50 hover:text-white rounded-full hover:bg-white/5">
                       <Paperclip className="size-5" />
                     </Button>
                     <Input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAttachFiles} />
@@ -1002,11 +1002,11 @@ export default function BasicChatPageClient() {
 
                   <div className="flex items-center gap-2">
                     {isSending ? (
-                      <Button variant="secondary" size="icon" type="button" onClick={handleStop} className="rounded-full">
+                      <Button variant="secondary" size="icon" type="button" aria-label="Parar geração" onClick={handleStop} className="rounded-full">
                         <Square className="size-4" />
                       </Button>
                     ) : null}
-                    <Button variant="secondary" size="icon" onClick={sendMessage} disabled={!canSend} className={`rounded-full ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30'}`}>
+                    <Button variant="secondary" size="icon" aria-label="Enviar mensagem" onClick={sendMessage} disabled={!canSend} className={`rounded-full ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30'}`}>
                       <ArrowUp className="size-4" />
                     </Button>
                   </div>

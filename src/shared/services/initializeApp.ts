@@ -58,7 +58,6 @@ process.setMaxListeners(20);
 const STARTUP_DEFER_MS: number = 3000;
 
 declare global {
-  // eslint-disable-next-line no-var
   var __appSingleton: AppSingleton | undefined;
 }
 
@@ -132,7 +131,7 @@ async function runHeavyStartup(): Promise<void> {
 
   // Proactive OAuth token refresh (e.g. grok-cli ~6h TTL). Module is idempotent
   // and also started from custom-server.js when that entry is used.
-  import("@/sse/services/backgroundTokenRefresh")
+  import("@/server/llm-gateway/auth")
     .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
     .catch((e: Error) => console.error("[BackgroundTokenRefresh] scheduler start failed:", e.message));
 }

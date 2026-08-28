@@ -1,15 +1,15 @@
 import { NextRequest } from "next/server";
-import { handleChat } from "@/sse/handlers/chat";
+import { handleChat } from "@/server/llm-gateway/chat";
 import {
   clearAccountError,
   getProviderCredentials,
   isValidApiKey,
   markAccountUnavailable,
-} from "@/sse/services/auth";
+} from "@/server/llm-gateway/auth";
 import { getSettings } from "@/lib/localDb";
 import { PROVIDER_MODELS } from "@/shared/constants/models";
-import { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "@/lib/open-sse/config/runtimeConfig";
-import { initTranslators } from "@/lib/open-sse/translator/index";
+import { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "@/server/llm-gateway";
+import { initTranslators } from "@/server/llm-gateway/translator";
 
 let initialized = false;
 const GEMINI_NATIVE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";

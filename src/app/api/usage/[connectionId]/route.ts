@@ -1,10 +1,8 @@
 import { NextRequest } from "next/server";
 // Ensure proxyFetch is loaded to patch globalThis.fetch
-import "@/lib/open-sse/utils/proxyFetch";
+import { getUsageForProvider, getExecutor } from "@/server/llm-gateway/usage";
 
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
-import { getUsageForProvider } from "@/lib/open-sse/services/usage";
-import { getExecutor } from "@/lib/open-sse/executors/index";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
 
@@ -32,7 +30,9 @@ export async function refreshAndUpdateCredentials(connection: Record<string, unk
     expiresAt: connection.expiresAt || connection.tokenExpiresAt,
     lastRefreshAt: connection.lastRefreshAt,
     connectionId: connection.id,
-    providerSpecificData: (connection.providerSpecificData as Record<string, unknown>)?.copilotToken,
+    providerSpecificData: connection.providerSpecificData,
+    // For GitHub
+    copilotToken: (connection.providerSpecificData as Record<string, unknown>)?.copilotToken,
     copilotTokenExpiresAt: (connection.providerSpecificData as Record<string, unknown>)?.copilotTokenExpiresAt,
   };
 
