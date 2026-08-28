@@ -205,6 +205,7 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_cd_connection ON cloudDeployments(connectionId)",
       "CREATE INDEX IF NOT EXISTS idx_cd_tool ON cloudDeployments(toolId)",
       "CREATE INDEX IF NOT EXISTS idx_cd_status ON cloudDeployments(status)",
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_cd_tool_provider_active ON cloudDeployments(toolId, provider) WHERE status != 'failed'",
     ],
   },
 };

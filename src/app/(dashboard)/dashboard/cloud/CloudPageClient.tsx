@@ -73,7 +73,13 @@ export default function CloudPageClient() {
   };
 
   const handleDisconnect = async (provider: string) => {
-    await fetch(`/api/cloud/connections/${provider}`, { method: "DELETE" });
+    const res = await fetch(`/api/cloud/connections/${provider}`, { method: "DELETE" });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      setActionError(json?.error ?? "Falha na operação");
+      return;
+    }
+    setActionError(null);
     await loadAll();
   };
 

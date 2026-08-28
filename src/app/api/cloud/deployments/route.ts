@@ -75,6 +75,12 @@ export async function POST(request: NextRequest) {
     if (isCloudProviderError(error)) {
       return NextResponse.json({ error: formatCloudProviderError(error) }, { status: 502 });
     }
+    if (error instanceof Error && error.message.includes("idx_cd_tool_provider_active")) {
+      return NextResponse.json(
+        { error: "Já existe um deployment ativo para esta ferramenta neste provider. Apague-o antes de criar outro." },
+        { status: 409 },
+      );
+    }
     console.error("[cloud/deployments] failed to create deployment", error);
     return NextResponse.json({ error: "Falha ao criar deployment" }, { status: 500 });
   }
