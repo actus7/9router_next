@@ -40,6 +40,15 @@ function isBlockedIpv6(host: string): boolean {
   const h = host.replace(/^\[|\]$/g, "").toLowerCase();
   const v4Mapped = h.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (v4Mapped) return isBlockedIpv4(v4Mapped[1]);
+  // WHATWG URL normalizes v4-mapped IPv6 to hex form (::ffff:7f00:1).
+  // Decode the embedded IPv4 and run the same range checks.
+  const v4MappedHex = h.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (v4MappedHex) {
+    const hi = parseInt(v4MappedHex[1], 16);
+    const lo = parseInt(v4MappedHex[2], 16);
+    const v4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+    return isBlockedIpv4(v4);
+  }
   if (h === "::1" || h === "::") return true;
   return h.startsWith("fe80:") || h.startsWith("fc") || h.startsWith("fd");
 }
