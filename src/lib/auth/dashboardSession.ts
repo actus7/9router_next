@@ -35,7 +35,7 @@ interface CookieStore {
 
 export function shouldUseSecureCookie(request?: RequestLike): boolean {
   const forceSecureCookie: boolean = process.env.AUTH_COOKIE_SECURE === "true";
-  const forwardedProto: string | null = request?.headers?.get?.("x-forwarded-proto");
+  const forwardedProto: string | null = request?.headers?.get?.("x-forwarded-proto") ?? null;
   const isHttpsRequest: boolean = forwardedProto === "https";
   return forceSecureCookie || isHttpsRequest;
 }

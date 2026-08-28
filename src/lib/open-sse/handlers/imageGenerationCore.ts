@@ -5,7 +5,7 @@ import { getExecutor } from "../executors/index";
 import { getImageAdapter } from "./imageProviders/index";
 import { urlToBase64 } from "./imageProviders/_base";
 
-function serializeRequestBody(requestBody) {
+function serializeRequestBody(requestBody: unknown) {
   if (typeof FormData !== "undefined" && requestBody instanceof FormData) return requestBody;
   if (typeof requestBody === "string") return requestBody;
   return JSON.stringify(requestBody);
@@ -35,6 +35,15 @@ export async function handleImageGenerationCore({
   binaryOutput = false,
   onCredentialsRefreshed,
   onRequestSuccess,
+}: {
+  body: Record<string, unknown>;
+  modelInfo: { provider: string; model: string };
+  credentials: Record<string, unknown>;
+  log?: { debug?: (...args: unknown[]) => void; info?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void };
+  streamToClient?: boolean;
+  binaryOutput?: boolean;
+  onCredentialsRefreshed?: (creds: Record<string, unknown>) => void | Promise<void>;
+  onRequestSuccess?: () => void | Promise<void>;
 }) {
   const { provider, model } = modelInfo;
 
@@ -53,7 +62,7 @@ export async function handleImageGenerationCore({
   // Executor-delegating adapters: skip manual URL/headers/body, use the proven executor flow
   if (adapter.useExecutor && adapter.executeViaExecutor) {
     try {
-      log?.debug?.("IMAGE", `${provider.toUpperCase()} | ${model} | prompt="${body.prompt.slice(0, 50)}..." (executor)`);
+      log?.debug?.("IMAGE", `${provider.toUpperCase()} | ${model} | prompt="${(body.prompt as string).slice(0, 50)}..." (executor)`);
       const responseBody = await adapter.executeViaExecutor(model, body, credentials, log);
       if (onRequestSuccess) await onRequestSuccess();
       const normalized = adapter.normalize(responseBody, body.prompt);
@@ -67,7 +76,7 @@ export async function handleImageGenerationCore({
         }
         if (b64) {
           const buf = Buffer.from(b64, "base64");
-          const fmt = (body.output_format || "png").toLowerCase();
+          const fmt = ((body.output_format as string) || "png").toLowerCase();
           const mime = fmt === "jpeg" || fmt === "jpg" ? "image/jpeg" : fmt === "webp" ? "image/webp" : "image/png";
           return {
             success: true,
@@ -84,8 +93,8 @@ export async function handleImageGenerationCore({
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         }),
       };
-    } catch (error) {
-      const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
+    } catch (error: unknown) {
+      const errMsg = formatProviderError(error as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, HTTP_STATUS.BAD_GATEWAY);
       log?.debug?.("IMAGE", `Executor error: ${errMsg}`);
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg);
     }
@@ -99,11 +108,11 @@ export async function handleImageGenerationCore({
     url = adapter.buildUrl(model, credentials);
     requestBody = await adapter.buildBody(model, body);
     headers = adapter.buildHeaders(credentials, requestBody, model, body);
-  } catch (error) {
-    return createErrorResult(HTTP_STATUS.BAD_REQUEST, error.message || `Invalid ${provider} image request`);
+  } catch (error: unknown) {
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, (error as Error).message || `Invalid ${provider} image request`);
   }
 
-  log?.debug?.("IMAGE", `${provider.toUpperCase()} | ${model} | prompt="${body.prompt.slice(0, 50)}..."`);
+  log?.debug?.("IMAGE", `${provider.toUpperCase()} | ${model} | prompt="${(body.prompt as string).slice(0, 50)}..."`);
 
   let providerResponse;
   try {
@@ -112,8 +121,8 @@ export async function handleImageGenerationCore({
       headers,
       body: serializeRequestBody(requestBody),
     });
-  } catch (error) {
-    const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
+  } catch (error: unknown) {
+    const errMsg = formatProviderError(error as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, HTTP_STATUS.BAD_GATEWAY);
     log?.debug?.("IMAGE", `Fetch error: ${errMsg}`);
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg);
   }
@@ -156,7 +165,7 @@ export async function handleImageGenerationCore({
 
   if (!providerResponse.ok) {
     const { statusCode, message } = await parseUpstreamError(providerResponse);
-    const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
+    const errMsg = formatProviderError(new Error(message) as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, statusCode);
     log?.debug?.("IMAGE", `Provider error: ${errMsg}`);
     return createErrorResult(statusCode, errMsg);
   }
@@ -182,8 +191,8 @@ export async function handleImageGenerationCore({
     } else {
       parsed = await providerResponse.json();
     }
-  } catch (parseError) {
-    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, parseError.message || `Invalid response from ${provider}`);
+  } catch (parseError: unknown) {
+    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, (parseError as Error).message || `Invalid response from ${provider}`);
   }
 
   if (onRequestSuccess) await onRequestSuccess();
@@ -203,7 +212,7 @@ export async function handleImageGenerationCore({
     }
     if (b64) {
       const buf = Buffer.from(b64, "base64");
-      const fmt = (body.output_format || "png").toLowerCase();
+      const fmt = ((body.output_format as string) || "png").toLowerCase();
       const mime = fmt === "jpeg" || fmt === "jpg" ? "image/jpeg" : fmt === "webp" ? "image/webp" : "image/png";
       return {
         success: true,

@@ -1,4 +1,5 @@
 import { BaseExecutor } from "./base";
+import type { ExecuteArgs } from "./base";
 import { PROVIDERS } from "../config/providers";
 import { SSE_DONE, SSE_HEADERS_NO_BUFFER } from "../utils/sseConstants";
 import { sseChunk } from "../utils/sse";
@@ -34,11 +35,14 @@ const MULTI_NL = /\n{3,}/g;
 const SESSION_MAX_AGE_MS = 3600_000;
 const SESSION_MAX_ENTRIES = 200;
 
-const sessionCache = new Map();
+interface HistoryEntry { role: string; content: string }
+interface SessionEntry { backendUuid: string; ts: number }
+
+const sessionCache = new Map<string, SessionEntry>();
 
 // FNV-1a hash for session key lookup
-function sessionKey(history) {
-  const parts = history.map((h) => `${h.role}:${h.content}`).join("\n");
+function sessionKey(history: HistoryEntry[]): string {
+  const parts = history.map((h: HistoryEntry) => `${h.role}:${h.content}`).join("\n");
   let hash = 0x811c9dc5;
   for (let i = 0; i < parts.length; i++) {
     hash ^= parts.charCodeAt(i);
@@ -47,7 +51,7 @@ function sessionKey(history) {
   return hash.toString(16).padStart(8, "0");
 }
 
-function sessionLookup(history) {
+function sessionLookup(history: HistoryEntry[]): string | null {
   if (history.length === 0) return null;
   const key = sessionKey(history);
   const entry = sessionCache.get(key);
@@ -59,7 +63,7 @@ function sessionLookup(history) {
   return entry.backendUuid;
 }
 
-function sessionStore(history, currentMsg, responseText, backendUuid) {
+function sessionStore(history: HistoryEntry[], currentMsg: string, responseText: string, backendUuid: string | null): void {
   if (!backendUuid) return;
   const full = [...history, { role: "user", content: currentMsg }, { role: "assistant", content: responseText }];
   const key = sessionKey(full);
@@ -74,7 +78,7 @@ function sessionStore(history, currentMsg, responseText, backendUuid) {
   }
 }
 
-function cleanResponse(text, strip = true) {
+function cleanResponse(text: string, strip = true): string {
   let t = text;
   t = t.replace(XML_DECL_RE, "");
   t = t.replace(CITATION_RE, "");
@@ -89,11 +93,11 @@ function cleanResponse(text, strip = true) {
   return t;
 }
 
-async function* readPplxSseEvents(body, signal) {
+async function* readPplxSseEvents(body: ReadableStream<Uint8Array>, signal?: AbortSignal | null): AsyncGenerator<Record<string, unknown>> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let dataLines = [];
+  let dataLines: string[] = [];
 
   function flush() {
     if (dataLines.length === 0) return null;
@@ -135,16 +139,16 @@ async function* readPplxSseEvents(body, signal) {
   }
 }
 
-function parseOpenAIMessages(messages) {
+function parseOpenAIMessages(messages: Record<string, unknown>[]): { systemMsg: string; history: HistoryEntry[]; currentMsg: string } {
   let systemMsg = "";
-  const history = [];
+  const history: HistoryEntry[] = [];
   for (const msg of messages) {
     let role = String(msg.role || "user");
     if (role === "developer") role = "system";
     let content = "";
     if (typeof msg.content === "string") content = msg.content;
     else if (Array.isArray(msg.content)) {
-      content = msg.content.filter((c) => c.type === "text").map((c) => String(c.text || "")).join(" ");
+      content = (msg.content as Record<string, unknown>[]).filter((c: Record<string, unknown>) => c.type === "text").map((c: Record<string, unknown>) => String(c.text || "")).join(" ");
     }
     if (!content.trim()) continue;
     if (role === "system") systemMsg += content + "\n";
@@ -152,12 +156,12 @@ function parseOpenAIMessages(messages) {
   }
   let currentMsg = "";
   if (history.length > 0 && history[history.length - 1].role === "user") {
-    currentMsg = history.pop().content;
+    currentMsg = history.pop()!.content;
   }
   return { systemMsg, history, currentMsg };
 }
 
-function buildPplxRequestBody(query, mode, modelPref, followUpUuid) {
+function buildPplxRequestBody(query: string, mode: string, modelPref: string | string[], followUpUuid: string | null): Record<string, unknown> {
   const tz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
   return {
     query_str: query,
@@ -181,21 +185,21 @@ function buildPplxRequestBody(query, mode, modelPref, followUpUuid) {
   };
 }
 
-function formatToolsHint(tools) {
+function formatToolsHint(tools: Record<string, unknown>[]): string {
   if (!Array.isArray(tools) || tools.length === 0) return "";
   const lines = tools.map((t) => {
-    const fn = t?.function || t || {};
-    const name = fn.name || "unnamed";
-    const desc = (fn.description || "").split("\n")[0].slice(0, 200);
+    const fn = (t?.function as Record<string, unknown>) || t || {};
+    const name = (fn.name as string) || "unnamed";
+    const desc = ((fn.description as string) || "").split("\n")[0].slice(0, 200);
     return `- ${name}: ${desc}`;
   });
   return `Available tools (reference only, cannot invoke):\n${lines.join("\n")}`;
 }
 
-function buildQuery(parsed, followUpUuid, tools) {
+function buildQuery(parsed: { systemMsg: string; history: HistoryEntry[]; currentMsg: string }, followUpUuid: string | null, tools: Record<string, unknown>[]): string {
   if (followUpUuid) return parsed.currentMsg;
-  const obj = {};
-  const instr = [];
+  const obj: Record<string, unknown> = {};
+  const instr: string[] = [];
   if (parsed.systemMsg.trim()) instr.push(parsed.systemMsg.trim());
   const toolsHint = formatToolsHint(tools);
   if (toolsHint) instr.push(toolsHint);
@@ -208,35 +212,35 @@ function buildQuery(parsed, followUpUuid, tools) {
   return json.length > 96000 ? json.slice(-96000) : json;
 }
 
-async function* extractContent(eventStream, signal) {
+async function* extractContent(eventStream: ReadableStream<Uint8Array>, signal?: AbortSignal | null): AsyncGenerator<Record<string, unknown>> {
   let fullAnswer = "";
-  let backendUuid = null;
+  let backendUuid: string | null = null;
   let seenLen = 0;
-  const seenThinking = new Set();
+  const seenThinking = new Set<string>();
 
   for await (const event of readPplxSseEvents(eventStream, signal)) {
     if (event.error_code || event.error_message) {
-      yield { error: event.error_message || `Perplexity error: ${event.error_code}`, done: true };
+      yield { error: (event.error_message as string) || `Perplexity error: ${event.error_code}`, done: true };
       return;
     }
-    if (event.backend_uuid) backendUuid = event.backend_uuid;
+    if (event.backend_uuid) backendUuid = event.backend_uuid as string;
 
-    const blocks = event.blocks ?? [];
+    const blocks = (event.blocks as Record<string, unknown>[]) ?? [];
     for (const block of blocks) {
-      const usage = block.intended_usage ?? "";
+      const usage = (block.intended_usage as string) ?? "";
 
-      if (usage === "pro_search_steps" && block.plan_block?.steps) {
-        for (const step of block.plan_block.steps) {
+      if (usage === "pro_search_steps" && (block.plan_block as Record<string, unknown>)?.steps) {
+        for (const step of (block.plan_block as Record<string, unknown>).steps as Record<string, unknown>[]) {
           if (step.step_type === "SEARCH_WEB") {
-            for (const q of step.search_web_content?.queries ?? []) {
-              const qr = q.query ?? "";
+            for (const q of ((step.search_web_content as Record<string, unknown>)?.queries as Record<string, unknown>[]) ?? []) {
+              const qr = (q.query as string) ?? "";
               if (qr && !seenThinking.has(qr)) {
                 seenThinking.add(qr);
                 yield { thinking: `Searching: ${qr}`, backendUuid: backendUuid ?? undefined };
               }
             }
           } else if (step.step_type === "READ_RESULTS") {
-            for (const u of (step.read_results_content?.urls ?? []).slice(0, 3)) {
+            for (const u of (((step.read_results_content as Record<string, unknown>)?.urls as string[]) ?? []).slice(0, 3)) {
               if (u && !seenThinking.has(u)) {
                 seenThinking.add(u);
                 yield { thinking: `Reading: ${u}`, backendUuid: backendUuid ?? undefined };
@@ -246,9 +250,9 @@ async function* extractContent(eventStream, signal) {
         }
       }
 
-      if (usage === "plan" && block.plan_block?.goals) {
-        for (const goal of block.plan_block.goals) {
-          const desc = goal.description ?? "";
+      if (usage === "plan" && (block.plan_block as Record<string, unknown>)?.goals) {
+        for (const goal of (block.plan_block as Record<string, unknown>).goals as Record<string, unknown>[]) {
+          const desc = (goal.description as string) ?? "";
           if (desc && !seenThinking.has(desc)) {
             seenThinking.add(desc);
             yield { thinking: desc, backendUuid: backendUuid ?? undefined };
@@ -257,9 +261,9 @@ async function* extractContent(eventStream, signal) {
       }
 
       if (!usage.includes("markdown")) continue;
-      const mb = block.markdown_block;
+      const mb = block.markdown_block as Record<string, unknown> | undefined;
       if (!mb) continue;
-      const chunks = mb.chunks ?? [];
+      const chunks = (mb.chunks as string[]) ?? [];
       if (chunks.length === 0) continue;
 
       if (mb.progress === "DONE") {
@@ -277,7 +281,7 @@ async function* extractContent(eventStream, signal) {
     }
 
     if (blocks.length === 0 && event.text) {
-      const t = event.text.trim();
+      const t = (event.text as string).trim();
       if (t.length > seenLen) {
         const delta = t.slice(seenLen);
         fullAnswer = t;
@@ -291,7 +295,7 @@ async function* extractContent(eventStream, signal) {
   yield { delta: "", answer: fullAnswer, backendUuid: backendUuid ?? undefined, done: true };
 }
 
-function buildStreamingResponse(eventStream, model, cid, created, history, currentMsg, signal) {
+function buildStreamingResponse(eventStream: ReadableStream<Uint8Array>, model: string, cid: string, created: number, history: HistoryEntry[], currentMsg: string, signal?: AbortSignal | null): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream({
     async start(controller) {
@@ -302,10 +306,10 @@ function buildStreamingResponse(eventStream, model, cid, created, history, curre
         })));
 
         let fullAnswer = "";
-        let respBackendUuid = null;
+        let respBackendUuid: string | null = null;
 
         for await (const chunk of extractContent(eventStream, signal)) {
-          if (chunk.backendUuid) respBackendUuid = chunk.backendUuid;
+          if (chunk.backendUuid) respBackendUuid = chunk.backendUuid as string;
           if (chunk.error) {
             controller.enqueue(encoder.encode(sseChunk({
               id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
@@ -316,12 +320,12 @@ function buildStreamingResponse(eventStream, model, cid, created, history, curre
           if (chunk.thinking) {
             controller.enqueue(encoder.encode(sseChunk({
               id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-              choices: [{ index: 0, delta: { reasoning_content: chunk.thinking + "\n" }, finish_reason: null, logprobs: null }],
+              choices: [{ index: 0, delta: { reasoning_content: (chunk.thinking as string) + "\n" }, finish_reason: null, logprobs: null }],
             })));
             continue;
           }
-          if (chunk.done) { fullAnswer = chunk.answer || fullAnswer; break; }
-          let dt = chunk.delta || "";
+          if (chunk.done) { fullAnswer = (chunk.answer as string) || fullAnswer; break; }
+          let dt = (chunk.delta as string) || "";
           if (dt) {
             dt = cleanResponse(dt, false);
             if (dt) {
@@ -331,7 +335,7 @@ function buildStreamingResponse(eventStream, model, cid, created, history, curre
               })));
             }
           }
-          if (chunk.answer) fullAnswer = chunk.answer;
+          if (chunk.answer) fullAnswer = chunk.answer as string;
         }
 
         controller.enqueue(encoder.encode(sseChunk({
@@ -341,10 +345,11 @@ function buildStreamingResponse(eventStream, model, cid, created, history, curre
         controller.enqueue(encoder.encode(SSE_DONE));
 
         sessionStore(history, currentMsg, cleanResponse(fullAnswer), respBackendUuid);
-      } catch (err) {
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
         controller.enqueue(encoder.encode(sseChunk({
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-          choices: [{ index: 0, delta: { content: `[Stream error: ${err.message || String(err)}]` }, finish_reason: "stop", logprobs: null }],
+          choices: [{ index: 0, delta: { content: `[Stream error: ${errMsg}]` }, finish_reason: "stop", logprobs: null }],
         })));
         controller.enqueue(encoder.encode(SSE_DONE));
       } finally {
@@ -354,28 +359,28 @@ function buildStreamingResponse(eventStream, model, cid, created, history, curre
   });
 }
 
-async function buildNonStreamingResponse(eventStream, model, cid, created, history, currentMsg, signal) {
+async function buildNonStreamingResponse(eventStream: ReadableStream<Uint8Array>, model: string, cid: string, created: number, history: HistoryEntry[], currentMsg: string, signal?: AbortSignal | null): Promise<Response> {
   let fullAnswer = "";
-  let respBackendUuid = null;
-  const thinkingParts = [];
+  let respBackendUuid: string | null = null;
+  const thinkingParts: string[] = [];
 
   for await (const chunk of extractContent(eventStream, signal)) {
-    if (chunk.backendUuid) respBackendUuid = chunk.backendUuid;
+    if (chunk.backendUuid) respBackendUuid = chunk.backendUuid as string;
     if (chunk.error) {
       return new Response(JSON.stringify({
         error: { message: chunk.error, type: "upstream_error", code: "PPLX_ERROR" },
       }), { status: 502, headers: { "Content-Type": "application/json" } });
     }
-    if (chunk.thinking) { thinkingParts.push(chunk.thinking); continue; }
-    if (chunk.done) { fullAnswer = chunk.answer || fullAnswer; break; }
-    if (chunk.answer) fullAnswer = chunk.answer;
+    if (chunk.thinking) { thinkingParts.push(chunk.thinking as string); continue; }
+    if (chunk.done) { fullAnswer = (chunk.answer as string) || fullAnswer; break; }
+    if (chunk.answer) fullAnswer = chunk.answer as string;
   }
 
   fullAnswer = cleanResponse(fullAnswer);
   sessionStore(history, currentMsg, fullAnswer, respBackendUuid);
 
   const reasoningContent = thinkingParts.length > 0 ? thinkingParts.join("\n") : undefined;
-  const msg = { role: "assistant", content: fullAnswer };
+  const msg: Record<string, unknown> = { role: "assistant", content: fullAnswer };
   if (reasoningContent) msg.reasoning_content = reasoningContent;
 
   const promptTokens = Math.ceil(currentMsg.length / 4);
@@ -393,46 +398,46 @@ export class PerplexityWebExecutor extends BaseExecutor {
     super("perplexity-web", PROVIDERS["perplexity-web"]);
   }
 
-  async execute({ model, body, stream, credentials, signal, log }) {
+  async execute({ model, body, stream, credentials, signal, log }: ExecuteArgs) {
     const messages = body?.messages;
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       const errResp = new Response(JSON.stringify({
         error: { message: "Missing or empty messages array", type: "invalid_request" },
       }), { status: 400, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: PPLX_SSE_ENDPOINT, headers: {}, transformedBody: body };
+      return { response: errResp, url: PPLX_SSE_ENDPOINT as string, headers: {} as Record<string, string>, transformedBody: body };
     }
 
     const thinking = body?.thinking === true || (body?.reasoning_effort != null && body.reasoning_effort !== "none");
 
-    let pplxMode;
-    let modelPref;
-    if (thinking && THINKING_MAP[model]) {
+    let pplxMode: string;
+    let modelPref: string | string[];
+    if (thinking && THINKING_MAP[model as keyof typeof THINKING_MAP]) {
       pplxMode = "copilot";
-      modelPref = THINKING_MAP[model];
+      modelPref = THINKING_MAP[model as keyof typeof THINKING_MAP];
       log?.info?.("PPLX-WEB", `Thinking mode → ${model} using ${modelPref}`);
-    } else if (MODEL_MAP[model]) {
-      [pplxMode, modelPref] = MODEL_MAP[model];
+    } else if (MODEL_MAP[model as keyof typeof MODEL_MAP]) {
+      [pplxMode, modelPref] = MODEL_MAP[model as keyof typeof MODEL_MAP];
     } else {
       pplxMode = "copilot";
       modelPref = model;
       log?.info?.("PPLX-WEB", `Unmapped model ${model}, using as raw preference`);
     }
 
-    const parsed = parseOpenAIMessages(messages);
+    const parsed = parseOpenAIMessages(messages as Record<string, unknown>[]);
     const followUpUuid = sessionLookup(parsed.history);
     if (followUpUuid) log?.info?.("PPLX-WEB", `Session continue: ${followUpUuid.slice(0, 12)}...`);
 
-    const query = buildQuery(parsed, followUpUuid, body?.tools);
+    const query = buildQuery(parsed, followUpUuid, (body?.tools as Record<string, unknown>[]) ?? []);
     if (!query.trim()) {
       const errResp = new Response(JSON.stringify({
         error: { message: "Empty query after processing", type: "invalid_request" },
       }), { status: 400, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: PPLX_SSE_ENDPOINT, headers: {}, transformedBody: body };
+      return { response: errResp, url: PPLX_SSE_ENDPOINT as string, headers: {} as Record<string, string>, transformedBody: body };
     }
 
     const pplxBody = buildPplxRequestBody(query, pplxMode, modelPref, followUpUuid);
 
-    const headers = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
       Origin: "https://www.perplexity.ai",
@@ -450,18 +455,19 @@ export class PerplexityWebExecutor extends BaseExecutor {
 
     log?.info?.("PPLX-WEB", `Query to ${model} (pref=${modelPref}, mode=${pplxMode}), len=${query.length}`);
 
-    const fetchOptions = { method: "POST", headers, body: JSON.stringify(pplxBody) };
+    const fetchOptions: RequestInit & { signal?: AbortSignal } = { method: "POST", headers, body: JSON.stringify(pplxBody) };
     if (signal) fetchOptions.signal = signal;
 
-    let response;
+    let response: Response;
     try {
-      response = await fetch(PPLX_SSE_ENDPOINT, fetchOptions);
-    } catch (err) {
-      log?.error?.("PPLX-WEB", `Fetch failed: ${err.message || String(err)}`);
+      response = await fetch(PPLX_SSE_ENDPOINT as string, fetchOptions);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      log?.error?.("PPLX-WEB", `Fetch failed: ${errMsg}`);
       const errResp = new Response(JSON.stringify({
-        error: { message: `Perplexity connection failed: ${err.message || String(err)}`, type: "upstream_error" },
+        error: { message: `Perplexity connection failed: ${errMsg}`, type: "upstream_error" },
       }), { status: 502, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: PPLX_SSE_ENDPOINT, headers, transformedBody: pplxBody };
+      return { response: errResp, url: PPLX_SSE_ENDPOINT as string, headers, transformedBody: pplxBody as unknown as Record<string, unknown> };
     }
 
     if (!response.ok) {
@@ -473,20 +479,20 @@ export class PerplexityWebExecutor extends BaseExecutor {
       const errResp = new Response(JSON.stringify({
         error: { message: errMsg, type: "upstream_error", code: `HTTP_${status}` },
       }), { status, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: PPLX_SSE_ENDPOINT, headers, transformedBody: pplxBody };
+      return { response: errResp, url: PPLX_SSE_ENDPOINT as string, headers, transformedBody: pplxBody as unknown as Record<string, unknown> };
     }
 
     if (!response.body) {
       const errResp = new Response(JSON.stringify({
         error: { message: "Perplexity returned empty response body", type: "upstream_error" },
       }), { status: 502, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: PPLX_SSE_ENDPOINT, headers, transformedBody: pplxBody };
+      return { response: errResp, url: PPLX_SSE_ENDPOINT as string, headers, transformedBody: pplxBody as unknown as Record<string, unknown> };
     }
 
     const cid = `chatcmpl-pplx-${crypto.randomUUID().slice(0, 12)}`;
     const created = Math.floor(Date.now() / 1000);
 
-    let finalResponse;
+    let finalResponse: Response;
     if (stream) {
       const sseStream = buildStreamingResponse(response.body, model, cid, created, parsed.history, parsed.currentMsg, signal);
       finalResponse = new Response(sseStream, {
@@ -496,7 +502,7 @@ export class PerplexityWebExecutor extends BaseExecutor {
     } else {
       finalResponse = await buildNonStreamingResponse(response.body, model, cid, created, parsed.history, parsed.currentMsg, signal);
     }
-    return { response: finalResponse, url: PPLX_SSE_ENDPOINT, headers, transformedBody: pplxBody };
+    return { response: finalResponse, url: PPLX_SSE_ENDPOINT as string, headers, transformedBody: pplxBody as unknown as Record<string, unknown> };
   }
 }
 

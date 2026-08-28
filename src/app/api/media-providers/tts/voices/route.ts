@@ -5,10 +5,10 @@ import { NextRequest, NextResponse  } from "next/server";
 const LOCALE_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
 const LANG_NAMES   = new Intl.DisplayNames(["en"], { type: "language" });
 
-function countryName(code) {
+function countryName(code: string) {
   try { return LOCALE_NAMES.of(code); } catch { return code; }
 }
-function langName(code) {
+function langName(code: string) {
   try { return LANG_NAMES.of(code); } catch { return code; }
 }
 
@@ -34,38 +34,38 @@ export async function GET(request: NextRequest) {
     // ElevenLabs requires API key
     const raw = provider === "elevenlabs" ? await fetcher(apiKey) : await fetcher();
     const useElevenShape = provider === "elevenlabs" || provider === "gemini";
-    let voices;
+    let voices: Record<string, unknown>[];
 
     if (provider === "local-device") {
-      voices = raw.map((v) => ({
+      voices = (raw as Record<string, unknown>[]).map((v) => ({
         id:      v.id,
         name:    v.name,
-        locale:  v.locale.replace("_", "-"),
+        locale:  (v.locale as string).replace("_", "-"),
         lang:    v.lang,
         country: v.country,
-        countryName: countryName(v.country),
-        langName:    langName(v.lang),
+        countryName: countryName(v.country as string),
+        langName:    langName(v.lang as string),
         gender:  v.gender,
       }));
     } else if (useElevenShape) {
-      voices = raw.map((v) => ({
+      voices = (raw as Record<string, unknown>[]).map((v) => ({
         id:      v.voice_id,
         name:    v.name,
-        locale:  v.labels?.language || "en",
-        lang:    (v.labels?.language || "en").split("-")[0],
+        locale:  (v.labels as Record<string, unknown>)?.language || "en",
+        lang:    (((v.labels as Record<string, unknown>)?.language as string) || "en").split("-")[0],
         country: "",
         countryName: "",
-        langName:    langName((v.labels?.language || "en").split("-")[0]),
-        gender:  v.labels?.gender || "",
+        langName:    langName((((v.labels as Record<string, unknown>)?.language as string) || "en").split("-")[0]),
+        gender:  (v.labels as Record<string, unknown>)?.gender || "",
         category: v.category,
       }));
     } else {
       // edge-tts (default)
-      voices = raw.map((v) => {
-        const [lang, country] = v.Locale.split("-");
+      voices = (raw as Record<string, unknown>[]).map((v) => {
+        const [lang, country] = (v.Locale as string).split("-");
         return {
           id:      v.ShortName,
-          name:    (v.FriendlyName || v.ShortName)
+          name:    ((v.FriendlyName || v.ShortName) as string)
             .replace("Microsoft ", "")
             .replace(/ Online \(Natural\) - /g, " ("),
           locale:  v.Locale,
@@ -82,18 +82,18 @@ export async function GET(request: NextRequest) {
     if (langFilter) voices = voices.filter((v) => v.lang === langFilter);
 
     // Group by language
-    const byLang = {};
+    const byLang: Record<string, { code: unknown; name: unknown; voices: Record<string, unknown>[] }> = {};
     for (const v of voices) {
-      const key = v.lang;
+      const key = v.lang as string;
       if (!byLang[key]) byLang[key] = { code: key, name: v.langName, voices: [] };
       byLang[key].voices.push(v);
     }
 
     // Sorted language list
-    const languages = Object.values(byLang).sort((a, b) => a.name.localeCompare(b.name));
+    const languages = Object.values(byLang).sort((a, b) => (a.name as string).localeCompare(b.name as string));
 
     return NextResponse.json({ voices, languages, byLang });
-  } catch (err) {
-    return NextResponse.json({ error: err.message || "Failed to fetch voices" }, { status: 502 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to fetch voices" }, { status: 502 });
   }
 }

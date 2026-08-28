@@ -24,7 +24,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { verifier, challenge } = createPkcePair();
     const redirectUri = `${getPublicOrigin(request)}/api/auth/oidc/callback`;
     const authUrl = buildOidcAuthorizationUrl({
-      authorizationEndpoint: discovery.authorization_endpoint,
+      authorizationEndpoint: discovery.authorization_endpoint as string,
       clientId: config.clientId,
       redirectUri,
       scopes: config.scopes,

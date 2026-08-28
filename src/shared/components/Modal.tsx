@@ -74,8 +74,8 @@ export default function Modal({
                       <TooltipTrigger render={<span className="inline-flex" />}>
                         <Button
                           onClick={onClose}
-                          aria-label="Close"
-                          title="Close"
+                          aria-label="Fechar"
+                          title="Fechar"
                           variant="ghost"
                           size="icon-xs"
                           className="w-4 h-4 rounded-full bg-[#FF5F56] hover:brightness-90 transition-all cursor-pointer flex items-center justify-center group/dot"
@@ -85,7 +85,7 @@ export default function Modal({
                           </span>
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent style={{ backgroundColor: "#FF5F56" }} className="text-white">Close</TooltipContent>
+                      <TooltipContent style={{ backgroundColor: "#FF5F56" }} className="text-white">Fechar</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                   <div className="w-4 h-4 rounded-full bg-[#3a3a3a]/20 dark:bg-white/15 cursor-not-allowed" />
@@ -101,7 +101,7 @@ export default function Modal({
             {/* X button — mobile only */}
             <Button
               onClick={onClose}
-              aria-label="Close"
+              aria-label="Fechar"
               variant="ghost"
               size="sm"
               className="md:hidden p-1.5"
@@ -149,10 +149,10 @@ export function ConfirmModal({
   isOpen,
   onClose,
   onConfirm,
-  title = "Confirm",
+  title = "Confirmar",
   message,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  confirmText = "Confirmar",
+  cancelText = "Cancelar",
   variant = "danger",
   loading = false,
 }: ConfirmModalProps) {

@@ -22,6 +22,11 @@ interface ExtraField {
   key: string;
   label: string;
   placeholder?: string;
+  type?: string;
+  options?: string[];
+  default?: string | number;
+  min?: number;
+  max?: number;
 }
 
 export interface KindExampleConfigItem {
@@ -30,6 +35,12 @@ export interface KindExampleConfigItem {
   fields: { key: string; label: string; placeholder?: string }[];
   extraFields?: ExtraField[];
   outputLabel?: string;
+  defaultInput?: string;
+  bodyKey?: string;
+  extraBody?: Record<string, unknown>;
+  defaultResponse?: string;
+  inputLabel?: string;
+  inputPlaceholder?: string;
 }
 
 export const KIND_EXAMPLE_CONFIG: Record<string, KindExampleConfigItem> = {

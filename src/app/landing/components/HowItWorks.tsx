@@ -1,5 +1,7 @@
 "use client";
 
+import { Terminal, Network } from "lucide-react";
+
 export default function HowItWorks() {
   return (
     <section className="py-24 border-y border-[#3a2f27] bg-[#23180f]/30" id="how-it-works">

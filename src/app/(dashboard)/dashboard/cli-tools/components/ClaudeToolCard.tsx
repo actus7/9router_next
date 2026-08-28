@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -32,7 +32,7 @@ interface ClaudeToolCardProps {
   tool: ToolInfo;
   isExpanded: boolean;
   onToggle: () => void;
-  activeProviders: unknown[];
+  activeProviders: ActiveProvider[];
   modelMappings: Record<string, string>;
   onModelMappingChange: (alias: string, target: string) => void;
   baseUrl: string;
@@ -60,7 +60,7 @@ export default function ClaudeToolCard({
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [currentEditingAlias, setCurrentEditingAlias] = useState<string | null>(null);
   const [selectedApiKey, setSelectedApiKey] = useState<string>("");
-  const [modelAliases, setModelAliases] = useState<Record<string, unknown>>({});
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
   const [ccFilterNaming, setCcFilterNaming] = useState<boolean>(false);
@@ -350,7 +350,7 @@ export default function ClaudeToolCard({
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
                   <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Context window</span>
                   <ArrowRight className="size-4" />
-                  <Select value={maxContextTokens} onValueChange={(val) => setMaxContextTokens(val)}>
+                  <Select value={maxContextTokens} onValueChange={(val) => setMaxContextTokens(val ?? "")}>
                     <SelectTrigger className="w-full min-w-0">
                       <SelectValue />
                     </SelectTrigger>
@@ -373,7 +373,7 @@ export default function ClaudeToolCard({
                         <TooltipTrigger render={<span className="inline-flex" />}>
                           <Info className="size-4" />
                         </TooltipTrigger>
-                        <TooltipContent>Intercepts Claude Code's topic-naming requests and returns a fake response locally, saving API tokens.</TooltipContent>
+                        <TooltipContent>{"Intercepts Claude Code's topic-naming requests and returns a fake response locally, saving API tokens."}</TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </Label>
@@ -421,7 +421,7 @@ export default function ClaudeToolCard({
       )}
 
       {modalOpen && (
-        <ModelSelectModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSelect={handleModelSelect} selectedModel={currentEditingAlias ? modelMappings[currentEditingAlias] : null} activeProviders={activeProviders} modelAliases={modelAliases} title={`Select model for ${currentEditingAlias}`} />
+        <ModelSelectModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSelect={handleModelSelect} selectedModel={currentEditingAlias ? modelMappings[currentEditingAlias] : undefined} activeProviders={activeProviders} modelAliases={modelAliases} title={`Select model for ${currentEditingAlias}`} />
       )}
 
       <ManualConfigModal isOpen={showManualConfigModal} onClose={() => setShowManualConfigModal(false)} title="Claude CLI - Manual Configuration" configs={getManualConfigs()} />

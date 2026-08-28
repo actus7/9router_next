@@ -1,12 +1,14 @@
 // Build a base64 data URI from mime + base64 payload
-export function encodeDataUri(mimeType, base64) {
+import type { ImageFetchOptions } from "./openaiTypes";
+
+export function encodeDataUri(mimeType: string, base64: string): string {
   return `data:${mimeType};base64,${base64}`;
 }
 
 // Parse a base64 data URI → { mimeType, base64 }, or null if not a data URI.
 // [\s\S] tolerates newlines inside the base64 payload.
 const DATA_URI_RE = /^data:([^;]+);base64,([\s\S]+)$/;
-export function parseDataUri(url) {
+export function parseDataUri(url: string): { mimeType: string; base64: string } | null {
   if (typeof url !== "string") return null;
   const m = url.match(DATA_URI_RE);
   return m ? { mimeType: m[1], base64: m[2] } : null;
@@ -17,14 +19,14 @@ import { Agent } from "undici";
 import { MAX_IMAGE_BYTES, FETCH_TIMEOUT_MS, IMAGE_SIGNATURES, BLOCKED_HOSTS } from "../../config/mediaConfig";
 
 // True if an IPv4/IPv6 address is private/reserved (SSRF target).
-function isPrivateIp(ip) {
+function isPrivateIp(ip: string): boolean {
   if (!ip) return true;
   // IPv6 loopback / unique-local / link-local
   if (ip === "::1" || ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80")) return true;
   // IPv4-mapped IPv6 (::ffff:a.b.c.d) -> extract tail
-  const v4 = ip.includes(".") ? ip.split(":").pop() : ip;
-  const parts = v4.split(".").map((n) => Number.parseInt(n, 10));
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return ip.includes(":") ? false : true;
+  const v4 = ip.includes(".") ? ip.split(":").pop()! : ip;
+  const parts = v4.split(".").map((n: string) => Number.parseInt(n, 10));
+  if (parts.length !== 4 || parts.some((n: number) => Number.isNaN(n))) return ip.includes(":") ? false : true;
   const [a, b] = parts;
   if (a === 10 || a === 127 || a === 0) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
@@ -36,7 +38,7 @@ function isPrivateIp(ip) {
 
 // Resolve host once and return only public IPs (SSRF guard).
 // Rejects if any resolved record is private/reserved (defeats multi-A tricks).
-async function resolvePinnedIps(hostname) {
+async function resolvePinnedIps(hostname: string): Promise<{ address: string; family: number }[] | null> {
   if (!hostname || BLOCKED_HOSTS.has(hostname.toLowerCase())) return null;
   try {
     const records = await lookup(hostname, { all: true });
@@ -48,7 +50,7 @@ async function resolvePinnedIps(hostname) {
 }
 
 // Verify buffer magic bytes match a known image signature; return its mime or null.
-function detectImageMime(buf) {
+function detectImageMime(buf: Buffer): string | null {
   for (const { sig, offset, mime, verifyWebp } of IMAGE_SIGNATURES) {
     if (buf.length < offset + sig.length) continue;
     let match = true;
@@ -73,34 +75,34 @@ function detectImageMime(buf) {
  * @param {object} options - { signal, timeoutMs, maxBytes }
  * @returns {Promise<{url: string, mimeType: string}|null>}
  */
-export async function fetchImageAsBase64(imageUrl, options = {}) {
+export async function fetchImageAsBase64(imageUrl: string, options: ImageFetchOptions = {}): Promise<{ url: string; mimeType: string } | null> {
   const { signal, timeoutMs = FETCH_TIMEOUT_MS, maxBytes = MAX_IMAGE_BYTES } = options;
   if (!imageUrl || (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://"))) {
     return null;
   }
 
-  let url;
+  let url: URL;
   try { url = new URL(imageUrl); } catch { return null; }
   const pinnedIps = await resolvePinnedIps(url.hostname);
   if (!pinnedIps) return null;
 
   const controller = new AbortController();
   const timeout = signal ? null : setTimeout(() => controller.abort(), timeoutMs);
-  const fetchSignal = signal || controller.signal;
+  const fetchSignal: AbortSignal | undefined = signal ?? controller.signal;
 
   // Pin connect to the validated IP so no second DNS resolution can rebind (TOCTOU fix).
   const dispatcher = new Agent({
-    connect: { lookup: (_h, _o, cb) => cb(null, [{ address: pinnedIps[0].address, family: pinnedIps[0].family }]) },
+    connect: { lookup: (_h: string, _o: unknown, cb: (err: Error | null, result: { address: string; family: number }[]) => void) => cb(null, [{ address: pinnedIps[0].address, family: pinnedIps[0].family }]) },
   });
 
   try {
     // redirect:"manual" prevents a public URL redirecting to a private one (SSRF bypass).
-    const response = await fetch(imageUrl, { signal: fetchSignal, redirect: "manual", dispatcher });
+    const response = await fetch(imageUrl, { signal: fetchSignal, redirect: "manual", dispatcher } as RequestInit);
     if (!response.ok || !response.body) return null;
 
     // Stream-read with a hard byte cap to avoid loading huge payloads into memory.
     const reader = response.body.getReader();
-    const chunks = [];
+    const chunks: Uint8Array[] = [];
     let total = 0;
     while (true) {
       const { done, value } = await reader.read();

@@ -37,38 +37,39 @@ const checkGrokInstalled = async () => {
 const readConfigToml = async () => {
   try {
     return await fs.readFile(getGrokConfigPath(), "utf-8");
-  } catch (error) {
-    if (error.code === "ENOENT") return "";
+  } catch (error: unknown) {
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") return "";
     throw error;
   }
 };
 
-const normalizeContextWindow = (value, model) => {
+const normalizeContextWindow = (value: unknown, model: string) => {
   const explicit = Number(value);
   if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit);
   const slash = model.indexOf("/");
-  const provider = slash > 0 ? model.slice(0, slash) : null;
+  const provider = slash > 0 ? model.slice(0, slash) : "";
   const modelId = slash > 0 ? model.slice(slash + 1) : model;
   return getCapabilitiesForModel(provider, modelId).contextWindow;
 };
 
-const normalizeSubagentModels = (value) => {
+const normalizeSubagentModels = (value: unknown) => {
   if (value === undefined) return undefined; // backwards-compatible callers leave current overrides untouched
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const result = {};
+  const result: Record<string, { model: string; contextWindow: number }> = {};
   for (const type of GROK_SUBAGENT_TYPES) {
-    const entry = value[type];
-    const model = typeof entry === "string" ? entry.trim() : entry?.model?.trim();
+    const entry = (value as Record<string, unknown>)[type];
+    const entryObj = entry && typeof entry === "object" ? entry as Record<string, unknown> : undefined;
+    const model = typeof entry === "string" ? entry.trim() : (entryObj?.model as string | undefined)?.trim();
     if (!model) continue; // blank means inherit the main model
     result[type] = {
       model,
-      contextWindow: normalizeContextWindow(entry?.contextWindow, model),
+      contextWindow: normalizeContextWindow(entryObj?.contextWindow, model),
     };
   }
   return result;
 };
 
-const has9RouterConfig = (settings) => Boolean(settings?.model?.base_url);
+const has9RouterConfig = (settings: Record<string, unknown> | null | undefined) => Boolean((settings?.model as Record<string, unknown>)?.base_url);
 
 export async function GET() {
   try {
@@ -85,7 +86,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings,
-      has9Router: has9RouterConfig(settings),
+      has9Router: has9RouterConfig(settings as unknown as Record<string, unknown>),
       configPath: getGrokConfigPath(),
     });
   } catch (error) {
@@ -131,8 +132,8 @@ export async function DELETE() {
     let toml;
     try {
       toml = await fs.readFile(configPath, "utf-8");
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({ success: true, message: "No config file to reset" });
       }
       throw error;

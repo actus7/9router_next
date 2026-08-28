@@ -11,8 +11,8 @@ const execAsync = promisify(exec);
 // Exa MCP def — reuse from coworkPlugins (DRY).
 const EXA_PLUGIN = DEFAULT_PLUGINS.find((p) => p.name === "exa");
 const buildExaMcpEntry = () => ({
-  type: EXA_PLUGIN.transport,
-  url: EXA_PLUGIN.url,
+  type: EXA_PLUGIN!.transport,
+  url: EXA_PLUGIN!.url,
 });
 
 // Get claude settings path based on OS
@@ -33,19 +33,19 @@ const readClaudeJson = async () => {
   }
 };
 
-const writeClaudeJsonMcp = async (mcpServers) => {
+const writeClaudeJsonMcp = async (mcpServers: Record<string, unknown> | null) => {
   const filePath = getClaudeJsonPath();
-  let data = {};
+  let data: Record<string, unknown> = {};
   try {
     data = JSON.parse(await fs.readFile(filePath, "utf-8"));
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+  } catch (error: unknown) {
+    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   if (mcpServers && Object.keys(mcpServers).length > 0) {
-    data.mcpServers = { ...(data.mcpServers || {}), ...mcpServers };
+    data.mcpServers = { ...((data.mcpServers as Record<string, unknown>) || {}), ...mcpServers };
   } else if (data.mcpServers) {
-    delete data.mcpServers.exa;
-    if (Object.keys(data.mcpServers).length === 0) delete data.mcpServers;
+    delete (data.mcpServers as Record<string, unknown>).exa;
+    if (Object.keys(data.mcpServers as Record<string, unknown>).length === 0) delete data.mcpServers;
   }
   await fs.writeFile(filePath, JSON.stringify(data, null, 2));
 };
@@ -137,12 +137,12 @@ export async function POST(request: NextRequest) {
     await fs.mkdir(claudeDir, { recursive: true });
 
     // Read current settings
-    let currentSettings = {};
+    let currentSettings: Record<string, unknown> = {};
     try {
       const content = await fs.readFile(settingsPath, "utf-8");
       currentSettings = JSON.parse(content);
-    } catch (error) {
-      if (error.code !== "ENOENT") {
+    } catch (error: unknown) {
+      if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;
       }
     }
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       ...currentSettings,
       hasCompletedOnboarding: true,
       env: {
-        ...(currentSettings.env || {}),
+        ...((currentSettings.env as Record<string, unknown>) || {}),
         ...env,
       },
     };
@@ -210,12 +210,12 @@ export async function DELETE() {
     const settingsPath = getClaudeSettingsPath();
 
     // Read current settings
-    let currentSettings = {};
+    let currentSettings: Record<string, unknown> = {};
     try {
       const content = await fs.readFile(settingsPath, "utf-8");
       currentSettings = JSON.parse(content);
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({
           success: true,
           message: "No settings file to reset",
@@ -226,12 +226,13 @@ export async function DELETE() {
 
     // Remove specified env fields
     if (currentSettings.env) {
+      const envObj = currentSettings.env as Record<string, unknown>;
       RESET_ENV_KEYS.forEach((key) => {
-        delete currentSettings.env[key];
+        delete envObj[key];
       });
       
       // Clean up empty env object
-      if (Object.keys(currentSettings.env).length === 0) {
+      if (Object.keys(envObj).length === 0) {
         delete currentSettings.env;
       }
     }

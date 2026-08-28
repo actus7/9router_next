@@ -45,7 +45,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     // If updating password, hash it
     if (body.newPassword) {
       const settings = await getSettings();
-      const currentHash = settings.password;
+      const currentHash = settings.password as string;
 
       // Verify current password if it exists
       if (currentHash) {
@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       Object.prototype.hasOwnProperty.call(body, "outboundProxyUrl") ||
       Object.prototype.hasOwnProperty.call(body, "outboundNoProxy")
     ) {
-      applyOutboundProxyEnv(settings);
+      applyOutboundProxyEnv(settings as Record<string, unknown>);
     }
 
     // Invalidate combo rotation state when strategy settings change

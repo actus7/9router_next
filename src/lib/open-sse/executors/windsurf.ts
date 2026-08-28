@@ -1,4 +1,6 @@
 import { BaseExecutor } from "./base";
+import type { ExecuteArgs } from "./base";
+import type { Credentials, Logger } from "../services/types";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { PROVIDERS } from "../config/providers";
 import { randomUUID } from "node:crypto";
@@ -118,14 +120,14 @@ const MODEL_ALIAS_MAP = {
   "glm-5.1": "glm-5-1",
 };
 
-export function resolveWsModelId(model) {
-  return MODEL_ALIAS_MAP[model] ?? model;
+export function resolveWsModelId(model: string) {
+  return (MODEL_ALIAS_MAP as Record<string, string>)[model] ?? model;
 }
 
 // ─── Minimal protobuf encoder ────────────────────────────────────────────────
 // Wire types: 0 = varint, 2 = length-delimited.
 
-function encodeVarint(value) {
+function encodeVarint(value: number) {
   const bytes = [];
   let v = value >>> 0;
   while (v > 0x7f) {
@@ -136,7 +138,7 @@ function encodeVarint(value) {
   return new Uint8Array(bytes);
 }
 
-function concatBytes(arrays) {
+function concatBytes(arrays: Uint8Array[]) {
   const total = arrays.reduce((n, a) => n + a.length, 0);
   const out = new Uint8Array(total);
   let off = 0;
@@ -150,23 +152,23 @@ function concatBytes(arrays) {
 const TEXT_ENC = new TextEncoder();
 const TEXT_DEC = new TextDecoder();
 
-function encodeField(fieldNum, payload) {
+function encodeField(fieldNum: number, payload: Uint8Array) {
   const tag = encodeVarint((fieldNum << 3) | 2);
   const len = encodeVarint(payload.length);
   return concatBytes([tag, len, payload]);
 }
 
-function encodeString(fieldNum, value) {
+function encodeString(fieldNum: number, value: string) {
   return encodeField(fieldNum, TEXT_ENC.encode(value));
 }
 
-function encodeMessage(fieldNum, msg) {
+function encodeMessage(fieldNum: number, msg: Uint8Array) {
   return encodeField(fieldNum, msg);
 }
 
 // ─── Protobuf message builders ───────────────────────────────────────────────
 
-function buildMetadata(apiKey, sessionId) {
+function buildMetadata(apiKey: string, sessionId: string) {
   return concatBytes([
     encodeString(1, apiKey),
     encodeString(2, WS_IDE_NAME),
@@ -177,17 +179,17 @@ function buildMetadata(apiKey, sessionId) {
   ]);
 }
 
-function buildModelOrAlias(model) {
+function buildModelOrAlias(model: string) {
   return encodeString(1, model);
 }
 
-function buildChatMessage(msg) {
+function buildChatMessage(msg: { role: string; content: string; toolCallId?: string }) {
   const parts = [encodeString(1, msg.role), encodeString(2, msg.content)];
   if (msg.toolCallId) parts.push(encodeString(3, msg.toolCallId));
   return concatBytes(parts);
 }
 
-export function buildGetChatMessageRequest(apiKey, model, messages) {
+export function buildGetChatMessageRequest(apiKey: string, model: string, messages: { role: string; content: string; toolCallId?: string }[]) {
   const sessionId = randomUUID();
   const cascadeId = randomUUID();
 
@@ -206,7 +208,7 @@ export function buildGetChatMessageRequest(apiKey, model, messages) {
 
 // ─── gRPC-web framing ────────────────────────────────────────────────────────
 
-export function grpcWebFrame(payload) {
+export function grpcWebFrame(payload: Uint8Array) {
   const frame = new Uint8Array(5 + payload.length);
   frame[0] = 0x00; // no compression
   const view = new DataView(frame.buffer);
@@ -222,7 +224,7 @@ export function grpcWebFrame(payload) {
 //   field 3 → DoneChunk    { field 1: UsageStats{ field1: prompt, field2: completion } }
 //   field 4 → ErrorChunk   { field 1: string message }
 
-function readVarint(buf, offset) {
+function readVarint(buf: Uint8Array, offset: number): [number, number] {
   let result = 0;
   let shift = 0;
   while (offset < buf.length) {
@@ -234,7 +236,7 @@ function readVarint(buf, offset) {
   return [result >>> 0, offset];
 }
 
-function decodeStringField(buf, targetField) {
+function decodeStringField(buf: Uint8Array, targetField: number) {
   let offset = 0;
   while (offset < buf.length) {
     let tag;
@@ -261,7 +263,7 @@ function decodeStringField(buf, targetField) {
   return null;
 }
 
-function decodeDoneChunk(buf) {
+function decodeDoneChunk(buf: Uint8Array) {
   // DoneChunk: field 1 = UsageStats (nested)
   // UsageStats: field 1 = prompt_tokens (varint), field 2 = completion_tokens (varint)
   let offset = 0;
@@ -308,7 +310,7 @@ function decodeDoneChunk(buf) {
   return [promptTokens, completionTokens];
 }
 
-export function decodeCompletionChunk(buf) {
+export function decodeCompletionChunk(buf: Uint8Array) {
   let offset = 0;
   while (offset < buf.length) {
     let tag;
@@ -349,8 +351,8 @@ export function decodeCompletionChunk(buf) {
 
 // ─── OpenAI messages → Windsurf wire ─────────────────────────────────────────
 
-function openAIMessagesToWs(messages) {
-  const out = [];
+function openAIMessagesToWs(messages: Record<string, unknown>[]): { role: string; content: string; toolCallId?: string }[] {
+  const out: { role: string; content: string; toolCallId?: string }[] = [];
   for (const m of messages) {
     const role = String(m.role || "user");
     let content = "";
@@ -358,12 +360,13 @@ function openAIMessagesToWs(messages) {
       content = m.content;
     } else if (Array.isArray(m.content)) {
       for (const part of m.content) {
-        if (part && typeof part === "object" && part.type === "text") {
-          content += String(part.text || "");
+        if (part && typeof part === "object" && (part as Record<string, unknown>).type === "text") {
+          content += String((part as Record<string, unknown>).text || "");
         }
       }
     }
-    out.push({ role, content, toolCallId: m.tool_call_id });
+    const toolCallId = typeof m.tool_call_id === "string" ? m.tool_call_id : undefined;
+    out.push({ role, content, toolCallId });
   }
   return out;
 }
@@ -379,7 +382,7 @@ export class WindsurfExecutor extends BaseExecutor {
     return WS_CHAT_URL;
   }
 
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials: Credentials, stream = true) {
     const token = credentials?.accessToken || credentials?.apiKey || "";
     return {
       "Content-Type": "application/grpc-web+proto",
@@ -392,17 +395,17 @@ export class WindsurfExecutor extends BaseExecutor {
   }
 
   // Request body is built manually in execute() — requires model + messages.
-  transformRequest() {
-    return null;
+  transformRequest(_model: string, _body: Record<string, unknown>, _stream: boolean, _credentials: Credentials): Record<string, unknown> {
+    return {} as Record<string, unknown>;
   }
 
-  async execute({ model, body, stream, credentials, signal, log, upstreamExtraHeaders, proxyOptions = null }) {
+  async execute({ model, body, stream, credentials, signal, log, upstreamExtraHeaders, proxyOptions = null }: ExecuteArgs & { upstreamExtraHeaders?: Record<string, string> }) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || "";
     const wsModel = resolveWsModelId(model);
 
     const b = body ?? {};
     const rawMessages = Array.isArray(b.messages) ? b.messages : [];
-    let wsMessages = openAIMessagesToWs(rawMessages);
+    const wsMessages = openAIMessagesToWs(rawMessages);
     if (wsMessages.length === 0) {
       wsMessages.push({ role: "user", content: "" });
     }
@@ -421,21 +424,20 @@ export class WindsurfExecutor extends BaseExecutor {
       headers,
       body: framedPayload,
       signal,
-    }, proxyOptions);
+    }, proxyOptions as null);
 
     if (!upstream.ok && upstream.status !== 200) {
-      return { response: upstream, url, headers, transformedBody: protoPayload };
+      return { response: upstream, url, headers, transformedBody: protoPayload as unknown as Record<string, unknown> };
     }
 
     const sseResponse = this.transformToSSE(upstream, model);
-    return { response: sseResponse, url, headers, transformedBody: protoPayload };
+    return { response: sseResponse, url, headers, transformedBody: protoPayload as unknown as Record<string, unknown> };
   }
 
   // Convert a gRPC-web binary response into an OpenAI-compatible SSE stream.
-  transformToSSE(upstream, model) {
+  transformToSSE(upstream: Response, model: string) {
     const responseId = `chatcmpl-ws-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
-    const executor = this;
 
     const sseStream = new ReadableStream({
       async start(controller) {
@@ -446,13 +448,13 @@ export class WindsurfExecutor extends BaseExecutor {
         let completionTokens = 0;
         let hadError = null;
 
-        const emit = (data) => controller.enqueue(enc.encode(data));
+        const emit = (data: string) => controller.enqueue(enc.encode(data));
 
         try {
           let pending = new Uint8Array(0);
           const reader = upstream.body?.getReader();
 
-          const handleFrame = (flag, payload) => {
+          const handleFrame = (flag: number, payload: Uint8Array) => {
             if (flag === 0x80) {
               // Trailer frame — contains grpc-status, grpc-message
               const trailer = TEXT_DEC.decode(payload);
@@ -467,9 +469,7 @@ export class WindsurfExecutor extends BaseExecutor {
             }
             if (flag !== 0x00) return; // skip unknown flags
 
-            const chunk = executor.constructor.decodeCompletionChunk
-              ? executor.constructor.decodeCompletionChunk(payload)
-              : decodeCompletionChunk(payload);
+            const chunk = decodeCompletionChunk(payload);
 
             if (chunk.kind === "content" && chunk.text) {
               totalText += chunk.text;
@@ -485,8 +485,8 @@ export class WindsurfExecutor extends BaseExecutor {
                 choices: [{ index: 0, delta: { content: chunk.text }, finish_reason: null }],
               })}\n\n`);
             } else if (chunk.kind === "done") {
-              promptTokens = chunk.promptTokens;
-              completionTokens = chunk.completionTokens;
+              promptTokens = (chunk as { kind: string; promptTokens: number }).promptTokens;
+              completionTokens = (chunk as { kind: string; completionTokens: number }).completionTokens;
             } else if (chunk.kind === "error") {
               hadError = chunk.message;
             }
@@ -544,7 +544,7 @@ export class WindsurfExecutor extends BaseExecutor {
             })}\n\n`);
           }
 
-          const finishPayload = {
+          const finishPayload: Record<string, unknown> = {
             id: responseId, object: "chat.completion.chunk", created, model,
             choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
           };
@@ -557,8 +557,8 @@ export class WindsurfExecutor extends BaseExecutor {
           }
           emit(`data: ${JSON.stringify(finishPayload)}\n\n`);
           emit("data: [DONE]\n\n");
-        } catch (err) {
-          const msg = err?.message ? String(err.message) : String(err);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
           emit(`data: ${JSON.stringify({
             error: { message: `Windsurf stream error: ${msg}`, type: "windsurf_error" },
           })}\n\n`);

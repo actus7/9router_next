@@ -6,7 +6,7 @@
 const RE_CARGO_ERR_CONT = /^\s*(-->|\||\d+\s*\||=)/;
 const DEPRECATION_KEEP = 3;
 
-export function buildOutput(input) {
+export function buildOutput(input: string) {
   const lines = input.split("\n");
   if (lines.length === 0) return input;
 

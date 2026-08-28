@@ -10,19 +10,20 @@ import { proxyAwareFetch } from "../utils/proxyFetch";
 
 const MODELS_URL = `${GROK_CLI_BASE_URL}/models`;
 
-function modelEntries(data) {
-  const value = Array.isArray(data) ? data : data?.data ?? data?.models ?? data?.results ?? [];
-  if (Array.isArray(value)) return value.map((item) => [null, item]);
-  if (value && typeof value === "object") return Object.entries(value);
+function modelEntries(data: unknown): [string | null, unknown][] {
+  const d = data as Record<string, unknown> | null | undefined;
+  const value = Array.isArray(data) ? data : d?.data ?? d?.models ?? d?.results ?? [];
+  if (Array.isArray(value)) return value.map((item: unknown) => [null, item]);
+  if (value && typeof value === "object") return Object.entries(value as Record<string, unknown>);
   return [];
 }
 
-export function parseGrokCliModels(data) {
-  const seen = new Set();
-  const models = [];
+export function parseGrokCliModels(data: unknown): Record<string, unknown>[] {
+  const seen = new Set<string>();
+  const models: Record<string, unknown>[] = [];
 
   for (const [key, raw] of modelEntries(data)) {
-    const item = typeof raw === "string" ? { id: raw } : raw;
+    const item = typeof raw === "string" ? { id: raw } : raw as Record<string, unknown>;
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const id = String(
       item.id ?? item.model_id ?? item.modelId ?? item.model ?? item.slug ?? key ?? item.name ?? "",
@@ -30,7 +31,7 @@ export function parseGrokCliModels(data) {
     if (!id || seen.has(id)) continue;
     seen.add(id);
 
-    const model = {
+    const model: Record<string, unknown> = {
       ...item,
       id,
       name: item.display_name ?? item.displayName ?? item.name ?? id,
@@ -53,8 +54,8 @@ export function parseGrokCliModels(data) {
   return models;
 }
 
-function buildHeaders(accessToken, providerSpecificData = {}) {
-  const headers = {
+function buildHeaders(accessToken: string, providerSpecificData: Record<string, unknown> = {}): Record<string, string> {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
     Accept: "application/json",
     "User-Agent": GROK_CLI_USER_AGENT,
@@ -65,47 +66,51 @@ function buildHeaders(accessToken, providerSpecificData = {}) {
   };
   const email = providerSpecificData?.email;
   const userId = providerSpecificData?.userId || providerSpecificData?.principalId;
-  if (email) headers["x-email"] = email;
-  if (userId) headers["x-userid"] = userId;
+  if (email) headers["x-email"] = email as string;
+  if (userId) headers["x-userid"] = userId as string;
   return headers;
 }
 
-export async function resolveGrokCliModels(credentials, options = {}) {
+export async function resolveGrokCliModels(credentials: Record<string, unknown>, options: Record<string, unknown> = {}) {
   const {
     fetchFn = proxyAwareFetch,
     log = console,
     proxyOptions = null,
     onCredentialsRefreshed,
-  } = options;
-  let accessToken = credentials?.accessToken;
+  } = options as {
+    fetchFn?: typeof proxyAwareFetch;
+    log?: { warn?: (tag: string, msg: string, meta?: unknown) => void };
+    proxyOptions?: unknown;
+    onCredentialsRefreshed?: (data: Record<string, unknown>) => Promise<void>;
+  };
+  let accessToken = (credentials?.accessToken as string) || "";
   if (!accessToken) return { models: [], warning: "Grok CLI access token is missing." };
 
-  const request = (token) => fetchFn(
+  const request = (token: string) => (fetchFn as typeof proxyAwareFetch)(
     MODELS_URL,
     {
       method: "GET",
-      headers: buildHeaders(token, credentials?.providerSpecificData),
+      headers: buildHeaders(token, (credentials?.providerSpecificData || {}) as Record<string, unknown>),
     },
-    proxyOptions,
+    proxyOptions as null,
   );
 
   try {
-    let response = await request(accessToken);
+    let response = await request(accessToken) as Response;
     if ((response.status === 401 || response.status === 403) && credentials?.refreshToken) {
       const refreshed = await refreshProviderCredentials(
         "grok-cli",
-        credentials,
-        log,
-        proxyOptions,
+        credentials as unknown as import("./types").Credentials,
+        log as unknown as import("./types").Logger,
       );
       if (refreshed?.accessToken) {
-        accessToken = refreshed.accessToken;
+        accessToken = refreshed.accessToken as string;
         try {
-          await onCredentialsRefreshed?.(refreshed);
-        } catch (error) {
-          log?.warn?.("Grok CLI credential persistence failed", error);
+          await onCredentialsRefreshed?.(refreshed as Record<string, unknown>);
+        } catch (error: unknown) {
+          log?.warn?.("Grok CLI credential persistence failed", error instanceof Error ? error.message : String(error));
         }
-        response = await request(accessToken);
+        response = await request(accessToken) as Response;
       }
     }
 
@@ -121,7 +126,7 @@ export async function resolveGrokCliModels(credentials, options = {}) {
     return models.length
       ? { models }
       : { models: [], warning: "Grok CLI returned no selectable models." };
-  } catch (error) {
-    return { models: [], warning: `Grok CLI model discovery failed: ${error.message}` };
+  } catch (error: unknown) {
+    return { models: [], warning: `Grok CLI model discovery failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }

@@ -22,10 +22,10 @@ const DEFAULT_RESPONSE_EXAMPLE = `{
   "usage": { "prompt_tokens": 9, "total_tokens": 9 }
 }`;
 
-export function EmbeddingExampleCard({ providerId, customAlias }) {
+export function EmbeddingExampleCard({ providerId, customAlias }: { providerId: string; customAlias?: string }) {
   const isCustom = isCustomEmbeddingProvider(providerId);
   const providerAlias = isCustom ? (customAlias || providerId) : getProviderAlias(providerId);
-  const embeddingModels = isCustom ? [] : getModelsByProviderId(providerId).filter((m) => getModelKind(m) === "embedding");
+  const embeddingModels = isCustom ? [] : (getModelsByProviderId(providerId) as Array<{ id: string; name: string }>).filter((m) => getModelKind(m) === "embedding");
 
   const [selectedModel, setSelectedModel] = useState(embeddingModels[0]?.id ?? "");
   const [input, setInput] = useState("The quick brown fox jumps over the lazy dog");
@@ -34,7 +34,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
   const [useTunnel, setUseTunnel] = useState(false);
   const [localEndpoint, setLocalEndpoint] = useState("");
   const [tunnelEndpoint, setTunnelEndpoint] = useState("");
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<{ data: Record<string, unknown>; latencyMs: number } | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const { copied: copiedCurl, copy: copyCurl } = useCopyToClipboard();
@@ -44,7 +44,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
     setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
-      .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
+      .then((d) => { setApiKey(((d.keys || []) as Array<{ isActive?: boolean; key: string }>).find((k) => k.isActive !== false)?.key || ""); })
       .catch(() => {});
     fetch("/api/tunnel/status")
       .then((r) => r.json())
@@ -57,7 +57,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
 
   // Build request body — include dimensions only if user provided a positive number
   const buildBody = () => {
-    const body = { model: modelFull, input: input.trim() };
+    const body: { model: string; input: string; dimensions?: number } = { model: modelFull, input: input.trim() };
     const dim = Number(dimensions);
     if (dimensions && Number.isFinite(dim) && dim > 0) body.dimensions = dim;
     return body;
@@ -75,7 +75,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
     setResult(null);
     const start = Date.now();
     try {
-      const headers = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
       const res = await fetch("/api/v1/embeddings", {
         method: "POST",
@@ -86,20 +86,20 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
       const data = await res.json();
       if (!res.ok) { setError(data?.error?.message || data?.error || `HTTP ${res.status}`); return; }
       setResult({ data, latencyMs });
-    } catch (e) {
-      setError(e.message || "Network error");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setRunning(false);
     }
   };
 
   // Compact embedding array: first 4 values + count
-  const formatResultJson = (data) => {
+  const formatResultJson = (data: Record<string, unknown> | null | undefined) => {
     if (!data) return DEFAULT_RESPONSE_EXAMPLE;
     const clone = JSON.parse(JSON.stringify(data));
-    (clone.data || []).forEach((item) => {
+    ((clone.data || []) as Array<{ embedding?: (number | string)[] }>).forEach((item) => {
       if (Array.isArray(item.embedding) && item.embedding.length > 4) {
-        item.embedding = [...item.embedding.slice(0, 4).map((v) => parseFloat(v.toFixed(6))), `... (${item.embedding.length} dims)`];
+        item.embedding = [...item.embedding.slice(0, 4).map((v: number | string) => parseFloat(Number(v).toFixed(6))), `... (${item.embedding.length} dims)`];
       }
     });
     return JSON.stringify(clone, null, 2);
@@ -122,7 +122,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
               className="w-full px-3 py-1.5 text-sm font-mono"
             />
           ) : (
-            <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <Select value={selectedModel} onValueChange={(v) => { if (v !== null) setSelectedModel(v); }}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select model" />
               </SelectTrigger>

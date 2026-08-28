@@ -67,7 +67,7 @@ function downloadFile(url: string, dest: string): Promise<string> {
   return new Promise<string>((resolve: (value: string) => void, reject: (reason: Error) => void) => {
     const file: fs.WriteStream = fs.createWriteStream(dest);
 
-    https.get(url, (response: https.IncomingMessage) => {
+    https.get(url, (response: import("http").IncomingMessage) => {
       if ([301, 302, 303, 307, 308].includes(response.statusCode!)) {
         file.close();
         fs.unlinkSync(dest);

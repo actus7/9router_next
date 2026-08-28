@@ -4,8 +4,8 @@ const TIMEOUT_MS = 8000;
 
 // Probe MCP server: initialize + tools/list. No auth header — works for authless servers.
 // OAuth servers return 401, signal client to skip tool listing.
-async function probeMcp(url) {
-  const headers = {
+async function probeMcp(url: string) {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "Accept": "application/json, text/event-stream",
     "MCP-Protocol-Version": "2025-06-18",
@@ -70,10 +70,10 @@ async function probeMcp(url) {
     }
     const tools = parsed?.result?.tools || [];
     return {
-      tools: tools.map((t) => ({ name: t.name, description: t.description || "" })),
+      tools: tools.map((t: Record<string, unknown>) => ({ name: t.name, description: t.description || "" })),
     };
-  } catch (e) {
-    return { error: e.name === "AbortError" ? "timeout" : e.message, tools: [] };
+  } catch (e: unknown) {
+    return { error: e instanceof Error && e.name === "AbortError" ? "timeout" : e instanceof Error ? e.message : String(e), tools: [] };
   } finally {
     clearTimeout(timer);
   }
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
     const result = await probeMcp(url);
     return NextResponse.json(result);
-  } catch (e) {
-    return NextResponse.json({ error: e.message, tools: [] }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e), tools: [] }, { status: 500 });
   }
 }

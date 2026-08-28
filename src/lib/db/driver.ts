@@ -32,8 +32,8 @@ async function tryBunSqlite(): Promise<DbAdapter | null> {
   try {
     const { createBunSqliteAdapter } = await import("./adapters/bunSqliteAdapter");
     return await createBunSqliteAdapter(DATA_FILE);
-  } catch (e: any) {
-    console.warn(`[DB] bun:sqlite unavailable: ${e.message}`);
+  } catch (e: unknown) {
+    console.warn(`[DB] bun:sqlite unavailable: ${(e as Error).message}`);
     return null;
   }
 }
@@ -44,8 +44,8 @@ async function tryBetterSqlite(): Promise<DbAdapter | null> {
   try {
     const { createBetterSqliteAdapter } = await import("./adapters/betterSqliteAdapter");
     return createBetterSqliteAdapter(DATA_FILE);
-  } catch (e: any) {
-    console.warn(`[DB] better-sqlite3 unavailable: ${e.message}`);
+  } catch (e: unknown) {
+    console.warn(`[DB] better-sqlite3 unavailable: ${(e as Error).message}`);
     return null;
   }
 }
@@ -58,8 +58,8 @@ async function tryNodeSqlite(): Promise<DbAdapter | null> {
   try {
     const { createNodeSqliteAdapter } = await import("./adapters/nodeSqliteAdapter");
     return await createNodeSqliteAdapter(DATA_FILE);
-  } catch (e: any) {
-    console.warn(`[DB] node:sqlite unavailable: ${e.message}`);
+  } catch (e: unknown) {
+    console.warn(`[DB] node:sqlite unavailable: ${(e as Error).message}`);
     return null;
   }
 }
@@ -68,8 +68,8 @@ async function trySqlJs(): Promise<DbAdapter | null> {
   try {
     const { createSqlJsAdapter } = await import("./adapters/sqljsAdapter");
     return await createSqlJsAdapter(DATA_FILE);
-  } catch (e: any) {
-    console.warn(`[DB] sql.js unavailable: ${e.message}`);
+  } catch (e: unknown) {
+    console.warn(`[DB] sql.js unavailable: ${(e as Error).message}`);
     return null;
   }
 }

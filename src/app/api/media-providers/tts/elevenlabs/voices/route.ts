@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     // Direct DB read - bypass auth mutex used for TTS inference
     const connections = await getProviderConnections({ provider: "elevenlabs", isActive: true });
-    const apiKey = connections[0]?.apiKey;
+    const apiKey = connections[0]?.apiKey as string;
     if (!apiKey) {
       return NextResponse.json({ error: "No ElevenLabs connection found" }, { status: 400 });
     }
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
     const voices = await fetchElevenLabsVoices(apiKey);
 
     // Group by all supported languages (verified_languages + labels.language)
-    const byLang = {};
-    const addToLang = (code, voice) => {
+    const byLang: Record<string, Record<string, unknown>> = {};
+    const addToLang = (code: string, voice: Record<string, unknown>) => {
       if (!byLang[code]) {
         byLang[code] = {
           code,
@@ -34,11 +34,11 @@ export async function GET(request: NextRequest) {
         };
       }
       // Avoid duplicate voice in same lang
-      if (!byLang[code].voices.find((v) => v.id === voice.voice_id)) {
-        byLang[code].voices.push({
+      if (!(byLang[code].voices as Array<Record<string, unknown>>).find((v: Record<string, unknown>) => v.id === (voice as Record<string, unknown>).voice_id)) {
+        (byLang[code].voices as Array<Record<string, unknown>>).push({
           id: voice.voice_id,
           name: voice.name,
-          gender: voice.labels?.gender || "",
+          gender: (voice.labels as Record<string, unknown>)?.gender || "",
           lang: code,
           // premade voices are free; professional library voices added to account may require paid plan
           free_users_allowed: voice.category === "premade" || voice.is_owner === true
@@ -47,25 +47,25 @@ export async function GET(request: NextRequest) {
     };
     for (const v of voices) {
       // Add to primary language
-      const primaryLang = v.labels?.language || "en";
-      addToLang(primaryLang, v);
+      const primaryLang = (v as Record<string, unknown>).labels ? ((v as Record<string, unknown>).labels as Record<string, unknown>).language as string || "en" : "en";
+      addToLang(primaryLang, v as Record<string, unknown>);
       // Add to all verified languages
-      for (const vl of v.verified_languages || []) {
+      for (const vl of (v as Record<string, unknown>).verified_languages as Array<Record<string, unknown>> || []) {
         if (vl.language && vl.language !== primaryLang) {
-          addToLang(vl.language, v);
+          addToLang(vl.language as string, v as Record<string, unknown>);
         }
       }
     }
 
-    const languages = Object.values(byLang).sort((a, b) => a.name.localeCompare(b.name));
+    const languages = Object.values(byLang).sort((a: Record<string, unknown>, b: Record<string, unknown>) => (a.name as string).localeCompare(b.name as string));
 
     // If lang filter requested, return only that group's voices
     if (langFilter) {
-      return NextResponse.json({ voices: byLang[langFilter]?.voices || [] });
+      return NextResponse.json({ voices: (byLang[langFilter]?.voices as Array<unknown>) || [] });
     }
 
     return NextResponse.json({ languages, byLang });
-  } catch (err) {
-    return NextResponse.json({ error: err.message || "Failed to fetch voices" }, { status: 502 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err as Error).message || "Failed to fetch voices" }, { status: 502 });
   }
 }

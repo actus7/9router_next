@@ -112,12 +112,7 @@ export async function resolveConnectionProxyConfig(
       const proxyUrl: string = normalizeString(proxyPool?.proxyUrl);
       const noProxy: string = normalizeString(proxyPool?.noProxy);
 
-      const isValidPool: boolean =
-        !!proxyPool &&
-        proxyPool.isActive === true &&
-        !!proxyUrl;
-
-      if (isValidPool) {
+      if (proxyPool && proxyPool.isActive === true && proxyUrl) {
         if (proxyPool.type === "vercel" || proxyPool.type === "cloudflare" || proxyPool.type === "deno") {
           return {
             source: proxyPool.type!,

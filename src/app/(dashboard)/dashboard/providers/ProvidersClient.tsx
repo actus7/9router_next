@@ -94,7 +94,7 @@ function getStatusDisplay(connected: number, error: number, errorCode: string | 
   if (connected > 0) {
     parts.push(
       <Badge key="connected" variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">
-        {connected} Connected
+        {connected} Conectado
       </Badge>,
     );
   }
@@ -109,7 +109,7 @@ function getStatusDisplay(connected: number, error: number, errorCode: string | 
     );
   }
   if (parts.length === 0) {
-    return <span className="text-text-muted">No connections</span>;
+    return <span className="text-text-muted">Sem conexões</span>;
   }
   return parts;
 }
@@ -174,7 +174,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
   const unregisterSearch = useHeaderSearchStore((s) => s.unregister);
 
   useEffect(() => {
-    registerSearch("Search providers...");
+    registerSearch("Buscar provedores...");
     return () => unregisterSearch();
   }, [registerSearch, unregisterSearch]);
 
@@ -272,12 +272,12 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
       setTestResults(data);
       if (data.summary) {
         const { passed, failed, total } = data.summary;
-        if (failed === 0) notify.success(`All ${total} tests passed`);
-        else notify.warning(`${passed}/${total} passed, ${failed} failed`);
+        if (failed === 0) notify.success(`Todos os ${total} testes passaram`);
+        else notify.warning(`${passed}/${total} passaram, ${failed} falharam`);
       }
     } catch (error) {
-      setTestResults({ error: "Test request failed" });
-      notify.error("Provider test failed");
+      setTestResults({ error: "Falha na requisição de teste" });
+      notify.error("Falha no teste do provedor");
     } finally {
       setTestingMode(null);
     }
@@ -317,43 +317,43 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
   };
 
   const oauthEntries = sortByPriority(
-    Object.entries(OAUTH_PROVIDERS).filter(([, info]) => !(info as ProviderInfo).hidden && matchSearch((info as ProviderInfo).name)) as [string, ProviderInfo][],
+    (Object.entries(OAUTH_PROVIDERS) as unknown as [string, ProviderInfo][]).filter(([, info]) => !info.hidden && matchSearch(info.name)),
     "oauth",
   );
-  const freeEntries = Object.entries(FREE_PROVIDERS)
-    .filter(([, info]) => !(info as ProviderInfo).hidden && matchSearch((info as ProviderInfo).name))
-    .sort(([, a], [, b]) => ((b as ProviderInfo).noAuth ? 1 : 0) - ((a as ProviderInfo).noAuth ? 1 : 0)) as [string, ProviderInfo][];
-  const freeTierEntries = Object.entries(FREE_TIER_PROVIDERS)
+  const freeEntries = (Object.entries(FREE_PROVIDERS) as unknown as [string, ProviderInfo][])
+    .filter(([, info]) => !info.hidden && matchSearch(info.name))
+    .sort(([, a], [, b]) => (b.noAuth ? 1 : 0) - (a.noAuth ? 1 : 0));
+  const freeTierEntries = (Object.entries(FREE_TIER_PROVIDERS) as unknown as [string, ProviderInfo][])
     .filter(
       ([, info]) =>
-        !(info as ProviderInfo).hidden &&
-        matchSearch((info as ProviderInfo).name) &&
-        ((info as ProviderInfo).serviceKinds ?? ["llm"]).includes("llm"),
+        !info.hidden &&
+        matchSearch(info.name) &&
+        (info.serviceKinds ?? ["llm"]).includes("llm"),
     )
     .sort(([ka, a], [kb, b]) => {
-      const pa = (a as ProviderInfo).priority ?? 999;
-      const pb = (b as ProviderInfo).priority ?? 999;
+      const pa = a.priority ?? 999;
+      const pb = b.priority ?? 999;
       if (pa !== pb) return pa - pb;
-      const noAuthDiff = ((b as ProviderInfo).noAuth ? 1 : 0) - ((a as ProviderInfo).noAuth ? 1 : 0);
+      const noAuthDiff = (b.noAuth ? 1 : 0) - (a.noAuth ? 1 : 0);
       if (noAuthDiff !== 0) return noAuthDiff;
-      const ca = getProviderStats(ka, dualAuthTypes(a as ProviderInfo, ka)).connected > 0 ? 0 : 1;
-      const cb = getProviderStats(kb, dualAuthTypes(b as ProviderInfo, kb)).connected > 0 ? 0 : 1;
+      const ca = getProviderStats(ka, dualAuthTypes(a, ka)).connected > 0 ? 0 : 1;
+      const cb = getProviderStats(kb, dualAuthTypes(b, kb)).connected > 0 ? 0 : 1;
       if (ca !== cb) return ca - cb;
-      return ((a as ProviderInfo).name || "").localeCompare((b as ProviderInfo).name || "");
-    }) as [string, ProviderInfo][];
-  const apikeyEntries = Object.entries(APIKEY_PROVIDERS)
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  const apikeyEntries = (Object.entries(APIKEY_PROVIDERS) as unknown as [string, ProviderInfo][])
     .filter(
       ([, info]) =>
-        !(info as ProviderInfo).hidden &&
-        ((info as ProviderInfo).serviceKinds ?? ["llm"]).includes("llm") &&
-        matchSearch((info as ProviderInfo).name),
+        !info.hidden &&
+        (info.serviceKinds ?? ["llm"]).includes("llm") &&
+        matchSearch(info.name),
     )
     .sort(([ka, a], [kb, b]) => {
       const ca = getProviderStats(ka, "apikey").total > 0 ? 0 : 1;
       const cb = getProviderStats(kb, "apikey").total > 0 ? 0 : 1;
       if (ca !== cb) return ca - cb;
-      return ((a as ProviderInfo).name || "").localeCompare((b as ProviderInfo).name || "");
-    }) as [string, ProviderInfo][];
+      return (a.name || "").localeCompare(b.name || "");
+    });
   const isApikeySearching = !!searchQuery.trim();
   const visibleApikeyEntries =
     isApikeySearching || showAllApikey
@@ -374,7 +374,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
       {!hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
           <SearchX className="size-8" />
-          <p className="text-text-muted text-sm">No providers match your search</p>
+          <p className="text-text-muted text-sm">Nenhum provedor corresponde à sua busca</p>
         </div>
       )}
 
@@ -382,7 +382,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            Custom Providers (OpenAI/Anthropic Compatible){" "}
+            Provedores Customizados (Compatível OpenAI/Anthropic){" "}
           </h2>
           <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
             <Button
@@ -390,7 +390,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               onClick={() => setShowAddAnthropicCompatibleModal(true)}
               className="w-full sm:w-auto"
             >
-              Add Anthropic Compatible
+              Adicionar Compatível Anthropic
             </Button>
             <Button
               variant="outline"
@@ -398,7 +398,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               onClick={() => setShowAddCompatibleModal(true)}
               className="w-full sm:w-auto"
             >
-              Add OpenAI Compatible
+              Adicionar Compatível OpenAI
             </Button>
           </div>
         </div>
@@ -406,7 +406,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         anthropicCompatibleProviders.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
             <Puzzle className="size-5" />
-            <span>No custom providers — use buttons above to add OpenAI/Anthropic compatible endpoints</span>
+            <span>Nenhum provedor customizado — use os botões acima para adicionar endpoints compatíveis OpenAI/Anthropic</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -433,7 +433,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            OAuth Providers
+            Provedores OAuth
           </h2>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <ModelAvailabilityBadge />
@@ -442,15 +442,15 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               onClick={() => handleBatchTest("oauth")}
               disabled={!!testingMode}
               className={testingMode === "oauth" ? "animate-pulse" : ""}
-              title="Test all OAuth connections"
-              aria-label="Test all OAuth connections"
+              title="Testar todas as conexões OAuth"
+              aria-label="Testar todas as conexões OAuth"
             >
               <span
                 className={`text-[14px]${testingMode === "oauth" ? " animate-spin" : ""}`}
               >
                 <Play className="size-3.5" />
               </span>
-              {testingMode === "oauth" ? "Testing..." : "Test All"}
+              {testingMode === "oauth" ? "Testando..." : "Testar Todos"}
             </Button>
           </div>
         </div>
@@ -477,22 +477,22 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            Free Tier Providers
+            Provedores com Plano Gratuito
           </h2>
           <Button
             variant="outline"
             onClick={() => handleBatchTest("free")}
             disabled={!!testingMode}
             className={testingMode === "free" ? "animate-pulse" : ""}
-            title="Test all Free connections"
-            aria-label="Test all Free provider connections"
+            title="Testar todas as conexões Gratuitas"
+            aria-label="Testar todas as conexões de provedores Gratuitos"
           >
             <span
               className={`text-[14px]${testingMode === "free" ? " animate-spin" : ""}`}
             >
               <Play className="size-3.5" />
             </span>
-            {testingMode === "free" ? "Testing..." : "Test All"}
+            {testingMode === "free" ? "Testando..." : "Testar Todos"}
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -533,22 +533,22 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            API Key Providers{" "}
+            Provedores com Chave de API{" "}
           </h2>
           <Button
             variant="outline"
             onClick={() => handleBatchTest("apikey")}
             disabled={!!testingMode}
             className={testingMode === "apikey" ? "animate-pulse" : ""}
-            title="Test all API Key connections"
-            aria-label="Test all API Key connections"
+            title="Testar todas as conexões com Chave de API"
+            aria-label="Testar todas as conexões com Chave de API"
           >
             <span
               className={`text-[14px]${testingMode === "apikey" ? " animate-spin" : ""}`}
             >
               <Play className="size-3.5" />
             </span>
-            {testingMode === "apikey" ? "Testing..." : "Test All"}
+            {testingMode === "apikey" ? "Testando..." : "Testar Todos"}
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -570,7 +570,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
             className="w-full border-dashed border-primary/40 text-primary hover:border-primary hover:bg-primary/5"
           >
             <ChevronDown className="size-4" />
-            Show all {apikeyEntries.length} providers
+            Mostrar todos os {apikeyEntries.length} provedores
           </Button>
         )}
       </div>
@@ -580,8 +580,8 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         variant="openai"
         isOpen={showAddCompatibleModal}
         onClose={() => setShowAddCompatibleModal(false)}
-        onCreated={(node: ProviderNode) => {
-          setProviderNodes((prev) => [...prev, node]);
+        onCreated={(node) => {
+          setProviderNodes((prev) => [...prev, node as unknown as ProviderNode]);
           setShowAddCompatibleModal(false);
         }}
       />
@@ -589,8 +589,8 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         variant="anthropic"
         isOpen={showAddAnthropicCompatibleModal}
         onClose={() => setShowAddAnthropicCompatibleModal(false)}
-        onCreated={(node: ProviderNode) => {
-          setProviderNodes((prev) => [...prev, node]);
+        onCreated={(node) => {
+          setProviderNodes((prev) => [...prev, node as unknown as ProviderNode]);
           setShowAddAnthropicCompatibleModal(false);
         }}
       />
@@ -599,7 +599,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
       <Modal
         isOpen={!!testResults}
         onClose={() => setTestResults(null)}
-        title="Test Results"
+        title="Resultados dos Testes"
         size="full"
         showTrafficLights={false}
       >
@@ -630,7 +630,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }: {
             <div
               className="size-8 shrink-0 rounded-lg flex items-center justify-center"
               style={{
-                backgroundColor: `${provider.color?.length > 7 ? provider.color : provider.color + "15"}`,
+                backgroundColor: `${(provider.color?.length ?? 0) > 7 ? provider.color : provider.color + "15"}`,
               }}
             >
               <ProviderIcon
@@ -651,11 +651,11 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }: {
                   <Badge variant="default" >
                     <span className="flex items-center gap-1">
                       <PauseCircle className="size-3" />
-                      Disabled
+                      Desabilitado
                     </span>
                   </Badge>
                 ) : isNoAuth ? (
-                  <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Ready</Badge>
+                  <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Pronto</Badge>
                 ) : (
                   <>
                     {getStatusDisplay(connected, error, errorCode)}
@@ -680,7 +680,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }: {
                 <Switch
                   checked={!allDisabled}
                   onCheckedChange={() => {}}
-                  title={allDisabled ? "Enable provider" : "Disable provider"}
+                  title={allDisabled ? "Habilitar provedor" : "Desabilitar provedor"}
                 />
               </div>
             )}
@@ -730,7 +730,7 @@ function ApiKeyProviderCard({
             <div
               className="size-8 shrink-0 rounded-lg flex items-center justify-center"
               style={{
-                backgroundColor: `${provider.color?.length > 7 ? provider.color : provider.color + "15"}`,
+                backgroundColor: `${(provider.color?.length ?? 0) > 7 ? provider.color : provider.color + "15"}`,
               }}
             >
               <ProviderIcon
@@ -751,7 +751,7 @@ function ApiKeyProviderCard({
                   <Badge variant="default" >
                     <span className="flex items-center gap-1">
                       <PauseCircle className="size-3" />
-                      Disabled
+                      Desabilitado
                     </span>
                   </Badge>
                 ) : (
@@ -790,7 +790,7 @@ function ApiKeyProviderCard({
                 <Switch
                   checked={!allDisabled}
                   onCheckedChange={() => {}}
-                  title={allDisabled ? "Enable provider" : "Disable provider"}
+                  title={allDisabled ? "Habilitar provedor" : "Desabilitar provedor"}
                 />
               </div>
             )}
@@ -828,15 +828,15 @@ function ProviderTestResultsView({ results }: { results: TestResults }) {
         <div className="flex flex-wrap items-center gap-2 text-xs mb-1 sm:gap-3">
           <span className="text-text-muted">{modeLabel} Test</span>
           <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
-            {summary.passed} passed
+            {summary.passed} passaram
           </span>
           {summary.failed > 0 && (
             <span className="px-2 py-0.5 rounded bg-red-500/15 text-red-400 font-medium">
-              {summary.failed} failed
+              {summary.failed} falharam
             </span>
           )}
           <span className="text-text-muted sm:ml-auto">
-            {summary.total} tested
+            {summary.total} testados
           </span>
         </div>
       )}
@@ -876,7 +876,7 @@ function ProviderTestResultsView({ results }: { results: TestResults }) {
       ))}
       {items.length === 0 && (
         <div className="text-center py-4 text-text-muted text-sm">
-          No active connections found for this group.
+          Nenhuma conexão ativa encontrada para este grupo.
         </div>
       )}
     </div>

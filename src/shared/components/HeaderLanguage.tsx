@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Button from "@/shared/components/Button";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { LOCALE_FLAGS, type LocaleKey } from "@/shared/constants/locales";
@@ -19,18 +19,17 @@ export default function HeaderLanguage() {
   const [open, setOpen] = useState(false);
   const [locale, setLocale] = useState("en");
 
-  useEffect(() => {
-    setLocale(getLocaleFromCookie());
-  }, [open]);
-
   return (
     <>
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setLocale(getLocaleFromCookie());
+          setOpen(true);
+        }}
         className="flex items-center justify-center p-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface-2/50"
-        title="Language"
+        title="Idioma"
         data-i18n-skip="true"
       >
         <span className="text-lg leading-none">{LOCALE_FLAGS[locale as LocaleKey] || "🌐"}</span>

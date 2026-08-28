@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input, ModelSelectModal, ConfirmModal } from "@/shared/components";
+import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
@@ -102,8 +103,8 @@ export default function ComboDetailClient({
     const keys = initialKeys as Record<string, unknown>[];
     return (keys.find((x: Record<string, unknown>) => x.isActive !== false)?.key as string) || "";
   });
-  const [connections] = useState<Record<string, unknown>[]>(initialProviders);
-  const [modelAliases] = useState<Record<string, unknown>>(initialAliases);
+  const [connections] = useState<ActiveProvider[]>(initialProviders as unknown as ActiveProvider[]);
+  const [modelAliases] = useState<Record<string, string>>(initialAliases as unknown as Record<string, string>);
 
   const validateName = (v: string) => {
     if (!v.trim()) { setNameError("Name is required"); return false; }
@@ -317,7 +318,7 @@ export default function ComboDetailClient({
           <div className="flex flex-col gap-2">
             {providers.map((entry, idx) => {
               const { providerId, model } = parseModelEntry(entry);
-              const p = AI_PROVIDERS[providerId];
+              const p = AI_PROVIDERS[providerId] as { name?: string; color?: string; textIcon?: string } | undefined;
               return (
                 <div key={`${entry}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.02]">
                   <span className="text-xs text-text-muted w-5 text-center">{idx + 1}</span>
@@ -439,8 +440,8 @@ export default function ComboDetailClient({
         }}
         title="Delete Combo"
         message={`Delete combo "${combo!.name}"?`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText="Excluir"
+        cancelText="Cancelar"
         variant="danger"
       />
     </div>

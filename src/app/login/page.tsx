@@ -15,9 +15,9 @@ export default function LoginPage() {
   const [authMode, setAuthMode] = useState("password");
   const [ssoType, setSsoType] = useState("oidc");
   const [oidcConfigured, setOidcConfigured] = useState(false);
-  const [oidcLoginLabel, setOidcLoginLabel] = useState("Sign in with OIDC");
+  const [oidcLoginLabel, setOidcLoginLabel] = useState("Entrar com OIDC");
   const [samlConfigured, setSamlConfigured] = useState(false);
-  const [samlLoginLabel, setSamlLoginLabel] = useState("Sign in with SAML SSO");
+  const [samlLoginLabel, setSamlLoginLabel] = useState("Entrar com SAML SSO");
   const [mustChange, setMustChange] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
@@ -50,9 +50,9 @@ export default function LoginPage() {
           setAuthMode(data.authMode || "password");
           setSsoType(data.ssoType || "oidc");
           setOidcConfigured(data.oidcConfigured === true);
-          setOidcLoginLabel(data.oidcLoginLabel || "Sign in with OIDC");
+          setOidcLoginLabel(data.oidcLoginLabel || "Entrar com OIDC");
           setSamlConfigured(data.samlConfigured === true);
-          setSamlLoginLabel(data.samlLoginLabel || "Sign in with SAML SSO");
+          setSamlLoginLabel(data.samlLoginLabel || "Entrar com SAML SSO");
         } else {
           // Safe fallback on non-OK response to avoid infinite loading state.
           setHasPassword(true);
@@ -87,12 +87,12 @@ export default function LoginPage() {
         window.location.assign("/dashboard");
       } else {
         const data = await res.json();
-        setError(data.error || "Invalid password");
+        setError(data.error || "Senha inválida");
         if (data.resetHint) setResetHint(data.resetHint);
         if (data.retryAfter) setRetryAfter(Number(data.retryAfter));
       }
     } catch (err) {
-      setError("An error occurred. Please try again.");
+      setError("Ocorreu um erro. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -113,10 +113,10 @@ export default function LoginPage() {
         window.location.assign("/dashboard");
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to set password");
+        setError(data.error || "Falha ao definir senha");
       }
     } catch (err) {
-      setError("An error occurred. Please try again.");
+      setError("Ocorreu um erro. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -145,7 +145,7 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-bg p-4">
         <div className="text-center">
           <Spinner size="lg" />
-          <p className="text-text-muted mt-4">Loading...</p>
+          <p className="text-text-muted mt-4">Carregando...</p>
         </div>
       </div>
     );
@@ -160,10 +160,10 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-primary mb-2">9Router</h1>
           <p className="text-text-muted">
             {samlAvailable
-              ? "Sign in with SAML 2.0 Single Sign-On"
+              ? "Entrar com SAML 2.0 Single Sign-On"
               : oidcAvailable
-              ? "Sign in with your OIDC provider to access the dashboard"
-              : "Enter your password to access the dashboard"}
+              ? "Entre com seu provedor OIDC para acessar o painel"
+              : "Digite sua senha para acessar o painel"}
           </p>
         </div>
 
@@ -171,13 +171,13 @@ export default function LoginPage() {
           {mustChange ? (
             <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
               <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
-                Set a new password before accessing the dashboard remotely.
+                Defina uma nova senha antes de acessar o painel remotamente.
               </p>
               <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">New password</Label>
+                <Label className="text-sm font-medium">Nova senha</Label>
                 <Input
                   type="password"
-                  placeholder="Enter new password"
+                  placeholder="Digite a nova senha"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -186,7 +186,7 @@ export default function LoginPage() {
                 {error && <p className="text-xs text-red-500">{error}</p>}
               </div>
               <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={!newPassword}>
-                Set password
+                Definir senha
               </Button>
             </form>
           ) : (
@@ -209,21 +209,21 @@ export default function LoginPage() {
               <form onSubmit={handleLogin} className="flex flex-col gap-4">
                 {isSsoEnabled && !ssoAvailable && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                    {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login is enabled, but configuration is incomplete. Password login is still available for recovery.
+                    Login {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} está habilitado, mas a configuração está incompleta. O login por senha ainda está disponível para recuperação.
                   </p>
                 )}
 
                 {authMode === "both" && ssoAvailable && (
                   <p className="text-xs text-text-muted text-center">
-                    Password and {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login are both enabled.
+                    Login por senha e {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} estão habilitados.
                   </p>
                 )}
 
                 <div className="flex flex-col gap-2">
-                  <Label className="text-sm font-medium">Password</Label>
+                  <Label className="text-sm font-medium">Senha</Label>
                   <Input
                     type="password"
-                    placeholder="Enter password"
+                    placeholder="Digite a senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -232,12 +232,12 @@ export default function LoginPage() {
                   {error && <p className="text-xs text-red-500">{error}</p>}
                   {retryAfter > 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
+                      Bloqueado. Tente novamente em <span className="font-mono">{retryAfter}s</span>.
                     </p>
                   )}
                   {resetHint && (
                     <p className="text-xs text-text-muted">
-                      Forgot password? Open <code className="bg-sidebar px-1 rounded">9router</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                      Esqueceu a senha? Abra o CLI <code className="bg-sidebar px-1 rounded">9router</code> no host → <b>Configurações</b> → <b>Redefinir senha para padrão</b>.
                     </p>
                   )}
                 </div>
@@ -249,15 +249,15 @@ export default function LoginPage() {
                   loading={loading}
                   disabled={retryAfter > 0}
                 >
-                  {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
+                  {retryAfter > 0 ? `Aguarde ${retryAfter}s` : "Entrar"}
                 </Button>
 
                 <p className="text-xs text-center text-text-muted mt-2">
-                  Default password is <code className="bg-sidebar px-1 rounded">123456</code>
+                  A senha padrão é <code className="bg-sidebar px-1 rounded">123456</code>
                 </p>
                 {hasPassword === false && (
                   <p className="text-xs text-center text-amber-600 dark:text-amber-400">
-                    Security risk: no password set. You will be asked to set one when logging in remotely.
+                    Risco de segurança: nenhuma senha definida. Você será solicitado a definir uma ao fazer login remotamente.
                   </p>
                 )}
               </form>

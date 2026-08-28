@@ -12,17 +12,17 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Row } from "./exampleShared";
 import { Check, Copy, Play, Wifi } from "lucide-react";
 
-export function SttExampleCard({ providerId }) {
+export function SttExampleCard({ providerId }: { providerId: string }) {
   const providerAlias = getProviderAlias(providerId);
-  const builtinSttModels = getModelsByProviderId(providerId).filter((m) => getModelKind(m) === "stt");
-  const [customSttModels, setCustomSttModels] = useState([]);
+  const builtinSttModels = (getModelsByProviderId(providerId) as Array<{ id: string; name: string; params?: string[] }>).filter((m) => getModelKind(m) === "stt");
+  const [customSttModels, setCustomSttModels] = useState<Array<{ id: string; name: string; params?: string[]; providerAlias?: string }>>([]);
   const sttModels = [...builtinSttModels, ...customSttModels];
 
   const [selectedModel, setSelectedModel] = useState(builtinSttModels[0]?.id ?? "");
   const selectedModelObj = sttModels.find((m) => m.id === selectedModel);
   const allowedParams = Array.isArray(selectedModelObj?.params) ? selectedModelObj.params : [];
 
-  const [audioFile, setAudioFile] = useState(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [language, setLanguage] = useState("");
   const [prompt, setPrompt] = useState("");
   const [responseFormat, setResponseFormat] = useState("json");
@@ -31,8 +31,8 @@ export function SttExampleCard({ providerId }) {
   const [useTunnel, setUseTunnel] = useState(false);
   const [localEndpoint, setLocalEndpoint] = useState("");
   const [tunnelEndpoint, setTunnelEndpoint] = useState("");
-  const [result, setResult] = useState(null);
-  const [latency, setLatency] = useState(null);
+  const [result, setResult] = useState<Record<string, unknown> | string | null>(null);
+  const [latency, setLatency] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const { copied: copiedCurl, copy: copyCurl } = useCopyToClipboard();
@@ -42,7 +42,7 @@ export function SttExampleCard({ providerId }) {
     setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
-      .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
+      .then((d) => { setApiKey(((d.keys || []) as Array<{ isActive?: boolean; key: string }>).find((k) => k.isActive !== false)?.key || ""); })
       .catch(() => {});
     fetch("/api/tunnel/status")
       .then((r) => r.json())
@@ -52,7 +52,7 @@ export function SttExampleCard({ providerId }) {
       fetch("/api/models/custom", { cache: "no-store" })
         .then((r) => r.json())
         .then((d) => {
-          const list = (d.models || []).filter((m) => getModelKind(m) === "stt" && m.providerAlias === providerAlias);
+          const list = ((d.models || []) as Array<{ id: string; name: string; params?: string[]; providerAlias?: string }>).filter((m) => getModelKind(m) === "stt" && m.providerAlias === providerAlias);
           setCustomSttModels(list);
         })
         .catch(() => {});
@@ -89,7 +89,7 @@ export function SttExampleCard({ providerId }) {
       if (allowedParams.includes("temperature") && temperature) fd.append("temperature", temperature);
       if (allowedParams.includes("prompt") && prompt) fd.append("prompt", prompt);
 
-      const headers = {};
+      const headers: Record<string, string> = {};
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
       const res = await fetch("/api/v1/audio/transcriptions", { method: "POST", headers, body: fd });
       setLatency(Date.now() - start);
@@ -100,8 +100,8 @@ export function SttExampleCard({ providerId }) {
         return;
       }
       setResult(data);
-    } catch (e) {
-      setError(e.message || "Network error");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setRunning(false);
     }
@@ -116,7 +116,7 @@ export function SttExampleCard({ providerId }) {
         {/* Model */}
         {sttModels.length > 0 ? (
           <Row label="Model">
-            <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <Select value={selectedModel} onValueChange={(v) => { if (v !== null) setSelectedModel(v); }}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select model" />
               </SelectTrigger>
@@ -228,7 +228,7 @@ export function SttExampleCard({ providerId }) {
         {/* Response format (if model supports) */}
         {allowedParams.includes("response_format") && (
           <Row label="Response Format">
-            <Select value={responseFormat} onValueChange={setResponseFormat}>
+            <Select value={responseFormat} onValueChange={(v) => { if (v !== null) setResponseFormat(v); }}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>

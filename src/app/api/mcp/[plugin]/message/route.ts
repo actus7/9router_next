@@ -13,7 +13,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const body = await request.json();
     sendToChild(plugin, body);
     return new Response(null, { status: 202 });
-  } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
 }

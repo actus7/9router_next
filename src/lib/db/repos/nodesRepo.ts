@@ -45,7 +45,13 @@ function nodeToRow(n: ProviderNode): Record<string, unknown> {
   };
 }
 
-function upsert(db: any, n: ProviderNode): void {
+interface DbLike {
+  run(sql: string, params?: unknown[]): void;
+  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
+  all(sql: string, params?: unknown[]): Array<Record<string, unknown>>;
+}
+
+function upsert(db: DbLike, n: ProviderNode): void {
   const r = nodeToRow(n);
   db.run(
     `INSERT INTO providerNodes(id, type, name, data, createdAt, updatedAt)
@@ -66,7 +72,7 @@ export async function getProviderNodes(filter: NodeFilter = {}): Promise<Provide
   const params: unknown[] = [];
   if (filter.type) { where.push("type = ?"); params.push(filter.type); }
   const sql: string = `SELECT * FROM providerNodes${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  return (db.all(sql, params) as NodeRow[]).map(rowToNode).filter((n): n is ProviderNode => n !== null);
+  return (db.all(sql, params) as unknown as NodeRow[]).map(rowToNode).filter((n): n is ProviderNode => n !== null);
 }
 
 export async function getProviderNodeById(id: string): Promise<ProviderNode | null> {

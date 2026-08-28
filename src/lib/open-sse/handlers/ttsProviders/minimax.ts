@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 
-function hexToBase64(audioHex) {
+function hexToBase64(audioHex: string): string {
   const clean = typeof audioHex === "string" ? audioHex.trim() : "";
   if (!clean) throw new Error("MiniMax TTS returned no audio");
   if (clean.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(clean)) {
@@ -10,7 +10,7 @@ function hexToBase64(audioHex) {
 }
 
 // MiniMax T2A HTTP: returns hex-encoded audio in non-streaming mode.
-export default async function minimaxTts({ baseUrl, apiKey, text, modelId, voiceId }) {
+export default async function minimaxTts({ baseUrl, apiKey, text, modelId, voiceId }: { baseUrl: string; apiKey?: string; text: string; modelId?: string; voiceId?: string }): Promise<{ base64: string; format: string }> {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
@@ -36,14 +36,14 @@ export default async function minimaxTts({ baseUrl, apiKey, text, modelId, voice
   });
 
   const rawText = await res.text();
-  let data = {};
+  let data: Record<string, unknown> = {};
   if (rawText) {
     try { data = JSON.parse(rawText); } catch { data = {}; }
   }
 
-  const baseResp = data.base_resp || data.baseResp || {};
+  const baseResp = (data.base_resp || data.baseResp || {}) as Record<string, unknown>;
   const statusCode = Number(baseResp.status_code ?? baseResp.statusCode ?? 0);
-  const statusMessage = baseResp.status_msg || baseResp.statusMsg || data.message || "";
+  const statusMessage = (baseResp.status_msg || baseResp.statusMsg || data.message || "") as string;
 
   if (!res.ok) {
     throw new Error(statusMessage || rawText || `MiniMax TTS error (${res.status})`);
@@ -53,7 +53,7 @@ export default async function minimaxTts({ baseUrl, apiKey, text, modelId, voice
   }
 
   return {
-    base64: hexToBase64(data.data?.audio),
-    format: data.extra_info?.audio_format || data.extraInfo?.audioFormat || "mp3",
+    base64: hexToBase64(((data.data as Record<string, unknown>)?.audio as string) || ""),
+    format: ((data.extra_info as Record<string, unknown>)?.audio_format as string) || ((data.extraInfo as Record<string, unknown>)?.audioFormat as string) || "mp3",
   };
 }

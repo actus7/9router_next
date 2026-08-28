@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION: number = 1;
+export const SCHEMA_VERSION: number = 2;
 
 export const PRAGMA_SQL: string = `
 PRAGMA journal_mode = WAL;
@@ -98,10 +98,28 @@ export const TABLES: Record<string, TableDefinition> = {
       name: "TEXT UNIQUE NOT NULL",
       kind: "TEXT",
       models: "TEXT NOT NULL",
+      routing: "TEXT",
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_combo_name ON combos(name)"],
+  },
+  smartModelProfiles: {
+    columns: {
+      modelKey: "TEXT PRIMARY KEY",
+      inventoryFingerprint: "TEXT NOT NULL",
+      source: "TEXT NOT NULL",
+      profile: "TEXT NOT NULL",
+      classifierModel: "TEXT",
+      sources: "TEXT",
+      researchedAt: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_smp_source ON smartModelProfiles(source)",
+      "CREATE INDEX IF NOT EXISTS idx_smp_updated ON smartModelProfiles(updatedAt DESC)",
+    ],
   },
   kv: {
     columns: {

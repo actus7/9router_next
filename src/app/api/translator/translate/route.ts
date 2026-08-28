@@ -18,9 +18,9 @@ export async function POST(request: NextRequest) {
       case 1: {
         // Detect provider + formats from 1_req_client.json
         const clientBody = body.body || body;
-        const { provider, model } = await getModelInfo(clientBody.model);
+        const { provider, model } = await getModelInfo(clientBody.model as string);
         const sourceFormat = detectFormat(clientBody);
-        const targetFormat = getTargetFormat(provider);
+        const targetFormat = getTargetFormat(provider!);
         return NextResponse.json({ success: true, result: { provider, model, sourceFormat, targetFormat } });
       }
 
@@ -42,29 +42,29 @@ export async function POST(request: NextRequest) {
       case 3: {
         // OpenAI intermediate → target + build URL/headers (mirrors 4_req_target.json)
         const openaiBody = body.body || body;
-        const provider = body.provider;
-        const model = body.model;
+        const provider = body.provider as string;
+        const model = body.model as string;
 
         if (!provider || !model) {
           return NextResponse.json({ success: false, error: "provider and model required" }, { status: 400 });
         }
 
-        const targetFormat = getTargetFormat(provider);
+        const targetFormat = getTargetFormat(provider) as string;
         const stream = openaiBody.stream !== false;
 
         // translateRequest(OPENAI, target) = second half of pipeline
-        const translated = translateRequest(FORMATS.OPENAI, targetFormat, model, openaiBody, stream, null, provider);
+        const translated = translateRequest(FORMATS.OPENAI, targetFormat, model as string, openaiBody, stream, null, provider);
         delete translated._toolNameMap;
 
         // Build URL + headers via executor (same as chatCore → executor.execute)
         const connections = await getProviderConnections({ provider });
-        const connection = connections.find(c => c.isActive !== false);
+        const connection = connections.find((c: Record<string, unknown>) => c.isActive !== false);
         if (!connection) {
           return NextResponse.json({ success: false, error: `No active connection for provider: ${provider}` }, { status: 400 });
         }
 
         const credentials = {
-          apiKey: connection.apiKey,
+          apiKey: connection.apiKey as string,
           accessToken: connection.accessToken,
           refreshToken: connection.refreshToken,
           copilotToken: connection.copilotToken,
@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
       default:
         return NextResponse.json({ success: false, error: "Invalid step (1-3)" }, { status: 400 });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error in translator:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
   }
 }

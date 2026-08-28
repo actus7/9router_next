@@ -13,7 +13,8 @@ function isCliRequest(request: NextRequest): boolean {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    if (!isCliRequest(request) && !(await verifyDashboardPassword(request.headers.get(PASSWORD_HEADER)))) {
+    const password = request.headers.get(PASSWORD_HEADER);
+    if (!isCliRequest(request) && (!password || !(await verifyDashboardPassword(password)))) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
     const payload = await exportDb();

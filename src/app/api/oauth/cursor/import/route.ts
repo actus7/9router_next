@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
       provider: "cursor",
       authType: "oauth",
       accessToken: tokenData.accessToken,
-      refreshToken: null, // Cursor doesn't have public refresh endpoint
+      refreshToken: (tokenData as Record<string, unknown>).refreshToken as string | undefined ?? undefined, // Cursor doesn't have public refresh endpoint
       expiresAt: new Date(Date.now() + tokenData.expiresIn * 1000).toISOString(),
-      email: userInfo?.email || null,
+      email: userInfo?.email ?? undefined,
       providerSpecificData: {
         machineId: tokenData.machineId,
         authMethod: "imported",
@@ -59,13 +59,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       connection: {
-        id: connection.id,
-        provider: connection.provider,
-        email: connection.email,
+        id: connection!.id,
+        provider: connection!.provider,
+        email: connection!.email,
       },
     });
-  } catch ($1) { console.error("Cursor import token error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) { console.error("Cursor import token error:", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 

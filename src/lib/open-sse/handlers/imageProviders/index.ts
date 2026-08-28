@@ -13,7 +13,20 @@ import runwayml from "./runwayml";
 import cloudflareAi from "./cloudflareAi";
 import antigravity from "./antigravity";
 
-const ADAPTERS = {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const ADAPTERS: Record<string, {
+  noAuth?: boolean;
+  useExecutor?: boolean;
+  async?: boolean;
+  stream?: boolean;
+  buildUrl: (...args: any[]) => string;
+  buildHeaders: (...args: any[]) => Record<string, string>;
+  buildBody: (...args: any[]) => any;
+  normalize: (...args: any[]) => any;
+  parseResponse?: (...args: any[]) => any;
+  executeViaExecutor?: (...args: any[]) => any;
+}> = {
+/* eslint-enable @typescript-eslint/no-explicit-any */
   openai: createOpenAIAdapter("openai"),
   minimax: createOpenAIAdapter("minimax"),
   openrouter: createOpenAIAdapter("openrouter"),
@@ -34,10 +47,10 @@ const ADAPTERS = {
   "cloudflare-ai": cloudflareAi,
 };
 
-export function getImageAdapter(provider) {
+export function getImageAdapter(provider: string) {
   return ADAPTERS[provider] || null;
 }
 
-export function isImageProvider(provider) {
+export function isImageProvider(provider: string): boolean {
   return provider in ADAPTERS;
 }

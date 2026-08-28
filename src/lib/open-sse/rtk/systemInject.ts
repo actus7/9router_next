@@ -6,7 +6,7 @@ import { FORMATS } from "../translator/formats";
 
 const SEP = "\n\n";
 
-export function injectSystemPrompt(body, format, prompt) {
+export function injectSystemPrompt(body: Record<string, unknown>, format: string, prompt: string) {
   if (!body || !prompt) return;
 
   switch (format) {
@@ -27,7 +27,7 @@ export function injectSystemPrompt(body, format, prompt) {
 }
 
 // OpenAI-shaped: messages[] (chat) or input[] (responses) or instructions (responses string)
-function injectMessagesSystem(body, prompt) {
+function injectMessagesSystem(body: Record<string, unknown>, prompt: string) {
   // OpenAI Responses API: top-level string field
   if (typeof body.instructions === "string") {
     body.instructions = body.instructions
@@ -41,7 +41,7 @@ function injectMessagesSystem(body, prompt) {
     : null;
   if (!arr) return;
 
-  const idx = arr.findIndex(m => m && (m.role === "system" || m.role === "developer"));
+  const idx = arr.findIndex((m: Record<string, unknown>) => m && (m.role === "system" || m.role === "developer"));
   if (idx >= 0) {
     appendToOpenAIMessage(arr[idx], prompt);
   } else {
@@ -49,7 +49,7 @@ function injectMessagesSystem(body, prompt) {
   }
 }
 
-function appendToOpenAIMessage(msg, prompt) {
+function appendToOpenAIMessage(msg: Record<string, unknown>, prompt: string) {
   if (typeof msg.content === "string") {
     msg.content = `${msg.content}${SEP}${prompt}`;
   } else if (Array.isArray(msg.content)) {
@@ -62,7 +62,7 @@ function appendToOpenAIMessage(msg, prompt) {
 
 // Claude shape: body.system as string | array of {type:"text", text}
 // Insert before the last cache_control block to keep injection inside the cached prefix.
-function injectClaudeSystem(body, prompt) {
+function injectClaudeSystem(body: Record<string, unknown>, prompt: string) {
   if (typeof body.system === "string" && body.system.length > 0) {
     body.system = `${body.system}${SEP}${prompt}`;
     return;
@@ -85,13 +85,13 @@ function injectClaudeSystem(body, prompt) {
 
 // Gemini shape: body.system_instruction | body.systemInstruction | body.request.systemInstruction
 // Each shape: { parts: [{ text }] }
-function injectGeminiSystem(body, prompt) {
-  const target = body.request && typeof body.request === "object" ? body.request : body;
+function injectGeminiSystem(body: Record<string, unknown>, prompt: string) {
+  const target = body.request && typeof body.request === "object" ? body.request as Record<string, unknown> : body;
   const useSnake = Object.prototype.hasOwnProperty.call(target, "system_instruction");
   const key = useSnake ? "system_instruction" : "systemInstruction";
-  const sys = target[key];
+  const sys = target[key] as Record<string, unknown> | undefined;
   if (sys && Array.isArray(sys.parts)) {
-    sys.parts.push({ text: prompt });
+    (sys.parts as unknown[]).push({ text: prompt });
     return;
   }
   target[key] = { parts: [{ text: prompt }] };

@@ -7,16 +7,18 @@ export { VALID_OPENAI_CONTENT_TYPES, VALID_OPENAI_MESSAGE_TYPES };
 // Filter messages to OpenAI standard format
 // Remove: thinking, redacted_thinking, signature, and other non-OpenAI blocks
 // opts.preserveCacheControl: keep cache_control on content blocks (e.g. for DashScope/alicode)
-export function filterToOpenAIFormat(body, opts = {}) {
+export function filterToOpenAIFormat(body: Record<string, unknown>, opts: { preserveCacheControl?: boolean } = {}) {
   if (!body.messages || !Array.isArray(body.messages)) return body;
   const keepCache = !!opts.preserveCacheControl;
 
-  function stripBlock(block) {
+  function stripBlock(block: Record<string, unknown>) {
     const { signature, cache_control, ...rest } = block;
     return keepCache && cache_control ? { ...rest, cache_control } : rest;
   }
 
-  body.messages = body.messages.map(msg => {
+  let messages = body.messages as Record<string, unknown>[];
+
+  messages = messages.map((msg: Record<string, unknown>) => {
     // Normalize developer role to system (many providers don't support developer)
     if (msg.role === ROLE.DEVELOPER) msg = { ...msg, role: ROLE.SYSTEM };
 
@@ -31,14 +33,14 @@ export function filterToOpenAIFormat(body, opts = {}) {
 
     // Handle array content
     if (Array.isArray(msg.content)) {
-      const filteredContent = [];
+      const filteredContent: Record<string, unknown>[] = [];
 
-      for (const block of msg.content) {
+      for (const block of msg.content as Record<string, unknown>[]) {
         // Skip thinking blocks
         if (block.type === CLAUDE_BLOCK.THINKING || block.type === CLAUDE_BLOCK.REDACTED_THINKING) continue;
 
         // Only keep valid OpenAI content types
-        if (VALID_OPENAI_CONTENT_TYPES.includes(block.type)) {
+        if (VALID_OPENAI_CONTENT_TYPES.includes(block.type as string)) {
           filteredContent.push(stripBlock(block));
         } else if (block.type === CLAUDE_BLOCK.TOOL_USE) {
           // Convert tool_use to tool_calls format (handled separately)
@@ -61,7 +63,7 @@ export function filterToOpenAIFormat(body, opts = {}) {
   });
   
   // Filter out messages with only empty text (but NEVER filter tool messages)
-  body.messages = body.messages.filter(msg => {
+  messages = messages.filter((msg: Record<string, unknown>) => {
     // Always keep tool messages
     if (msg.role === ROLE.TOOL) return true;
     // Always keep assistant messages with tool_calls
@@ -69,13 +71,15 @@ export function filterToOpenAIFormat(body, opts = {}) {
     
     if (typeof msg.content === "string") return msg.content.trim() !== "";
     if (Array.isArray(msg.content)) {
-      return msg.content.some(b => 
-        (b.type === OPENAI_BLOCK.TEXT && b.text?.trim()) ||
+      return (msg.content as Record<string, unknown>[]).some((b: Record<string, unknown>) => 
+        (b.type === OPENAI_BLOCK.TEXT && (b.text as string | undefined)?.trim()) ||
         b.type !== OPENAI_BLOCK.TEXT
       );
     }
     return true;
   });
+
+  body.messages = messages;
 
   // Remove empty tools array (some providers like QWEN reject it)
   if (body.tools && Array.isArray(body.tools) && body.tools.length === 0) {
@@ -84,7 +88,7 @@ export function filterToOpenAIFormat(body, opts = {}) {
 
   // Normalize tools to OpenAI format (from Claude, Gemini, etc.)
   if (body.tools && Array.isArray(body.tools) && body.tools.length > 0) {
-    body.tools = body.tools.map(tool => {
+    body.tools = (body.tools as Record<string, unknown>[]).map((tool: Record<string, unknown>) => {
       // Already OpenAI format
       if (tool.type === OPENAI_BLOCK.FUNCTION && tool.function) return tool;
       
@@ -102,7 +106,7 @@ export function filterToOpenAIFormat(body, opts = {}) {
       
       // Gemini format: {functionDeclarations: [{name, description, parameters}]}
       if (tool.functionDeclarations && Array.isArray(tool.functionDeclarations)) {
-        return tool.functionDeclarations.map(fn => ({
+        return (tool.functionDeclarations as Record<string, unknown>[]).map((fn: Record<string, unknown>) => ({
           type: OPENAI_BLOCK.FUNCTION,
           function: {
             name: fn.name,
@@ -118,7 +122,7 @@ export function filterToOpenAIFormat(body, opts = {}) {
 
   // Normalize tool_choice to OpenAI format
   if (body.tool_choice && typeof body.tool_choice === "object") {
-    const choice = body.tool_choice;
+    const choice = body.tool_choice as Record<string, unknown>;
     // Claude format: {type: "auto|any|tool", name?: "..."}
     if (choice.type === "auto") {
       body.tool_choice = "auto";
@@ -131,4 +135,3 @@ export function filterToOpenAIFormat(body, opts = {}) {
 
   return body;
 }
-

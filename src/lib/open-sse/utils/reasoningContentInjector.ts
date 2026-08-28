@@ -6,12 +6,12 @@ import { PROVIDERS } from "../config/providers";
 const PLACEHOLDER = " ";
 
 // Provider-level rules derive from registry transport.reasoningInject (single source)
-const providerRuleFor = (provider) => PROVIDERS[provider]?.reasoningInject;
+const providerRuleFor = (provider: string) => (PROVIDERS as Record<string, Record<string, unknown>>)[provider]?.reasoningInject as { scope: string } | undefined;
 
 // Model-level rules: matched by predicate against model id
-const MODEL_RULES = [
-  { match: m => /^kimi-/i.test(m || ""), scope: "toolCalls" },
-  { match: m => /deepseek/i.test(m || ""), scope: "all" }
+const MODEL_RULES: Array<{ match: (m: string) => boolean; scope: string }> = [
+  { match: (m: string) => /^kimi-/i.test(m || ""), scope: "toolCalls" },
+  { match: (m: string) => /deepseek/i.test(m || ""), scope: "all" }
 ];
 
 const DEEPSEEK_V4_PRO = "deepseek-v4-pro";
@@ -26,7 +26,7 @@ const DEEPSEEK_V4_PRO_ALIASES = {
   }
 };
 
-function shouldInject(message, scope) {
+function shouldInject(message: Record<string, unknown>, scope: string): boolean {
   if (message?.role !== "assistant") return false;
   const rc = message.reasoning_content;
   if (typeof rc === "string" && rc.length > 0) return false;
@@ -34,25 +34,25 @@ function shouldInject(message, scope) {
   return true;
 }
 
-function applyRule(body, rule) {
+function applyRule(body: Record<string, unknown>, rule: { scope: string } | undefined): Record<string, unknown> {
   if (!rule || !body?.messages) return body;
-  const messages = body.messages.map(m =>
+  const messages = (body.messages as Record<string, unknown>[]).map((m: Record<string, unknown>) =>
     shouldInject(m, rule.scope) ? { ...m, reasoning_content: PLACEHOLDER } : m
   );
   return { ...body, messages };
 }
 
-function applyDeepSeekV4ProAlias({ provider, model, body }) {
-  const alias = DEEPSEEK_V4_PRO_ALIASES[model];
+function applyDeepSeekV4ProAlias({ provider, model, body }: { provider: string; model: string; body: Record<string, unknown> }): Record<string, unknown> {
+  const alias = DEEPSEEK_V4_PRO_ALIASES[model as keyof typeof DEEPSEEK_V4_PRO_ALIASES];
   if (provider !== "deepseek" || !alias || !body) return body;
 
-  const nextBody = {
+  const nextBody: Record<string, unknown> = {
     ...body,
     model: DEEPSEEK_V4_PRO,
     extra_body: {
-      ...(body.extra_body || {}),
+      ...((body.extra_body as Record<string, unknown>) || {}),
       thinking: {
-        ...(body.extra_body?.thinking || {}),
+        ...(((body.extra_body as Record<string, unknown>)?.thinking as Record<string, unknown>) || {}),
         type: alias.thinkingType
       }
     }
@@ -67,7 +67,7 @@ function applyDeepSeekV4ProAlias({ provider, model, body }) {
   return nextBody;
 }
 
-export function injectReasoningContent({ provider, model, body }) {
+export function injectReasoningContent({ provider, model, body }: { provider: string; model: string; body: Record<string, unknown> }) {
   const providerRule = providerRuleFor(provider);
   const modelRule = MODEL_RULES.find(r => r.match(model));
   const rule = providerRule || modelRule;

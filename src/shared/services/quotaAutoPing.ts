@@ -295,7 +295,7 @@ async function pingConnection(conn: ProviderConnection, provider: string, provid
   let connection: ProviderConnection = conn;
   try {
     const r = await deps.refreshAndUpdateCredentials(connection, false, proxyOptions as unknown as null);
-    connection = r.connection;
+    connection = r.connection as ProviderConnection;
   } catch (e: unknown) {
     state.failureCache[key] = Date.now();
     console.warn(`[AutoPing] ${provider}:${conn.id}: refresh failed: ${(e as Error).message}`);

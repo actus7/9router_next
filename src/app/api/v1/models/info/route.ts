@@ -16,13 +16,19 @@ const KIND_ENDPOINT = {
 
 const TTS_VOICES_API = new Set(["elevenlabs", "edge-tts", "deepgram", "inworld", "local-device"]);
 
-function buildInfo({ alias, providerId, model, kind, providerInfo }) {
-  const out = {
+function buildInfo({ alias, providerId, model, kind, providerInfo }: {
+  alias: string;
+  providerId: string;
+  model: Record<string, unknown>;
+  kind: string;
+  providerInfo?: Record<string, unknown>;
+}) {
+  const out: Record<string, unknown> = {
     id: `${alias}/${model.id}`,
     name: model.name || model.id,
     kind,
     owned_by: alias,
-    endpoint: KIND_ENDPOINT[kind] || null,
+    endpoint: KIND_ENDPOINT[kind as keyof typeof KIND_ENDPOINT] || null,
   };
   if (model.params) out.params = model.params;
   if (model.capabilities) out.capabilities = model.capabilities;
@@ -33,7 +39,7 @@ function buildInfo({ alias, providerId, model, kind, providerInfo }) {
     out.voicesUrl = `/v1/audio/voices?provider=${providerId}`;
   }
   if (kind === "webSearch" && providerInfo?.searchConfig) {
-    const cfg = providerInfo.searchConfig;
+    const cfg = providerInfo.searchConfig as Record<string, unknown>;
     if (cfg.searchTypes) out.searchTypes = cfg.searchTypes;
     if (cfg.maxMaxResults) out.maxResults = cfg.maxMaxResults;
     if (cfg.requiredOptions) out.required = cfg.requiredOptions;
@@ -43,7 +49,7 @@ function buildInfo({ alias, providerId, model, kind, providerInfo }) {
 
 // id format: "{alias}/{modelId}" - alias may also be providerId
 // requestedKind: optional, disambiguates duplicate ids across kinds (e.g. gemini-2.5-pro llm vs stt)
-function lookup(fullId, requestedKind) {
+function lookup(fullId: string, requestedKind: string | null) {
   if (!fullId || !fullId.includes("/")) return null;
   const slash = fullId.indexOf("/");
   const alias = fullId.slice(0, slash);
@@ -57,8 +63,8 @@ function lookup(fullId, requestedKind) {
     ? list.find((x) => x.id === modelId && getModelKind(x, "llm") === requestedKind)
     : list.find((x) => x.id === modelId);
   if (m) {
-    const kind = getModelKind(m, "llm");
-    return buildInfo({ alias, providerId, model: m, kind, providerInfo });
+    const kind = getModelKind(m, "llm") || "llm";
+    return buildInfo({ alias, providerId, model: m as Record<string, unknown>, kind, providerInfo });
   }
 
   // Web search/fetch — virtual model id "search" / "fetch"

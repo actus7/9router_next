@@ -9,15 +9,15 @@ import { U, parseResetTime } from "./shared";
 /**
  * Kiro (AWS CodeWhisperer) Usage
  */
-function parseKiroQuotaData(data) {
-  const usageList = data.usageBreakdownList || [];
-  const quotaInfo = {};
+function parseKiroQuotaData(data: Record<string, unknown>) {
+  const usageList = Array.isArray(data.usageBreakdownList) ? data.usageBreakdownList as Record<string, unknown>[] : [];
+  const quotaInfo: Record<string, unknown> = {};
   const resetAt = parseResetTime(data.nextDateReset || data.resetDate);
 
-  usageList.forEach((breakdown) => {
-    const resourceType = breakdown.resourceType?.toLowerCase() || "unknown";
-    const used = breakdown.currentUsageWithPrecision || 0;
-    const total = breakdown.usageLimitWithPrecision || 0;
+  usageList.forEach((breakdown: Record<string, unknown>) => {
+    const resourceType = ((breakdown.resourceType as string)?.toLowerCase()) || "unknown";
+    const used = (breakdown.currentUsageWithPrecision as number) || 0;
+    const total = (breakdown.usageLimitWithPrecision as number) || 0;
 
     quotaInfo[resourceType] = {
       used,
@@ -29,27 +29,28 @@ function parseKiroQuotaData(data) {
 
     // Add free trial if available
     if (breakdown.freeTrialInfo) {
-      const freeUsed = breakdown.freeTrialInfo.currentUsageWithPrecision || 0;
-      const freeTotal = breakdown.freeTrialInfo.usageLimitWithPrecision || 0;
+      const freeTrialInfo = breakdown.freeTrialInfo as Record<string, unknown>;
+      const freeUsed = (freeTrialInfo.currentUsageWithPrecision as number) || 0;
+      const freeTotal = (freeTrialInfo.usageLimitWithPrecision as number) || 0;
 
       quotaInfo[`${resourceType}_freetrial`] = {
         used: freeUsed,
         total: freeTotal,
         remaining: freeTotal - freeUsed,
-        resetAt: parseResetTime(breakdown.freeTrialInfo.freeTrialExpiry || resetAt),
+        resetAt: parseResetTime(freeTrialInfo.freeTrialExpiry || resetAt),
         unlimited: false,
       };
     }
   });
 
   return {
-    plan: data.subscriptionInfo?.subscriptionTitle || "Kiro",
+    plan: ((data.subscriptionInfo as Record<string, unknown>)?.subscriptionTitle as string) || "Kiro",
     quotas: quotaInfo,
   };
 }
 
-export async function getKiroUsage(accessToken, providerSpecificData, proxyOptions = null) {
-  const authMethod = providerSpecificData?.authMethod || "builder-id";
+export async function getKiroUsage(accessToken: string, providerSpecificData: Record<string, unknown>, proxyOptions: unknown = null) {
+  const authMethod = (providerSpecificData?.authMethod as string) || "builder-id";
   // API-key Kiro connections authenticate the quota API the same way the chat
   // executor does: a bearer token plus a `tokentype: API_KEY` header so
   // CodeWhisperer treats it as a long-lived API key rather than an OIDC token.
@@ -63,8 +64,8 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
   // CodeWhisperer 403s a request whose profileArn isn't owned by the key's
   // account. Only send a profileArn actually resolved for this connection.
   const profileArn = isApiKey
-    ? (providerSpecificData?.profileArn || "")
-    : (providerSpecificData?.profileArn || resolveDefaultProfileArn(authMethod));
+    ? ((providerSpecificData?.profileArn as string) || "")
+    : ((providerSpecificData?.profileArn as string) || resolveDefaultProfileArn(authMethod));
 
   const getUsageParams = new URLSearchParams({
     isEmailRequired: "true",
@@ -87,14 +88,14 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
             "user-agent": "aws-sdk-js/1.0.0 KiroIDE",
             ...apiKeyHeaders,
             ...externalIdpHeaders,
-          },
+          } as unknown as HeadersInit,
         },
-        proxyOptions
+        proxyOptions as null
       ),
     },
     {
       name: "codewhisperer-post",
-      run: async () => proxyAwareFetch(U("kiro").cwHost, {
+      run: async () => proxyAwareFetch(U("kiro").cwHost as string, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${accessToken}`,
@@ -103,13 +104,13 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
           "Accept": "application/json",
           ...apiKeyHeaders,
           ...externalIdpHeaders,
-        },
+        } as unknown as HeadersInit,
         body: JSON.stringify({
           origin: "AI_EDITOR",
           ...(profileArn ? { profileArn } : {}),
           resourceType: "AGENTIC_REQUEST",
         }),
-      }, proxyOptions),
+      }, proxyOptions as null),
     },
     {
       name: "q-get",
@@ -126,8 +127,8 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
             "Accept": "application/json",
             ...apiKeyHeaders,
             ...externalIdpHeaders,
-          },
-        }, proxyOptions);
+          } as unknown as HeadersInit,
+        }, proxyOptions as null);
       },
     },
   ];
@@ -149,8 +150,8 @@ export async function getKiroUsage(accessToken, providerSpecificData, proxyOptio
 
       const data = await response.json();
       return parseKiroQuotaData(data);
-    } catch (error) {
-      errors.push(`${attempt.name}:${error.message}`);
+    } catch (error: unknown) {
+      errors.push(`${attempt.name}:${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

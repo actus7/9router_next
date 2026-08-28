@@ -10,7 +10,7 @@ interface VersionCache {
 }
 
 // Survive hot reload; one cache per process
-const versionCache: VersionCache = ((global as any).__npmVersionCache ??= { value: null, fetchedAt: 0 });
+const versionCache: VersionCache = ((global as unknown as Record<string, VersionCache | undefined>).__npmVersionCache ??= { value: null, fetchedAt: 0 });
 
 // Fetch latest version from npm registry
 function fetchLatestVersion(): Promise<string | null> {

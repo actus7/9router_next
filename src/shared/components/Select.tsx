@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import {
@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
   SelectContent,
+  SelectGroup,
   SelectItem,
 } from "@/components/ui/select";
 import { AlertCircle } from "lucide-react";
@@ -28,6 +29,8 @@ interface SelectProps {
   disabled?: boolean;
   required?: boolean;
   className?: string;
+  id?: string;
+  ariaLabel?: string;
 }
 
 export default function Select({
@@ -35,23 +38,32 @@ export default function Select({
   options = [],
   value,
   onChange,
-  placeholder = "Select an option",
+  placeholder = "Selecione uma opção",
   error,
   hint,
   disabled = false,
   required = false,
   className,
+  id,
+  ariaLabel,
 }: SelectProps) {
+  const generatedId = useId();
+  const selectId = id || generatedId;
+
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <Label className="text-sm font-medium text-text-main">
+        <Label htmlFor={selectId} className="text-sm font-medium text-text-main">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="ml-1 text-destructive">*</span>}
         </Label>
       )}
       <ShadcnSelect value={value} onValueChange={onChange ? (val) => onChange(val ?? "") : undefined} disabled={disabled} items={options}>
         <SelectTrigger
+          id={selectId}
+          aria-label={ariaLabel || label}
+          aria-invalid={!!error}
+          aria-required={required}
           className={cn(
             "w-full py-2.5 px-3 pr-10 text-sm text-text-main",
             "bg-surface-2 border border-transparent rounded-[10px]",
@@ -64,15 +76,17 @@ export default function Select({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </ShadcnSelect>
       {error && (
-        <p className="text-xs text-red-500 flex items-center gap-1">
+        <p className="flex items-center gap-1 text-xs text-destructive">
           <AlertCircle className="size-3.5" />
           {error}
         </p>

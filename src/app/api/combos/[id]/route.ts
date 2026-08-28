@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/localDb";
 import { resetComboRotation } from "@/lib/open-sse/services/combo";
+import { DEFAULT_SMART_ROUTING_CONFIG } from "@/lib/open-sse/services/smart-routing/types";
+import { validateSmartRoutingConfig } from "@/lib/open-sse/services/smart-routing/router";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -44,9 +46,23 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
         return NextResponse.json({ error: "Combo name already exists" }, { status: 400 });
       }
     }
+
+    if (body.models !== undefined && !Array.isArray(body.models)) {
+      return NextResponse.json({ error: "Models must be an array" }, { status: 400 });
+    }
+    const prev = await getComboById(id);
+    if (!prev) return NextResponse.json({ error: "Combo not found" }, { status: 404 });
+    const nextKind = body.kind !== undefined ? body.kind : prev.kind;
+    if (nextKind === "smart") {
+      const validation = validateSmartRoutingConfig(body.routing ?? prev.routing ?? DEFAULT_SMART_ROUTING_CONFIG);
+      if (!validation.ok) return NextResponse.json({ error: validation.error }, { status: 400 });
+      body.routing = validation.config;
+    } else if (body.routing !== undefined) {
+      body.routing = null;
+    }
+    if (Array.isArray(body.models)) body.models = body.models.filter((model: unknown): model is string => typeof model === "string");
     
     // Capture previous name to invalidate rotation state on rename
-    const prev = await getComboById(id);
     const combo = await updateCombo(id, body);
     
     if (!combo) {

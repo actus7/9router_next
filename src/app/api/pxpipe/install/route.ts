@@ -14,7 +14,8 @@ export async function POST() {
     unloadPxpipe(); // drop any previously-loaded version so health loads the fresh one
     const health = await runHealthCheck();
     return NextResponse.json({ ...info, health });
-  } catch (error) {
-    return NextResponse.json({ error: error.message, code: error.code || null }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as Error & { code?: string };
+    return NextResponse.json({ error: err.message, code: err.code || null }, { status: 500 });
   }
 }

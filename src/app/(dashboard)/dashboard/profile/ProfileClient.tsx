@@ -6,14 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Card, Button, Input } from "@/shared/components";
 import { Input as ShadcnInput } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import Modal, { ConfirmModal } from "@/shared/components/Modal";
+import Modal from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import { APP_CONFIG } from "@/shared/constants/config";
-import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
+import { LOCALE_COOKIE, type Locale, normalizeLocale } from "@/i18n/config";
 import { LOCALE_FLAGS } from "@/shared/constants/locales";
-import { BarChart3, BookOpen, ChevronDown, ChevronUp, Contrast, Copy, Download, Globe, LogOut, Monitor, Moon, Power, Route, Shield, Sun, Unlock, Upload, Wifi } from "lucide-react";
+import { BarChart3, BookOpen, ChevronDown, ChevronUp, Contrast, Copy, Download, Globe, LogOut, Monitor, Moon, Route, Shield, Sun, Unlock, Upload, Wifi } from "lucide-react";
 
 interface Settings {
   fallbackStrategy?: string;
@@ -56,8 +56,6 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
   const { theme, setTheme, isDark } = useTheme();
   const [locale, setLocale] = useState(() => getLocaleFromCookie());
   const [langOpen, setLangOpen] = useState(false);
-  const [shutdownOpen, setShutdownOpen] = useState(false);
-  const [isShuttingDown, setIsShuttingDown] = useState(false);
   const [settings, setSettings] = useState<Settings>(initialSettings);
   const [loading, setLoading] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
@@ -72,7 +70,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
     oidcIssuerUrl: (initialSettings?.oidcIssuerUrl as string) || "",
     oidcClientId: (initialSettings?.oidcClientId as string) || "",
     oidcScopes: (initialSettings?.oidcScopes as string) || "openid profile email",
-    oidcLoginLabel: (initialSettings?.oidcLoginLabel as string) || "Sign in with OIDC",
+    oidcLoginLabel: (initialSettings?.oidcLoginLabel as string) || "Entrar com OIDC",
   });
   const [oidcClientSecret, setOidcClientSecret] = useState("");
   const [oidcStatus, setOidcStatus] = useState<StatusMessage>({ type: "", message: "" });
@@ -97,7 +95,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
     samlEntryPoint: (initialSettings?.samlEntryPoint as string) || "",
     samlIssuer: (initialSettings?.samlIssuer as string) || "urn:9router:sp",
     samlCert: (initialSettings?.samlCert as string) || "",
-    samlLoginLabel: (initialSettings?.samlLoginLabel as string) || "Sign in with SAML SSO",
+    samlLoginLabel: (initialSettings?.samlLoginLabel as string) || "Entrar com SAML SSO",
     samlAttributeEmail: (initialSettings?.samlAttributeEmail as string) || "email",
     samlAttributeName: (initialSettings?.samlAttributeName as string) || "name",
   });
@@ -138,12 +136,12 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
       const data = await res.json();
       if (res.ok) {
         setSettings((prev) => ({ ...prev, ...data }));
-        setProxyStatus({ type: "success", message: "Proxy settings applied" });
+        setProxyStatus({ type: "success", message: "Configurações de proxy aplicadas" });
       } else {
-        setProxyStatus({ type: "error", message: data.error || "Failed to update proxy settings" });
+        setProxyStatus({ type: "error", message: data.error || "Falha ao atualizar configurações de proxy" });
       }
     } catch (err) {
-      setProxyStatus({ type: "error", message: "An error occurred" });
+      setProxyStatus({ type: "error", message: "Ocorreu um erro" });
     } finally {
       setProxyLoading(false);
     }
@@ -154,7 +152,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
     const proxyUrl = (proxyForm.outboundProxyUrl || "").trim();
     if (!proxyUrl) {
-      setProxyStatus({ type: "error", message: "Please enter a Proxy URL to test" });
+      setProxyStatus({ type: "error", message: "Por favor, insira uma URL de Proxy para testar" });
       return;
     }
 
@@ -172,16 +170,16 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
       if (res.ok && data?.ok) {
         setProxyStatus({
           type: "success",
-          message: `Proxy test OK (${data.status}) in ${data.elapsedMs}ms`,
+          message: `Teste de proxy OK (${data.status}) em ${data.elapsedMs}ms`,
         });
       } else {
         setProxyStatus({
           type: "error",
-          message: data?.error || "Proxy test failed",
+          message: data?.error || "Teste de proxy falhou",
         });
       }
     } catch (err) {
-      setProxyStatus({ type: "error", message: "An error occurred" });
+      setProxyStatus({ type: "error", message: "Ocorreu um erro" });
     } finally {
       setProxyTestLoading(false);
     }
@@ -204,13 +202,13 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         setProxyForm((prev) => ({ ...prev, outboundProxyEnabled: data?.outboundProxyEnabled === true }));
         setProxyStatus({
           type: "success",
-          message: outboundProxyEnabled ? "Proxy enabled" : "Proxy disabled",
+          message: outboundProxyEnabled ? "Proxy habilitado" : "Proxy desabilitado",
         });
       } else {
-        setProxyStatus({ type: "error", message: data.error || "Failed to update proxy settings" });
+        setProxyStatus({ type: "error", message: data.error || "Falha ao atualizar configurações de proxy" });
       }
     } catch (err) {
-      setProxyStatus({ type: "error", message: "An error occurred" });
+      setProxyStatus({ type: "error", message: "Ocorreu um erro" });
     } finally {
       setProxyLoading(false);
     }
@@ -219,7 +217,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
-      setPassStatus({ type: "error", message: "Passwords do not match" });
+      setPassStatus({ type: "error", message: "As senhas não coincidem" });
       return;
     }
 
@@ -239,13 +237,13 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
       const data = await res.json();
 
       if (res.ok) {
-        setPassStatus({ type: "success", message: "Password updated successfully" });
+        setPassStatus({ type: "success", message: "Senha atualizada com sucesso" });
         setPasswords({ current: "", new: "", confirm: "" });
       } else {
-        setPassStatus({ type: "error", message: data.error || "Failed to update password" });
+        setPassStatus({ type: "error", message: data.error || "Falha ao atualizar senha" });
       }
     } catch (err) {
-      setPassStatus({ type: "error", message: "An error occurred" });
+      setPassStatus({ type: "error", message: "Ocorreu um erro" });
     } finally {
       setPassLoading(false);
     }
@@ -262,7 +260,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         setSettings(prev => ({ ...prev, fallbackStrategy: strategy }));
       }
     } catch (err) {
-      console.error("Failed to update settings:", err);
+      console.error("Falha ao atualizar configurações:", err);
     }
   };
 
@@ -277,7 +275,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         setSettings(prev => ({ ...prev, comboStrategy: strategy }));
       }
     } catch (err) {
-      console.error("Failed to update combo strategy:", err);
+      console.error("Falha ao atualizar estratégia de combo:", err);
     }
   };
 
@@ -295,7 +293,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         setSettings(prev => ({ ...prev, stickyRoundRobinLimit: numLimit }));
       }
     } catch (err) {
-      console.error("Failed to update sticky limit:", err);
+      console.error("Falha ao atualizar limite sticky:", err);
     }
   };
 
@@ -313,7 +311,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         setSettings(prev => ({ ...prev, comboStickyRoundRobinLimit: numLimit }));
       }
     } catch (err) {
-      console.error("Failed to update combo sticky limit:", err);
+      console.error("Falha ao atualizar limite sticky de combo:", err);
     }
   };
 
@@ -328,7 +326,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         setSettings(prev => ({ ...prev, requireLogin }));
       }
     } catch (err) {
-      console.error("Failed to update require login:", err);
+      console.error("Falha ao atualizar exigir login:", err);
     }
   };
 
@@ -344,7 +342,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
     const secret = oidcClientSecret.trim();
 
     if (authMode !== "password" && (!issuerUrl || !clientId || !secret) && !settings.oidcConfigured) {
-      setOidcStatus({ type: "error", message: "Issuer URL, client ID, and client secret are required to enable OIDC." });
+      setOidcStatus({ type: "error", message: "URL do Emissor, ID do Cliente e Segredo do Cliente são obrigatórios para habilitar OIDC." });
       return;
     }
 
@@ -359,7 +357,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         oidcIssuerUrl: issuerUrl,
         oidcClientId: clientId,
         oidcScopes: scopes || "openid profile email",
-        oidcLoginLabel: loginLabel || "Sign in with OIDC",
+        oidcLoginLabel: loginLabel || "Entrar com OIDC",
       };
       if (secret) {
         payload.oidcClientSecret = secret;
@@ -379,23 +377,23 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           oidcIssuerUrl: data?.oidcIssuerUrl || issuerUrl,
           oidcClientId: data?.oidcClientId || clientId,
           oidcScopes: data?.oidcScopes || scopes || "openid profile email",
-          oidcLoginLabel: data?.oidcLoginLabel || loginLabel || "Sign in with OIDC",
+          oidcLoginLabel: data?.oidcLoginLabel || loginLabel || "Entrar com OIDC",
         });
         setOidcClientSecret("");
         setOidcStatus({
           type: "success",
           message:
             authMode === "oidc"
-              ? "OIDC login enabled"
+              ? "Login OIDC habilitado"
               : authMode === "both"
-                ? "Password and OIDC login enabled"
-                : "OIDC settings saved",
+                ? "Login por senha e OIDC habilitado"
+                : "Configurações OIDC salvas",
         });
       } else {
-        setOidcStatus({ type: "error", message: data.error || "Failed to save OIDC settings" });
+        setOidcStatus({ type: "error", message: data.error || "Falha ao salvar configurações OIDC" });
       }
     } catch (err) {
-      setOidcStatus({ type: "error", message: "An error occurred" });
+      setOidcStatus({ type: "error", message: "Ocorreu um erro" });
     } finally {
       setOidcLoading(false);
     }
@@ -408,7 +406,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
     const secret = oidcClientSecret.trim();
 
     if (!issuerUrl || !clientId) {
-      setOidcTestStatus({ type: "error", message: "Issuer URL and client ID are required to test the connection." });
+      setOidcTestStatus({ type: "error", message: "URL do Emissor e ID do Cliente são obrigatórios para testar a conexão." });
       return;
     }
 
@@ -425,7 +423,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           oidcIssuerUrl: issuerUrl,
           oidcClientId: clientId,
           oidcScopes: scopes || "openid profile email",
-          oidcLoginLabel: oidcForm.oidcLoginLabel.trim() || "Sign in with OIDC",
+          oidcLoginLabel: oidcForm.oidcLoginLabel.trim() || "Entrar com OIDC",
           ...(secret ? { oidcClientSecret: secret } : {}),
         }),
       });
@@ -434,7 +432,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
       if (!saveRes.ok) {
         setOidcTestStatus({
           type: "error",
-          message: saved.error || "Failed to save OIDC settings before testing",
+          message: saved.error || "Falha ao salvar configurações OIDC antes de testar",
         });
         return;
       }
@@ -453,18 +451,18 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
       if (res.ok && data?.ok) {
         const statusMessage = data.clientSecretTested
           ? data.clientSecretValid === true
-            ? `Connection OK. Discovery loaded from ${data.issuerUrl}. Client secret validated too.`
-            : `Connection OK. Discovery loaded from ${data.issuerUrl}. Client secret was not checked.`
-          : `Connection OK. Discovery loaded from ${data.issuerUrl}.`;
+            ? `Conexão OK. Discovery carregado de ${data.issuerUrl}. Segredo do cliente validado também.`
+            : `Conexão OK. Discovery carregado de ${data.issuerUrl}. Segredo do cliente não foi verificado.`
+          : `Conexão OK. Discovery carregado de ${data.issuerUrl}.`;
         setOidcTestStatus({
           type: "success",
           message: statusMessage,
         });
       } else {
-        setOidcTestStatus({ type: "error", message: data.error || "OIDC connection test failed" });
+        setOidcTestStatus({ type: "error", message: data.error || "Teste de conexão OIDC falhou" });
       }
     } catch (err) {
-      setOidcTestStatus({ type: "error", message: "An error occurred" });
+      setOidcTestStatus({ type: "error", message: "Ocorreu um erro" });
     } finally {
       setOidcTestLoading(false);
     }
@@ -487,7 +485,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         const doc = parser.parseFromString(xmlText, "text/xml");
         const parserError = doc.querySelector("parsererror");
         if (parserError) {
-          setSamlStatus({ type: "error", message: "Unable to parse valid SAML IdP metadata from XML file" });
+          setSamlStatus({ type: "error", message: "Não foi possível analisar metadados SAML IdP válidos do arquivo XML" });
           return;
         }
 
@@ -518,10 +516,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
         setSamlStatus({
           type: "success",
-          message: `IdP Metadata imported! (SSO URL: ${ssoUrl ? "found" : "not found"}, EntityID: ${entityID ? "found" : "not found"}, Cert: ${certStr ? "found" : "not found"})`,
+          message: `Metadados IdP importados! (SSO URL: ${ssoUrl ? "encontrado" : "não encontrado"}, EntityID: ${entityID ? "encontrado" : "não encontrado"}, Cert: ${certStr ? "encontrado" : "não encontrado"})`,
         });
       } catch (err) {
-        setSamlStatus({ type: "error", message: "Error reading IdP Metadata XML file" });
+        setSamlStatus({ type: "error", message: "Erro ao ler arquivo XML de metadados IdP" });
       }
     };
     reader.readAsText(file);
@@ -536,7 +534,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
     reader.onload = (e) => {
       const text = (e.target?.result as string) || "";
       setSamlForm((prev) => ({ ...prev, samlCert: text.trim() }));
-      setSamlStatus({ type: "success", message: "Certificate file loaded into configuration." });
+      setSamlStatus({ type: "success", message: "Arquivo de certificado carregado na configuração." });
     };
     reader.readAsText(file);
   };
@@ -553,7 +551,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         samlEntryPoint: samlForm.samlEntryPoint.trim(),
         samlIssuer: samlForm.samlIssuer.trim() || "urn:9router:sp",
         samlCert: samlForm.samlCert.trim(),
-        samlLoginLabel: samlForm.samlLoginLabel.trim() || "Sign in with SAML SSO",
+        samlLoginLabel: samlForm.samlLoginLabel.trim() || "Entrar com SAML SSO",
         samlAttributeEmail: samlForm.samlAttributeEmail.trim() || "email",
         samlAttributeName: samlForm.samlAttributeName.trim() || "name",
       };
@@ -579,16 +577,16 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           type: "success",
           message:
             targetAuthMode === "sso" || targetAuthMode === "saml"
-              ? "SAML SSO login enabled"
+              ? "Login SAML SSO habilitado"
               : targetAuthMode === "both"
-                ? "Password and SAML SSO login enabled"
-                : "SAML 2.0 settings saved",
+                ? "Login por senha e SAML SSO habilitado"
+                : "Configurações SAML 2.0 salvas",
         });
       } else {
-        setSamlStatus({ type: "error", message: data.error || "Failed to save SAML settings" });
+        setSamlStatus({ type: "error", message: data.error || "Falha ao salvar configurações SAML" });
       }
     } catch {
-      setSamlStatus({ type: "error", message: "An error occurred while saving SAML settings" });
+      setSamlStatus({ type: "error", message: "Ocorreu um erro ao salvar configurações SAML" });
     } finally {
       setSamlLoading(false);
     }
@@ -612,12 +610,12 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
       const data = await res.json();
       if (res.ok && data.ok) {
-        setSamlTestStatus({ type: "success", message: data.message || "SAML configuration verified!" });
+        setSamlTestStatus({ type: "success", message: data.message || "Configuração SAML verificada!" });
       } else {
-        setSamlTestStatus({ type: "error", message: data.error || "SAML configuration test failed" });
+        setSamlTestStatus({ type: "error", message: data.error || "Teste de configuração SAML falhou" });
       }
     } catch {
-      setSamlTestStatus({ type: "error", message: "An error occurred while testing SAML configuration" });
+      setSamlTestStatus({ type: "error", message: "Ocorreu um erro ao testar configuração SAML" });
     } finally {
       setSamlTestLoading(false);
     }
@@ -634,7 +632,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         setSettings(prev => ({ ...prev, enableObservability: enabled }));
       }
     } catch (err) {
-      console.error("Failed to update enableObservability:", err);
+      console.error("Falha ao atualizar habilitar observabilidade:", err);
     }
   };
 
@@ -645,7 +643,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
       const data = await res.json();
       setSettings(data);
     } catch (err) {
-      console.error("Failed to reload settings:", err);
+      console.error("Falha ao recarregar configurações:", err);
     }
   };
 
@@ -658,7 +656,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to export database");
+        throw new Error(data.error || "Falha ao exportar banco de dados");
       }
 
       const payload = await res.json();
@@ -674,9 +672,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
 
-      setDbStatus({ type: "success", message: "Database backup downloaded" });
+      setDbStatus({ type: "success", message: "Backup do banco de dados baixado" });
     } catch (err: unknown) {
-      setDbStatus({ type: "error", message: err instanceof Error ? err.message : "Failed to export database" });
+      setDbStatus({ type: "error", message: err instanceof Error ? err.message : "Falha ao exportar banco de dados" });
     } finally {
       setDbLoading(false);
     }
@@ -707,13 +705,13 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "Failed to import database");
+        throw new Error(data.error || "Falha ao importar banco de dados");
       }
 
       await reloadSettings();
-      setDbStatus({ type: "success", message: "Database imported successfully" });
+      setDbStatus({ type: "success", message: "Banco de dados importado com sucesso" });
     } catch (err: unknown) {
-      setDbStatus({ type: "error", message: err instanceof Error ? err.message : "Invalid backup file" });
+      setDbStatus({ type: "error", message: err instanceof Error ? err.message : "Arquivo de backup inválido" });
     } finally {
       pendingImportRef.current = null;
       setDbLoading(false);
@@ -730,17 +728,6 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
   const observabilityEnabled = settings.enableObservability === true;
 
-  const handleShutdown = async () => {
-    setIsShuttingDown(true);
-    try {
-      await fetch("/api/version/shutdown", { method: "POST" });
-    } catch (e) {
-      // Expected to fail as server shuts down; ignore error
-    }
-    setIsShuttingDown(false);
-    setShutdownOpen(false);
-  };
-
   const handleLogout = async () => {
     try {
       const res = await fetch("/api/auth/logout", { method: "POST" });
@@ -748,12 +735,12 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
         window.location.assign("/login");
       }
     } catch (err) {
-      console.error("Failed to logout:", err);
+      console.error("Falha ao sair:", err);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-0">
+    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       <div className="flex flex-col gap-6">
         {/* Local Mode Info */}
         <Card>
@@ -763,8 +750,8 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 <Monitor className="size-4" />
               </div>
               <div>
-                <h2 className="text-lg sm:text-xl font-semibold">Local Mode</h2>
-                <p className="text-sm text-text-muted">Running on your machine</p>
+                <h2 className="text-lg sm:text-xl font-semibold">Modo Local</h2>
+                <p className="text-sm text-text-muted">Executando na sua máquina</p>
               </div>
             </div>
             <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full sm:w-auto">
@@ -773,7 +760,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                   key={option}
                   variant="ghost"
                   size="sm"
-                  onClick={() => setTheme(option)}
+                  onClick={() => setTheme(option as "light" | "dark" | "system")}
                   className={cn(
                     "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium transition-all flex-1 sm:flex-initial",
                     theme === option
@@ -790,7 +777,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           <div className="flex flex-col gap-3 pt-4 border-t border-border">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-bg border border-border gap-2">
               <div>
-                <p className="font-medium text-sm sm:text-base">Database Location</p>
+                <p className="font-medium text-sm sm:text-base">Local do Banco de Dados</p>
                 <p className="text-xs sm:text-sm text-text-muted font-mono break-all">~/.9router/db/data.sqlite</p>
               </div>
             </div>
@@ -802,7 +789,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 loading={dbLoading}
                 className="w-full sm:w-auto"
               >
-                Download Backup
+                Baixar Backup
               </Button>
               <Button
                 variant="outline"
@@ -811,7 +798,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 disabled={dbLoading}
                 className="w-full sm:w-auto"
               >
-                Import Backup
+                Importar Backup
               </Button>
               <ShadcnInput
                 ref={importFileRef}
@@ -835,7 +822,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             <div className="size-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
               <Globe className="size-5" />
             </div>
-            <h3 className="text-base sm:text-lg font-semibold">Language</h3>
+            <h3 className="text-base sm:text-lg font-semibold">Idioma</h3>
           </div>
           <Button
             variant="outline"
@@ -843,7 +830,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             className="flex items-center justify-between w-full p-3 rounded-lg bg-bg border border-border hover:border-primary/50 transition-colors"
             data-i18n-skip="true"
           >
-            <span className="text-sm text-text-muted">Display language</span>
+            <span className="text-sm text-text-muted">Idioma de exibição</span>
             <span className="text-2xl">{LOCALE_FLAGS[locale] || "🌐"}</span>
           </Button>
         </Card>
@@ -854,14 +841,14 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
               <Shield className="size-5" />
             </div>
-            <h3 className="text-base sm:text-lg font-semibold">Security</h3>
+            <h3 className="text-base sm:text-lg font-semibold">Segurança</h3>
           </div>
           <div className="flex flex-col gap-4">
             <div className="flex items-start sm:items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Require login</p>
+                <p className="font-medium text-sm sm:text-base">Exigir login</p>
                 <p className="text-xs sm:text-sm text-text-muted">
-                  When ON, dashboard requires password. When OFF, access without login.
+                  Quando ativado, o painel exige senha. Quando desativado, acesso sem login.
                 </p>
               </div>
               <Switch
@@ -874,10 +861,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
               <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 pt-4 border-t border-border/50">
                 {settings.hasPassword && (
                   <div className="flex flex-col gap-2">
-                    <Label className="text-xs sm:text-sm">Current Password</Label>
+                    <Label className="text-xs sm:text-sm">Senha Atual</Label>
                     <Input
                       type="password"
-                      placeholder="Enter current password"
+                      placeholder="Digite a senha atual"
                       value={passwords.current}
                       onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                       required
@@ -886,20 +873,20 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                    <Label className="text-xs sm:text-sm">New Password</Label>
+                    <Label className="text-xs sm:text-sm">Nova Senha</Label>
                     <Input
                       type="password"
-                      placeholder="Enter new password"
+                      placeholder="Digite a nova senha"
                       value={passwords.new}
                       onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
                       required
                     />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label className="text-xs sm:text-sm">Confirm New Password</Label>
+                    <Label className="text-xs sm:text-sm">Confirmar Nova Senha</Label>
                     <Input
                       type="password"
-                      placeholder="Confirm new password"
+                      placeholder="Confirme a nova senha"
                       value={passwords.confirm}
                       onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
                       required
@@ -915,7 +902,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
                 <div className="pt-2">
                   <Button type="submit" variant="primary" loading={passLoading} className="w-full sm:w-auto">
-                    {settings.hasPassword ? "Update Password" : "Set Password"}
+                    {settings.hasPassword ? "Atualizar Senha" : "Definir Senha"}
                   </Button>
                 </div>
               </form>
@@ -938,10 +925,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
               <h3 className="text-base sm:text-lg font-semibold">Single Sign-On (SSO)</h3>
               <p className="text-xs text-text-muted">
                 {settings.authMode === "sso" || settings.authMode === "oidc" || settings.authMode === "saml"
-                  ? `${settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} SSO active`
+                  ? `${settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} SSO ativo`
                   : settings.authMode === "both"
-                    ? `Password + ${settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} active`
-                    : "Optional SSO via Okta, Entra ID, Keycloak, or OIDC"}
+                    ? `Senha + ${settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} ativo`
+                    : "SSO opcional via Okta, Entra ID, Keycloak ou OIDC"}
               </p>
             </div>
             {oidcExpanded ? <ChevronUp className="size-5 text-text-muted shrink-0" /> : <ChevronDown className="size-5 text-text-muted shrink-0" />}
@@ -949,12 +936,12 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           {oidcExpanded && (
             <div className="flex flex-col gap-4 mt-4">
               <p className="text-xs sm:text-sm text-text-muted">
-                Configure enterprise Single Sign-On (SSO) for dashboard access using SAML 2.0 or OIDC.
+                Configure Single Sign-On (SSO) empresarial para acesso ao painel usando SAML 2.0 ou OIDC.
               </p>
 
               {/* SSO Protocol Switcher Tabs */}
               <div className="flex flex-col gap-2">
-                <Label className="sm:text-base">SSO Protocol</Label>
+                <Label className="sm:text-base">Protocolo SSO</Label>
                 <div className="flex p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border">
                   <Button
                     variant="ghost"
@@ -989,23 +976,23 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
               {/* Auth Mode selection */}
               <div className="flex flex-col gap-2">
-                <Label className="sm:text-base">Auth Mode</Label>
+                <Label className="sm:text-base">Modo de Autenticação</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     {
                       value: "password",
-                      title: "Password only",
-                      desc: "Keep legacy password login.",
+                      title: "Apenas senha",
+                      desc: "Manter login por senha legado.",
                     },
                     {
                       value: "sso",
-                      title: `${ssoTypeTab === "saml" ? "SAML" : "OIDC"} only`,
-                      desc: "Require SSO for dashboard access.",
+                      title: `Apenas ${ssoTypeTab === "saml" ? "SAML" : "OIDC"}`,
+                      desc: "Exigir SSO para acesso ao painel.",
                     },
                     {
                       value: "both",
-                      title: "Both",
-                      desc: "Allow password or SSO login.",
+                      title: "Ambos",
+                      desc: "Permitir login por senha ou SSO.",
                     },
                   ].map((option) => {
                     const currentMode = oidcForm.authMode;
@@ -1054,10 +1041,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                         <BookOpen className="size-4" />
                         <div>
                           <p className="font-semibold text-xs sm:text-sm text-text-main">
-                            IdP Setup Guidelines & Provider Configuration Instructions
+                            Diretrizes de Configuração IdP & Instruções de Configuração de Provedores
                           </p>
                           <p className="text-[11px] text-text-muted">
-                            Click to view setup steps for AWS IAM Identity Center, Okta, Entra ID, Keycloak, & Authentik
+                            Clique para ver as etapas de configuração para AWS IAM Identity Center, Okta, Entra ID, Keycloak & Authentik
                           </p>
                         </div>
                       </div>
@@ -1067,19 +1054,19 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     {showSamlGuide && (
                       <div className="p-4 border-t border-border bg-surface/30 text-xs text-text-main flex flex-col gap-3">
                         <div className="p-2.5 rounded border border-primary/20 bg-primary/5 text-primary text-xs">
-                          <p className="font-semibold mb-1">🔑 Required Service Provider (SP) Values for your IdP Setup:</p>
+                          <p className="font-semibold mb-1">🔑 Valores Obrigatórios do Provedor de Serviços (SP) para sua Configuração IdP:</p>
                           <ul className="list-disc pl-4 space-y-1 font-mono text-[11px]">
                             <li>
-                              <b>Assertion Consumer Service (ACS) URL:</b>{" "}
+                              <b>URL do Assertion Consumer Service (ACS):</b>{" "}
                               <code className="bg-bg px-1 py-0.5 rounded break-all">{samlAcsUrl}</code>
                             </li>
                             <li>
-                              <b>SP Entity ID / Audience URI:</b>{" "}
+                              <b>Entity ID do SP / Audience URI:</b>{" "}
                               <code className="bg-bg px-1 py-0.5 rounded break-all">{samlForm.samlIssuer || "urn:9router:sp"}</code>
                             </li>
                             <li>
-                              <b>NameID Format:</b>{" "}
-                              <code className="bg-bg px-1 py-0.5 rounded">EmailAddress</code> or <code className="bg-bg px-1 py-0.5 rounded">Unspecified</code>
+                              <b>Formato NameID:</b>{" "}
+                              <code className="bg-bg px-1 py-0.5 rounded">EmailAddress</code> ou <code className="bg-bg px-1 py-0.5 rounded">Unspecified</code>
                             </li>
                           </ul>
                         </div>
@@ -1090,11 +1077,11 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                               <span>☁️</span> AWS IAM Identity Center
                             </p>
                             <ol className="list-decimal pl-4 text-text-muted space-y-1">
-                              <li>Applications → <b>Add application</b> → Select <b>Add custom SAML 2.0 application</b>.</li>
-                              <li>Set <b>Application ACS URL</b> to <code className="text-text-main font-mono">{samlAcsUrl}</code>.</li>
-                              <li>Set <b>Application SAML audience</b> to <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code>.</li>
-                              <li>Under <i>Attribute mappings</i>, map <code className="text-text-main font-mono">Subject</code> or <code className="text-text-main font-mono">email</code> to <code className="text-text-main font-mono">${`{user:email}`}</code>.</li>
-                              <li>Download <b>IAM Identity Center SAML metadata XML</b> file and use 1-Click Import below!</li>
+                              <li>Applications → <b>Add application</b> → Selecione <b>Add custom SAML 2.0 application</b>.</li>
+                              <li>Defina <b>Application ACS URL</b> como <code className="text-text-main font-mono">{samlAcsUrl}</code>.</li>
+                              <li>Defina <b>Application SAML audience</b> como <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code>.</li>
+                              <li>Em <i>Attribute mappings</i>, mapeie <code className="text-text-main font-mono">Subject</code> ou <code className="text-text-main font-mono">email</code> para <code className="text-text-main font-mono">${`{user:email}`}</code>.</li>
+                              <li>Baixe o arquivo <b>IAM Identity Center SAML metadata XML</b> e use a Importação 1-Click abaixo!</li>
                             </ol>
                           </div>
 
@@ -1104,10 +1091,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                             </p>
                             <ol className="list-decimal pl-4 text-text-muted space-y-1">
                               <li>Enterprise Applications → <b>New application</b> → <b>Create your own application</b>.</li>
-                              <li>Select <b>Single sign-on</b> → <b>SAML</b>.</li>
+                              <li>Selecione <b>Single sign-on</b> → <b>SAML</b>.</li>
                               <li><b>Identifier (Entity ID):</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
                               <li><b>Reply URL (ACS):</b> <code className="text-text-main font-mono">{samlAcsUrl}</code></li>
-                              <li>Download <b>Federation Metadata XML</b> and import or copy X.509 Certificate.</li>
+                              <li>Baixe o <b>Federation Metadata XML</b> e importe ou copie o Certificado X.509.</li>
                             </ol>
                           </div>
 
@@ -1116,11 +1103,11 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                               <span>🟢</span> Okta / Auth0
                             </p>
                             <ol className="list-decimal pl-4 text-text-muted space-y-1">
-                              <li>Applications → <b>Create App Integration</b> → Select <b>SAML 2.0</b>.</li>
+                              <li>Applications → <b>Create App Integration</b> → Selecione <b>SAML 2.0</b>.</li>
                               <li><b>Single Sign-On URL:</b> <code className="text-text-main font-mono">{samlAcsUrl}</code></li>
                               <li><b>Audience URI (SP Entity ID):</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
-                              <li>Name ID format: <i>EmailAddress</i>.</li>
-                              <li>Download Identity Provider metadata XML or copy the X.509 cert.</li>
+                              <li>Formato Name ID: <i>EmailAddress</i>.</li>
+                              <li>Baixe o XML de metadados do Identity Provider ou copie o certificado X.509.</li>
                             </ol>
                           </div>
 
@@ -1129,10 +1116,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                               <span>🛡️</span> Keycloak / Authentik
                             </p>
                             <ol className="list-decimal pl-4 text-text-muted space-y-1">
-                              <li>Clients → <b>Create client</b> → Select <b>SAML</b>.</li>
+                              <li>Clients → <b>Create client</b> → Selecione <b>SAML</b>.</li>
                               <li><b>Client ID:</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
                               <li><b>Master SAML Processing URL:</b> <code className="text-text-main font-mono">{samlAcsUrl}</code></li>
-                              <li>Export SAML Descriptor XML or copy IDP Certificate PEM.</li>
+                              <li>Exporte o XML do SAML Descriptor ou copie o PEM do Certificado IDP.</li>
                             </ol>
                           </div>
                         </div>
@@ -1143,8 +1130,8 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                   {/* Quick Import Card */}
                   <div className="p-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <p className="font-medium text-sm text-text-main">1-Click IdP Metadata XML Import</p>
-                      <p className="text-xs text-text-muted">Auto-fill SSO URL, Issuer & Cert from XML metadata</p>
+                      <p className="font-medium text-sm text-text-main">Importação 1-Click de Metadados XML IdP</p>
+                      <p className="text-xs text-text-muted">Preenchimento automático de URL SSO, Emissor & Certificado a partir de metadados XML</p>
                     </div>
                     <Button
                       type="button"
@@ -1153,7 +1140,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       icon={<Upload className="size-4" />}
                       onClick={() => idpMetadataFileRef.current?.click()}
                     >
-                      Upload Metadata XML
+                      Carregar Metadados XML
                     </Button>
                     <ShadcnInput
                       ref={idpMetadataFileRef}
@@ -1166,7 +1153,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
                   <div className="grid grid-cols-1 gap-4">
                     <div className="flex flex-col gap-2">
-                      <Label className="sm:text-base">Single Sign-On Service URL (samlEntryPoint)</Label>
+                      <Label className="sm:text-base">URL do Serviço Single Sign-On (samlEntryPoint)</Label>
                       <Input
                         placeholder="https://idp.example.com/app/saml/sso/..."
                         value={samlForm.samlEntryPoint}
@@ -1176,7 +1163,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Label className="sm:text-base">SP Entity ID / Audience (samlIssuer)</Label>
+                      <Label className="sm:text-base">Entity ID do SP / Audience (samlIssuer)</Label>
                       <Input
                         placeholder="urn:9router:sp"
                         value={samlForm.samlIssuer}
@@ -1187,7 +1174,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
-                        <Label className="sm:text-base">IdP X.509 Certificate (samlCert)</Label>
+                        <Label className="sm:text-base">Certificado X.509 do IdP (samlCert)</Label>
                         <Button
                           type="button"
                           variant="outline"
@@ -1195,7 +1182,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                           icon={<Upload className="size-4" />}
                           onClick={() => certFileRef.current?.click()}
                         >
-                          Upload Certificate
+                          Carregar Certificado
                         </Button>
                         <ShadcnInput
                           ref={certFileRef}
@@ -1213,14 +1200,14 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                         className="text-xs font-mono"
                         disabled={loading || samlLoading}
                       />
-                      <p className="text-xs text-text-muted">Paste raw Base64 certificate or PEM block.</p>
+                      <p className="text-xs text-text-muted">Cole o certificado Base64 bruto ou bloco PEM.</p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="flex flex-col gap-2">
-                        <Label className="sm:text-base">Login Button Label</Label>
+                        <Label className="sm:text-base">Rótulo do Botão de Login</Label>
                         <Input
-                          placeholder="Sign in with SAML SSO"
+                          placeholder="Entrar com SAML SSO"
                           value={samlForm.samlLoginLabel}
                           onChange={(e) => updateSamlForm("samlLoginLabel", e.target.value)}
                           disabled={loading || samlLoading}
@@ -1228,7 +1215,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <Label className="sm:text-base">Email Claim Attribute</Label>
+                        <Label className="sm:text-base">Atributo de Claim de E-mail</Label>
                         <Input
                           placeholder="email"
                           value={samlForm.samlAttributeEmail}
@@ -1238,7 +1225,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <Label className="sm:text-base">Display Name Claim</Label>
+                        <Label className="sm:text-base">Claim de Nome de Exibição</Label>
                         <Input
                           placeholder="name"
                           value={samlForm.samlAttributeName}
@@ -1252,7 +1239,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                   <div className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-bg text-xs sm:text-sm text-text-muted">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="font-medium text-text-main">ACS Callback URL</p>
+                        <p className="font-medium text-text-main">URL de Callback ACS</p>
                         <code className="block break-all font-mono text-xs">{samlAcsUrl}</code>
                       </div>
                       <Button
@@ -1262,15 +1249,15 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                         icon={<Copy className="size-4" />}
                         onClick={() => {
                           navigator.clipboard.writeText(samlAcsUrl);
-                          setSamlStatus({ type: "success", message: "ACS URL copied to clipboard!" });
+                          setSamlStatus({ type: "success", message: "URL ACS copiada para a área de transferência!" });
                         }}
                       >
-                        Copy
+                        Copiar
                       </Button>
                     </div>
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
                       <div>
-                        <p className="font-medium text-text-main">SP XML Metadata</p>
+                        <p className="font-medium text-text-main">Metadados XML do SP</p>
                         <code className="block break-all font-mono text-xs">{samlMetadataUrl}</code>
                       </div>
                       <a
@@ -1281,7 +1268,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                       >
                         <Download className="size-4" />
-                        Download XML
+                        Baixar XML
                       </a>
                     </div>
                   </div>
@@ -1294,7 +1281,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       onClick={() => saveSamlSettings(oidcForm.authMode)}
                       className="w-full sm:w-auto"
                     >
-                      Save SAML settings
+                      Salvar configurações SAML
                     </Button>
                     <Button
                       type="button"
@@ -1303,7 +1290,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                       onClick={testSamlConnection}
                       className="w-full sm:w-auto"
                     >
-                      Test SAML settings
+                      Testar configurações SAML
                     </Button>
                   </div>
 
@@ -1324,7 +1311,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                 <div className="flex flex-col gap-4 pt-2 border-t border-border/50">
                   <div className="grid grid-cols-1 gap-4">
                     <div className="flex flex-col gap-2">
-                      <Label className="sm:text-base">Issuer URL</Label>
+                      <Label className="sm:text-base">URL do Emissor</Label>
                       <Input
                         placeholder="https://auth.example.com/application/o/9router/"
                         value={oidcForm.oidcIssuerUrl}
@@ -1334,7 +1321,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Label className="sm:text-base">Client ID</Label>
+                      <Label className="sm:text-base">ID do Cliente</Label>
                       <Input
                         placeholder="9router-dashboard"
                         value={oidcForm.oidcClientId}
@@ -1344,19 +1331,19 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Label className="sm:text-base">Client Secret</Label>
+                      <Label className="sm:text-base">Segredo do Cliente</Label>
                       <Input
                         type="password"
-                        placeholder="Leave blank to keep existing secret"
+                        placeholder="Deixe em branco para manter o segredo existente"
                         value={oidcClientSecret}
                         onChange={(e) => setOidcClientSecret(e.target.value)}
                         disabled={loading || oidcLoading}
                       />
-                      <p className="text-xs sm:text-sm text-text-muted">This value is write-only after saving.</p>
+                      <p className="text-xs sm:text-sm text-text-muted">Este valor é somente escrita após salvar.</p>
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Label className="sm:text-base">Scopes</Label>
+                      <Label className="sm:text-base">Escopos</Label>
                       <Input
                         placeholder="openid profile email"
                         value={oidcForm.oidcScopes}
@@ -1366,9 +1353,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Label className="sm:text-base">Login Button Label</Label>
+                      <Label className="sm:text-base">Rótulo do Botão de Login</Label>
                       <Input
-                        placeholder="Sign in with OIDC"
+                        placeholder="Entrar com OIDC"
                         value={oidcForm.oidcLoginLabel}
                         onChange={(e) => updateOidcForm("oidcLoginLabel", e.target.value)}
                         disabled={loading || oidcLoading}
@@ -1377,16 +1364,16 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                   </div>
 
                   <div className="rounded-lg border border-border bg-bg p-3 text-xs sm:text-sm text-text-muted">
-                    <p className="font-medium text-text-main mb-1">Redirect URI</p>
+                    <p className="font-medium text-text-main mb-1">URI de Redirecionamento</p>
                     <code className="block break-all font-mono">{oidcRedirectUri}</code>
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/50">
                     <Button type="button" variant="primary" loading={oidcLoading} onClick={() => saveOidcSettings()} className="w-full sm:w-auto">
-                      Save OIDC settings
+                      Salvar configurações OIDC
                     </Button>
                     <Button type="button" variant="outline" loading={oidcTestLoading} onClick={testOidcConnection} className="w-full sm:w-auto">
-                      Test connection
+                      Testar conexão
                     </Button>
                   </div>
 
@@ -1406,13 +1393,13 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
               {settings.authMode === "oidc" || settings.authMode === "saml" || settings.authMode === "sso" ? (
                 <p className="text-xs sm:text-sm text-amber-600 dark:text-amber-400">
-                  SSO login ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) is currently active. Password login is disabled until you switch back.
+                  Login SSO ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) está ativo no momento. Login por senha está desabilitado até você mudar de volta.
                 </p>
               ) : null}
 
               {settings.authMode === "both" && (
                 <p className="text-xs sm:text-sm text-amber-600 dark:text-amber-400">
-                  Password and SSO login ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) are both active.
+                  Login por senha e SSO ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) estão ambos ativos.
                 </p>
               )}
             </div>
@@ -1425,14 +1412,14 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
               <Route className="size-5" />
             </div>
-            <h3 className="text-base sm:text-lg font-semibold">Routing Strategy</h3>
+            <h3 className="text-base sm:text-lg font-semibold">Estratégia de Roteamento</h3>
           </div>
           <div className="flex flex-col gap-4">
             <div className="flex items-start sm:items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm sm:text-base">Round Robin</p>
                 <p className="text-xs sm:text-sm text-text-muted">
-                  Cycle through accounts to distribute load
+                  Alternar entre contas para distribuir a carga
                 </p>
               </div>
               <Switch
@@ -1446,9 +1433,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             {settings.fallbackStrategy === "round-robin" && (
               <div className="flex items-start sm:items-center justify-between gap-4 pt-2 border-t border-border/50">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm sm:text-base">Sticky Limit</p>
+                  <p className="font-medium text-sm sm:text-base">Limite Sticky</p>
                   <p className="text-xs sm:text-sm text-text-muted">
-                    Calls per account before switching
+                    Chamadas por conta antes de alternar
                   </p>
                 </div>
                 <Input
@@ -1466,9 +1453,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             {/* Combo Round Robin */}
             <div className="flex items-start sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Combo Round Robin</p>
+                <p className="font-medium text-sm sm:text-base">Round Robin de Combo</p>
                 <p className="text-xs sm:text-sm text-text-muted">
-                  Cycle through providers in combos instead of always starting with first
+                  Alternar entre provedores nos combos em vez de sempre começar com o primeiro
                 </p>
               </div>
               <Switch
@@ -1482,9 +1469,9 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             {settings.comboStrategy === "round-robin" && (
               <div className="flex items-center justify-between pt-2 border-t border-border/50">
                 <div>
-                  <p className="font-medium">Combo Sticky Limit</p>
+                  <p className="font-medium">Limite Sticky de Combo</p>
                   <p className="text-sm text-text-muted">
-                    Calls per combo model before switching
+                    Chamadas por modelo de combo antes de alternar
                   </p>
                 </div>
                 <Input
@@ -1501,11 +1488,11 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
 
             <p className="text-xs text-text-muted italic pt-2 border-t border-border/50">
               {settings.fallbackStrategy === "round-robin"
-                ? `Currently distributing requests across all available accounts with ${settings.stickyRoundRobinLimit || 3} calls per account.`
-                : "Currently using accounts in priority order (Fill First)."}
+                ? `Atualmente distribuindo requisições entre todas as contas disponíveis com ${settings.stickyRoundRobinLimit || 3} chamadas por conta.`
+                : "Atualmente usando contas em ordem de prioridade (Preencher Primeiro)."}
               {settings.comboStrategy === "round-robin"
-                ? ` Combos rotate after ${settings.comboStickyRoundRobinLimit || 1} call${(settings.comboStickyRoundRobinLimit || 1) === 1 ? "" : "s"} per model.`
-                : " Combos always start with their first model."}
+                ? ` Combos rotacionam após ${settings.comboStickyRoundRobinLimit || 1} chamada${(settings.comboStickyRoundRobinLimit || 1) === 1 ? "" : "s"} por modelo.`
+                : " Combos sempre começam com seu primeiro modelo."}
             </p>
           </div>
         </Card>
@@ -1516,14 +1503,14 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
               <Wifi className="size-5" />
             </div>
-            <h3 className="text-base sm:text-lg font-semibold">Network</h3>
+            <h3 className="text-base sm:text-lg font-semibold">Rede</h3>
           </div>
 
           <div className="flex flex-col gap-4">
             <div className="flex items-start sm:items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Outbound Proxy</p>
-                <p className="text-xs sm:text-sm text-text-muted">Enable proxy for OAuth + provider outbound requests.</p>
+                <p className="font-medium text-sm sm:text-base">Proxy de Saída</p>
+                <p className="text-xs sm:text-sm text-text-muted">Habilitar proxy para requisições de saída OAuth + provedor.</p>
               </div>
               <Switch
                 checked={settings.outboundProxyEnabled === true}
@@ -1535,25 +1522,25 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             {settings.outboundProxyEnabled === true && (
               <form onSubmit={updateOutboundProxy} className="flex flex-col gap-4 pt-2 border-t border-border/50">
                 <div className="flex flex-col gap-2">
-                  <Label className="sm:text-base">Proxy URL</Label>
+                  <Label className="sm:text-base">URL do Proxy</Label>
                   <Input
                     placeholder="http://127.0.0.1:7897"
                     value={proxyForm.outboundProxyUrl}
                     onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundProxyUrl: e.target.value }))}
                     disabled={loading || proxyLoading}
                   />
-                  <p className="text-xs sm:text-sm text-text-muted">Leave empty to inherit existing env proxy (if any).</p>
+                  <p className="text-xs sm:text-sm text-text-muted">Deixe vazio para herdar o proxy de ambiente existente (se houver).</p>
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-                  <Label className="sm:text-base">No Proxy</Label>
+                  <Label className="sm:text-base">Sem Proxy</Label>
                   <Input
                     placeholder="localhost,127.0.0.1"
                     value={proxyForm.outboundNoProxy}
                     onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundNoProxy: e.target.value }))}
                     disabled={loading || proxyLoading}
                   />
-                  <p className="text-xs sm:text-sm text-text-muted">Comma-separated hostnames/domains to bypass the proxy.</p>
+                  <p className="text-xs sm:text-sm text-text-muted">Nomes de host/domínios separados por vírgula para ignorar o proxy.</p>
                 </div>
 
                 <div className="pt-2 border-t border-border/50 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -1565,10 +1552,10 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
                     onClick={testOutboundProxy}
                     className="w-full sm:w-auto"
                   >
-                    Test proxy URL
+                    Testar URL do proxy
                   </Button>
                   <Button type="submit" variant="primary" loading={proxyLoading} className="w-full sm:w-auto">
-                    Apply
+                    Aplicar
                   </Button>
                 </div>
               </form>
@@ -1588,13 +1575,13 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
             <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 shrink-0">
               <BarChart3 className="size-5" />
             </div>
-            <h3 className="text-base sm:text-lg font-semibold">Observability</h3>
+            <h3 className="text-base sm:text-lg font-semibold">Observabilidade</h3>
           </div>
           <div className="flex items-start sm:items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm sm:text-base">Enable Observability</p>
+              <p className="font-medium text-sm sm:text-base">Habilitar Observabilidade</p>
               <p className="text-xs sm:text-sm text-text-muted">
-                Record request details for inspection in the logs view
+                Registrar detalhes das requisições para inspeção na visualização de logs
               </p>
             </div>
             <Switch
@@ -1610,74 +1597,53 @@ export default function ProfileClient({ initialSettings, initialDbInfo }: Profil
           <Button
             variant="outline"
             fullWidth
-            icon={<Power className="size-4" />}
-            onClick={() => setShutdownOpen(true)}
-            className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
-          >
-            Shutdown
-          </Button>
-          <Button
-            variant="outline"
-            fullWidth
             icon={<LogOut className="size-4" />}
             onClick={handleLogout}
           >
-            Logout
+            Sair
           </Button>
         </div>
 
         {/* App Info */}
         <div className="text-center text-xs sm:text-sm text-text-muted py-4">
           <p>{APP_CONFIG.name} v{APP_CONFIG.version}</p>
-          <p className="mt-1">Local Mode - All data stored on your machine</p>
+          <p className="mt-1">Modo Local - Todos os dados armazenados na sua máquina</p>
         </div>
       </div>
 
       <LanguageSwitcher
         hideTrigger
         isOpen={langOpen}
-        onClose={(next: string) => {
+        onClose={(next?: string) => {
           setLangOpen(false);
-          setLocale(next);
+          if (next) setLocale(normalizeLocale(next));
         }}
       />
-      <ConfirmModal
-        isOpen={shutdownOpen}
-        onClose={() => setShutdownOpen(false)}
-        onConfirm={handleShutdown}
-        title="Close Proxy"
-        message="Are you sure you want to close the proxy server?"
-        confirmText="Close"
-        cancelText="Cancel"
-        variant="danger"
-        loading={isShuttingDown}
-      />
-
       <Modal
         isOpen={dbAuth.open}
         onClose={() => setDbAuth({ open: false, mode: "", password: "" })}
-        title="Confirm Password"
+        title="Confirmar Senha"
         size="sm"
         footer={
           <>
             <Button variant="ghost" onClick={() => setDbAuth({ open: false, mode: "", password: "" })} disabled={dbLoading}>
-              Cancel
+              Cancelar
             </Button>
             <Button variant="primary" onClick={handleDbAuthConfirm} loading={dbLoading} disabled={!dbAuth.password}>
-              Confirm
+              Confirmar
             </Button>
           </>
         }
       >
         <p className="text-text-muted mb-3 text-sm">
-          Enter your current password to {dbAuth.mode === "export" ? "export" : "import"} the database.
+          Digite sua senha atual para {dbAuth.mode === "export" ? "exportar" : "importar"} o banco de dados.
         </p>
         <Input
           type="password"
           value={dbAuth.password}
           onChange={(e) => setDbAuth((s) => ({ ...s, password: e.target.value }))}
           onKeyDown={(e) => { if (e.key === "Enter" && dbAuth.password) handleDbAuthConfirm(); }}
-          placeholder="Current password"
+          placeholder="Senha atual"
           autoFocus
         />
       </Modal>

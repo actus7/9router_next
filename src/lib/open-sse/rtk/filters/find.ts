@@ -2,8 +2,8 @@
 // Group by parent dir, show basenames, cap 10/dir and 20 dirs total
 import { FIND_PER_DIR_MAX, FIND_TOTAL_DIR_MAX } from "../constants";
 
-export function find(input) {
-  const lines = input.split("\n").filter(l => l.trim());
+export function find(input: string) {
+  const lines = input.split("\n").filter((l: string) => l.trim());
   if (lines.length === 0) return input;
 
   const byDir = new Map();

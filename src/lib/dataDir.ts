@@ -25,8 +25,9 @@ function getDataDir(): string {
   try {
     fs.mkdirSync(configured, { recursive: true });
     return configured;
-  } catch (e: any) {
-    if (e?.code === "EACCES" || e?.code === "EPERM") {
+  } catch (e: unknown) {
+    const code = (e as NodeJS.ErrnoException)?.code;
+    if (code === "EACCES" || code === "EPERM") {
       console.warn(`[DATA_DIR] '${configured}' not writable → fallback ~/.${APP_NAME}`);
       return defaultDir();
     }

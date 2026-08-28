@@ -9,8 +9,8 @@ import { DEFAULT_MAX_TOKENS, DEFAULT_MIN_TOKENS } from "../../config/runtimeConf
  *   the conservative 64000 default before the model-aware step sees them.
  * @returns {number} Adjusted max_tokens
  */
-export function adjustMaxTokens(body, ceiling = DEFAULT_MAX_TOKENS) {
-  let maxTokens = body.max_tokens || DEFAULT_MAX_TOKENS;
+export function adjustMaxTokens(body: Record<string, unknown>, ceiling = DEFAULT_MAX_TOKENS) {
+  let maxTokens = (body.max_tokens as number | undefined) || DEFAULT_MAX_TOKENS;
 
   // Auto-increase for tool calling to prevent truncated arguments (min never above max)
   if (body.tools && Array.isArray(body.tools) && body.tools.length > 0) {
@@ -22,8 +22,9 @@ export function adjustMaxTokens(body, ceiling = DEFAULT_MAX_TOKENS) {
   // Ensure max_tokens > thinking.budget_tokens (Claude API requirement)
   // Claude API requires strictly greater, so add buffer instead of using the
   // ceiling which could equal budget_tokens when budget_tokens >= ceiling
-  if (body.thinking?.budget_tokens && maxTokens <= body.thinking.budget_tokens) {
-    maxTokens = body.thinking.budget_tokens + 1024;
+  const thinking = body.thinking as { budget_tokens?: number } | undefined;
+  if (thinking?.budget_tokens && maxTokens <= thinking.budget_tokens) {
+    maxTokens = thinking.budget_tokens + 1024;
   }
 
   // Never exceed the ceiling

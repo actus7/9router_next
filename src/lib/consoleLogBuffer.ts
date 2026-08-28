@@ -100,8 +100,8 @@ export function initConsoleLogCapture(): void {
   if (state.patched) return;
 
   for (const level of consoleLevels) {
-    state.originals[level] = (console as Record<string, (...args: unknown[]) => void>)[level];
-    (console as Record<string, (...args: unknown[]) => void>)[level] = (...args: unknown[]) => {
+    state.originals[level] = (console as unknown as Record<string, (...args: unknown[]) => void>)[level];
+    (console as unknown as Record<string, (...args: unknown[]) => void>)[level] = (...args: unknown[]) => {
       appendLine(toLogLine(level, args));
       state.originals[level](...args);
     };

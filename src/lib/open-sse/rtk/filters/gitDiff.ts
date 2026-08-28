@@ -2,7 +2,7 @@
 // Compacts unified diff: file headers, hunk-level truncation at 100 lines, +/-/context counting
 import { GIT_DIFF_HUNK_MAX_LINES } from "../constants";
 
-export function gitDiff(diff, maxLines = 500) {
+export function gitDiff(diff: string, maxLines = 500) {
   const result = [];
   let currentFile = "";
   let added = 0;

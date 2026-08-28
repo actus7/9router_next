@@ -66,7 +66,7 @@ export async function updatePricing(pricingData: Record<string, Record<string, u
   const db = await getAdapter();
   db.transaction(() => {
     for (const [provider, models] of Object.entries(pricingData)) {
-      const row: { value: string } | undefined = db.get(`SELECT value FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]);
+      const row = db.get(`SELECT value FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]) as { value: string } | undefined;
       const current: Record<string, unknown> = row ? ((parseJson(row.value, {}) as Record<string, unknown>) || {}) : {};
       const merged: Record<string, unknown> = { ...current };
       for (const [model, pricing] of Object.entries(models)) {
@@ -90,7 +90,7 @@ export async function resetPricing(provider?: string, model?: string): Promise<R
       db.run(`DELETE FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]);
       return;
     }
-    const row: { value: string } | undefined = db.get(`SELECT value FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]);
+    const row = db.get(`SELECT value FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]) as { value: string } | undefined;
     const current: Record<string, unknown> = row ? ((parseJson(row.value, {}) as Record<string, unknown>) || {}) : {};
     delete current[model];
     if (Object.keys(current).length === 0) {

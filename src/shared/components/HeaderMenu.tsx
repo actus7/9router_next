@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useTheme } from "@/shared/hooks/useTheme";
 import ChangelogModal from "./ChangelogModal";
-import { ConfirmModal } from "./Modal";
-import { History, LayoutGrid, LogOut, Moon, Power, Sun } from "lucide-react";
+import { History, LayoutGrid, LogOut, Moon, Sun } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -18,20 +17,7 @@ interface HeaderMenuProps {
 
 export default function HeaderMenu({ onLogout }: HeaderMenuProps) {
   const [changelogOpen, setChangelogOpen] = useState(false);
-  const [shutdownOpen, setShutdownOpen] = useState(false);
-  const [isShuttingDown, setIsShuttingDown] = useState(false);
   const { toggleTheme, isDark } = useTheme();
-
-  const handleShutdown = async () => {
-    setIsShuttingDown(true);
-    try {
-      await fetch("/api/version/shutdown", { method: "POST" });
-    } catch (e) {
-      // Expected to fail as server shuts down; ignore error
-    }
-    setIsShuttingDown(false);
-    setShutdownOpen(false);
-  };
 
   return (
     <>
@@ -46,41 +32,23 @@ export default function HeaderMenu({ onLogout }: HeaderMenuProps) {
         <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuItem onClick={() => setChangelogOpen(true)}>
             <History className="size-5 text-text-muted" />
-            <span className="flex-1 text-left">Change Log</span>
+            <span className="flex-1 text-left">Registro de Alterações</span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => toggleTheme()}>
             {isDark ? <Sun className="size-5 text-text-muted" /> : <Moon className="size-5 text-text-muted" />}
-            <span className="flex-1 text-left">Theme</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setShutdownOpen(true)}
-          >
-            <Power className="size-5" />
-            <span className="flex-1 text-left">Shutdown</span>
+            <span className="flex-1 text-left">Tema</span>
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
             onClick={() => onLogout()}
           >
             <LogOut className="size-5" />
-            <span className="flex-1 text-left">Logout</span>
+            <span className="flex-1 text-left">Sair</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <ChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} />
-      <ConfirmModal
-        isOpen={shutdownOpen}
-        onClose={() => setShutdownOpen(false)}
-        onConfirm={handleShutdown}
-        title="Close Proxy"
-        message="Are you sure you want to close the proxy server?"
-        confirmText="Close"
-        cancelText="Cancel"
-        variant="danger"
-        loading={isShuttingDown}
-      />
     </>
   );
 }

@@ -13,29 +13,29 @@ const VOICE_GROUPS = [
   { key: "music_generation", label: "Music" },
 ];
 
-function inferLanguage(voiceId) {
+function inferLanguage(voiceId: string) {
   const value = typeof voiceId === "string" ? voiceId.trim() : "";
   if (!value.includes("_")) return "Custom";
   return value.split("_")[0] || "Custom";
 }
 
-function addVoice(byLang, code, voice) {
+function addVoice(byLang: Record<string, Record<string, unknown>>, code: string, voice: Record<string, unknown>) {
   if (!byLang[code]) byLang[code] = { code, name: code, voices: [] };
-  if (byLang[code].voices.some((v) => v.id === voice.id)) return;
-  byLang[code].voices.push(voice);
+  if ((byLang[code].voices as Array<Record<string, unknown>>).some((v: Record<string, unknown>) => v.id === voice.id)) return;
+  (byLang[code].voices as Array<Record<string, unknown>>).push(voice);
 }
 
-function normalizeMiniMaxVoices(data) {
-  const byLang = {};
+function normalizeMiniMaxVoices(data: Record<string, unknown>) {
+  const byLang: Record<string, Record<string, unknown>> = {};
 
   for (const group of VOICE_GROUPS) {
-    const voices = Array.isArray(data?.[group.key]) ? data[group.key] : [];
+    const voices = Array.isArray(data?.[group.key]) ? data[group.key] as Array<Record<string, unknown>> : [];
     for (const item of voices) {
       const voiceId = item?.voice_id || item?.voiceId;
       if (!voiceId) continue;
 
       const voiceName = item?.voice_name || item?.voiceName || voiceId;
-      const lang = group.key === "system_voice" ? inferLanguage(voiceId) : "Custom";
+      const lang = group.key === "system_voice" ? inferLanguage(voiceId as string) : "Custom";
       addVoice(byLang, lang, {
         id: voiceId,
         name: group.key === "system_voice" ? voiceName : `${voiceName} · ${group.label}`,
@@ -45,14 +45,14 @@ function normalizeMiniMaxVoices(data) {
     }
   }
 
-  const languages = Object.values(byLang).sort((a, b) => {
+  const languages = Object.values(byLang).sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
     if (a.code === "Custom") return 1;
     if (b.code === "Custom") return -1;
-    return a.name.localeCompare(b.name);
+    return (a.name as string).localeCompare(b.name as string);
   });
 
   for (const lang of languages) {
-    lang.voices.sort((a, b) => a.name.localeCompare(b.name));
+    (lang.voices as Array<Record<string, unknown>>).sort((a: Record<string, unknown>, b: Record<string, unknown>) => (a.name as string).localeCompare(b.name as string));
   }
 
   return { languages, byLang };
@@ -85,12 +85,12 @@ export async function GET(request: NextRequest) {
     });
 
     const rawText = await res.text();
-    let data = {};
+    let data: Record<string, unknown> = {};
     if (rawText) {
       try { data = JSON.parse(rawText); } catch { data = {}; }
     }
 
-    const baseResp = data.base_resp || data.baseResp || {};
+    const baseResp = (data.base_resp || data.baseResp || {}) as Record<string, unknown>;
     const statusCode = Number(baseResp.status_code ?? baseResp.statusCode ?? 0);
     const statusMessage = baseResp.status_msg || baseResp.statusMsg || data.message || "";
 
@@ -103,11 +103,11 @@ export async function GET(request: NextRequest) {
 
     const normalized = normalizeMiniMaxVoices(data);
     if (langFilter) {
-      return NextResponse.json({ voices: normalized.byLang[langFilter]?.voices || [] });
+      return NextResponse.json({ voices: (normalized.byLang[langFilter]?.voices as Array<unknown>) || [] });
     }
 
     return NextResponse.json(normalized);
-  } catch (err) {
-    return NextResponse.json({ error: err.message || "Failed to fetch MiniMax voices" }, { status: 502 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: (err as Error).message || "Failed to fetch MiniMax voices" }, { status: 502 });
   }
 }

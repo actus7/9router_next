@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -10,7 +10,7 @@ import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, History, Info
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; }
-interface StatusData { installed?: boolean; has9Router?: boolean; settings?: { model?: { base_url?: string; default?: string; }; }; }
+interface StatusData { installed?: boolean; has9Router?: boolean; currentUrl?: string; config?: Array<{ name: string; models?: Array<{ id: string }> }>; error?: string; settings?: { model?: { base_url?: string; default?: string; }; }; }
 interface Message { type: "success" | "error"; text: string; }
 
 interface CopilotToolCardProps {
@@ -19,7 +19,7 @@ interface CopilotToolCardProps {
   onToggle: () => void;
   baseUrl: string;
   apiKeys: ApiKey[];
-  activeProviders: unknown[];
+  activeProviders: ActiveProvider[];
   cloudEnabled: boolean;
   initialStatus?: StatusData | null;
   tunnelEnabled: boolean;
@@ -36,7 +36,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
   const [message, setMessage] = useState<Message | null>(null);
   const [selectedApiKey, setSelectedApiKey] = useState<string>("");
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
-  const [modelAliases, setModelAliases] = useState<Record<string, unknown>>({});
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
@@ -64,7 +64,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
   useEffect(() => {
     if (status?.config && Array.isArray(status.config) && selectedModels.length === 0) {
       const entry = status.config.find((e: { name: string }) => e.name === "9Router");
-      if (entry?.models?.length > 0) {
+      if (entry?.models && entry.models.length > 0) {
         setSelectedModels(entry.models.map((m: { id: string }) => m.id));
       }
     }
@@ -311,7 +311,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
           onDeselect={(model: { value: string }) => {
             setSelectedModels(selectedModels.filter(m => m !== model.value));
           }}
-          selectedModel={null}
+          selectedModel={undefined}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
           addedModelValues={selectedModels}

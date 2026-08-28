@@ -7,8 +7,8 @@ export async function POST() {
   try {
     const result = await runHealthCheck();
     return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json({ healthy: false, checks: [], error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ healthy: false, checks: [], error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 

@@ -10,9 +10,9 @@ import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
 
 // Detect auth-expired messages returned by usage providers instead of throwing
 const AUTH_EXPIRED_PATTERNS = ["expired", "authentication", "unauthorized", "401", "re-authorize"];
-function isAuthExpiredMessage(usage) {
+function isAuthExpiredMessage(usage: Record<string, unknown>) {
   if (!usage?.message) return false;
-  const msg = usage.message.toLowerCase();
+  const msg = (usage.message as string).toLowerCase();
   return AUTH_EXPIRED_PATTERNS.some((p) => msg.includes(p));
 }
 
@@ -21,8 +21,8 @@ function isAuthExpiredMessage(usage) {
  * @param {boolean} force - Skip needsRefresh check and always attempt refresh
  * @returns Promise<{ connection, refreshed: boolean }>
  */
-export async function refreshAndUpdateCredentials(connection, force = false, proxyOptions = null) {
-  const executor = getExecutor(connection.provider);
+export async function refreshAndUpdateCredentials(connection: Record<string, unknown>, force = false, proxyOptions: Record<string, unknown> | null = null) {
+  const executor = getExecutor(connection.provider as string);
 
   // Build credentials object from connection
   const credentials = {
@@ -32,10 +32,8 @@ export async function refreshAndUpdateCredentials(connection, force = false, pro
     expiresAt: connection.expiresAt || connection.tokenExpiresAt,
     lastRefreshAt: connection.lastRefreshAt,
     connectionId: connection.id,
-    providerSpecificData: connection.providerSpecificData,
-    // For GitHub
-    copilotToken: connection.providerSpecificData?.copilotToken,
-    copilotTokenExpiresAt: connection.providerSpecificData?.copilotTokenExpiresAt,
+    providerSpecificData: (connection.providerSpecificData as Record<string, unknown>)?.copilotToken,
+    copilotTokenExpiresAt: (connection.providerSpecificData as Record<string, unknown>)?.copilotTokenExpiresAt,
   };
 
   // Check if refresh is needed (skip when force=true)
@@ -58,7 +56,7 @@ export async function refreshAndUpdateCredentials(connection, force = false, pro
 
   // Build update object
   const now = new Date().toISOString();
-  const updateData = {
+  const updateData: Record<string, unknown> = {
     updatedAt: now,
   };
 
@@ -102,14 +100,14 @@ export async function refreshAndUpdateCredentials(connection, force = false, pro
   }
 
   // Update database
-  await updateProviderConnection(connection.id, updateData);
+    await updateProviderConnection(connection.id as string, updateData);
 
-  // Return updated connection
-  const updatedConnection = {
-    ...connection,
-    ...updateData,
-    providerSpecificData: updateData.providerSpecificData || connection.providerSpecificData,
-  };
+    // Return updated connection
+    const updatedConnection = {
+      ...connection,
+      ...updateData,
+      providerSpecificData: (updateData.providerSpecificData as Record<string, unknown>) || (connection.providerSpecificData as Record<string, unknown>),
+    } as Record<string, unknown>;
 
   return {
     connection: updatedConnection,
@@ -161,33 +159,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       try {
         const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
         connection = result.connection;
-      } catch (refreshError) {
+      } catch (refreshError: unknown) {
         console.error("[Usage API] Credential refresh failed:", refreshError);
         return Response.json({
-          error: `Credential refresh failed: ${refreshError.message}`
+          error: `Credential refresh failed: ${refreshError instanceof Error ? refreshError.message : String(refreshError)}`
         }, { status: 401 });
       }
     }
 
     // Fetch usage from provider API
-    let usage = await getUsageForProvider(connection, proxyOptions, { force });
+    let usage = await getUsageForProvider(connection as never, proxyOptions as never, { force });
 
     // If provider returned an auth-expired message instead of throwing,
     // force-refresh token and retry once (OAuth only)
-    if (isOAuth && isAuthExpiredMessage(usage) && connection.refreshToken) {
+    if (isOAuth && isAuthExpiredMessage(usage as Record<string, unknown>) && connection.refreshToken) {
       try {
         const retryResult = await refreshAndUpdateCredentials(connection, true, proxyOptions);
         connection = retryResult.connection;
-        usage = await getUsageForProvider(connection, proxyOptions, { force });
-      } catch (retryError) {
-        console.warn(`[Usage] ${connection.provider}: force refresh failed: ${retryError.message}`);
+        usage = await getUsageForProvider(connection as never, proxyOptions as never, { force });
+      } catch (retryError: unknown) {
+        console.warn(`[Usage] ${connection.provider}: force refresh failed: ${retryError instanceof Error ? retryError.message : String(retryError)}`);
       }
     }
 
     return Response.json(usage);
-  } catch (error) {
+  } catch (error: unknown) {
     const provider = connection?.provider ?? "unknown";
-    console.warn(`[Usage] ${provider}: ${error.message}`);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.warn(`[Usage] ${provider}: ${error instanceof Error ? error.message : String(error)}`);
+    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

@@ -32,7 +32,7 @@ export default function Pagination({
     const showMax = 5;
 
     let start = Math.max(1, currentPage - 2);
-    let end = Math.min(totalPages, start + showMax - 1);
+    const end = Math.min(totalPages, start + showMax - 1);
 
     if (end - start + 1 < showMax) {
       start = Math.max(1, end - showMax + 1);
@@ -56,9 +56,9 @@ export default function Pagination({
       {/* Info text */}
       {totalItems > 0 && (
         <div className="text-sm text-text-muted">
-          Showing <span className="font-medium text-text-main">{startItem}</span> to{" "}
-          <span className="font-medium text-text-main">{endItem}</span> of{" "}
-          <span className="font-medium text-text-main">{totalItems}</span> results
+          Mostrando <span className="font-medium text-text-main">{startItem}</span> até{" "}
+          <span className="font-medium text-text-main">{endItem}</span> de{" "}
+          <span className="font-medium text-text-main">{totalItems}</span> resultados
         </div>
       )}
 
@@ -66,10 +66,10 @@ export default function Pagination({
         {/* Page size selector */}
         {onPageSizeChange && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-text-muted">Rows:</span>
+            <span className="text-sm text-text-muted">Linhas:</span>
             <Select value={String(pageSize)} onValueChange={(val) => onPageSizeChange(Number(val))}>
               <SelectTrigger className="h-9 w-auto">
-                <SelectValue placeholder="Rows" />
+                <SelectValue placeholder="Linhas" />
               </SelectTrigger>
               <SelectContent>
                 {[10, 20, 50].map((size) => (

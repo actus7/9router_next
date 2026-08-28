@@ -23,6 +23,24 @@ interface CustomNode {
   prefix?: string;
 }
 
+interface ProviderInfo {
+  id: string;
+  name: string;
+  color?: string;
+  textIcon?: string;
+  noAuth?: boolean;
+  serviceKinds?: string[];
+  notice?: { apiKeyUrl?: string; text?: string; };
+  kindNotice?: Record<string, string>;
+  deprecated?: boolean;
+  searchConfig?: Record<string, unknown>;
+  fetchConfig?: Record<string, unknown>;
+  ttsConfig?: Record<string, unknown>;
+  sttConfig?: Record<string, unknown>;
+  embeddingConfig?: Record<string, unknown>;
+  searchViaChat?: Record<string, unknown>;
+}
+
 interface MediaProviderDetailClientProps {
   initialNodes: CustomNode[];
 }
@@ -55,12 +73,12 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
 
   if (!kindConfig) return notFound();
 
-  const builtInProvider = AI_PROVIDERS[id as string];
+  const builtInProvider = AI_PROVIDERS[id as string] as unknown as ProviderInfo | undefined;
 
   // For custom embedding nodes, build a synthetic provider object
-  const provider = isCustom
+  const provider: ProviderInfo | null = isCustom
     ? (customNode ? { id: id as string, name: customNode.name || "Custom Embedding", color: "#6366F1", textIcon: "CE" } : null)
-    : builtInProvider;
+    : (builtInProvider ?? null);
 
   if (!isCustom && !builtInProvider) return notFound();
   if (isCustom && !customNode) return notFound();
@@ -94,10 +112,10 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <h1 className="text-3xl font-semibold tracking-tight">{provider!.name}</h1>
-              {!isCustom && (provider as Record<string, unknown>)?.notice && ((provider as Record<string, unknown>).notice as Record<string, unknown>)?.apiKeyUrl && (
+              <h1 className="text-3xl font-semibold tracking-tight">{String(provider!.name)}</h1>
+              {!isCustom && provider?.notice?.apiKeyUrl && (
                 <a
-                  href={((provider as Record<string, unknown>).notice as Record<string, string>).apiKeyUrl}
+                  href={provider.notice.apiKeyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1"
@@ -130,21 +148,21 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
       </div>
 
       {/* Kind-specific notice (e.g. codex/image requires Plus) */}
-      {!isCustom && (provider as Record<string, unknown>)?.kindNotice && ((provider as Record<string, unknown>).kindNotice as Record<string, string>)?.[kind as string] && (
+      {!isCustom && provider?.kindNotice?.[kind as string] && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400">
           <TriangleAlert className="size-5" />
-          <p className="text-sm">{((provider as Record<string, unknown>).kindNotice as Record<string, string>)[kind as string]}</p>
+          <p className="text-sm">{provider.kindNotice![kind as string]}</p>
         </div>
       )}
 
       {/* Provider notice text (only when there's actual text content) */}
-      {!isCustom && (provider as Record<string, unknown>)?.notice && ((provider as Record<string, unknown>).notice as Record<string, string>)?.text && !(provider as Record<string, unknown>)?.deprecated && (
+      {!isCustom && provider?.notice?.text && !provider?.deprecated && (
         <div className="flex flex-col gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 sm:flex-row sm:items-center">
           <Info className="size-4" />
-          <p className="min-w-0 flex-1 text-xs leading-relaxed text-blue-600 dark:text-blue-400">{((provider as Record<string, unknown>).notice as Record<string, string>).text}</p>
-          {((provider as Record<string, unknown>).notice as Record<string, string>)?.apiKeyUrl && (
+          <p className="min-w-0 flex-1 text-xs leading-relaxed text-blue-600 dark:text-blue-400">{provider.notice!.text}</p>
+          {provider.notice?.apiKeyUrl && (
             <a
-              href={((provider as Record<string, unknown>).notice as Record<string, string>).apiKeyUrl}
+              href={provider.notice.apiKeyUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex justify-center rounded bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 sm:py-0.5"
@@ -156,7 +174,7 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
       )}
 
       {/* Connections */}
-      {!isCustom && (provider as Record<string, unknown>)?.noAuth ? (
+      {!isCustom && provider?.noAuth ? (
         <NoAuthProxyCard providerId={id as string} />
       ) : (
         <ConnectionsCard providerId={id as string} isOAuth={false} />
@@ -172,16 +190,16 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
       )}
 
       {/* Provider Info — config-driven, supports searchConfig, fetchConfig, ttsConfig, embeddingConfig, searchViaChat */}
-      {!isCustom && ((provider as Record<string, unknown>)?.searchConfig || (provider as Record<string, unknown>)?.fetchConfig || (provider as Record<string, unknown>)?.ttsConfig || (provider as Record<string, unknown>)?.sttConfig || (provider as Record<string, unknown>)?.embeddingConfig || (provider as Record<string, unknown>)?.searchViaChat) && (
+      {!isCustom && (provider?.searchConfig || provider?.fetchConfig || provider?.ttsConfig || provider?.sttConfig || provider?.embeddingConfig || provider?.searchViaChat) && (
         <ProviderInfoCard
           config={
-            kind === "webFetch" ? (provider as Record<string, unknown>).fetchConfig as Record<string, unknown>
-              : kind === "tts" ? (provider as Record<string, unknown>).ttsConfig as Record<string, unknown>
-              : kind === "stt" ? (provider as Record<string, unknown>).sttConfig as Record<string, unknown>
-              : kind === "embedding" ? (provider as Record<string, unknown>).embeddingConfig as Record<string, unknown>
-              : ((provider as Record<string, unknown>).searchConfig as Record<string, unknown>) || { mode: "chat-completions", defaultModel: ((provider as Record<string, unknown>).searchViaChat as Record<string, unknown>)?.defaultModel, pricingUrl: ((provider as Record<string, unknown>).searchViaChat as Record<string, unknown>)?.pricingUrl, freeTier: ((provider as Record<string, unknown>).searchViaChat as Record<string, unknown>)?.freeTier }
+            kind === "webFetch" ? provider?.fetchConfig ?? null
+              : kind === "tts" ? provider?.ttsConfig ?? null
+              : kind === "stt" ? provider?.sttConfig ?? null
+              : kind === "embedding" ? provider?.embeddingConfig ?? null
+              : provider?.searchConfig ?? { mode: "chat-completions", defaultModel: (provider?.searchViaChat as Record<string, unknown>)?.defaultModel, pricingUrl: (provider?.searchViaChat as Record<string, unknown>)?.pricingUrl, freeTier: (provider?.searchViaChat as Record<string, unknown>)?.freeTier }
           }
-          provider={provider}
+          provider={provider ?? undefined}
           title={`${kindConfig.label} Config`}
         />
       )}
@@ -215,8 +233,8 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
         }}
         title="Delete Custom Embedding"
         message="Delete this Custom Embedding node?"
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText="Excluir"
+        cancelText="Cancelar"
         variant="danger"
       />
     </div>

@@ -114,7 +114,7 @@ function waitForCallback(timeoutMs: number = 300000): Promise<Record<string, str
       }
     };
 
-    (resolve as any).__onCallback = onCallback;
+    (resolve as unknown as Record<string, unknown>).__onCallback = onCallback;
   });
 }
 
@@ -221,7 +221,7 @@ export function startCodexProxy(appPort: number): Promise<ProxyResult> {
             session.codeVerifier,
             state!
           );
-          const connection: Record<string, unknown> = await createProviderConnection({
+          const connection = await createProviderConnection({
             provider: "codex",
             authType: "oauth",
             ...tokenData,
@@ -229,7 +229,7 @@ export function startCodexProxy(appPort: number): Promise<ProxyResult> {
               ? new Date(Date.now() + (tokenData as Record<string, number>).expiresIn * 1000).toISOString()
               : null,
             testStatus: "active",
-          });
+          }) as Record<string, unknown>;
 
           session.status = "done";
           session.connectionId = (connection as Record<string, string>).id;
@@ -351,7 +351,7 @@ export function startXaiProxy(appPort: number): Promise<ProxyResult> {
             session.codeVerifier,
             state!
           );
-          const connection: Record<string, unknown> = await createProviderConnection({
+          const connection = await createProviderConnection({
             provider: "xai",
             authType: "oauth",
             ...tokenData,
@@ -478,8 +478,8 @@ export function startTraeProxy(): Promise<TraeProxyResult> {
       try {
         const { exchangeTokens } = await import("../providers");
         const { createProviderConnection } = await import("@/models");
-        const tokenData: Record<string, unknown> = await exchangeTokens("trae", rawCallback);
-        const connection: Record<string, unknown> = await createProviderConnection({
+        const tokenData: Record<string, unknown> = await exchangeTokens("trae", rawCallback, "", "", "");
+        const connection = await createProviderConnection({
           provider: "trae",
           authType: "oauth",
           ...tokenData,
@@ -578,8 +578,8 @@ export function startWindsurfProxy(): Promise<TraeProxyResult> {
       try {
         const { exchangeTokens } = await import("../providers");
         const { createProviderConnection } = await import("@/models");
-        const tokenData: Record<string, unknown> = await exchangeTokens("windsurf", rawCallback, null, null, session.state);
-        const connection: Record<string, unknown> = await createProviderConnection({
+        const tokenData: Record<string, unknown> = await exchangeTokens("windsurf", rawCallback, "", "", session.state);
+        const connection = await createProviderConnection({
           provider: "windsurf",
           authType: "api_key",
           ...tokenData,
@@ -671,8 +671,8 @@ export function startZedProxy(preferredPort: number = 0): Promise<TraeProxyResul
       try {
         const { exchangeTokens } = await import("../providers");
         const { createProviderConnection } = await import("@/models");
-        const tokenData: Record<string, unknown> = await exchangeTokens("zed", rawCallback, null, session.codeVerifier, session.state);
-        const connection: Record<string, unknown> = await createProviderConnection({
+        const tokenData: Record<string, unknown> = await exchangeTokens("zed", rawCallback, "", session.codeVerifier, session.state);
+        const connection = await createProviderConnection({
           provider: "zed",
           authType: "oauth",
           ...tokenData,

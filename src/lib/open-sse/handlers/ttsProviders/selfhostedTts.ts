@@ -11,11 +11,11 @@ const DEFAULT_MODEL = "kokoro";
 const DEFAULT_VOICE = "af_heart";
 
 export default {
-  async synthesize(text, model, credentials, responseFormat = "mp3") {
+  async synthesize(text: string, model: string, credentials: Record<string, unknown>, responseFormat = "mp3"): Promise<{ base64: string; format: string }> {
     // Accept either providerSpecificData.baseUrl (how the custom embedding and
     // STT providers carry it) or a bare credentials.baseUrl (how the OpenAI TTS
     // adapter does), so a connection configured either way works.
-    const raw = credentials?.providerSpecificData?.baseUrl || credentials?.baseUrl || DEFAULT_BASE_URL;
+    const raw = (credentials?.providerSpecificData as Record<string, unknown>)?.baseUrl || credentials?.baseUrl || DEFAULT_BASE_URL;
     // Tolerate a baseUrl given as the full endpoint or with a trailing /v1 —
     // both are natural things to paste, and silently double-appending the path
     // would 404 with nothing pointing at the cause.
@@ -60,8 +60,8 @@ export default {
       }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `Self-hosted TTS failed: ${res.status}`);
+      const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(((err?.error as Record<string, unknown>)?.message as string) || `Self-hosted TTS failed: ${res.status}`);
     }
     const buf = await res.arrayBuffer();
     return { base64: Buffer.from(buf).toString("base64"), format: responseFormat };

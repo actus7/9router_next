@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const data = await res.json();
     const voices = data.voices || [];
 
-    const byLang = {};
+    const byLang: Record<string, { code: string; name: string; voices: Array<{ id: string; name: string; gender: string; lang: string }> }> = {};
     for (const v of voices) {
       // Each voice has `languages: ["en", "es", ...]`
       const langs = Array.isArray(v.languages) && v.languages.length ? v.languages : ["en"];
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
             voices: [],
           };
         }
-        if (!byLang[code].voices.find((x) => x.id === v.voiceId)) {
+        if (!byLang[code].voices.find((x: { id: string }) => x.id === v.voiceId)) {
           byLang[code].voices.push({
             id: v.voiceId,
             name: v.displayName || v.voiceId,
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ voices: byLang[langFilter]?.voices || [] });
     }
     return NextResponse.json({ languages, byLang });
-  } catch (err) {
-    return NextResponse.json({ error: err.message || "Failed to fetch voices" }, { status: 502 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to fetch voices" }, { status: 502 });
   }
 }

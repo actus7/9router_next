@@ -5,11 +5,12 @@ import { UA } from "./_base";
 const REFRESH_MS = 5 * 60 * 1000; // token TTL ~1h, refresh early
 const VOICES_TTL = 24 * 60 * 60 * 1000;
 
-const cache = { token: null, tokenTime: 0 };
-let _voicesCache = null;
+interface BingToken { key: string; token: string; cookie: string }
+const cache: { token: BingToken | null; tokenTime: number } = { token: null, tokenTime: 0 };
+let _voicesCache: unknown[] | null = null;
 let _voicesCacheTime = 0;
 
-async function getToken() {
+async function getToken(): Promise<BingToken> {
   const now = Date.now();
   if (cache.token && now - cache.tokenTime < REFRESH_MS) return cache.token;
   const res = await fetch("https://www.bing.com/translator", {
@@ -26,7 +27,7 @@ async function getToken() {
   return cache.token;
 }
 
-async function ttsRequest(text, voiceId, token) {
+async function ttsRequest(text: string, voiceId: string, token: BingToken): Promise<Response> {
   const parts = voiceId.split("-");
   const xmlLang = parts.slice(0, 2).join("-");
   const gender = voiceId.toLowerCase().includes("male") ? "Male" : "Female";
@@ -49,7 +50,7 @@ async function ttsRequest(text, voiceId, token) {
   });
 }
 
-export async function fetchEdgeTtsVoices() {
+export async function fetchEdgeTtsVoices(): Promise<unknown[]> {
   const now = Date.now();
   if (_voicesCache && now - _voicesCacheTime < VOICES_TTL) return _voicesCache;
   const res = await fetch(
@@ -57,7 +58,7 @@ export async function fetchEdgeTtsVoices() {
     { headers: { "User-Agent": UA } }
   );
   if (!res.ok) throw new Error(`Edge TTS voices fetch failed: ${res.status}`);
-  const voices = await res.json();
+  const voices = await res.json() as unknown[];
   _voicesCache = voices;
   _voicesCacheTime = now;
   return voices;
@@ -65,7 +66,7 @@ export async function fetchEdgeTtsVoices() {
 
 export default {
   noAuth: true,
-  async synthesize(text, model) {
+  async synthesize(text: string, model: string): Promise<{ base64: string; format: string }> {
     const voiceId = model || "vi-VN-HoaiMyNeural";
     let token = await getToken();
     let res = await ttsRequest(text, voiceId, token);

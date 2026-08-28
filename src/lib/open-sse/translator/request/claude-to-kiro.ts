@@ -41,26 +41,26 @@ import {
  * Kiro requires alternating user/assistant turns; consecutive same-role
  * messages are merged.
  */
-function convertClaudeMessagesToKiro(messages, model) {
-  const history = [];
-  let currentMessage = null;
+function convertClaudeMessagesToKiro(messages: Record<string, unknown>[], model: string) {
+  const history: Record<string, unknown>[] = [];
+  let currentMessage: Record<string, unknown> | null = null;
 
-  let pendingUserContent = [];
-  let pendingAssistantContent = [];
-  let pendingToolResults = [];
-  let pendingImages = [];
-  let currentRole = null;
+  let pendingUserContent: string[] = [];
+  let pendingAssistantContent: string[] = [];
+  let pendingToolResults: Record<string, unknown>[] = [];
+  let pendingImages: Record<string, unknown>[] = [];
+  let currentRole: string | null = null;
 
   const flushPending = () => {
     if (currentRole === ROLE.USER) {
       const content = pendingUserContent.join("\n\n").trim() || "continue";
-      const userMsg = { userInputMessage: { content, modelId: model } };
+      const userMsg: Record<string, unknown> = { userInputMessage: { content, modelId: model } };
 
       if (pendingImages.length > 0) {
-        userMsg.userInputMessage.images = pendingImages;
+        ((userMsg.userInputMessage as Record<string, unknown>).images as Record<string, unknown>[]) = pendingImages;
       }
       if (pendingToolResults.length > 0) {
-        userMsg.userInputMessage.userInputMessageContext = {
+        (userMsg.userInputMessage as Record<string, unknown>).userInputMessageContext = {
           toolResults: pendingToolResults,
         };
       }
@@ -77,7 +77,7 @@ function convertClaudeMessagesToKiro(messages, model) {
   };
 
   for (const msg of messages) {
-    const role = msg.role;
+    const role = msg.role as string;
     if (role !== currentRole && currentRole !== null) flushPending();
     currentRole = role;
 
@@ -85,22 +85,23 @@ function convertClaudeMessagesToKiro(messages, model) {
       if (typeof msg.content === "string") {
         pendingUserContent.push(msg.content);
       } else if (Array.isArray(msg.content)) {
-        for (const block of msg.content) {
+        for (const block of msg.content as Record<string, unknown>[]) {
           if (block.type === CLAUDE_BLOCK.TEXT) {
-            pendingUserContent.push(block.text);
-          } else if (block.type === CLAUDE_BLOCK.IMAGE && block.source?.type === "base64") {
-            const mediaType = block.source.media_type || DEFAULT_IMAGE_MIME;
+            pendingUserContent.push(block.text as string);
+          } else if (block.type === CLAUDE_BLOCK.IMAGE && (block.source as Record<string, unknown>)?.type === "base64") {
+            const source = block.source as Record<string, unknown>;
+            const mediaType = (source.media_type as string) || DEFAULT_IMAGE_MIME;
             const format = mediaType.split("/")[1] || mediaType;
-            pendingImages.push({ format, source: { bytes: block.source.data } });
+            pendingImages.push({ format, source: { bytes: source.data } });
           } else if (block.type === CLAUDE_BLOCK.TOOL_RESULT) {
             let resultContent = "";
             if (typeof block.content === "string") {
               resultContent = block.content;
             } else if (Array.isArray(block.content)) {
               resultContent =
-                block.content
-                  .filter((c) => c.type === CLAUDE_BLOCK.TEXT)
-                  .map((c) => c.text)
+                (block.content as Record<string, unknown>[])
+                  .filter((c: Record<string, unknown>) => c.type === CLAUDE_BLOCK.TEXT)
+                  .map((c: Record<string, unknown>) => c.text)
                   .join("\n") || JSON.stringify(block.content);
             } else if (block.content) {
               resultContent = JSON.stringify(block.content);
@@ -115,13 +116,13 @@ function convertClaudeMessagesToKiro(messages, model) {
       }
     } else if (role === ROLE.ASSISTANT) {
       let textContent = "";
-      const toolUses = [];
+      const toolUses: Record<string, unknown>[] = [];
       if (typeof msg.content === "string") {
         textContent = msg.content;
       } else if (Array.isArray(msg.content)) {
-        for (const block of msg.content) {
+        for (const block of msg.content as Record<string, unknown>[]) {
           if (block.type === CLAUDE_BLOCK.TEXT) {
-            textContent += block.text;
+            textContent += block.text as string;
           } else if (block.type === CLAUDE_BLOCK.TOOL_USE) {
             toolUses.push({
               toolUseId: block.id,
@@ -137,7 +138,7 @@ function convertClaudeMessagesToKiro(messages, model) {
         flushPending();
         const lastMsg = history[history.length - 1];
         if (lastMsg?.assistantResponseMessage) {
-          lastMsg.assistantResponseMessage.toolUses = toolUses;
+          (lastMsg.assistantResponseMessage as Record<string, unknown>).toolUses = toolUses;
         }
         currentRole = null;
       }
@@ -154,38 +155,41 @@ function convertClaudeMessagesToKiro(messages, model) {
     }
   }
 
-  history.forEach((item) => {
+  history.forEach((item: Record<string, unknown>) => {
+    const uim = item.userInputMessage as Record<string, unknown> | undefined;
     if (
-      item.userInputMessage?.userInputMessageContext &&
-      Object.keys(item.userInputMessage.userInputMessageContext).length === 0
+      uim?.userInputMessageContext &&
+      Object.keys(uim.userInputMessageContext as Record<string, unknown>).length === 0
     ) {
-      delete item.userInputMessage.userInputMessageContext;
+      delete uim.userInputMessageContext;
     }
-    if (item.userInputMessage && !item.userInputMessage.modelId) {
-      item.userInputMessage.modelId = model;
+    if (uim && !uim.modelId) {
+      uim.modelId = model;
     }
   });
 
   // Merge consecutive user turns (Kiro requires alternating roles).
-  const mergedHistory = [];
+  const mergedHistory: Record<string, unknown>[] = [];
   for (const current of history) {
     const prev = mergedHistory[mergedHistory.length - 1];
     if (current.userInputMessage && prev?.userInputMessage) {
-      prev.userInputMessage.content += "\n\n" + current.userInputMessage.content;
-      const prevCtx = prev.userInputMessage.userInputMessageContext;
-      const curCtx = current.userInputMessage.userInputMessageContext;
+      const prevUim = prev.userInputMessage as Record<string, unknown>;
+      const curUim = current.userInputMessage as Record<string, unknown>;
+      prevUim.content = (prevUim.content as string) + "\n\n" + (curUim.content as string);
+      const prevCtx = prevUim.userInputMessageContext as Record<string, unknown> | undefined;
+      const curCtx = curUim.userInputMessageContext as Record<string, unknown> | undefined;
       if (curCtx) {
         if (!prevCtx) {
-          prev.userInputMessage.userInputMessageContext = curCtx;
+          prevUim.userInputMessageContext = curCtx;
         } else {
-          if (curCtx.toolResults?.length > 0) {
+          if ((curCtx.toolResults as unknown[])?.length > 0) {
             prevCtx.toolResults = [
-              ...(prevCtx.toolResults || []),
-              ...curCtx.toolResults,
+              ...((prevCtx.toolResults as unknown[]) || []),
+              ...(curCtx.toolResults as unknown[]),
             ];
           }
-          if (curCtx.tools?.length > 0) {
-            prevCtx.tools = [...(prevCtx.tools || []), ...curCtx.tools];
+          if ((curCtx.tools as unknown[])?.length > 0) {
+            prevCtx.tools = [...((prevCtx.tools as unknown[]) || []), ...(curCtx.tools as unknown[])];
           }
         }
       }
@@ -201,13 +205,13 @@ function convertClaudeMessagesToKiro(messages, model) {
   return { history: mergedHistory, currentMessage };
 }
 
-function extractClaudeSystemText(system) {
+function extractClaudeSystemText(system: unknown): string {
   if (!system) return "";
   if (typeof system === "string") return system;
   if (Array.isArray(system)) {
-    return system.map((s) => {
+    return (system as unknown[]).map((s: unknown) => {
       if (typeof s === "string") return s;
-      return s?.text || "";
+      return (s as Record<string, unknown>)?.text || "";
     }).filter(Boolean).join("\n");
   }
   return "";
@@ -216,17 +220,18 @@ function extractClaudeSystemText(system) {
 /**
  * Build a Kiro payload directly from a Claude Messages API request body.
  */
-export function claudeToKiroRequest(model, body, stream, credentials) {
-  const messages = Array.isArray(body.messages) ? body.messages : [];
-  const tools = Array.isArray(body.tools) ? body.tools : [];
-  const maxTokens = body.max_tokens || 32000;
+export function claudeToKiroRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
+  const messages = Array.isArray(body.messages) ? body.messages as Record<string, unknown>[] : [];
+  const tools = Array.isArray(body.tools) ? body.tools as Record<string, unknown>[] : [];
+  const maxTokens = (body.max_tokens as number) || 32000;
   const temperature = body.temperature;
   const topP = body.top_p;
 
   const modelIntent = resolveKiroModelIntent(model);
   const { upstream: upstreamModel, agentic } = modelIntent;
+  const credObj = credentials as Record<string, unknown>;
   const thinkingBody = applyKiroThinkingOverride(body, modelIntent.thinkingOverride);
-  const thinkingBudget = resolveKiroThinkingBudget(thinkingBody, credentials?.rawHeaders, modelIntent.model);
+  const thinkingBudget = resolveKiroThinkingBudget(thinkingBody, (credObj?.rawHeaders as never), modelIntent.model);
   const additionalModelRequestFields = buildKiroAdditionalModelRequestFieldsForModel(thinkingBody, upstreamModel);
   const usesNativeGptEffort = usesKiroNativeGptEffort(thinkingBody, upstreamModel);
 
@@ -235,18 +240,19 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
 
   // api_key / idc / external_idp must never use the shared default ARN (belongs
   // to another account → 403 "bearer token invalid"); OAuth/social fall back to it.
-  const authMethod = credentials?.providerSpecificData?.authMethod;
+  const psd = credObj?.providerSpecificData as Record<string, unknown> | undefined;
+  const authMethod = psd?.authMethod as string | undefined;
   const accountBoundAuth =
     authMethod === "api_key" || authMethod === "idc" || authMethod === "external_idp";
   const profileArn = accountBoundAuth
-    ? (credentials?.providerSpecificData?.profileArn || "")
-    : (credentials?.providerSpecificData?.profileArn || resolveDefaultProfileArn(authMethod));
+    ? ((psd?.profileArn as string) || "")
+    : ((psd?.profileArn as string) || resolveDefaultProfileArn(authMethod as string));
 
   // Kiro CLI/KAS sends system prompt as top-level `systemPrompt`. Keep a
   // content fallback too because the CodeWhisperer surface does not always
   // enforce top-level systemPrompt for direct calls.
   const timestamp = new Date().toISOString();
-  const systemPromptParts = [];
+  const systemPromptParts: string[] = [];
   if (thinkingBudget !== null && !usesNativeGptEffort) {
     systemPromptParts.push(buildThinkingSystemPrefix(thinkingBudget));
   }
@@ -258,21 +264,21 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
   const contentPrefix = [systemPrompt, currentTimeContext].filter(Boolean).join("\n\n");
 
   const sessionIdentity = resolveSessionIdentity({
-    headers: credentials?.rawHeaders,
+    headers: credObj?.rawHeaders as Record<string, string> | undefined,
     body,
-    connectionId: credentials?.connectionId,
+    connectionId: credObj?.connectionId as string | undefined,
     scope: "kiro",
   });
   const conversationId = sessionIdentity.sessionId;
   const continuationId = resolveContinuationId({
     sessionId: conversationId,
-    connectionId: credentials?.connectionId,
+    connectionId: credObj?.connectionId as string | null | undefined,
     scope: "kiro",
     ephemeral: sessionIdentity.ephemeral,
   });
   const replay = applyKiroSessionReplay({
     conversationId,
-    connectionId: credentials?.connectionId,
+    connectionId: credObj?.connectionId as string | undefined,
     modelId: upstreamModel,
     systemPrompt,
     contentPrefix,
@@ -300,19 +306,19 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
     return null;
   }
   const replayCurrent = canonical.currentMessage.userInputMessage;
-  const userInputMessage = {
-    content: replayCurrent.content || "",
+  const userInputMessage: Record<string, unknown> = {
+    content: replayCurrent?.content || "",
     modelId: upstreamModel,
     origin: "AI_EDITOR",
-    ...(replayCurrent.userInputMessageContext && {
+    ...(replayCurrent?.userInputMessageContext && {
       userInputMessageContext: replayCurrent.userInputMessageContext,
     }),
-    ...(replayCurrent.images && {
+    ...(replayCurrent?.images && {
       images: replayCurrent.images,
     }),
   };
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     conversationState: {
       chatTriggerType: "MANUAL",
       conversationId,
@@ -333,10 +339,10 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
   }
 
   if (maxTokens || temperature !== undefined || topP !== undefined) {
-    payload.inferenceConfig = {};
-    if (maxTokens) payload.inferenceConfig.maxTokens = maxTokens;
-    if (temperature !== undefined) payload.inferenceConfig.temperature = temperature;
-    if (topP !== undefined) payload.inferenceConfig.topP = topP;
+    payload.inferenceConfig = {} as Record<string, unknown>;
+    if (maxTokens) (payload.inferenceConfig as Record<string, unknown>).maxTokens = maxTokens;
+    if (temperature !== undefined) (payload.inferenceConfig as Record<string, unknown>).temperature = temperature;
+    if (topP !== undefined) (payload.inferenceConfig as Record<string, unknown>).topP = topP;
   }
 
   // Non-enumerable hint so the executor can route the upstream model id.
@@ -348,4 +354,4 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
   return payload;
 }
 
-register(FORMATS.CLAUDE, FORMATS.KIRO, claudeToKiroRequest, null);
+register(FORMATS.CLAUDE, FORMATS.KIRO, claudeToKiroRequest as unknown as Parameters<typeof register>[2], null);

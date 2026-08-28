@@ -1,5 +1,7 @@
 "use client";
 
+import { CircleHelp } from "lucide-react";
+
 interface TooltipProps {
   text: string;
 }

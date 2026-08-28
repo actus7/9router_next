@@ -23,7 +23,7 @@ export default async function ProvidersPage() {
         </div>
       }
     >
-      <ProvidersClient initialConnections={providers} initialNodes={nodes} />
+      <ProvidersClient initialConnections={providers} initialNodes={nodes as Array<{ id: string; name?: string; type?: string; apiType?: string }>} />
     </Suspense>
   );
 }

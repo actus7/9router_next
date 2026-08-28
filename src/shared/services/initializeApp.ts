@@ -81,7 +81,7 @@ export async function initializeApp(): Promise<void> {
     if (!g.signalHandlersRegistered) {
       const cleanup = (): void => {
         try { killAllBridges(); } catch { /* best effort */ }
-        killCloudflared();
+        killCloudflared(0);
         process.exit();
       };
       process.on("SIGINT", cleanup);

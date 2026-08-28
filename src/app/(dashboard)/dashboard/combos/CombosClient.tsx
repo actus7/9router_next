@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
@@ -9,12 +10,16 @@ import { Card, Button, Modal, Input, ModelSelectModal, ConfirmModal, CapacityBad
 import { Switch } from "@/components/ui/switch";
 import { Input as RawInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { buttonVariants } from "@/components/ui/button";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import type { Combo, Connection, Settings } from "@/lib/data-access";
-import { ArrowDown, ArrowUp, Check, Copy, Gavel, Layers, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { AudioLines, ArrowDown, ArrowUp, BrainCircuit, Check, Copy, Eye, Gavel, GripVertical, Layers, Pencil, Plus, Trash2, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -43,19 +48,33 @@ interface CombosClientProps {
   initialAliases: Record<string, string>;
 }
 
+type ComboView = Omit<Combo, "models"> & { models: string[] };
+type ModelCapsGetter = ReturnType<typeof useModelCaps>["getCaps"];
+
+interface CapacityAdapterDefinition {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  desc: string;
+}
+
+function normalizeCombos(raw: Combo[] | undefined): ComboView[] {
+  return (raw || [])
+    .filter((combo) => !combo.kind || combo.kind === "llm" || combo.kind === "smart")
+    .map((combo) => ({
+      ...combo,
+      models: Array.isArray(combo.models)
+        ? combo.models.filter((model): model is string => typeof model === "string")
+        : [],
+    }));
+}
+
 // Capacity adapter: global fallback pools of models per input-modality capability.
-const CAPACITY_ADAPTER_CAPS = [
-  { key: "vision", label: "Vision", icon: "visibility", desc: "Images" },
-  { key: "audioInput", label: "Audio", icon: "graphic_eq", desc: "Audio input" },
+const CAPACITY_ADAPTER_CAPS: CapacityAdapterDefinition[] = [
+  { key: "vision", label: "Vision", icon: Eye, desc: "Images" },
+  { key: "audioInput", label: "Audio", icon: AudioLines, desc: "Audio input" },
 ];
-const DEFAULT_FALLBACK_MODEL = "oc/mimo-v2.5-free";
 const EMPTY_CAP_ENTRY: CapEntry = { enabled: true, roundRobin: false, models: [] };
-const EMPTY_CAPACITY_ADAPTER: Record<string, CapEntry> = {
-  vision: { ...EMPTY_CAP_ENTRY },
-  pdf: { ...EMPTY_CAP_ENTRY },
-  audioInput: { ...EMPTY_CAP_ENTRY },
-  videoInput: { ...EMPTY_CAP_ENTRY },
-};
 // Backward-compat: legacy stored form was an array of {model, enabled}.
 function normalizeCapEntry(entry: unknown): CapEntry {
   if (Array.isArray(entry)) {
@@ -84,12 +103,10 @@ function normalizeCapacityAdapter(raw: Record<string, unknown> | undefined): Rec
 export default function CombosClient({ initialCombos, initialProviders, initialSettings, initialAliases }: CombosClientProps) {
   const notify = useNotificationStore();
   // Only LLM combos here - webSearch/webFetch combos belong to media-providers/web
-  const [combos, setCombos] = useState<Combo[]>(
-    (initialCombos || []).filter((c) => !c.kind || c.kind === "llm")
-  );
+  const [combos, setCombos] = useState<ComboView[]>(() => normalizeCombos(initialCombos));
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingCombo, setEditingCombo] = useState<Combo | null>(null);
-  const [activeProviders, setActiveProviders] = useState<Connection[]>(initialProviders);
+  const [editingCombo, setEditingCombo] = useState<ComboView | null>(null);
+  const activeProviders = initialProviders;
   const [comboStrategies, setComboStrategies] = useState<Record<string, Strategy>>((initialSettings.comboStrategies || {}) as Record<string, Strategy>);
   const [capacityAdapter, setCapacityAdapter] = useState<Record<string, CapEntry>>(
     normalizeCapacityAdapter(initialSettings.capacityAdapter as Record<string, unknown> | undefined)
@@ -99,19 +116,23 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
   const { copied, copy } = useCopyToClipboard();
 
   const handleSetCapacityAdapter = async (next: Record<string, CapEntry>) => {
+    const previous = capacityAdapter;
     setCapacityAdapter(next);
     try {
-      await fetch("/api/settings", {
+      const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ capacityAdapter: next }),
       });
+      if (!response.ok) throw new Error(`settings ${response.status}`);
     } catch (error) {
+      setCapacityAdapter(previous);
+      notify.error("Failed to save adapter settings");
       console.error("Error updating capacity adapter:", error);
     }
   };
 
-  const handleCreate = async (data: { name: string; models: string[] }) => {
+  const handleCreate = async (data: { name: string; models: string[]; kind?: string | null }) => {
     try {
       const res = await fetch("/api/combos", {
         method: "POST",
@@ -123,7 +144,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
         const combosRes = await fetch("/api/combos");
         if (combosRes.ok) {
           const combosData = await combosRes.json();
-          setCombos((combosData.combos || []).filter((c: Combo) => !c.kind || c.kind === "llm"));
+          setCombos(normalizeCombos(combosData.combos));
         }
         setShowCreateModal(false);
       } else {
@@ -147,7 +168,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
         const combosRes = await fetch("/api/combos");
         if (combosRes.ok) {
           const combosData = await combosRes.json();
-          setCombos((combosData.combos || []).filter((c: Combo) => !c.kind || c.kind === "llm"));
+          setCombos(normalizeCombos(combosData.combos));
         }
         setEditingCombo(null);
       } else {
@@ -161,14 +182,16 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
 
   const handleDelete = async (id: string) => {
     setConfirmState({
-      title: "Delete Combo",
-      message: "Delete this combo?",
+      title: "Excluir Combo",
+      message: "Excluir este combo?",
       onConfirm: async () => {
         setConfirmState(null);
         try {
           const res = await fetch(`/api/combos/${id}`, { method: "DELETE" });
           if (res.ok) {
-            setCombos(combos.filter(c => c.id !== id));
+            setCombos((currentCombos) => currentCombos.filter((combo) => combo.id !== id));
+          } else {
+            notify.error("Falha ao excluir combo");
           }
         } catch (error) {
           console.error("Error deleting combo:", error);
@@ -179,24 +202,27 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
 
   // Merge a per-combo strategy patch into settings.comboStrategies.
   const handleSetComboStrategy = async (comboName: string, patch: Partial<Strategy>) => {
-    try {
-      const updated = { ...comboStrategies };
-      const next = { ...(updated[comboName] || {}), ...patch };
-      // Prune to keep settings clean: default fallback with no extras = no entry.
-      if (!next.fallbackStrategy || next.fallbackStrategy === "fallback") {
-        delete updated[comboName];
-      } else {
-        updated[comboName] = next;
-      }
+    const previous = comboStrategies;
+    const updated = { ...comboStrategies };
+    const next = { ...(updated[comboName] || {}), ...patch };
+    const usesDefaultStrategy = !next.fallbackStrategy || next.fallbackStrategy === "fallback";
+    if (usesDefaultStrategy && !next.judgeModel) {
+      delete updated[comboName];
+    } else {
+      updated[comboName] = next;
+    }
 
-      await fetch("/api/settings", {
+    setComboStrategies(updated);
+    try {
+      const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ comboStrategies: updated }),
       });
-
-      setComboStrategies(updated);
+      if (!response.ok) throw new Error(`settings ${response.status}`);
     } catch (error) {
+      setComboStrategies(previous);
+      notify.error("Failed to save combo strategy");
       console.error("Error updating combo strategy:", error);
     }
   };
@@ -204,21 +230,31 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm text-text-muted mt-1">
-            Group models under one name, then pick a strategy per combo:
+      <section aria-labelledby="combo-strategies" className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p id="combo-strategies" className="mt-1 text-sm text-text-muted">
+            Agrupe modelos sob um nome e escolha uma estratégia por combo:
           </p>
-          <ul className="text-sm text-text-muted mt-2 flex flex-col gap-1">
-            <li><span className="font-medium text-text-main">Fallback</span> — tries models in order (next on failure)</li>
-            <li><span className="font-medium text-text-main">Round Robin</span> — rotates models across requests to spread load</li>
-            <li><span className="font-medium text-text-main">Fusion</span> — queries all models in parallel, then a judge synthesizes one answer. Best quality, but costs the most: every request bills all panel models + the judge (N+1 calls)</li>
-          </ul>
+          <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm text-text-muted lg:grid-cols-3">
+            <div>
+              <dt className="font-medium text-text-main">Fallback</dt>
+              <dd>Tenta modelos em ordem e passa para o próximo após uma falha.</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-text-main">Round Robin</dt>
+              <dd>Rotaciona modelos entre requisições para distribuir carga.</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-text-main">Fusion</dt>
+              <dd>Executa o painel em paralelo e deixa um juiz sintetizar a resposta (chamadas N+1).</dd>
+            </div>
+          </dl>
         </div>
-        <Button icon={<Plus className="size-4" />} onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto whitespace-nowrap">
-          Create Combo
+        <Button size="lg" onClick={() => setShowCreateModal(true)} className="min-h-11 w-full whitespace-nowrap sm:w-auto">
+          <Plus data-icon="inline-start" />
+          Criar Combo
         </Button>
-      </div>
+      </section>
 
       {/* Combos List */}
       {combos.length === 0 ? (
@@ -227,10 +263,10 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
               <Layers className="size-8" />
             </div>
-            <p className="text-text-main font-medium mb-1">No combos yet</p>
-            <p className="text-sm text-text-muted mb-4">Create model combos with fallback support</p>
+            <p className="text-text-main font-medium mb-1">Nenhum combo ainda</p>
+            <p className="text-sm text-text-muted mb-4">Crie combos de modelos com suporte a fallback</p>
             <Button icon={<Plus className="size-4" />} onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
-              Create Combo
+              Criar Combo
             </Button>
           </div>
         </Card>
@@ -289,7 +325,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
       <ConfirmModal
         isOpen={!!confirmState}
         onClose={() => setConfirmState(null)}
-        onConfirm={confirmState?.onConfirm}
+        onConfirm={() => { void confirmState?.onConfirm(); }}
         title={confirmState?.title || "Confirm"}
         message={confirmState?.message}
         variant="danger"
@@ -299,14 +335,14 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
 }
 
 const STRATEGY_OPTIONS = [
-  { value: "fallback", label: "Fallback — try in order" },
-  { value: "round-robin", label: "Round Robin — rotate" },
-  { value: "fusion", label: "Fusion — panel + judge" },
+  { value: "fallback", label: "Fallback — tentar em ordem" },
+  { value: "round-robin", label: "Round Robin — rotacionar" },
+  { value: "fusion", label: "Fusion — painel + juiz" },
 ];
 
 function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy }: {
-  combo: Combo;
-  getCaps: (model: string) => unknown;
+  combo: ComboView;
+  getCaps: ModelCapsGetter;
   activeProviders?: Connection[];
   copied: string | null;
   onCopy: (value: string, id: string) => void;
@@ -319,54 +355,61 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
   const isFusion = current === "fusion";
+  const isSmart = combo.kind === "smart";
 
   return (
     <Card padding="sm" className="group">
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <Layers className="size-5" />
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Layers aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
-              {combo.models.length === 0 ? (
-                <span className="text-xs text-text-muted italic">No models</span>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
+              {isSmart && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Smart</span>}
+            </div>
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+              {isSmart && combo.models.length === 0 ? (
+                <span className="text-xs text-text-muted">Inventário ativo classificado dinamicamente</span>
+              ) : combo.models.length === 0 ? (
+                <span className="text-xs text-text-muted italic">Sem modelos</span>
               ) : (
-                combo.models.slice(0, 3).map((model, index) => (
-                  <code key={index} className="inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5">
-                    <span>{model}</span>
+                combo.models.slice(0, 3).map((model) => (
+                  <code key={model} className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 font-mono text-xs text-text-muted">
+                    <span className="truncate">{model}</span>
                     <CapacityBadges caps={getCaps?.(model)} />
                   </code>
                 ))
               )}
               {combo.models.length > 3 && (
-                <span className="text-[10px] text-text-muted">+{combo.models.length - 3} more</span>
+                <span className="text-xs text-text-muted">+{combo.models.length - 3} mais</span>
               )}
             </div>
             {/* Fusion: judge picker (Auto = first model) */}
             {isFusion && (
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-medium text-text-muted">Judge</span>
+                <span className="text-xs font-medium text-text-muted">Juiz</span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowJudgeSelect(true)}
-                  className="max-w-full gap-1 border-dashed border-primary/40 font-mono text-[11px]"
+                  className="min-h-9 max-w-full border-dashed font-mono"
                   title="Pick the model that fuses panel answers"
                 >
-                  <Gavel className="size-3" />
-                  <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
+                  <Gavel data-icon="inline-start" />
+                  <span className="truncate">{judge || `Auto — ${combo.models[0] || "primeiro modelo"}`}</span>
                 </Button>
                 {judge && (
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => onSetStrategy({ judgeModel: "" })}
-                    className="text-red-500"
+                    className="text-destructive"
                     title="Reset judge to Auto"
+                    aria-label="Reset judge to Auto"
                   >
-                    <X className="size-3" />
+                    <X />
                   </Button>
                 )}
               </div>
@@ -375,44 +418,67 @@ function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdi
         </div>
 
         {/* Actions */}
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          {/* Strategy selector — always visible */}
-          <div className="w-full sm:w-[200px]">
-            <Select
-              options={STRATEGY_OPTIONS}
-              value={current}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onSetStrategy({ fallbackStrategy: e.target.value })}
-              selectClassName="py-1.5 text-xs"
-            />
-          </div>
+        <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)] lg:w-auto lg:grid-cols-[220px_auto] lg:items-end">
+          {isSmart ? (
+            <div className="flex min-h-10 items-center rounded-lg bg-muted px-3 text-xs text-text-muted">
+              Complexidade + tarefa + capacidades
+            </div>
+          ) : (
+            <div className="min-w-0">
+              <span className="mb-1.5 block text-xs font-medium text-text-muted">Estratégia</span>
+              <Select
+                options={STRATEGY_OPTIONS}
+                value={current}
+                onChange={(value) => onSetStrategy({ fallbackStrategy: value })}
+                ariaLabel={`Strategy for ${combo.name}`}
+              />
+            </div>
+          )}
 
-          <div className="grid grid-cols-3 gap-1 sm:flex">
+          <div className="grid grid-cols-3 gap-2">
             <Button
               variant="ghost"
+              size="sm"
               onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
-              className="flex-col"
+              className="min-h-11 sm:min-h-10"
               title="Copy combo name"
+              aria-label="Copy combo name"
             >
-              {copied === `combo-${combo.id}` ? <Check className="size-4" /> : <Copy className="size-4" />}
-              <span className="text-[10px] leading-tight">Copy</span>
+              {copied === `combo-${combo.id}` ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
+              <span>{copied === `combo-${combo.id}` ? "Copiado" : "Copiar"}</span>
             </Button>
-            <Button
-              variant="ghost"
-              onClick={onEdit}
-              className="flex-col"
-              title="Edit"
-            >
-              <Pencil className="size-5" />
-              <span className="text-[10px] leading-tight">Edit</span>
-            </Button>
+            {isSmart ? (
+              <Link
+                href={`/dashboard/combos/${combo.id}`}
+                aria-label={`Configurar ${combo.name}`}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-h-11 sm:min-h-10")}
+              >
+                <BrainCircuit data-icon="inline-start" />
+                <span>Configurar</span>
+              </Link>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onEdit}
+                className="min-h-11 sm:min-h-10"
+                title="Edit"
+                aria-label={`Edit ${combo.name}`}
+              >
+                <Pencil data-icon="inline-start" />
+                <span>Editar</span>
+              </Button>
+            )}
             <Button
               variant="destructive"
+              size="sm"
               onClick={onDelete}
-              className="flex-col"
-              title="Delete"
+              className="min-h-11 sm:min-h-10"
+              title="Excluir"
+              aria-label={`Delete ${combo.name}`}
             >
-              <Trash2 className="size-5" />
-              <span className="text-[10px] leading-tight">Delete</span>
+              <Trash2 data-icon="inline-start" />
+              <span>Excluir</span>
             </Button>
           </div>
         </div>
@@ -438,21 +504,15 @@ function CapacityAdapterSection({ capacityAdapter, onChange, activeProviders, ge
   capacityAdapter: Record<string, CapEntry>;
   onChange: (next: Record<string, CapEntry>) => void;
   activeProviders: Connection[];
-  getCaps: (model: string) => unknown;
+  getCaps: ModelCapsGetter;
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">Vision Adapter</p>
-          <p className="text-xs text-text-muted mt-0.5">
-            Your model can&apos;t read image/audio? Auto-switches to a model in the pool below.
-          </p>
-          <ul className="mt-1.5 text-[11px] text-text-muted flex flex-col gap-0.5">
-            <li><span className="font-medium text-text-main">Vision</span> — images (png, jpg, webp, …)</li>
-            <li><span className="font-medium text-text-main">Audio</span> — audio input</li>
-          </ul>
-        </div>
+    <section aria-labelledby="capacity-adapters-heading" className="flex flex-col gap-3">
+      <div className="min-w-0">
+        <h2 id="capacity-adapters-heading" className="text-base font-semibold text-text-main">Visão &amp; Áudio</h2>
+        <p className="mt-1 max-w-3xl text-sm text-text-muted">
+          Redirecione entradas de imagem ou áudio não suportadas para um modelo fallback compatível.
+        </p>
       </div>
       <div className="flex flex-col gap-4">
         {CAPACITY_ADAPTER_CAPS.map((cap) => (
@@ -466,16 +526,16 @@ function CapacityAdapterSection({ capacityAdapter, onChange, activeProviders, ge
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
 function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: {
-  cap: { key: string; label: string; icon: string; desc: string };
+  cap: CapacityAdapterDefinition;
   entry: CapEntry;
   onChange: (entry: CapEntry) => void;
   activeProviders: Connection[];
-  getCaps: (model: string) => unknown;
+  getCaps: ModelCapsGetter;
 }) {
   const [showModelSelect, setShowModelSelect] = useState(false);
   const { enabled, roundRobin, models } = entry;
@@ -489,7 +549,11 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
 
   const handleRemove = (index: number) => {
     const next = models.filter((_, i) => i !== index);
-    patch({ models: next.length === 0 ? [DEFAULT_FALLBACK_MODEL] : next });
+    patch({ models: next });
+  };
+
+  const handleDeselect = (model: { value: string }) => {
+    patch({ models: models.filter((value) => value !== model.value) });
   };
 
   const handleMove = (index: number, delta: number) => {
@@ -500,76 +564,101 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
     patch({ models: next });
   };
 
+  const Icon = cap.icon;
+
   return (
-    <Card padding="sm" className={`group ${!enabled ? "opacity-50" : ""}`}>
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Master toggle + icon + label + chips */}
-        <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:items-center">
-          <Switch
-            checked={enabled}
-            onCheckedChange={(v: boolean) => patch({ enabled: v })}
-            aria-label={`Enable ${cap.label} adapter`}
-          />
-          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="text-primary text-[18px]">{cap.icon}</span>
+    <Card padding="sm" className={cn("group", !enabled && "bg-surface/70")}>
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Icon aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-medium text-text-main">{cap.label}</h3>
+              <p className="mt-0.5 text-xs text-text-muted">{cap.desc}</p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <code className="font-mono text-sm font-medium">{cap.label}</code>
-              <span className="text-[10px] text-text-muted">— {cap.desc}</span>
-            </div>
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
-              {models.length === 0 ? (
-                <span className="text-xs text-text-muted italic">No models</span>
-              ) : (
-                models.slice(0, 3).map((model, index) => (
-                  <code
-                    key={`${model}-${index}`}
-                    className="group/chip inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5"
-                  >
-                    <span>{model}</span>
-                    <CapacityBadges caps={getCaps?.(model)} />
-                    <Button variant="ghost" size="icon-xs" onClick={() => handleMove(index, -1)} disabled={index === 0} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === 0 ? "text-text-muted/20" : ""}`}>
-                      <ArrowUp className="size-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon-xs" onClick={() => handleMove(index, 1)} disabled={index === models.length - 1} className={`leading-none opacity-0 group-hover/chip:opacity-100 ${index === models.length - 1 ? "text-text-muted/20" : ""}`}>
-                      <ArrowDown className="size-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon-xs" onClick={() => handleRemove(index)} className="leading-none opacity-0 group-hover/chip:opacity-100 text-red-500">
-                      <X className="size-3" />
-                    </Button>
-                  </code>
-                ))
-              )}
-              {models.length > 3 && (
-                <span className="text-[10px] text-text-muted">+{models.length - 3} more</span>
-              )}
-            </div>
+
+          <div className="grid w-full grid-cols-2 gap-2 lg:w-auto lg:grid-cols-[auto_auto_auto]">
+            <Label className="flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 rounded-lg bg-muted px-3 text-xs text-text-muted">
+              <span>Habilitado</span>
+              <Switch
+                checked={enabled}
+                onCheckedChange={(value: boolean) => patch({ enabled: value })}
+                aria-label={`Enable ${cap.label} adapter`}
+              />
+            </Label>
+            <Label className="flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 rounded-lg bg-muted px-3 text-xs text-text-muted">
+              <span>Round Robin</span>
+              <Switch
+                checked={roundRobin}
+                onCheckedChange={(value: boolean) => patch({ roundRobin: value })}
+                disabled={!enabled}
+                aria-label={`Round-robin ${cap.label} adapter`}
+              />
+            </Label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowModelSelect(true)}
+              disabled={!enabled}
+              title={`Add ${cap.label} model`}
+              className="col-span-2 min-h-11 lg:col-span-1"
+            >
+              <Plus data-icon="inline-start" />
+              Adicionar Modelo
+            </Button>
           </div>
         </div>
 
-        {/* Actions: Round-robin toggle + Add Model */}
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          <Label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none">
-            <Switch
-              checked={roundRobin}
-              onCheckedChange={(v: boolean) => patch({ roundRobin: v })}
-              disabled={!enabled}
-              aria-label={`Round-robin ${cap.label} adapter`}
-            />
-            <span>Round</span>
-          </Label>
-          <Button
-            icon={<Plus className="size-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowModelSelect(true)}
-            disabled={!enabled}
-            title={`Add ${cap.label} model`}
-          >
-            Add Model
-          </Button>
-        </div>
+        {models.length === 0 ? (
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-text-muted">Nenhum modelo selecionado</p>
+        ) : (
+          <ul aria-label={`${cap.label} fallback models`} className="grid min-w-0 gap-2 xl:grid-cols-2">
+            {models.map((model, index) => (
+              <li key={`${model}-${index}`} className="flex min-w-0 items-center gap-2 rounded-lg bg-muted px-2 py-1.5">
+                <span className="w-5 shrink-0 text-center text-xs font-medium text-text-muted">{index + 1}</span>
+                <code className="min-w-0 flex-1 truncate font-mono text-xs text-text-main" title={model}>{model}</code>
+                <CapacityBadges caps={getCaps?.(model)} />
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => handleMove(index, -1)}
+                    disabled={index === 0}
+                    className="size-9 sm:size-7"
+                    title="Move up"
+                    aria-label={`Move ${model} up`}
+                  >
+                    <ArrowUp />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => handleMove(index, 1)}
+                    disabled={index === models.length - 1}
+                    className="size-9 sm:size-7"
+                    title="Move down"
+                    aria-label={`Move ${model} down`}
+                  >
+                    <ArrowDown />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => handleRemove(index)}
+                    className="size-9 text-destructive sm:size-7"
+                    title="Remove"
+                    aria-label={`Remove ${model}`}
+                  >
+                    <X />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {showModelSelect && (
@@ -577,6 +666,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
           isOpen={showModelSelect}
           onClose={() => setShowModelSelect(false)}
           onSelect={handleAdd}
+          onDeselect={handleDeselect}
           activeProviders={activeProviders as unknown as ActiveProvider[]}
           title={`Add ${cap.label} Model`}
           addedModelValues={models}
@@ -623,7 +713,10 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-colors ${isDragging ? "shadow-md ring-1 ring-primary/30" : ""}`}
+      className={cn(
+        "group flex min-w-0 items-center gap-1.5 rounded-md bg-muted/50 px-2 py-1 transition-colors hover:bg-muted",
+        isDragging && "shadow-md ring-1 ring-primary/30",
+      )}
     >
       {/* Drag handle */}
       <Button
@@ -632,18 +725,15 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         variant="ghost"
         size="icon-sm"
         type="button"
-        className="cursor-grab touch-none active:cursor-grabbing"
+        className="size-9 cursor-grab touch-none active:cursor-grabbing sm:size-7"
         title="Drag to reorder"
+        aria-label={`Drag ${model} to reorder`}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="9" cy="4" r="2"/><circle cx="15" cy="4" r="2"/>
-          <circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/>
-          <circle cx="9" cy="20" r="2"/><circle cx="15" cy="20" r="2"/>
-        </svg>
+        <GripVertical />
       </Button>
 
       {/* Index badge */}
-      <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
+      <span className="w-4 shrink-0 text-center text-xs font-medium text-text-muted">{index + 1}</span>
 
       {/* Inline editable model value */}
       {editing ? (
@@ -654,15 +744,18 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
           onBlur={commit}
           onKeyDown={handleKeyDown}
           className="min-w-0 flex-1 px-1.5 py-0.5 font-mono text-xs text-text-main"
+          aria-label={`Model ${index + 1}`}
         />
       ) : (
-        <div
-          className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-surface-2/50"
+        <button
+          type="button"
+          className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 text-left font-mono text-xs text-text-main hover:bg-surface-2/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => setEditing(true)}
           title="Click to edit"
+          aria-label={`Edit ${model}`}
         >
           {model}
-        </div>
+        </button>
       )}
 
       {/* Priority arrows */}
@@ -672,20 +765,22 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
           size="icon-xs"
           onClick={onMoveUp}
           disabled={isFirst}
-          className={isFirst ? "text-text-muted/20" : ""}
+          className="size-9 sm:size-6"
           title="Move up"
+          aria-label={`Move ${model} up`}
         >
-          <ArrowUp className="size-3" />
+          <ArrowUp />
         </Button>
         <Button
           variant="ghost"
           size="icon-xs"
           onClick={onMoveDown}
           disabled={isLast}
-          className={isLast ? "text-text-muted/20" : ""}
+          className="size-9 sm:size-6"
           title="Move down"
+          aria-label={`Move ${model} down`}
         >
-          <ArrowDown className="size-3" />
+          <ArrowDown />
         </Button>
       </div>
 
@@ -694,10 +789,11 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         variant="ghost"
         size="icon-xs"
         onClick={onRemove}
-        className="text-red-500"
+        className="size-9 text-destructive sm:size-6"
         title="Remove"
+        aria-label={`Remove ${model}`}
       >
-        <X className="size-3" />
+        <X />
       </Button>
     </div>
   );
@@ -705,9 +801,9 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
 
 function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, modelAliases, kindFilter = null }: {
   isOpen: boolean;
-  combo?: Combo;
+  combo?: ComboView;
   onClose: () => void;
-  onSave: (data: { name: string; models: string[] }) => Promise<void>;
+  onSave: (data: { name: string; models: string[]; kind?: string | null }) => Promise<void>;
   activeProviders: Connection[];
   modelAliases: Record<string, string>;
   kindFilter?: string | null;
@@ -718,6 +814,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
+  const [comboType, setComboType] = useState<"llm" | "smart">(combo?.kind === "smart" ? "smart" : "llm");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -727,7 +824,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
   // Use stable index-based IDs so duplicates and similar names are handled correctly
   const modelItems = models.map((model, i) => ({ uid: `item-${i}`, model }));
 
-  const handleDragEnd = (event: { active: { id: string }; over: { id: string } | null }) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const oldIndex = modelItems.findIndex((m) => m.uid === active.id);
@@ -789,7 +886,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
   const handleSave = async () => {
     if (!validateName(name)) return;
     setSaving(true);
-    await onSave({ name: name.trim(), models });
+    await onSave({ name: name.trim(), models, kind: comboType });
     setSaving(false);
   };
 
@@ -800,7 +897,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={isEdit ? "Edit Combo" : "Create Combo"}
+        title={isEdit ? "Editar Combo" : "Criar Combo"}
       >
         <div className="flex flex-col gap-3">
           {/* Name */}
@@ -812,19 +909,43 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
               placeholder="my-combo"
               error={nameError}
             />
-            <p className="text-[10px] text-text-muted mt-0.5">
-              Only letters, numbers, -, _ and . allowed
+            <p className="mt-1 text-xs text-text-muted">
+              Apenas letras, números, -, _ e . são permitidos
             </p>
           </div>
 
+          {!isEdit && (
+            <div>
+              <Label className="mb-1.5 block">Tipo</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setComboType("llm")}
+                  className={cn("rounded-lg border p-3 text-left transition-colors", comboType === "llm" ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}
+                >
+                  <span className="block text-sm font-medium text-text-main">Lista de modelos</span>
+                  <span className="mt-1 block text-xs text-text-muted">Fallback, round robin ou fusion em ordem manual.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComboType("smart")}
+                  className={cn("rounded-lg border p-3 text-left transition-colors", comboType === "smart" ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}
+                >
+                  <span className="block text-sm font-medium text-text-main">Roteamento inteligente</span>
+                  <span className="mt-1 block text-xs text-text-muted">Escolhe por tarefa, complexidade, custo e capacidades.</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Models */}
           <div>
-            <Label className="mb-1.5 block">Models</Label>
+            <Label className="mb-1.5 block">{comboType === "smart" ? "Overrides globais (opcional)" : "Models"}</Label>
 
             {models.length === 0 ? (
-              <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
-                <Layers className="size-4" />
-                <p className="text-xs text-text-muted">No models added yet</p>
+              <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted/50 py-4 text-center">
+                <Layers className="text-text-muted" />
+                <p className="text-xs text-text-muted">{comboType === "smart" ? "O inventário ativo será usado automaticamente" : "Nenhum modelo adicionado ainda"}</p>
               </div>
             ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
@@ -858,25 +979,26 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, model
               variant="outline"
               size="sm"
               onClick={() => setShowModelSelect(true)}
-              className="w-full mt-2 border-dashed text-xs"
+              className="mt-2 min-h-10 w-full border-dashed"
             >
-              <Plus className="size-4" />
-              Add Model
+              <Plus data-icon="inline-start" />
+              Adicionar Modelo
             </Button>
           </div>
 
           {/* Actions */}
           <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-            <Button onClick={onClose} variant="ghost" fullWidth size="sm">
+            <Button onClick={onClose} variant="ghost" fullWidth size="sm" className="min-h-11 sm:min-h-9">
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               fullWidth
               size="sm"
+              className="min-h-11 sm:min-h-9"
               disabled={!name.trim() || !!nameError || saving}
             >
-              {saving ? "Saving..." : isEdit ? "Save" : "Create"}
+              {saving ? "Salvando..." : isEdit ? "Salvar" : "Criar"}
             </Button>
           </div>
         </div>

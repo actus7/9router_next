@@ -10,6 +10,95 @@ import { refreshKiroToken } from "../services/tokenRefresh";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import { STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
+import type { Credentials, Logger, RefreshResult } from "../services/types";
+import type { ExecuteArgs } from "./base";
+
+// ── File-local types ─────────────────────────────────────────────────────────
+
+interface SSEDiagnostics {
+  terminal_provenance?: string;
+  transport_state?: string;
+  stop_reason?: string | null;
+  stop_disposition?: string;
+  response_state?: string;
+  event_counts?: Record<string, number>;
+  incomplete_frame_bytes?: number;
+  [key: string]: unknown;
+}
+
+interface IntegrityAttempt {
+  kind: string;
+  message?: string;
+  bytes?: Uint8Array;
+  diagnostics?: SSEDiagnostics;
+}
+
+interface IntegrityOptions {
+  signal: AbortSignal;
+  maxBytes: number;
+  ttftTimeoutMs: number;
+  stallTimeoutMs: number;
+  repairEnabled: boolean;
+  maxToolBytes?: number;
+  maxRawBytes?: number;
+  onTerminalState?: (detail: SSEDiagnostics) => void;
+}
+
+interface TransformOptions {
+  maxToolBytes?: number;
+  maxRawBytes?: number;
+  onTerminalState?: (detail: SSEDiagnostics) => void;
+}
+
+interface ToolEntry {
+  id: string;
+  name: string;
+  inputKind?: string;
+  inputChunks?: string[];
+  inputObject?: unknown;
+  inputBytes?: number;
+}
+
+interface EventStreamState {
+  buffer: Uint8Array;
+  chunkIndex: number;
+  toolCounter: number;
+  tools: Map<string, ToolEntry>;
+  bufferedToolBytes: number;
+  hasText: boolean;
+  hasReasoning: boolean;
+  hasCode: boolean;
+  hasToolCalls: boolean;
+  sawToolUse: boolean;
+  explicitStop: boolean;
+  stopReason: string | null;
+  terminalProvenance: string | null;
+  transportState: string;
+  totalContentLength: number;
+  contextUsagePercentage: number;
+  hasContextUsage: boolean;
+  hasMetering: boolean;
+  usage: Record<string, number | string> | null;
+  inThinking: boolean;
+  toolValidationError: string | null;
+  validatedFrames: number;
+  finished: boolean;
+  droppedTools?: number;
+}
+
+interface EventFrame {
+  headers: Record<string, unknown>;
+  payload: Record<string, unknown> | null;
+}
+
+interface InspectState {
+  content: string;
+  reasoning: string;
+  hasToolCalls: boolean;
+  error: Record<string, unknown> | null;
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
 
 const KIRO_REPAIR_BUFFER_MAX_BYTES = 8 * 1024 * 1024;
 const KIRO_REPAIR_HEARTBEAT_MS = 10_000;
@@ -55,18 +144,20 @@ const USER_WAIT = /(?:請(?:你|先)|你(?:先|需要|可以|提供|確認|批�
 const COMPLETED_FINAL = /(?:已(?:經)?完成|完成(?:了|驗證|確認)|修復完成|確認無誤|驗證(?:完成|通過)|測試(?:均)?通過|結論|總結|\b(?:done|completed|fixed|verified|confirmed|passed|in conclusion|summary)\b|\b(?:is|are) complete\b)/iu;
 const RESULT_EVIDENCE = /(?:顯示|發現|因此|成功|失敗|正常|無錯誤|沒有錯誤|\b(?:found|shows?|showed|because|therefore|succeeded|failed|healthy|green|no errors?)\b)/iu;
 
-function crc32(bytes) {
+// ── Helper functions ─────────────────────────────────────────────────────────
+
+function crc32(bytes: Uint8Array): number {
   let crc = 0xffffffff;
   for (const byte of bytes) crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function envPositiveInt(name, fallback) {
+function envPositiveInt(name: string, fallback: number): number {
   const parsed = Number.parseInt(process.env?.[name] || "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function concatChunks(chunks, totalBytes) {
+function concatChunks(chunks: Uint8Array[], totalBytes: number): Uint8Array {
   const output = new Uint8Array(totalBytes);
   let offset = 0;
   for (const chunk of chunks) {
@@ -76,35 +167,36 @@ function concatChunks(chunks, totalBytes) {
   return output;
 }
 
-function makeAbortError(reason) {
-  const error = new Error(reason?.message || reason || "Request aborted");
+function makeAbortError(reason: unknown): Error {
+  const reasonMsg = (reason as Error)?.message || String(reason || "Request aborted");
+  const error = new Error(reasonMsg);
   error.name = "AbortError";
   return error;
 }
 
-async function readWithTimeout(reader, signal, timeoutMs, message) {
+async function readWithTimeout(reader: ReadableStreamDefaultReader<Uint8Array>, signal: AbortSignal | undefined, timeoutMs: number, message: string) {
   if (signal?.aborted) throw makeAbortError(signal.reason);
-  let timeout;
-  let abortHandler;
-  const timeoutPromise = new Promise((_, reject) => {
+  let timeout!: ReturnType<typeof setTimeout>;
+  let abortHandler: (() => void) | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
   });
-  const abortPromise = new Promise((_, reject) => {
-    abortHandler = () => reject(makeAbortError(signal.reason));
+  const abortPromise = new Promise<never>((_, reject) => {
+    abortHandler = () => reject(makeAbortError(signal?.reason));
     signal?.addEventListener("abort", abortHandler, { once: true });
   });
   try {
     return await Promise.race([reader.read(), timeoutPromise, abortPromise]);
   } finally {
     clearTimeout(timeout);
-    signal?.removeEventListener?.("abort", abortHandler);
+    if (abortHandler) signal?.removeEventListener?.("abort", abortHandler);
   }
 }
 
-async function readResponsePrefix(response, signal, maxBytes, timeoutMs) {
+async function readResponsePrefix(response: Response | undefined, signal: AbortSignal | undefined, maxBytes: number, timeoutMs: number): Promise<string> {
   const reader = response?.body?.getReader?.();
   if (!reader) return "";
-  const chunks = [];
+  const chunks: Uint8Array[] = [];
   let totalBytes = 0;
   try {
     while (totalBytes < maxBytes) {
@@ -127,16 +219,16 @@ async function readResponsePrefix(response, signal, maxBytes, timeoutMs) {
   return decoder.decode(concatChunks(chunks, totalBytes));
 }
 
-function appendRepairInstruction(body, kind) {
+function appendRepairInstruction(body: Record<string, unknown>, kind: string): Record<string, unknown> {
   const repaired = structuredClone(body || {});
-  const instruction = REPAIR_INSTRUCTIONS[kind] || "Retry the previous incomplete Kiro response.";
+  const instruction = REPAIR_INSTRUCTIONS[kind as keyof typeof REPAIR_INSTRUCTIONS] || "Retry the previous incomplete Kiro response.";
   repaired.systemPrompt = repaired.systemPrompt
     ? `${repaired.systemPrompt}\n\n${instruction}`
     : instruction;
   return repaired;
 }
 
-function normalizeStopReason(value) {
+function normalizeStopReason(value: unknown): string | null {
   const reason = String(value || "").trim().replace(/([a-z])([A-Z])/g, "$1_$2").toLowerCase().replace(/[\s-]+/g, "_");
   if (["endturn", "end_turn", "stop", "stop_sequence"].includes(reason)) return "end_turn";
   if (["tooluse", "tool_use", "tool_calls"].includes(reason)) return "tool_use";
@@ -150,10 +242,10 @@ function normalizeStopReason(value) {
 // whose partial content must stay private, so they are deliberately absent.
 const KIRO_TRUNCATION_STOP_REASONS = new Set(["model_context_window_exceeded", "max_tokens"]);
 
-function stopDisposition(stopReason, hasToolCalls) {
-  if (["malformed_model_output", "invalid_model_output"].includes(stopReason)) return "retryable_protocol_failure";
-  if (["cancelled", "pause_turn", "model_context_window_exceeded"].includes(stopReason)) return "terminal_incomplete";
-  if (stopReason === "refusal" || /(?:content.*filter|guardrail|safety|policy|blocked)/u.test(stopReason)) return "terminal_refusal";
+function stopDisposition(stopReason: string | null, hasToolCalls: boolean): string {
+  if (["malformed_model_output", "invalid_model_output"].includes(stopReason ?? "")) return "retryable_protocol_failure";
+  if (["cancelled", "pause_turn", "model_context_window_exceeded"].includes(stopReason ?? "")) return "terminal_incomplete";
+  if (stopReason === "refusal" || /(?:content.*filter|guardrail|safety|policy|blocked)/u.test(stopReason ?? "")) return "terminal_refusal";
   if (stopReason === "max_tokens") return hasToolCalls ? "terminal_incomplete" : "length";
   if (stopReason && !["end_turn", "tool_use"].includes(stopReason)) return "unknown_failure";
   if (hasToolCalls || stopReason === "tool_use") return "tool_use";
@@ -161,10 +253,10 @@ function stopDisposition(stopReason, hasToolCalls) {
   return "unknown_failure";
 }
 
-function mergeStopReason(current, incoming) {
+function mergeStopReason(current: string | null, incoming: string | null): string | null {
   if (!incoming) return current;
   if (!current) return incoming;
-  const severity = (reason) => {
+  const severity = (reason: string | null): number => {
     const disposition = stopDisposition(reason, false);
     if (disposition === "terminal_refusal") return 6;
     if (disposition === "terminal_incomplete") return 5;
@@ -176,12 +268,12 @@ function mergeStopReason(current, incoming) {
   return severity(incoming) > severity(current) ? incoming : current;
 }
 
-function isEllipsisOnly(value) {
+function isEllipsisOnly(value: unknown): boolean {
   return ["...", "…"].includes(String(value || "").trim());
 }
 
-function isShortFutureAction(value) {
-  const text = String(value || "").trim().replaceAll("’", "'");
+function isShortFutureAction(value: unknown): boolean {
+  const text = String(value || "").trim().replaceAll("\u2019", "'");
   if (OBSERVED_TRAILING_FUTURE_ACTION.test(text)) return true;
   if (ENGLISH_FUTURE_ACTION.test(text) && ENGLISH_RESULT_CLAUSE.test(text)) return false;
   if (CHINESE_FUTURE_ACTION.test(text) && CHINESE_RESULT_CLAUSE.test(text)) return false;
@@ -190,7 +282,7 @@ function isShortFutureAction(value) {
     !COMPLETED_FINAL.test(text) && !RESULT_EVIDENCE.test(text);
 }
 
-function encodeSSEError(code, message, details) {
+function encodeSSEError(code: string, message: string, details?: unknown): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify({ error: {
     message,
     type: "upstream_error",
@@ -199,19 +291,19 @@ function encodeSSEError(code, message, details) {
   } })}\n\ndata: [DONE]\n\n`);
 }
 
-function inspectSSEChunk(chunk, state) {
+function inspectSSEChunk(chunk: Uint8Array, state: InspectState): void {
   for (const line of decoder.decode(chunk).split("\n")) {
     if (!line.startsWith("data: ")) continue;
     const data = line.slice(6).trim();
     if (!data || data === "[DONE]") continue;
     try {
-      const event = JSON.parse(data);
-      if (event.error) state.error = event.error;
-      for (const choice of event.choices || []) {
-        const delta = choice.delta || {};
+      const event = JSON.parse(data) as Record<string, unknown>;
+      if (event.error) state.error = event.error as Record<string, unknown>;
+      for (const choice of (event.choices || []) as Record<string, unknown>[]) {
+        const delta = (choice.delta || {}) as Record<string, unknown>;
         if (typeof delta.content === "string") state.content += delta.content;
         if (typeof delta.reasoning_content === "string") state.reasoning += delta.reasoning_content;
-        if (delta.tool_calls?.length) state.hasToolCalls = true;
+        if ((delta.tool_calls as unknown[])?.length) state.hasToolCalls = true;
       }
     } catch { /* a malformed SSE line is diagnosed by the transformer */ }
   }
@@ -226,8 +318,8 @@ export class KiroExecutor extends BaseExecutor {
     super("kiro", PROVIDERS.kiro);
   }
 
-  buildHeaders(credentials, stream = true, url = "") {
-    const headers = {
+  buildHeaders(credentials: Credentials, stream = true, url = ""): Record<string, string> {
+    const headers: Record<string, string> = {
       ...this.config.headers,
       "Amz-Sdk-Request": "attempt=1; max=3",
       "Amz-Sdk-Invocation-Id": uuidv4()
@@ -277,7 +369,7 @@ export class KiroExecutor extends BaseExecutor {
    * Other OAuth methods keep the default order (kiro.dev first) since their
    * tokens are what that gateway accepts.
    */
-  getOrderedBaseUrls(credentials) {
+  getOrderedBaseUrls(credentials: Credentials): string[] {
     const baseUrls = this.getBaseUrls();
     const authMethod = credentials?.providerSpecificData?.authMethod;
     // IAM Identity Center (idc) tokens are AWS SSO access tokens — the same
@@ -289,8 +381,8 @@ export class KiroExecutor extends BaseExecutor {
       authMethod === "api_key" || authMethod === "external_idp" || authMethod === "idc";
     if (!isCodeWhispererSurface) return baseUrls;
 
-    const region = (credentials?.providerSpecificData?.region || "us-east-1").trim();
-    const regionalize = (u) =>
+    const region = ((credentials?.providerSpecificData?.region as string) || "us-east-1").trim();
+    const regionalize = (u: string): string =>
       region && region !== "us-east-1" && u.includes("amazonaws.com")
         ? u.replace(/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/, `$1.${region}.amazonaws.com`)
         : u;
@@ -308,20 +400,20 @@ export class KiroExecutor extends BaseExecutor {
     return amazon.length > 0 ? [...amazon, ...others] : baseUrls;
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
-    const baseUrls = this.getOrderedBaseUrls(credentials);
-    return baseUrls[urlIndex] || baseUrls[0] || this.config.baseUrl;
+  buildUrl(model: string, stream: boolean, urlIndex = 0, credentials: Credentials | null = null): string {
+    const baseUrls = this.getOrderedBaseUrls(credentials!);
+    return baseUrls[urlIndex] || baseUrls[0] || (this.config.baseUrl as string);
   }
 
   // Retry only endpoint/auth-surface failures. Payload-invalid HTTP 400 must be
   // terminal: sending the same malformed body to every surface cannot repair it.
-  shouldRetry(status, urlIndex) {
+  shouldRetry(status: number, urlIndex: number): boolean {
     const hasFallback = urlIndex + 1 < this.getFallbackCount();
     return super.shouldRetry(status, urlIndex)
       || (hasFallback && KIRO_ENDPOINT_FALLBACK_STATUSES.has(status));
   }
 
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials): Record<string, unknown> {
     return body;
   }
 
@@ -341,13 +433,13 @@ export class KiroExecutor extends BaseExecutor {
    * Errors are returned untransformed so the upstream handler can read the body,
    * classify the status, and trigger account fallback/cooldown.
    */
-  async execute(args) {
+  async execute(args: ExecuteArgs) {
     const result = await super.execute(args);
     if (result?.response?.ok) this.attachIntegrityGate(result, args);
     return result;
   }
 
-  attachIntegrityGate(result, args) {
+  attachIntegrityGate(result: { response: Response; [key: string]: unknown }, args: ExecuteArgs): void {
     const abortController = new AbortController();
     const maxBytes = envPositiveInt("KIRO_TOOL_CALL_REPAIR_BUFFER_MAX_BYTES", KIRO_REPAIR_BUFFER_MAX_BYTES);
     const legacyTimeout = envPositiveInt("KIRO_TOOL_CALL_REPAIR_TIMEOUT_MS", STREAM_FIRST_CHUNK_TIMEOUT_MS);
@@ -358,10 +450,10 @@ export class KiroExecutor extends BaseExecutor {
     const forwardAbort = () => abortController.abort(args.signal?.reason);
     args.signal?.addEventListener("abort", forwardAbort, { once: true });
     let open = true;
-    let heartbeatTimer;
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
     const stream = new ReadableStream({
-      start: async (controller) => {
+      start: async (controller: ReadableStreamDefaultController<Uint8Array>) => {
         const heartbeat = () => {
           if (!open) return;
           try {
@@ -384,7 +476,8 @@ export class KiroExecutor extends BaseExecutor {
           if (abortController.signal.aborted) throw makeAbortError(abortController.signal.reason);
           controller.enqueue(bytes);
           controller.close();
-        } catch (error) {
+        } catch (e: unknown) {
+          const error = e instanceof Error ? e : new Error(String(e));
           if (open && error.name === "AbortError") {
             controller.error(error);
           } else if (open && error.name !== "AbortError") {
@@ -396,13 +489,13 @@ export class KiroExecutor extends BaseExecutor {
           }
         } finally {
           open = false;
-          clearInterval(heartbeatTimer);
+          if (heartbeatTimer !== null) clearInterval(heartbeatTimer);
           args.signal?.removeEventListener?.("abort", forwardAbort);
         }
       },
-      cancel(reason) {
+      cancel(reason: unknown) {
         open = false;
-        clearInterval(heartbeatTimer);
+        if (heartbeatTimer !== null) clearInterval(heartbeatTimer);
         abortController.abort(reason || "client cancelled");
       }
     });
@@ -414,19 +507,19 @@ export class KiroExecutor extends BaseExecutor {
     });
   }
 
-  async runIntegrityRecovery(rawResponse, args, options) {
+  async runIntegrityRecovery(rawResponse: Response, args: ExecuteArgs, options: IntegrityOptions): Promise<Uint8Array> {
     const first = await this.readRecoverableIntegrityAttempt(
       rawResponse,
       args.model,
       options,
       "initial"
     );
-    if (first.kind === "complete") return first.bytes;
+    if (first.kind === "complete") return first.bytes!;
     if (first.kind === "terminal_stop" || first.kind === "upstream_error") {
       return this.integrityFailureSSE(first);
     }
     if (first.kind === "invalid_tool" && !options.repairEnabled) {
-      return encodeSSEError("invalid_kiro_tool_call", first.message, first.diagnostics);
+      return encodeSSEError("invalid_kiro_tool_call", first.message!, first.diagnostics);
     }
 
     const repairKind = ["ellipsis", "short_final", "invalid_tool"].includes(first.kind)
@@ -450,7 +543,8 @@ export class KiroExecutor extends BaseExecutor {
           Math.min(options.maxBytes, 4096),
           options.stallTimeoutMs
         );
-      } catch (error) {
+      } catch (e: unknown) {
+        const error = e instanceof Error ? e : new Error(String(e));
         if (error.name === "AbortError") throw error;
       }
       return encodeSSEError(
@@ -466,7 +560,7 @@ export class KiroExecutor extends BaseExecutor {
       options,
       "retry"
     );
-    if (second.kind === "complete") return second.bytes;
+    if (second.kind === "complete") return second.bytes!;
     if (second.kind === "terminal_stop" || second.kind === "upstream_error") {
       return this.integrityFailureSSE(second);
     }
@@ -484,7 +578,7 @@ export class KiroExecutor extends BaseExecutor {
     );
   }
 
-  integrityFailureSSE(attempt) {
+  integrityFailureSSE(attempt: IntegrityAttempt): Uint8Array {
     const disposition = attempt.diagnostics?.stop_disposition;
     const code = attempt.diagnostics?.terminal_provenance === "integrity_buffer_exceeded"
       ? "kiro_integrity_buffer_exceeded"
@@ -498,10 +592,11 @@ export class KiroExecutor extends BaseExecutor {
     return encodeSSEError(code, attempt.message || "Kiro stream ended with a terminal failure", attempt.diagnostics);
   }
 
-  async readRecoverableIntegrityAttempt(rawResponse, model, options, attempt) {
+  async readRecoverableIntegrityAttempt(rawResponse: Response, model: string, options: IntegrityOptions, attempt: string): Promise<IntegrityAttempt> {
     try {
       return await this.readIntegrityAttempt(rawResponse, model, options, attempt);
-    } catch (error) {
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e : new Error(String(e));
       if (error.name === "AbortError") throw error;
       return {
         kind: "missing_terminal",
@@ -520,19 +615,19 @@ export class KiroExecutor extends BaseExecutor {
     }
   }
 
-  async readIntegrityAttempt(rawResponse, model, options, attempt) {
-    let diagnostics;
+  async readIntegrityAttempt(rawResponse: Response, model: string, options: IntegrityOptions, attempt: string): Promise<IntegrityAttempt> {
+    let diagnostics: SSEDiagnostics | undefined;
     const transformed = this.transformEventStreamToSSE(rawResponse, model, {
       maxToolBytes: Math.max(1, Math.floor(options.maxBytes / 2)),
-      onTerminalState: (value) => {
+      onTerminalState: (value: SSEDiagnostics) => {
         diagnostics = value;
       }
     });
-    const reader = transformed.body.getReader();
-    const chunks = [];
+    const reader = transformed.body!.getReader();
+    const chunks: Uint8Array[] = [];
     let totalBytes = 0;
     let sawChunk = false;
-    const output = { content: "", reasoning: "", hasToolCalls: false, error: null };
+    const output: InspectState = { content: "", reasoning: "", hasToolCalls: false, error: null };
 
     try {
       while (true) {
@@ -558,12 +653,13 @@ export class KiroExecutor extends BaseExecutor {
         chunks.push(value);
         inspectSSEChunk(value, output);
       }
-    } catch (error) {
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e : new Error(String(e));
       await reader.cancel(error.message).catch(() => {});
       throw error;
     }
 
-    const safeDiagnostics = {
+    const safeDiagnostics: SSEDiagnostics = {
       attempt,
       terminal_provenance: diagnostics?.terminal_provenance || "missing_terminal_diagnostics",
       transport_state: diagnostics?.transport_state || "unknown",
@@ -577,7 +673,7 @@ export class KiroExecutor extends BaseExecutor {
       const kind = safeDiagnostics.terminal_provenance === "invalid_tool_call"
         ? "invalid_tool"
         : "retryable_stop";
-      return { kind, message: output.error?.message, diagnostics: safeDiagnostics };
+      return { kind, message: output.error?.message as string | undefined, diagnostics: safeDiagnostics };
     }
     if (safeDiagnostics.stop_disposition === "terminal_incomplete" ||
         safeDiagnostics.stop_disposition === "terminal_refusal" ||
@@ -586,13 +682,13 @@ export class KiroExecutor extends BaseExecutor {
         ? "upstream_error"
         : safeDiagnostics.terminal_provenance === "integrity_buffer_exceeded"
           ? "terminal_stop"
-        : ["metadata_stop_reason", "message_stop_event"].includes(safeDiagnostics.terminal_provenance)
+        : ["metadata_stop_reason", "message_stop_event"].includes(safeDiagnostics.terminal_provenance ?? "")
           ? "terminal_stop"
           : "missing_terminal";
-      return { kind, message: output.error?.message, diagnostics: safeDiagnostics };
+      return { kind, message: output.error?.message as string | undefined, diagnostics: safeDiagnostics };
     }
     if (output.error) {
-      return { kind: "missing_terminal", message: output.error.message, diagnostics: safeDiagnostics };
+      return { kind: "missing_terminal", message: output.error.message as string, diagnostics: safeDiagnostics };
     }
     if (!output.hasToolCalls) {
       if (isEllipsisOnly(output.content) ||
@@ -606,13 +702,13 @@ export class KiroExecutor extends BaseExecutor {
     return { kind: "complete", bytes: concatChunks(chunks, totalBytes), diagnostics: safeDiagnostics };
   }
 
-  transformEventStreamToSSE(response, model, options = {}) {
+  transformEventStreamToSSE(response: Response, model: string, options: TransformOptions = {}): Response {
     const responseId = `chatcmpl-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
     const capabilityModel = resolveKiroModel(model).upstream;
     const contextWindow = getCapabilitiesForModel("kiro", capabilityModel).contextWindow || 200000;
-    const eventCounts = {};
-    const state = {
+    const eventCounts: Record<string, number> = {};
+    const state: EventStreamState = {
       buffer: new Uint8Array(0),
       chunkIndex: 0,
       toolCounter: 0,
@@ -638,7 +734,7 @@ export class KiroExecutor extends BaseExecutor {
       finished: false
     };
 
-    const diagnostics = (overrides = {}) => ({
+    const diagnostics = (overrides: Record<string, unknown> = {}): SSEDiagnostics => ({
       terminal_provenance: state.terminalProvenance || "clean_eventstream_eof",
       transport_state: state.transportState,
       stop_reason: state.stopReason,
@@ -654,7 +750,7 @@ export class KiroExecutor extends BaseExecutor {
       incomplete_frame_bytes: state.buffer.byteLength,
       ...overrides
     });
-    const sseChunk = (delta, finishReason = null, usage) => encoder.encode(`data: ${JSON.stringify({
+    const sseChunk = (delta: Record<string, unknown>, finishReason: string | null = null, usage?: Record<string, number | string> | null): Uint8Array => encoder.encode(`data: ${JSON.stringify({
       id: responseId,
       object: "chat.completion.chunk",
       created,
@@ -662,15 +758,15 @@ export class KiroExecutor extends BaseExecutor {
       choices: [{ index: 0, delta, finish_reason: finishReason }],
       ...(usage ? { usage } : {})
     })}\n\n`);
-    const emitDelta = (controller, delta) => {
+    const emitDelta = (controller: ReadableStreamDefaultController<Uint8Array>, delta: Record<string, unknown>): void => {
       if (state.chunkIndex === 0) delta = { role: "assistant", ...delta };
       state.chunkIndex++;
       controller.enqueue(sseChunk(delta));
     };
-    const fail = (controller, provenance, code, message, extra = {}) => {
+    const fail = (controller: ReadableStreamDefaultController<Uint8Array>, provenance: string, code: string, message: string, extra: Record<string, unknown> = {}): void => {
       state.finished = true;
       state.terminalProvenance = provenance;
-      state.transportState = extra.transport_state || "corrupt_frame";
+      state.transportState = (extra.transport_state as string) || "corrupt_frame";
       const detail = diagnostics({
         stop_disposition: extra.stop_disposition || "terminal_incomplete",
         ...extra
@@ -678,13 +774,13 @@ export class KiroExecutor extends BaseExecutor {
       options.onTerminalState?.(detail);
       controller.enqueue(encodeSSEError(code, message, detail));
     };
-    const assertToolBufferBound = () => {
+    const assertToolBufferBound = (): void => {
       if (state.bufferedToolBytes <= (options.maxToolBytes || KIRO_REPAIR_BUFFER_MAX_BYTES / 2)) return;
-      const error = new Error("Kiro buffered tool input exceeded the integrity memory bound");
+      const error = new Error("Kiro buffered tool input exceeded the integrity memory bound") as Error & { code?: string };
       error.code = "KIRO_BUFFER_EXCEEDED";
       throw error;
     };
-    const appendToolInput = (tool, input) => {
+    const appendToolInput = (tool: ToolEntry, input: unknown): void => {
       if (input === undefined) return;
       if (typeof input === "string") {
         if (tool.inputKind && tool.inputKind !== "string") throw new Error("Kiro tool input changed fragment type");
@@ -704,34 +800,36 @@ export class KiroExecutor extends BaseExecutor {
       }
       assertToolBufferBound();
     };
-    const parsedToolInput = (tool) => {
+    const parsedToolInput = (tool: ToolEntry): unknown => {
       if (!tool.inputKind) throw new Error("Kiro tool call is missing input");
       if (tool.inputKind === "object") return tool.inputObject;
       try {
-        const input = JSON.parse(tool.inputChunks.join(""));
+        const input = JSON.parse(tool.inputChunks!.join(""));
         if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("not an object");
         return input;
-      } catch (error) {
+      } catch (e: unknown) {
+        const error = e instanceof Error ? e : new Error(String(e));
         throw new Error(`Kiro tool input must be valid object JSON (${error.message})`);
       }
     };
-    const emitTools = (controller) => {
+    const emitTools = (controller: ReadableStreamDefaultController<Uint8Array>): void => {
       for (const tool of state.tools.values()) {
         // Validate per tool, not per turn: one unusable fragment used to throw out
         // of emitTools and take every other complete tool call in the same turn
         // with it, which the client saw as a turn that answered nothing.
-        let input;
+        let input: unknown;
         try {
           input = parsedToolInput(tool);
           if (tool.name === "tool_call") {
-            if (typeof input.name !== "string" || !input.name.trim()) {
+            if (typeof (input as Record<string, unknown>).name !== "string" || !((input as Record<string, unknown>).name as string).trim()) {
               throw new Error("Invalid Kiro tool_call payload: missing nested MCP tool name");
             }
             if (!Object.prototype.hasOwnProperty.call(input, "arguments")) {
               throw new Error("Invalid Kiro tool_call payload: missing nested MCP tool arguments");
             }
           }
-        } catch (error) {
+        } catch (e: unknown) {
+          const error = e instanceof Error ? e : new Error(String(e));
           state.droppedTools = (state.droppedTools || 0) + 1;
           state.toolValidationError ||= error.message;
           console.error(`[Kiro] dropping unusable tool call ${tool.id} (${tool.name}): ${error.message}`);
@@ -769,20 +867,20 @@ export class KiroExecutor extends BaseExecutor {
         throw new Error("Kiro tool_use stop reason did not include a complete tool call");
       }
     };
-    const processEvent = (event, controller) => {
+    const processEvent = (event: EventFrame, controller: ReadableStreamDefaultController<Uint8Array>): boolean => {
       const messageType = event.headers[":message-type"];
       if (messageType === "error" || messageType === "exception") {
         fail(
           controller,
           "upstream_eventstream_error",
           "kiro_upstream_eventstream_error",
-          event.payload?.message || `Kiro upstream sent an EventStream ${messageType}`,
+          (event.payload?.message as string) || `Kiro upstream sent an EventStream ${messageType}`,
           { transport_state: "upstream_error" }
         );
         return false;
       }
 
-      const eventType = event.headers[":event-type"] || "";
+      const eventType = (event.headers[":event-type"] as string) || "";
       const eventCountKey = KIRO_EVENT_TYPES.has(eventType) ? eventType : "other";
       eventCounts[eventCountKey] = (eventCounts[eventCountKey] || 0) + 1;
       if (eventType === "assistantResponseEvent" && typeof event.payload?.content === "string") {
@@ -813,10 +911,10 @@ export class KiroExecutor extends BaseExecutor {
         }
       } else if (eventType === "reasoningContentEvent") {
         const value = event.payload?.reasoningContentEvent || event.payload || {};
-        const content = typeof value === "string" ? value : value.text || value.content || "";
+        const content = typeof value === "string" ? value : (value as Record<string, unknown>).text || (value as Record<string, unknown>).content || "";
         if (content) {
           state.hasReasoning = true;
-          state.totalContentLength += content.length;
+          state.totalContentLength += (content as string).length;
           emitDelta(controller, { reasoning_content: content });
         }
       } else if (eventType === "codeEvent" && typeof event.payload?.content === "string") {
@@ -827,16 +925,16 @@ export class KiroExecutor extends BaseExecutor {
         state.sawToolUse = true;
         const values = Array.isArray(event.payload) ? event.payload : [event.payload];
         if (!values[0]) throw new Error("Kiro toolUseEvent is empty");
-        for (const value of values) {
-          const name = typeof value?.name === "string" ? value.name.trim() : "";
+        for (const value of values as Record<string, unknown>[]) {
+          const name = typeof value?.name === "string" ? (value.name as string).trim() : "";
           if (!name) throw new Error("Kiro toolUseEvent is missing a tool name");
-          let id;
+          let id: string;
           if (value.toolUseId == null) {
             id = `call_${created}_${state.tools.size + 1}`;
-          } else if (typeof value.toolUseId !== "string" || !value.toolUseId.trim()) {
+          } else if (typeof value.toolUseId !== "string" || !(value.toolUseId as string).trim()) {
             throw new Error("Kiro toolUseEvent has an invalid toolUseId");
           } else {
-            id = value.toolUseId;
+            id = value.toolUseId as string;
           }
           let tool = state.tools.get(id);
           if (!tool) {
@@ -858,7 +956,7 @@ export class KiroExecutor extends BaseExecutor {
         if (merged !== state.stopReason) state.terminalProvenance = "message_stop_event";
         state.stopReason = merged;
       } else if (eventType === "metadataEvent" || eventType === "MetadataEvent") {
-        const metadata = event.payload?.metadataEvent || event.payload?.metadata || event.payload;
+        const metadata = (event.payload?.metadataEvent || event.payload?.metadata || event.payload) as Record<string, unknown> | undefined;
         const reason = normalizeStopReason(metadata?.stopReason ?? metadata?.stop_reason);
         if (reason) {
           state.explicitStop = true;
@@ -874,7 +972,7 @@ export class KiroExecutor extends BaseExecutor {
         }
       } else if (eventType === "meteringEvent") {
         state.hasMetering = true;
-        const metering = event.payload?.meteringEvent || event.payload || {};
+        const metering = (event.payload?.meteringEvent || event.payload || {}) as Record<string, unknown>;
         const credits = Number(metering.usage);
         if (Number.isFinite(credits)) {
           state.usage = {
@@ -884,7 +982,7 @@ export class KiroExecutor extends BaseExecutor {
           };
         }
       } else if (eventType === "metricsEvent") {
-        const metrics = event.payload?.metricsEvent || event.payload || {};
+        const metrics = (event.payload?.metricsEvent || event.payload || {}) as Record<string, unknown>;
         const prompt = Number(metrics.inputTokens) || 0;
         const completion = Number(metrics.outputTokens) || 0;
         if (prompt || completion) {
@@ -902,7 +1000,7 @@ export class KiroExecutor extends BaseExecutor {
       }
       return true;
     };
-    const processBytes = (chunk, controller) => {
+    const processBytes = (chunk: Uint8Array, controller: ReadableStreamDefaultController<Uint8Array>): boolean => {
       const combinedLength = state.buffer.byteLength + chunk.byteLength;
       if (combinedLength > (options.maxRawBytes || EVENTSTREAM_MAX_MESSAGE_BYTES)) {
         fail(
@@ -938,10 +1036,11 @@ export class KiroExecutor extends BaseExecutor {
         if (state.buffer.byteLength < totalLength) break;
         const frame = state.buffer.slice(0, totalLength);
         state.buffer = state.buffer.slice(totalLength);
-        let event;
+        let event: EventFrame;
         try {
           event = parseEventFrame(frame);
-        } catch (error) {
+        } catch (e: unknown) {
+          const error = e instanceof Error ? e : new Error(String(e));
           fail(controller, "corrupt_eventstream_frame", "kiro_missing_terminal", error.message);
           return false;
         }
@@ -949,8 +1048,9 @@ export class KiroExecutor extends BaseExecutor {
         state.validatedFrames++;
         try {
           if (!processEvent(event, controller)) return false;
-        } catch (error) {
-          const bufferExceeded = error.code === "KIRO_BUFFER_EXCEEDED";
+        } catch (e: unknown) {
+          const error = e instanceof Error ? e : new Error(String(e));
+          const bufferExceeded = (error as Error & { code?: string }).code === "KIRO_BUFFER_EXCEEDED";
           if (!bufferExceeded) {
             // Keep whatever is already buffered: the rejected fragment belongs to
             // one tool, and clearing the map dropped the complete calls too.
@@ -973,7 +1073,7 @@ export class KiroExecutor extends BaseExecutor {
       }
       return true;
     };
-    const finish = (controller) => {
+    const finish = (controller: ReadableStreamDefaultController<Uint8Array>): void => {
       if (state.finished) return;
       if (state.buffer.byteLength) {
         fail(
@@ -992,7 +1092,7 @@ export class KiroExecutor extends BaseExecutor {
       // complete-enough answer; a truncated turn is what finish_reason "length" is
       // for. chunkIndex > 0 means at least one delta already reached the client.
       const declaredTruncatedAfterOutput = declaredDisposition === "terminal_incomplete" &&
-        KIRO_TRUNCATION_STOP_REASONS.has(state.stopReason) && state.chunkIndex > 0;
+        KIRO_TRUNCATION_STOP_REASONS.has(state.stopReason ?? "") && state.chunkIndex > 0;
       if (declaredTruncatedAfterOutput) {
         console.error(`[Kiro] truncated after ${state.chunkIndex} chunk(s) (stop_reason=${state.stopReason}); keeping output`);
       }
@@ -1015,7 +1115,8 @@ export class KiroExecutor extends BaseExecutor {
       }
       try {
         emitTools(controller);
-      } catch (error) {
+      } catch (e: unknown) {
+        const error = e instanceof Error ? e : new Error(String(e));
         fail(
           controller,
           "invalid_tool_call",
@@ -1057,7 +1158,7 @@ export class KiroExecutor extends BaseExecutor {
       const disposition = stopDisposition(state.stopReason, state.hasToolCalls);
       // Same reasoning as declaredTruncatedAfterOutput above.
       const truncatedAfterOutput = disposition === "terminal_incomplete" &&
-        KIRO_TRUNCATION_STOP_REASONS.has(state.stopReason) && state.chunkIndex > 0;
+        KIRO_TRUNCATION_STOP_REASONS.has(state.stopReason ?? "") && state.chunkIndex > 0;
       if (truncatedAfterOutput) {
         console.error(`[Kiro] truncated after ${state.chunkIndex} chunk(s) (stop_reason=${state.stopReason}); closing as length`);
       }
@@ -1123,12 +1224,12 @@ export class KiroExecutor extends BaseExecutor {
         "kiro_missing_terminal",
         "Kiro response did not include an EventStream body",
         detail
-      ), { status: response.status, headers: { ...SSE_HEADERS } });
+      ) as unknown as BodyInit, { status: response.status, headers: { ...SSE_HEADERS } });
     }
 
     const reader = response.body.getReader();
     const stream = new ReadableStream({
-      start: async (controller) => {
+      start: async (controller: ReadableStreamDefaultController<Uint8Array>) => {
         try {
           while (!state.finished) {
             const { done, value } = await reader.read();
@@ -1145,7 +1246,8 @@ export class KiroExecutor extends BaseExecutor {
           }
           finish(controller);
           controller.close();
-        } catch (error) {
+        } catch (e: unknown) {
+          const error = e instanceof Error ? e : new Error(String(e));
           if (!state.finished) {
             fail(
               controller,
@@ -1158,7 +1260,7 @@ export class KiroExecutor extends BaseExecutor {
           controller.close();
         }
       },
-      cancel(reason) {
+      cancel(reason: unknown) {
         return reader.cancel(reason);
       }
     });
@@ -1169,7 +1271,7 @@ export class KiroExecutor extends BaseExecutor {
     });
   }
 
-  async refreshCredentials(credentials, log, proxyOptions = null) {
+  async refreshCredentials(credentials: Credentials, log?: Logger, proxyOptions: unknown = null): Promise<RefreshResult | null> {
     if (!credentials.refreshToken) return null;
 
     try {
@@ -1178,11 +1280,12 @@ export class KiroExecutor extends BaseExecutor {
         credentials.refreshToken,
         credentials.providerSpecificData,
         log,
-        proxyOptions
+        proxyOptions as null
       );
 
       return result;
-    } catch (error) {
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e : new Error(String(e));
       log?.error?.("TOKEN", `Kiro refresh error: ${error.message}`);
       return null;
     }
@@ -1193,7 +1296,7 @@ export class KiroExecutor extends BaseExecutor {
  * Parse AWS EventStream frame
  */
 
-function parseEventFrame(data) {
+function parseEventFrame(data: Uint8Array): EventFrame {
   if (!(data instanceof Uint8Array) || data.byteLength < 16) {
     throw new Error("AWS EventStream frame is shorter than 16 bytes");
   }
@@ -1215,11 +1318,11 @@ function parseEventFrame(data) {
     throw new Error("AWS EventStream message CRC mismatch");
   }
 
-  const headers = Object.create(null);
-  const names = new Set();
+  const headers: Record<string, unknown> = Object.create(null);
+  const names = new Set<string>();
   let offset = 12;
   const headerEnd = offset + headersLength;
-  const requireBytes = (count) => {
+  const requireBytes = (count: number): void => {
     if (offset + count > headerEnd) {
       throw new Error("AWS EventStream header exceeds its declared bounds");
     }
@@ -1273,8 +1376,9 @@ function parseEventFrame(data) {
   const payloadText = decoder.decode(payloadBytes);
   if (!payloadText.trim()) return { headers, payload: null };
   try {
-    return { headers, payload: JSON.parse(payloadText) };
-  } catch (error) {
+    return { headers, payload: JSON.parse(payloadText) as Record<string, unknown> };
+  } catch (e: unknown) {
+    const error = e instanceof Error ? e : new Error(String(e));
     throw new Error(`AWS EventStream payload is not valid JSON (${error.message})`);
   }
 }

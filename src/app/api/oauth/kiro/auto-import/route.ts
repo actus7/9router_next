@@ -122,9 +122,9 @@ export async function GET() {
       authMethod,
       profileArn,
     });
-  } catch ($1) { console.error("Kiro auto-import error:", error);
+  } catch (error: unknown) { console.error("Kiro auto-import error:", error);
     return NextResponse.json(
-      { found: false, error: error.message },
+      { found: false, error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

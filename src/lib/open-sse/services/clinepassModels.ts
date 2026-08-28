@@ -8,7 +8,7 @@ const FETCH_TIMEOUT_MS = 5000;
  * - API keys are sent as plain Bearer tokens.
  * - OAuth access tokens must carry the WorkOS `workos:` prefix (handled by buildClineHeaders).
  */
-function buildModelListHeaders(token, isApiKey) {
+function buildModelListHeaders(token: string, isApiKey: boolean): Record<string, string> {
   if (isApiKey) {
     return {
       Accept: "application/json",
@@ -24,9 +24,9 @@ function buildModelListHeaders(token, isApiKey) {
  * @param {object} credentials - Connection credentials ({ accessToken, apiKey })
  * @returns {Promise<{ models: { id: string, name: string }[] } | null>}
  */
-export async function resolveClinepassModels(credentials) {
+export async function resolveClinepassModels(credentials: Record<string, unknown>): Promise<{ models: { id: string; name: string }[] } | null> {
   const isApiKey = Boolean(credentials?.apiKey);
-  const token = isApiKey ? credentials.apiKey : credentials?.accessToken;
+  const token = (isApiKey ? credentials.apiKey : credentials?.accessToken) as string | undefined;
   if (!token) return null;
 
   const controller = new AbortController();

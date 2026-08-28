@@ -16,23 +16,23 @@ const GITHUB_CONFIG = {
  * GitHub Copilot Usage
  * Uses GitHub accessToken (not copilotToken) to call copilot_internal/user API
  */
-export async function getGitHubUsage(accessToken, providerSpecificData, proxyOptions = null) {
+export async function getGitHubUsage(accessToken: string, providerSpecificData: Record<string, unknown>, proxyOptions: unknown = null) {
   try {
     if (!accessToken) {
       throw new Error("No GitHub access token available. Please re-authorize the connection.");
     }
 
     // copilot_internal/user API requires GitHub OAuth token, not copilotToken
-    const response = await proxyAwareFetch(U("github").url, {
+    const response = await proxyAwareFetch(U("github").url as string, {
       headers: {
         "Authorization": `token ${accessToken}`,
         "Accept": "application/json",
-        "X-GitHub-Api-Version": GITHUB_CONFIG.apiVersion,
-        "User-Agent": GITHUB_CONFIG.userAgent,
+        "X-GitHub-Api-Version": GITHUB_CONFIG.apiVersion as string,
+        "User-Agent": GITHUB_CONFIG.userAgent as string,
         "Editor-Version": "vscode/1.100.0",
         "Editor-Plugin-Version": "copilot-chat/0.26.7",
       },
-    }, proxyOptions);
+    }, proxyOptions as null);
 
     if (!response.ok) {
       const error = await response.text();
@@ -83,18 +83,18 @@ export async function getGitHubUsage(accessToken, providerSpecificData, proxyOpt
     }
 
     return { message: "GitHub Copilot connected. Unable to parse quota data." };
-  } catch (error) {
-    throw new Error(`Failed to fetch GitHub usage: ${error.message}`);
+  } catch (error: unknown) {
+    throw new Error(`Failed to fetch GitHub usage: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-function formatGitHubQuotaSnapshot(quota) {
+function formatGitHubQuotaSnapshot(quota: Record<string, unknown>) {
   if (!quota) return { used: 0, total: 0, unlimited: true };
 
   return {
-    used: quota.entitlement - quota.remaining,
-    total: quota.entitlement,
-    remaining: quota.remaining,
+    used: (quota.entitlement as number) - (quota.remaining as number),
+    total: quota.entitlement as number,
+    remaining: quota.remaining as number,
     unlimited: quota.unlimited || false,
   };
 }

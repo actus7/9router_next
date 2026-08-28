@@ -75,10 +75,11 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
     try { parsed = rawText ? JSON.parse(rawText) : null; } catch {}
 
     if (!res.ok) {
-      const detail = (parsed as any)?.error?.message || (parsed as any)?.error || rawText;
+      const errObj = parsed?.error as Record<string, unknown> | undefined;
+      const detail = errObj?.message || parsed?.error || rawText;
       return { ok: false, latencyMs, error: `HTTP ${res.status}${detail ? `: ${String(detail).slice(0, 240)}` : ""}`, status: res.status };
     }
-    const hasEmbedding = Array.isArray((parsed as any)?.data) && (parsed as any).data.length > 0 && Array.isArray((parsed as any).data[0]?.embedding);
+    const hasEmbedding = Array.isArray(parsed?.data) && (parsed?.data as unknown[]).length > 0 && Array.isArray((parsed?.data as unknown[])[0] && ((parsed?.data as unknown[])[0] as Record<string, unknown>)?.embedding);
     if (!hasEmbedding) {
       return { ok: false, latencyMs, status: res.status, error: "Provider returned no embedding data" };
     }
@@ -98,11 +99,12 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
     try { parsed = rawText ? JSON.parse(rawText) : null; } catch {}
 
     if (!res.ok) {
-      const detail = (parsed as any)?.error?.message || (parsed as any)?.msg || (parsed as any)?.message || (parsed as any)?.error || rawText;
+      const errObj = parsed?.error as Record<string, unknown> | undefined;
+      const detail = errObj?.message || parsed?.msg || parsed?.message || parsed?.error || rawText;
       return { ok: false, latencyMs, error: `HTTP ${res.status}${detail ? `: ${String(detail).slice(0, 240)}` : ""}`, status: res.status };
     }
 
-    const hasImages = Array.isArray((parsed as any)?.data) && (parsed as any).data.length > 0;
+    const hasImages = Array.isArray(parsed?.data) && (parsed?.data as unknown[]).length > 0;
     if (!hasImages) {
       return { ok: false, latencyMs, status: res.status, error: "Provider returned no image data for this model" };
     }
@@ -127,11 +129,12 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
     try { parsed = rawText ? JSON.parse(rawText) : null; } catch {}
 
     if (!res.ok) {
-      const detail = (parsed as any)?.error?.message || (parsed as any)?.msg || (parsed as any)?.message || (parsed as any)?.error || rawText;
+      const errObj = parsed?.error as Record<string, unknown> | undefined;
+      const detail = errObj?.message || parsed?.msg || parsed?.message || parsed?.error || rawText;
       return { ok: false, latencyMs, error: `HTTP ${res.status}${detail ? `: ${String(detail).slice(0, 240)}` : ""}`, status: res.status };
     }
 
-    const text = typeof (parsed as any)?.text === "string" ? (parsed as any).text : "";
+    const text = typeof parsed?.text === "string" ? parsed.text : "";
     if (!text.trim()) {
       return { ok: false, latencyMs, status: res.status, error: "Provider returned no transcription text for this model" };
     }
@@ -160,12 +163,13 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
   try { parsed = rawText ? JSON.parse(rawText) : null; } catch {}
 
   if (!res.ok) {
-    const detail = (parsed as any)?.error?.message || (parsed as any)?.msg || (parsed as any)?.message || (parsed as any)?.error || rawText;
+    const errObj = parsed?.error as Record<string, unknown> | undefined;
+    const detail = errObj?.message || parsed?.msg || parsed?.message || parsed?.error || rawText;
     return { ok: false, latencyMs, error: `HTTP ${res.status}${detail ? `: ${String(detail).slice(0, 240)}` : ""}`, status: res.status };
   }
 
-  const providerStatus = (parsed as any)?.status;
-  const providerMsg = (parsed as any)?.msg || (parsed as any)?.message;
+  const providerStatus = parsed?.status;
+  const providerMsg = parsed?.msg || parsed?.message;
   const hasProviderErrorStatus = providerStatus !== undefined
     && providerStatus !== null
     && String(providerStatus) !== "200"
@@ -179,8 +183,9 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
     };
   }
 
-  if ((parsed as any)?.error) {
-    const providerError = (parsed as any)?.error?.message || (parsed as any)?.error || "Provider returned an error";
+  if (parsed?.error) {
+    const errObj = parsed.error as Record<string, unknown> | undefined;
+    const providerError = errObj?.message || parsed.error || "Provider returned an error";
     return {
       ok: false,
       latencyMs,
@@ -189,18 +194,25 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
     };
   }
 
-  const hasChoices = Array.isArray((parsed as any)?.choices) && (parsed as any).choices.length > 0;
+  const hasChoices = Array.isArray(parsed?.choices) && (parsed?.choices as unknown[]).length > 0;
 
   // Soft-pass (issue #3010): a reasoning model may burn its whole budget on
   // chain-of-thought and return finish_reason:"length" with empty content but
   // non-empty reasoning/thinking. That's a successful connection, not a failure.
-  const firstChoice = (parsed as any)?.choices?.[0] || {};
+  const firstChoice = ((parsed?.choices as Record<string, unknown>[] | undefined)?.[0] || {}) as Record<string, unknown>;
+  const firstChoiceMsg = firstChoice.message as {
+    content?: unknown;
+    reasoning?: unknown;
+    reasoning_content?: unknown;
+    thinking?: unknown;
+    thinking_content?: unknown;
+  } | undefined;
   const hasReasoning =
-    firstChoice.message?.reasoning ||
-    firstChoice.message?.reasoning_content ||
-    firstChoice.message?.thinking ||
-    firstChoice.message?.thinking_content;
-  const contentEmpty = !String(firstChoice.message?.content || "").trim();
+    firstChoiceMsg?.reasoning ||
+    firstChoiceMsg?.reasoning_content ||
+    firstChoiceMsg?.thinking ||
+    firstChoiceMsg?.thinking_content;
+  const contentEmpty = !String(firstChoiceMsg?.content || "").trim();
   if (hasChoices && firstChoice.finish_reason === "length" && contentEmpty && hasReasoning) {
     return { ok: true, latencyMs, error: null, status: res.status, note: "reasoning-only response (length-limited)" };
   }

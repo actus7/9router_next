@@ -52,7 +52,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const discoveredIssuer = discovery.issuer || config.issuerUrl;
     const redirectUri = `${getPublicOrigin(request)}/api/auth/oidc/callback`;
     const tokenData = await exchangeOidcCode({
-      tokenEndpoint: discovery.token_endpoint,
+      tokenEndpoint: discovery.token_endpoint as string,
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       code,
@@ -65,10 +65,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const payload = await verifyOidcIdToken({
-      idToken: tokenData.id_token,
-      issuer: discoveredIssuer,
+      idToken: tokenData.id_token as string,
+      issuer: discoveredIssuer as string,
       audience: config.clientId,
-      jwksUri: discovery.jwks_uri,
+      jwksUri: discovery.jwks_uri as string,
       nonce: storedNonce,
     });
 

@@ -5,8 +5,8 @@
  */
 
 /** Build a unified SearchResult object. */
-function makeResult(providerId, item, idx, now) {
-  const url = item.url || "";
+function makeResult(providerId: string, item: Record<string, unknown>, idx: number, now: string): Record<string, unknown> {
+  const url = (item.url || "") as string;
   return {
     title: item.title || "",
     url,
@@ -17,7 +17,7 @@ function makeResult(providerId, item, idx, now) {
     published_at: item.published_at || null,
     favicon_url: item.favicon_url || null,
     content: item.full_text
-      ? { format: item.text_format || "text", text: item.full_text, length: item.full_text.length }
+      ? { format: item.text_format || "text", text: item.full_text, length: (item.full_text as string).length }
       : null,
     metadata: {
       author: item.author || null,
@@ -30,53 +30,53 @@ function makeResult(providerId, item, idx, now) {
   };
 }
 
-function normalizeSerper(data, _query, searchType) {
+function normalizeSerper(data: Record<string, unknown>, _query: string, searchType: string) {
   const now = new Date().toISOString();
   const items = searchType === "news" ? data.news : data.organic;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("serper", { title: item.title, url: item.link, snippet: item.snippet || item.description, published_at: item.date }, idx, now)
   );
-  const total = data.searchParameters?.totalResults;
+  const total = (data.searchParameters as Record<string, unknown>)?.totalResults;
   return { results, totalResults: typeof total === "number" ? total : null };
 }
 
-function normalizeBrave(data, _query, searchType) {
+function normalizeBrave(data: Record<string, unknown>, _query: string, searchType: string) {
   const now = new Date().toISOString();
-  const container = searchType === "news" ? data.news || data : data.web;
+  const container = (searchType === "news" ? data.news || data : data.web) as Record<string, unknown>;
   const items = container?.results;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("brave-search", {
       title: item.title,
       url: item.url,
       snippet: item.description,
       published_at: item.page_age || item.age,
-      favicon_url: item.meta_url?.favicon || item.favicon,
+      favicon_url: (item.meta_url as Record<string, unknown>)?.favicon || item.favicon,
     }, idx, now)
   );
-  return { results, totalResults: container?.totalCount ?? null };
+  return { results, totalResults: (container?.totalCount as number) ?? null };
 }
 
-function normalizePerplexity(data, _query, _searchType) {
+function normalizePerplexity(data: Record<string, unknown>, _query: string, _searchType: string) {
   const now = new Date().toISOString();
   const items = data.results;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("perplexity", { title: item.title, url: item.url, snippet: item.snippet, published_at: item.date || item.last_updated }, idx, now)
   );
   return { results, totalResults: results.length };
 }
 
-function normalizeExa(data, _query, _searchType) {
+function normalizeExa(data: Record<string, unknown>, _query: string, _searchType: string) {
   const now = new Date().toISOString();
   const items = data.results;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("exa", {
       title: item.title,
       url: item.url,
-      snippet: item.highlights?.[0] || item.text?.slice(0, 300) || "",
+      snippet: (item.highlights as string[])?.[0] || (item.text as string)?.slice(0, 300) || "",
       score: item.score,
       published_at: item.publishedDate,
       favicon_url: item.favicon,
@@ -89,11 +89,11 @@ function normalizeExa(data, _query, _searchType) {
   return { results, totalResults: results.length };
 }
 
-function normalizeTavily(data, _query, _searchType) {
+function normalizeTavily(data: Record<string, unknown>, _query: string, _searchType: string) {
   const now = new Date().toISOString();
   const items = data.results;
   if (!Array.isArray(items)) return { results: [], totalResults: null };
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("tavily", {
       title: item.title,
       url: item.url,
@@ -107,26 +107,26 @@ function normalizeTavily(data, _query, _searchType) {
   return { results, totalResults: results.length };
 }
 
-function normalizeGooglePse(data, _query, _searchType) {
+function normalizeGooglePse(data: Record<string, unknown>, _query: string, _searchType: string) {
   const now = new Date().toISOString();
   const items = Array.isArray(data.items) ? data.items : [];
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("google-pse", {
       title: item.title,
       url: item.link,
       snippet: item.snippet,
-      image_url: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.cse_thumbnail?.[0]?.src || item.pagemap?.metatags?.[0]?.["og:image"],
+      image_url: ((item.pagemap as Record<string, unknown>)?.cse_image as Record<string, unknown>[])?.[0]?.src || ((item.pagemap as Record<string, unknown>)?.cse_thumbnail as Record<string, unknown>[])?.[0]?.src || ((item.pagemap as Record<string, unknown>)?.metatags as Record<string, unknown>[])?.[0]?.["og:image"],
     }, idx, now)
   );
-  const raw = data.searchInformation?.totalResults ?? data.queries?.request?.[0]?.totalResults ?? null;
+  const raw = (data.searchInformation as Record<string, unknown>)?.totalResults ?? ((data.queries as Record<string, unknown>)?.request as Record<string, unknown>[])?.[0]?.totalResults ?? null;
   const total = typeof raw === "string" ? Number(raw) : raw;
-  return { results, totalResults: Number.isFinite(total) ? total : null };
+  return { results, totalResults: Number.isFinite(total as number) ? (total as number) : null };
 }
 
-function normalizeLinkup(data, _query, _searchType) {
+function normalizeLinkup(data: Record<string, unknown>, _query: string, _searchType: string) {
   const now = new Date().toISOString();
   const items = Array.isArray(data.results) ? data.results : [];
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("linkup", {
       title: item.name || item.title,
       url: item.url,
@@ -140,10 +140,10 @@ function normalizeLinkup(data, _query, _searchType) {
   return { results, totalResults: results.length };
 }
 
-function normalizeSearchApi(data, _query, _searchType) {
+function normalizeSearchApi(data: Record<string, unknown>, _query: string, _searchType: string) {
   const now = new Date().toISOString();
   const items = Array.isArray(data.organic_results) ? data.organic_results : Array.isArray(data.top_stories) ? data.top_stories : [];
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("searchapi", {
       title: item.title,
       url: item.link,
@@ -154,18 +154,18 @@ function normalizeSearchApi(data, _query, _searchType) {
       image_url: item.thumbnail || null,
     }, idx, now)
   );
-  const raw = data.search_information?.total_results;
+  const raw = (data.search_information as Record<string, unknown>)?.total_results;
   const total = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : null;
-  return { results, totalResults: Number.isFinite(total) ? total : results.length };
+  return { results, totalResults: Number.isFinite(total as number) ? total : results.length };
 }
 
-function normalizeYouCom(data, _query, searchType) {
+function normalizeYouCom(data: Record<string, unknown>, _query: string, searchType: string) {
   const now = new Date().toISOString();
-  const container = data?.results && typeof data.results === "object" ? data.results : undefined;
+  const container = data?.results && typeof data.results === "object" ? data.results as Record<string, unknown> : undefined;
   const section = searchType === "news" ? container?.news || [] : container?.web || [];
   const items = Array.isArray(section) ? section : [];
-  const results = items.map((item, idx) => {
-    const firstSnippet = Array.isArray(item.snippets) ? item.snippets.find((v) => typeof v === "string") : null;
+  const results = items.map((item: Record<string, unknown>, idx: number) => {
+    const firstSnippet = Array.isArray(item.snippets) ? (item.snippets as string[]).find((v) => typeof v === "string") : null;
     const livecrawlText = typeof item.markdown === "string" ? item.markdown : typeof item.html === "string" ? item.html : undefined;
     const livecrawlFormat = typeof item.markdown === "string" ? "markdown" : "html";
     return makeResult("youcom", {
@@ -183,23 +183,23 @@ function normalizeYouCom(data, _query, searchType) {
   return { results, totalResults: results.length };
 }
 
-function normalizeSearxng(data, _query, _searchType) {
+function normalizeSearxng(data: Record<string, unknown>, _query: string, _searchType: string) {
   const now = new Date().toISOString();
   const items = Array.isArray(data.results) ? data.results : [];
-  const results = items.map((item, idx) =>
+  const results = items.map((item: Record<string, unknown>, idx: number) =>
     makeResult("searxng", {
       title: item.title,
       url: item.url,
       snippet: item.content || item.snippet || "",
       published_at: item.publishedDate || item.published_date || null,
-      source_type: Array.isArray(item.engines) ? item.engines.join(", ") : item.engine || item.category || null,
+      source_type: Array.isArray(item.engines) ? (item.engines as string[]).join(", ") : item.engine || item.category || null,
       image_url: item.thumbnail || item.img_src || null,
     }, idx, now)
   );
   return { results, totalResults: results.length };
 }
 
-const NORMALIZERS = {
+const NORMALIZERS: Record<string, (data: Record<string, unknown>, query: string, searchType: string) => { results: Record<string, unknown>[]; totalResults: number | null }> = {
   "serper": normalizeSerper,
   "brave-search": normalizeBrave,
   "perplexity": normalizePerplexity,
@@ -216,7 +216,7 @@ const NORMALIZERS = {
  * Dispatch to the appropriate normalizer based on providerId.
  * @returns {{results: Array, totalResults: number|null}}
  */
-export function normalizeSearchResponse(providerId, data, query, searchType) {
+export function normalizeSearchResponse(providerId: string, data: Record<string, unknown>, query: string, searchType: string) {
   const fn = NORMALIZERS[providerId];
   return fn ? fn(data, query, searchType) : { results: [], totalResults: null };
 }

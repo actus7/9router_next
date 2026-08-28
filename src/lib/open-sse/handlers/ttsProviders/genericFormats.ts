@@ -3,20 +3,28 @@
 import { responseToBase64, throwUpstreamError } from "./_base";
 import minimaxTts from "./minimax";
 
+interface TtsHandlerParams {
+  baseUrl: string;
+  apiKey?: string;
+  text: string;
+  modelId?: string;
+  voiceId?: string;
+}
+
 // Hyperbolic: POST { text } → { audio: base64 }
-async function hyperbolic({ baseUrl, apiKey, text }) {
+async function hyperbolic({ baseUrl, apiKey, text }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
     body: JSON.stringify({ text }),
   });
   if (!res.ok) await throwUpstreamError(res);
-  const data = await res.json();
+  const data = await res.json() as { audio: string };
   return { base64: data.audio, format: "mp3" };
 }
 
 // Deepgram: model via query, Token auth, returns binary
-async function deepgram({ baseUrl, apiKey, text, modelId }) {
+async function deepgram({ baseUrl, apiKey, text, modelId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const url = new URL(baseUrl);
   url.searchParams.set("model", modelId || "aura-asteria-en");
   const res = await fetch(url.toString(), {
@@ -29,7 +37,7 @@ async function deepgram({ baseUrl, apiKey, text, modelId }) {
 }
 
 // Nvidia NIM: POST { input: { text }, voice, model } → binary
-async function nvidia({ baseUrl, apiKey, text, modelId, voiceId }) {
+async function nvidia({ baseUrl, apiKey, text, modelId, voiceId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
@@ -40,7 +48,7 @@ async function nvidia({ baseUrl, apiKey, text, modelId, voiceId }) {
 }
 
 // HuggingFace: POST {baseUrl}/{modelId} { inputs: text } → binary
-async function huggingface({ baseUrl, apiKey, text, modelId }) {
+async function huggingface({ baseUrl, apiKey, text, modelId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   if (!modelId || modelId.includes("..")) throw new Error("Invalid HuggingFace model ID");
   const res = await fetch(`${baseUrl}/${modelId}`, {
     method: "POST",
@@ -52,7 +60,7 @@ async function huggingface({ baseUrl, apiKey, text, modelId }) {
 }
 
 // Fish Audio: model travels in an HTTP header, the voice is a reference_id, returns binary
-async function fishAudio({ baseUrl, apiKey, text, modelId, voiceId }) {
+async function fishAudio({ baseUrl, apiKey, text, modelId, voiceId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: {
@@ -71,7 +79,7 @@ async function fishAudio({ baseUrl, apiKey, text, modelId, voiceId }) {
 }
 
 // Inworld: Basic auth, JSON { audioContent }
-async function inworld({ baseUrl, apiKey, text, modelId, voiceId }) {
+async function inworld({ baseUrl, apiKey, text, modelId, voiceId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Basic ${apiKey}` },
@@ -83,18 +91,18 @@ async function inworld({ baseUrl, apiKey, text, modelId, voiceId }) {
     }),
   });
   if (!res.ok) await throwUpstreamError(res);
-  const data = await res.json();
+  const data = await res.json() as { audioContent?: string };
   if (!data.audioContent) throw new Error("Inworld TTS returned no audio");
   return { base64: data.audioContent, format: "mp3" };
 }
 
 // Cartesia: X-API-Key header
-async function cartesia({ baseUrl, apiKey, text, modelId, voiceId }) {
+async function cartesia({ baseUrl, apiKey, text, modelId, voiceId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": apiKey,
+      "X-API-Key": apiKey || "",
       "Cartesia-Version": "2024-06-10",
     },
     body: JSON.stringify({
@@ -109,7 +117,7 @@ async function cartesia({ baseUrl, apiKey, text, modelId, voiceId }) {
 }
 
 // PlayHT: token format "userId:apiKey", voice = s3 URL
-async function playht({ baseUrl, apiKey, text, modelId, voiceId }) {
+async function playht({ baseUrl, apiKey, text, modelId, voiceId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const [userId, key] = (apiKey || ":").split(":");
   const res = await fetch(baseUrl, {
     method: "POST",
@@ -132,7 +140,7 @@ async function playht({ baseUrl, apiKey, text, modelId, voiceId }) {
 }
 
 // Coqui (local, noAuth): POST { text, speaker_id } → WAV
-async function coqui({ baseUrl, text, voiceId }) {
+async function coqui({ baseUrl, text, voiceId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -143,7 +151,7 @@ async function coqui({ baseUrl, text, voiceId }) {
 }
 
 // Tortoise (local, noAuth)
-async function tortoise({ baseUrl, text, voiceId }) {
+async function tortoise({ baseUrl, text, voiceId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -154,8 +162,8 @@ async function tortoise({ baseUrl, text, voiceId }) {
 }
 
 // OpenAI-compatible upstream (qwen3-tts, etc.)
-async function openaiCompat({ baseUrl, apiKey, text, modelId, voiceId }) {
-  const headers = { "Content-Type": "application/json" };
+async function openaiCompat({ baseUrl, apiKey, text, modelId, voiceId }: TtsHandlerParams): Promise<{ base64: string; format: string }> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
   const res = await fetch(baseUrl, {
     method: "POST",
@@ -173,7 +181,7 @@ async function openaiCompat({ baseUrl, apiKey, text, modelId, voiceId }) {
 }
 
 // format → handler dispatcher
-export const FORMAT_HANDLERS = {
+export const FORMAT_HANDLERS: Record<string, (params: TtsHandlerParams) => Promise<{ base64: string; format: string }>> = {
   hyperbolic,
   deepgram,
   "nvidia-tts": nvidia,
@@ -184,6 +192,6 @@ export const FORMAT_HANDLERS = {
   coqui,
   tortoise,
   openai: openaiCompat,
-  "minimax-tts": minimaxTts,
+  "minimax-tts": minimaxTts as (params: TtsHandlerParams) => Promise<{ base64: string; format: string }>,
   "fish-audio": fishAudio,
 };

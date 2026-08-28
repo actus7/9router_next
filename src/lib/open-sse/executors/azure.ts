@@ -1,11 +1,12 @@
 import { DefaultExecutor } from "./default";
+import type { Credentials } from "../services/types";
 
 export class AzureExecutor extends DefaultExecutor {
   constructor() {
     super("azure");
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
+  buildUrl(model: string, stream: boolean, urlIndex = 0, credentials: Credentials | null = null) {
     const azureEndpoint = credentials?.providerSpecificData?.azureEndpoint
       || process.env.AZURE_ENDPOINT
       || "https://api.openai.com";
@@ -19,12 +20,12 @@ export class AzureExecutor extends DefaultExecutor {
       || process.env.AZURE_DEPLOYMENT
       || "gpt-4";
 
-    const endpoint = azureEndpoint.replace(/\/$/, "");
+    const endpoint = (azureEndpoint as string).replace(/\/$/, "");
     return `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
   }
 
-  buildHeaders(credentials, stream = true) {
-    const headers = {
+  buildHeaders(credentials: Credentials, stream = true) {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...this.config.headers
     };
@@ -41,7 +42,7 @@ export class AzureExecutor extends DefaultExecutor {
       || process.env.AZURE_ORGANIZATION;
 
     if (organization) {
-      headers["OpenAI-Organization"] = organization;
+      headers["OpenAI-Organization"] = organization as string;
     }
 
     if (stream) {
@@ -51,7 +52,7 @@ export class AzureExecutor extends DefaultExecutor {
     return headers;
   }
 
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials) {
     return body;
   }
 }

@@ -19,7 +19,7 @@ import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { translate } from "@/i18n/runtime";
 import { useNotificationStore } from "@/store/notificationStore";
 import { Label } from "@/components/ui/label";
-import { fetchSuggestedModels } from "@/shared/utils/providerModelsFetcher";
+import { fetchSuggestedModels, type ModelsFetcher } from "@/shared/utils/providerModelsFetcher";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 import ModelRow from "./ModelRow";
 import PassthroughModelsSection from "./PassthroughModelsSection";
@@ -109,7 +109,7 @@ interface AutoPingConfig {
 interface SuggestedModel {
   id: string;
   name: string;
-  contextLength: number;
+  contextLength?: number;
 }
 
 interface CustomModelEntry {
@@ -131,6 +131,24 @@ interface ProviderDetailClientProps {
   initialDisabledModels: Record<string, string[]>;
   initialAliases: Record<string, string>;
   initialCustomModels: CustomModelEntry[];
+}
+
+interface ProviderInfo {
+  id: string;
+  name: string;
+  color?: string;
+  textIcon?: string;
+  apiType?: string;
+  baseUrl?: string;
+  type?: string;
+  notice?: { apiKeyUrl?: string; signupUrl?: string; text?: string };
+  deprecated?: boolean;
+  deprecationNotice?: string;
+  website?: string;
+  authType?: string;
+  authHint?: string;
+  authModes?: string[];
+  [key: string]: unknown;
 }
 
 export default function ProviderDetailClient({
@@ -244,7 +262,7 @@ export default function ProviderDetailClient({
     triggerApiKeyConnection();
   };
 
-  const providerInfo = providerNode
+  const providerInfo: ProviderInfo | undefined = providerNode
     ? {
         id: providerNode.id,
         name: providerNode.name || (providerNode.type === "anthropic-compatible" ? "Anthropic Compatible" : "OpenAI Compatible"),
@@ -254,12 +272,12 @@ export default function ProviderDetailClient({
         baseUrl: providerNode.baseUrl,
         type: providerNode.type,
       }
-    : (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId] || WEB_COOKIE_PROVIDERS[providerId]);
-  const authModes = (providerInfo as Record<string, unknown>)?.authModes as string[] || [];
+    : (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId] || WEB_COOKIE_PROVIDERS[providerId]) as ProviderInfo | undefined;
+  const authModes: string[] = (providerInfo?.authModes as string[] | undefined) || [];
   const isOAuth = !!OAUTH_PROVIDERS[providerId] || !!FREE_PROVIDERS[providerId] || authModes.includes("oauth");
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
   const isFreeNoAuth = !!(FREE_PROVIDERS[providerId] as Record<string, unknown>)?.noAuth;
-  const staticModels = getModelsByProviderId(providerId);
+  const staticModels = getModelsByProviderId(providerId) as Array<{ id: string; name?: string; isFree?: boolean }>;
   const models = liveModels.length > 0
     ? liveModels
     : staticModels;
@@ -343,8 +361,8 @@ export default function ProviderDetailClient({
   const handleDisableAll = async (ids: string[]) => {
     if (!ids.length) return;
     setConfirmState({
-      title: "Disable All Models",
-      message: `Disable all ${ids.length} model(s)?`,
+      title: "Desabilitar Todos os Modelos",
+      message: `Desabilitar todos os ${ids.length} modelo(s)?`,
       onConfirm: async () => {
         setConfirmState(null);
         try {
@@ -597,7 +615,7 @@ export default function ProviderDetailClient({
 
   // Fetch suggested models from provider's public API (if configured)
   useEffect(() => {
-    const fetcher = (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId])?.modelsFetcher;
+    const fetcher = (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId])?.modelsFetcher as ModelsFetcher | undefined;
     if (!fetcher) return;
     fetchSuggestedModels(fetcher).then(setSuggestedModels);
   }, [providerId]);
@@ -671,7 +689,7 @@ export default function ProviderDetailClient({
     if (importingQoderModels) return;
     const activeConnection = connections.find((conn) => conn.isActive !== false);
     if (!activeConnection) {
-      notify.error(translate("Please add an active Qoder connection first"));
+      notify.error(translate("Please add an active Qoder connection first") || "");
       return;
     }
 
@@ -685,7 +703,7 @@ export default function ProviderDetailClient({
       }
       const models = data.models || [];
       if (models.length === 0) {
-        notify.warning(translate("No models returned"));
+        notify.warning(translate("No models returned") || "");
         return;
       }
 
@@ -708,7 +726,7 @@ export default function ProviderDetailClient({
       }
       
       if (importedCount === 0) {
-        notify.warning(translate("All models already exist, no new models added"));
+        notify.warning(translate("All models already exist, no new models added") || "");
       } else {
         notify.success(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
       }
@@ -752,14 +770,14 @@ export default function ProviderDetailClient({
         // No connection and not a custom compatible node — try the provider's public models API (free/no-auth providers)
         const fetcher = (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId])?.modelsFetcher as { url: string; type: string } | undefined;
         if (!fetcher) {
-          notify.error(translate("No active connection available"));
+          notify.error(translate("No active connection available") || "");
           return;
         }
         fetched = await fetchSuggestedModels(fetcher);
       }
 
       if (fetched.length === 0) {
-        notify.warning(translate("No models returned"));
+        notify.warning(translate("No models returned") || "");
         return;
       }
 
@@ -787,7 +805,7 @@ export default function ProviderDetailClient({
         }
       }
 
-      setLiveModels(fetched);
+      setLiveModels(fetched as typeof liveModels);
       notify.success(`Atualizado: ${fetched.length} modelos`);
     } catch (error: unknown) {
       console.error("Error refreshing models:", error);
@@ -891,8 +909,8 @@ export default function ProviderDetailClient({
 
   const handleDelete = async (id: string) => {
     setConfirmState({
-      title: "Delete Connection",
-      message: "Delete this connection?",
+      title: "Excluir Conexão",
+      message: "Excluir esta conexão?",
       onConfirm: async () => {
         setConfirmState(null);
         try {
@@ -911,8 +929,8 @@ export default function ProviderDetailClient({
     const count = selectedConnectionIds.length;
     if (count === 0) return;
     setConfirmState({
-      title: `Delete ${count} Connection${count > 1 ? "s" : ""}`,
-      message: `Delete ${count} connection${count > 1 ? "s" : ""}? This cannot be undone.`,
+      title: `Excluir ${count} Conexão${count > 1 ? "ões" : ""}`,
+      message: `Excluir ${count} conexão${count > 1 ? "ões" : ""}? Isso não pode ser desfeito.`,
       onConfirm: async () => {
         setConfirmState(null);
         let failed = 0;
@@ -928,7 +946,7 @@ export default function ProviderDetailClient({
         }
         setConnections(prev => prev.filter(c => !idsToDelete.includes(c.id)));
         setSelectedConnectionIds([]);
-        if (failed > 0) notify.warning(`Deleted ${idsToDelete.length - failed} connection(s), ${failed} failed.`);
+        if (failed > 0) notify.warning(`Excluídas ${idsToDelete.length - failed} conexão(ões), ${failed} falharam.`);
       }
     });
   };
@@ -965,10 +983,10 @@ export default function ProviderDetailClient({
         return;
       }
 
-      setAddConnectionError(data?.error || "Failed to save connection");
+      setAddConnectionError(data?.error || "Falha ao salvar conexão");
     } catch (error) {
       console.error("Error saving connection:", error);
-      setAddConnectionError("Failed to save connection");
+      setAddConnectionError("Falha ao salvar conexão");
     }
   };
 
@@ -1097,7 +1115,7 @@ export default function ProviderDetailClient({
           failed += 1;
         }
       }
-      if (failed > 0) notify.warning(`Updated with ${failed} failed request(s).`);
+      if (failed > 0) notify.warning(`Atualizado com ${failed} requisição(ões) falhada(s).`);
       await fetchConnections();
       setShowBulkProxyModal(false);
     } finally {
@@ -1113,7 +1131,7 @@ export default function ProviderDetailClient({
   const handleApplyOneToOne = () => {
     const activePools = proxyPools.filter((p) => p.isActive === true);
     if (activePools.length === 0) {
-      notify.warning("No active proxy pools available.");
+      notify.warning("Nenhum pool de proxy ativo disponível.");
       return;
     }
     const targets = connections.map((c, i) => ({
@@ -1168,7 +1186,7 @@ export default function ProviderDetailClient({
                     if (res.ok) {
                       setConnections(prev => prev.map(c =>
                         c.id === conn.id
-                          ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId || null } }
+                          ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId ?? undefined } }
                           : c
                       ));
                     }
@@ -1195,7 +1213,7 @@ export default function ProviderDetailClient({
     <Modal
       isOpen={showBulkProxyModal}
       onClose={closeBulkProxyModal}
-      title={`Apply Proxy (${connections.length} connections)`}
+      title={`Aplicar Proxy (${connections.length} conexões)`}
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col">
@@ -1206,7 +1224,7 @@ export default function ProviderDetailClient({
             className="justify-start gap-2"
           >
             <ArrowLeftRight className="size-5" />
-            <span className="text-sm text-text-main">One-to-one (rotate)</span>
+            <span className="text-sm text-text-main">Um-para-um (rotacionar)</span>
           </Button>
           <Button
             variant="ghost"
@@ -1215,7 +1233,7 @@ export default function ProviderDetailClient({
             className="justify-start gap-2"
           >
             <Unlink className="size-5" />
-            <span className="text-sm text-text-main">None (unbind all)</span>
+            <span className="text-sm text-text-main">Nenhum (desvincular todos)</span>
           </Button>
           {proxyPools.map((pool) => (
             <Button
@@ -1228,16 +1246,16 @@ export default function ProviderDetailClient({
               <Network className="size-5" />
               <span className="truncate text-sm text-text-main">{pool.name}</span>
               {pool.isActive !== true && (
-                <span className="text-[10px] text-text-muted">(inactive)</span>
+                <span className="text-[10px] text-text-muted">(inativo)</span>
               )}
             </Button>
           ))}
         </div>
 
-        {bulkUpdatingProxy && <p className="text-xs text-text-muted">Applying...</p>}
+        {bulkUpdatingProxy && <p className="text-xs text-text-muted">Aplicando...</p>}
 
         <Button onClick={closeBulkProxyModal} variant="ghost" fullWidth disabled={bulkUpdatingProxy}>
-          Cancel
+          Cancelar
         </Button>
       </div>
     </Modal>
@@ -1254,10 +1272,10 @@ export default function ProviderDetailClient({
       });
       const data = await res.json();
       setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
-      setModelsTestError(data.ok ? "" : (data.error || "Model not reachable"));
+      setModelsTestError(data.ok ? "" : (data.error || "Modelo não acessível"));
     } catch {
       setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
-      setModelsTestError("Network error");
+      setModelsTestError("Erro de rede");
     } finally {
       setTestingModelIds((prev) => { const n = new Set(prev); n.delete(modelId); return n; });
     }
@@ -1271,9 +1289,8 @@ export default function ProviderDetailClient({
           providerDisplayAlias={providerDisplayAlias}
           modelAliases={modelAliases}
           customModels={customModels}
-          copied={copied}
+          copied={copied ?? undefined}
           onCopy={copy}
-          onSetAlias={handleSetAlias}
           onDeleteAlias={handleDeleteAlias}
           onAddCustomModel={(modelId: string) => handleAddCustomModel(modelId, "llm", providerStorageAlias)}
           onDeleteCustomModel={(modelId: string) => handleDeleteCustomModel(modelId, "llm", providerStorageAlias)}
@@ -1308,9 +1325,8 @@ export default function ProviderDetailClient({
             model={{ id: model.id, name: model.name }}
             fullModel={`${providerDisplayAlias}/${model.id}`}
             alias={model.alias}
-            copied={copied}
+            copied={copied ?? undefined}
             onCopy={copy}
-            onSetAlias={() => {}}
             onDeleteAlias={() => {
               if (model.source === "custom") {
                 handleDeleteCustomModel(model.id, "llm", providerStorageAlias);
@@ -1323,7 +1339,7 @@ export default function ProviderDetailClient({
             isTesting={testingModelIds.has(model.id)}
             isCustom
             isFree={false}
-            caps={getCaps(`${providerId}/${model.id}`)}
+            caps={(getCaps(`${providerId}/${model.id}`) ?? undefined) as Record<string, unknown> | undefined}
             thinkingSuffix={resolveThinkingSuffix(model.id)}
           />
         ))}
@@ -1340,16 +1356,15 @@ export default function ProviderDetailClient({
               model={model}
               fullModel={`${providerDisplayAlias}/${model.id}`}
               alias={existingAlias}
-              copied={copied}
+              copied={copied ?? undefined}
               onCopy={copy}
-              onSetAlias={(alias: string) => handleSetAlias(model.id, alias, providerStorageAlias)}
               onDeleteAlias={() => handleDeleteAlias(existingAlias!)}
               testStatus={modelTestResults[model.id]}
               onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
               isTesting={testingModelIds.has(model.id)}
               isFree={(model as Record<string, unknown>).isFree as boolean}
               onDisable={() => handleDisableModel(model.id)}
-              caps={getCaps(`${providerId}/${model.id}`)}
+              caps={(getCaps(`${providerId}/${model.id}`) ?? undefined) as Record<string, unknown> | undefined}
               thinkingSuffix={resolveThinkingSuffix(model.id)}
             />
           );
@@ -1403,7 +1418,7 @@ export default function ProviderDetailClient({
                       await handleAddCustomModel(m.id, "llm", providerStorageAlias);
                     }}
                     className="text-xs"
-                    title={`${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx`}
+                    title={`${m.name} · ${((m.contextLength ?? 0) / 1000).toFixed(0)}k ctx`}
                   >
                     <Plus className="size-3" />
                     {m.id.split("/").pop()}
@@ -1491,7 +1506,7 @@ export default function ProviderDetailClient({
               </span>
             ) : (
               <Image
-                src={getHeaderIconPath()}
+                src={getHeaderIconPath() || ""}
                 alt={providerInfo.name}
                 width={48}
                 height={48}
@@ -1783,7 +1798,7 @@ export default function ProviderDetailClient({
                       icon={<ListPlus className="size-4" />}
                       variant="secondary"
                       onClick={() => setShowBulkImportCodex(true)}
-                      title={translate("Bulk import codex accounts from JSON")}
+                      title={translate("Bulk import codex accounts from JSON") ?? undefined}
                       className="w-full sm:w-auto"
                     >
                       {translate("Bulk Add")}
@@ -1831,7 +1846,7 @@ export default function ProviderDetailClient({
               {"Available Models"}
             </h2>
             {providerThinkingLevels && (
-              <Select value={thinkingMode} onValueChange={(value) => handleThinkingModeChange(value)}>
+              <Select value={thinkingMode} onValueChange={(value) => handleThinkingModeChange(value ?? "auto")}>
                 <SelectTrigger
                   className="rounded-md border border-border bg-background px-2 py-1 text-xs"
                   title="Appends (level) suffix to copied model names"
@@ -1988,7 +2003,7 @@ export default function ProviderDetailClient({
         title="Risk Notice"
         message={providerInfo?.deprecationNotice}
         confirmText="I Understand, Continue"
-        cancelText="Cancel"
+        cancelText="Cancelar"
         variant="danger"
       />
 
@@ -1996,7 +2011,7 @@ export default function ProviderDetailClient({
       <ConfirmModal
         isOpen={!!confirmState}
         onClose={() => setConfirmState(null)}
-        onConfirm={confirmState?.onConfirm}
+        onConfirm={confirmState?.onConfirm ?? (() => {})}
         title={confirmState?.title || "Confirm"}
         message={confirmState?.message}
         variant="danger"

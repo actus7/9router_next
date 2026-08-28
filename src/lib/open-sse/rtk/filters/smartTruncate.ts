@@ -2,7 +2,7 @@
 // Keep HEAD + TAIL lines, replace middle with "... +N lines truncated".
 import { SMART_TRUNCATE_HEAD, SMART_TRUNCATE_TAIL, SMART_TRUNCATE_MIN_LINES } from "../constants";
 
-export function smartTruncate(input) {
+export function smartTruncate(input: string) {
   const lines = input.split("\n");
   if (lines.length < SMART_TRUNCATE_MIN_LINES) return input;
 

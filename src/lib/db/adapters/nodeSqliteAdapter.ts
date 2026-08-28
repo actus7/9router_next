@@ -16,12 +16,25 @@ interface DbAdapter {
 
 const CHECKPOINT_INTERVAL_MS: number = 60 * 1000;
 
+interface NodeSqliteDbLike {
+  exec(sql: string): void;
+  prepare(sql: string): NodeSqliteStmtLike;
+  close(): void;
+}
+interface NodeSqliteStmtLike {
+  run(...params: unknown[]): { changes: unknown; lastInsertRowid: unknown };
+  get(...params: unknown[]): Record<string, unknown> | undefined;
+  all(...params: unknown[]): Array<Record<string, unknown>>;
+}
+
 export async function createNodeSqliteAdapter(filePath: string): Promise<DbAdapter> {
   // Suppress "ExperimentalWarning: SQLite is an experimental feature" from node:sqlite.
   // Stable enough for production use as of Node 22.x (RC quality).
   const origEmit = process.emit;
-  (process as any).emit = function (name: string | symbol, data: any, ...rest: unknown[]): boolean { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (name === "warning" && data?.name === "ExperimentalWarning" && /SQLite/i.test(data.message || "")) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- process.emit override requires matching Node.js overload signature
+  (process as any).emit = function (name: string | symbol, data: unknown, ...rest: unknown[]): boolean {
+    const warnObj = data as { name?: string; message?: string } | undefined;
+    if (name === "warning" && warnObj?.name === "ExperimentalWarning" && /SQLite/i.test(warnObj.message || "")) {
       return false;
     }
     return (origEmit as unknown as (event: string | symbol, ...args: unknown[]) => boolean).call(process, name, data, ...rest);
@@ -34,8 +47,8 @@ export async function createNodeSqliteAdapter(filePath: string): Promise<DbAdapt
 
   db.exec(PRAGMA_SQL);
 
-  const stmtCache: Map<string, any> = new Map();
-  function prepare(sql: string): any {
+  const stmtCache: Map<string, NodeSqliteStmtLike> = new Map();
+  function prepare(sql: string): NodeSqliteStmtLike {
     let stmt = stmtCache.get(sql);
     if (!stmt) {
       stmt = db.prepare(sql);

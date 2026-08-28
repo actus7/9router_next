@@ -14,20 +14,20 @@ import {
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
 
-const fmtTokens = (n) => {
+const fmtTokens = (n: number) => {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return String(n || 0);
 };
 
-const fmtCost = (n) => `$${(n || 0).toFixed(4)}`;
+const fmtCost = (n: number) => `$${(n || 0).toFixed(4)}`;
 
 interface UsageChartProps {
   period?: string;
 }
 
 export default function UsageChart({ period = "7d" }: UsageChartProps) {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<Array<{ label: string; tokens: number; cost: number }>>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("tokens");
 
@@ -67,14 +67,14 @@ export default function UsageChart({ period = "7d" }: UsageChartProps) {
           size="sm"
           onClick={() => setViewMode("cost")}
         >
-          Cost
+          Custo
         </Button>
       </div>
 
       {loading ? (
-        <div className="h-48 flex items-center justify-center text-text-muted text-sm">Loading...</div>
+        <div className="h-48 flex items-center justify-center text-text-muted text-sm">Carregando...</div>
       ) : !hasData ? (
-        <div className="h-48 flex items-center justify-center text-text-muted text-sm">No data for this period</div>
+        <div className="h-48 flex items-center justify-center text-text-muted text-sm">Sem dados para este período</div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -110,9 +110,10 @@ export default function UsageChart({ period = "7d" }: UsageChartProps) {
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
-              formatter={(value, name) =>
-                name === "tokens" ? [fmtTokens(value), "Tokens"] : [fmtCost(value), "Cost"]
-              }
+              formatter={(value, name) => {
+                const num = Number(value) || 0;
+                return name === "tokens" ? [fmtTokens(num), "Tokens"] : [fmtCost(num), "Cost"];
+              }}
             />
             {viewMode === "tokens" ? (
               <Area

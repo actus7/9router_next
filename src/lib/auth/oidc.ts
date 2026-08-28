@@ -295,11 +295,9 @@ export async function verifyOidcIdToken({
   nonce,
 }: VerifyOidcIdTokenParams): Promise<JWTPayload> {
   const jwks = createRemoteJWKSet(new URL(jwksUri));
-  const { payload } = await jwtVerify(idToken, jwks, {
-    issuer,
-    audience,
-    nonce,
-  });
+  const verifyOptions: Record<string, unknown> = { issuer, audience };
+  if (nonce !== undefined) verifyOptions.nonce = nonce;
+  const { payload } = await jwtVerify(idToken, jwks, verifyOptions as Parameters<typeof jwtVerify>[2]);
   return payload;
 }
 

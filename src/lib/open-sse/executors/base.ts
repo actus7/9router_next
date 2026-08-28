@@ -4,12 +4,42 @@ import { proxyAwareFetch } from "../utils/proxyFetch";
 import { dbg } from "../utils/debugLog";
 import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared";
 import { resolveOpenAICompatibleApiType } from "../services/provider";
+import type { Credentials, Logger, RefreshResult } from "../services/types";
+
+interface ExecutorConfig {
+  [key: string]: unknown;
+  baseUrls?: string[];
+  baseUrl?: string;
+  headers?: Record<string, string>;
+  retry?: Record<string, unknown>;
+  timeoutMs?: number;
+  noAuth?: boolean;
+  format?: string;
+  urlSuffix?: string;
+  clientId?: string;
+  clientSecret?: string;
+}
+
+export interface ExecuteArgs {
+  model: string;
+  body: Record<string, unknown>;
+  stream: boolean;
+  credentials: Credentials;
+  signal?: AbortSignal;
+  log?: Logger;
+  proxyOptions?: unknown;
+}
 
 /**
  * BaseExecutor - Base class for provider executors
  */
 export class BaseExecutor {
-  constructor(provider, config) {
+  provider: string;
+  config: ExecutorConfig;
+  noAuth: boolean;
+  computeRetryDelay?(response: Response, attempt: number, delayMs: number): Promise<number | false | null | undefined>;
+
+  constructor(provider: string, config: ExecutorConfig) {
     this.provider = provider;
     this.config = config;
     this.noAuth = config?.noAuth || false;
@@ -27,24 +57,24 @@ export class BaseExecutor {
     return this.getBaseUrls().length || 1;
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
+  buildUrl(model: string, stream: boolean, urlIndex = 0, credentials: Credentials | null = null) {
     if (this.provider?.startsWith?.("openai-compatible-")) {
-      const baseUrl = credentials?.providerSpecificData?.baseUrl || OPENAI_COMPAT_BASE;
+      const baseUrl = (credentials?.providerSpecificData?.baseUrl as string | undefined) || OPENAI_COMPAT_BASE;
       const normalized = baseUrl.replace(/\/$/, "");
       const path = resolveOpenAICompatibleApiType(this.provider, credentials) === "responses" ? "/responses" : "/chat/completions";
       return `${normalized}${path}`;
     }
     if (this.provider?.startsWith?.("anthropic-compatible-")) {
-      const baseUrl = credentials?.providerSpecificData?.baseUrl || ANTHROPIC_COMPAT_BASE;
+      const baseUrl = (credentials?.providerSpecificData?.baseUrl as string | undefined) || ANTHROPIC_COMPAT_BASE;
       const normalized = baseUrl.replace(/\/$/, "");
       return `${normalized}/messages`;
     }
     const baseUrls = this.getBaseUrls();
-    return baseUrls[urlIndex] || baseUrls[0] || this.config.baseUrl;
+    return baseUrls[urlIndex] || baseUrls[0] || (this.config.baseUrl as string);
   }
 
-  buildHeaders(credentials, stream = true) {
-    const headers = {
+  buildHeaders(credentials: Credentials, stream = true, ..._extraArgs: unknown[]) {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...this.config.headers
     };
@@ -76,40 +106,40 @@ export class BaseExecutor {
   }
 
   // Override in subclass for provider-specific transformations
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials) {
     return body;
   }
 
-  shouldRetry(status, urlIndex) {
+  shouldRetry(status: number, urlIndex: number) {
     return status === HTTP_STATUS.RATE_LIMITED && urlIndex + 1 < this.getFallbackCount();
   }
 
   // Override in subclass for provider-specific refresh
-  async refreshCredentials(credentials, log, proxyOptions = null) {
+  async refreshCredentials(credentials: Credentials, log?: Logger, proxyOptions: unknown = null): Promise<RefreshResult | null> {
     return null;
   }
 
-  needsRefresh(credentials) {
+  needsRefresh(credentials: Credentials) {
     return shouldRefreshCredentials(this.provider, credentials);
   }
 
-  parseError(response, bodyText) {
+  parseError(response: Response, bodyText: string) {
     return { status: response.status, message: bodyText || `HTTP ${response.status}` };
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
+  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: ExecuteArgs) {
     const fallbackCount = this.getFallbackCount();
-    let lastError = null;
+    let lastError: Error | null = null;
     let lastStatus = 0;
-    const retryAttemptsByUrl = {};
+    const retryAttemptsByUrl: Record<number, number> = {};
 
     // Merge default retry config with provider-specific config
-    const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...this.config.retry };
+    const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...(this.config.retry as Record<string, { attempts?: number; delayMs?: number } | number | undefined>) } as Record<number, { attempts?: number; delayMs?: number } | number | undefined>;
 
     // Schedule retry via retryConfig[statusKey]. Returns true when caller should `urlIndex--; continue`
     // response (optional) lets a subclass hook compute a dynamic delay (e.g. antigravity Retry-After).
-    const tryRetry = async (urlIndex, statusKey, reason, response = null) => {
-      const { attempts, delayMs } = resolveRetryEntry(retryConfig[statusKey]);
+    const tryRetry = async (urlIndex: number, statusKey: number, reason: string, response: Response | null = null) => {
+      const { attempts, delayMs } = resolveRetryEntry(retryConfig[statusKey] as { attempts?: number; delayMs?: number } | number | null | undefined);
       if (attempts <= 0 || retryAttemptsByUrl[urlIndex] >= attempts) return false;
       // Hook: subclass may derive delay from the response (headers/body). null → skip retry, use fallback.
       let waitMs = delayMs;
@@ -120,7 +150,7 @@ export class BaseExecutor {
       }
       retryAttemptsByUrl[urlIndex]++;
       log?.debug?.("RETRY", `${reason} retry ${retryAttemptsByUrl[urlIndex]}/${attempts} after ${waitMs / 1000}s`);
-      await new Promise(resolve => setTimeout(resolve, waitMs));
+      await new Promise<void>(resolve => setTimeout(resolve, waitMs));
       return true;
     };
 
@@ -133,7 +163,7 @@ export class BaseExecutor {
 
       // Abort if upstream doesn't return response headers within connection timeout
       const connectCtrl = new AbortController();
-      const timeoutMs = this.config?.timeoutMs || FETCH_CONNECT_TIMEOUT_MS;
+      const timeoutMs = (this.config?.timeoutMs as number) || FETCH_CONNECT_TIMEOUT_MS;
       const connectTimer = setTimeout(() => connectCtrl.abort(new Error("fetch connect timeout")), timeoutMs);
       const mergedSignal = signal ? AbortSignal.any([signal, connectCtrl.signal]) : connectCtrl.signal;
 
@@ -146,7 +176,7 @@ export class BaseExecutor {
           headers,
           body: bodyStr,
           signal: mergedSignal
-        }, proxyOptions);
+        }, proxyOptions as null);
         clearTimeout(connectTimer);
         const ct = response.headers?.get?.("content-type") || "";
         const cl = response.headers?.get?.("content-length") || "?";
@@ -161,8 +191,9 @@ export class BaseExecutor {
         }
 
         return { response, url, headers, transformedBody };
-      } catch (error) {
+      } catch (e) {
         clearTimeout(connectTimer);
+        const error = e instanceof Error ? e : new Error(String(e));
         lastError = error;
         const isConnectTimeout = connectCtrl.signal.aborted && error.name === "AbortError";
         dbg("FETCH", `${this.provider.toUpperCase()} ✖ ${error.name}: ${error.message}${isConnectTimeout ? " (connect timeout)" : ""}`);

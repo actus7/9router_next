@@ -5,13 +5,13 @@ import Card from "@/shared/components/Card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { ChevronRight } from "lucide-react";
 
-const fmt = (n) => new Intl.NumberFormat().format(n || 0);
-const fmtCost = (n) => `$${(n || 0).toFixed(2)}`;
+const fmt = (n: number) => new Intl.NumberFormat().format(n || 0);
+const fmtCost = (n: number) => `$${(n || 0).toFixed(2)}`;
 
-function fmtTime(iso) {
-  if (!iso) return "Never";
-  const diffMins = Math.floor((Date.now() - new Date(iso)) / 60000);
-  if (diffMins < 1) return "Just now";
+function fmtTime(iso: string | null | undefined) {
+  if (!iso) return "Nunca";
+  const diffMins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diffMins < 1) return "Agora mesmo";
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
   return new Date(iso).toLocaleDateString();
@@ -38,20 +38,21 @@ interface ValueCellsProps {
  * Render 3 token or cost cells based on viewMode
  */
 function ValueCells({ item, viewMode, isSummary = false }: ValueCellsProps) {
+  const numVal = (v: unknown): number => typeof v === "number" ? v : 0;
   if (viewMode === "tokens") {
     return (
       <>
         <TableCell className="px-6 py-3 text-right text-text-muted">
-          {isSummary && item.promptTokens === undefined ? "—" : fmt(item.promptTokens)}
+          {isSummary && item.promptTokens === undefined ? "—" : fmt(numVal(item.promptTokens))}
         </TableCell>
         <TableCell className="px-6 py-3 text-right text-text-muted">
-          {item.cachedTokens ? fmt(item.cachedTokens) : "—"}
+          {item.cachedTokens ? fmt(numVal(item.cachedTokens)) : "—"}
         </TableCell>
         <TableCell className="px-6 py-3 text-right text-text-muted">
-          {isSummary && item.completionTokens === undefined ? "—" : fmt(item.completionTokens)}
+          {isSummary && item.completionTokens === undefined ? "—" : fmt(numVal(item.completionTokens))}
         </TableCell>
         <TableCell className="px-6 py-3 text-right font-medium">
-          {fmt(item.totalTokens)}
+          {fmt(numVal(item.totalTokens))}
         </TableCell>
       </>
     );
@@ -59,16 +60,16 @@ function ValueCells({ item, viewMode, isSummary = false }: ValueCellsProps) {
   return (
     <>
       <TableCell className="px-6 py-3 text-right text-text-muted">
-        {isSummary && item.inputCost === undefined ? "—" : fmtCost(item.inputCost)}
+        {isSummary && item.inputCost === undefined ? "—" : fmtCost(numVal(item.inputCost))}
       </TableCell>
       <TableCell className="px-6 py-3 text-right text-text-muted">
-        {item.cachedCost ? fmtCost(item.cachedCost) : "—"}
+        {item.cachedCost ? fmtCost(numVal(item.cachedCost)) : "—"}
       </TableCell>
       <TableCell className="px-6 py-3 text-right text-text-muted">
-        {isSummary && item.outputCost === undefined ? "—" : fmtCost(item.outputCost)}
+        {isSummary && item.outputCost === undefined ? "—" : fmtCost(numVal(item.outputCost))}
       </TableCell>
       <TableCell className="px-6 py-3 text-right font-medium text-warning">
-        {fmtCost(item.totalCost || item.cost)}
+        {fmtCost(numVal(item.totalCost) || numVal(item.cost))}
       </TableCell>
     </>
   );
@@ -136,7 +137,7 @@ export default function UsageTable({
     }
   }, [expanded, storageKey]);
 
-  const toggleGroup = useCallback((groupKey) => {
+  const toggleGroup = useCallback((groupKey: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
       next.has(groupKey) ? next.delete(groupKey) : next.add(groupKey);
@@ -147,17 +148,17 @@ export default function UsageTable({
   const valueColumns = useMemo(() => {
     if (viewMode === "tokens") {
       return [
-        { field: "promptTokens", label: "Input Tokens" },
-        { field: "cachedTokens", label: "Cached" },
-        { field: "completionTokens", label: "Output Tokens" },
-        { field: "totalTokens", label: "Total Tokens" },
+        { field: "promptTokens", label: "Tokens de Entrada" },
+        { field: "cachedTokens", label: "Cache" },
+        { field: "completionTokens", label: "Tokens de Saída" },
+        { field: "totalTokens", label: "Total de Tokens" },
       ];
     }
     return [
-      { field: "promptTokens", label: "Input Cost" },
-      { field: "cachedCost", label: "Cached Cost" },
-      { field: "completionTokens", label: "Output Cost" },
-      { field: "cost", label: "Total Cost" },
+      { field: "promptTokens", label: "Custo de Entrada" },
+      { field: "cachedCost", label: "Custo em Cache" },
+      { field: "completionTokens", label: "Custo de Saída" },
+      { field: "cost", label: "Custo Total" },
     ];
   }, [viewMode]);
 
@@ -204,7 +205,7 @@ export default function UsageTable({
                   <TableCell className="px-6 py-3">
                     <div className="flex items-center gap-2">
                       <ChevronRight className={`size-[18px] text-text-muted transition-transform ${expanded.has(group.groupKey) ? "rotate-90" : ""}`} />
-                      <span className={`font-medium transition-colors ${group.summary.pending > 0 ? "text-primary" : ""}`}>
+                      <span className={`font-medium transition-colors ${(group.summary.pending as number) > 0 ? "text-primary" : ""}`}>
                         {group.groupKey}
                       </span>
                     </div>

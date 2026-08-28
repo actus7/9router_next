@@ -6,20 +6,20 @@
 const MAX_CLAUDE_SIGNATURE_LEN = 32 * 1024 * 1024;
 const CLAUDE_SIGNATURE_MARKER = 0x12;
 
-function stripCachePrefix(rawSignature) {
+function stripCachePrefix(rawSignature: string | undefined | null) {
   const sig = (rawSignature || "").trim();
   if (!sig) return "";
   const idx = sig.indexOf("#");
   return idx >= 0 ? sig.slice(idx + 1).trim() : sig;
 }
 
-export function hasClaudeSignaturePrefix(rawSignature) {
+export function hasClaudeSignaturePrefix(rawSignature: string | undefined | null) {
   const sig = stripCachePrefix(rawSignature);
   return sig.length > 0 && (sig[0] === "E" || sig[0] === "R");
 }
 
 // Strict-ish: validates base64 layers + Claude marker byte.
-export function isValidClaudeSignature(rawSignature) {
+export function isValidClaudeSignature(rawSignature: string | undefined | null) {
   const sig = stripCachePrefix(rawSignature);
   if (!sig || sig.length > MAX_CLAUDE_SIGNATURE_LEN) return false;
 

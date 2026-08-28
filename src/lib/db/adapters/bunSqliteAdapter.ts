@@ -16,14 +16,26 @@ interface DbAdapter {
 
 const CHECKPOINT_INTERVAL_MS: number = 60 * 1000;
 
+interface BunDbLike {
+  exec(sql: string): void;
+  prepare(sql: string): BunStmtLike;
+  close(): void;
+  transaction(fn: () => void): () => void;
+}
+interface BunStmtLike {
+  run(...params: unknown[]): { changes: unknown; lastInsertRowid: unknown };
+  get(...params: unknown[]): Record<string, unknown> | undefined;
+  all(...params: unknown[]): Array<Record<string, unknown>>;
+}
+
 export async function createBunSqliteAdapter(filePath: string): Promise<DbAdapter> {
   // Dynamic import — only resolves under Bun runtime
-  const { Database } = await import("bun:sqlite") as { Database: new (path: string, opts?: Record<string, unknown>) => unknown };
-  const db = new Database(filePath, { create: true }) as any;
+  const { Database } = await import("bun:sqlite") as { Database: new (path: string, opts?: Record<string, unknown>) => BunDbLike };
+  const db: BunDbLike = new Database(filePath, { create: true });
   db.exec(PRAGMA_SQL);
 
-  const stmtCache: Map<string, any> = new Map();
-  function prepare(sql: string): any {
+  const stmtCache: Map<string, BunStmtLike> = new Map();
+  function prepare(sql: string): BunStmtLike {
     let stmt = stmtCache.get(sql);
     if (!stmt) {
       stmt = db.prepare(sql);

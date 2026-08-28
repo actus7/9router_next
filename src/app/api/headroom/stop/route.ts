@@ -8,7 +8,8 @@ export async function POST() {
     const result = stopHeadroomProxy();
     const status = result.stopped ? 200 : 409;
     return NextResponse.json({ ...result }, { status });
-  } catch (error) {
-    return NextResponse.json({ error: error.message, code: error.code || null }, { status: 500 });
+  } catch (error: unknown) {
+    const err = error as Error & { code?: string };
+    return NextResponse.json({ error: err.message, code: err.code || null }, { status: 500 });
   }
 }

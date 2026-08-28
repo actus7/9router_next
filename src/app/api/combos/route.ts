@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCombos, createCombo, getComboByName } from "@/lib/localDb";
+import { DEFAULT_SMART_ROUTING_CONFIG } from "@/lib/open-sse/services/smart-routing/types";
+import { validateSmartRoutingConfig } from "@/lib/open-sse/services/smart-routing/router";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Combo name already exists" }, { status: 400 });
     }
 
-    const combo = await createCombo({ name, models: models || [], kind: kind || null });
+    if (models !== undefined && !Array.isArray(models)) {
+      return NextResponse.json({ error: "Models must be an array" }, { status: 400 });
+    }
+    const routingValidation = validateSmartRoutingConfig(kind === "smart" ? (body.routing || DEFAULT_SMART_ROUTING_CONFIG) : null);
+    if (!routingValidation.ok) return NextResponse.json({ error: routingValidation.error }, { status: 400 });
+
+    const combo = await createCombo({
+      name,
+      models: (models || []).filter((model: unknown): model is string => typeof model === "string"),
+      kind: kind || null,
+      routing: kind === "smart" ? routingValidation.config as unknown as Record<string, unknown> : null,
+    });
 
     return NextResponse.json(combo, { status: 201 });
   } catch (error) {

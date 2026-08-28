@@ -19,7 +19,7 @@ export const FORMATS = {
  * Detect source format from request URL pathname + body.
  * Returns null to fall back to body-based detection.
  */
-export function detectFormatByEndpoint(pathname, body) {
+export function detectFormatByEndpoint(pathname: string, body: Record<string, unknown>) {
   // /v1/responses is always openai-responses
   if (pathname.includes("/v1/responses")) return FORMATS.OPENAI_RESPONSES;
 

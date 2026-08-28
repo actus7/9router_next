@@ -52,11 +52,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-primary focus:text-white focus:outline-none"
       >
-        Skip to content
+        Pular para o conteúdo
       </a>
       <div
         aria-live="polite"
-        aria-label="Notifications"
+        aria-label="Notificações"
         className="fixed top-4 right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2"
       >
         {notifications.map((n) => {
@@ -79,7 +79,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     size="icon-xs"
                     onClick={() => removeNotification(n.id)}
                     className="text-current/70 hover:text-current"
-                    aria-label="Dismiss notification"
+                    aria-label="Dispensar notificação"
                   >
                     <X className="size-4" />
                   </Button>
@@ -107,7 +107,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Navigation menu"
+        aria-label="Menu de navegação"
         className={`fixed inset-y-0 left-0 z-50 transform lg:hidden transition-transform duration-300 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}

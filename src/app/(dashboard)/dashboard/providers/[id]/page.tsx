@@ -56,15 +56,15 @@ export default async function ProviderDetailPage({
     >
       <ProviderDetailClient
         providerId={id}
-        initialProvider={providerNode}
-        initialProviders={providers}
-        initialNodes={nodes}
-        initialPools={pools}
+        initialProvider={providerNode as unknown as { id: string; name?: string; prefix?: string; apiType?: string; baseUrl?: string; type?: string; [key: string]: unknown } | null}
+        initialProviders={providers as unknown as { id: string; name?: string; email?: string; displayName?: string; authType?: string; testStatus?: string; isActive?: boolean; lastError?: string; priority?: number; globalPriority?: number; provider?: string; providerSpecificData?: { proxyPoolId?: string; connectionProxyEnabled?: boolean; connectionProxyUrl?: string; connectionNoProxy?: string; [key: string]: unknown }; [key: string]: unknown }[]}
+        initialNodes={nodes as unknown as { id: string; name?: string; prefix?: string; apiType?: string; baseUrl?: string; type?: string; [key: string]: unknown }[]}
+        initialPools={pools as unknown as { id: string; name: string; proxyUrl?: string; noProxy?: string; isActive?: boolean }[]}
         initialSettings={settings}
         initialModels={models}
         initialDisabledModels={disabledModels}
         initialAliases={aliases}
-        initialCustomModels={customModels}
+        initialCustomModels={customModels as unknown as { id: string; providerAlias?: string; kind?: string; type?: string; [key: string]: unknown }[]}
       />
     </Suspense>
   );

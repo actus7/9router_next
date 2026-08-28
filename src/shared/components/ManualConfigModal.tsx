@@ -19,7 +19,7 @@ interface ManualConfigModalProps {
   configs?: ConfigItem[];
 }
 
-export default function ManualConfigModal({ isOpen, onClose, title = "Manual Configuration", configs = [] }: ManualConfigModalProps) {
+export default function ManualConfigModal({ isOpen, onClose, title = "Configuração Manual", configs = [] }: ManualConfigModalProps) {
   const { copy } = useCopyToClipboard();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
@@ -43,7 +43,7 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Manual Con
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             {title}
           </DialogTitle>
-          <Button onClick={onClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={onClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -59,7 +59,7 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Manual Con
                 onClick={() => copyConfig(config.content, index)}
               >
                 {copiedIndex === index ? <Check className="size-4 mr-1" /> : <Copy className="size-4 mr-1" />}
-                {copiedIndex === index ? "Copied!" : "Copy"}
+                {copiedIndex === index ? "Copiado!" : "Copiar"}
               </Button>
             </div>
             <pre className="px-3 py-2 bg-surface-2/50 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-60 overflow-y-auto border border-border">

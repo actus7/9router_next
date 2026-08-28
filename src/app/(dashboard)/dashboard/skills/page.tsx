@@ -67,26 +67,26 @@ function SkillRow({ skill }: { skill: Skill }) {
 
 export default function SkillsPage() {
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       <Card padding="md">
-        <div className="text-xs text-text-muted mb-2">Paste this to your AI:</div>
+        <div className="text-xs text-text-muted mb-2">Cole isso na sua IA:</div>
         <div className="px-3 py-2 rounded bg-surface-2 font-mono text-[12px] text-text-main">
           Read this skill and use it: {getSkillRawUrl("9router")}
         </div>
       </Card>
 
       <div className="space-y-2">
-        {SKILLS.map((skill: Skill) => (
-          <SkillRow key={skill.id} skill={skill} />
+        {SKILLS.map((skill) => (
+          <SkillRow key={skill.id} skill={skill as unknown as Skill} />
         ))}
       </div>
 
       <Card padding="md">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-sm font-semibold text-text-main">More on GitHub</h2>
+            <h2 className="text-sm font-semibold text-text-main">Mais no GitHub</h2>
             <p className="text-xs text-text-muted mt-0.5">
-              Browse source, README, and examples.
+              Navegue pelo código-fonte, README e exemplos.
             </p>
           </div>
           <a
@@ -96,7 +96,7 @@ export default function SkillsPage() {
             className="text-sm text-primary hover:underline inline-flex items-center gap-1"
           >
             <ExternalLink className="size-4" />
-            View on GitHub
+            Ver no GitHub
           </a>
         </div>
       </Card>

@@ -66,7 +66,7 @@ export default function Drawer({
           <Button
             type="button"
             onClick={onClose}
-            aria-label="Close drawer"
+            aria-label="Fechar painel"
             variant="ghost"
             size="icon-sm"
           >

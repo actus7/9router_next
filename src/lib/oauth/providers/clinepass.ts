@@ -70,6 +70,8 @@ const clinepass = {
         access_token: ((data.data as Record<string, unknown>)?.accessToken as string) || (data.accessToken as string),
         refresh_token: ((data.data as Record<string, unknown>)?.refreshToken as string) || (data.refreshToken as string),
         email: (((data.data as Record<string, unknown>)?.userInfo as Record<string, unknown>)?.email as string) || "",
+        firstName: (((data.data as Record<string, unknown>)?.userInfo as Record<string, unknown>)?.firstName as string) || "",
+        lastName: (((data.data as Record<string, unknown>)?.userInfo as Record<string, unknown>)?.lastName as string) || "",
         expires_at: ((data.data as Record<string, unknown>)?.expiresAt as string) || (data.expiresAt as string),
       };
     }

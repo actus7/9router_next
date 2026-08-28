@@ -5,14 +5,14 @@ import { encodeDataUri } from "../concerns/image";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index";
 import { collapseTextParts } from "../concerns/message";
 
-function stripAnthropicBillingHeader(text) {
+function stripAnthropicBillingHeader(text: unknown): string {
   if (typeof text !== "string") return "";
   return text.replace(/^x-anthropic-billing-header:[^\n]*(?:\r?\n)?/i, "");
 }
 
 // Convert Claude request to OpenAI format
-export function claudeToOpenAIRequest(model, body, stream) {
-  const result = {
+export function claudeToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean) {
+  const result: { messages: Record<string, unknown>[]; [key: string]: unknown } = {
     model: model,
     messages: [],
     stream: stream
@@ -31,7 +31,7 @@ export function claudeToOpenAIRequest(model, body, stream) {
   // System message
   if (body.system) {
     const systemContent = Array.isArray(body.system)
-      ? body.system.map(s => stripAnthropicBillingHeader(s.text || "")).filter(Boolean).join("\n")
+      ? (body.system as Record<string, unknown>[]).map((s: Record<string, unknown>) => stripAnthropicBillingHeader(s.text || "")).filter(Boolean).join("\n")
       : stripAnthropicBillingHeader(body.system);
     
     if (systemContent) {
@@ -45,7 +45,7 @@ export function claudeToOpenAIRequest(model, body, stream) {
   // Convert messages
   if (body.messages && Array.isArray(body.messages)) {
     for (let i = 0; i < body.messages.length; i++) {
-      const msg = body.messages[i];
+      const msg = body.messages[i] as Record<string, unknown>;
       const converted = convertClaudeMessage(msg);
       if (converted) {
         // Handle array of messages (multiple tool results)
@@ -65,7 +65,7 @@ export function claudeToOpenAIRequest(model, body, stream) {
 
   // Tools
   if (body.tools && Array.isArray(body.tools)) {
-    result.tools = body.tools.map(tool => ({
+    result.tools = (body.tools as Record<string, unknown>[]).map((tool: Record<string, unknown>) => ({
       type: OPENAI_BLOCK.FUNCTION,
       function: {
         name: tool.name,
@@ -82,8 +82,8 @@ export function claudeToOpenAIRequest(model, body, stream) {
 
   if (body.reasoning_effort !== undefined) {
     result.reasoning_effort = body.reasoning_effort;
-  } else if (body.reasoning?.effort !== undefined) {
-    result.reasoning_effort = body.reasoning.effort;
+  } else if ((body.reasoning as Record<string, unknown>)?.effort !== undefined) {
+    result.reasoning_effort = (body.reasoning as Record<string, unknown>).effort;
   }
 
   if (body.reasoning !== undefined) {
@@ -94,11 +94,11 @@ export function claudeToOpenAIRequest(model, body, stream) {
 }
 
 // Fix missing tool responses - add empty responses for tool_calls without responses
-function fixMissingToolResponsesOpenAI(messages) {
+function fixMissingToolResponsesOpenAI(messages: Record<string, unknown>[]) {
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    if (msg.role === ROLE.ASSISTANT && msg.tool_calls && msg.tool_calls.length > 0) {
-      const toolCallIds = msg.tool_calls.map(tc => tc.id);
+    if (msg.role === ROLE.ASSISTANT && msg.tool_calls && (msg.tool_calls as unknown[]).length > 0) {
+      const toolCallIds = (msg.tool_calls as Record<string, unknown>[]).map((tc: Record<string, unknown>) => tc.id);
       
       // Collect all tool response IDs that IMMEDIATELY follow this assistant message
       const respondedIds = new Set();
@@ -114,10 +114,10 @@ function fixMissingToolResponsesOpenAI(messages) {
       }
       
       // Find missing responses and insert them
-      const missingIds = toolCallIds.filter(id => !respondedIds.has(id));
+      const missingIds = toolCallIds.filter((id: unknown) => !respondedIds.has(id));
       
       if (missingIds.length > 0) {
-        const missingResponses = missingIds.map(id => ({
+        const missingResponses = missingIds.map((id: unknown) => ({
           role: ROLE.TOOL,
           tool_call_id: id,
           content: "[No response received]"
@@ -131,9 +131,9 @@ function fixMissingToolResponsesOpenAI(messages) {
 
 // Wrap mid-conversation system text so it ends as a user turn (avoids Anthropic prefill 400).
 // Uses <instructions> tags that Claude models treat as authoritative directives.
-function systemReminderText(content) {
+function systemReminderText(content: unknown): string {
   const parts = Array.isArray(content)
-    ? content.filter(c => c?.type === CLAUDE_BLOCK.TEXT).map(c => c.text || "")
+    ? (content as Record<string, unknown>[]).filter((c: Record<string, unknown>) => c?.type === CLAUDE_BLOCK.TEXT).map((c: Record<string, unknown>) => (c.text as string) || "")
     : [typeof content === "string" ? content : ""];
   const text = parts.filter(Boolean).join("\n");
   if (!text.trim()) return "";
@@ -141,7 +141,7 @@ function systemReminderText(content) {
 }
 
 // Convert single Claude message - returns single message or array of messages
-function convertClaudeMessage(msg) {
+function convertClaudeMessage(msg: Record<string, unknown>): Record<string, unknown> | Record<string, unknown>[] | null {
   // Mid-conversation system message -> user (per Anthropic placement rules)
   if (msg.role === ROLE.SYSTEM) {
     const text = systemReminderText(msg.content);
@@ -157,22 +157,23 @@ function convertClaudeMessage(msg) {
 
   // Array content
   if (Array.isArray(msg.content)) {
-    const parts = [];
-    const toolCalls = [];
-    const toolResults = [];
+    const parts: Record<string, unknown>[] = [];
+    const toolCalls: Record<string, unknown>[] = [];
+    const toolResults: Record<string, unknown>[] = [];
 
-    for (const block of msg.content) {
+    for (const block of msg.content as Record<string, unknown>[]) {
       switch (block.type) {
         case CLAUDE_BLOCK.TEXT:
           parts.push({ type: OPENAI_BLOCK.TEXT, text: block.text });
           break;
 
         case CLAUDE_BLOCK.IMAGE:
-          if (block.source?.type === "base64") {
+          if ((block.source as Record<string, unknown>)?.type === "base64") {
+            const source = block.source as Record<string, unknown>;
             parts.push({
               type: OPENAI_BLOCK.IMAGE_URL,
               image_url: {
-                url: encodeDataUri(block.source.media_type, block.source.data)
+                url: encodeDataUri(source.media_type as string, source.data as string)
               }
             });
           }
@@ -194,9 +195,9 @@ function convertClaudeMessage(msg) {
           if (typeof block.content === "string") {
             resultContent = block.content;
           } else if (Array.isArray(block.content)) {
-            resultContent = block.content
-              .filter(c => c.type === CLAUDE_BLOCK.TEXT)
-              .map(c => c.text)
+            resultContent = (block.content as Record<string, unknown>[])
+              .filter((c: Record<string, unknown>) => c.type === CLAUDE_BLOCK.TEXT)
+              .map((c: Record<string, unknown>) => c.text)
               .join("\n") || JSON.stringify(block.content);
           } else if (block.content) {
             resultContent = JSON.stringify(block.content);
@@ -221,7 +222,7 @@ function convertClaudeMessage(msg) {
 
     // If has tool calls, return assistant message with tool_calls
     if (toolCalls.length > 0) {
-      const result = { role: ROLE.ASSISTANT };
+      const result: Record<string, unknown> = { role: ROLE.ASSISTANT };
       if (parts.length > 0) {
         result.content = collapseTextParts(parts);
       }
@@ -238,7 +239,7 @@ function convertClaudeMessage(msg) {
     }
     
     // Empty content array
-    if (msg.content.length === 0) {
+    if ((msg.content as unknown[]).length === 0) {
       return { role, content: "" };
     }
   }
@@ -247,14 +248,15 @@ function convertClaudeMessage(msg) {
 }
 
 // Convert tool choice
-function convertToolChoice(choice) {
+function convertToolChoice(choice: unknown): unknown {
   if (!choice) return "auto";
   if (typeof choice === "string") return choice;
   
-  switch (choice.type) {
+  const choiceObj = choice as Record<string, unknown>;
+  switch (choiceObj.type) {
     case "auto": return "auto";
     case "any": return "required";
-    case "tool": return { type: OPENAI_BLOCK.FUNCTION, function: { name: choice.name } };
+    case "tool": return { type: OPENAI_BLOCK.FUNCTION, function: { name: (choiceObj as Record<string, unknown>).name } };
     default: return "auto";
   }
 }

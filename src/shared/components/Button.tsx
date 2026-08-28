@@ -56,8 +56,8 @@ export default function Button({
 }: ButtonProps) {
   return (
     <ShadcnButton
-      variant={variantToShadcn[variant] as any}
-      size={sizeToShadcn[size] as any}
+      variant={variantToShadcn[variant] as React.ComponentProps<typeof ShadcnButton>["variant"]}
+      size={sizeToShadcn[size] as React.ComponentProps<typeof ShadcnButton>["size"]}
       disabled={disabled || loading}
       className={cn(
         variant === "success" &&

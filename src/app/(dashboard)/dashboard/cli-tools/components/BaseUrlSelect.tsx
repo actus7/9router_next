@@ -184,7 +184,7 @@ export default function BaseUrlSelect({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <Select value={mode} onValueChange={handleSelect}>
+        <Select value={mode} onValueChange={(value) => { if (value !== null) handleSelect(value); }}>
           <SelectTrigger className="flex-1">
             <SelectValue />
           </SelectTrigger>

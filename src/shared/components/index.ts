@@ -8,6 +8,7 @@ export { CardSkeleton } from "./Loading";
 
 export { default as OAuthModal } from "./OAuthModal";
 export { default as ModelSelectModal } from "./ModelSelectModal";
+export type { ActiveProvider } from "./ModelSelectModal";
 export { default as ManualConfigModal } from "./ManualConfigModal";
 export { default as ComboFormModal } from "./ComboFormModal";
 export { default as McpMarketplaceModal } from "./McpMarketplaceModal";

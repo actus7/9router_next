@@ -5,13 +5,15 @@ const VISIBILITY = "commercial,gsuite,gsuite-google";
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const G_KEY = "__9routerCoworkMcpRegistryCache";
 
+const globalCache = globalThis as unknown as Record<string, { ts: number; data: unknown }>;
+
 function gcache() {
-  if (!globalThis[G_KEY]) globalThis[G_KEY] = { ts: 0, data: null };
-  return globalThis[G_KEY];
+  if (!globalCache[G_KEY]) globalCache[G_KEY] = { ts: 0, data: null };
+  return globalCache[G_KEY];
 }
 
 // Filter out claude.ai-mediated servers (broken in 3p) and tenant-required entries.
-function isDirectConnect(url) {
+function isDirectConnect(url: string) {
   if (!url || typeof url !== "string") return false;
   if (/^https?:\/\/[^/]*\bmcp\.claude\.com\b/i.test(url)) return false;
   if (/^https?:\/\/api\.anthropic\.com\/mcp\b/i.test(url)) return false;
@@ -69,7 +71,7 @@ export async function GET(request: NextRequest) {
     cache.ts = Date.now();
     cache.data = data;
     return NextResponse.json({ cached: false, ...data });
-  } catch (e) {
-    return NextResponse.json({ error: e.message, servers: [], total: 0 }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e), servers: [], total: 0 }, { status: 500 });
   }
 }

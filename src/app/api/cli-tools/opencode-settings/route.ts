@@ -37,8 +37,8 @@ const readConfig = async () => {
     // Strip trailing commas before parsing to avoid SyntaxError on valid JSONC.
     const stripped = content.replace(/,(\s*[}\]])/g, "$1");
     return JSON.parse(stripped);
-  } catch (error) {
-    if (error.code === "ENOENT") return null;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     // If the config file exists but is unparseable (corrupted, exotic JSONC),
     // treat it as "no config" rather than throwing a 500 that the UI
     // misinterprets as "opencode not installed".
@@ -46,9 +46,9 @@ const readConfig = async () => {
   }
 };
 
-const has9RouterConfig = (config) => {
+const has9RouterConfig = (config: Record<string, unknown>) => {
   if (!config?.provider) return false;
-  return !!config.provider["9router"];
+  return !!(config.provider as Record<string, unknown>)["9router"];
 };
 
 // GET - Check opencode CLI and read current settings
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     await fs.mkdir(configDir, { recursive: true });
 
     // Read existing config or start fresh
-    let config = {};
+    let config: Record<string, unknown> = {};
     try {
       const existing = await fs.readFile(configPath, "utf-8");
       config = JSON.parse(existing);
@@ -117,26 +117,27 @@ export async function POST(request: NextRequest) {
     if (!config.provider) config.provider = {};
 
     // Preserve any existing 9router provider entry and its models
-    const existingProvider = config.provider["9router"] || { npm: "@ai-sdk/openai-compatible", options: {}, models: {} };
+    const providerObj = config.provider as Record<string, unknown>;
+    const existingProvider = (providerObj["9router"] as Record<string, unknown>) || { npm: "@ai-sdk/openai-compatible", options: {}, models: {} };
 
     // Merge options (overwrite baseURL/apiKey)
     existingProvider.options = {
-      ...existingProvider.options,
+      ...((existingProvider.options as Record<string, unknown>) || {}),
       baseURL: normalizedBaseUrl,
       apiKey: keyToUse,
     };
 
     // Ensure models map exists
-    existingProvider.models = existingProvider.models || {};
+    if (!(existingProvider as Record<string, unknown>).models) (existingProvider as Record<string, unknown>).models = {};
 
     // Add or update entries for all requested models
     for (const m of modelsArray) {
       if (!m || typeof m !== "string") continue;
-      existingProvider.models[m] = { name: m, modalities: { input: ["text", "image"], output: ["text"] } };
+      (existingProvider.models as Record<string, unknown>)[m] = { name: m, modalities: { input: ["text", "image"], output: ["text"] } };
     }
 
     // Save merged provider back
-    config.provider["9router"] = existingProvider;
+    providerObj["9router"] = existingProvider;
 
     // Set the active model: prefer explicit activeModel, else first of modelsArray
     // If activeModel is explicitly empty string, clear the model
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
 
     // Add subagent configuration
     if (!config.agent) config.agent = {};
-    config.agent.explorer = {
+    (config.agent as Record<string, unknown>).explorer = {
       description: "Fast explorer subagent for codebase exploration",
       mode: "subagent",
       model: `9router/${effectiveSubagentModel}`,
@@ -176,12 +177,12 @@ export async function PATCH(request: NextRequest) {
     const { clearActiveModel } = await request.json();
     const configPath = getConfigPath();
 
-    let config = {};
+    let config: Record<string, unknown> = {};
     try {
       const existing = await fs.readFile(configPath, "utf-8");
       config = JSON.parse(existing);
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({ success: true, message: "No config file found" });
       }
       throw error;
@@ -189,7 +190,7 @@ export async function PATCH(request: NextRequest) {
 
     if (clearActiveModel === true) {
       // Clear active model but keep models in the list
-      if (config.model?.startsWith("9router/")) {
+      if ((config.model as string)?.startsWith("9router/")) {
         config.model = "";
       }
     }
@@ -213,41 +214,45 @@ export async function DELETE(request: NextRequest) {
     const modelToRemove = searchParams.get("model");
     const configPath = getConfigPath();
 
-    let config = {};
+    let config: Record<string, unknown> = {};
     try {
       const existing = await fs.readFile(configPath, "utf-8");
       config = JSON.parse(existing);
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({ success: true, message: "No config file to reset" });
       }
       throw error;
     }
 
     // If specific model provided, remove just that model
-    if (modelToRemove && config.provider?.["9router"]?.models) {
-      delete config.provider["9router"].models[modelToRemove];
+    const providerObj = config.provider as Record<string, unknown> | undefined;
+    const router9 = providerObj?.["9router"] as Record<string, unknown> | undefined;
+    if (modelToRemove && router9?.models) {
+      delete (router9.models as Record<string, unknown>)[modelToRemove];
       
       // If no models left, remove the provider
-      if (Object.keys(config.provider["9router"].models).length === 0) {
-        delete config.provider["9router"];
-        if (config.model?.startsWith("9router/")) delete config.model;
+      if (Object.keys(router9.models as Record<string, unknown>).length === 0) {
+        delete providerObj!["9router"];
+        if ((config.model as string)?.startsWith("9router/")) delete config.model;
       } else if (config.model === `9router/${modelToRemove}`) {
         // If removed model was active, switch to first remaining model
-        const remainingModels = Object.keys(config.provider["9router"].models);
+        const remainingModels = Object.keys(router9.models as Record<string, unknown>);
         config.model = `9router/${remainingModels[0]}`;
       }
     } else {
       // No specific model - remove entire 9router provider
-      if (config.provider) delete config.provider["9router"];
-      if (config.model?.startsWith("9router/")) delete config.model;
+      if (providerObj) delete providerObj["9router"];
+      if ((config.model as string)?.startsWith("9router/")) delete config.model;
     }
 
     // Remove subagent configuration
-    if (config.agent?.explorer?.model?.startsWith("9router/")) {
-      delete config.agent.explorer;
+    const agentObj = config.agent as Record<string, unknown> | undefined;
+    const explorerObj = agentObj?.explorer as Record<string, unknown> | undefined;
+    if ((explorerObj?.model as string)?.startsWith("9router/")) {
+      delete agentObj!.explorer;
       // Clean up empty agent object
-      if (Object.keys(config.agent).length === 0) delete config.agent;
+      if (Object.keys(agentObj!).length === 0) delete config.agent;
     }
 
     await fs.writeFile(configPath, JSON.stringify(config, null, 2));

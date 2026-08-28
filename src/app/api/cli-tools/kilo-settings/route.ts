@@ -30,7 +30,7 @@ const checkInstalled = async () => {
   }
 };
 
-const readJson = async (filePath) => {
+const readJson = async (filePath: string) => {
   try {
     const content = await fs.readFile(filePath, "utf-8");
     // Tolerate JSONC (trailing commas) and treat unparseable files as "no config"
@@ -42,11 +42,12 @@ const readJson = async (filePath) => {
   }
 };
 
-const has9RouterConfig = (auth) => {
+const has9RouterConfig = (auth: Record<string, unknown>) => {
   if (!auth) return false;
   const entry = auth["openai-compatible"] || auth["9router"];
   if (!entry) return false;
-  const baseUrl = entry.baseUrl || entry.baseURL || "";
+  const entryObj = entry as Record<string, unknown>;
+  const baseUrl = (entryObj.baseUrl || entryObj.baseURL || "") as string;
   return baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1") || baseUrl.includes("9router");
 };
 

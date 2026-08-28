@@ -13,11 +13,11 @@ const CACHE_CONTROL_5M = { type: "ephemeral" };
 const CACHE_CONTROL_1H = { type: "ephemeral", ttl: "1h" };
 
 // Check if message has valid non-empty content
-export function hasValidContent(msg) {
+export function hasValidContent(msg: Record<string, unknown>) {
   if (typeof msg.content === "string" && msg.content.trim()) return true;
   if (Array.isArray(msg.content)) {
-    return msg.content.some(block =>
-      (block.type === CLAUDE_BLOCK.TEXT && block.text?.trim()) ||
+    return (msg.content as Record<string, unknown>[]).some((block: Record<string, unknown>) =>
+      (block.type === CLAUDE_BLOCK.TEXT && (block.text as string)?.trim()) ||
       block.type === CLAUDE_BLOCK.TOOL_USE ||
       block.type === CLAUDE_BLOCK.TOOL_RESULT ||
       block.type === CLAUDE_BLOCK.IMAGE ||
@@ -30,7 +30,7 @@ export function hasValidContent(msg) {
 // Fix tool_use/tool_result ordering for Claude API
 // 1. Assistant message with tool_use: remove text AFTER tool_use (Claude doesn't allow)
 // 2. Merge consecutive same-role messages
-export function fixToolUseOrdering(messages) {
+export function fixToolUseOrdering(messages: Record<string, unknown>[]) {
   if (messages.length <= 1) return messages;
 
   // Pass 1: Fix assistant messages with tool_use - remove text after tool_use
@@ -89,12 +89,12 @@ export function fixToolUseOrdering(messages) {
 // Models that reject thinking.type "adaptive" + output_config.effort (Opus 4.5+/Sonnet 4.6+ only)
 const ADAPTIVE_THINKING_UNSUPPORTED = /haiku/i;
 
-function handlesThinkingBlocks(provider) {
+function handlesThinkingBlocks(provider: string | null) {
   return provider === "claude" || provider?.startsWith("anthropic-compatible") || provider === "deepseek";
 }
 
-function buildThinkingPlaceholder(provider) {
-  const block = {
+function buildThinkingPlaceholder(provider: string | null) {
+  const block: Record<string, unknown> = {
     type: CLAUDE_BLOCK.THINKING,
     thinking: ".",
   };
@@ -113,18 +113,18 @@ function buildThinkingPlaceholder(provider) {
 // 1. thinking.type "adaptive" → unsupported on Haiku
 // 2. output_config.effort → unsupported on Haiku
 // 3. role "system" messages (mid-conversation-system beta) → only top-level system is allowed
-export function normalizeClaudePassthrough(body, model = "") {
+export function normalizeClaudePassthrough(body: Record<string, unknown>, model: string = "") {
   if (!body || typeof body !== "object") return body;
 
   // 1. Downgrade adaptive thinking for models that don't support it
-  if (body.thinking?.type === "adaptive" && ADAPTIVE_THINKING_UNSUPPORTED.test(model)) {
+  if ((body.thinking as Record<string, unknown>)?.type === "adaptive" && ADAPTIVE_THINKING_UNSUPPORTED.test(model)) {
     body.thinking = { type: "enabled", budget_tokens: 10000 };
   }
 
   // 2. Strip effort param for models that don't support it (keep other output_config fields)
-  if (ADAPTIVE_THINKING_UNSUPPORTED.test(model) && body.output_config?.effort != null) {
-    delete body.output_config.effort;
-    if (Object.keys(body.output_config).length === 0) delete body.output_config;
+  if (ADAPTIVE_THINKING_UNSUPPORTED.test(model) && (body.output_config as Record<string, unknown>)?.effort != null) {
+    delete (body.output_config as Record<string, unknown>).effort;
+    if (Object.keys(body.output_config as Record<string, unknown>).length === 0) delete body.output_config;
   }
 
   // 2. Fold mid-conversation system messages into the neighbouring turn.
@@ -132,8 +132,8 @@ export function normalizeClaudePassthrough(body, model = "") {
   // reminders) ahead of the whole conversation and invalidate the prefix cache on
   // every request. Folding in place keeps the cached prefix stable.
   if (Array.isArray(body.messages)) {
-    const messages = [];
-    for (const msg of body.messages) {
+    const messages: Record<string, unknown>[] = [];
+    for (const msg of body.messages as Record<string, unknown>[]) {
       if (msg.role !== ROLE.SYSTEM) {
         messages.push(msg);
         continue;
@@ -141,14 +141,14 @@ export function normalizeClaudePassthrough(body, model = "") {
       const text = typeof msg.content === "string"
         ? msg.content
         : Array.isArray(msg.content)
-          ? msg.content.map(b => (typeof b === "string" ? b : b?.text || "")).join("\n")
+          ? (msg.content as (string | Record<string, unknown>)[]).map((b) => (typeof b === "string" ? b : (b as Record<string, unknown>)?.text || "")).join("\n")
           : "";
       if (!text.trim()) continue;
 
       // Copy-on-write: the caller's body is reused across account-fallback
       // attempts, so folding must never mutate the original message.
-      const block = { type: CLAUDE_BLOCK.TEXT, text };
-      const prev = messages[messages.length - 1];
+      const block: Record<string, unknown> = { type: CLAUDE_BLOCK.TEXT, text };
+      const prev: Record<string, unknown> | undefined = messages[messages.length - 1];
       if (prev?.role === ROLE.USER) {
         const content = typeof prev.content === "string"
           ? [{ type: CLAUDE_BLOCK.TEXT, text: prev.content }]
@@ -163,7 +163,7 @@ export function normalizeClaudePassthrough(body, model = "") {
 
   // 3. Drop thinking blocks whose signature is not Claude's (combo mixes models,
   // so foreign signatures leak into history and Anthropic rejects them).
-  const thinkingEnabled = body.thinking?.type === "enabled";
+  const thinkingEnabled = (body.thinking as Record<string, unknown>)?.type === "enabled";
   if (Array.isArray(body.messages)) {
     for (const msg of body.messages) {
       if (msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) continue;
@@ -193,7 +193,7 @@ export function normalizeClaudePassthrough(body, model = "") {
 
 // Put a 5m breakpoint on the last cache-eligible block of a message.
 // thinking/redacted_thinking blocks do not accept cache_control.
-function markLastCacheableBlock(msg) {
+function markLastCacheableBlock(msg: Record<string, unknown>) {
   if (!Array.isArray(msg?.content)) return false;
   for (let i = msg.content.length - 1; i >= 0; i--) {
     const block = msg.content[i];
@@ -210,7 +210,7 @@ function markLastCacheableBlock(msg) {
 // The client's own markers point at pre-normalization offsets, so they are dropped.
 // Must run LAST, after every step that can reshape system/tools/messages
 // (normalize, tool dedupe, token savers) — otherwise the anchor drifts off the tail.
-export function anchorClaudeCache(body) {
+export function anchorClaudeCache(body: Record<string, unknown>) {
   if (!body || typeof body !== "object") return body;
 
   if (Array.isArray(body.system)) {
@@ -261,9 +261,9 @@ export function anchorClaudeCache(body) {
 // - Add thinking block for Anthropic endpoint (provider === "claude")
 // - Fix tool_use/tool_result ordering
 // - Apply cloaking (billing header + fake user ID) for OAuth tokens
-export function prepareClaudeRequest(body, provider = null, apiKey = null, connectionId = null, rawHeaders = null, sessionId = null) {
+export function prepareClaudeRequest(body: Record<string, unknown>, provider: string | null = null, apiKey: string | null = null, connectionId: string | null = null, rawHeaders: Record<string, unknown> | null = null, sessionId: string | null = null) {
   // quirk: MiniMax's Claude-compatible endpoint rejects Anthropic's output_config (400 invalid params)
-  if (PROVIDERS[provider]?.quirks?.dropOutputConfig) {
+  if ((PROVIDERS[provider as string]?.quirks as Record<string, unknown>)?.dropOutputConfig) {
     delete body.output_config;
   }
 
@@ -272,8 +272,8 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
   // up to it, so max-effort thinking gets full budget; others fall back to the
   // conservative 64000 default.
   if (body.max_tokens) {
-    const ceiling = getCapabilitiesForModel(provider, body.model).maxOutput || DEFAULT_MAX_TOKENS;
-    if (body.max_tokens > ceiling) body.max_tokens = ceiling;
+    const ceiling = getCapabilitiesForModel(provider as string, body.model as string).maxOutput || DEFAULT_MAX_TOKENS;
+    if ((body.max_tokens as number) > ceiling) body.max_tokens = ceiling;
 
     // Reconcile against thinking budget. applyThinking (thinkingUnified.js) runs
     // AFTER adjustMaxTokens capped max_tokens, and the claude-budget format maps
@@ -282,19 +282,20 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
     // Prefer raising max_tokens to preserve the requested thinking depth; if the
     // budget alone meets/exceeds the ceiling, cap output and shrink the budget so
     // some tokens remain for the answer.
-    if (body.thinking?.type === "enabled" && body.thinking.budget_tokens && body.thinking.budget_tokens >= body.max_tokens) {
-      body.max_tokens = Math.min(body.thinking.budget_tokens + 1024, ceiling);
-      if (body.thinking.budget_tokens >= body.max_tokens) {
-        body.thinking.budget_tokens = Math.max(1024, body.max_tokens - 1024);
+    const thinking = body.thinking as Record<string, unknown> | undefined;
+    if (thinking?.type === "enabled" && thinking.budget_tokens && (thinking.budget_tokens as number) >= (body.max_tokens as number)) {
+      body.max_tokens = Math.min((thinking.budget_tokens as number) + 1024, ceiling);
+      if ((thinking.budget_tokens as number) >= (body.max_tokens as number)) {
+        thinking.budget_tokens = Math.max(1024, (body.max_tokens as number) - 1024);
       }
     }
   }
 
   // 1. System: remove all cache_control, add only to last block with ttl 1h
   if (body.system && Array.isArray(body.system)) {
-    body.system = body.system.map((block, i) => {
+    body.system = (body.system as Record<string, unknown>[]).map((block: Record<string, unknown>, i: number) => {
       const { cache_control, ...rest } = block;
-      if (i === body.system.length - 1) {
+      if (i === (body.system as unknown[]).length - 1) {
         return { ...rest, cache_control: { type: "ephemeral", ttl: "1h" } };
       }
       return rest;
@@ -333,7 +334,7 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
     // Check if thinking is enabled AND last message is from user
     const lastMessage = filtered[filtered.length - 1];
     const lastMessageIsUser = lastMessage?.role === "user";
-    const thinkingEnabled = body.thinking?.type === "enabled" && lastMessageIsUser;
+    const thinkingEnabled = (body.thinking as Record<string, unknown>)?.type === "enabled" && lastMessageIsUser;
 
     // Pass 2 (reverse): add cache_control to last assistant + handle thinking for Anthropic
     let lastAssistantProcessed = false;
@@ -390,7 +391,7 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
 
           // Add thinking block if thinking enabled + has tool_use but no thinking
           if (thinkingEnabled && !hasKeptThinking && hasToolUse) {
-            msg.content.unshift(buildThinkingPlaceholder(provider));
+            (msg.content as unknown[]).unshift(buildThinkingPlaceholder(provider));
           }
         }
       }
@@ -402,14 +403,15 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
     // Strip built-in tools (e.g. web_search_20250305) and normalize to Anthropic-native shape
     // (drop `type` field, fold `function.{name,description,parameters}`) for non-Anthropic providers
     if (provider !== "claude") {
-      body.tools = body.tools
-        .filter(tool => !tool.type || tool.type === "function")
-        .map(tool => {
+      body.tools = (body.tools as Record<string, unknown>[])
+        .filter((tool: Record<string, unknown>) => !tool.type || tool.type === "function")
+        .map((tool: Record<string, unknown>) => {
           if (tool.function) {
+            const fn = tool.function as Record<string, unknown>;
             return {
-              name: tool.function.name,
-              description: tool.function.description,
-              input_schema: tool.function.parameters,
+              name: fn.name,
+              description: fn.description,
+              input_schema: fn.parameters,
             };
           }
           const { type, ...rest } = tool;
@@ -417,16 +419,16 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
         });
     }
 
-    body.tools = body.tools.map((tool, i) => {
+    body.tools = (body.tools as Record<string, unknown>[]).map((tool: Record<string, unknown>, i: number) => {
       const { cache_control, ...rest } = tool;
-      if (i === body.tools.length - 1) {
+      if (i === (body.tools as unknown[]).length - 1) {
         return { ...rest, cache_control: { type: "ephemeral", ttl: "1h" } };
       }
       return rest;
     });
 
     // Remove tools array and tool_choice if empty after filtering
-    if (body.tools.length === 0) {
+    if ((body.tools as unknown[]).length === 0) {
       delete body.tools;
       delete body.tool_choice;
     }

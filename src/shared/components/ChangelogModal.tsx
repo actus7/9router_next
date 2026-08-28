@@ -28,28 +28,28 @@ export default function ChangelogModal({ isOpen, onClose }: ChangelogModalProps)
         return res.text();
       })
       .then((md) => setHtml(marked.parse(md) as string))
-      .catch((err: Error) => setError(err.message || "Failed to load"))
+      .catch((err: Error) => setError(err.message || "Falha ao carregar"))
       .finally(() => setLoading(false));
   }, [isOpen, html]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-3xl max-h-[85vh] flex flex-col">
-        <DialogTitle className="sr-only">Change Log</DialogTitle>
+        <DialogTitle className="sr-only">Registro de Alterações</DialogTitle>
 
         <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5">
-          <h2 className="text-lg font-semibold text-text-main">Change Log</h2>
+          <h2 className="text-lg font-semibold text-text-main">Registro de Alterações</h2>
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
           {loading && (
             <div className="flex items-center justify-center py-10 text-text-muted">
               <Loader2 className="size-4" />
-              Loading...
+              Carregando...
             </div>
           )}
           {error && (
-            <div className="text-red-500 py-4">Failed to load changelog: {error}</div>
+            <div className="text-red-500 py-4">Falha ao carregar changelog: {error}</div>
           )}
           {!loading && !error && html && (
             <div

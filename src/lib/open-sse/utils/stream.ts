@@ -14,13 +14,33 @@ export { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER };
 // sharedEncoder is stateless — safe to share across streams
 const sharedEncoder = new TextEncoder();
 
+// Helper: translateResponse attaches _openaiIntermediate as a non-standard array property
+interface TranslatedArray extends Array<unknown> {
+  _openaiIntermediate?: unknown[];
+}
+
 /**
  * Stream modes
  */
 const STREAM_MODE = {
   TRANSLATE: "translate",    // Full translation between formats
   PASSTHROUGH: "passthrough" // No translation, normalize output, extract usage
-};
+} as const;
+
+interface SSEStreamOptions {
+  mode?: string;
+  targetFormat?: string;
+  sourceFormat?: string;
+  provider?: string | null;
+  reqLogger?: Record<string, ((chunk: string) => void) | (() => void)> | null;
+  toolNameMap?: Map<string, string> | null;
+  customToolNames?: string[] | null;
+  model?: string | null;
+  connectionId?: string | null;
+  body?: Record<string, unknown> | null;
+  onStreamComplete?: ((content: { content: string; thinking: string }, usage: Record<string, unknown> | null, ttftAt: number | null) => void) | null;
+  apiKey?: string | null;
+}
 
 /**
  * Create unified SSE transform stream
@@ -36,7 +56,7 @@ const STREAM_MODE = {
  * @param {function} options.onStreamComplete - Callback when stream completes (content, usage)
  * @param {string} options.apiKey - API key for usage tracking
  */
-export function createSSEStream(options = {}) {
+export function createSSEStream(options: SSEStreamOptions = {}) {
   const {
     mode = STREAM_MODE.TRANSLATE,
     targetFormat,
@@ -53,25 +73,25 @@ export function createSSEStream(options = {}) {
   } = options;
 
   let buffer = "";
-  let usage = null;
+  let usage: Record<string, unknown> | null = null;
 
   // Per-stream decoder with stream:true to correctly handle multi-byte chars split across chunks
   const decoder = new TextDecoder("utf-8", { fatal: false });
 
-  const state = mode === STREAM_MODE.TRANSLATE
-    ? { ...initState(sourceFormat), provider, toolNameMap, customToolNames: new Set(customToolNames || []), model }
+  const state: Record<string, unknown> | null = mode === STREAM_MODE.TRANSLATE
+    ? { ...initState(sourceFormat ?? ""), provider, toolNameMap, customToolNames: new Set(customToolNames || []), model }
     : null;
 
   let totalContentLength = 0;
   let accumulatedContent = "";
   let accumulatedThinking = "";
-  let ttftAt = null;
+  let ttftAt: number | null = null;
   let sseLineCount = 0;
   let sseEmittedCount = 0;
-  const eventTypeCounts = {};
+  const eventTypeCounts: Record<string, number> = {};
 
   // Track Responses API event framing for same-format passthrough (codex)
-  let currentOpenAIResponsesEvent = null;
+  let currentOpenAIResponsesEvent: string | null = null;
   let openAIResponsesTerminalSeen = false;
   let openAIResponsesDoneSent = false;
   let streamDoneSent = false;  // track duplicate [DONE] across transform + flush
@@ -103,7 +123,7 @@ export function createSSEStream(options = {}) {
 
         // Passthrough mode: normalize and forward
         if (mode === STREAM_MODE.PASSTHROUGH) {
-          let output;
+          let output: string | undefined;
           let injectedUsage = false;
 
           if (trimmed.startsWith("data:") && trimmed.slice(5).trim() !== "[DONE]") {
@@ -200,8 +220,10 @@ export function createSSEStream(options = {}) {
             }
           }
 
-          reqLogger?.appendConvertedChunk?.(output);
-          controller.enqueue(sharedEncoder.encode(output));
+          if (output) {
+            reqLogger?.appendConvertedChunk?.(output);
+            controller.enqueue(sharedEncoder.encode(output));
+          }
           continue;
         }
 
@@ -283,11 +305,11 @@ export function createSSEStream(options = {}) {
 
         // Extract usage
         const extracted = extractUsage(parsed);
-        if (extracted) state.usage = mergeUsage(state.usage, extracted); // Keep original usage for logging
+        if (extracted && state) state.usage = mergeUsage(state.usage as Record<string, unknown> | null, extracted); // Keep original usage for logging
 
         // Responses same-format passthrough: re-emit with original event framing
         if (keepsOpenAIResponsesFormat && openAIResponsesEventName) {
-          const output = formatSSE({ event: openAIResponsesEventName, data: parsed }, sourceFormat);
+          const output = formatSSE({ event: openAIResponsesEventName, data: parsed }, sourceFormat ?? "");
           reqLogger?.appendConvertedChunk?.(output);
           controller.enqueue(sharedEncoder.encode(output));
           currentOpenAIResponsesEvent = null;
@@ -298,7 +320,7 @@ export function createSSEStream(options = {}) {
         currentOpenAIResponsesEvent = null;
 
         // Translate: targetFormat -> openai -> sourceFormat
-        const translated = translateResponse(targetFormat, sourceFormat, parsed, state);
+        const translated = translateResponse(targetFormat!, sourceFormat!, parsed, state!) as TranslatedArray;
 
         // Log OpenAI intermediate chunks (if available)
         if (translated?._openaiIntermediate) {
@@ -311,24 +333,25 @@ export function createSSEStream(options = {}) {
         if (translated?.length > 0) {
           for (const item of translated) {
             if (item === null || item === undefined) continue;
+            const itemRec = item as Record<string, unknown>;
             // Filter empty chunks
-            if (!hasValuableContent(item, sourceFormat)) {
+            if (!hasValuableContent(itemRec, sourceFormat!)) {
               continue; // Skip this empty chunk
             }
 
             // Inject estimated usage if finish chunk has no valid usage
-            const isFinishChunk = item.type === "message_delta" || item.choices?.[0]?.finish_reason;
-            if (state.finishReason && isFinishChunk && !hasValidUsage(item.usage) && totalContentLength > 0) {
-              const estimated = estimateUsage(body, totalContentLength, sourceFormat);
-              item.usage = filterUsageForFormat(estimated, sourceFormat); // Filter + already has buffer
+            const isFinishChunk = itemRec.type === "message_delta" || ((itemRec.choices as Record<string, unknown>[])?.[0] as Record<string, unknown>)?.finish_reason;
+            if (state?.finishReason && isFinishChunk && !hasValidUsage(itemRec.usage as Record<string, unknown>) && totalContentLength > 0) {
+              const estimated = estimateUsage(body, totalContentLength, sourceFormat!);
+              itemRec.usage = filterUsageForFormat(estimated, sourceFormat!); // Filter + already has buffer
               state.usage = estimated;
-            } else if (state.finishReason && isFinishChunk && state.usage) {
+            } else if (state?.finishReason && isFinishChunk && state.usage) {
               // Add buffer and filter usage for client (but keep original in state.usage for logging)
-              const buffered = addBufferToUsage(state.usage);
-              item.usage = filterUsageForFormat(buffered, sourceFormat);
+              const buffered = addBufferToUsage(state.usage as Record<string, unknown>);
+              itemRec.usage = filterUsageForFormat(buffered, sourceFormat!);
             }
 
-            const output = formatSSE(item, sourceFormat);
+            const output = formatSSE(item, sourceFormat!);
             reqLogger?.appendConvertedChunk?.(output);
             controller.enqueue(sharedEncoder.encode(output));
             sseEmittedCount++;
@@ -340,7 +363,7 @@ export function createSSEStream(options = {}) {
     flush(controller) {
       const evtSummary = Object.entries(eventTypeCounts).map(([k, v]) => `${k}=${v}`).join(",") || "none";
       dbg("SSE", `flush | provider=${provider} | model=${model} | recvLines=${sseLineCount} | emitted=${sseEmittedCount} | events=[${evtSummary}]`);
-      trackPendingRequest(model, provider, connectionId, false);
+      trackPendingRequest(model ?? "", provider ?? "", connectionId ?? "", false);
       try {
         const remaining = decoder.decode();
         if (remaining) buffer += remaining;
@@ -360,9 +383,9 @@ export function createSSEStream(options = {}) {
           }
 
           if (hasValidUsage(usage)) {
-            logUsage(provider, usage, model, connectionId, apiKey);
+            logUsage(provider, usage!, model, connectionId, apiKey);
           } else {
-            appendRequestLog({ model, provider, connectionId, tokens: null, status: "200 OK" }).catch(() => { });
+            appendRequestLog().catch(() => { });
           }
           
           // IMPORTANT: In passthrough mode we still must terminate the SSE stream.
@@ -389,7 +412,7 @@ export function createSSEStream(options = {}) {
         if (buffer.trim()) {
           const parsed = parseSSELine(buffer.trim());
           if (parsed && !parsed.done) {
-            const translated = translateResponse(targetFormat, sourceFormat, parsed, state);
+            const translated = translateResponse(targetFormat!, sourceFormat!, parsed, state!) as TranslatedArray;
 
             if (translated?._openaiIntermediate) {
               for (const item of translated._openaiIntermediate) {
@@ -401,15 +424,15 @@ export function createSSEStream(options = {}) {
             if (translated?.length > 0) {
               for (const item of translated) {
                 if (item === null || item === undefined) continue;
-                const output = formatSSE(item, sourceFormat);
-                reqLogger?.appendConvertedChunk?.(output);
-                controller.enqueue(sharedEncoder.encode(output));
+                const output = formatSSE(item, sourceFormat!);
+          reqLogger?.appendConvertedChunk?.(output!);
+          controller.enqueue(sharedEncoder.encode(output!));
               }
             }
           }
         }
 
-        const flushed = translateResponse(targetFormat, sourceFormat, null, state);
+        const flushed = translateResponse(targetFormat!, sourceFormat!, null, state!) as TranslatedArray;
 
         if (flushed?._openaiIntermediate) {
           for (const item of flushed._openaiIntermediate) {
@@ -421,7 +444,7 @@ export function createSSEStream(options = {}) {
         if (flushed?.length > 0) {
           for (const item of flushed) {
             if (item === null || item === undefined) continue;
-            const output = formatSSE(item, sourceFormat);
+            const output = formatSSE(item, sourceFormat!);
             reqLogger?.appendConvertedChunk?.(output);
             controller.enqueue(sharedEncoder.encode(output));
           }
@@ -444,21 +467,21 @@ export function createSSEStream(options = {}) {
           streamDoneSent = true;
         }
 
-        if (!hasValidUsage(state?.usage) && totalContentLength > 0) {
-          state.usage = estimateUsage(body, totalContentLength, sourceFormat);
+        if (state && !hasValidUsage(state.usage as Record<string, unknown>) && totalContentLength > 0) {
+          state.usage = estimateUsage(body, totalContentLength, sourceFormat!);
         }
 
-        if (hasValidUsage(state?.usage)) {
-          logUsage(state.provider || targetFormat, state.usage, model, connectionId, apiKey);
+        if (state && hasValidUsage(state.usage as Record<string, unknown>)) {
+          logUsage((state.provider as string) || targetFormat!, state.usage as Record<string, unknown>, model, connectionId, apiKey);
         } else {
-          appendRequestLog({ model, provider, connectionId, tokens: null, status: "200 OK" }).catch(() => { });
+          appendRequestLog().catch(() => { });
         }
         
         if (onStreamComplete) {
           onStreamComplete({
             content: accumulatedContent,
             thinking: accumulatedThinking
-          }, state?.usage, ttftAt);
+          }, (state?.usage as Record<string, unknown>) ?? null, ttftAt);
         }
       } catch (error) {
         console.error("Error in flush:", error);
@@ -467,7 +490,7 @@ export function createSSEStream(options = {}) {
   });
 }
 
-export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider = null, reqLogger = null, toolNameMap = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, customToolNames = null) {
+export function createSSETransformStreamWithLogger(targetFormat: string, sourceFormat: string, provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, toolNameMap: SSEStreamOptions["toolNameMap"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null, customToolNames: string[] | null = null) {
   return createSSEStream({
     mode: STREAM_MODE.TRANSLATE,
     targetFormat,
@@ -484,7 +507,7 @@ export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, p
   });
 }
 
-export function createPassthroughStreamWithLogger(provider = null, reqLogger = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null) {
+export function createPassthroughStreamWithLogger(provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null) {
   return createSSEStream({
     mode: STREAM_MODE.PASSTHROUGH,
     provider,

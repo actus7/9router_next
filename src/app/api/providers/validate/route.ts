@@ -14,18 +14,18 @@ async function probeWebProvider(provider: string, apiKey: string): Promise<boole
   if (!p) return null;
   // Skip if provider has dual-purpose (LLM + search), let LLM validate handle it
   const kinds = p.serviceKinds || ["llm"];
-  const isWebOnly = kinds.every((k: string) => k === "webSearch" || k === "webFetch");
+  const isWebOnly = (kinds as string[]).every((k: string) => k === "webSearch" || k === "webFetch");
   if (!isWebOnly) return null;
-  const cfg = p.searchConfig || p.fetchConfig;
+  const cfg = (p.searchConfig || p.fetchConfig) as Record<string, unknown> | undefined;
   if (!cfg) return null;
   if (cfg.authType === "none") return true; // no-auth (e.g. searxng)
 
-  let url = cfg.baseUrl;
+  let url = cfg.baseUrl as string;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   let body: string | undefined;
 
   // Apply auth based on authHeader
-  switch (cfg.authHeader) {
+  switch (cfg.authHeader as string) {
     case "bearer":              headers["Authorization"] = `Bearer ${apiKey}`; break;
     case "x-api-key":           headers["x-api-key"] = apiKey; break;
     case "x-subscription-token":headers["x-subscription-token"] = apiKey; break;
@@ -38,7 +38,7 @@ async function probeWebProvider(provider: string, apiKey: string): Promise<boole
     body = JSON.stringify({ query: "ping", q: "ping", url: "https://example.com" });
   }
 
-  const res = await fetch(url, { method: cfg.method, headers, body, signal: AbortSignal.timeout(8000) });
+  const res = await fetch(url, { method: cfg.method as string, headers, body, signal: AbortSignal.timeout(8000) });
   return res.status !== 401 && res.status !== 403;
 }
 
@@ -49,18 +49,18 @@ async function probeMediaProvider(provider: string, apiKey: string): Promise<boo
   if (!p) return null;
   const MEDIA_KINDS = new Set(["tts", "embedding", "stt", "image", "video", "music", "imageToText"]);
   const kinds = p.serviceKinds || ["llm"];
-  const isMediaOnly = kinds.every((k: string) => MEDIA_KINDS.has(k));
+  const isMediaOnly = (kinds as string[]).every((k: string) => MEDIA_KINDS.has(k));
   if (!isMediaOnly) return null;
-  const cfg = p.ttsConfig || p.sttConfig || p.embeddingConfig || p.imageConfig || p.videoConfig || p.musicConfig;
+  const cfg = (p.ttsConfig || p.sttConfig || p.embeddingConfig || p.imageConfig || p.videoConfig || p.musicConfig) as Record<string, unknown> | undefined;
   // No probe config → best-effort accept (validate at usage time)
   if (!cfg) return true;
   if (p.noAuth || cfg.authType === "none") return true;
   // Skip auth schemes that need provider-specific data
   if (cfg.authHeader === "playht" || cfg.authHeader === "aws-sigv4") return true;
 
-  const headers: Record<string, string> = { "Content-Type": "application/json", ...(cfg.extraHeaders || {}) };
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...((cfg.extraHeaders as Record<string, string>) || {}) };
 
-  switch (cfg.authHeader) {
+  switch (cfg.authHeader as string) {
     case "bearer":     headers["Authorization"] = `Bearer ${apiKey}`; break;
     case "key":        headers["Authorization"] = `Key ${apiKey}`; break;
     case "x-api-key":  headers["x-api-key"] = apiKey; break;
@@ -71,8 +71,8 @@ async function probeMediaProvider(provider: string, apiKey: string): Promise<boo
     default: return null;
   }
 
-  const method = cfg.method || "POST";
-  const res = await fetch(cfg.baseUrl, {
+  const method = (cfg.method as string) || "POST";
+  const res = await fetch(cfg.baseUrl as string, {
     method,
     headers,
     body: method === "GET" ? undefined : JSON.stringify({ input: "ping", text: "ping", prompt: "ping", model: getDefaultModel(provider) || "test" }),
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (!node) {
           return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
         }
-        const modelsUrl = `${node.baseUrl?.replace(/\/$/, "")}/models`;
+        const modelsUrl = `${(node.baseUrl as string)?.replace(/\/$/, "")}/models`;
         const res = await fetch(modelsUrl, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (!node) {
           return NextResponse.json({ error: "Custom Embedding node not found" }, { status: 404 });
         }
-        const baseUrl = node.baseUrl?.replace(/\/$/, "");
+        const baseUrl = (node.baseUrl as string)?.replace(/\/$/, "");
         const modelsRes = await fetch(`${baseUrl}/models`, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ error: "Anthropic Compatible node not found" }, { status: 404 });
         }
 
-        let normalizedBase = node.baseUrl?.trim().replace(/\/$/, "") || "";
+        let normalizedBase = (node.baseUrl as string)?.trim().replace(/\/$/, "") || "";
         if (normalizedBase.endsWith("/messages")) {
           normalizedBase = normalizedBase.slice(0, -9); // remove /messages
         }
@@ -316,7 +316,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
           if (isOpenAiFormat) {
             const testModel = getDefaultModel(provider);
-            const res = await fetch(cfg.baseUrl, {
+            const res = await fetch(cfg.baseUrl as string, {
               method: "POST",
               headers: { "Authorization": `Bearer ${apiKey}`, "content-type": "application/json" },
               body: JSON.stringify({ model: testModel, max_tokens: 1, messages: [{ role: "user", content: "test" }] }),
@@ -324,7 +324,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             isValid = res.status !== 401 && res.status !== 403;
           } else {
             const testModel = getDefaultModel(provider) || "claude-sonnet-4-20250514";
-            const res = await fetch(cfg.baseUrl, {
+            const res = await fetch(cfg.baseUrl as string, {
               method: "POST",
               headers: {
                 "x-api-key": apiKey,
@@ -341,7 +341,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
         case "volcengine-ark":
         case "byteplus": {
-          const res = await fetch(PROVIDERS[provider]?.baseUrl, {
+          const res = await fetch(PROVIDERS[provider]?.baseUrl as string, {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${apiKey}`,
@@ -418,12 +418,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         case "commandcode": {
           const cfg = PROVIDERS.commandcode;
           const model = getDefaultModel("commandcode");
-          const payload = openaiToCommandCodeRequest(model, {
+          const payload = openaiToCommandCodeRequest(model as string, {
             messages: [{ role: "user", content: "ping" }],
             max_tokens: 1,
             stream: false,
           }, false);
-          const res = await fetch(cfg.baseUrl, {
+          const res = await fetch(cfg.baseUrl as string, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -603,7 +603,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         default: {
           // Generic probe for OpenAI-compatible providers (config-driven from PROVIDERS)
-          const cfg = PROVIDERS[provider];
+          const cfg = PROVIDERS[provider] as Record<string, unknown> | undefined;
           if (!cfg || cfg.format !== "openai" || !cfg.baseUrl) {
             return NextResponse.json({ error: "Provider validation not supported" }, { status: 400 });
           }
@@ -612,11 +612,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             break;
           }
           // Build auth headers based on cfg.authHeader (default: bearer)
-          const headers: Record<string, string> = { "Content-Type": "application/json", ...(cfg.headers || {}) };
+          const headers: Record<string, string> = { "Content-Type": "application/json", ...((cfg.headers as Record<string, string>) || {}) };
           if (cfg.authHeader === "x-api-key") headers["X-API-Key"] = apiKey;
           else headers["Authorization"] = `Bearer ${apiKey}`;
           // Try /models first (fast GET), fallback to chat probe on ambiguous response
-          const modelsUrl = cfg.baseUrl.replace(/\/chat\/completions$/, "/models").replace(/\/chatbot$/, "/models");
+          const modelsUrl = (cfg.baseUrl as string).replace(/\/chat\/completions$/, "/models").replace(/\/chatbot$/, "/models");
           let probeOk: boolean | null = null;
           try {
             const probeRes = await fetch(modelsUrl, { headers, signal: AbortSignal.timeout(8000) });
@@ -629,7 +629,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }
           // Fallback: minimal chat probe
           const defaultModel = getDefaultModel(provider) || "test";
-          const chatRes = await fetch(cfg.baseUrl, {
+          const chatRes = await fetch(cfg.baseUrl as string, {
             method: "POST",
             headers,
             body: JSON.stringify({ model: defaultModel, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),

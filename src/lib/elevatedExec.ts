@@ -48,16 +48,17 @@ const ENCRYPT_ALGO = "aes-256-gcm" as const;
 const ENCRYPT_SALT: string = "9router-elevated-pwd";
 
 export function getCachedPassword(): string | null {
-  return (globalThis as any).__elevatedSudoPassword || null;
+  return (globalThis as unknown as Record<string, unknown>).__elevatedSudoPassword as string || null;
 }
 
 export function setCachedPassword(pwd: string | null): void {
-  (globalThis as any).__elevatedSudoPassword = pwd;
+  (globalThis as unknown as Record<string, unknown>).__elevatedSudoPassword = pwd;
 }
 
 function deriveKey(): Buffer {
   try {
-    const { machineIdSync } = require("node-machine-id");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- runtime conditional: machine-id is optional, require allows graceful fallback
+    const { machineIdSync } = require("node-machine-id") as { machineIdSync: () => string };
     const raw: string = machineIdSync();
     return crypto.createHash("sha256").update(raw + ENCRYPT_SALT).digest();
   } catch {
@@ -87,8 +88,8 @@ function decryptPassword(stored: string): string | null {
   }
 }
 
-type SettingsGetter = (() => Promise<any>) | null;
-type SettingsUpdater = ((updates: Record<string, any>) => Promise<any>) | null;
+type SettingsGetter = (() => Promise<Record<string, unknown>>) | null;
+type SettingsUpdater = ((updates: Record<string, unknown>) => Promise<Record<string, unknown>>) | null;
 
 let _getSettings: SettingsGetter = null;
 let _updateSettings: SettingsUpdater = null;
@@ -101,10 +102,11 @@ export function initDbHooks(getSettingsFn: SettingsGetter, updateSettingsFn: Set
 export async function loadEncryptedPassword(): Promise<string | null> {
   if (!_getSettings) return null;
   try {
-    const settings: any = await _getSettings();
+    const settings: Record<string, unknown> = await _getSettings();
     // Legacy DB key name kept for backward compatibility with existing installations
-    if (!settings.mitmSudoEncrypted) return null;
-    return decryptPassword(settings.mitmSudoEncrypted);
+    const encrypted = settings.mitmSudoEncrypted;
+    if (typeof encrypted !== "string" || !encrypted) return null;
+    return decryptPassword(encrypted);
   } catch {
     return null;
   }

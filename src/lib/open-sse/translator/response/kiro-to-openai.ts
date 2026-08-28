@@ -12,25 +12,25 @@ import { reasoningDelta } from "../concerns/reasoning";
 import { toOpenAIFinish } from "../concerns/finishReason";
 
 // Build chunk meta for current kiro state
-function chunkMeta(state) {
-  return { id: state.responseId, created: state.created, model: state.model || "kiro" };
+function chunkMeta(state: Record<string, unknown>) {
+  return { id: state.responseId as string, created: state.created as number, model: (state.model as string) || "kiro" };
 }
 
 /**
  * Parse Kiro SSE event and convert to OpenAI format
  * Kiro events: assistantResponseEvent, codeEvent, supplementaryWebLinksEvent, etc.
  */
-export function kiroToOpenAIResponse(chunk, state) {
+export function kiroToOpenAIResponse(chunk: Record<string, unknown> | string, state: Record<string, unknown>) {
   
   if (!chunk) return null;
 
   // If chunk is already in OpenAI format (from executor transform), return as-is
-  if (chunk.object === "chat.completion.chunk" && chunk.choices) {
+  if (typeof chunk !== "string" && chunk.object === "chat.completion.chunk" && chunk.choices) {
     return chunk;
   }
   
   // Handle string chunk (raw SSE data)
-  let data = chunk;
+  let data: Record<string, unknown>;
   if (typeof chunk === "string") {
     // Parse SSE format: event:xxx\ndata:xxx
     const lines = chunk.split("\n");
@@ -61,6 +61,8 @@ export function kiroToOpenAIResponse(chunk, state) {
       // Not JSON, might be raw text
       data = { text: eventData, _eventType: eventType };
     }
+  } else {
+    data = chunk;
   }
 
   // Initialize state if needed
@@ -70,11 +72,12 @@ export function kiroToOpenAIResponse(chunk, state) {
     state.chunkIndex = 0;
   }
 
-  const eventType = data._eventType || data.event || "";
+  const eventType = (data._eventType || data.event || "") as string;
 
   // Handle different Kiro event types
   if (eventType === "assistantResponseEvent" || data.assistantResponseEvent) {
-    const content = data.assistantResponseEvent?.content || data.content || "";
+    const evtData = (data.assistantResponseEvent || data) as Record<string, unknown>;
+    const content = (evtData.content as string) || (data.content as string) || "";
     if (!content) return null;
 
     const openaiChunk = buildChunk(chunkMeta(state), {
@@ -82,7 +85,7 @@ export function kiroToOpenAIResponse(chunk, state) {
       content: content
     }, null);
 
-    state.chunkIndex++;
+    state.chunkIndex = (state.chunkIndex as number) + 1;
     return openaiChunk;
   }
 
@@ -95,21 +98,21 @@ export function kiroToOpenAIResponse(chunk, state) {
     const reasoning = data.reasoningContentEvent || data;
     const content = (typeof reasoning === "string")
       ? reasoning
-      : (reasoning.text || reasoning.content || data.content || "");
+      : ((reasoning as Record<string, unknown>).text || (reasoning as Record<string, unknown>).content || data.content || "") as string;
     if (!content) return null;
 
     const openaiChunk = buildChunk(chunkMeta(state), reasoningDelta(content, state.chunkIndex === 0), null);
 
-    state.chunkIndex++;
+    state.chunkIndex = (state.chunkIndex as number) + 1;
     return openaiChunk;
   }
 
   // Handle tool use events
   if (eventType === "toolUseEvent" || data.toolUseEvent) {
     state.hadToolUse = true;
-    const toolUse = data.toolUseEvent || data;
-    const toolCallId = toolUse.toolUseId || fallbackToolCallId();
-    const toolName = toolUse.name || "";
+    const toolUse = (data.toolUseEvent || data) as Record<string, unknown>;
+    const toolCallId = (toolUse.toolUseId as string) || fallbackToolCallId();
+    const toolName = (toolUse.name as string) || "";
     const toolInput = toolUse.input || {};
 
     const openaiChunk = buildChunk(chunkMeta(state), {
@@ -125,7 +128,7 @@ export function kiroToOpenAIResponse(chunk, state) {
       }]
     }, null);
 
-    state.chunkIndex++;
+    state.chunkIndex = (state.chunkIndex as number) + 1;
     return openaiChunk;
   }
 
@@ -139,7 +142,7 @@ export function kiroToOpenAIResponse(chunk, state) {
 
     // Include usage in final chunk if available
     if (state.usage && typeof state.usage === "object") {
-      openaiChunk.usage = state.usage;
+      (openaiChunk as Record<string, unknown>).usage = state.usage;
     }
 
     return openaiChunk;
@@ -147,7 +150,7 @@ export function kiroToOpenAIResponse(chunk, state) {
 
 // Handle usage events
   if (eventType === "usageEvent" || data.usageEvent) {
-    const usage = toOpenAIUsage(data.usageEvent || data, "kiro");
+    const usage = toOpenAIUsage((data.usageEvent || data) as Record<string, unknown>, "kiro");
     if (usage) state.usage = usage;
     return null;
   }
@@ -157,4 +160,4 @@ export function kiroToOpenAIResponse(chunk, state) {
 }
 
 // Register translator
-register(FORMATS.KIRO, FORMATS.OPENAI, null, kiroToOpenAIResponse);
+register(FORMATS.KIRO, FORMATS.OPENAI, null, kiroToOpenAIResponse as (chunk: unknown, state: unknown) => unknown);

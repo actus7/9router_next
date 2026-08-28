@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       accessToken: credential.accessToken,
       refreshToken: null,
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      email: email || null,
+      email: email || undefined,
       providerSpecificData: {
         ...(credential.profileArn ? { profileArn: credential.profileArn } : {}),
         region: credential.region,
@@ -51,12 +51,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       connection: {
-        id: connection.id,
-        provider: connection.provider,
-        email: connection.email,
+        id: connection!.id,
+        provider: connection!.provider,
+        email: connection!.email,
       },
     });
-  } catch ($1) { console.error("Kiro API key import error:", error);
+  } catch ($1: unknown) { console.error("Kiro API key import error:", $1);
     // Do not reflect upstream response body to the client (SSRF hardening)
     return NextResponse.json(
       { error: "API key validation failed" },

@@ -11,15 +11,15 @@ import { ROLE, OPENAI_BLOCK, RESPONSES_ITEM } from "../schema/index";
 
 // Responses API enforces max 64 chars on call_id (#393)
 const MAX_CALL_ID_LEN = 64;
-const clampCallId = (id) => (typeof id === "string" && id.length > MAX_CALL_ID_LEN ? id.substring(0, MAX_CALL_ID_LEN) : id);
+const clampCallId = (id: unknown): unknown => (typeof id === "string" && id.length > MAX_CALL_ID_LEN ? id.substring(0, MAX_CALL_ID_LEN) : id);
 
 /**
  * Convert OpenAI Responses API request to OpenAI Chat Completions format
  */
-export function openaiResponsesToOpenAIRequest(model, body, stream, credentials) {
+export function openaiResponsesToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
   if (!body.input) return body;
 
-  const result = { ...body };
+  const result = { ...body } as { messages: Record<string, unknown>[]; [key: string]: unknown };
   result.messages = [];
 
   // Convert instructions to system message
@@ -28,37 +28,37 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
   }
 
   // Group items by conversation turn
-  let currentAssistantMsg = null;
-  let pendingToolResults = [];
+  let currentAssistantMsg: Record<string, unknown> | null = null;
+  let pendingToolResults: Record<string, unknown>[] = [];
   let pendingReasoning = "";
   let pendingReasoningEncrypted = "";
-  const additionalTools = [];
-  const customToolNames = new Set();
+  const additionalTools: Record<string, unknown>[] = [];
+  const customToolNames = new Set<string>();
 
-  const inputItems = normalizeResponsesInput(body.input);
+  const inputItems = normalizeResponsesInput(body.input as string | Record<string, unknown>[]);
   if (!inputItems) return body;
 
   // Extract reasoning text from summary[].text (encrypted_content is continuity-only)
-  const extractReasoningText = (item) => {
+  const extractReasoningText = (item: Record<string, unknown>): string => {
     if (Array.isArray(item.summary)) {
-      const txt = item.summary.map(s => s?.text || "").filter(Boolean).join("\n");
+      const txt = (item.summary as Record<string, unknown>[]).map((s: Record<string, unknown>) => (s?.text as string) || "").filter(Boolean).join("\n");
       if (txt) return txt;
     }
     if (Array.isArray(item.content)) {
-      const txt = item.content.map(c => c?.text || "").filter(Boolean).join("\n");
+      const txt = (item.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => (c?.text as string) || "").filter(Boolean).join("\n");
       if (txt) return txt;
     }
     return "";
   };
 
-  const attachPendingReasoning = (msg) => {
+  const attachPendingReasoning = (msg: Record<string, unknown>): void => {
     if (pendingReasoning) msg.reasoning_content = pendingReasoning;
     if (pendingReasoningEncrypted) msg.encrypted_content = pendingReasoningEncrypted;
     pendingReasoning = "";
     pendingReasoningEncrypted = "";
   };
 
-  for (const item of inputItems) {
+  for (const item of inputItems as Record<string, unknown>[]) {
     // Determine item type - Droid CLI sends role-based items without 'type' field
     // Fallback: if no type but has role property, treat as message
     const itemType = item.type || (item.role ? RESPONSES_ITEM.MESSAGE : null);
@@ -79,7 +79,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
 
       // Convert content: input_text → text, output_text → text, input_image → image_url
       const content = Array.isArray(item.content)
-        ? item.content.map(c => {
+        ? (item.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => {
           if (c.type === RESPONSES_ITEM.INPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
           if (c.type === RESPONSES_ITEM.OUTPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
           if (c.type === RESPONSES_ITEM.INPUT_IMAGE) {
@@ -89,7 +89,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
           return c;
         })
         : item.content;
-      const msg = { role: item.role, content };
+      const msg: Record<string, unknown> = { role: item.role, content };
       // Attach buffered reasoning to assistant turn (required by xiaomi-mimo + store=false continuity)
       if (item.role === ROLE.ASSISTANT) attachPendingReasoning(msg);
       else {
@@ -104,17 +104,17 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
         currentAssistantMsg = {
           role: ROLE.ASSISTANT,
           content: null,
-          tool_calls: []
+          tool_calls: [] as Record<string, unknown>[]
         };
         attachPendingReasoning(currentAssistantMsg);
       }
       // Skip items with empty/missing name — Codex/OpenAI reject nameless tool calls (#444)
-      if (!item.name || typeof item.name !== "string" || item.name.trim() === "") continue;
-      if (itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) customToolNames.add(item.name);
+      if (!item.name || typeof item.name !== "string" || (item.name as string).trim() === "") continue;
+      if (itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) customToolNames.add(item.name as string);
       const toolInput = itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL
         ? { input: typeof item.input === "string" ? item.input : JSON.stringify(item.input ?? "") }
         : item.arguments;
-      currentAssistantMsg.tool_calls.push({
+      (currentAssistantMsg!.tool_calls as Record<string, unknown>[]).push({
         id: item.call_id,
         type: OPENAI_BLOCK.FUNCTION,
         function: {
@@ -144,7 +144,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       });
     }
     else if (itemType === RESPONSES_ITEM.ADDITIONAL_TOOLS) {
-      if (Array.isArray(item.tools)) additionalTools.push(...item.tools);
+      if (Array.isArray(item.tools)) additionalTools.push(...(item.tools as Record<string, unknown>[]));
     }
     else if (itemType === RESPONSES_ITEM.REASONING) {
       // Buffer reasoning text; attached to next assistant message/function_call.
@@ -154,7 +154,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       if (txt) pendingReasoning = pendingReasoning ? `${pendingReasoning}\n${txt}` : txt;
       if (typeof item.encrypted_content === "string" && item.encrypted_content) {
         // Prefer attaching to the next assistant message we create
-        pendingReasoningEncrypted = item.encrypted_content;
+        pendingReasoningEncrypted = item.encrypted_content as string;
       }
       continue;
     }
@@ -176,12 +176,12 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
   // Filter them out to avoid sending nameless functionDeclarations to downstream providers
   // such as Gemini, which strictly validates function names.
   const responseTools = [
-    ...(Array.isArray(body.tools) ? body.tools : []),
+    ...(Array.isArray(body.tools) ? body.tools as Record<string, unknown>[] : []),
     ...additionalTools,
   ];
   if (responseTools.length > 0) {
     result.tools = responseTools
-      .map(tool => {
+      .map((tool: Record<string, unknown>) => {
         // Already in Chat Completions format: { type: "function", function: { name, ... } }
         if (tool.function) return tool;
         // Responses API function/custom tool: { type, name, description, parameters|format }.
@@ -189,10 +189,11 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
         // tools as functions with one raw `input` string while retaining their names
         // in translator-only metadata for the response conversion.
         const name = tool.name;
-        if (!name || typeof name !== "string" || name.trim() === "") return null;
+        if (!name || typeof name !== "string" || (name as string).trim() === "") return null;
         if (tool.type === "custom") {
-          customToolNames.add(name);
-          const formatHint = [tool.format?.syntax, tool.format?.definition].filter(Boolean).join("\n");
+          customToolNames.add(name as string);
+          const format = tool.format as Record<string, unknown> | undefined;
+          const formatHint = [format?.syntax, format?.definition].filter(Boolean).join("\n");
           return {
             type: OPENAI_BLOCK.FUNCTION,
             function: {
@@ -240,8 +241,8 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
   delete result.include;
   delete result.prompt_cache_key;
   delete result.store;
-  if (typeof result.reasoning?.effort === "string") {
-    result.reasoning_effort = result.reasoning.effort;
+  if (typeof (result.reasoning as Record<string, unknown>)?.effort === "string") {
+    result.reasoning_effort = (result.reasoning as Record<string, unknown>).effort;
   }
   delete result.reasoning;
   delete result.client_metadata;
@@ -252,9 +253,10 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
 /**
  * Ensure object schema always has properties field (required by Codex Responses API)
  */
-function normalizeToolParameters(params) {
+function normalizeToolParameters(params: unknown): unknown {
   if (!params) return { type: "object", properties: {} };
-  if (params.type === "object" && !params.properties) return { ...params, properties: {} };
+  const p = params as Record<string, unknown>;
+  if (p.type === "object" && !p.properties) return { ...p, properties: {} };
   return params;
 }
 
@@ -263,30 +265,30 @@ function normalizeToolParameters(params) {
  * Preserves encrypted blobs needed by store=false multi-turn (Grok CLI / Codex).
  * Returns null when the message has nothing useful to re-send.
  */
-function buildReasoningInputItem(msg) {
+function buildReasoningInputItem(msg: Record<string, unknown>): Record<string, unknown> | null {
   if (!msg || typeof msg !== "object") return null;
 
   const encrypted =
     (typeof msg.encrypted_content === "string" && msg.encrypted_content) ||
     (typeof msg.reasoning_encrypted_content === "string" && msg.reasoning_encrypted_content) ||
-    (typeof msg.reasoning?.encrypted_content === "string" && msg.reasoning.encrypted_content) ||
+    (typeof (msg.reasoning as Record<string, unknown>)?.encrypted_content === "string" && (msg.reasoning as Record<string, unknown>).encrypted_content) ||
     "";
 
   let summaryText = "";
-  if (typeof msg.reasoning_content === "string" && msg.reasoning_content.trim()) {
-    summaryText = msg.reasoning_content;
-  } else if (typeof msg.reasoning === "string" && msg.reasoning.trim()) {
-    summaryText = msg.reasoning;
+  if (typeof msg.reasoning_content === "string" && (msg.reasoning_content as string).trim()) {
+    summaryText = msg.reasoning_content as string;
+  } else if (typeof msg.reasoning === "string" && (msg.reasoning as string).trim()) {
+    summaryText = msg.reasoning as string;
   } else if (Array.isArray(msg.reasoning_details)) {
-    summaryText = msg.reasoning_details
-      .map((d) => (typeof d?.text === "string" ? d.text : typeof d?.content === "string" ? d.content : ""))
+    summaryText = (msg.reasoning_details as Record<string, unknown>[])
+      .map((d: Record<string, unknown>) => (typeof d?.text === "string" ? d.text : typeof d?.content === "string" ? d.content : ""))
       .filter(Boolean)
       .join("\n");
   }
 
   if (!encrypted && !summaryText) return null;
 
-  const item = { type: RESPONSES_ITEM.REASONING };
+  const item: Record<string, unknown> = { type: RESPONSES_ITEM.REASONING };
   if (summaryText) {
     item.summary = [{ type: RESPONSES_ITEM.SUMMARY_TEXT, text: summaryText }];
   }
@@ -298,11 +300,11 @@ function buildReasoningInputItem(msg) {
 /**
  * Convert OpenAI Chat Completions to OpenAI Responses API format
  */
-export function openaiToOpenAIResponsesRequest(model, body, stream, credentials) {
+export function openaiToOpenAIResponsesRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
   // Body already in Responses API format (e.g. Cursor CLI calling /chat/completions with input[])
   if (body.input) return { ...body, model, stream: true };
 
-  const result = {
+  const result: { input: Record<string, unknown>[]; [key: string]: unknown } = {
     model,
     input: [],
     stream: true,
@@ -311,7 +313,7 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
 
   // Extract system message as instructions
   let hasSystemMessage = false;
-  const messages = body.messages || [];
+  const messages = (body.messages || []) as Record<string, unknown>[];
 
   for (const msg of messages) {
     if (msg.role === ROLE.SYSTEM || msg.role === ROLE.DEVELOPER) {
@@ -338,14 +340,15 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
       const content = typeof msg.content === "string"
         ? [{ type: contentType, text: msg.content }]
         : Array.isArray(msg.content)
-          ? msg.content.map(c => {
+          ? (msg.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => {
             if (c.type === OPENAI_BLOCK.TEXT) return { type: contentType, text: c.text };
             // Convert Chat Completions image_url → Responses API input_image
             // Responses API expects: { type: "input_image", image_url: "<url string>" }
             // Chat Completions sends: { type: "image_url", image_url: { url: "...", detail: "..." } }
             if (c.type === OPENAI_BLOCK.IMAGE_URL) {
-              const url = typeof c.image_url === "string" ? c.image_url : c.image_url?.url;
-              return { type: RESPONSES_ITEM.INPUT_IMAGE, image_url: url, detail: c.image_url?.detail || "auto" };
+              const imgObj = c.image_url as Record<string, unknown> | string | undefined;
+              const url = typeof imgObj === "string" ? imgObj : imgObj?.url;
+              return { type: RESPONSES_ITEM.INPUT_IMAGE, image_url: url, detail: (imgObj as Record<string, unknown>)?.detail || "auto" };
             }
             if (c.type === RESPONSES_ITEM.INPUT_IMAGE) return c;
             // Serialize any unknown type (tool_use, tool_result, thinking, etc.) as text
@@ -368,12 +371,13 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
 
     // Convert tool calls
     if (msg.role === ROLE.ASSISTANT && msg.tool_calls) {
-      for (const tc of msg.tool_calls) {
+      for (const tc of msg.tool_calls as Record<string, unknown>[]) {
+        const fn = tc.function as Record<string, unknown> | undefined;
         result.input.push({
           type: RESPONSES_ITEM.FUNCTION_CALL,
           call_id: clampCallId(tc.id),
-          name: tc.function?.name || "_unknown",
-          arguments: tc.function?.arguments || "{}"
+          name: fn?.name || "_unknown",
+          arguments: fn?.arguments || "{}"
         });
       }
     }
@@ -383,7 +387,7 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
       const output = typeof msg.content === "string"
         ? msg.content
         : Array.isArray(msg.content)
-          ? msg.content.map(c => c.text || JSON.stringify(c)).join("")
+          ? (msg.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => c.text || JSON.stringify(c)).join("")
           : JSON.stringify(msg.content);
       result.input.push({
         type: RESPONSES_ITEM.FUNCTION_CALL_OUTPUT,
@@ -400,14 +404,15 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
 
   // Convert tools format
   if (body.tools && Array.isArray(body.tools)) {
-    result.tools = body.tools.map(tool => {
+    result.tools = (body.tools as Record<string, unknown>[]).map((tool: Record<string, unknown>) => {
       if (tool.type === OPENAI_BLOCK.FUNCTION) {
+        const fn = tool.function as Record<string, unknown>;
         return {
           type: OPENAI_BLOCK.FUNCTION,
-          name: tool.function.name,
-          description: String(tool.function.description || ""),
-          parameters: normalizeToolParameters(tool.function.parameters),
-          strict: tool.function.strict
+          name: fn.name,
+          description: String(fn.description || ""),
+          parameters: normalizeToolParameters(fn.parameters),
+          strict: fn.strict
         };
       }
       return tool;
@@ -427,5 +432,5 @@ export function openaiToOpenAIResponsesRequest(model, body, stream, credentials)
 }
 
 // Register both directions
-register(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, openaiResponsesToOpenAIRequest, null);
-register(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, openaiToOpenAIResponsesRequest, null);
+register(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI, openaiResponsesToOpenAIRequest as unknown as Parameters<typeof register>[2], null);
+register(FORMATS.OPENAI, FORMATS.OPENAI_RESPONSES, openaiToOpenAIResponsesRequest as unknown as Parameters<typeof register>[2], null);

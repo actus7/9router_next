@@ -17,23 +17,31 @@ export async function handleEmbeddingsCore({
   log,
   onCredentialsRefreshed,
   onRequestSuccess,
+}: {
+  body: Record<string, unknown>;
+  modelInfo: { provider: string; model: string };
+  credentials: Record<string, unknown>;
+  log?: { debug?: (...args: unknown[]) => void; info?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void };
+  onCredentialsRefreshed?: (creds: Record<string, unknown>) => void | Promise<void>;
+  onRequestSuccess?: () => void | Promise<void>;
 }) {
   const { provider, model } = modelInfo;
 
   // Validate input
   const input = body.input;
   if (!input) {
-    return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Missing required field: input");
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Missing required field: input", undefined);
   }
   if (typeof input !== "string" && !Array.isArray(input)) {
-    return createErrorResult(HTTP_STATUS.BAD_REQUEST, "input must be a string or array of strings");
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, "input must be a string or array of strings", undefined);
   }
 
   const adapter = getEmbeddingAdapter(provider);
   if (!adapter) {
     return createErrorResult(
       HTTP_STATUS.BAD_REQUEST,
-      `Provider '${provider}' does not support embeddings.`
+      `Provider '${provider}' does not support embeddings.`,
+      undefined
     );
   }
 
@@ -43,7 +51,7 @@ export async function handleEmbeddingsCore({
   // rather than silently falling back to api.openai.com — would have escaped this
   // function uncaught, surfacing as a 500 or a request that never settles. A
   // configuration mistake is a 400 with the reason in it.
-  let url, headers, requestBody;
+  let url: string, headers: Record<string, string>, requestBody: Record<string, unknown>;
   try {
     url = adapter.buildUrl(model, credentials, ctx);
     headers = adapter.buildHeaders(credentials, ctx);
@@ -52,14 +60,14 @@ export async function handleEmbeddingsCore({
       encoding_format: body.encoding_format || "float",
       dimensions: body.dimensions,
     });
-  } catch (error) {
-    log?.debug?.("EMBEDDINGS", `Request build failed: ${error.message}`);
-    return createErrorResult(HTTP_STATUS.BAD_REQUEST, `[${provider}/${model}] ${error.message}`);
+  } catch (error: unknown) {
+    log?.debug?.("EMBEDDINGS", `Request build failed: ${error instanceof Error ? error.message : String(error)}`);
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, `[${provider}/${model}] ${error instanceof Error ? error.message : String(error)}`, undefined);
   }
 
   log?.debug?.("EMBEDDINGS", `${provider.toUpperCase()} | ${model} | input_type=${Array.isArray(input) ? `array[${input.length}]` : "string"}`);
 
-  let providerResponse;
+  let providerResponse: Response;
   try {
     providerResponse = await fetch(url, {
       method: "POST",
@@ -69,10 +77,10 @@ export async function handleEmbeddingsCore({
         ? { signal: AbortSignal.timeout(FETCH_CONNECT_TIMEOUT_MS) }
         : {}),
     });
-  } catch (error) {
-    const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
+  } catch (error: unknown) {
+    const errMsg = formatProviderError(error as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, HTTP_STATUS.BAD_GATEWAY);
     log?.debug?.("EMBEDDINGS", `Fetch error: ${errMsg}`);
-    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg);
+    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg, undefined);
   }
 
   // Handle 401/403 — try token refresh (skip for noAuth providers)
@@ -111,16 +119,16 @@ export async function handleEmbeddingsCore({
 
   if (!providerResponse.ok) {
     const { statusCode, message } = await parseUpstreamError(providerResponse);
-    const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
+    const errMsg = formatProviderError(new Error(message) as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, statusCode);
     log?.debug?.("EMBEDDINGS", `Provider error: ${errMsg}`);
-    return createErrorResult(statusCode, errMsg);
+    return createErrorResult(statusCode, errMsg, undefined);
   }
 
-  let responseBody;
+  let responseBody: Record<string, unknown>;
   try {
-    responseBody = await providerResponse.json();
+    responseBody = await providerResponse.json() as Record<string, unknown>;
   } catch {
-    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, `Invalid JSON response from ${provider}`);
+    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, `Invalid JSON response from ${provider}`, undefined);
   }
 
   if (onRequestSuccess) await onRequestSuccess();

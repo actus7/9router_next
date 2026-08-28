@@ -24,11 +24,12 @@ import {
   canonicalizeKiroConversation,
   normalizeKiroToolSpecs,
 } from "../concerns/kiroConversation";
+import type { KiroTurn, KiroToolSpec } from "../concerns/openaiTypes";
 
 /**
  * Safely parse JSON string, returning fallback on failure.
  */
-function safeJSONParse(str, fallback) {
+function safeJSONParse(str: unknown, fallback: unknown): unknown {
   if (typeof str !== "string") return str ?? fallback;
   try { return JSON.parse(str); } catch { return fallback; }
 }
@@ -39,20 +40,20 @@ function safeJSONParse(str, fallback) {
  *
  * Returns { history, currentMessage }.
  */
-function convertMessages(messages, model) {
-  let history = [];
-  let currentMessage = null;
+function convertMessages(messages: Record<string, unknown>[], model: string): { history: KiroTurn[]; currentMessage: KiroTurn } {
+  const history: KiroTurn[] = [];
+  let currentMessage: KiroTurn | null = null;
 
-  let pendingUserContent = [];
-  let pendingAssistantContent = [];
-  let pendingToolResults = [];
-  let pendingImages = [];
-  let currentRole = null;
+  let pendingUserContent: string[] = [];
+  let pendingAssistantContent: string[] = [];
+  let pendingToolResults: Record<string, unknown>[] = [];
+  let pendingImages: Record<string, unknown>[] = [];
+  let currentRole: string | null = null;
 
   const flushPending = () => {
     if (currentRole === "user") {
       const content = pendingUserContent.join("\n\n").trim() || "continue";
-      const userMsg = {
+      const userMsg: KiroTurn = {
         userInputMessage: {
           content: content,
           modelId: ""
@@ -61,11 +62,11 @@ function convertMessages(messages, model) {
 
       // Attach images if present (Kiro API supports images field)
       if (pendingImages.length > 0) {
-        userMsg.userInputMessage.images = pendingImages;
+        userMsg.userInputMessage!.images = pendingImages;
       }
 
       if (pendingToolResults.length > 0) {
-        userMsg.userInputMessage.userInputMessageContext = {
+        userMsg.userInputMessage!.userInputMessageContext = {
           toolResults: pendingToolResults
         };
       }
@@ -77,7 +78,7 @@ function convertMessages(messages, model) {
       pendingImages = [];
     } else if (currentRole === "assistant") {
       const content = pendingAssistantContent.join("\n\n").trim() || "...";
-      const assistantMsg = {
+      const assistantMsg: KiroTurn = {
         assistantResponseMessage: {
           content: content
         }
@@ -89,7 +90,7 @@ function convertMessages(messages, model) {
 
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    let role = msg.role;
+    let role = msg.role as string;
 
     // Normalize: system/tool -> user
     const wasSystem = role === ROLE.SYSTEM;
@@ -109,13 +110,13 @@ function convertMessages(messages, model) {
       if (typeof msg.content === "string") {
         content = msg.content;
       } else if (Array.isArray(msg.content)) {
-        const textParts = [];
-        for (const c of msg.content) {
+        const textParts: string[] = [];
+        for (const c of msg.content as Record<string, unknown>[]) {
           if (c.type === OPENAI_BLOCK.TEXT || c.text) {
-            textParts.push(c.text || "");
+            textParts.push((c.text as string) || "");
           } else if (c.type === OPENAI_BLOCK.IMAGE_URL) {
             // OpenAI format: image_url.url with data URI
-            const url = c.image_url?.url || "";
+            const url = ((c.image_url as Record<string, unknown>)?.url as string) || "";
             const parsed = parseDataUri(url);
             if (parsed) {
               const format = parsed.mimeType.split("/")[1] || parsed.mimeType;
@@ -126,22 +127,24 @@ function convertMessages(messages, model) {
             }
           } else if (c.type === CLAUDE_BLOCK.IMAGE) {
             // Claude format: source.type = "base64", source.media_type, source.data
-            if (c.source?.type === "base64" && c.source?.data) {
-              const mediaType = c.source.media_type || DEFAULT_IMAGE_MIME;
+            const source = c.source as Record<string, unknown> | undefined;
+            if (source?.type === "base64" && source?.data) {
+              const mediaType = (source.media_type as string) || DEFAULT_IMAGE_MIME;
               const format = mediaType.split("/")[1] || mediaType;
-              pendingImages.push({ format, source: { bytes: c.source.data } });
+              pendingImages.push({ format, source: { bytes: source.data } });
             }
           }
         }
         content = textParts.join("\n");
 
         // Check for tool_result blocks
-        const toolResultBlocks = msg.content.filter(c => c.type === CLAUDE_BLOCK.TOOL_RESULT);
+        const toolResultBlocks = (msg.content as Record<string, unknown>[]).filter((c: Record<string, unknown>) => c.type === CLAUDE_BLOCK.TOOL_RESULT);
         if (toolResultBlocks.length > 0) {
-          toolResultBlocks.forEach(block => {
-            const text = Array.isArray(block.content)
-              ? block.content.map(c => c.text || "").join("\n")
-              : (typeof block.content === "string" ? block.content : "");
+          toolResultBlocks.forEach((block: Record<string, unknown>) => {
+            const blockContent = block.content;
+            const text = Array.isArray(blockContent)
+              ? (blockContent as Record<string, unknown>[]).map((c: Record<string, unknown>) => (c.text as string) || "").join("\n")
+              : (typeof blockContent === "string" ? blockContent : "");
 
             pendingToolResults.push({
               toolUseId: block.tool_use_id,
@@ -169,20 +172,20 @@ function convertMessages(messages, model) {
     } else if (role === ROLE.ASSISTANT) {
       // Extract text content and tool uses
       let textContent = "";
-      let toolUses = [];
+      let toolUses: Record<string, unknown>[] = [];
 
       if (Array.isArray(msg.content)) {
-        const textBlocks = msg.content.filter(c => c.type === OPENAI_BLOCK.TEXT);
-        textContent = textBlocks.map(b => b.text).join("\n").trim();
+        const textBlocks = (msg.content as Record<string, unknown>[]).filter((c: Record<string, unknown>) => c.type === OPENAI_BLOCK.TEXT);
+        textContent = textBlocks.map((b: Record<string, unknown>) => b.text).join("\n").trim();
 
-        const toolUseBlocks = msg.content.filter(c => c.type === CLAUDE_BLOCK.TOOL_USE);
+        const toolUseBlocks = (msg.content as Record<string, unknown>[]).filter((c: Record<string, unknown>) => c.type === CLAUDE_BLOCK.TOOL_USE);
         toolUses = toolUseBlocks;
       } else if (typeof msg.content === "string") {
         textContent = msg.content.trim();
       }
 
-      if (msg.tool_calls && msg.tool_calls.length > 0) {
-        toolUses = msg.tool_calls;
+      if (msg.tool_calls && (msg.tool_calls as unknown[]).length > 0) {
+        toolUses = msg.tool_calls as Record<string, unknown>[];
       }
 
       if (textContent) {
@@ -196,17 +199,18 @@ function convertMessages(messages, model) {
 
         const lastMsg = history[history.length - 1];
         if (lastMsg?.assistantResponseMessage) {
-          lastMsg.assistantResponseMessage.toolUses = toolUses.map(tc => {
+          lastMsg.assistantResponseMessage.toolUses = toolUses.map((tc: Record<string, unknown>) => {
             if (tc.function) {
+              const fn = tc.function as Record<string, unknown>;
               return {
-                toolUseId: tc.id || uuidv4(),
-                name: tc.function.name,
-                input: safeJSONParse(tc.function.arguments, {})
+                toolUseId: (tc.id as string) || uuidv4(),
+                name: fn.name as string,
+                input: safeJSONParse(fn.arguments, {})
               };
             } else {
               return {
-                toolUseId: tc.id || uuidv4(),
-                name: tc.name,
+                toolUseId: (tc.id as string) || uuidv4(),
+                name: tc.name as string,
                 input: tc.input || {}
               };
             }
@@ -232,7 +236,7 @@ function convertMessages(messages, model) {
   }
 
   // Clean up history for Kiro API compatibility
-  history.forEach(item => {
+  history.forEach((item: KiroTurn) => {
     if (item.userInputMessage?.userInputMessageContext &&
         Object.keys(item.userInputMessage.userInputMessageContext).length === 0) {
       delete item.userInputMessage.userInputMessageContext;
@@ -245,25 +249,25 @@ function convertMessages(messages, model) {
   // Merge consecutive user messages (Kiro requires alternating user/assistant)
   // When merging, also combine userInputMessageContext fields so toolResults
   // and images from the second message are not silently dropped.
-  const mergedHistory = [];
+  const mergedHistory: KiroTurn[] = [];
   for (let i = 0; i < history.length; i++) {
     const current = history[i];
     if (current.userInputMessage &&
         mergedHistory.length > 0 &&
         mergedHistory[mergedHistory.length - 1].userInputMessage) {
       const prev = mergedHistory[mergedHistory.length - 1];
-      prev.userInputMessage.content += "\n\n" + current.userInputMessage.content;
+      prev.userInputMessage!.content += "\n\n" + current.userInputMessage!.content;
       // Merge context: combine toolResults, images, etc.
-      const prevCtx = prev.userInputMessage.userInputMessageContext;
-      const curCtx = current.userInputMessage.userInputMessageContext;
+      const prevCtx = prev.userInputMessage!.userInputMessageContext;
+      const curCtx = current.userInputMessage!.userInputMessageContext;
       if (curCtx) {
         if (!prevCtx) {
-          prev.userInputMessage.userInputMessageContext = curCtx;
+          prev.userInputMessage!.userInputMessageContext = curCtx;
         } else {
-          if (curCtx.toolResults?.length > 0) {
+          if (curCtx.toolResults && curCtx.toolResults.length > 0) {
             prevCtx.toolResults = [...(prevCtx.toolResults || []), ...curCtx.toolResults];
           }
-          if (curCtx.tools?.length > 0) {
+          if (curCtx.tools && curCtx.tools.length > 0) {
             prevCtx.tools = [...(prevCtx.tools || []), ...curCtx.tools];
           }
         }
@@ -303,8 +307,8 @@ function convertMessages(messages, model) {
  *    name hints. Supported models receive Kiro's schema-specific effort fields;
  *    legacy prompt tags remain only for models that need them.
  */
-export function openaiToKiroRequest(model, body, stream, credentials) {
-  const messages = body.messages || [];
+export function openaiToKiroRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: Record<string, unknown>) {
+  const messages = (body.messages as Record<string, unknown>[]) || [];
   const tools = body.tools || [];
   const maxTokens = 32000;
   const temperature = body.temperature;
@@ -313,7 +317,7 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
   const modelIntent = resolveKiroModelIntent(model);
   const { upstream: upstreamModel, agentic } = modelIntent;
   const thinkingBody = applyKiroThinkingOverride(body, modelIntent.thinkingOverride);
-  const thinkingBudget = resolveKiroThinkingBudget(thinkingBody, credentials?.rawHeaders, modelIntent.model);
+  const thinkingBudget = resolveKiroThinkingBudget(thinkingBody, (credentials as Record<string, unknown>)?.rawHeaders as Record<string, string> | undefined, modelIntent.model);
   const additionalModelRequestFields = buildKiroAdditionalModelRequestFieldsForModel(thinkingBody, upstreamModel);
   const usesNativeGptEffort = usesKiroNativeGptEffort(thinkingBody, upstreamModel);
 
@@ -331,19 +335,20 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
   // account and triggers 403 "bearer token invalid", so never fall back to it —
   // send the resolved ARN, or an empty string so CodeWhisperer uses the token's
   // own default profile. Only OAuth/social keep the shared placeholder.
-  const authMethod = credentials?.providerSpecificData?.authMethod;
+  const providerSpecificData = (credentials as Record<string, unknown>)?.providerSpecificData as Record<string, unknown> | undefined;
+  const authMethod = providerSpecificData?.authMethod as string | undefined;
   const accountBoundAuth =
     authMethod === "api_key" || authMethod === "idc" || authMethod === "external_idp";
   const profileArn = accountBoundAuth
-    ? (credentials?.providerSpecificData?.profileArn || "")
-    : (credentials?.providerSpecificData?.profileArn || resolveDefaultProfileArn(authMethod));
+    ? ((providerSpecificData?.profileArn as string) || "")
+    : ((providerSpecificData?.profileArn as string) || resolveDefaultProfileArn(authMethod || ""));
 
   const timestamp = new Date().toISOString();
 
   // Kiro CLI/KAS sends these as top-level systemPrompt. Keep a content fallback
   // too because the CodeWhisperer surface does not always enforce top-level
   // systemPrompt for direct calls.
-  const systemPromptParts = [];
+  const systemPromptParts: string[] = [];
   if (thinkingBudget !== null && !usesNativeGptEffort) {
     systemPromptParts.push(buildThinkingSystemPrefix(thinkingBudget));
   }
@@ -354,23 +359,25 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
   const currentTimeContext = `[Context: Current time is ${timestamp}]`;
   const contentPrefix = [systemPrompt, currentTimeContext].filter(Boolean).join("\n\n");
 
-  const sessionIdentity = resolveSessionIdentity({ headers: credentials?.rawHeaders, body, connectionId: credentials?.connectionId, scope: "kiro" });
+  const rawHeaders = (credentials as Record<string, unknown>)?.rawHeaders as Record<string, string> | undefined;
+  const connectionId = (credentials as Record<string, unknown>)?.connectionId as string | undefined;
+  const sessionIdentity = resolveSessionIdentity({ headers: rawHeaders, body, connectionId, scope: "kiro" });
   const conversationId = sessionIdentity.sessionId;
   const continuationId = resolveContinuationId({
     sessionId: conversationId,
-    connectionId: credentials?.connectionId,
+    connectionId,
     scope: "kiro",
     ephemeral: sessionIdentity.ephemeral,
   });
   const replay = applyKiroSessionReplay({
     conversationId,
-    connectionId: credentials?.connectionId,
+    connectionId,
     modelId: upstreamModel,
     systemPrompt,
     contentPrefix,
     currentContentPrefix: currentTimeContext,
-    history,
-    currentMessage,
+    history: history as unknown as Record<string, unknown>[],
+    currentMessage: currentMessage as unknown as Record<string, unknown>,
   });
   const canonical = canonicalizeKiroConversation({
     history: replay.history,
@@ -391,9 +398,9 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
     console.error(`[Kiro] refusing invalid conversation (openai → kiro): ${(canonical.errors || []).join(", ") || "unknown"} | turns=${(canonical.history || []).length + 1}`);
     return null;
   }
-  const replayCurrent = canonical.currentMessage.userInputMessage;
+  const replayCurrent = canonical.currentMessage.userInputMessage!;
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     conversationState: {
       chatTriggerType: "MANUAL",
       conversationId,
@@ -404,7 +411,7 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
           content: replayCurrent.content || "",
           modelId: upstreamModel,
           origin: "AI_EDITOR",
-          ...(replayCurrent.images?.length > 0 && {
+          ...(replayCurrent.images && replayCurrent.images.length > 0 && {
             images: replayCurrent.images
           }),
           ...(replayCurrent.userInputMessageContext && {
@@ -426,10 +433,11 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
   }
 
   if (maxTokens || temperature !== undefined || topP !== undefined) {
-    payload.inferenceConfig = {};
-    if (maxTokens) payload.inferenceConfig.maxTokens = maxTokens;
-    if (temperature !== undefined) payload.inferenceConfig.temperature = temperature;
-    if (topP !== undefined) payload.inferenceConfig.topP = topP;
+    const inferenceConfig: Record<string, unknown> = {};
+    if (maxTokens) inferenceConfig.maxTokens = maxTokens;
+    if (temperature !== undefined) inferenceConfig.temperature = temperature;
+    if (topP !== undefined) inferenceConfig.topP = topP;
+    payload.inferenceConfig = inferenceConfig;
   }
 
   // Tag payload so the executor can route the upstream model id correctly.
@@ -441,4 +449,4 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
   return payload;
 }
 
-register(FORMATS.OPENAI, FORMATS.KIRO, openaiToKiroRequest, null);
+register(FORMATS.OPENAI, FORMATS.KIRO, openaiToKiroRequest as unknown as Parameters<typeof register>[2], null);

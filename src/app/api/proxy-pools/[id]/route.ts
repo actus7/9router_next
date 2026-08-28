@@ -6,11 +6,11 @@ import {
   updateProxyPool,
 } from "@/models";
 
-function normalizeProxyPoolUpdate(body = {}) {
-  const updates = {};
+function normalizeProxyPoolUpdate(body: Record<string, unknown> = {}) {
+  const updates: Record<string, unknown> = {};
 
   if (Object.prototype.hasOwnProperty.call(body, "name")) {
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const name = typeof body?.name === "string" ? (body.name as string).trim() : "";
     if (!name) {
       return { error: "Name is required" };
     }
@@ -18,7 +18,7 @@ function normalizeProxyPoolUpdate(body = {}) {
   }
 
   if (Object.prototype.hasOwnProperty.call(body, "proxyUrl")) {
-    const proxyUrl = typeof body?.proxyUrl === "string" ? body.proxyUrl.trim() : "";
+    const proxyUrl = typeof body?.proxyUrl === "string" ? (body.proxyUrl as string).trim() : "";
     if (!proxyUrl) {
       return { error: "Proxy URL is required" };
     }
@@ -26,7 +26,7 @@ function normalizeProxyPoolUpdate(body = {}) {
   }
 
   if (Object.prototype.hasOwnProperty.call(body, "noProxy")) {
-    updates.noProxy = typeof body?.noProxy === "string" ? body.noProxy.trim() : "";
+    updates.noProxy = typeof body?.noProxy === "string" ? (body.noProxy as string).trim() : "";
   }
 
   if (Object.prototype.hasOwnProperty.call(body, "isActive")) {
@@ -39,14 +39,14 @@ function normalizeProxyPoolUpdate(body = {}) {
 
   if (Object.prototype.hasOwnProperty.call(body, "type")) {
     const validTypes = ["http", "vercel", "cloudflare"];
-    updates.type = validTypes.includes(body?.type) ? body.type : "http";
+    updates.type = validTypes.includes(body?.type as string) ? body.type : "http";
   }
 
   return { updates };
 }
 
-function countBoundConnections(connections = [], proxyPoolId) {
-  return connections.filter((connection) => connection?.providerSpecificData?.proxyPoolId === proxyPoolId).length;
+function countBoundConnections(connections: Record<string, unknown>[] = [], proxyPoolId: string) {
+  return connections.filter((connection) => (connection?.providerSpecificData as Record<string, unknown>)?.proxyPoolId === proxyPoolId).length;
 }
 
 // GET /api/proxy-pools/[id] - Get proxy pool
@@ -83,7 +83,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: normalized.error }, { status: 400 });
     }
 
-    const updated = await updateProxyPool(id, normalized.updates);
+    const updated = await updateProxyPool(id, normalized.updates as Parameters<typeof updateProxyPool>[1]);
     return NextResponse.json({ proxyPool: updated });
   } catch (error) {
     console.error("Error updating proxy pool:", error);

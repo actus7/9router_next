@@ -10,8 +10,8 @@ export async function POST() {
       .then(configureTunnelMonitoring)
       .catch((error) => console.warn("Tailscale monitor start failed:", error.message));
     return NextResponse.json(result);
-  } catch (error) {
-    console.error("Tailscale enable error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Tailscale enable error:", (error as Error).message);
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

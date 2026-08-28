@@ -8,7 +8,7 @@ import { toFiniteNumber } from "./shared";
 
 const BALANCE_URL = "https://api.deepseek.com/user/balance";
 
-function parseBalanceInfos(data) {
+function parseBalanceInfos(data: Record<string, unknown>): { currency: string; totalBalance: number; grantedBalance: number; toppedUpBalance: number }[] {
   const list = Array.isArray(data?.balance_infos) ? data.balance_infos : [];
   const results = [];
   for (const item of list) {
@@ -40,8 +40,8 @@ function parseBalanceInfos(data) {
  * @param {string|null|undefined} apiKey
  * @param {object|null} proxyOptions
  */
-export async function getDeepseekUsage(apiKey = null, proxyOptions = null) {
-  if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
+export async function getDeepseekUsage(apiKey: string | null = null, proxyOptions: unknown = null) {
+  if (!apiKey || typeof apiKey !== "string" || !(apiKey as string).trim()) {
     return { message: "DeepSeek API key not available. Add a key to view usage." };
   }
 
@@ -56,7 +56,7 @@ export async function getDeepseekUsage(apiKey = null, proxyOptions = null) {
           Accept: "application/json",
         },
       },
-      proxyOptions,
+      proxyOptions as null,
     );
 
     if (response.status === 401 || response.status === 403) {
@@ -88,7 +88,7 @@ export async function getDeepseekUsage(apiKey = null, proxyOptions = null) {
     }
 
     const isAvailable = data.is_available === true || data.isAvailable === true;
-    const quotas = {};
+    const quotas: Record<string, unknown> = {};
     for (const b of balances) {
       const total = Math.max(0, b.totalBalance);
       // Credit pot: show full remaining against current balance; never set absolute
@@ -106,7 +106,7 @@ export async function getDeepseekUsage(apiKey = null, proxyOptions = null) {
       plan: isAvailable ? "DeepSeek" : "DeepSeek (Insufficient Balance)",
       quotas,
     };
-  } catch (error) {
-    return { message: `DeepSeek error: ${error.message}` };
+  } catch (error: unknown) {
+    return { message: `DeepSeek error: ${error instanceof Error ? error.message : String(error)}` };
   }
 }

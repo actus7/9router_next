@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    const pageRaw = parseInt(searchParams.get("page"));
+    const pageRaw = parseInt(searchParams.get("page") ?? "");
     const page = Number.isNaN(pageRaw) ? 1 : pageRaw;
-    const pageSizeRaw = parseInt(searchParams.get("pageSize"));
+    const pageSizeRaw = parseInt(searchParams.get("pageSize") ?? "");
     const pageSize = Number.isNaN(pageSizeRaw) ? 20 : pageSizeRaw;
     const provider = searchParams.get("provider");
     const model = searchParams.get("model");
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const filter = {
+    const filter: Record<string, unknown> = {
       page,
       pageSize
     };

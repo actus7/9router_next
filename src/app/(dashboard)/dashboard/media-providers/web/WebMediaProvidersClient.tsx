@@ -67,7 +67,7 @@ function ProviderCard({ provider, kind, connections }: { provider: Provider; kin
         <div className="flex min-w-0 items-center gap-3">
           <div
             className="size-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `${provider.color?.length > 7 ? provider.color : (provider.color ?? "#888") + "15"}` }}
+            style={{ backgroundColor: `${(provider.color?.length ?? 0) > 7 ? provider.color : (provider.color ?? "#888") + "15"}` }}
           >
             <ProviderIcon
               src={`/providers/${provider.id}.png`}
@@ -104,7 +104,7 @@ function ComboList({ combos }: { combos: Combo[] }) {
               <div className="flex flex-wrap items-center gap-1 sm:shrink-0">
                 {combo.models.slice(0, 6).map((entry, i) => {
                   const pid = typeof entry === "string" ? entry.split("/")[0] : "";
-                  const p = AI_PROVIDERS[pid];
+                  const p = AI_PROVIDERS[pid] as { name?: string; color?: string; textIcon?: string } | undefined;
                   return (
                     <div key={`${entry}-${i}`} title={p?.name || entry} className="size-5 rounded flex items-center justify-center" style={{ backgroundColor: `${(p?.color ?? "#888")}15` }}>
                       <ProviderIcon
@@ -187,8 +187,8 @@ export default function WebMediaProvidersClient({ initialConnections, initialCom
   const [connections, setConnections] = useState<Connection[]>(initialConnections);
   const [combos, setCombos] = useState<Combo[]>(initialCombos);
 
-  const searchProviders = getProvidersByKind("webSearch");
-  const fetchProviders = getProvidersByKind("webFetch");
+  const searchProviders = getProvidersByKind("webSearch") as unknown as Provider[];
+  const fetchProviders = getProvidersByKind("webFetch") as unknown as Provider[];
   const searchCombos = combos.filter((c) => c.kind === "webSearch");
   const fetchCombos = combos.filter((c) => c.kind === "webFetch");
 

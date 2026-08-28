@@ -1,0 +1,25 @@
+﻿Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+Warning: Dynamic filesystem access causes tracing of the whole project
+src/app/api/tunnel/tailscale-check/route.ts(52,39): error TS18046: 'error' is of type 'unknown'.
+src/app/api/tunnel/tailscale-disable/route.ts(15,39): error TS18046: 'error' is of type 'unknown'.
+src/app/api/tunnel/tailscale-enable/route.ts(14,46): error TS18046: 'error' is of type 'unknown'.
+src/app/api/tunnel/tailscale-enable/route.ts(15,39): error TS18046: 'error' is of type 'unknown'.
+src/app/api/tunnel/tailscale-install/route.ts(38,21): error TS7006: Parameter 'event' implicitly has an 'any' type.
+src/app/api/tunnel/tailscale-install/route.ts(38,28): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/app/api/tunnel/tailscale-install/route.ts(54,21): error TS18046: 'error' is of type 'unknown'.
+src/app/api/tunnel/tailscale-install/route.ts(54,70): error TS18046: 'error' is of type 'unknown'.
+src/app/api/tunnel/tailscale-install/route.ts(56,13): error TS18046: 'error' is of type 'unknown'.
+src/lib/tunnel/tailscale/tailscale.ts(290,3): error TS2741: Property 'success' is missing in type 'LoginResult' but required in type '{ success: boolean; authUrl?: string | undefined; alreadyLoggedIn?: boolean | undefined; }'.

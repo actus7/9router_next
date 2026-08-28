@@ -7,15 +7,17 @@ interface ComboRow {
   name: string;
   kind: string | null;
   models: string;
+  routing: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-interface Combo {
+export interface Combo {
   id: string;
   name: string;
   kind: string | null;
   models: unknown[];
+  routing: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,6 +29,7 @@ function rowToCombo(row: ComboRow | undefined): Combo | null {
     name: row.name,
     kind: row.kind,
     models: parseJson(row.models, []) as unknown[],
+    routing: row.routing ? parseJson(row.routing, null) as Record<string, unknown> | null : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -54,6 +57,7 @@ interface ComboInput {
   name: string;
   kind?: string | null;
   models?: unknown[];
+  routing?: Record<string, unknown> | null;
 }
 
 export async function createCombo(data: ComboInput): Promise<Combo> {
@@ -64,12 +68,13 @@ export async function createCombo(data: ComboInput): Promise<Combo> {
     name: data.name,
     kind: data.kind || null,
     models: data.models || [],
+    routing: data.routing || null,
     createdAt: now,
     updatedAt: now,
   };
   db.run(
-    `INSERT INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
-    [combo.id, combo.name, combo.kind, stringifyJson(combo.models), combo.createdAt, combo.updatedAt]
+    `INSERT INTO combos(id, name, kind, models, routing, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)`,
+    [combo.id, combo.name, combo.kind, stringifyJson(combo.models), combo.routing ? stringifyJson(combo.routing) : null, combo.createdAt, combo.updatedAt]
   );
   return combo;
 }
@@ -82,8 +87,8 @@ export async function updateCombo(id: string, data: Partial<ComboInput>): Promis
     if (!row) return;
     const merged: Combo = { ...rowToCombo(row)!, ...data, updatedAt: new Date().toISOString() };
     db.run(
-      `UPDATE combos SET name = ?, kind = ?, models = ?, updatedAt = ? WHERE id = ?`,
-      [merged.name, merged.kind, stringifyJson(merged.models || []), merged.updatedAt, id]
+      `UPDATE combos SET name = ?, kind = ?, models = ?, routing = ?, updatedAt = ? WHERE id = ?`,
+      [merged.name, merged.kind, stringifyJson(merged.models || []), merged.routing ? stringifyJson(merged.routing) : null, merged.updatedAt, id]
     );
     result = merged;
   });

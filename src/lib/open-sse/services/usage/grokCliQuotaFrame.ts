@@ -24,11 +24,23 @@ const WIRE_TYPE_FIXED32 = 5;
 const GRPC_WEB_TRAILER_FLAG_BIT = 0x80;
 const MAX_VARINT_SHIFT_BITS = 70n;
 
+interface ProtoField {
+  wireType: number;
+  value?: number;
+  bytes?: Buffer;
+}
+
+interface FrameHeader {
+  flag: number;
+  payloadStart: number;
+  payloadLength: number;
+}
+
 /**
  * Validate a gRPC-web frame header at `offset`.
  * @returns {{ flag: number, payloadStart: number, payloadLength: number } | null}
  */
-export function probeFrameHeader(buffer, offset = 0) {
+export function probeFrameHeader(buffer: Buffer, offset = 0): FrameHeader | null {
   if (!Buffer.isBuffer(buffer) || offset < 0 || buffer.length - offset < 5) return null;
   const flag = buffer[offset];
   if (flag !== 0x00 && flag !== 0x01 && flag !== 0x80 && flag !== 0x81) return null;
@@ -38,7 +50,7 @@ export function probeFrameHeader(buffer, offset = 0) {
   return { flag, payloadStart, payloadLength };
 }
 
-function readVarint(buffer, offset) {
+function readVarint(buffer: Buffer, offset: number): { value: number; next: number } | null {
   let result = 0n;
   let shift = 0n;
   let pos = offset;
@@ -54,7 +66,7 @@ function readVarint(buffer, offset) {
   return { value: Number(result), next: pos };
 }
 
-function readLengthDelimitedField(buffer, offset) {
+function readLengthDelimitedField(buffer: Buffer, offset: number): { field: ProtoField; next: number } | null {
   const lengthResult = readVarint(buffer, offset);
   if (!lengthResult) return null;
   const { value: length, next: bodyStart } = lengthResult;
@@ -65,7 +77,7 @@ function readLengthDelimitedField(buffer, offset) {
   };
 }
 
-function readFixedWidthField(buffer, offset, width, wireType) {
+function readFixedWidthField(buffer: Buffer, offset: number, width: number, wireType: number): { field: ProtoField; next: number } | null {
   if (offset + width > buffer.length) return null;
   return {
     field: { wireType, bytes: buffer.subarray(offset, offset + width) },
@@ -73,7 +85,7 @@ function readFixedWidthField(buffer, offset, width, wireType) {
   };
 }
 
-function readField(buffer, offset) {
+function readField(buffer: Buffer, offset: number): { fieldNumber: number; field: ProtoField; next: number } | null {
   const tagResult = readVarint(buffer, offset);
   if (!tagResult) return null;
   const fieldNumber = tagResult.value >>> 3;
@@ -104,8 +116,8 @@ function readField(buffer, offset) {
   return null;
 }
 
-function decodeFields(buffer) {
-  const fields = new Map();
+function decodeFields(buffer: Buffer): Map<number, ProtoField> | null {
+  const fields = new Map<number, ProtoField>();
   let offset = 0;
   while (offset < buffer.length) {
     const result = readField(buffer, offset);
@@ -116,7 +128,7 @@ function decodeFields(buffer) {
   return fields;
 }
 
-function findDataFramePayload(buffer) {
+function findDataFramePayload(buffer: Buffer): Buffer | null {
   let offset = 0;
   while (offset < buffer.length) {
     const frame = probeFrameHeader(buffer, offset);
@@ -131,28 +143,28 @@ function findDataFramePayload(buffer) {
   return null;
 }
 
-function extractNestedMessage(field) {
-  if (!field || field.wireType !== WIRE_TYPE_LENGTH_DELIMITED) return null;
+function extractNestedMessage(field: ProtoField | undefined): Map<number, ProtoField> | null {
+  if (!field || field.wireType !== WIRE_TYPE_LENGTH_DELIMITED || !field.bytes) return null;
   return decodeFields(field.bytes);
 }
 
-function extractUsageRatio(field) {
+function extractUsageRatio(field: ProtoField | undefined): number | null {
   if (!field) return 0; // proto3 omission = 0% used
-  if (field.wireType === WIRE_TYPE_FIXED32) return field.bytes.readFloatLE(0);
-  if (field.wireType === WIRE_TYPE_FIXED64) return field.bytes.readDoubleLE(0);
+  if (field.wireType === WIRE_TYPE_FIXED32 && field.bytes) return field.bytes.readFloatLE(0);
+  if (field.wireType === WIRE_TYPE_FIXED64 && field.bytes) return field.bytes.readDoubleLE(0);
   return null;
 }
 
-function extractResetAt(field) {
-  if (!field || field.wireType !== WIRE_TYPE_LENGTH_DELIMITED) return null;
+function extractResetAt(field: ProtoField | undefined): string | null {
+  if (!field || field.wireType !== WIRE_TYPE_LENGTH_DELIMITED || !field.bytes) return null;
 
   const timestampFields = decodeFields(field.bytes);
   if (!timestampFields) return null;
 
   const secondsField = timestampFields.get(TIMESTAMP_FIELD_SECONDS);
   const nanosField = timestampFields.get(TIMESTAMP_FIELD_NANOS);
-  const seconds = secondsField?.wireType === WIRE_TYPE_VARINT ? secondsField.value : 0;
-  const nanos = nanosField?.wireType === WIRE_TYPE_VARINT ? nanosField.value : 0;
+  const seconds = secondsField?.wireType === WIRE_TYPE_VARINT ? secondsField.value! : 0;
+  const nanos = nanosField?.wireType === WIRE_TYPE_VARINT ? nanosField.value! : 0;
 
   const millis = seconds * 1000 + Math.round(nanos / 1_000_000);
   const parsed = new Date(millis);
@@ -164,7 +176,7 @@ function extractResetAt(field) {
  * @param {Buffer} buffer
  * @returns {{ percentUsed: number, resetAt: string|null } | null}
  */
-export function decodeGrokCreditsFrame(buffer) {
+export function decodeGrokCreditsFrame(buffer: Buffer | null): { percentUsed: number; resetAt: string | null } | null {
   if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) return null;
 
   try {

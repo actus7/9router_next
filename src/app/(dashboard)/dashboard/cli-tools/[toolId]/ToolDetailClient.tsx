@@ -56,7 +56,7 @@ interface ApiKey {
 }
 
 export default function ToolDetailClient({ toolId, machineId }: ToolDetailClientProps) {
-  const tool = CLI_TOOLS[toolId];
+  const tool = CLI_TOOLS[toolId as keyof typeof CLI_TOOLS] as unknown as { name: string; description?: string; requiresExternalUrl?: boolean; image?: string; color?: string; notes?: Array<{ type: string; text: string }>; defaultModels: Array<{ alias: string; name: string; envKey?: string; defaultValue?: string }>; guideSteps?: Array<{ step: number; title: string; desc?: string; type?: string; value?: string; copyable?: boolean }>; [key: string]: unknown };
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [modelMappings, setModelMappings] = useState<ModelMappings>({});
@@ -114,7 +114,7 @@ export default function ToolDetailClient({ toolId, machineId }: ToolDetailClient
     const seenModels = new Set<string>();
     activeProviders.forEach(conn => {
       const alias = PROVIDER_ID_TO_ALIAS[conn.provider] || conn.provider;
-      const providerModels = getModelsByProviderId(conn.provider);
+      const providerModels = getModelsByProviderId(conn.provider) as Array<{ id: string; name: string }>;
       providerModels.forEach(m => {
         const modelValue = `${alias}/${m.id}`;
         if (!seenModels.has(modelValue)) {
@@ -209,7 +209,7 @@ export default function ToolDetailClient({ toolId, machineId }: ToolDetailClient
   // Guard removed/unknown tools (e.g. disabled Cowork) to avoid crash on direct URL.
   if (!tool) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-1 sm:px-0">
+      <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
         <Link href="/dashboard/cli-tools" className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary w-fit">
           <ArrowLeft className="size-5" />
           Back to CLI Tools
@@ -220,7 +220,7 @@ export default function ToolDetailClient({ toolId, machineId }: ToolDetailClient
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-1 sm:px-0">
+    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       <Link href="/dashboard/cli-tools" className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary w-fit">
         <ArrowLeft className="size-5" />
         Back to CLI Tools

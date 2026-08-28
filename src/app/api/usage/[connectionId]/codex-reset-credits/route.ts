@@ -9,25 +9,25 @@ import { refreshAndUpdateCredentials } from "../route";
 
 const AUTH_EXPIRED_PATTERNS = ["expired", "authentication", "unauthorized", "401", "re-authorize"];
 
-function isAuthExpiredResult(result) {
-  const values = [result?.message, result?.code, result?.raw?.detail, result?.raw?.error]
+function isAuthExpiredResult(result: Record<string, unknown>) {
+  const values = [result?.message, result?.code, (result?.raw as Record<string, unknown>)?.detail, (result?.raw as Record<string, unknown>)?.error]
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
   return values.some((value) => AUTH_EXPIRED_PATTERNS.some((pattern) => value.includes(pattern)));
 }
 
-function isAuthExpiredError(error) {
-  return isAuthExpiredResult({ message: error?.message });
+function isAuthExpiredError(error: unknown) {
+  return isAuthExpiredResult({ message: (error as Error)?.message });
 }
 
-function getResponseForConsumeResult(result, redeemRequestId) {
+function getResponseForConsumeResult(result: Record<string, unknown>, redeemRequestId: string) {
   if (result.ok) {
     return Response.json({
       code: result.code,
       reset: true,
       windows_reset: result.windowsReset,
       redeemRequestId,
-      credit: result.raw?.credit || null,
+      credit: (result.raw as Record<string, unknown>)?.credit || null,
     });
   }
 
@@ -45,10 +45,10 @@ function getResponseForConsumeResult(result, redeemRequestId) {
     reset: false,
     windows_reset: result.windowsReset,
     message: result.message || "Codex reset credit consume returned an unexpected response.",
-  }, { status: result.status >= 400 && result.status < 500 ? result.status : 502 });
+  }, { status: (result.status as number) >= 400 && (result.status as number) < 500 ? result.status as number : 502 });
 }
 
-async function getCodexConnection(connectionId) {
+async function getCodexConnection(connectionId: string) {
   const connection = await getProviderConnectionById(connectionId);
   if (!connection) {
     return { response: Response.json({ error: "Connection not found" }, { status: 404 }) };
@@ -76,82 +76,82 @@ async function getCodexConnection(connectionId) {
   return { connection, isOAuth, proxyOptions };
 }
 
-async function refreshCodexConnection(connection, proxyOptions) {
+async function refreshCodexConnection(connection: Record<string, unknown>, proxyOptions: Record<string, unknown>) {
   try {
-    const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
+    const result = await refreshAndUpdateCredentials(connection, false, proxyOptions as never);
     return { connection: result.connection };
-  } catch (refreshError) {
+  } catch (refreshError: unknown) {
     console.error("[Codex Reset Credits API] Credential refresh failed:", refreshError);
-    return { response: Response.json({ error: `Credential refresh failed: ${refreshError.message}` }, { status: 401 }) };
+    return { response: Response.json({ error: `Credential refresh failed: ${(refreshError as Error).message}` }, { status: 401 }) };
   }
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ connectionId: string }> }) {
-  let connection;
+  let connection: Record<string, unknown> | undefined;
   try {
     const { connectionId } = await params;
     const resolved = await getCodexConnection(connectionId);
     if (resolved.response) return resolved.response;
-    ({ connection } = resolved);
-    const { isOAuth, proxyOptions } = resolved;
+    ({ connection } = resolved as { connection: Record<string, unknown> });
+    const { isOAuth, proxyOptions } = resolved as { isOAuth: boolean; proxyOptions: Record<string, unknown> };
 
     if (isOAuth) {
-      const refreshed = await refreshCodexConnection(connection, proxyOptions);
+      const refreshed = await refreshCodexConnection(connection!, proxyOptions);
       if (refreshed.response) return refreshed.response;
       connection = refreshed.connection;
     }
 
     let result;
     try {
-      result = await getCodexRateLimitResetCredits(connection.accessToken, proxyOptions, connection.providerSpecificData);
+      result = await getCodexRateLimitResetCredits(connection!.accessToken as string, proxyOptions as never, connection!.providerSpecificData as Record<string, unknown>);
     } catch (fetchError) {
-      if (!isOAuth || !connection.refreshToken || !isAuthExpiredError(fetchError)) throw fetchError;
-      const retryResult = await refreshAndUpdateCredentials(connection, true, proxyOptions);
+      if (!isOAuth || !connection!.refreshToken || !isAuthExpiredError(fetchError)) throw fetchError;
+      const retryResult = await refreshAndUpdateCredentials(connection!, true, proxyOptions as never);
       connection = retryResult.connection;
-      result = await getCodexRateLimitResetCredits(connection.accessToken, proxyOptions, connection.providerSpecificData);
+      result = await getCodexRateLimitResetCredits(connection!.accessToken as string, proxyOptions as never, connection!.providerSpecificData as Record<string, unknown>);
     }
 
     return Response.json(result);
-  } catch (error) {
-    const provider = connection?.provider ?? "unknown";
-    console.warn(`[Codex Reset Credits] ${provider}: ${error.message}`);
-    return Response.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const provider = (connection as Record<string, unknown>)?.provider ?? "unknown";
+    console.warn(`[Codex Reset Credits] ${provider}: ${(error as Error).message}`);
+    return Response.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ connectionId: string }> }) {
-  let connection;
+  let connection: Record<string, unknown> | undefined;
   try {
     const { connectionId } = await params;
     const resolved = await getCodexConnection(connectionId);
     if (resolved.response) return resolved.response;
-    ({ connection } = resolved);
-    const { isOAuth, proxyOptions } = resolved;
+    ({ connection } = resolved as { connection: Record<string, unknown> });
+    const { isOAuth, proxyOptions } = resolved as { isOAuth: boolean; proxyOptions: Record<string, unknown> };
 
     if (isOAuth) {
-      const refreshed = await refreshCodexConnection(connection, proxyOptions);
+      const refreshed = await refreshCodexConnection(connection!, proxyOptions);
       if (refreshed.response) return refreshed.response;
       connection = refreshed.connection;
     }
 
     // Server-generated redeem id prevents client-controlled replay
     const redeemRequestId = crypto.randomUUID();
-    let consumeResult = await consumeCodexRateLimitResetCredit(connection.accessToken, redeemRequestId, proxyOptions);
+    let consumeResult = await consumeCodexRateLimitResetCredit(connection!.accessToken as string, redeemRequestId, proxyOptions as never);
 
-    if (isOAuth && isAuthExpiredResult(consumeResult) && connection.refreshToken) {
+    if (isOAuth && isAuthExpiredResult(consumeResult as Record<string, unknown>) && connection!.refreshToken) {
       try {
-        const retryResult = await refreshAndUpdateCredentials(connection, true, proxyOptions);
+        const retryResult = await refreshAndUpdateCredentials(connection!, true, proxyOptions as never);
         connection = retryResult.connection;
-        consumeResult = await consumeCodexRateLimitResetCredit(connection.accessToken, redeemRequestId, proxyOptions);
-      } catch (retryError) {
-        console.warn(`[Codex Reset Credits] force refresh failed: ${retryError.message}`);
+        consumeResult = await consumeCodexRateLimitResetCredit(connection!.accessToken as string, redeemRequestId, proxyOptions as never);
+      } catch (retryError: unknown) {
+        console.warn(`[Codex Reset Credits] force refresh failed: ${(retryError as Error).message}`);
       }
     }
 
-    return getResponseForConsumeResult(consumeResult, redeemRequestId);
-  } catch (error) {
-    const provider = connection?.provider ?? "unknown";
-    console.warn(`[Codex Reset Credits] ${provider}: ${error.message}`);
-    return Response.json({ error: error.message }, { status: 500 });
+    return getResponseForConsumeResult(consumeResult as Record<string, unknown>, redeemRequestId);
+  } catch (error: unknown) {
+    const provider = (connection as Record<string, unknown>)?.provider ?? "unknown";
+    console.warn(`[Codex Reset Credits] ${provider}: ${(error as Error).message}`);
+    return Response.json({ error: (error as Error).message }, { status: 500 });
   }
 }

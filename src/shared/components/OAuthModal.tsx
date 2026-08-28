@@ -646,7 +646,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   const isXaiProvider = provider === "xai";
   const isKimchiProvider = provider === "kimchi";
   const deviceLoginUrl = (deviceData?.verification_uri_complete as string) || (deviceData?.verification_uri as string) || "";
-  const modalTitle = isXaiProvider ? "Connect Grok Build OAuth" : `Connect ${providerInfo.name}`;
+  const modalTitle = isXaiProvider ? "Conectar Grok Build OAuth" : `Conectar ${providerInfo.name}`;
   const manualPlaceholder = isXaiProvider
     ? "http://127.0.0.1:56121/callback?code=... or copied code"
     : isKimchiProvider
@@ -667,7 +667,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             {modalTitle}
           </DialogTitle>
-          <Button onClick={handleClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={handleClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -683,7 +683,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                 variant={authMode === "browser" ? "primary" : "ghost"}
                 className="flex-1"
               >
-                🌐 Sign in with browser
+                🌐 Entrar com navegador
               </Button>
               <Button
                 type="button"
@@ -691,7 +691,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                 variant={authMode === "paste-token" ? "primary" : "ghost"}
                 className="flex-1"
               >
-                🔑 Paste token
+                🔑 Colar token
               </Button>
             </div>
 
@@ -700,13 +700,13 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                 {step === "waiting" && (
                   <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">
                     <Loader2 className="size-4" />
-                    <span className="text-sm">Waiting for browser authorization…</span>
+                    <span className="text-sm">Aguardando autorização do navegador…</span>
                   </div>
                 )}
                 {step === "input" && (
                   <div className="space-y-3">
                     <p className="text-sm text-text-muted">
-                      Popup was blocked. After authorizing in the browser, paste the full callback URL here:
+                      O popup foi bloqueado. Após autorizar no navegador, cole a URL de callback completa aqui:
                     </p>
                     <Input
                       value={callbackUrl}
@@ -715,8 +715,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                       className="font-mono text-xs"
                     />
                     <div className="flex gap-2">
-                      <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>Connect</Button>
-                      <Button onClick={handleClose} variant="ghost" fullWidth>Cancel</Button>
+                      <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>Conectar</Button>
+                      <Button onClick={handleClose} variant="ghost" fullWidth>Cancelar</Button>
                     </div>
                   </div>
                 )}
@@ -727,10 +727,10 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
               <div className="space-y-3">
                 {ideStatus && !ideStatus.installed && (
                   <div className={`px-3 py-2 rounded-lg text-sm ${PASTE_TOKEN_PROVIDERS[provider].ideOptional ? "bg-blue-500/10 text-blue-700 dark:text-blue-300" : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"}`}>
-                    {PASTE_TOKEN_PROVIDERS[provider].ideName} IDE not detected.
+                    {PASTE_TOKEN_PROVIDERS[provider].ideName} IDE não detectado.
                     {PASTE_TOKEN_PROVIDERS[provider].ideOptional
-                      ? " You can still grab the token from DevTools."
-                      : ` Install ${PASTE_TOKEN_PROVIDERS[provider].ideName} IDE to get the token, or use "Sign in with browser".`}
+                      ? " Você ainda pode obter o token pelas DevTools."
+                      : ` Instale o IDE ${PASTE_TOKEN_PROVIDERS[provider].ideName} para obter o token, ou use "Entrar com navegador".`}
                   </div>
                 )}
                 <p className="text-sm text-text-muted">{PASTE_TOKEN_PROVIDERS[provider].instructions}</p>
@@ -741,8 +741,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                   className="font-mono text-xs"
                 />
                 <div className="flex gap-2">
-                  <Button onClick={handleManualSubmit} fullWidth disabled={!pasteToken}>Connect</Button>
-                  <Button onClick={handleClose} variant="ghost" fullWidth>Cancel</Button>
+                  <Button onClick={handleManualSubmit} fullWidth disabled={!pasteToken}>Conectar</Button>
+                  <Button onClick={handleClose} variant="ghost" fullWidth>Cancelar</Button>
                 </div>
               </div>
             )}
@@ -755,39 +755,39 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">
               <Loader2 className="size-4" />
               <span className="text-sm">
-                {isXaiProvider ? "Waiting for Grok Build OAuth…" : "Waiting for popup authorization…"}
+                {isXaiProvider ? "Aguardando Grok Build OAuth…" : "Aguardando autorização do popup…"}
               </span>
             </div>
 
             <div className="flex items-center gap-3 my-1">
               <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-text-muted uppercase tracking-wider">Or paste callback URL manually</span>
+              <span className="text-xs text-text-muted uppercase tracking-wider">Ou cole a URL de callback manualmente</span>
               <div className="flex-1 h-px bg-border" />
             </div>
 
             <div className="space-y-4">
               <div>
                 <p className="text-sm font-medium mb-2">
-                  Step 1: Open this {isXaiProvider ? "Grok Build OAuth URL" : "URL"} in your browser
+                  Passo 1: Abra esta {isXaiProvider ? "URL do Grok Build OAuth" : "URL"} no seu navegador
                 </p>
                 <div className="flex gap-2">
                   <Input value={(authData?.authUrl as string) || ""} readOnly className="flex-1 font-mono text-xs" />
                   <Button variant="secondary" icon={copied === "auth_url" ? <Check className="size-4" /> : <Copy className="size-4" />} onClick={() => copy(authData?.authUrl as string, "auth_url")} disabled={!authData?.authUrl}>
-                    Copy
+                    Copiar
                   </Button>
                 </div>
               </div>
 
               <div>
                 <p className="text-sm font-medium mb-2">
-                  Step 2: Paste the {provider === "xai" ? "callback URL or copied code" : isKimchiProvider ? "callback URL or copied token" : "callback URL"} here
+                  Passo 2: Cole a {provider === "xai" ? "URL de callback ou código copiado" : isKimchiProvider ? "URL de callback ou token copiado" : "URL de callback"} aqui
                 </p>
                 <p className="text-xs text-text-muted mb-2">
                   {provider === "xai"
-                    ? "If xAI shows a code instead of redirecting, paste that code here."
+                    ? "Se o xAI mostrar um código em vez de redirecionar, cole esse código aqui."
                     : isKimchiProvider
-                      ? "After authorization, copy the full callback URL or token from your browser."
-                    : "After authorization, copy the full URL from your browser."}
+                      ? "Após autorizar, copie a URL de callback completa ou token do seu navegador."
+                    : "Após autorizar, copie a URL completa do seu navegador."}
                 </p>
                 <Input
                   value={callbackUrl}
@@ -800,10 +800,10 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
 
             <div className="flex gap-2">
               <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>
-                Connect
+                Conectar
               </Button>
               <Button onClick={handleClose} variant="ghost" fullWidth>
-                Cancel
+                Cancelar
               </Button>
             </div>
           </>
@@ -814,10 +814,10 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           <>
             <div className="text-center py-4">
               <p className="text-sm text-text-muted mb-4">
-                Visit the login URL below and authorize:
+                Acesse a URL de login abaixo e autorize:
               </p>
               <div className="bg-sidebar p-4 rounded-lg mb-4">
-                <p className="text-xs text-text-muted mb-1">Login URL</p>
+                <p className="text-xs text-text-muted mb-1">URL de Login</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 text-sm break-all">{deviceLoginUrl}</code>
                   <Button
@@ -834,12 +834,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
                     onClick={() => window.open(deviceLoginUrl, "_blank", "noopener,noreferrer")}
                     disabled={!deviceLoginUrl}
                   >
-                    Open
+                    Abrir
                   </Button>
                 </div>
               </div>
               <div className="bg-primary/10 p-4 rounded-lg">
-                <p className="text-xs text-text-muted mb-1">Your Code</p>
+                <p className="text-xs text-text-muted mb-1">Seu Código</p>
                 <div className="flex items-center justify-center gap-2">
                   <p className="text-2xl font-mono font-bold text-primary">{deviceData.user_code as string}</p>
                   <Button
@@ -854,7 +854,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             {polling && (
               <div className="flex items-center justify-center gap-2 text-sm text-text-muted">
                 <Loader2 className="size-4" />
-                Waiting for authorization...
+                Aguardando autorização...
               </div>
             )}
           </>
@@ -866,12 +866,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
               <CheckCircle2 className="size-4" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Connected Successfully!</h3>
+            <h3 className="text-lg font-semibold mb-2">Conectado com Sucesso!</h3>
             <p className="text-sm text-text-muted mb-4">
-              Your {providerInfo.name} account has been connected.
+              Sua conta {providerInfo.name} foi conectada.
             </p>
             <Button onClick={handleClose} fullWidth>
-              Done
+              Concluído
             </Button>
           </div>
         )}
@@ -882,14 +882,14 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             <div className="size-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
               <AlertCircle className="size-4" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">Connection Failed</h3>
+            <h3 className="text-lg font-semibold mb-2">Falha na Conexão</h3>
             <p className="text-sm text-red-600 mb-4">{error}</p>
             <div className="flex gap-2">
               <Button onClick={startOAuthFlow} variant="secondary" fullWidth>
-                Try Again
+                Tentar Novamente
               </Button>
               <Button onClick={handleClose} variant="ghost" fullWidth>
-                Cancel
+                Cancelar
               </Button>
             </div>
           </div>

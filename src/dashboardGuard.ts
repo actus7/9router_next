@@ -36,9 +36,7 @@ const PUBLIC_API_PATHS: string[] = [
 const PUBLIC_PREFIXES: string[] = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex"];
 
 const ALWAYS_PROTECTED: string[] = [
-  "/api/shutdown",
   "/api/settings/database",
-  "/api/version/shutdown",
   "/api/version/update",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
@@ -99,6 +97,14 @@ export function isLocalRequest(request: Request): boolean {
   return true;
 }
 
+/**
+ * Disabling dashboard login is intended for a local, single-user instance.
+ * Remote administrative routes must still require an authenticated session.
+ */
+export function canUseUnauthenticatedLocalMode(request: NextRequest): boolean {
+  return isLocalRequest(request);
+}
+
 function isPublicLlmApi(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p: string) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -148,7 +154,7 @@ async function loadSettings(): Promise<Awaited<ReturnType<typeof getSettings>> |
 async function isAuthenticated(request: NextRequest): Promise<boolean> {
   if (await hasValidToken(request)) return true;
   const settings = await loadSettings();
-  if (settings && settings.requireLogin === false) return true;
+  if (settings && settings.requireLogin === false && canUseUnauthenticatedLocalMode(request)) return true;
   return false;
 }
 
@@ -163,6 +169,7 @@ export const __test__ = {
   extractApiKey,
   canAccessPublicLlmApi,
   canAccessLocalOnlyRoute,
+  canUseUnauthenticatedLocalMode,
 };
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
@@ -215,7 +222,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       // On error, keep defaults
     }
 
-    if (!requireLogin) return NextResponse.next();
+    if (!requireLogin && canUseUnauthenticatedLocalMode(request)) return NextResponse.next();
 
     const token: string | undefined = request.cookies.get("auth_token")?.value;
     if (token) {

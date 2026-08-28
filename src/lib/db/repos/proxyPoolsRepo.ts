@@ -45,7 +45,13 @@ function poolToRow(p: ProxyPool): Record<string, unknown> {
   };
 }
 
-function upsert(db: any, p: ProxyPool): void {
+interface DbLike {
+  run(sql: string, params?: unknown[]): void;
+  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
+  all(sql: string, params?: unknown[]): Array<Record<string, unknown>>;
+}
+
+function upsert(db: DbLike, p: ProxyPool): void {
   const r = poolToRow(p);
   db.run(
     `INSERT INTO proxyPools(id, isActive, testStatus, data, createdAt, updatedAt)
@@ -69,7 +75,7 @@ export async function getProxyPools(filter: PoolFilter = {}): Promise<ProxyPool[
   if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
   if (filter.testStatus) { where.push("testStatus = ?"); params.push(filter.testStatus); }
   const sql: string = `SELECT * FROM proxyPools${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const list: ProxyPool[] = (db.all(sql, params) as PoolRow[]).map(rowToPool).filter((p): p is ProxyPool => p !== null);
+  const list: ProxyPool[] = (db.all(sql, params) as unknown as PoolRow[]).map(rowToPool).filter((p): p is ProxyPool => p !== null);
   list.sort((a: ProxyPool, b: ProxyPool) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
   return list;
 }

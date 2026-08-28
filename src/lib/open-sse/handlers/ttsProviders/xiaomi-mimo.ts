@@ -9,19 +9,19 @@ const DEFAULT_MODEL = "mimo-v2.5-tts";
 const DEFAULT_VOICE = "mimo_default";
 
 export default {
-  synthesize(text, model, credentials, responseFormat, { style, language } = {}) {
+  synthesize(text: string, model: string, credentials: Record<string, unknown>, responseFormat?: string, { style, language }: { style?: string; language?: string } = {}): Promise<{ base64: string; format: string }> {
     if (!credentials?.apiKey) throw new Error("xiaomi-mimo API key required");
-    return synthesizeMiMo(text, model, credentials.apiKey, style, language);
+    return synthesizeMiMo(text, model, credentials.apiKey as string, style, language);
   },
 };
 
-export async function synthesizeMiMo(text, model, apiKey, style, language) {
+export async function synthesizeMiMo(text: string, model: string, apiKey: string, style?: string, language?: string): Promise<{ base64: string; format: string }> {
   const { modelId, voiceId } = parseModelVoice(model, DEFAULT_MODEL, DEFAULT_VOICE, [DEFAULT_MODEL]);
 
   // Language and style are soft instructions → prepend as a role:user message.
   // MiMo auto-detects the spoken language of the text; the hint only nudges it
   // (e.g. "Speak in English.") and is independent of the chosen voice.
-  const instructions = [];
+  const instructions: string[] = [];
   if (language) instructions.push(`Speak in ${language}.`);
   if (style) instructions.push(style);
 
@@ -46,20 +46,21 @@ export async function synthesizeMiMo(text, model, apiKey, style, language) {
   });
 
   const rawText = await res.text();
-  let data = {};
+  let data: Record<string, unknown> = {};
   if (rawText) {
     try { data = JSON.parse(rawText); } catch { data = {}; }
   }
 
   if (!res.ok) {
-    throw new Error(data?.error?.message || rawText || `MiMo TTS error (${res.status})`);
+    throw new Error(((data?.error as Record<string, unknown>)?.message as string) || rawText || `MiMo TTS error (${res.status})`);
   }
 
-  const audio = data?.choices?.[0]?.message?.audio?.data;
-  if (!audio) throw new Error(data?.error?.message || "MiMo TTS returned no audio");
+  const choices = data?.choices as Array<Record<string, unknown>> | undefined;
+  const audio = ((choices?.[0]?.message as Record<string, unknown>)?.audio as Record<string, unknown>)?.data as string | undefined;
+  if (!audio) throw new Error(((data?.error as Record<string, unknown>)?.message as string) || "MiMo TTS returned no audio");
 
   return {
     base64: audio,
-    format: data?.choices?.[0]?.message?.audio?.format || "wav",
+    format: ((choices?.[0]?.message as Record<string, unknown>)?.audio as Record<string, unknown>)?.format as string || "wav",
   };
 }

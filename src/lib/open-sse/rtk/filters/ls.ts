@@ -5,13 +5,13 @@ import { LS_EXT_SUMMARY_TOP, LS_NOISE_DIRS } from "../constants";
 // Rust LS_DATE_RE: month + day + (year|HH:MM)
 const LS_DATE_RE = /\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+(\d{4}|\d{2}:\d{2})\s+/;
 
-function humanSize(bytes) {
+function humanSize(bytes: number) {
   if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)}M`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)}K`;
   return `${bytes}B`;
 }
 
-function parseLsLine(line) {
+function parseLsLine(line: string) {
   const m = LS_DATE_RE.exec(line);
   if (!m) return null;
   const name = line.slice(m.index + m[0].length);
@@ -31,7 +31,7 @@ function parseLsLine(line) {
   return { fileType, size, name };
 }
 
-export function ls(input) {
+export function ls(input: string) {
   const dirs = [];
   const files = [];      // [name, sizeStr]
   const byExt = new Map();

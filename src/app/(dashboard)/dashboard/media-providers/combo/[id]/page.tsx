@@ -23,7 +23,7 @@ export default async function ComboDetailPage({ params }: { params: Promise<{ id
     <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}>
       <ComboDetailClient
         comboId={id}
-        initialCombo={combo}
+        initialCombo={combo as unknown as { id: string; name: string; kind?: string; models: string[] }}
         initialSettings={settings as unknown as Record<string, unknown>}
         initialProviders={providers as unknown as Record<string, unknown>[]}
         initialKeys={keys as unknown as Record<string, unknown>[]}

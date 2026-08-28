@@ -7,11 +7,12 @@ import { join } from "node:path";
 
 const execFileAsync = promisify(execFile);
 
-let _voicesCache = null;
+interface VoiceInfo { id: string; name: string; locale: string; lang: string; country: string; gender: string }
+let _voicesCache: VoiceInfo[] | null = null;
 
-async function fetchVoicesMac() {
+async function fetchVoicesMac(): Promise<VoiceInfo[]> {
   const { stdout } = await execFileAsync("say", ["-v", "?"]);
-  const voices = [];
+  const voices: VoiceInfo[] = [];
   for (const line of stdout.split("\n")) {
     const m = line.match(/^([^\s].*?)\s{2,}([a-z]{2}_[A-Z]{2})/);
     if (!m) continue;
@@ -24,7 +25,7 @@ async function fetchVoicesMac() {
   return voices;
 }
 
-async function fetchVoicesWin() {
+async function fetchVoicesWin(): Promise<VoiceInfo[]> {
   const script = [
     "Add-Type -AssemblyName System.Speech;",
     "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer;",
@@ -39,20 +40,20 @@ async function fetchVoicesWin() {
   );
   const raw = JSON.parse(stdout.trim() || "[]");
   const list = Array.isArray(raw) ? raw : [raw];
-  return list.map((v) => {
-    const culture = v.Culture || "en-US";
+  return list.map((v: Record<string, unknown>) => {
+    const culture = (v.Culture as string) || "en-US";
     const [lang, country = ""] = culture.split("-");
-    const genderMap = { 1: "Male", 2: "Female", Male: "Male", Female: "Female" };
+    const genderMap: Record<string, string> = { 1: "Male", 2: "Female", Male: "Male", Female: "Female" };
     return {
-      id: v.Name, name: v.Name,
+      id: v.Name as string, name: v.Name as string,
       locale: culture.replace("-", "_"),
       lang, country,
-      gender: genderMap[v.Gender] || "",
+      gender: genderMap[String(v.Gender)] || "",
     };
   });
 }
 
-export async function fetchLocalDeviceVoices() {
+export async function fetchLocalDeviceVoices(): Promise<VoiceInfo[]> {
   if (_voicesCache) return _voicesCache;
   try {
     const voices = process.platform === "win32" ? await fetchVoicesWin() : await fetchVoicesMac();
@@ -63,7 +64,7 @@ export async function fetchLocalDeviceVoices() {
   }
 }
 
-async function synthesizeMacOrWin(text, voiceId) {
+async function synthesizeMacOrWin(text: string, voiceId: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "tts-"));
   const aiffPath = join(dir, "out.aiff");
   const mp3Path = join(dir, "out.mp3");
@@ -80,7 +81,7 @@ async function synthesizeMacOrWin(text, voiceId) {
 
 export default {
   noAuth: true,
-  async synthesize(text, model) {
+  async synthesize(text: string, model: string): Promise<{ base64: string; format: string }> {
     const base64 = await synthesizeMacOrWin(text, model);
     return { base64, format: "mp3" };
   },

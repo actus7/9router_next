@@ -14,8 +14,52 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ArrowLeftFromLine, ArrowRightToLine, Brain, ChevronRight, Code2, Image, Languages, Loader2 } from "lucide-react";
 
-let providerNameCache = null;
-let providerNodesCache = null;
+interface TokenUsage {
+  cached_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+  prompt_tokens?: number;
+  input_tokens?: number;
+  completion_tokens?: number;
+}
+
+interface PxPipeInfo {
+  applied?: boolean;
+  tokensBeforeEst?: number;
+  tokensAfterEst?: number;
+  savedPct?: number;
+  imageCount?: number;
+  durationMs?: number;
+  reason?: string;
+  detail?: string;
+}
+
+interface RoutingInfo {
+  need?: string;
+  tier?: string;
+  confidence?: number;
+  reason?: string;
+  candidates?: string[];
+  degraded?: boolean;
+}
+
+interface RequestDetail {
+  id: string;
+  timestamp: string;
+  model: string;
+  provider: string;
+  tokens?: TokenUsage;
+  latency?: { ttft?: number; total?: number };
+  status?: string;
+  pxpipe?: PxPipeInfo;
+  request?: { routing?: RoutingInfo; [key: string]: unknown };
+  providerRequest?: unknown;
+  providerResponse?: string | Record<string, unknown>;
+  response?: { thinking?: string; content?: string };
+}
+
+let providerNameCache: Record<string, string | { name?: string }> | null = null;
+let providerNodesCache: Record<string, string> | null = null;
 
 async function fetchProviderNames() {
   if (providerNameCache && providerNodesCache) {
@@ -39,7 +83,7 @@ async function fetchProviderNames() {
   return { providerNameCache, providerNodesCache };
 }
 
-function getProviderName(providerId, cache) {
+function getProviderName(providerId: string, cache: Record<string, string | { name?: string }> | null): string {
   if (!providerId) return providerId;
   if (!cache) return providerId;
 
@@ -54,7 +98,8 @@ function getProviderName(providerId, cache) {
   }
 
   const providerConfig = getProviderByAlias(providerId) || AI_PROVIDERS[providerId];
-  return providerConfig?.name || providerId;
+  const name = providerConfig?.name;
+  return (typeof name === 'string' ? name : null) || providerId;
 }
 
 function CollapsibleSection({ title, children, defaultOpen = false, icon = null }: { title: string; children: React.ReactNode; defaultOpen?: boolean; icon?: string | null }) {
@@ -86,15 +131,15 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
   );
 }
 
-function getCachedTokens(tokens) {
+function getCachedTokens(tokens: TokenUsage | null | undefined): number {
   return tokens?.cached_tokens || tokens?.cache_read_input_tokens || 0;
 }
 
-function getCacheCreationTokens(tokens) {
+function getCacheCreationTokens(tokens: TokenUsage | null | undefined): number {
   return tokens?.cache_creation_input_tokens || 0;
 }
 
-function getInputTokens(tokens) {
+function getInputTokens(tokens: TokenUsage | null | undefined): number {
   const prompt = tokens?.prompt_tokens || tokens?.input_tokens || 0;
   // Canonical storage keeps prompt cache-inclusive. Legacy Claude rows may have
   // stored prompt cache-exclusive; fall back to cache when it's larger so old
@@ -104,7 +149,7 @@ function getInputTokens(tokens) {
 }
 
 export default function RequestDetailsTab() {
-  const [details, setDetails] = useState([]);
+  const [details, setDetails] = useState<RequestDetail[]>([]);
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 20,
@@ -112,10 +157,10 @@ export default function RequestDetailsTab() {
     totalPages: 0
   });
   const [loading, setLoading] = useState(false);
-  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [selectedDetail, setSelectedDetail] = useState<RequestDetail | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [providers, setProviders] = useState([]);
-  const [providerNameCache, setProviderNameCache] = useState(null);
+  const [providers, setProviders] = useState<Array<{ id: string; name: string }>>([]);
+  const [providerNameCache, setProviderNameCache] = useState<Record<string, string | { name?: string }> | null>(null);
   const [filters, setFilters] = useState({
     provider: "",
     startDate: "",
@@ -166,16 +211,16 @@ export default function RequestDetailsTab() {
     fetchDetails();
   }, [fetchDetails]);
 
-  const handleViewDetail = (detail) => {
+  const handleViewDetail = (detail: RequestDetail) => {
     setSelectedDetail(detail);
     setIsDrawerOpen(true);
   };
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
   };
 
-  const handlePageSizeChange = (newPageSize) => {
+  const handlePageSizeChange = (newPageSize: number) => {
     setPagination(prev => ({ ...prev, pageSize: newPageSize, page: 1 }));
   };
 
@@ -188,16 +233,18 @@ export default function RequestDetailsTab() {
       <Card padding="md">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex min-w-0 flex-col gap-2">
-            <Label htmlFor="provider-filter" className="text-text-main">Provider</Label>
+            <Label htmlFor="provider-filter" className="text-text-main">Provedor</Label>
             <Select
               value={filters.provider || "__all__"}
-              onValueChange={(val) => setFilters({ ...filters, provider: val === "__all__" ? "" : val })}
+              onValueChange={(val) => setFilters({ ...filters, provider: val === "__all__" ? "" : (val ?? "") })}
             >
               <SelectTrigger id="provider-filter" className="w-full h-9">
-                <SelectValue placeholder="All Providers" />
+                <SelectValue placeholder="All Providers">
+                  {(val) => val === "__all__" ? "All Providers" : (providers.find((p) => p.id === val)?.name || val)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All Providers</SelectItem>
+                <SelectItem value="__all__">Todos os Provedores</SelectItem>
                 {providers.map((provider) => (
                   <SelectItem key={provider.id} value={provider.id}>
                     {provider.name}
@@ -208,7 +255,7 @@ export default function RequestDetailsTab() {
           </div>
           
           <div className="flex min-w-0 flex-col gap-2">
-            <Label htmlFor="start-date-filter" className="text-text-main">Start Date</Label>
+            <Label htmlFor="start-date-filter" className="text-text-main">Data Inicial</Label>
             <Input
               id="start-date-filter"
               type="datetime-local"
@@ -219,7 +266,7 @@ export default function RequestDetailsTab() {
           </div>
 
           <div className="flex min-w-0 flex-col gap-2">
-            <Label htmlFor="end-date-filter" className="text-text-main">End Date</Label>
+            <Label htmlFor="end-date-filter" className="text-text-main">Data Final</Label>
             <Input
               id="end-date-filter"
               type="datetime-local"
@@ -237,7 +284,7 @@ export default function RequestDetailsTab() {
               disabled={!filters.provider && !filters.startDate && !filters.endDate}
               className="w-full"
             >
-              Clear Filters
+              Limpar Filtros
             </Button>
           </div>
         </div>
@@ -247,15 +294,15 @@ export default function RequestDetailsTab() {
           <Table className="min-w-[880px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="p-4 text-sm font-semibold text-text-main">Timestamp</TableHead>
-                <TableHead className="p-4 text-sm font-semibold text-text-main">Model</TableHead>
-                <TableHead className="p-4 text-sm font-semibold text-text-main">Provider</TableHead>
-                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Input Tokens</TableHead>
-                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Cached</TableHead>
-                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Cache Creation</TableHead>
-                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Output Tokens</TableHead>
-                <TableHead className="p-4 text-sm font-semibold text-text-main">Latency</TableHead>
-                <TableHead className="p-4 text-center text-sm font-semibold text-text-main">Action</TableHead>
+                <TableHead className="p-4 text-sm font-semibold text-text-main">Data/Hora</TableHead>
+                <TableHead className="p-4 text-sm font-semibold text-text-main">Modelo</TableHead>
+                <TableHead className="p-4 text-sm font-semibold text-text-main">Provedor</TableHead>
+                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Tokens de Entrada</TableHead>
+                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Cache</TableHead>
+                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Criação de Cache</TableHead>
+                <TableHead className="p-4 text-right text-sm font-semibold text-text-main">Tokens de Saída</TableHead>
+                <TableHead className="p-4 text-sm font-semibold text-text-main">Latência</TableHead>
+                <TableHead className="p-4 text-center text-sm font-semibold text-text-main">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -264,14 +311,14 @@ export default function RequestDetailsTab() {
                   <TableCell colSpan={7} className="p-8 text-center text-text-muted">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="size-5" />
-                      Loading...
+                      Carregando...
                     </div>
                   </TableCell>
                 </TableRow>
               ) : details.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="p-8 text-center text-text-muted">
-                    No request details found
+                    Nenhum detalhe de requisição encontrado
                   </TableCell>
                 </TableRow>
               ) : (
@@ -315,7 +362,7 @@ export default function RequestDetailsTab() {
                         size="sm"
                         onClick={() => handleViewDetail(detail)}
                       >
-                        Detail
+                        Detalhes
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -340,7 +387,7 @@ export default function RequestDetailsTab() {
       <Drawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        title="Request Details"
+        title="Detalhes da Requisição"
         width="lg"
       >
         {selectedDetail && (
@@ -351,15 +398,15 @@ export default function RequestDetailsTab() {
                 <span className="break-all font-mono text-text-main">{selectedDetail.id}</span>
               </div>
               <div>
-                <span className="text-text-muted">Timestamp:</span>{" "}
+                <span className="text-text-muted">Data/Hora:</span>{" "}
                 <span className="text-text-main">{new Date(selectedDetail.timestamp).toLocaleString()}</span>
               </div>
               <div>
-                 <span className="text-text-muted">Provider:</span>{" "}
+                 <span className="text-text-muted">Provedor:</span>{" "}
                  <span className="text-text-main font-medium">{getProviderName(selectedDetail.provider, providerNameCache)}</span>
                </div>
               <div>
-                <span className="text-text-muted">Model:</span>{" "}
+                <span className="text-text-muted">Modelo:</span>{" "}
                 <span className="text-text-main font-mono">{selectedDetail.model}</span>
               </div>
               <div>
@@ -372,20 +419,20 @@ export default function RequestDetailsTab() {
                 </span>
               </div>
               <div>
-                <span className="text-text-muted">Latency:</span>{" "}
+                <span className="text-text-muted">Latência:</span>{" "}
                 <span className="text-text-main font-mono">
                   TTFT {selectedDetail.latency?.ttft || 0}ms / Total {selectedDetail.latency?.total || 0}ms
                 </span>
               </div>
               <div>
-                <span className="text-text-muted">Input Tokens:</span>{" "}
+                <span className="text-text-muted">Tokens de Entrada:</span>{" "}
                 <span className="text-text-main font-mono">
                   {getInputTokens(selectedDetail.tokens).toLocaleString()}
                 </span>
               </div>
               {getCachedTokens(selectedDetail.tokens) > 0 && (
                 <div>
-                  <span className="text-text-muted">Cached Tokens:</span>{" "}
+                  <span className="text-text-muted">Tokens em Cache:</span>{" "}
                   <span className="text-text-main font-mono">
                     {getCachedTokens(selectedDetail.tokens).toLocaleString()}
                   </span>
@@ -393,14 +440,14 @@ export default function RequestDetailsTab() {
               )}
               {getCacheCreationTokens(selectedDetail.tokens) > 0 && (
                 <div>
-                  <span className="text-text-muted">Cache Creation:</span>{" "}
+                  <span className="text-text-muted">Criação de Cache:</span>{" "}
                   <span className="text-text-main font-mono">
                     {getCacheCreationTokens(selectedDetail.tokens).toLocaleString()}
                   </span>
                 </div>
               )}
               <div>
-                <span className="text-text-muted">Output Tokens:</span>{" "}
+                <span className="text-text-muted">Tokens de Saída:</span>{" "}
                 <span className="text-text-main font-mono">
                   {selectedDetail.tokens?.completion_tokens?.toLocaleString() || 0}
                 </span>
@@ -418,7 +465,7 @@ export default function RequestDetailsTab() {
                       ? "bg-green-500/15 text-green-600"
                       : "bg-amber-500/15 text-amber-600"
                   )}>
-                    {selectedDetail.pxpipe.applied ? "Activated" : "Skipped"}
+                    {selectedDetail.pxpipe.applied ? "Ativado" : "Ignorado"}
                   </span>
                 </div>
                 {selectedDetail.pxpipe.applied ? (
@@ -428,21 +475,21 @@ export default function RequestDetailsTab() {
                       <span className="font-mono">{(selectedDetail.pxpipe.tokensBeforeEst || 0).toLocaleString()} tokens</span>
                     </div>
                     <div>
-                      <span className="text-text-muted block text-xs">Compressed (est.)</span>
+                      <span className="text-text-muted block text-xs">Comprimido (est.)</span>
                       <span className="font-mono">{(selectedDetail.pxpipe.tokensAfterEst || 0).toLocaleString()} tokens</span>
                     </div>
                     <div>
-                      <span className="text-text-muted block text-xs">Saved</span>
+                      <span className="text-text-muted block text-xs">Economizado</span>
                       <span className="font-mono text-green-600">{selectedDetail.pxpipe.savedPct || 0}%</span>
                     </div>
                     <div>
-                      <span className="text-text-muted block text-xs">Images</span>
+                      <span className="text-text-muted block text-xs">Imagens</span>
                       <span className="font-mono">{selectedDetail.pxpipe.imageCount || 0} ({selectedDetail.pxpipe.durationMs || 0}ms)</span>
                     </div>
                   </div>
                 ) : (
                   <p className="text-sm text-text-muted">
-                    Reason: <span className="font-mono">{selectedDetail.pxpipe.reason}</span>
+                    Motivo: <span className="font-mono">{selectedDetail.pxpipe.reason}</span>
                     {selectedDetail.pxpipe.detail ? ` — ${selectedDetail.pxpipe.detail}` : ""}
                   </p>
                 )}
@@ -450,14 +497,31 @@ export default function RequestDetailsTab() {
             )}
 
             <div className="space-y-4">
-              <CollapsibleSection title="1. Client Request (Input)" defaultOpen={true} icon="input">
+              {selectedDetail.request?.routing && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-main">
+                    <Brain className="size-4 text-primary" /> Decisão de roteamento inteligente
+                  </div>
+                  <dl className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                    <div><dt className="text-text-muted">Tarefa</dt><dd className="mt-0.5 font-medium text-text-main">{selectedDetail.request.routing.need}</dd></div>
+                    <div><dt className="text-text-muted">Tier</dt><dd className="mt-0.5 font-medium text-text-main">{selectedDetail.request.routing.tier}</dd></div>
+                    <div><dt className="text-text-muted">Confiança</dt><dd className="mt-0.5 font-medium text-text-main">{Math.round((selectedDetail.request.routing.confidence || 0) * 100)}%</dd></div>
+                    <div><dt className="text-text-muted">Motivo</dt><dd className="mt-0.5 font-medium text-text-main">{selectedDetail.request.routing.reason}</dd></div>
+                  </dl>
+                  <p className="mt-3 truncate font-mono text-xs text-text-muted" title={selectedDetail.request.routing.candidates?.[0]}>
+                    {selectedDetail.request.routing.candidates?.[0] || "Sem candidato registrado"}
+                    {selectedDetail.request.routing.degraded ? " · fallback degradado" : ""}
+                  </p>
+                </div>
+              )}
+              <CollapsibleSection title="1. Requisição do Cliente (Entrada)" defaultOpen={true} icon="input">
                 <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
                   {JSON.stringify(selectedDetail.request, null, 2)}
                 </pre>
               </CollapsibleSection>
 
-              {selectedDetail.providerRequest && (
-                <CollapsibleSection title="2. Provider Request (Translated)" icon="translate">
+              {selectedDetail.providerRequest !== undefined && selectedDetail.providerRequest !== null && (
+                <CollapsibleSection title="2. Requisição ao Provedor (Traduzida)" icon="translate">
                   <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
                     {JSON.stringify(selectedDetail.providerRequest, null, 2)}
                   </pre>
@@ -465,7 +529,7 @@ export default function RequestDetailsTab() {
               )}
 
               {selectedDetail.providerResponse && (
-                <CollapsibleSection title="3. Provider Response (Raw)" icon="data_object">
+                <CollapsibleSection title="3. Resposta do Provedor (Raw)" icon="data_object">
                   <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
                     {typeof selectedDetail.providerResponse === 'object'
                       ? JSON.stringify(selectedDetail.providerResponse, null, 2)
@@ -475,12 +539,12 @@ export default function RequestDetailsTab() {
                 </CollapsibleSection>
               )}
               
-              <CollapsibleSection title="4. Client Response (Final)" defaultOpen={true} icon="output">
+              <CollapsibleSection title="4. Resposta ao Cliente (Final)" defaultOpen={true} icon="output">
                 {selectedDetail.response?.thinking && (
                   <div className="mb-4">
                     <h4 className="font-semibold text-text-main mb-2 flex items-center gap-2 text-xs uppercase tracking-wide opacity-70">
                       <Brain className="size-4" />
-                      Thinking Process
+                      Processo de Pensamento
                     </h4>
                     <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 font-mono text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-4">
                       {selectedDetail.response.thinking}
@@ -489,10 +553,10 @@ export default function RequestDetailsTab() {
                 )}
                 
                 <h4 className="font-semibold text-text-main mb-2 text-xs uppercase tracking-wide opacity-70">
-                  Content
+                  Conteúdo
                 </h4>
                 <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
-                  {selectedDetail.response?.content || "[No content]"}
+                  {selectedDetail.response?.content || "[Sem conteúdo]"}
                 </pre>
               </CollapsibleSection>
             </div>

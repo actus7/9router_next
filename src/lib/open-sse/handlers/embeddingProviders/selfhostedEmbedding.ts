@@ -21,6 +21,7 @@ import createOpenAIEmbeddingAdapter from "./openai";
 const baseAdapter = createOpenAIEmbeddingAdapter("openai");
 
 export class MissingBaseUrlError extends Error {
+  isConfigError = true;
   constructor() {
     super(
       "Self-hosted Embedding needs an endpoint: set this connection's baseUrl to " +
@@ -29,14 +30,13 @@ export class MissingBaseUrlError extends Error {
         "which would send your input and API key to OpenAI."
     );
     this.name = "MissingBaseUrlError";
-    this.isConfigError = true;
   }
 }
 
 export default {
   ...baseAdapter,
-  buildUrl: (_model, creds) => {
-    const rawBaseUrl = creds?.providerSpecificData?.baseUrl;
+  buildUrl: (_model: string, creds: Record<string, unknown>) => {
+    const rawBaseUrl = ((creds as Record<string, unknown>).providerSpecificData as Record<string, unknown>)?.baseUrl;
     if (!rawBaseUrl || !String(rawBaseUrl).trim()) throw new MissingBaseUrlError();
     // Accept either the OpenAI base or a full embeddings URL, so a value pasted
     // from a curl example works as well as one typed from the help text.

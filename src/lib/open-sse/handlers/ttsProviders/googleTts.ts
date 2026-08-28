@@ -2,10 +2,10 @@
 import { UA } from "./_base";
 
 const REFRESH_MS = 11 * 60 * 1000;
-const cache = { token: null, tokenTime: 0 };
+const cache: { token: { "f.sid": string; bl: string } | null; tokenTime: number } = { token: null, tokenTime: 0 };
 let _idx = 0;
 
-async function getToken() {
+async function getToken(): Promise<{ "f.sid": string; bl: string }> {
   const now = Date.now();
   if (cache.token && now - cache.tokenTime < REFRESH_MS) return cache.token;
   const res = await fetch("https://translate.google.com/", { headers: { "User-Agent": UA } });
@@ -21,7 +21,7 @@ async function getToken() {
 
 export default {
   noAuth: true,
-  async synthesize(text, model) {
+  async synthesize(text: string, model: string): Promise<{ base64: string; format: string }> {
     const lang = model || "en";
     const token = await getToken();
     const cleanText = text.replace(/[@^*()\\/\-_+=><"'\u201c\u201d\u3010\u3011]/g, " ").replaceAll(", ", ". ");
@@ -32,8 +32,8 @@ export default {
       "f.sid": token["f.sid"],
       bl: token.bl,
       hl: lang,
-      "soc-app": 1, "soc-platform": 1, "soc-device": 1,
-      _reqid: reqId,
+      "soc-app": "1", "soc-platform": "1", "soc-device": "1",
+      _reqid: String(reqId),
       rt: "c",
     });
     const payload = [cleanText, lang, null, "undefined", [0]];

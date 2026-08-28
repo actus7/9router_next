@@ -25,7 +25,7 @@ const RE_TREE_GLYPH = /[├└]──|│  /;
 const RE_LS_ROW = /^[-dlbcps][rwx-]{9}/m;
 const RE_LS_TOTAL = /^total \d+$/m;
 
-export function autoDetectFilter(text) {
+export function autoDetectFilter(text: string) {
   // Rust: floor_char_boundary to avoid UTF-8 split — JS .slice() by char is safe
   const head = text.length > DETECT_WINDOW ? text.slice(0, DETECT_WINDOW) : text;
 
@@ -71,7 +71,7 @@ export function autoDetectFilter(text) {
   return null;
 }
 
-function isGrepLine(line) {
+function isGrepLine(line: string) {
   // Rust: splitn(3, ':') → parts.len()==3 && parts[1].parse::<usize>().is_ok()
   const first = line.indexOf(":");
   if (first === -1) return false;
@@ -81,7 +81,7 @@ function isGrepLine(line) {
   return /^\d+$/.test(lineno);
 }
 
-function isPathLike(line) {
+function isPathLike(line: string) {
   const t = line.trim();
   if (t.length === 0) return false;
   // A drive-letter prefix (e.g. "C:\Users\me" or "C:/Users/me") marks a
@@ -93,14 +93,14 @@ function isPathLike(line) {
   return t.startsWith(".") || t.startsWith("/") || t.includes("/");
 }
 
-function isMostlyPorcelain(head) {
-  const lines = head.split("\n").filter(l => l.trim());
+function isMostlyPorcelain(head: string) {
+  const lines = head.split("\n").filter((l: string) => l.trim());
   if (lines.length < 3) return false;
   const hits = lines.filter(l => RE_PORCELAIN.test(l)).length;
   return hits / lines.length >= 0.6;
 }
 
-function isLineNumbered(lines) {
+function isLineNumbered(lines: string[]) {
   let hits = 0;
   let nonEmpty = 0;
   const sample = lines.slice(0, 100);
@@ -113,7 +113,7 @@ function isLineNumbered(lines) {
   return hits / nonEmpty >= READ_NUMBERED_MIN_HIT_RATIO;
 }
 
-function countMatches(text, re) {
+function countMatches(text: string, re: RegExp) {
   const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
   return (text.match(g) || []).length;
 }

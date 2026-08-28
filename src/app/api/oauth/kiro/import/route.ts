@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       accessToken: tokenData.accessToken,
       refreshToken: tokenData.refreshToken || refreshToken.trim(),
       expiresAt: new Date(Date.now() + (tokenData.expiresIn || 3600) * 1000).toISOString(),
-      email: email || null,
+      email: email || undefined,
       providerSpecificData: {
         profileArn: resolvedProfileArn,
         authMethod: resolvedAuthMethod,
@@ -54,12 +54,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       connection: {
-        id: connection.id,
-        provider: connection.provider,
-        email: connection.email,
+        id: connection!.id,
+        provider: connection!.provider,
+        email: connection!.email,
       },
     });
-  } catch ($1) { console.error("Kiro import token error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch ($1: unknown) { console.error("Kiro import token error:", $1);
+    return NextResponse.json({ error: ($1 as Error).message }, { status: 500 });
   }
 }

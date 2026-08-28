@@ -3,7 +3,7 @@
 // drops body padding, decoration, embedded diff lines.
 import { GIT_LOG_MAX_LINES } from "../constants";
 
-export function gitLog(text, maxLines = GIT_LOG_MAX_LINES) {
+export function gitLog(text: string, maxLines = GIT_LOG_MAX_LINES) {
   if (!text) return "";
 
   const input = String(text);
@@ -13,7 +13,7 @@ export function gitLog(text, maxLines = GIT_LOG_MAX_LINES) {
   let inCommit = false;
   let subjectSeen = false;
 
-  function pushLine(l) {
+  function pushLine(l: string) {
     if (out.length < maxLines) {
       out.push(l);
       return true;

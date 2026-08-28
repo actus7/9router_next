@@ -6,22 +6,22 @@ import { proxyAwareFetch } from "../../utils/proxyFetch";
 import { U, parseResetTime } from "./shared";
 
 // MiniMax usage endpoints (try in order, fallback on transient errors)
-const MINIMAX_USAGE_URLS = {
-  minimax: U("minimax").urls,
-  "minimax-cn": U("minimax-cn").urls,
+const MINIMAX_USAGE_URLS: Record<string, string[]> = {
+  minimax: (U("minimax") as Record<string, unknown>).urls as string[],
+  "minimax-cn": (U("minimax-cn") as Record<string, unknown>).urls as string[],
 };
 
 // ── MiniMax helpers ──────────────────────────────────────────────────────
-function getMiniMaxField(model, snakeKey, camelKey) {
+function getMiniMaxField(model: Record<string, unknown>, snakeKey: string, camelKey: string): unknown {
   if (!model || typeof model !== "object") return null;
   return model[snakeKey] ?? model[camelKey] ?? null;
 }
 
-function getMiniMaxModelName(model) {
+function getMiniMaxModelName(model: Record<string, unknown>): string {
   return String(getMiniMaxField(model, "model_name", "modelName") || "").trim();
 }
 
-function formatMiniMaxQuotaName(model) {
+function formatMiniMaxQuotaName(model: Record<string, unknown>): string {
   const rawName = getMiniMaxModelName(model);
   if (!rawName) return "MiniMax";
 
@@ -35,13 +35,13 @@ function formatMiniMaxQuotaName(model) {
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/\b\w/g, (ch) => ch.toUpperCase())
+    .replace(/\b\w/g, (ch: string) => ch.toUpperCase())
     .replace(/\bTo\b/g, "to")
     .replace(/\bTts\b/g, "TTS")
     .replace(/\bHd\b/g, "HD");
 }
 
-function getMiniMaxProvidedPercent(model, snakeKey, camelKey) {
+function getMiniMaxProvidedPercent(model: Record<string, unknown>, snakeKey: string, camelKey: string): number | null {
   if (!model || typeof model !== "object") return null;
   const raw = model[snakeKey] ?? model[camelKey];
   if (raw === null || raw === undefined) return null;
@@ -50,15 +50,15 @@ function getMiniMaxProvidedPercent(model, snakeKey, camelKey) {
   return Math.max(0, Math.min(100, num));
 }
 
-function getMiniMaxSessionTotal(model) {
+function getMiniMaxSessionTotal(model: Record<string, unknown>): number {
   return Math.max(0, Number(getMiniMaxField(model, "current_interval_total_count", "currentIntervalTotalCount")) || 0);
 }
 
-function getMiniMaxWeeklyTotal(model) {
+function getMiniMaxWeeklyTotal(model: Record<string, unknown>): number {
   return Math.max(0, Number(getMiniMaxField(model, "current_weekly_total_count", "currentWeeklyTotalCount")) || 0);
 }
 
-function hasMiniMaxQuota(model) {
+function hasMiniMaxQuota(model: Record<string, unknown>): boolean {
   // Old format has real count totals; M3-era M-series buckets ship percent-only
   // (count fields are 0) so accept those too.
   if (getMiniMaxSessionTotal(model) > 0 || getMiniMaxWeeklyTotal(model) > 0) return true;
@@ -67,13 +67,22 @@ function hasMiniMaxQuota(model) {
   return false;
 }
 
-function getMiniMaxResetAt(model, capturedAtMs, remainsSnake, remainsCamel, endSnake, endCamel) {
+function getMiniMaxResetAt(model: Record<string, unknown>, capturedAtMs: number, remainsSnake: string, remainsCamel: string, endSnake: string, endCamel: string): string | null {
   const remainsMs = Number(getMiniMaxField(model, remainsSnake, remainsCamel)) || 0;
   if (remainsMs > 0) return new Date(capturedAtMs + remainsMs).toISOString();
   return parseResetTime(getMiniMaxField(model, endSnake, endCamel));
 }
 
-function buildMiniMaxQuota(total, count, resetAt, countMeansRemaining, providedPercent = null) {
+interface QuotaEntry {
+  used: number;
+  total: number;
+  remaining: number;
+  remainingPercentage: number;
+  resetAt: string | null;
+  unlimited: boolean;
+}
+
+function buildMiniMaxQuota(total: number, count: number, resetAt: string | null, countMeansRemaining: boolean, providedPercent: number | null = null): QuotaEntry {
   const safeTotal = Math.max(0, total);
   const used = countMeansRemaining ? Math.max(safeTotal - count, 0) : Math.min(Math.max(0, count), safeTotal);
   const remaining = Math.max(safeTotal - used, 0);
@@ -92,14 +101,14 @@ function buildMiniMaxQuota(total, count, resetAt, countMeansRemaining, providedP
   };
 }
 
-function providedPercentage(provided, remaining, total) {
+function providedPercentage(provided: number | null, remaining: number, total: number): number {
   if (provided !== null && provided !== undefined && Number.isFinite(provided)) {
     return Math.max(0, Math.min(100, provided));
   }
   return total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
 }
 
-function addMiniMaxQuota(quotas, key, model, getTotal, countSnake, countCamel, percentSnake, percentCamel, resetArgs, countMeansRemaining) {
+function addMiniMaxQuota(quotas: Record<string, QuotaEntry>, key: string, model: Record<string, unknown>, getTotal: (m: Record<string, unknown>) => number, countSnake: string, countCamel: string, percentSnake: string, percentCamel: string, resetArgs: [number, string, string, string, string], countMeansRemaining: boolean): void {
   const total = getTotal(model);
   const providedPercent = getMiniMaxProvidedPercent(model, percentSnake, percentCamel);
   if (total <= 0 && providedPercent === null) return;
@@ -113,7 +122,7 @@ function addMiniMaxQuota(quotas, key, model, getTotal, countSnake, countCamel, p
     // "used" or "remaining" depending on countMeansRemaining, so the synthetic
     // count has to match that semantic — otherwise the UI flips the percentage.
     effectiveTotal = 100;
-    const pct = providedPercent;
+    const pct = providedPercent!;
     effectiveCount = countMeansRemaining
       ? Math.round(effectiveTotal * (pct / 100))
       : Math.round(effectiveTotal * (1 - pct / 100));
@@ -130,7 +139,7 @@ function addMiniMaxQuota(quotas, key, model, getTotal, countSnake, countCamel, p
 /**
  * MiniMax Token Plan / Coding Plan usage
  */
-export async function getMiniMaxUsage(apiKey, provider, proxyOptions = null) {
+export async function getMiniMaxUsage(apiKey: string, provider: string, proxyOptions: unknown = null) {
   if (!apiKey) {
     return { message: "MiniMax API key not available." };
   }
@@ -150,15 +159,15 @@ export async function getMiniMaxUsage(apiKey, provider, proxyOptions = null) {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-      }, proxyOptions);
+      }, proxyOptions as null) as Response;
 
       const rawText = await response.text();
-      let payload = {};
+      let payload: Record<string, unknown> = {};
       if (rawText) {
         try { payload = JSON.parse(rawText); } catch { payload = {}; }
       }
 
-      const baseResp = (payload?.base_resp ?? payload?.baseResp) || {};
+      const baseResp = (payload?.base_resp ?? payload?.baseResp) as Record<string, unknown> || {};
       const apiStatusCode = Number(baseResp.status_code ?? baseResp.statusCode) || 0;
       const apiStatusMessage = String(baseResp.status_msg ?? baseResp.statusMsg ?? "").trim();
       const combined = `${apiStatusMessage} ${rawText}`.trim();
@@ -179,7 +188,7 @@ export async function getMiniMaxUsage(apiKey, provider, proxyOptions = null) {
       }
 
       const modelRemains = payload?.model_remains ?? payload?.modelRemains;
-      const allModels = Array.isArray(modelRemains) ? modelRemains : [];
+      const allModels = Array.isArray(modelRemains) ? modelRemains as Record<string, unknown>[] : [];
       const quotaModels = allModels.filter(hasMiniMaxQuota);
 
       if (quotaModels.length === 0) {
@@ -188,7 +197,7 @@ export async function getMiniMaxUsage(apiKey, provider, proxyOptions = null) {
 
       const capturedAtMs = Date.now();
       const countMeansRemaining = usageUrl.includes("/coding_plan/remains");
-      const quotas = {};
+      const quotas: Record<string, QuotaEntry> = {};
 
       for (const model of quotaModels) {
         const displayName = formatMiniMaxQuotaName(model);
@@ -224,8 +233,8 @@ export async function getMiniMaxUsage(apiKey, provider, proxyOptions = null) {
       }
 
       return { quotas };
-    } catch (error) {
-      lastErrorMessage = error.message;
+    } catch (error: unknown) {
+      lastErrorMessage = error instanceof Error ? error.message : String(error);
       if (!canFallback) break;
     }
   }

@@ -137,7 +137,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   const reqLogger = await createRequestLogger(sourceFormat, targetFormat, model);
-  if (clientRawRequest) reqLogger.logClientRawRequest(clientRawRequest.endpoint, clientRawRequest.body, clientRawRequest.headers);
+  if (clientRawRequest) reqLogger.logClientRawRequest(clientRawRequest.endpoint as string, clientRawRequest.body, clientRawRequest.headers);
   reqLogger.logRawRequest(body);
   log?.debug?.("FORMAT", `${sourceFormat} → ${targetFormat} | stream=${stream}`);
 
@@ -181,7 +181,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       }
     }
     // Normalize newer Cowork/CC beta shapes (adaptive thinking, mid-conversation system) the API rejects
-    if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model);
+    if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model as string | undefined);
   } else {
     translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
     if (!translatedBody) {
@@ -240,7 +240,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const tokenSaverEnabled = clientRawRequest?.headers?.[TOKEN_SAVER_HEADER]?.toLowerCase() !== "off";
 
   // RTK: compress tool_result content
-  const rtkStats = compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
+  const rtkStats = compressMessages(translatedBody, tokenSaverEnabled && (rtkEnabled ?? false));
   const rtkLine = formatRtkLog(rtkStats);
   if (rtkLine) console.log(rtkLine);
 
@@ -248,11 +248,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const headroomDiagnostics: HeadroomDiagnostics = {};
   const headroomStats = await compressWithHeadroom(translatedBody, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, diagnostics: headroomDiagnostics } as unknown as Parameters<typeof compressWithHeadroom>[1]);
   const headroomLine = formatHeadroomLog(headroomStats);
-  const headroomSizeLine = formatHeadroomSizeLog(headroomDiagnostics);
+  const headroomSizeLine = formatHeadroomSizeLog(headroomDiagnostics as unknown as Parameters<typeof formatHeadroomSizeLog>[0]);
   if (headroomLine) {
     log?.info?.("HEADROOM", `${headroomLine}${headroomSizeLine ? ` | ${headroomSizeLine}` : ""}`);
-    if (isHeadroomPhantomSavings(headroomStats, headroomDiagnostics)) {
-      log?.warn?.("HEADROOM", `reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload | ${formatHeadroomSizeLog(headroomDiagnostics)}`);
+    if (isHeadroomPhantomSavings(headroomStats, headroomDiagnostics as unknown as Parameters<typeof isHeadroomPhantomSavings>[1])) {
+      log?.warn?.("HEADROOM", `reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload | ${formatHeadroomSizeLog(headroomDiagnostics as unknown as Parameters<typeof formatHeadroomSizeLog>[0])}`);
     }
   } else if (tokenSaverEnabled && headroomEnabled) log?.warn?.("HEADROOM", `skipped: ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` (${headroomDiagnostics.endpoint})` : ""}`);
 
@@ -276,11 +276,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (pxpipeEnabled) {
     const pxpipeResult = await compressWithPxpipe(translatedBody, {
       enabled: true, format: finalFormat, model: upstreamModel,
-      minChars: pxpipeMinChars, timeoutMs: pxpipeTimeoutMs, transform: pxpipeTransform,
+      minChars: pxpipeMinChars, timeoutMs: pxpipeTimeoutMs, transform: pxpipeTransform as ((opts: unknown) => Promise<unknown>) | undefined,
     });
     pxpipeSummary = pxpipeResult.summary;
     if (pxpipeResult.body) translatedBody = pxpipeResult.body;
-    if (pxpipeSummary?.applied) xf.push(`PXPIPE:${pxpipeSummary.imageCount}img`);
+    if (pxpipeSummary?.applied) xf.push(`PXPIPE:${(pxpipeSummary as PxpipeSummary).imageCount ?? 0}img`);
     try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
   }
 
@@ -292,19 +292,19 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   const executor = getExecutor(provider);
   trackPendingRequest(model, provider, connectionId, true);
-  appendRequestLog({ model, provider, connectionId, status: "PENDING" }).catch(() => { });
+  appendRequestLog().catch(() => { });
 
-  const msgCount = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || translatedBody.request?.contents?.length || 0;
+  const msgCount = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || (translatedBody.request as Record<string, unknown>)?.contents && ((translatedBody.request as Record<string, unknown>).contents as unknown[])?.length || 0;
   log?.debug?.("REQUEST", `${provider.toUpperCase()} | ${model} | ${msgCount} msgs`);
 
   const streamController = createStreamController({
-    onDisconnect: (reason) => {
+    onDisconnect: (reason: string) => {
       trackPendingRequest(model, provider, connectionId, false);
       if (onDisconnect) onDisconnect(reason);
     },
     onError: () => trackPendingRequest(model, provider, connectionId, false),
     log, provider, model, reqTag
-  });
+  } as unknown as Parameters<typeof createStreamController>[0]);
 
   const proxyOptions = {
     connectionProxyEnabled: credentials?.providerSpecificData?.connectionProxyEnabled === true,
@@ -320,7 +320,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   } else if (proxyOptions.connectionProxyEnabled && proxyOptions.connectionProxyUrl) {
     let maskedProxyUrl = proxyOptions.connectionProxyUrl;
     try {
-      const parsed = new URL(proxyOptions.connectionProxyUrl);
+      const parsed = new URL(String(proxyOptions.connectionProxyUrl));
       const host = parsed.hostname || "";
       const port = parsed.port ? `:${parsed.port}` : "";
       const protocol = parsed.protocol || "http:";
@@ -352,29 +352,30 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     finalBody = result.transformedBody;
     providerResponseFormat = result.responseFormat || targetFormat;
     reqLogger.logTargetRequest(providerUrl, providerHeaders, finalBody);
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
     trackPendingRequest(model, provider, connectionId, false, true);
-    appendRequestLog({ model, provider, connectionId, status: `FAILED ${error.name === "AbortError" ? 499 : HTTP_STATUS.BAD_GATEWAY}` }).catch(() => { });
+    appendRequestLog().catch(() => { });
     saveRequestDetail(buildRequestDetail({
       provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       request: extractRequestConfig(body, stream),
       providerRequest: translatedBody || null,
-      response: { error: error.message || String(error), status: error.name === "AbortError" ? 499 : 502, thinking: null },
+      response: { error: err.message || String(err), status: err.name === "AbortError" ? 499 : 502, thinking: null },
       pxpipe: pxpipeSummary,
       status: "error"
     })).catch(() => { });
 
-    if (error.name === "AbortError") {
-      streamController.handleError(error);
-      return createErrorResult(499, "Request aborted");
+    if (err.name === "AbortError") {
+      streamController.handleError(err);
+      return createErrorResult(499, "Request aborted", undefined);
     }
-    const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
+    const errMsg = formatProviderError(err as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, HTTP_STATUS.BAD_GATEWAY);
     if (log?.errorLine) {
-      log.errorLine(reqTag, "✗", `ERROR 502 · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${errMsg}${error.stack ? `\n    ${error.stack}` : ""}`);
+      log.errorLine(reqTag, "✗", `ERROR 502 · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${errMsg}${err.stack ? `\n    ${err.stack}` : ""}`);
     }
-    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg);
+    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg, undefined);
   }
 
   // Handle 401/403 - try token refresh (skip for noAuth providers)
@@ -396,7 +397,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
         if (log?.line) log.line(reqTag, "🔑", `TOKEN REFRESHED · ${provider}/${model}`);
         Object.assign(credentials, newCredentials);
         if (onCredentialsRefreshed) {
-          try { await onCredentialsRefreshed(newCredentials); } catch (e) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e.message}`); }
+          try { await onCredentialsRefreshed(newCredentials); } catch (e: unknown) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e instanceof Error ? e.message : String(e)}`); }
         }
         try {
           const retryResult = await executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions });
@@ -409,8 +410,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       } else {
         log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh failed`);
       }
-    } catch (e) {
-      log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh threw: ${e.message}`);
+    } catch (e: unknown) {
+      log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh threw: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -418,7 +419,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (!providerResponse.ok) {
     trackPendingRequest(model, provider, connectionId, false, true);
     const { statusCode, message, resetsAtMs } = await parseUpstreamError(providerResponse, executor);
-    appendRequestLog({ model, provider, connectionId, status: `FAILED ${statusCode}` }).catch(() => { });
+    appendRequestLog().catch(() => { });
     saveRequestDetail(buildRequestDetail({
       provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
@@ -430,7 +431,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       status: "error"
     })).catch(() => { });
 
-    const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
+    const errMsg = formatProviderError(new Error(message) as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, statusCode);
     if (log?.errorLine) {
       const urlStr = providerUrl ? `\n    URL: ${providerUrl}` : "";
       log.errorLine(reqTag, "✗", `ERROR ${statusCode} · ${provider}/${model} · ${Date.now() - requestStartTime}ms${urlStr}\n    ${errMsg}`);
@@ -440,28 +441,28 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
-  const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
+  const appendLog = (extra: Record<string, unknown>) => appendRequestLog().catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
   // Provider forced streaming but client wants JSON
   if (!clientRequestedStreaming && providerRequiresStreaming) {
-    const result = await handleForcedSSEToJson({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, customToolNames, trackDone, appendLog });
+    const result = await handleForcedSSEToJson({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, customToolNames: customToolNames as unknown as Set<string> | undefined, trackDone, appendLog });
     if (result) { streamController.handleComplete(); return result; }
   }
 
   // True non-streaming response
   if (!stream) {
-    const result = await handleNonStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, reqLogger, toolNameMap, customToolNames, trackDone, appendLog });
+    const result = await handleNonStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, reqLogger: reqLogger as unknown as Parameters<typeof handleNonStreamingResponse>[0]["reqLogger"], toolNameMap: toolNameMap as unknown as Record<string, string> | undefined, customToolNames: customToolNames as unknown as Set<string> | undefined, trackDone, appendLog });
     streamController.handleComplete();
     return result;
   }
 
   // Streaming response
   const { onStreamComplete, streamDetailId } = buildOnStreamComplete({ ...sharedCtx });
-  return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, userAgent, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId });
+  return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, userAgent, reqLogger: reqLogger as unknown as Parameters<typeof handleStreamingResponse>[0]["reqLogger"], toolNameMap: toolNameMap as unknown as Record<string, string> | undefined, customToolNames: customToolNames as unknown as Set<string> | undefined, streamController, onStreamComplete, streamDetailId });
 }
 
-export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
+export function isTokenExpiringSoon(expiresAt: unknown, bufferMs = 5 * 60 * 1000) {
   if (!expiresAt) return false;
-  return new Date(expiresAt).getTime() - Date.now() < bufferMs;
+  return new Date(expiresAt as string | number | Date).getTime() - Date.now() < bufferMs;
 }

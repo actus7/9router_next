@@ -1,7 +1,9 @@
 // Build OpenAI usage object. Caller computes prompt/completion/total (provider math).
 // Optional details added only when > 0 (matches existing claude/gemini/codex behavior).
-export function buildUsage({ promptTokens, completionTokens, totalTokens, cachedTokens = 0, cacheCreationTokens = 0, reasoningTokens = 0 }) {
-  const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens };
+import type { BuildUsageInput, OpenAIUsage, UsageKind } from "./openaiTypes";
+
+export function buildUsage({ promptTokens, completionTokens, totalTokens, cachedTokens = 0, cacheCreationTokens = 0, reasoningTokens = 0 }: BuildUsageInput): OpenAIUsage {
+  const usage: OpenAIUsage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens };
   if (cachedTokens > 0 || cacheCreationTokens > 0) {
     usage.prompt_tokens_details = {};
     if (cachedTokens > 0) usage.prompt_tokens_details.cached_tokens = cachedTokens;
@@ -13,11 +15,11 @@ export function buildUsage({ promptTokens, completionTokens, totalTokens, cached
   return usage;
 }
 
-const n = (v) => (typeof v === "number" ? v : 0);
+const n = (v: unknown): number => (typeof v === "number" ? v : 0);
 
 // Per-provider raw token field-map + math. Returns buildUsage() args (NOT the usage object).
 // Keeps each provider's exact semantics: claude/gemini fold cache+reasoning, others don't.
-const USAGE_EXTRACTORS = {
+const USAGE_EXTRACTORS: Record<UsageKind, (raw: Record<string, unknown>) => BuildUsageInput> = {
   claude(raw) {
     const input = n(raw.input_tokens), output = n(raw.output_tokens);
     const cacheRead = n(raw.cache_read_input_tokens), cacheCreate = n(raw.cache_creation_input_tokens);
@@ -45,7 +47,7 @@ const USAGE_EXTRACTORS = {
     // a second pass.
     const cached = n(raw.cache_read_input_tokens) || n(raw.cachedTokens) || n(raw.cached_tokens);
     const cacheCreation = n(raw.cache_creation_input_tokens);
-    const out = { promptTokens: input, completionTokens: output, totalTokens: input + output };
+    const out: BuildUsageInput = { promptTokens: input, completionTokens: output, totalTokens: input + output };
     if (cached > 0) out.cachedTokens = cached;
     if (cacheCreation > 0) out.cacheCreationTokens = cacheCreation;
     return out;
@@ -62,8 +64,8 @@ const USAGE_EXTRACTORS = {
 };
 
 // Convert provider-native usage object → OpenAI usage. Returns null if no extractor/raw.
-export function toOpenAIUsage(raw, kind) {
+export function toOpenAIUsage(raw: unknown, kind: UsageKind): OpenAIUsage | null {
   const extract = USAGE_EXTRACTORS[kind];
   if (!extract || !raw || typeof raw !== "object") return null;
-  return buildUsage(extract(raw));
+  return buildUsage(extract(raw as Record<string, unknown>));
 }

@@ -4,6 +4,6 @@
 import { injectSystemPrompt } from "./systemInject";
 import { CAVEMAN_PROMPTS } from "./cavemanPrompts";
 
-export function injectCaveman(body, format, level) {
+export function injectCaveman(body: Record<string, unknown>, format: string, level: string) {
   injectSystemPrompt(body, format, CAVEMAN_PROMPTS[level]);
 }

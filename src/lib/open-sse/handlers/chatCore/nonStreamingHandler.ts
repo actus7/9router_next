@@ -10,53 +10,59 @@ import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, sav
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb";
 import { decloakToolNames } from "../../utils/claudeCloaking";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index";
+import type { NonStreamingHandlerContext } from "./types";
 
-function parseToolArguments(value) {
+// Local types for dynamic JSON structures
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+interface JsonObject { [key: string]: unknown }
+type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
+
+function parseToolArguments(value: unknown): JsonObject {
   if (!value) return {};
-  if (typeof value === "object") return value;
+  if (typeof value === "object" && value !== null) return value as JsonObject;
   try {
-    return JSON.parse(value);
+    return JSON.parse(value as string);
   } catch {
     return {};
   }
 }
 
-function openAICompletionToClaudeMessage(responseBody) {
-  if (!responseBody?.choices?.[0]) return responseBody;
-  const choice = responseBody.choices[0];
-  const message = choice.message || {};
-  const content = [];
+function openAICompletionToClaudeMessage(responseBody: JsonObject): JsonObject {
+  if (!responseBody?.choices || !(responseBody.choices as JsonObject[])?.[0]) return responseBody;
+  const choice = (responseBody.choices as JsonObject[])[0];
+  const message = (choice.message as JsonObject) || {};
+  const content: JsonObject[] = [];
 
-  const reasoning = message.reasoning_content || message.provider_specific_fields?.reasoning_content || "";
+  const reasoning = (message.reasoning_content as string) || ((message.provider_specific_fields as JsonObject)?.reasoning_content as string) || "";
   if (reasoning) {
     content.push({ type: "thinking", thinking: reasoning });
   }
   if (typeof message.content === "string" && message.content.length > 0) {
     content.push({ type: "text", text: message.content });
   }
-  for (const toolCall of message.tool_calls || []) {
-    const fn = toolCall.function || {};
+  for (const toolCall of (message.tool_calls as JsonObject[]) || []) {
+    const fn = (toolCall.function as JsonObject) || {};
     content.push({
       type: "tool_use",
-      id: toolCall.id || `toolu_${Date.now()}_${content.length}`,
-      name: fn.name || toolCall.name || "",
+      id: (toolCall.id as string) || `toolu_${Date.now()}_${content.length}`,
+      name: (fn.name as string) || (toolCall.name as string) || "",
       input: parseToolArguments(fn.arguments || toolCall.arguments),
     });
   }
   if (content.length === 0) content.push({ type: "text", text: "" });
 
-  const usage = responseBody.usage || {};
+  const usage = (responseBody.usage as JsonObject) || {};
   return {
     id: String(responseBody.id || `msg_${Date.now()}`).replace(/^chatcmpl-/, ""),
     type: "message",
     role: "assistant",
     model: responseBody.model || "unknown",
     content,
-    stop_reason: fromOpenAIFinish(choice.finish_reason, FORMATS.CLAUDE),
+    stop_reason: fromOpenAIFinish(choice.finish_reason as string, FORMATS.CLAUDE),
     stop_sequence: null,
     usage: {
-      input_tokens: usage.prompt_tokens || usage.input_tokens || 0,
-      output_tokens: usage.completion_tokens || usage.output_tokens || 0,
+      input_tokens: (usage.prompt_tokens as number) || (usage.input_tokens as number) || 0,
+      output_tokens: (usage.completion_tokens as number) || (usage.output_tokens as number) || 0,
     },
   };
 }
@@ -68,7 +74,7 @@ function openAICompletionToClaudeMessage(responseBody) {
  * path already emits Responses events, but the JSON path returned a raw
  * `chat.completion` body, so tool_calls were invisible to Responses clients.
  */
-function extractCustomToolInput(argumentsValue) {
+function extractCustomToolInput(argumentsValue: unknown): string {
   const argumentsText = typeof argumentsValue === "string" ? argumentsValue : JSON.stringify(argumentsValue || {});
   try {
     const parsed = JSON.parse(argumentsText);
@@ -77,15 +83,15 @@ function extractCustomToolInput(argumentsValue) {
   return argumentsText;
 }
 
-function openAICompletionToResponses(responseBody, customToolNames = null) {
-  const choice = responseBody?.choices?.[0];
+function openAICompletionToResponses(responseBody: JsonObject, customToolNames: Set<string> | null = null): JsonObject {
+  const choice = (responseBody.choices as JsonObject[])?.[0];
   if (!choice) return responseBody;
 
-  const message = choice.message || {};
-  const output = [];
+  const message = (choice.message as JsonObject) || {};
+  const output: JsonObject[] = [];
 
   // Reasoning → a reasoning item (summary text), mirroring the streaming path.
-  const reasoning = message.reasoning_content || message.reasoning;
+  const reasoning = (message.reasoning_content as string) || (message.reasoning as string);
   if (typeof reasoning === "string" && reasoning.length > 0) {
     output.push({
       type: RESPONSES_ITEM.REASONING,
@@ -104,9 +110,9 @@ function openAICompletionToResponses(responseBody, customToolNames = null) {
   }
 
   // tool_calls → function_call/custom_tool_call items (Responses-native tool shape).
-  for (const tc of message.tool_calls || []) {
-    const fn = tc.function || {};
-    const custom = customToolNames?.has(fn.name);
+  for (const tc of (message.tool_calls as JsonObject[]) || []) {
+    const fn = (tc.function as JsonObject) || {};
+    const custom = customToolNames?.has(fn.name as string);
     output.push({
       type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
       id: `${custom ? "ctc" : "fc"}_${tc.id || ""}`,
@@ -118,7 +124,7 @@ function openAICompletionToResponses(responseBody, customToolNames = null) {
     });
   }
 
-  const usage = responseBody.usage || {};
+  const usage = (responseBody.usage as JsonObject) || {};
   const status = choice.finish_reason === "tool_calls" ? "completed" : (choice.finish_reason === "stop" ? "completed" : (choice.finish_reason || "completed"));
 
   return {
@@ -131,9 +137,9 @@ function openAICompletionToResponses(responseBody, customToolNames = null) {
     error: null,
     output,
     usage: {
-      input_tokens: usage.prompt_tokens || usage.input_tokens || 0,
-      output_tokens: usage.completion_tokens || usage.output_tokens || 0,
-      total_tokens: usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+      input_tokens: (usage.prompt_tokens as number) || (usage.input_tokens as number) || 0,
+      output_tokens: (usage.completion_tokens as number) || (usage.output_tokens as number) || 0,
+      total_tokens: (usage.total_tokens as number) || ((usage.prompt_tokens as number) || 0) + ((usage.completion_tokens as number) || 0),
     },
   };
 }
@@ -141,7 +147,7 @@ function openAICompletionToResponses(responseBody, customToolNames = null) {
 /**
  * Translate non-streaming response body from provider format → OpenAI format.
  */
-export function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat, customToolNames = null) {
+export function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: string, sourceFormat: string, customToolNames: Set<string> | null = null): JsonObject {
   if (targetFormat === sourceFormat) return responseBody;
   // Provider responded in OpenAI Chat Completions shape but the client speaks
   // Responses API — convert so tool_calls/text surface as Responses `output`.
@@ -155,60 +161,61 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
 
   // Gemini / Antigravity
   if (targetFormat === FORMATS.GEMINI || targetFormat === FORMATS.ANTIGRAVITY || targetFormat === FORMATS.GEMINI_CLI || targetFormat === FORMATS.VERTEX) {
-    const response = responseBody.response || responseBody;
-    if (!response?.candidates?.[0]) return responseBody;
+    const response = (responseBody.response as JsonObject) || responseBody;
+    if (!response?.candidates || !(response.candidates as JsonObject[])?.[0]) return responseBody;
 
-    const candidate = response.candidates[0];
-    const content = candidate.content;
-    const usage = response.usageMetadata || responseBody.usageMetadata;
+    const candidate = (response.candidates as JsonObject[])[0];
+    const content = candidate.content as JsonObject;
+    const usage = (response.usageMetadata as JsonObject) || (responseBody.usageMetadata as JsonObject);
     let textContent = "", reasoningContent = "";
-    const toolCalls = [];
+    const toolCalls: JsonObject[] = [];
 
     if (content?.parts) {
-      for (const part of content.parts) {
-        if (part.thought === true && part.text) reasoningContent += part.text;
-        else if (part.text !== undefined) textContent += part.text;
+      for (const part of content.parts as JsonObject[]) {
+        if (part.thought === true && part.text) reasoningContent += part.text as string;
+        else if (part.text !== undefined) textContent += part.text as string;
         if (part.functionCall) {
+          const fc = part.functionCall as JsonObject;
           toolCalls.push({
-            id: `call_${part.functionCall.name}_${Date.now()}_${toolCalls.length}`,
+            id: `call_${fc.name}_${Date.now()}_${toolCalls.length}`,
             type: "function",
-            function: { name: part.functionCall.name, arguments: JSON.stringify(part.functionCall.args || {}) }
+            function: { name: fc.name, arguments: JSON.stringify(fc.args || {}) }
           });
         }
         // Handle inline image data (from image generation models)
-        const inlineData = part.inlineData || part.inline_data;
+        const inlineData = (part.inlineData as JsonObject) || (part.inline_data as JsonObject);
         if (inlineData?.data) {
-          const mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+          const mimeType = (inlineData.mimeType as string) || (inlineData.mime_type as string) || "image/png";
           textContent += `\n![image](data:${mimeType};base64,${inlineData.data})\n`;
         }
       }
     }
 
-    const message = { role: "assistant" };
+    const message: JsonObject = { role: "assistant" };
     if (textContent) message.content = textContent;
     if (reasoningContent) message.reasoning_content = reasoningContent;
     if (toolCalls.length > 0) message.tool_calls = toolCalls;
     if (!message.content && !message.tool_calls) message.content = "";
 
-    let finishReason = (candidate.finishReason || "stop").toLowerCase();
+    let finishReason = ((candidate.finishReason as string) || "stop").toLowerCase();
     if (finishReason === "stop" && toolCalls.length > 0) finishReason = "tool_calls";
 
-    const result = {
+    const result: JsonObject = {
       id: `chatcmpl-${response.responseId || Date.now()}`,
       object: "chat.completion",
-      created: Math.floor(new Date(response.createTime || Date.now()).getTime() / 1000),
+      created: Math.floor(new Date((response.createTime as string) || Date.now()).getTime() / 1000),
       model: response.modelVersion || "gemini",
       choices: [{ index: 0, message, finish_reason: finishReason }]
     };
 
     if (usage) {
       result.usage = {
-        prompt_tokens: (usage.promptTokenCount || 0) + (usage.thoughtsTokenCount || 0),
+        prompt_tokens: ((usage.promptTokenCount as number) || 0) + ((usage.thoughtsTokenCount as number) || 0),
         completion_tokens: usage.candidatesTokenCount || 0,
         total_tokens: usage.totalTokenCount || 0
       };
-      if (usage.thoughtsTokenCount > 0) {
-        result.usage.completion_tokens_details = { reasoning_tokens: usage.thoughtsTokenCount };
+      if ((usage.thoughtsTokenCount as number) > 0) {
+        (result.usage as JsonObject).completion_tokens_details = { reasoning_tokens: usage.thoughtsTokenCount };
       }
     }
     return result;
@@ -228,31 +235,31 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
     if (responseBody.choices || (responseBody.content && !Array.isArray(responseBody.content))) return responseBody;
 
     let textContent = "", thinkingContent = "";
-    const toolCalls = [];
+    const toolCalls: JsonObject[] = [];
 
-    for (const block of (responseBody.content || [])) {
+    for (const block of (responseBody.content as JsonObject[]) || []) {
       if (block.type === "text") {
         // Strip markdown code block markers (e.g. kimi wraps JSON in ```json...```)
-        const raw = block.text ?? "";
+        const raw = (block.text as string) ?? "";
         const text = raw.replace(/^\s*```\s*json\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "");
         textContent += text;
-      } else if (block.type === "thinking") thinkingContent += block.thinking || "";
+      } else if (block.type === "thinking") thinkingContent += (block.thinking as string) || "";
       else if (block.type === "tool_use") {
         toolCalls.push({ id: block.id, type: "function", function: { name: block.name, arguments: JSON.stringify(block.input || {}) } });
       }
     }
 
-    const message = { role: "assistant" };
+    const message: JsonObject = { role: "assistant" };
     if (textContent) message.content = textContent;
     if (thinkingContent) message.reasoning_content = thinkingContent;
     if (toolCalls.length > 0) message.tool_calls = toolCalls;
     if (!message.content && !message.tool_calls) message.content = "";
 
-    let finishReason = responseBody.stop_reason || "stop";
+    let finishReason = (responseBody.stop_reason as string) || "stop";
     if (finishReason === "end_turn") finishReason = "stop";
     if (finishReason === "tool_use") finishReason = "tool_calls";
 
-    const result = {
+    const result: JsonObject = {
       id: `chatcmpl-${responseBody.id || Date.now()}`,
       object: "chat.completion",
       created: Math.floor(Date.now() / 1000),
@@ -261,10 +268,11 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
     };
 
     if (responseBody.usage) {
+      const usage = responseBody.usage as JsonObject;
       result.usage = {
-        prompt_tokens: responseBody.usage.input_tokens || 0,
-        completion_tokens: responseBody.usage.output_tokens || 0,
-        total_tokens: (responseBody.usage.input_tokens || 0) + (responseBody.usage.output_tokens || 0)
+        prompt_tokens: (usage.input_tokens as number) || 0,
+        completion_tokens: (usage.output_tokens as number) || 0,
+        total_tokens: ((usage.input_tokens as number) || 0) + ((usage.output_tokens as number) || 0)
       };
     }
     return result;
@@ -272,7 +280,7 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
 
   // Ollama
   if (targetFormat === FORMATS.OLLAMA) {
-    return ollamaBodyToOpenAI(responseBody);
+    return ollamaBodyToOpenAI(responseBody) as JsonObject;
   }
 
   return responseBody;
@@ -281,10 +289,10 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, appendLog, pxpipe, reqTag, log }) {
+export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, appendLog, pxpipe, reqTag, log }: NonStreamingHandlerContext) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
-  let responseBody;
+  let responseBody: JsonObject;
 
   if (contentType.includes("text/event-stream")) {
     const sseText = await providerResponse.text();
@@ -293,13 +301,13 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
       appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid SSE response for non-streaming request");
     }
-    responseBody = parsed;
+    responseBody = parsed as JsonObject;
   } else {
     try {
-      responseBody = await providerResponse.json();
-    } catch (err) {
+      responseBody = await providerResponse.json() as JsonObject;
+    } catch (err: unknown) {
       appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
-      console.error(`[ChatCore] Failed to parse JSON from ${provider}:`, err.message);
+      console.error(`[ChatCore] Failed to parse JSON from ${provider}:`, (err as Error).message);
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, `Invalid JSON response from ${provider}`);
     }
   }
@@ -308,13 +316,13 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)
-      .catch(err => {
-        console.error("[ChatCore] onRequestSuccess failed:", err?.message || err);
+      .catch((err: unknown) => {
+        console.error("[ChatCore] onRequestSuccess failed:", (err as Error)?.message || err);
       });
   }
 
   // Decloak tool_use names once on raw Claude body, before any translation (INPUT side)
-  responseBody = decloakToolNames(responseBody, toolNameMap);
+  responseBody = decloakToolNames(responseBody, toolNameMap as unknown as Map<string, string>) as JsonObject;
 
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });
@@ -330,10 +338,10 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   const isResponsesResponse = sourceFormat === FORMATS.OPENAI_RESPONSES && translatedResponse?.object === "response";
 
   // Fix finish_reason for tool_calls: some providers return non-standard values (e.g. "other")
-  if (translatedResponse?.choices?.[0]) {
-    const choice = translatedResponse.choices[0];
-    const msg = choice.message;
-    const hasToolCalls = Array.isArray(msg?.tool_calls) && msg.tool_calls.length > 0;
+  if ((translatedResponse?.choices as JsonObject[])?.[0]) {
+    const choice = (translatedResponse.choices as JsonObject[])[0];
+    const msg = choice.message as JsonObject;
+    const hasToolCalls = Array.isArray(msg?.tool_calls) && (msg.tool_calls as JsonObject[]).length > 0;
     if (hasToolCalls && choice.finish_reason !== "tool_calls") {
       choice.finish_reason = "tool_calls";
     }
@@ -349,21 +357,22 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   if (!isClaudeMessageResponse && !isResponsesResponse) {
     delete translatedResponse.prompt_filter_results;
     if (translatedResponse?.choices) {
-      for (const choice of translatedResponse.choices) delete choice.content_filter_results;
+      for (const choice of translatedResponse.choices as JsonObject[]) delete choice.content_filter_results;
     }
   }
 
   if (translatedResponse?.usage) {
-    translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage), sourceFormat);
+    translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage as Record<string, unknown>), sourceFormat);
   }
 
   // Strip reasoning_content only when content is non-empty.
   // When content is empty (e.g. thinking models that used all tokens for reasoning),
   // reasoning_content is the only useful output and must be preserved.
   if (!isClaudeMessageResponse && !isResponsesResponse && translatedResponse?.choices) {
-    for (const choice of translatedResponse.choices) {
-      if (choice?.message?.reasoning_content && choice.message.content) {
-        delete choice.message.reasoning_content;
+    for (const choice of translatedResponse.choices as JsonObject[]) {
+      const msg = choice?.message as JsonObject;
+      if (msg?.reasoning_content && msg.content) {
+        delete msg.reasoning_content;
       }
     }
   }
@@ -379,14 +388,14 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     providerRequest: finalBody || translatedBody || null,
     providerResponse: responseBody || null,
     response: {
-      content: translatedResponse?.choices?.[0]?.message?.content || translatedResponse?.content || null,
-      thinking: translatedResponse?.choices?.[0]?.message?.reasoning_content || translatedResponse?.reasoning_content || null,
-      finish_reason: translatedResponse?.choices?.[0]?.finish_reason || "unknown"
+      content: ((translatedResponse?.choices as JsonObject[])?.[0]?.message as JsonObject)?.content || translatedResponse?.content || null,
+      thinking: ((translatedResponse?.choices as JsonObject[])?.[0]?.message as JsonObject)?.reasoning_content || translatedResponse?.reasoning_content || null,
+      finish_reason: ((translatedResponse?.choices as JsonObject[])?.[0]?.finish_reason as string) || "unknown"
     },
     pxpipe,
     status: "success"
-  }, { endpoint: clientRawRequest?.endpoint || null })).catch(err => {
-    console.error("[RequestDetail] Failed to save:", err.message);
+  }, { endpoint: clientRawRequest?.endpoint || null })).catch((err: unknown) => {
+    console.error("[RequestDetail] Failed to save:", (err as Error).message);
   });
 
   return {

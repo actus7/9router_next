@@ -41,6 +41,11 @@ import {
   ACCOUNT_PAGE_SIZE_MAX,
   ACCOUNT_FILTER_OPTIONS,
   QUOTA_SORT_OPTIONS,
+  type Connection,
+  type QuotaData,
+  type QuotaEntry,
+  type Pagination,
+  type Totals,
 } from "./utils";
 import Card from "@/shared/components/Card";
 import { ConfirmModal, EditConnectionModal } from "@/shared/components";
@@ -60,7 +65,7 @@ const EMPTY_STATE_ICON_MAP: Record<string, React.ElementType> = {
 // Maps the stored providerSpecificData.authMethod to a human label for Kiro.
 // Values come from the Kiro connect flows: builder-id/idc (device code),
 // google/github (social), imported (refresh-token paste), api_key (headless).
-const KIRO_METHOD_LABELS = {
+const KIRO_METHOD_LABELS: Record<string, string> = {
   "builder-id": "AWS Builder ID",
   idc: "IAM Identity Center",
   google: "Google",
@@ -69,23 +74,46 @@ const KIRO_METHOD_LABELS = {
   api_key: "API Key",
 };
 
-const AUTO_PING_SETTINGS_KEYS = {
+const AUTO_PING_SETTINGS_KEYS: Record<string, string> = {
   claude: "claudeAutoPing",
   codex: "codexAutoPing",
 };
 
-const AUTO_PING_TOOLTIPS = {
+const AUTO_PING_TOOLTIPS: Record<string, string> = {
   claude: "When your 5h quota runs out, auto-sends a request the moment it resets so a new window starts right away.",
   codex: "Auto-starts the next 5h Codex window after reset by sending a tiny gpt-5.5 request. Consumes a small amount of quota.",
 };
 
-function kiroMethodLabel(conn) {
+interface ResetConfirmState {
+  connection: Connection;
+  resetCreditCount: number;
+}
+
+interface CreditEntry {
+  status?: string;
+  grantedAt?: string;
+  expiresAt?: string;
+}
+
+interface ResetCreditsData {
+  credits?: CreditEntry[];
+  availableCount?: number;
+}
+
+interface ResetCreditsState {
+  connection: Connection;
+  loading: boolean;
+  error: string | null;
+  data: ResetCreditsData | null;
+}
+
+function kiroMethodLabel(conn: Connection) {
   const m = conn.providerSpecificData?.authMethod;
-  if (m && KIRO_METHOD_LABELS[m]) return KIRO_METHOD_LABELS[m];
+  if (typeof m === "string" && m in KIRO_METHOD_LABELS) return KIRO_METHOD_LABELS[m];
   return conn.authType === "api_key" ? "API Key" : "OAuth";
 }
 
-function getConnectionSecondaryLabel(connection) {
+function getConnectionSecondaryLabel(connection: Connection) {
   if (connection.name?.trim() && connection.email?.trim() && connection.name.trim() !== connection.email.trim()) {
     return connection.email.trim();
   }
@@ -100,21 +128,22 @@ function getConnectionSecondaryLabel(connection) {
 // Region is stored for builder-id/idc/api_key flows; social and imported flows
 // omit it, so fall back to the region segment of the profileArn
 // (arn:aws:codewhisperer:<region>:...).
-function kiroRegion(conn) {
+function kiroRegion(conn: Connection): string {
   const r = conn.providerSpecificData?.region;
-  if (r) return r;
+  if (typeof r === "string" && r) return r;
   const arn = conn.providerSpecificData?.profileArn;
   const seg = typeof arn === "string" ? arn.split(":")[3] : "";
   return seg || "";
 }
 
-function getCodexResetCreditCount(quota) {
-  const value = quota?.raw?.resetCredits?.availableCount;
+function getCodexResetCreditCount(quota: QuotaData | undefined) {
+  const resetCredits = quota?.raw?.resetCredits as Record<string, unknown> | undefined;
+  const value = resetCredits?.availableCount;
   const count = typeof value === "number" ? value : Number(value);
   return Number.isFinite(count) ? Math.max(0, count) : 0;
 }
 
-function formatCreditDate(value) {
+function formatCreditDate(value: string | Date | null | undefined) {
   if (!value) return "N/A";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "N/A";
@@ -127,7 +156,7 @@ function formatCreditDate(value) {
   });
 }
 
-function formatTimeRemaining(value) {
+function formatTimeRemaining(value: string | Date | null | undefined) {
   if (!value) return "N/A";
   const diffMs = new Date(value).getTime() - Date.now();
   if (!Number.isFinite(diffMs)) return "N/A";
@@ -140,32 +169,32 @@ function formatTimeRemaining(value) {
 
 export default function ProviderLimits() {
   const { copied, copy } = useCopyToClipboard();
-  const [connections, setConnections] = useState([]);
-  const [quotaData, setQuotaData] = useState({});
-  const [loading, setLoading] = useState({});
-  const [errors, setErrors] = useState({});
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [quotaData, setQuotaData] = useState<Record<string, QuotaData>>({});
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [autoPingMaps, setAutoPingMaps] = useState({ claude: {}, codex: {} });
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [autoPingMaps, setAutoPingMaps] = useState<Record<string, Record<string, boolean>>>({ claude: {}, codex: {} });
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [hasHydratedAutoRefresh, setHasHydratedAutoRefresh] = useState(false);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
-  const [togglingId, setTogglingId] = useState(null);
-  const [resettingLimitId, setResettingLimitId] = useState(null);
-  const [resetConfirmState, setResetConfirmState] = useState(null);
-  const [resetCreditsState, setResetCreditsState] = useState(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [resettingLimitId, setResettingLimitId] = useState<string | null>(null);
+  const [resetConfirmState, setResetConfirmState] = useState<ResetConfirmState | null>(null);
+  const [resetCreditsState, setResetCreditsState] = useState<ResetCreditsState | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedConnection, setSelectedConnection] = useState(null);
+  const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState(null);
-  const [proxyPools, setProxyPools] = useState([]);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [proxyPools, setProxyPools] = useState<Array<{ id: string; name: string }>>([]);
   const [providerFilter, setProviderFilter] = useState("all");
-  const [providerOptions, setProviderOptions] = useState([]);
+  const [providerOptions, setProviderOptions] = useState<string[]>([]);
   const [accountFilter, setAccountFilter] = useState("all");
   const [quotaSortMode, setQuotaSortMode] = useState("default");
-  const [quotaVisibility, setQuotaVisibility] = useState({});
+  const [quotaVisibility, setQuotaVisibility] = useState<Record<string, { hidden?: string[] }>>({});
   const [expiringFirst, setExpiringFirst] = useState(false);
   const [providerMenuOpen, setProviderMenuOpen] = useState(false);
   const [bulkToggling, setBulkToggling] = useState(false);
@@ -185,8 +214,8 @@ export default function ProviderLimits() {
     providerFilteredConnections: 0,
   });
 
-  const intervalRef = useRef(null);
-  const countdownRef = useRef(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickCountRef = useRef(0);
 
   const fetchConnections = useCallback(
@@ -208,16 +237,16 @@ export default function ProviderLimits() {
         );
         if (!response.ok) throw new Error("Failed to fetch connections");
 
-        const data = await response.json();
-        const connectionList = data.connections || [];
-        const nextPagination = getSafePagination(data.pagination, pageSize);
-        const nextTotals = getSafeTotals(data.totals, connectionList.length);
+        const data = await response.json() as Record<string, unknown>;
+        const connectionList = (data.connections as Connection[]) || [];
+        const nextPagination = getSafePagination(data.pagination as Pagination | null, pageSize);
+        const nextTotals = getSafeTotals(data.totals as Totals | null, connectionList.length);
 
         setConnections(connectionList);
-        setProviderOptions(getProviderOptions(data.providerOptions));
+        setProviderOptions(getProviderOptions(data.providerOptions as string[] | null));
         setPagination(nextPagination);
         setTotals(nextTotals);
-        setPage(getPaginationPageValue(data.pagination, targetPage));
+        setPage(getPaginationPageValue(data.pagination as Pagination | null, targetPage));
         return connectionList;
       } catch (error) {
         console.error("Error fetching connections:", error);
@@ -232,7 +261,7 @@ export default function ProviderLimits() {
   );
 
   // Fetch quota for a specific connection
-  const fetchQuota = useCallback(async (connectionId, provider, { force = false } = {}) => {
+  const fetchQuota = useCallback(async (connectionId: string, provider: string, { force = false } = {}) => {
     setLoading((prev) => ({ ...prev, [connectionId]: true }));
     setErrors((prev) => ({ ...prev, [connectionId]: null }));
 
@@ -295,14 +324,14 @@ export default function ProviderLimits() {
         [connectionId]: quotaEntry,
       }));
       setQuotaCache(connectionId, quotaEntry);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(
         `[ProviderLimits] Error fetching quota for ${provider} (${connectionId}):`,
         error,
       );
       setErrors((prev) => ({
         ...prev,
-        [connectionId]: error.message || "Failed to fetch quota",
+        [connectionId]: error instanceof Error ? error.message : "Failed to fetch quota",
       }));
     } finally {
       setLoading((prev) => ({ ...prev, [connectionId]: false }));
@@ -311,7 +340,7 @@ export default function ProviderLimits() {
 
   // Refresh quota for a specific provider
   const refreshProvider = useCallback(
-    async (connectionId, provider) => {
+    async (connectionId: string, provider: string) => {
       await fetchQuota(connectionId, provider, { force: true });
       setLastUpdated(new Date());
     },
@@ -319,7 +348,7 @@ export default function ProviderLimits() {
   );
 
   const handleResetCodexLimit = useCallback(
-    async (connectionId, provider) => {
+    async (connectionId: string, provider: string) => {
       if (provider !== "codex" || resettingLimitId) return;
 
       setResettingLimitId(connectionId);
@@ -335,8 +364,8 @@ export default function ProviderLimits() {
 
         await fetchQuota(connectionId, provider);
         setLastUpdated(new Date());
-      } catch (error) {
-        setErrors((prev) => ({ ...prev, [connectionId]: error.message || "Failed to reset Codex limit" }));
+      } catch (error: unknown) {
+        setErrors((prev) => ({ ...prev, [connectionId]: error instanceof Error ? error.message : "Failed to reset Codex limit" }));
       } finally {
         setResettingLimitId(null);
       }
@@ -344,28 +373,33 @@ export default function ProviderLimits() {
     [fetchQuota, resettingLimitId],
   );
 
-  const handleViewCodexResetCredits = useCallback(async (connection) => {
+  const handleViewCodexResetCredits = useCallback(async (connection: Connection) => {
     setResetCreditsState({ connection, loading: true, error: null, data: null });
     try {
       const response = await fetch(`/api/usage/${connection.id}/codex-reset-credits`, { cache: "no-store" });
-      const result = await response.json().catch(() => ({}));
+      const result = await response.json().catch(() => ({})) as Record<string, unknown>;
       if (!response.ok) {
-        throw new Error(result.error || result.message || "Failed to load Codex reset credits");
+        throw new Error((result.error as string) || (result.message as string) || "Failed to load Codex reset credits");
       }
-      const credits = Array.isArray(result.credits) ? [...result.credits] : [];
+      const rawCredits = Array.isArray(result.credits) ? [...result.credits] : [];
+      const credits: CreditEntry[] = rawCredits.map((c: Record<string, unknown>) => ({
+        status: c.status as string | undefined,
+        grantedAt: c.grantedAt as string | undefined,
+        expiresAt: c.expiresAt as string | undefined,
+      }));
       credits.sort((a, b) => {
         const aTime = a.expiresAt ? new Date(a.expiresAt).getTime() : Number.POSITIVE_INFINITY;
         const bTime = b.expiresAt ? new Date(b.expiresAt).getTime() : Number.POSITIVE_INFINITY;
         return aTime - bTime;
       });
-      setResetCreditsState({ connection, loading: false, error: null, data: { ...result, credits } });
-    } catch (error) {
-      setResetCreditsState({ connection, loading: false, error: error.message || "Failed to load Codex reset credits", data: null });
+      setResetCreditsState({ connection, loading: false, error: null, data: { credits, availableCount: result.availableCount as number | undefined } });
+    } catch (error: unknown) {
+      setResetCreditsState({ connection, loading: false, error: error instanceof Error ? error.message : "Failed to load Codex reset credits", data: null });
     }
   }, []);
 
   const handleDeleteConnection = useCallback(
-    async (id) => {
+    async (id: string) => {
       setDeletingId(id);
       try {
         const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
@@ -413,7 +447,7 @@ export default function ProviderLimits() {
   );
 
   const handleToggleConnectionActive = useCallback(
-    async (id, isActive) => {
+    async (id: string, isActive: boolean) => {
       setTogglingId(id);
       try {
         const res = await fetch(`/api/providers/${id}`, {
@@ -438,7 +472,7 @@ export default function ProviderLimits() {
   );
 
   const handleUpdateConnection = useCallback(
-    async (formData) => {
+    async (formData: Record<string, unknown>) => {
       if (!selectedConnection?.id) return;
       const connectionId = selectedConnection.id;
       const provider = selectedConnection.provider;
@@ -469,7 +503,7 @@ export default function ProviderLimits() {
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled && data?.proxyPools) {
-          setProxyPools(data.proxyPools);
+          setProxyPools(data.proxyPools as Array<{ id: string; name: string }>);
         }
       })
       .catch(() => {});
@@ -487,7 +521,7 @@ export default function ProviderLimits() {
     // Throttle Claude: poll its quota every Nth auto-tick (manual force bypasses)
     const tick = (tickCountRef.current += 1);
     const claudeEvery = Math.round(CLAUDE_REFRESH_INTERVAL_MS / REFRESH_INTERVAL_MS);
-    const shouldFetch = (conn) =>
+    const shouldFetch = (conn: Connection) =>
       force || conn.provider !== "claude" || tick % claudeEvery === 0;
 
     try {
@@ -504,7 +538,7 @@ export default function ProviderLimits() {
       await Promise.all(
         visibleConnections
           .filter(shouldFetch)
-          .map((conn) => fetchQuota(conn.id, conn.provider)),
+          .map((conn: Connection) => fetchQuota(conn.id, conn.provider)),
       );
 
       setLastUpdated(new Date());
@@ -556,17 +590,19 @@ export default function ProviderLimits() {
   useEffect(() => {
     fetch("/api/settings", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : {}))
-      .then((s) => {
+      .then((s: Record<string, unknown>) => {
+        const sClaude = s?.claudeAutoPing as Record<string, unknown> | undefined;
+        const sCodex = s?.codexAutoPing as Record<string, unknown> | undefined;
         setAutoPingMaps({
-          claude: s?.claudeAutoPing?.connections || {},
-          codex: s?.codexAutoPing?.connections || {},
+          claude: (sClaude?.connections as Record<string, boolean>) || {},
+          codex: (sCodex?.connections as Record<string, boolean>) || {},
         });
-        setQuotaVisibility(s?.quotaVisibility || {});
+        setQuotaVisibility((s?.quotaVisibility as Record<string, { hidden?: string[] }>) || {});
       })
       .catch(() => {});
   }, []);
 
-  const toggleAutoPing = useCallback(async (connectionId, provider, on) => {
+  const toggleAutoPing = useCallback(async (connectionId: string, provider: string, on: boolean) => {
     const settingsKey = AUTO_PING_SETTINGS_KEYS[provider];
     if (!settingsKey) return;
 
@@ -588,7 +624,7 @@ export default function ProviderLimits() {
     }
   }, [autoPingMaps]);
 
-  const updateQuotaVisibility = useCallback(async (nextVisibility, previousVisibility) => {
+  const updateQuotaVisibility = useCallback(async (nextVisibility: Record<string, { hidden?: string[] }>, previousVisibility: Record<string, { hidden?: string[] }>) => {
     setQuotaVisibility(nextVisibility);
     try {
       const response = await fetch("/api/settings", {
@@ -603,7 +639,7 @@ export default function ProviderLimits() {
     }
   }, []);
 
-  const handleHideQuota = useCallback((provider, quota) => {
+  const handleHideQuota = useCallback((provider: string, quota: QuotaEntry) => {
     const key = getQuotaVisibilityKey(quota);
     if (!provider || !key) return;
 
@@ -621,7 +657,7 @@ export default function ProviderLimits() {
     updateQuotaVisibility(next, previous);
   }, [quotaVisibility, updateQuotaVisibility]);
 
-  const handleShowQuota = useCallback((provider, quota) => {
+  const handleShowQuota = useCallback((provider: string, quota: QuotaEntry) => {
     const key = getQuotaVisibilityKey(quota);
     if (!provider || !key) return;
 
@@ -712,22 +748,22 @@ export default function ProviderLimits() {
   );
 
   // Connection is depleted when any quota entry hit the threshold
-  const isConnectionDepleted = (conn) => {
+  const isConnectionDepleted = (conn: Connection) => {
     const quotas = quotaData[conn.id]?.quotas;
     if (!quotas?.length) return false;
-    return quotas.some((q) => {
+    return quotas.some((q: QuotaEntry) => {
       if (!q.total || q.total <= 0) return false;
       return calculatePercentage(q.used, q.total) <= DEPLETED_QUOTA_THRESHOLD;
     });
   };
 
   const bulkSetActive = useCallback(
-    async (targetIds, isActive) => {
+    async (targetIds: string[], isActive: boolean) => {
       if (!targetIds.length || bulkToggling) return;
       setBulkToggling(true);
       try {
         await Promise.all(
-          targetIds.map((id) =>
+          targetIds.map((id: string) =>
             fetch(`/api/providers/${id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -760,7 +796,7 @@ export default function ProviderLimits() {
   };
 
   const selectedProviderLabel =
-    providerFilter === "all" ? "All providers" : providerFilter;
+    providerFilter === "all" ? "Todos os provedores" : providerFilter;
   const hasEligibleConnections = totals.eligibleConnections > 0;
   const hasVisibleConnections = sortedConnections.length > 0;
   const emptyState = getConnectionsEmptyMessage(
@@ -778,11 +814,11 @@ export default function ProviderLimits() {
         <div className="text-center py-12">
           <CloudOff className="size-16 text-text-muted opacity-20" />
           <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            No Providers Connected
+            Nenhum Provedor Conectado
           </h3>
           <p className="mt-2 text-sm text-text-muted max-w-md mx-auto">
-            Connect to providers with OAuth to track your API quota limits and
-            usage.
+            Conecte-se a provedores com OAuth para acompanhar seus limites de
+            cota e uso da API.
           </p>
         </div>
       </Card>
@@ -817,7 +853,7 @@ export default function ProviderLimits() {
             <Button
               type="button"
               variant="outline"
-              size="default"
+              size="md"
               onClick={() => setProviderMenuOpen((prev) => !prev)}
               className="gap-1 text-xs"
               aria-haspopup="menu"
@@ -866,7 +902,7 @@ export default function ProviderLimits() {
                     className={`w-full justify-start gap-3 rounded-xl px-3 py-2.5 ${providerFilter === "all" ? "bg-primary/10 text-primary" : ""}`}
                   >
                     <LayoutGrid className="size-5" />
-                    <span className="font-medium">All providers</span>
+                    <span className="font-medium">Todos os provedores</span>
                     {providerFilter === "all" && (
                       <Check className="size-5" />
                     )}
@@ -910,6 +946,7 @@ export default function ProviderLimits() {
           <Select
             value={accountFilter}
             onValueChange={(nextValue) => {
+              if (nextValue === null) return;
               if (shouldResetPage(accountFilter, nextValue)) {
                 setPage(1);
               }
@@ -931,7 +968,7 @@ export default function ProviderLimits() {
           {providerFilter === "codex" && (
             <Select
               value={quotaSortMode}
-              onValueChange={setQuotaSortMode}
+              onValueChange={(value) => { if (value !== null) setQuotaSortMode(value); }}
             >
               <SelectTrigger className="h-8 text-xs" aria-label="Sort Codex quotas by remaining">
                 <SelectValue />
@@ -955,7 +992,7 @@ export default function ProviderLimits() {
             title="Sort accounts by earliest quota reset time"
           >
             <Hourglass className="size-3.5" />
-            <span className="hidden sm:inline">Expiring first</span>
+            <span className="hidden sm:inline">Expirando primeiro</span>
           </Button>
 
           {/* Bulk: disable depleted */}
@@ -968,7 +1005,7 @@ export default function ProviderLimits() {
             title="Disable connections with depleted quota on the current page"
           >
             <Ban className="size-4" />
-            <span className="hidden sm:inline">Turn off Empty</span>
+            <span className="hidden sm:inline">Desativar Esgotados</span>
           </Button>
 
           {/* Bulk: enable available */}
@@ -981,7 +1018,7 @@ export default function ProviderLimits() {
             title="Enable connections that still have quota on the current page"
           >
             <CheckCircle2 className="size-4" />
-            <span className="hidden sm:inline">Turn on Available</span>
+            <span className="hidden sm:inline">Ativar Disponíveis</span>
           </Button>
 
           {/* Auto-refresh toggle */}
@@ -997,7 +1034,7 @@ export default function ProviderLimits() {
               <ToggleLeft className="size-3.5 text-text-muted" />
             )}
             <span className="hidden text-text-primary sm:inline">
-              Auto-refresh
+              Atualização automática
             </span>
             {autoRefresh && (
               <span className="text-[10px] text-text-muted tabular-nums">
@@ -1014,7 +1051,7 @@ export default function ProviderLimits() {
             size="icon"
             onClick={() => refreshAll(true)}
             disabled={refreshingAll}
-            title="Refresh all"
+            title="Atualizar todos"
           >
             <RefreshCw className={`size-3.5 ${refreshingAll ? "animate-spin" : ""}`} />
           </Button>
@@ -1024,8 +1061,8 @@ export default function ProviderLimits() {
       {/* Provider cards: 2 columns, compact */}
       {expiringFirst && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-          Expiring-first currently reorders accounts inside the current page.
-          Cross-page ordering still follows backend pagination.
+          A ordenação por expirando primeiro reordena contas dentro da página atual.
+          A ordenação entre páginas segue a paginação do backend.
         </div>
       )}
 
@@ -1102,17 +1139,17 @@ export default function ProviderLimits() {
                           >
                             {isInactive ? "disabled" : conn.testStatus || "unknown"}
                           </span>
-                          {conn.providerSpecificData?.profileArn && (
+                          {typeof conn.providerSpecificData?.profileArn === "string" && conn.providerSpecificData.profileArn && (
                             <Button
                               type="button"
                               variant="ghost"
-                              onClick={() => copy(conn.providerSpecificData.profileArn, conn.id)}
-                              title={conn.providerSpecificData.profileArn}
+                              onClick={() => copy(conn.providerSpecificData!.profileArn as string, conn.id)}
+                              title={conn.providerSpecificData!.profileArn as string}
                               className="max-w-full gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-[10px] text-text-muted hover:text-primary"
                             >
                               {copied === conn.id ? <Check className="size-3" /> : <Copy className="size-3" />}
                               <code className="truncate font-mono">
-                                {conn.providerSpecificData.profileArn}
+                                {conn.providerSpecificData!.profileArn as string}
                               </code>
                             </Button>
                           )}
@@ -1295,7 +1332,7 @@ export default function ProviderLimits() {
                 {hiddenQuotaRows.length > 0 && (
                   <div className="mt-2 flex min-w-0 items-center gap-1 border-t border-black/5 pt-2 text-[10px] text-text-muted dark:border-white/5">
                     <EyeOff className="size-4" />
-                    <span className="shrink-0">Hidden:</span>
+                    <span className="shrink-0">Ocultos:</span>
                     <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pb-2">
                       {hiddenQuotaRows.map((quotaRow) => (
                         <Button
@@ -1326,7 +1363,7 @@ export default function ProviderLimits() {
               <Select
                 value={isCustomPageSize ? "custom" : String(pageSize)}
                 onValueChange={(nextValue) => {
-                  if (nextValue === "custom") return;
+                  if (nextValue === null || nextValue === "custom") return;
                   const nextPageSize = Number.parseInt(nextValue, 10);
                   if (Number.isFinite(nextPageSize)) {
                     setPage(1);
@@ -1459,8 +1496,8 @@ export default function ProviderLimits() {
         }}
         title="Delete Connection"
         message="Delete this connection?"
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText="Excluir"
+        cancelText="Cancelar"
         variant="danger"
       />
 
@@ -1476,9 +1513,9 @@ export default function ProviderLimits() {
           setResetConfirmState(null);
         }}
         title="Reset Codex limit?"
-        message={`Use 1 Codex reset credit for ${getConnectionLabel(resetConfirmState?.connection || {}) || "this account"}. This cannot be undone. Remaining credits: ${resetConfirmState?.resetCreditCount ?? 0}.`}
+        message={`Use 1 Codex reset credit for ${(resetConfirmState?.connection ? getConnectionLabel(resetConfirmState.connection) : null) || "this account"}. This cannot be undone. Remaining credits: ${resetConfirmState?.resetCreditCount ?? 0}.`}
         confirmText="Reset limit"
-        cancelText="Cancel"
+        cancelText="Cancelar"
         variant="danger"
         loading={Boolean(resettingLimitId)}
       />

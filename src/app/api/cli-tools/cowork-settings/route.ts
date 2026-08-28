@@ -12,14 +12,14 @@ const CLI_TOKEN_HEADER = "x-9r-cli-token";
 const CLI_TOKEN_SALT = "9r-cli-auth";
 const LOCAL_MCP_PREFIX = `http://localhost:${APP_PORT}/api/mcp/`;
 
-let cachedCliToken = null;
+let cachedCliToken: string | null = null;
 const getCliToken = async () => {
   if (!cachedCliToken) cachedCliToken = await getConsistentMachineId(CLI_TOKEN_SALT);
   return cachedCliToken;
 };
 
 // Inject CLI token header into entries pointing at our local /api/mcp/ bridge.
-const injectAuthHeaders = async (entries) => {
+const injectAuthHeaders = async (entries: Record<string, unknown>[]) => {
   const token = await getCliToken();
   for (const e of entries) {
     if (typeof e?.url === "string" && e.url.startsWith(LOCAL_MCP_PREFIX)) {
@@ -125,7 +125,7 @@ const read1pConfig = async () => {
   }
 };
 
-const write1pConfig = async (cfg) => {
+const write1pConfig = async (cfg: Record<string, unknown>) => {
   await fs.mkdir(get1pRoot(), { recursive: true });
   await fs.writeFile(get1pConfigPath(), JSON.stringify(cfg, null, 2));
 };
@@ -151,7 +151,7 @@ const cleanup1pLegacy = async () => {
 };
 
 // Build SSE bridge entries pointing at this app's inline /api/mcp/{name} endpoint.
-const buildLocalBridgeEntries = (localPluginNames) => {
+const buildLocalBridgeEntries = (localPluginNames: unknown) => {
   const names = Array.isArray(localPluginNames) ? localPluginNames : [];
   const out = [];
   for (const n of names) {
@@ -164,12 +164,12 @@ const buildLocalBridgeEntries = (localPluginNames) => {
     };
     if (Array.isArray(def.toolNames) && def.toolNames.length > 0) {
       const prefix = `${def.name}-`;
-      const policy = {};
+      const policy: Record<string, string> = {};
       for (const t of def.toolNames) {
         policy[t] = "allow";
         policy[`${prefix}${t}`] = "allow";
       }
-      entry.toolPolicy = policy;
+      (entry as Record<string, unknown>).toolPolicy = policy;
     }
     out.push(entry);
   }
@@ -177,7 +177,7 @@ const buildLocalBridgeEntries = (localPluginNames) => {
 };
 
 // Build entries for user-defined custom MCP plugins (URL or stdio command).
-const buildCustomEntries = (customPlugins) => {
+const buildCustomEntries = (customPlugins: unknown) => {
   if (!Array.isArray(customPlugins)) return [];
   const out = [];
   for (const p of customPlugins) {
@@ -194,7 +194,7 @@ const checkInstalled = async () => {
   return false;
 };
 
-const readJson = async (filePath) => {
+const readJson = async (filePath: string) => {
   try {
     const content = await fs.readFile(filePath, "utf-8");
     // Tolerate JSONC (trailing commas) and treat unparseable files as "no config"
@@ -224,14 +224,14 @@ const ensureMeta = async () => {
 };
 
 // Auto-skip approvals for every managed server (no per-tool prompts).
-async function writeSkipApprovals(managedServers) {
+async function writeSkipApprovals(managedServers: Record<string, unknown>[]) {
   const cfgPath = path.join(getWriteRoot(), "config.json");
-  let cfg = {};
+  let cfg: Record<string, unknown> = {};
   try { cfg = JSON.parse(await fs.readFile(cfgPath, "utf-8")) || {}; }
-  catch (e) { if (e.code !== "ENOENT") return { error: e.code }; }
-  const skip = {};
+  catch (e: unknown) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") return { error: (e as NodeJS.ErrnoException).code }; }
+  const skip: Record<string, boolean> = {};
   for (const srv of managedServers) {
-    if (srv?.name) skip[srv.name] = true;
+    if (srv?.name) skip[srv.name as string] = true;
   }
   cfg.operonSkipMcpApprovals = skip;
   await fs.mkdir(getWriteRoot(), { recursive: true });
@@ -253,21 +253,21 @@ export async function GET() {
 
     const baseUrl = config?.inferenceGatewayBaseUrl || null;
     const models = Array.isArray(config?.inferenceModels)
-      ? config.inferenceModels.map((m) => (typeof m === "string" ? m : m?.name)).filter(Boolean)
+      ? (config.inferenceModels as Array<Record<string, unknown> | string>).map((m) => (typeof m === "string" ? m : m?.name)).filter(Boolean)
       : [];
-    const managedMcp = Array.isArray(config?.managedMcpServers) ? config.managedMcpServers : [];
+    const managedMcp: Record<string, unknown>[] = Array.isArray(config?.managedMcpServers) ? config.managedMcpServers as Record<string, unknown>[] : [];
     const has9Router = !!(config?.inferenceProvider === PROVIDER && baseUrl);
 
     // Active local plugins = managedMcp entries whose URL points at our inline bridge.
     const stdioNames = new Set(LOCAL_STDIO_PLUGINS.map((p) => p.name));
     const activeLocalNames = managedMcp
-      .filter((m) => stdioNames.has(m.name) && typeof m.url === "string" && m.url.includes("/api/mcp/"))
-      .map((m) => m.name);
+      .filter((m: Record<string, unknown>) => stdioNames.has(m.name as string) && typeof m.url === "string" && (m.url as string).includes("/api/mcp/"))
+      .map((m: Record<string, unknown>) => m.name);
 
     // Custom plugins = bridge entries not in preset LOCAL_STDIO_PLUGINS (custom:true or unknown name).
     const activeCustomPlugins = managedMcp
-      .filter((m) => m.custom || (!stdioNames.has(m.name) && typeof m.url === "string" && m.url.includes("/api/mcp/")))
-      .map((m) => ({ name: m.name, url: m.url, transport: m.transport, custom: true }));
+      .filter((m: Record<string, unknown>) => m.custom || (!stdioNames.has(m.name as string) && typeof m.url === "string" && (m.url as string).includes("/api/mcp/")))
+      .map((m: Record<string, unknown>) => ({ name: m.name, url: m.url, transport: m.transport, custom: true }));
 
     return NextResponse.json({
       installed: true,
@@ -279,7 +279,7 @@ export async function GET() {
         baseUrl,
         models,
         provider: config?.inferenceProvider || null,
-        plugins: managedMcp.filter((m) => !m.custom && !(stdioNames.has(m.name) && typeof m.url === "string" && m.url.includes("/api/mcp/"))).map((m) => {
+        plugins: managedMcp.filter((m: Record<string, unknown>) => !m.custom && !(stdioNames.has(m.name as string) && typeof m.url === "string" && (m.url as string).includes("/api/mcp/"))).map((m: Record<string, unknown>) => {
           // Strip "{name}-" prefix and dedupe so re-applies don't multiply entries.
           const keys = m.toolPolicy ? Object.keys(m.toolPolicy) : [];
           const prefix = `${m.name}-`;
@@ -339,15 +339,15 @@ export async function POST(request: NextRequest) {
       inferenceGatewayApiKey: apiKey,
       inferenceModels: modelsArray.map((name) => ({ name })),
     };
-    if (managedMcpServers.length > 0) newConfig.managedMcpServers = managedMcpServers;
+    if (managedMcpServers.length > 0) (newConfig as Record<string, unknown>).managedMcpServers = managedMcpServers;
 
     await fs.writeFile(configPath, JSON.stringify(newConfig, null, 2));
 
     let skipResult = null;
-    try { skipResult = await writeSkipApprovals(managedMcpServers); } catch (e) { skipResult = { error: e.message }; }
+    try { skipResult = await writeSkipApprovals(managedMcpServers as Record<string, unknown>[]); } catch (e: unknown) { skipResult = { error: e instanceof Error ? e.message : String(e) }; }
 
     // Best-effort cleanup of legacy 1p mcpServers entries written by earlier versions.
-    let localMcpResult = { applied: localPluginNames, via: "3p-sse-bridge" };
+    const localMcpResult = { applied: localPluginNames, via: "3p-sse-bridge" };
     try { await cleanup1pLegacy(); } catch { /* ignore */ }
 
     return NextResponse.json({
@@ -374,7 +374,7 @@ export async function DELETE() {
     }
     const configPath = path.join(await getConfigDir(), `${meta.appliedId}.json`);
     try { await fs.writeFile(configPath, JSON.stringify({}, null, 2)); }
-    catch (error) { if (error.code !== "ENOENT") throw error; }
+    catch (error: unknown) { if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     try { await writeSkipApprovals([]); } catch { /* ignore */ }
     try { await cleanup1pLegacy(); } catch { /* ignore */ }
     return NextResponse.json({ success: true, message: "Cowork config reset" });

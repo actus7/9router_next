@@ -1,6 +1,8 @@
 import { saveRequestUsage, appendRequestLog, saveRequestDetail } from "@/lib/usageDb";
 import { COLORS } from "../../utils/stream";
 import { canonicalizeUsage } from "../../utils/usageTracking";
+import { getRoutingDecision } from "../../services/smart-routing/context";
+import type { TokenUsage, RequestDetailBase, RequestDetailOverrides, SaveUsageStatsOptions } from "./types";
 
 const OPTIONAL_PARAMS = [
   "temperature", "top_p", "top_k",
@@ -13,39 +15,42 @@ const OPTIONAL_PARAMS = [
   "user", "parallel_tool_calls"
 ];
 
-export function extractRequestConfig(body, stream) {
-  const config = { messages: body.messages || [], model: body.model, stream };
+export function extractRequestConfig(body: Record<string, unknown>, stream: boolean): Record<string, unknown> {
+  const config: Record<string, unknown> = { messages: body.messages || [], model: body.model, stream };
   for (const param of OPTIONAL_PARAMS) {
     if (body[param] !== undefined) config[param] = body[param];
   }
+  const routing = getRoutingDecision(body);
+  if (routing) config.routing = routing;
   return config;
 }
 
-export function extractUsageFromResponse(responseBody) {
+export function extractUsageFromResponse(responseBody: Record<string, unknown>): Record<string, unknown> | null {
   if (!responseBody || typeof responseBody !== "object") return null;
 
   // Claude format
-  if (responseBody.usage?.input_tokens !== undefined) {
+  const usage = responseBody.usage as Record<string, unknown> | undefined;
+  if (usage?.input_tokens !== undefined) {
     return {
-      prompt_tokens: responseBody.usage.input_tokens || 0,
-      completion_tokens: responseBody.usage.output_tokens || 0,
-      cache_read_input_tokens: responseBody.usage.cache_read_input_tokens,
-      cache_creation_input_tokens: responseBody.usage.cache_creation_input_tokens
+      prompt_tokens: usage.input_tokens || 0,
+      completion_tokens: usage.output_tokens || 0,
+      cache_read_input_tokens: usage.cache_read_input_tokens,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens
     };
   }
 
   // OpenAI format
-  if (responseBody.usage?.prompt_tokens !== undefined) {
+  if (usage?.prompt_tokens !== undefined) {
     return {
-      prompt_tokens: responseBody.usage.prompt_tokens || 0,
-      completion_tokens: responseBody.usage.completion_tokens || 0,
-      cached_tokens: responseBody.usage.prompt_tokens_details?.cached_tokens,
-      reasoning_tokens: responseBody.usage.completion_tokens_details?.reasoning_tokens
+      prompt_tokens: usage.prompt_tokens || 0,
+      completion_tokens: usage.completion_tokens || 0,
+      cached_tokens: (usage.prompt_tokens_details as Record<string, unknown>)?.cached_tokens,
+      reasoning_tokens: (usage.completion_tokens_details as Record<string, unknown>)?.reasoning_tokens
     };
   }
 
   // Gemini format. Antigravity / gemini-cli wrap the payload in { response: {...} }.
-  const usageMetadata = responseBody.usageMetadata || responseBody.response?.usageMetadata;
+  const usageMetadata = (responseBody.usageMetadata || (responseBody.response as Record<string, unknown>)?.usageMetadata) as Record<string, unknown> | undefined;
   if (usageMetadata) {
     return {
       prompt_tokens: usageMetadata.promptTokenCount || 0,
@@ -58,7 +63,7 @@ export function extractUsageFromResponse(responseBody) {
   return null;
 }
 
-export function buildRequestDetail(base, overrides = {}) {
+export function buildRequestDetail(base: RequestDetailBase, overrides: RequestDetailOverrides = {}): Record<string, unknown> {
   return {
     provider: base.provider || "unknown",
     model: base.model || "unknown",
@@ -77,15 +82,15 @@ export function buildRequestDetail(base, overrides = {}) {
 }
 
 // Build the "done" summary: duration, ttft, in/out tokens with cache breakdown
-export function formatDoneLine({ usage, latency }) {
-  const u = usage || {};
-  const inTok = u.prompt_tokens ?? u.input_tokens ?? 0;
-  const outTok = u.completion_tokens ?? u.output_tokens ?? 0;
-  const cacheRead = u.cache_read_input_tokens ?? u.cached_tokens ?? u.prompt_tokens_details?.cached_tokens ?? 0;
-  const cacheCreate = u.cache_creation_input_tokens ?? 0;
+export function formatDoneLine({ usage, latency }: { usage: Record<string, unknown> | null | undefined; latency: Record<string, unknown> | undefined }): string {
+  const u = (usage || {}) as Record<string, unknown>;
+  const inTok = (u.prompt_tokens ?? u.input_tokens ?? 0) as number;
+  const outTok = (u.completion_tokens ?? u.output_tokens ?? 0) as number;
+  const cacheRead = (u.cache_read_input_tokens ?? u.cached_tokens ?? (u.prompt_tokens_details as Record<string, unknown>)?.cached_tokens ?? 0) as number;
+  const cacheCreate = (u.cache_creation_input_tokens ?? 0) as number;
   let inStr = `IN ${inTok}`;
   if (cacheRead || cacheCreate) {
-    const parts = [];
+    const parts: string[] = [];
     if (cacheRead) parts.push(`↻${cacheRead}`);
     if (cacheCreate) parts.push(`+${cacheCreate}`);
     inStr += ` (CACHE ${parts.join(" ")})`;
@@ -94,11 +99,11 @@ export function formatDoneLine({ usage, latency }) {
   return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
 }
 
-export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false }) {
+export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false }: SaveUsageStatsOptions): void {
   if (!tokens || typeof tokens !== "object") return;
 
-  const inTokens = tokens.input_tokens ?? tokens.prompt_tokens ?? 0;
-  const outTokens = tokens.output_tokens ?? tokens.completion_tokens ?? 0;
+  const inTokens = (tokens as Record<string, unknown>).input_tokens ?? (tokens as Record<string, unknown>).prompt_tokens ?? 0;
+  const outTokens = (tokens as Record<string, unknown>).output_tokens ?? (tokens as Record<string, unknown>).completion_tokens ?? 0;
 
   if (inTokens === 0 && outTokens === 0) return;
 
@@ -111,8 +116,8 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
   // Canonicalize to one storage convention (prompt_tokens cache-inclusive) so
   // cached/cache-creation tokens survive to cost calc + stats. See canonicalizeUsage.
   const normalized = canonicalizeUsage(tokens) || {
-    prompt_tokens: tokens.prompt_tokens ?? tokens.input_tokens ?? 0,
-    completion_tokens: tokens.completion_tokens ?? tokens.output_tokens ?? 0
+    prompt_tokens: (tokens as Record<string, unknown>).prompt_tokens ?? (tokens as Record<string, unknown>).input_tokens ?? 0,
+    completion_tokens: (tokens as Record<string, unknown>).completion_tokens ?? (tokens as Record<string, unknown>).output_tokens ?? 0
   };
 
   saveRequestUsage({
@@ -122,6 +127,6 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     timestamp: new Date().toISOString(),
     connectionId: connectionId || undefined,
     apiKey: apiKey || undefined,
-    endpoint: endpoint || null
+    endpoint: endpoint || undefined
   }).catch(() => {});
 }

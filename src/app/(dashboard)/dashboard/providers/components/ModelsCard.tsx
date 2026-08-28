@@ -45,7 +45,7 @@ function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFr
               </span>
             </Button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-              {isTesting ? "Testing..." : "Test"}
+              {isTesting ? "Testando..." : "Testar"}
             </span>
           </div>
         )}
@@ -85,10 +85,10 @@ function AddCustomModelModal({ isOpen, onSave, onClose }: AddCustomModelModalPro
   };
 
   return (
-    <Modal isOpen={isOpen} title="Add Custom Model" onClose={onClose}>
+    <Modal isOpen={isOpen} title="Adicionar Modelo Customizado" onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div>
-          <Label className="text-xs text-text-muted mb-1 block">Model ID</Label>
+          <Label className="text-xs text-text-muted mb-1 block">ID do Modelo</Label>
           <Input
             className="w-full px-3 py-2 text-sm"
             value={modelId}
@@ -99,8 +99,8 @@ function AddCustomModelModal({ isOpen, onSave, onClose }: AddCustomModelModalPro
           />
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleSave} fullWidth disabled={!modelId.trim()}>Add</Button>
-          <Button onClick={onClose} variant="ghost" fullWidth>Cancel</Button>
+          <Button onClick={handleSave} fullWidth disabled={!modelId.trim()}>Adicionar</Button>
+          <Button onClick={onClose} variant="ghost" fullWidth>Cancelar</Button>
         </div>
       </div>
     </Modal>
@@ -155,7 +155,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
       const customData = await customRes.json();
       if (aliasRes.ok) setModelAliases(aliasData.aliases || {});
       if (customRes.ok) setCustomModels(customData.models || []);
-    } catch ($1) { console.error("ModelsCard fetch error:", e); }
+    } catch (e) { console.error("ModelsCard fetch error:", e); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -169,14 +169,14 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         body: JSON.stringify({ model: fullModel, alias }),
       });
       if (res.ok) await fetchData();
-    } catch ($1) { console.error("set alias error:", e); }
+    } catch (e) { console.error("set alias error:", e); }
   };
 
   const handleDeleteAlias = async (alias: string) => {
     try {
       const res = await fetch(`/api/models/alias?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
       if (res.ok) await fetchData();
-    } catch ($1) { console.error("delete alias error:", e); }
+    } catch (e) { console.error("delete alias error:", e); }
   };
 
   const handleAddCustomModel = async (modelId: string) => {
@@ -190,7 +190,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         await fetchData();
         window.dispatchEvent(new CustomEvent("customModelChanged"));
       }
-    } catch ($1) { console.error("add custom model error:", e); }
+    } catch (e) { console.error("add custom model error:", e); }
   };
 
   const handleDeleteCustomModel = async (modelId: string) => {
@@ -201,7 +201,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         await fetchData();
         window.dispatchEvent(new CustomEvent("customModelChanged"));
       }
-    } catch ($1) { console.error("delete custom model error:", e); }
+    } catch (e) { console.error("delete custom model error:", e); }
   };
 
   const handleTestModel = async (modelId: string) => {
@@ -223,7 +223,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   };
 
   // Built-in models — filter by kindFilter if provided
-  const allBuiltIn = getModelsByProviderId(providerId);
+  const allBuiltIn = getModelsByProviderId(providerId) as unknown as BuiltInModel[];
   const builtInModels = kindFilter
     ? allBuiltIn.filter((m: BuiltInModel) => {
         if (m.kinds) return m.kinds.includes(kindFilter);
@@ -244,7 +244,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     <>
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Models{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
+          <h2 className="text-lg font-semibold">Modelos{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
         </div>
         {testError && <p className="text-xs text-red-500 mb-3 break-words">{testError}</p>}
 
@@ -257,7 +257,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
                 key={model.id}
                 model={model}
                 fullModel={`${providerAlias}/${model.id}`}
-                copied={copied}
+                copied={copied ?? undefined}
                 onCopy={copy}
                 onDeleteAlias={() => handleDeleteAlias(existingAlias!)}
                 testStatus={modelTestResults[model.id]}
@@ -273,7 +273,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
               key={`${model.id}-${model.type}`}
               model={{ id: model.id, name: model.name }}
               fullModel={`${providerAlias}/${model.id}`}
-              copied={copied}
+              copied={copied ?? undefined}
               onCopy={copy}
               onDeleteAlias={() => handleDeleteCustomModel(model.id)}
               testStatus={modelTestResults[model.id]}
@@ -290,7 +290,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
             className="border-dashed border-black/15 dark:border-white/15 text-xs"
           >
             <Plus className="size-4" />
-            Add Model
+            Adicionar Modelo
           </Button>
         </div>
       </Card>

@@ -25,10 +25,10 @@ import { Loader2 } from "lucide-react";
 
 function timeAgo(timestamp: string | number | Date): string {
   const diff = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return `${diff}s atrás`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m atrás`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
+  return `${Math.floor(diff / 86400)}d atrás`;
 }
 
 interface TimeAgoProps {
@@ -62,23 +62,23 @@ interface RecentRequestsProps {
 
 function RecentRequests({ requests = [] }: RecentRequestsProps) {
   return (
-    <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm" style={{ height: 480 }}>
+    <Card className="flex min-w-0 flex-col overflow-hidden p-4" style={{ height: 480 }}>
       {/* Header */}
       <div className="px-1 py-2 border-b border-border shrink-0">
-        <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Recent Requests</span>
+        <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Requisições Recentes</span>
       </div>
 
       {!requests.length ? (
-        <div className="flex-1 flex items-center justify-center text-text-muted text-sm">No requests yet.</div>
+        <div className="flex-1 flex items-center justify-center text-text-muted text-sm">Nenhuma requisição ainda.</div>
       ) : (
         <div className="flex-1 overflow-y-auto">
           <Table className="min-w-[300px] text-xs">
             <TableHeader className="sticky top-0 bg-bg z-10">
               <TableRow>
                 <TableHead className="py-1.5 font-semibold text-text-muted w-2"></TableHead>
-                <TableHead className="py-1.5 font-semibold text-text-muted">Model</TableHead>
-                <TableHead className="py-1.5 text-right font-semibold text-text-muted">In / Out</TableHead>
-                <TableHead className="py-1.5 text-right font-semibold text-text-muted">When</TableHead>
+                <TableHead className="py-1.5 font-semibold text-text-muted">Modelo</TableHead>
+                <TableHead className="py-1.5 text-right font-semibold text-text-muted">Entrada / Saída</TableHead>
+                <TableHead className="py-1.5 text-right font-semibold text-text-muted">Quando</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -179,11 +179,11 @@ interface GroupedData {
 
 function getGroupKey(item: SortedItem, keyField: string): string {
   switch (keyField) {
-    case "rawModel": return item.rawModel || "Unknown Model";
-    case "accountName": return item.accountName || `Account ${item.connectionId?.slice(0, 8)}...` || "Unknown Account";
-    case "keyName": return item.keyName || "Unknown Key";
-    case "endpoint": return item.endpoint || "Unknown Endpoint";
-    default: return (item[keyField] as string) || "Unknown";
+    case "rawModel": return item.rawModel || "Modelo Desconhecido";
+    case "accountName": return item.accountName || `Conta ${item.connectionId?.slice(0, 8)}...` || "Conta Desconhecida";
+    case "keyName": return item.keyName || "Chave Desconhecida";
+    case "endpoint": return item.endpoint || "Endpoint Desconhecido";
+    default: return (item[keyField] as string) || "Desconhecido";
   }
 }
 
@@ -219,45 +219,45 @@ function groupDataByKey(data: SortedItem[], keyField: string): GroupedData[] {
 }
 
 const MODEL_COLUMNS = [
-  { field: "rawModel", label: "Model" },
-  { field: "provider", label: "Provider" },
-  { field: "requests", label: "Requests", align: "right" as const },
-  { field: "lastUsed", label: "Last Used", align: "right" as const },
+  { field: "rawModel", label: "Modelo" },
+  { field: "provider", label: "Provedor" },
+  { field: "requests", label: "Requisições", align: "right" as const },
+  { field: "lastUsed", label: "Último Uso", align: "right" as const },
 ];
 
 const ACCOUNT_COLUMNS = [
-  { field: "rawModel", label: "Model" },
-  { field: "provider", label: "Provider" },
-  { field: "accountName", label: "Account" },
-  { field: "requests", label: "Requests", align: "right" as const },
-  { field: "lastUsed", label: "Last Used", align: "right" as const },
+  { field: "rawModel", label: "Modelo" },
+  { field: "provider", label: "Provedor" },
+  { field: "accountName", label: "Conta" },
+  { field: "requests", label: "Requisições", align: "right" as const },
+  { field: "lastUsed", label: "Último Uso", align: "right" as const },
 ];
 
 const API_KEY_COLUMNS = [
-  { field: "keyName", label: "API Key Name" },
-  { field: "rawModel", label: "Model" },
-  { field: "provider", label: "Provider" },
-  { field: "requests", label: "Requests", align: "right" as const },
-  { field: "lastUsed", label: "Last Used", align: "right" as const },
+  { field: "keyName", label: "Nome da Chave API" },
+  { field: "rawModel", label: "Modelo" },
+  { field: "provider", label: "Provedor" },
+  { field: "requests", label: "Requisições", align: "right" as const },
+  { field: "lastUsed", label: "Último Uso", align: "right" as const },
 ];
 
 const ENDPOINT_COLUMNS = [
   { field: "endpoint", label: "Endpoint" },
-  { field: "rawModel", label: "Model" },
-  { field: "provider", label: "Provider" },
-  { field: "requests", label: "Requests", align: "right" as const },
-  { field: "lastUsed", label: "Last Used", align: "right" as const },
+  { field: "rawModel", label: "Modelo" },
+  { field: "provider", label: "Provedor" },
+  { field: "requests", label: "Requisições", align: "right" as const },
+  { field: "lastUsed", label: "Último Uso", align: "right" as const },
 ];
 
 const TABLE_OPTIONS = [
-  { value: "model", label: "Usage by Model" },
-  { value: "account", label: "Usage by Account" },
-  { value: "apiKey", label: "Usage by API Key" },
-  { value: "endpoint", label: "Usage by Endpoint" },
+  { value: "model", label: "Uso por Modelo" },
+  { value: "account", label: "Uso por Conta" },
+  { value: "apiKey", label: "Uso por Chave API" },
+  { value: "endpoint", label: "Uso por Endpoint" },
 ];
 
 const PERIODS = [
-  { value: "today", label: "Today" },
+  { value: "today", label: "Hoje" },
   { value: "24h", label: "24h" },
   { value: "7d", label: "7D" },
   { value: "30d", label: "30D" },
@@ -311,8 +311,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           ...c,
           nodeName: nodeNameMap[c.provider] || undefined,
         }));
-        const noAuthProviders = Object.values(FREE_PROVIDERS as Record<string, { id: string; name: string; noAuth?: boolean }>)
-          .filter((p) => p.noAuth && !seen.has(p.id) && isLLMProvider(p.id))
+        const noAuthProviders = Object.values(FREE_PROVIDERS as Record<string, { id: string; name: string; noAuth?: boolean; hidden?: boolean }>)
+          .filter((p) => p.noAuth && !p.hidden && !seen.has(p.id) && isLLMProvider(p.id))
           .map((p) => ({ provider: p.id, name: p.name }));
         setProviders([...unique, ...noAuthProviders]);
       })
@@ -392,7 +392,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           columns: MODEL_COLUMNS,
           groupedData: groupDataByKey(sortData(stats.byModel as Record<string, DataItem>, pendingMap, sortBy, sortOrder), "rawModel"),
           storageKey: "usage-stats:expanded-models",
-          emptyMessage: "No usage recorded yet.",
+          emptyMessage: "Nenhum uso registrado ainda.",
           renderSummaryCells: (group: GroupedData) => (
             <>
               <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
@@ -425,7 +425,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           columns: ACCOUNT_COLUMNS,
           groupedData: groupDataByKey(sortData(stats.byAccount as Record<string, DataItem>, pendingMap, sortBy, sortOrder), "accountName"),
           storageKey: "usage-stats:expanded-accounts",
-          emptyMessage: "No account-specific usage recorded yet.",
+          emptyMessage: "Nenhum uso específico de conta registrado ainda.",
           renderSummaryCells: (group: GroupedData) => (
             <>
               <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
@@ -436,7 +436,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           ),
           renderDetailCells: (item: SortedItem) => (
             <>
-              <TableCell className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}</TableCell>
+              <TableCell className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Conta ${item.connectionId?.slice(0, 8)}...`}</TableCell>
               <TableCell className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</TableCell>
               <TableCell className="px-6 py-3"><Badge variant={item.pending > 0 ? "default" : "secondary"} className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></TableCell>
               <TableCell className="px-6 py-3 text-right">{fmt(item.requests || 0)}</TableCell>
@@ -450,7 +450,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           columns: API_KEY_COLUMNS,
           groupedData: groupDataByKey(sortData(stats.byApiKey as Record<string, DataItem>, {}, sortBy, sortOrder), "keyName"),
           storageKey: "usage-stats:expanded-apikeys",
-          emptyMessage: "No API key usage recorded yet.",
+          emptyMessage: "Nenhum uso de chave API registrado ainda.",
           renderSummaryCells: (group: GroupedData) => (
             <>
               <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
@@ -476,7 +476,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           columns: ENDPOINT_COLUMNS,
           groupedData: groupDataByKey(sortData(stats.byEndpoint as Record<string, DataItem>, {}, sortBy, sortOrder), "endpoint"),
           storageKey: "usage-stats:expanded-endpoints",
-          emptyMessage: "No endpoint usage recorded yet.",
+          emptyMessage: "Nenhum uso de endpoint registrado ainda.",
           renderSummaryCells: (group: GroupedData) => (
             <>
               <TableCell className="px-6 py-3 text-text-muted">—</TableCell>
@@ -499,7 +499,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
     }
   }, [stats, tableView, sortBy, sortOrder]);
 
-  if (!stats && !loading) return <div className="text-text-muted">Failed to load usage statistics.</div>;
+  if (!stats && !loading) return <div className="text-text-muted">Falha ao carregar estatísticas de uso.</div>;
 
   const spinner = (
     <div className="flex items-center justify-center py-12 text-text-muted">
@@ -554,9 +554,9 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       {/* Table with dropdown selector */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <Select value={tableView} onValueChange={setTableView}>
+          <Select value={tableView} onValueChange={(value) => setTableView(value ?? "model")}>
             <SelectTrigger className="w-full sm:w-auto">
-              <SelectValue placeholder="Select view" />
+              <SelectValue placeholder="Selecionar visualização" />
             </SelectTrigger>
             <SelectContent>
               {TABLE_OPTIONS.map((opt) => (
@@ -571,7 +571,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
               onClick={() => setViewMode("costs")}
               className="px-3 py-1 rounded-md text-sm font-medium"
             >
-              Costs
+              Custos
             </Button>
             <Button
               variant={viewMode === "tokens" ? "default" : "ghost"}

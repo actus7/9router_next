@@ -45,9 +45,9 @@ const readSettings = async () => {
 };
 
 // Check if settings has 9Router customModels
-const has9RouterConfig = (settings) => {
+const has9RouterConfig = (settings: Record<string, unknown>) => {
   if (!settings || !settings.customModels) return false;
-  return settings.customModels.some(m => m.id?.startsWith("custom:9Router"));
+  return (settings.customModels as Array<Record<string, unknown>>).some((m: Record<string, unknown>) => (m.id as string)?.startsWith("custom:9Router"));
 };
 
 // GET - Check droid CLI and read current settings
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     await fs.mkdir(droidDir, { recursive: true });
 
     // Read existing settings or create new
-    let settings = {};
+    let settings: Record<string, unknown> = {};
     try {
       const existingSettings = await fs.readFile(settingsPath, "utf-8");
       settings = JSON.parse(existingSettings);
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Remove all existing 9Router configs
-    settings.customModels = settings.customModels.filter(m => !m.id?.startsWith("custom:9Router"));
+    settings.customModels = (settings.customModels as Array<Record<string, unknown>>).filter((m: Record<string, unknown>) => !(m.id as string)?.startsWith("custom:9Router"));
 
     // Normalize baseUrl to ensure /v1 suffix
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
@@ -130,10 +130,11 @@ export async function POST(request: NextRequest) {
 
     // Add entries for all requested models
     // The first one (index 0) will be the default if defaultIndex >= 0
+    const customModels = settings.customModels as Array<Record<string, unknown>>;
     for (let i = 0; i < modelsArray.length; i++) {
       const m = modelsArray[i];
       if (!m || typeof m !== "string") continue;
-      settings.customModels.push({
+      customModels.push({
         model: m,
         id: `custom:9Router-${i}`,
         index: i,
@@ -147,12 +148,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Set default model if applicable
-    if (defaultIndex >= 0 && settings.customModels[defaultIndex]) {
+    if (defaultIndex >= 0 && customModels[defaultIndex]) {
       // Reorder so the default comes first
-      const [defaultEntry] = settings.customModels.splice(defaultIndex, 1);
-      settings.customModels.unshift({ ...defaultEntry, index: 0 });
+      const [defaultEntry] = customModels.splice(defaultIndex, 1);
+      customModels.unshift({ ...defaultEntry, index: 0 });
       // Re-index the rest
-      settings.customModels.forEach((m, i) => { m.index = i; });
+      customModels.forEach((m: Record<string, unknown>, i: number) => { m.index = i; });
     }
 
     // Write settings
@@ -175,12 +176,12 @@ export async function DELETE() {
     const settingsPath = getDroidSettingsPath();
 
     // Read existing settings
-    let settings = {};
+    let settings: Record<string, unknown> = {};
     try {
       const existingSettings = await fs.readFile(settingsPath, "utf-8");
       settings = JSON.parse(existingSettings);
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({
           success: true,
           message: "No settings file to reset",
@@ -191,10 +192,10 @@ export async function DELETE() {
 
     // Remove 9Router customModels
     if (settings.customModels) {
-      settings.customModels = settings.customModels.filter(m => !m.id?.startsWith("custom:9Router"));
+      settings.customModels = (settings.customModels as Array<Record<string, unknown>>).filter((m: Record<string, unknown>) => !(m.id as string)?.startsWith("custom:9Router"));
       
       // Remove customModels array if empty
-      if (settings.customModels.length === 0) {
+      if ((settings.customModels as Array<unknown>).length === 0) {
         delete settings.customModels;
       }
     }

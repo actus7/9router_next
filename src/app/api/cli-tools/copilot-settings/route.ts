@@ -28,14 +28,14 @@ const readConfig = async () => {
   }
 };
 
-const has9RouterConfig = (config) => {
+const has9RouterConfig = (config: unknown) => {
   if (!Array.isArray(config)) return false;
-  return config.some((entry) => entry.name === "9Router");
+  return config.some((entry: Record<string, unknown>) => entry.name === "9Router");
 };
 
-const get9RouterEntry = (config) => {
+const get9RouterEntry = (config: unknown) => {
   if (!Array.isArray(config)) return null;
-  return config.find((entry) => entry.name === "9Router") || null;
+  return (config as Record<string, unknown>[]).find((entry) => entry.name === "9Router") || null;
 };
 
 // GET - Read current copilot config
@@ -49,8 +49,8 @@ export async function GET() {
       config,
       has9Router: has9RouterConfig(config),
       configPath: getConfigPath(),
-      currentModel: entry?.models?.[0]?.id || null,
-      currentUrl: entry?.models?.[0]?.url || null,
+      currentModel: (entry?.models as Record<string, unknown>[])?.[0]?.id || null,
+      currentUrl: (entry?.models as Record<string, unknown>[])?.[0]?.url || null,
     });
   } catch (error) {
     console.error("Error checking copilot settings:", error);
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       name: "9Router",
       vendor: "azure",
       apiKey: keyToUse,
-      models: models.map((id) => ({
+      models: models.map((id: string) => ({
         id,
         name: id,
         url: endpointUrl,
@@ -127,8 +127,8 @@ export async function DELETE() {
       const existing = await fs.readFile(configPath, "utf-8");
       const parsed = JSON.parse(existing);
       config = Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({ success: true, message: "No config file to reset" });
       }
       throw error;

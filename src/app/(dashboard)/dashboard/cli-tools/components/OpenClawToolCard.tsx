@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
@@ -11,7 +11,7 @@ import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, History, Load
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; }
-interface StatusData { installed?: boolean; has9Router?: boolean; settings?: { model?: { base_url?: string; default?: string; }; }; }
+interface StatusData { installed?: boolean; has9Router?: boolean; settings?: { model?: { base_url?: string; default?: string; }; models?: { providers?: Record<string, { baseUrl?: string; apiKey?: string; }>; }; agents?: { defaults?: { model?: { primary?: string; }; }; }; }; agents?: Array<{ id: string; name?: string; agentDir?: string; currentModel?: string; }>; }
 interface Message { type: "success" | "error"; text: string; }
 
 interface OpenClawToolCardProps {
@@ -21,7 +21,7 @@ interface OpenClawToolCardProps {
   baseUrl: string;
   hasActiveProviders: boolean;
   apiKeys: ApiKey[];
-  activeProviders: unknown[];
+  activeProviders: ActiveProvider[];
   cloudEnabled: boolean;
   initialStatus?: StatusData | null;
   tunnelEnabled: boolean;
@@ -44,7 +44,7 @@ export default function OpenClawToolCard({
   const [agentModels, setAgentModels] = useState<Record<string, string>>({});
   const [agentModalFor, setAgentModalFor] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [modelAliases, setModelAliases] = useState<Record<string, unknown>>({});
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
   const hasInitializedModel = useRef(false);
@@ -53,7 +53,7 @@ export default function OpenClawToolCard({
     if (!openclawStatus?.installed) return null;
     const currentProvider = openclawStatus.settings?.models?.providers?.["9router"];
     if (!currentProvider) return "not_configured";
-    return matchKnownEndpoint(currentProvider.baseUrl, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
+    return matchKnownEndpoint(currentProvider.baseUrl || "", { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
   };
 
   const configStatus = getConfigStatus();

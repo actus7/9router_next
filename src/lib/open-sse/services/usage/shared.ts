@@ -64,11 +64,11 @@ export function normalizeCloudCodeProjectId(project: unknown): string | null {
   return null;
 }
 
-export async function fetchWithTimeout(url: string, opts: RequestInit, ms = 10000, proxyOptions: unknown = null): Promise<unknown> {
+export async function fetchWithTimeout(url: string, opts: RequestInit, ms = 10000, proxyOptions: unknown = null): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ms);
   try {
-    return await proxyAwareFetch(url, { ...opts, signal: controller.signal }, proxyOptions);
+    return (await proxyAwareFetch(url, { ...opts, signal: controller.signal }, proxyOptions)) as Response;
   } finally {
     clearTimeout(timeoutId);
   }

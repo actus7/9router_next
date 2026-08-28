@@ -1,7 +1,7 @@
 import { nowSec, urlToBase64 } from "./_base";
 import { PROVIDER_MEDIA } from "../../providers/index";
 
-const BASE_URL = PROVIDER_MEDIA["cloudflare-ai"]?.imageConfig?.baseUrl;
+const BASE_URL = (PROVIDER_MEDIA["cloudflare-ai"]?.imageConfig as Record<string, unknown>)?.baseUrl as string;
 
 const MULTIPART_MODELS = new Set([
   "@cf/black-forest-labs/flux-2-dev",
@@ -18,7 +18,7 @@ const OPTIONAL_FIELDS = [
   "strength",
 ];
 
-function sizeToDimensions(size) {
+function sizeToDimensions(size: unknown): Record<string, number> {
   const match = /^(\d+)x(\d+)$/.exec(String(size || ""));
   if (!match) return {};
   return {
@@ -27,7 +27,7 @@ function sizeToDimensions(size) {
   };
 }
 
-function getDimensions(body) {
+function getDimensions(body: Record<string, unknown>): Record<string, number> {
   return {
     ...sizeToDimensions(body.size),
     ...(Number.isFinite(Number(body.width)) ? { width: Number(body.width) } : {}),
@@ -35,7 +35,7 @@ function getDimensions(body) {
   };
 }
 
-async function resolveImageInput(value) {
+async function resolveImageInput(value: unknown): Promise<{ bytes: number[] | unknown; b64: string } | null> {
   if (Array.isArray(value)) {
     return { bytes: value, b64: Buffer.from(value).toString("base64") };
   }
@@ -51,7 +51,7 @@ async function resolveImageInput(value) {
   return { bytes: base64ToBytes(b64), b64 };
 }
 
-function base64ToBytes(value) {
+function base64ToBytes(value: string): number[] | string {
   try {
     return Array.from(Buffer.from(value, "base64"));
   } catch {
@@ -59,7 +59,7 @@ function base64ToBytes(value) {
   }
 }
 
-function addOptionalFields(target, body, append) {
+function addOptionalFields(target: Record<string, unknown> | FormData, body: Record<string, unknown>, append: (t: Record<string, unknown> | FormData, k: string, v: unknown) => void): void {
   for (const key of OPTIONAL_FIELDS) {
     const value = body[key];
     if (value === undefined || value === null || value === "") continue;
@@ -67,11 +67,11 @@ function addOptionalFields(target, body, append) {
   }
 }
 
-async function buildJsonBody(body) {
-  const req = { prompt: body.prompt, ...getDimensions(body) };
+async function buildJsonBody(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const req: Record<string, unknown> = { prompt: body.prompt, ...getDimensions(body) };
 
   addOptionalFields(req, body, (target, key, value) => {
-    target[key] = value;
+    (target as Record<string, unknown>)[key] = value;
   });
 
   const imageData = await resolveImageInput(body.image);
@@ -90,9 +90,9 @@ async function buildJsonBody(body) {
   return req;
 }
 
-function buildMultipartBody(body) {
+function buildMultipartBody(body: Record<string, unknown>): FormData {
   const form = new FormData();
-  form.append("prompt", body.prompt);
+  form.append("prompt", body.prompt as string);
 
   const dimensions = getDimensions(body);
   for (const [key, value] of Object.entries(dimensions)) {
@@ -100,13 +100,13 @@ function buildMultipartBody(body) {
   }
 
   addOptionalFields(form, body, (target, key, value) => {
-    target.append(key, String(value));
+    (target as FormData).append(key, String(value));
   });
 
   return form;
 }
 
-function imageItemFromString(value) {
+function imageItemFromString(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "string" || !value) return null;
   if (/^data:image\/[^;]+;base64,/i.test(value)) {
     return { b64_json: value.replace(/^data:image\/[^;]+;base64,/i, "") };
@@ -115,20 +115,20 @@ function imageItemFromString(value) {
   return { b64_json: value };
 }
 
-function normalizeCloudflareResponse(responseBody) {
+function normalizeCloudflareResponse(responseBody: Record<string, unknown>): Record<string, unknown> {
   if (responseBody?.created && Array.isArray(responseBody?.data)) return responseBody;
 
-  const result = responseBody?.result ?? responseBody;
+  const result = (responseBody?.result ?? responseBody) as Record<string, unknown>;
   const queuedResponse = Array.isArray(result?.responses)
-    ? result.responses.find((item) => item?.success !== false)?.result
+    ? (result.responses as Array<Record<string, unknown>>).find((item) => item?.success !== false)?.result as Record<string, unknown>
     : null;
   if (queuedResponse) return normalizeCloudflareResponse(queuedResponse);
 
   const image =
     (typeof result === "string" ? result : null) ||
-    result?.image ||
-    result?.data?.[0]?.b64_json ||
-    result?.data?.[0]?.url;
+    result?.image as string ||
+    (result?.data as Array<Record<string, unknown>>)?.[0]?.b64_json as string ||
+    (result?.data as Array<Record<string, unknown>>)?.[0]?.url as string;
 
   const item = imageItemFromString(image);
   return {
@@ -138,30 +138,30 @@ function normalizeCloudflareResponse(responseBody) {
 }
 
 export default {
-  buildUrl: (model, creds) => {
-    const accountId = creds?.providerSpecificData?.accountId;
+  buildUrl: (model: string, creds: Record<string, unknown>): string => {
+    const accountId = (creds?.providerSpecificData as Record<string, unknown>)?.accountId as string;
     if (!accountId) throw new Error("cloudflare-ai requires accountId in providerSpecificData");
     return `${BASE_URL}/${accountId}/ai/run/${model}`;
   },
 
-  buildHeaders: (creds, requestBody) => {
-    const headers = {};
+  buildHeaders: (creds: Record<string, unknown>, requestBody: unknown): Record<string, string> => {
+    const headers: Record<string, string> = {};
     const isMultipart = typeof FormData !== "undefined" && requestBody instanceof FormData;
     if (!isMultipart) {
       headers["Content-Type"] = "application/json";
     }
-    const key = creds?.apiKey || creds?.accessToken;
-    if (key) headers.Authorization = `Bearer ${key}`;
+    const key = (creds?.apiKey || creds?.accessToken) as string;
+    if (key) headers["Authorization"] = `Bearer ${key}`;
     return headers;
   },
 
-  buildBody: async (model, body) => (
+  buildBody: async (model: string, body: Record<string, unknown>): Promise<unknown> => (
     MULTIPART_MODELS.has(model)
       ? buildMultipartBody(body)
       : await buildJsonBody(body)
   ),
 
-  async parseResponse(response) {
+  async parseResponse(response: Response): Promise<Record<string, unknown>> {
     const contentType = (response.headers.get("Content-Type") || "").toLowerCase();
     if (contentType.startsWith("image/")) {
       const buf = await response.arrayBuffer();
@@ -171,7 +171,7 @@ export default {
       };
     }
 
-    const json = await response.json();
+    const json = await response.json() as Record<string, unknown>;
     return normalizeCloudflareResponse(json);
   },
 

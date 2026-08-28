@@ -11,7 +11,7 @@ import { extractReasoningText } from "../concerns/reasoning";
 const CLAUDE_OAUTH_TOOL_PREFIX = "proxy_";
 
 // Sanitize tool call arguments to fix bad params from non-Anthropic models
-function sanitizeToolArgs(toolName, argsJson) {
+function sanitizeToolArgs(toolName: string, argsJson: string) {
   try {
     const args = JSON.parse(argsJson);
     const name = toolName.startsWith(CLAUDE_OAUTH_TOOL_PREFIX)
@@ -24,22 +24,24 @@ function sanitizeToolArgs(toolName, argsJson) {
   }
 }
 
-function sanitizeReadArgs(args) {
+function sanitizeReadArgs(args: Record<string, unknown>) {
   if (typeof args.limit === "string" && /^\d+$/.test(args.limit)) args.limit = Number(args.limit);
   if (typeof args.offset === "string" && /^-?\d+$/.test(args.offset)) args.offset = Number(args.offset);
 
-  if (typeof args.limit === "number") {
-    if (args.limit > 2000) args.limit = 2000;
-    if (args.limit < 1) delete args.limit;
+  const limit = args.limit;
+  if (typeof limit === "number") {
+    if (limit > 2000) args.limit = 2000;
+    if (limit < 1) delete args.limit;
   }
-  if (typeof args.offset === "number" && args.offset < 0) args.offset = 0;
+  const offset = args.offset;
+  if (typeof offset === "number" && offset < 0) args.offset = 0;
 
-  if ("pages" in args && !isValidPdfPagesArg(args.file_path, args.pages)) {
+  if ("pages" in args && !isValidPdfPagesArg(args.file_path as string, args.pages as string)) {
     delete args.pages;
   }
 }
 
-function isValidPdfPagesArg(filePath, pages) {
+function isValidPdfPagesArg(filePath: unknown, pages: unknown) {
   return typeof filePath === "string" &&
     filePath.toLowerCase().endsWith(".pdf") &&
     typeof pages === "string" &&
@@ -47,7 +49,7 @@ function isValidPdfPagesArg(filePath, pages) {
 }
 
 // Helper: stop thinking block if started
-function stopThinkingBlock(state, results) {
+function stopThinkingBlock(state: Record<string, unknown>, results: Record<string, unknown>[]) {
   if (!state.thinkingBlockStarted) return;
   results.push({
     type: "content_block_stop",
@@ -57,7 +59,7 @@ function stopThinkingBlock(state, results) {
 }
 
 // Helper: stop text block if started
-function stopTextBlock(state, results) {
+function stopTextBlock(state: Record<string, unknown>, results: Record<string, unknown>[]) {
   if (!state.textBlockStarted || state.textBlockClosed) return;
   state.textBlockClosed = true;
   results.push({
@@ -68,21 +70,23 @@ function stopTextBlock(state, results) {
 }
 
 // Convert OpenAI stream chunk to Claude format
-export function openaiToClaudeResponse(chunk, state) {
-  if (!chunk || !chunk.choices?.[0]) return null;
+export function openaiToClaudeResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
+  if (!chunk || !(chunk.choices as unknown[])?.[0]) return null;
 
-  const results = [];
-  const choice = chunk.choices[0];
-  const delta = choice.delta;
+  const results: Record<string, unknown>[] = [];
+  const choice = (chunk.choices as Record<string, unknown>[])[0];
+  const delta = choice.delta as Record<string, unknown> | undefined;
 
   // Track usage from OpenAI chunk if available
   if (chunk.usage && typeof chunk.usage === "object") {
-    const promptTokens = typeof chunk.usage.prompt_tokens === "number" ? chunk.usage.prompt_tokens : 0;
-    const outputTokens = typeof chunk.usage.completion_tokens === "number" ? chunk.usage.completion_tokens : 0;
+    const usage = chunk.usage as Record<string, unknown>;
+    const details = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+    const promptTokens = typeof usage.prompt_tokens === "number" ? usage.prompt_tokens : 0;
+    const outputTokens = typeof usage.completion_tokens === "number" ? usage.completion_tokens : 0;
 
     // Extract cache tokens from prompt_tokens_details
-    const cachedTokens = chunk.usage.prompt_tokens_details?.cached_tokens;
-    const cacheCreationTokens = chunk.usage.prompt_tokens_details?.cache_creation_tokens;
+    const cachedTokens = details?.cached_tokens;
+    const cacheCreationTokens = details?.cache_creation_tokens;
     const cacheReadTokens = typeof cachedTokens === "number" ? cachedTokens : 0;
     const cacheCreateTokens = typeof cacheCreationTokens === "number" ? cacheCreationTokens : 0;
 
@@ -97,12 +101,12 @@ export function openaiToClaudeResponse(chunk, state) {
 
     // Add cache_read_input_tokens if present
     if (cacheReadTokens > 0) {
-      state.usage.cache_read_input_tokens = cacheReadTokens;
+      (state.usage as Record<string, unknown>).cache_read_input_tokens = cacheReadTokens;
     }
 
     // Add cache_creation_input_tokens if present
     if (cacheCreateTokens > 0) {
-      state.usage.cache_creation_input_tokens = cacheCreateTokens;
+      (state.usage as Record<string, unknown>).cache_creation_input_tokens = cacheCreateTokens;
     }
 
     // Note: completion_tokens_details.reasoning_tokens is already included in output_tokens
@@ -112,10 +116,13 @@ export function openaiToClaudeResponse(chunk, state) {
   // First chunk - ALWAYS send message_start first
   if (!state.messageStartSent) {
     state.messageStartSent = true;
-    state.messageId = chunk.id?.replace("chatcmpl-", "") || `msg_${Date.now()}`;
-    if (!state.messageId || state.messageId === "chat" || state.messageId.length < 8) {
-      state.messageId = chunk.extend_fields?.requestId ||
-        chunk.extend_fields?.traceId ||
+    const chunkId = chunk.id as string | undefined;
+    state.messageId = chunkId?.replace("chatcmpl-", "") || `msg_${Date.now()}`;
+    const msgId = state.messageId as string;
+    if (!msgId || msgId === "chat" || msgId.length < 8) {
+      const extFields = chunk.extend_fields as Record<string, unknown> | undefined;
+      state.messageId = (extFields?.requestId as string) ||
+        (extFields?.traceId as string) ||
         `msg_${Date.now()}`;
     }
     state.model = chunk.model || MODEL_FALLBACK;
@@ -141,7 +148,7 @@ export function openaiToClaudeResponse(chunk, state) {
     stopTextBlock(state, results);
 
     if (!state.thinkingBlockStarted) {
-      state.thinkingBlockIndex = state.nextBlockIndex++;
+      state.thinkingBlockIndex = (state.nextBlockIndex as number)++;
       state.thinkingBlockStarted = true;
       results.push({
         type: "content_block_start",
@@ -162,7 +169,7 @@ export function openaiToClaudeResponse(chunk, state) {
     stopThinkingBlock(state, results);
 
     if (!state.textBlockStarted) {
-      state.textBlockIndex = state.nextBlockIndex++;
+      state.textBlockIndex = (state.nextBlockIndex as number)++;
       state.textBlockStarted = true;
       state.textBlockClosed = false;
       results.push({
@@ -181,19 +188,21 @@ export function openaiToClaudeResponse(chunk, state) {
 
   // Tool calls
   if (delta?.tool_calls) {
-    for (const tc of delta.tool_calls) {
-      const idx = tc.index ?? 0;
+    const toolCalls = state.toolCalls as Map<number, Record<string, unknown>> | undefined;
+    for (const tc of delta.tool_calls as Record<string, unknown>[]) {
+      const idx = (tc.index as number) ?? 0;
 
       // GLM/fireworks repeats id+null-name on every arg chunk; open block once per idx
-      if (tc.id && !state.toolCalls.has(idx)) {
+      if (tc.id && !toolCalls?.has(idx)) {
         stopThinkingBlock(state, results);
         stopTextBlock(state, results);
 
-        const toolBlockIndex = state.nextBlockIndex++;
-        state.toolCalls.set(idx, { id: tc.id, name: tc.function?.name || "", blockIndex: toolBlockIndex });
+        const toolBlockIndex = (state.nextBlockIndex as number)++;
+        if (!state.toolCalls) state.toolCalls = new Map();
+        (state.toolCalls as Map<number, Record<string, unknown>>).set(idx, { id: tc.id, name: (tc.function as Record<string, unknown>)?.name || "", blockIndex: toolBlockIndex });
 
         // Strip prefix from tool name for response
-        let toolName = tc.function?.name || "";
+        let toolName = ((tc.function as Record<string, unknown>)?.name as string) || "";
         if (toolName.startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) {
           toolName = toolName.slice(CLAUDE_OAUTH_TOOL_PREFIX.length);
         }
@@ -210,12 +219,13 @@ export function openaiToClaudeResponse(chunk, state) {
         });
       }
 
-      if (tc.function?.arguments) {
-        const toolInfo = state.toolCalls.get(idx);
+      if ((tc.function as Record<string, unknown>)?.arguments) {
+        const toolInfo = (state.toolCalls as Map<number, Record<string, unknown>>)?.get(idx);
         if (toolInfo) {
           // Buffer args instead of streaming — sanitize at finish to fix bad params
           if (!state.toolArgBuffers) state.toolArgBuffers = new Map();
-          state.toolArgBuffers.set(idx, (state.toolArgBuffers.get(idx) || "") + tc.function.arguments);
+          const buffers = state.toolArgBuffers as Map<number, string>;
+          buffers.set(idx, (buffers.get(idx) || "") + ((tc.function as Record<string, unknown>).arguments as string));
         }
       }
     }
@@ -226,21 +236,24 @@ export function openaiToClaudeResponse(chunk, state) {
     stopThinkingBlock(state, results);
     stopTextBlock(state, results);
 
-    for (const [idx, toolInfo] of state.toolCalls) {
-      // Emit buffered + sanitized args as single delta before stop
-      const buffered = state.toolArgBuffers?.get(idx);
-      if (buffered) {
-        const sanitized = sanitizeToolArgs(toolInfo.name, buffered);
+    const toolCallsMap = state.toolCalls as Map<number, Record<string, unknown>> | undefined;
+    if (toolCallsMap) {
+      for (const [idx, toolInfo] of toolCallsMap) {
+        // Emit buffered + sanitized args as single delta before stop
+        const buffered = (state.toolArgBuffers as Map<number, string> | undefined)?.get(idx);
+        if (buffered) {
+          const sanitized = sanitizeToolArgs(toolInfo.name as string, buffered);
+          results.push({
+            type: "content_block_delta",
+            index: toolInfo.blockIndex,
+            delta: { type: "input_json_delta", partial_json: sanitized }
+          });
+        }
         results.push({
-          type: "content_block_delta",
-          index: toolInfo.blockIndex,
-          delta: { type: "input_json_delta", partial_json: sanitized }
+          type: "content_block_stop",
+          index: toolInfo.blockIndex
         });
       }
-      results.push({
-        type: "content_block_stop",
-        index: toolInfo.blockIndex
-      });
     }
 
     // Mark finish for later usage injection in stream.js
@@ -250,7 +263,7 @@ export function openaiToClaudeResponse(chunk, state) {
     const finalUsage = state.usage || { input_tokens: 0, output_tokens: 0 };
     results.push({
       type: "message_delta",
-      delta: { stop_reason: convertFinishReason(choice.finish_reason) },
+      delta: { stop_reason: convertFinishReason(choice.finish_reason as string) },
       usage: finalUsage
     });
     results.push({ type: "message_stop" });
@@ -259,7 +272,7 @@ export function openaiToClaudeResponse(chunk, state) {
   return results.length > 0 ? results : null;
 }
 
-const convertFinishReason = (reason) => fromOpenAIFinish(reason, "claude");
+const convertFinishReason = (reason: string) => fromOpenAIFinish(reason, "claude");
 
 // Register
-register(FORMATS.OPENAI, FORMATS.CLAUDE, null, openaiToClaudeResponse);
+register(FORMATS.OPENAI, FORMATS.CLAUDE, null, openaiToClaudeResponse as (chunk: unknown, state: unknown) => unknown);

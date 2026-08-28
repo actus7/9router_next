@@ -113,7 +113,7 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
             label="API Type"
             options={apiTypeOptions}
             value={formData.apiType}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, apiType: e.target.value })}
+            onChange={(value: string) => setFormData({ ...formData, apiType: value })}
           />
         )}
         <Input
@@ -151,10 +151,10 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
         )}
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={!formData.name.trim() || !formData.prefix.trim() || !formData.baseUrl.trim() || saving}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Salvando..." : "Salvar"}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>
-            Cancel
+            Cancelar
           </Button>
         </div>
       </div>

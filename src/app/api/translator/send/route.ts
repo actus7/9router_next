@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { getProviderConnections, updateProviderConnection } from "@/lib/localDb";
 import { getExecutor } from "@/lib/open-sse/executors/index";
 
-async function persistRefreshedCredentials(connection, newCredentials) {
-  const updateData = {};
+async function persistRefreshedCredentials(connection: Record<string, unknown>, newCredentials: Record<string, unknown>) {
+  const updateData: Record<string, unknown> = {};
 
   if (newCredentials.accessToken) updateData.accessToken = newCredentials.accessToken;
   if (newCredentials.refreshToken) updateData.refreshToken = newCredentials.refreshToken;
@@ -11,25 +11,25 @@ async function persistRefreshedCredentials(connection, newCredentials) {
   if (newCredentials.lastRefreshAt) updateData.lastRefreshAt = newCredentials.lastRefreshAt;
   if (newCredentials.expiresIn) {
     updateData.expiresIn = newCredentials.expiresIn;
-    updateData.expiresAt = new Date(Date.now() + newCredentials.expiresIn * 1000).toISOString();
+    updateData.expiresAt = new Date(Date.now() + (newCredentials.expiresIn as number) * 1000).toISOString();
   } else if (newCredentials.expiresAt) {
     updateData.expiresAt = newCredentials.expiresAt;
   }
 
-  const providerSpecificUpdates = {
-    ...(newCredentials.providerSpecificData || {}),
+  const providerSpecificUpdates: Record<string, unknown> = {
+    ...((newCredentials.providerSpecificData as Record<string, unknown>) || {}),
     ...(newCredentials.copilotToken ? { copilotToken: newCredentials.copilotToken } : {}),
     ...(newCredentials.copilotTokenExpiresAt ? { copilotTokenExpiresAt: newCredentials.copilotTokenExpiresAt } : {}),
   };
   if (Object.keys(providerSpecificUpdates).length > 0) {
     updateData.providerSpecificData = {
-      ...(connection.providerSpecificData || {}),
+      ...((connection.providerSpecificData as Record<string, unknown>) || {}),
       ...providerSpecificUpdates,
     };
   }
 
   if (Object.keys(updateData).length > 0) {
-    await updateProviderConnection(connection.id, updateData);
+    await updateProviderConnection(connection.id as string, updateData);
   }
 }
 
@@ -88,8 +88,8 @@ export async function POST(request: NextRequest) {
         "Connection": "keep-alive"
       }
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Translator] Send error:", error);
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

@@ -14,12 +14,15 @@ import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh";
 import { handleComboChat, getComboModelsFromData } from "@/lib/open-sse/services/combo";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
+import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
+import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
+import { classifySmartRouting } from "../services/smartRoutingClassifier";
 
 /**
  * Handle web fetch (URL extraction) request for the SSE/Next.js server.
  */
 export async function handleFetch(request: Request): Promise<Response> {
-  let body: any;
+  let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
@@ -28,10 +31,10 @@ export async function handleFetch(request: Request): Promise<Response> {
   }
 
   const reqUrl: URL = new URL(request.url);
-  const providerInput: string = body.provider || body.model;
-  const targetUrl: string = body.url;
-  const format: string = body.format;
-  const maxCharacters: number = body.max_characters;
+  const providerInput: string = (body.provider || body.model) as string;
+  const targetUrl: string = body.url as string;
+  const format: string = body.format as string;
+  const maxCharacters: number = body.max_characters as number;
 
   log.request("POST", `${reqUrl.pathname} | ${providerInput}`);
 
@@ -42,7 +45,7 @@ export async function handleFetch(request: Request): Promise<Response> {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  const settings: any = await getSettings();
+  const settings = await getSettings();
   if (settings.requireApiKey) {
     if (!apiKey) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
@@ -74,22 +77,51 @@ export async function handleFetch(request: Request): Promise<Response> {
 
   try {
     assertPublicUrl(targetUrl);
-  } catch (err: any) {
+  } catch (err: unknown) {
     log.warn("FETCH", "Blocked URL", { url: targetUrl });
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, err.message);
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, (err instanceof Error ? err.message : String(err)));
   }
 
-  const combos: any[] = await getCombos();
+  const smartCombo = await getSmartCombo(providerInput);
+  if (smartCombo) {
+    try {
+      const routing = await resolveSmartRouting({
+        combo: smartCombo,
+        body,
+        headers: request.headers,
+        endpointNeed: "web_fetch",
+        sessionKey: deriveRoutingSessionKey(request.headers, body),
+        classifyWithModel: (model, prompt, timeoutMs) => classifySmartRouting(model, prompt, timeoutMs, request, apiKey),
+      });
+      const providers = [...new Set(routing.models.map((candidate) => candidate.split("/", 1)[0]).filter(Boolean))];
+      if (providers.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible web fetch provider is active");
+      attachRoutingDecision(body, routing.meta);
+      log.info("ROUTING", `Smart combo "${providerInput}" → web_fetch/${routing.meta.tier} → ${providers[0]}`);
+      return handleComboChat({
+        body,
+        models: providers,
+        handleSingleModel: (b: Record<string, unknown>, provider: string) => handleSingleProviderFetch(b, provider, request, apiKey, settings as Record<string, unknown>),
+        log,
+        comboName: providerInput,
+        comboStrategy: "fallback",
+        autoSwitch: false,
+      });
+    } catch (error) {
+      return errorResponse(HTTP_STATUS.BAD_REQUEST, error instanceof Error ? error.message : "Invalid smart routing configuration");
+    }
+  }
+
+  const combos = await getCombos() as unknown as Parameters<typeof getComboModelsFromData>[1];
   const comboModels: string[] | null = getComboModelsFromData(providerInput, combos);
   if (comboModels) {
-    const comboStrategies: Record<string, any> = settings.comboStrategies || {};
-    const comboStrategy: string = comboStrategies[providerInput]?.fallbackStrategy || settings.comboStrategy || "fallback";
-    const comboStickyLimit: number = settings.comboStickyRoundRobinLimit;
+    const comboStrategies: Record<string, unknown> = (settings as Record<string, unknown>).comboStrategies as Record<string, unknown> || {};
+    const comboStrategy: string = ((comboStrategies[providerInput] as Record<string, unknown> | undefined)?.fallbackStrategy as string) || (settings as Record<string, unknown>).comboStrategy as string || "fallback";
+    const comboStickyLimit: number = (settings as Record<string, unknown>).comboStickyRoundRobinLimit as number;
     log.info("FETCH", `Combo "${providerInput}" with ${comboModels.length} providers (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
     return handleComboChat({
       body,
       models: comboModels,
-      handleSingleModel: (b: any, m: string) => handleSingleProviderFetch(b, m, request, apiKey, settings),
+      handleSingleModel: (b: Record<string, unknown>, m: string) => handleSingleProviderFetch(b, m, request, apiKey, settings as Record<string, unknown>),
       log,
       comboName: providerInput,
       comboStrategy,
@@ -100,19 +132,19 @@ export async function handleFetch(request: Request): Promise<Response> {
   return handleSingleProviderFetch(body, providerInput, request, apiKey, settings);
 }
 
-async function handleSingleProviderFetch(body: any, providerInput: string, request: Request, apiKey: string | null, settings: any): Promise<Response> {
-  const targetUrl: string = body.url;
-  const format: string = body.format;
-  const maxCharacters: number = body.max_characters;
+async function handleSingleProviderFetch(body: Record<string, unknown>, providerInput: string, request: Request, apiKey: string | null, settings: Record<string, unknown>): Promise<Response> {
+  const targetUrl: string = body.url as string;
+  const format: string = body.format as string;
+  const maxCharacters: number = body.max_characters as number;
   const providerId: string = resolveProviderId(providerInput);
-  const resolvedProvider: any = AI_PROVIDERS[providerId];
+  const resolvedProvider = AI_PROVIDERS[providerId];
 
   if (!resolvedProvider) {
     log.warn("FETCH", "Unknown provider", { provider: providerInput });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Unknown provider: ${providerInput}`);
   }
 
-  const providerConfig: any = resolvedProvider.fetchConfig;
+  const providerConfig = resolvedProvider?.fetchConfig as Record<string, unknown> | undefined;
   if (!providerConfig) {
     log.warn("FETCH", "Provider does not support web fetch", { provider: providerId });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Provider ${providerId} does not support web fetch`);
@@ -124,23 +156,25 @@ async function handleSingleProviderFetch(body: any, providerInput: string, reque
     log.info("ROUTING", `Provider: ${providerId}`);
   }
 
+  const fetchProviderId = typeof resolvedProvider.id === "string" ? resolvedProvider.id : providerId;
+
   if (resolvedProvider.noAuth) {
     log.info("AUTH", `\x1b[32m${providerId} no-auth mode\x1b[0m`);
-    const result: any = await handleFetchCore({
+    const result = await handleFetchCore({
       url: targetUrl,
       format,
       maxCharacters,
-      provider: resolvedProvider.id,
+      provider: resolvedProvider!.id as string,
       providerConfig,
-      credentials: null,
-      log
-    });
+      credentials: undefined,
+      log: log as unknown as Parameters<typeof handleFetchCore>[0]["log"]
+    }) as unknown as Record<string, unknown>;
     if (result.success) {
       return new Response(JSON.stringify(result.data), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
-    return errorResponse(result.status || HTTP_STATUS.BAD_GATEWAY, result.error || "Fetch failed");
+    return errorResponse((result.status as number) || HTTP_STATUS.BAD_GATEWAY, (result.error as string) || "Fetch failed");
   }
 
   const excludeConnectionIds: Set<string> = new Set();
@@ -148,14 +182,14 @@ async function handleSingleProviderFetch(body: any, providerInput: string, reque
   let lastStatus: number | null = null;
 
   while (true) {
-    const credentials: any = await getProviderCredentials(providerId, excludeConnectionIds);
+    const credentials = await getProviderCredentials(providerId, excludeConnectionIds);
 
     if (!credentials || credentials.allRateLimited) {
       if (credentials?.allRateLimited) {
         const errorMsg: string = lastError || credentials.lastError || "Unavailable";
         const status: number = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
         log.warn("FETCH", `[${providerId}] ${errorMsg} (${credentials.retryAfterHuman})`);
-        return unavailableResponse(status, `[${providerId}] ${errorMsg}`, credentials.retryAfter, credentials.retryAfterHuman);
+        return unavailableResponse(status, `[${providerId}] ${errorMsg}`, String(credentials.retryAfter ?? ""), credentials.retryAfterHuman ?? "");
       }
       if (excludeConnectionIds.size === 0) {
         log.error("AUTH", `No credentials for provider: ${providerId}`);
@@ -167,43 +201,43 @@ async function handleSingleProviderFetch(body: any, providerInput: string, reque
 
     log.info("AUTH", `\x1b[32mUsing ${providerId} account: ${credentials.connectionName}\x1b[0m`);
 
-    const refreshedCredentials: any = await checkAndRefreshToken(providerId, credentials);
+    const refreshedCredentials = await checkAndRefreshToken(providerId, credentials);
 
-    const result: any = await handleFetchCore({
+    const result = await handleFetchCore({
       url: targetUrl,
       format,
       maxCharacters,
-      provider: resolvedProvider.id,
+      provider: fetchProviderId,
       providerConfig,
-      credentials: refreshedCredentials,
-      log,
-      onCredentialsRefreshed: async (newCreds: any) => {
-        await updateProviderCredentials(credentials.connectionId, {
-          accessToken: newCreds.accessToken,
-          refreshToken: newCreds.refreshToken,
-          providerSpecificData: newCreds.providerSpecificData,
+      credentials: refreshedCredentials as unknown as Record<string, unknown>,
+      log: log as unknown as (...args: unknown[]) => void,
+      onCredentialsRefreshed: async (newCreds: Record<string, unknown>) => {
+        await updateProviderCredentials(credentials.connectionId!, {
+          accessToken: newCreds.accessToken as string | undefined,
+          refreshToken: newCreds.refreshToken as string | undefined,
+          providerSpecificData: newCreds.providerSpecificData as Record<string, unknown> | undefined,
           testStatus: "active"
         });
       }
-    });
+    } as unknown as Parameters<typeof handleFetchCore>[0]) as unknown as Record<string, unknown>;
 
     if (result.success) {
-      await clearAccountError(credentials.connectionId, credentials);
+      await clearAccountError(credentials.connectionId!, credentials);
       return new Response(JSON.stringify(result.data), {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
     }
 
-    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, providerId);
+    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId!, result.status as number, result.error as string, providerId);
 
     if (shouldFallback) {
       log.warn("AUTH", `Account ${credentials.connectionName} unavailable (${result.status}), trying fallback`);
-      excludeConnectionIds.add(credentials.connectionId);
-      lastError = result.error;
-      lastStatus = result.status;
+      excludeConnectionIds.add(credentials.connectionId!);
+      lastError = result.error as string;
+      lastStatus = result.status as number;
       continue;
     }
 
-    return errorResponse(result.status || HTTP_STATUS.BAD_GATEWAY, result.error || "Fetch failed");
+    return errorResponse((result.status as number) || HTTP_STATUS.BAD_GATEWAY, (result.error as string) || "Fetch failed");
   }
 }

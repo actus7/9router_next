@@ -1,10 +1,6 @@
 /**
  * Search Dispatcher — routes /v1/search requests to dedicated search APIs
  * or chat-based LLM search wrappers, with retry-friendly error envelope.
- *
- * Dependency map:
- *   provider.searchConfig    → dedicated search API (callers + normalizers)
- *   provider.searchViaChat   → wrap chat-completions (chatSearch.js)
  */
 
 import { buildSearchRequest } from "./callers";
@@ -17,7 +13,7 @@ const NON_RETRIABLE = new Set([400, 401, 403, 404]);
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
 
 /** Normalize and validate query string. */
-function sanitizeQuery(query) {
+function sanitizeQuery(query: string): { clean?: string; error?: string } {
   if (CONTROL_CHAR_RE.test(query)) return { error: "Query contains invalid control characters" };
   const clean = query.normalize("NFKC").trim().replace(/\s+/g, " ");
   if (!clean) return { error: "Query is empty after normalization" };
@@ -25,17 +21,17 @@ function sanitizeQuery(query) {
 }
 
 // Strip non-ASCII chars from header values (HTTP headers must be ByteString).
-function sanitizeHeaders(headers) {
-  if (!headers) return headers;
-  const out = {};
+function sanitizeHeaders(headers: Record<string, unknown> | undefined): Record<string, string> | undefined {
+  if (!headers) return headers as Record<string, string> | undefined;
+  const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(headers)) {
-    out[k] = typeof v === "string" ? v.replace(/[^\x00-\xFF]/g, "").trim() : v;
+    out[k] = typeof v === "string" ? v.replace(/[^\x00-\xFF]/g, "").trim() : String(v);
   }
   return out;
 }
 
 /** Build a JSON Response wrapper used by the auth layer. */
-function jsonResponse(payload, status = 200) {
+function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
@@ -43,7 +39,7 @@ function jsonResponse(payload, status = 200) {
 }
 
 /** Wrap an error result with a Response object so the auth wrapper can return it directly. */
-function errorResult(status, error) {
+function errorResult(status: number, error: string) {
   return {
     success: false,
     status,
@@ -53,54 +49,60 @@ function errorResult(status, error) {
 }
 
 /** Wrap a success payload. */
-function successResult(data) {
+function successResult(data: unknown) {
   return { success: true, data, response: jsonResponse(data, 200) };
 }
 
 /**
  * Run a single dedicated search provider attempt.
- * @returns {Promise<{success:boolean, status?:number, error?:string, data?:object}>}
  */
-async function tryDedicatedProvider({ provider, providerConfig, body, credentials, log, globalStartTime }) {
+async function tryDedicatedProvider({ provider, providerConfig, body, credentials, log, globalStartTime }: {
+  provider: { id: string; [key: string]: unknown };
+  providerConfig: Record<string, unknown>;
+  body: Record<string, unknown>;
+  credentials: Record<string, unknown>;
+  log?: { info?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void };
+  globalStartTime: number;
+}) {
   const startTime = Date.now();
-  const token = credentials?.apiKey || credentials?.accessToken || undefined;
+  const token = (credentials?.apiKey || credentials?.accessToken || undefined) as string | undefined;
 
   if (providerConfig.authType !== "none" && !token) {
     return { success: false, status: 401, error: `No credentials for provider: ${provider.id}` };
   }
 
   const params = {
-    query: body.query,
-    searchType: body.search_type || (providerConfig.searchTypes?.[0] || "web"),
-    maxResults: Math.min(body.max_results || providerConfig.defaultMaxResults || 5, providerConfig.maxMaxResults || 100),
+    query: body.query as string,
+    searchType: (body.search_type as string) || ((providerConfig.searchTypes as string[])?.[0] || "web"),
+    maxResults: Math.min((body.max_results as number) || (providerConfig.defaultMaxResults as number) || 5, (providerConfig.maxMaxResults as number) || 100),
     token,
-    country: body.country,
-    language: body.language,
-    timeRange: body.time_range,
-    offset: body.offset,
-    domainFilter: body.domain_filter,
-    contentOptions: body.content_options,
-    providerOptions: body.provider_options,
-    providerSpecificData: credentials?.providerSpecificData
+    country: body.country as string | undefined,
+    language: body.language as string | undefined,
+    timeRange: body.time_range as string | undefined,
+    offset: body.offset as number | undefined,
+    domainFilter: body.domain_filter as string[] | undefined,
+    contentOptions: body.content_options as Record<string, unknown> | undefined,
+    providerOptions: body.provider_options as Record<string, unknown> | undefined,
+    providerSpecificData: credentials?.providerSpecificData as Record<string, unknown> | undefined,
   };
 
-  let url, init;
+  let url: string, init: RequestInit;
   try {
-    ({ url, init } = buildSearchRequest({ id: provider.id, ...providerConfig }, params));
-  } catch (err) {
-    return { success: false, status: 400, error: err?.message || `Invalid request for ${provider.id}` };
+    ({ url, init } = buildSearchRequest({ id: provider.id, ...providerConfig } as { id: string; baseUrl: string }, params));
+  } catch (err: unknown) {
+    return { success: false, status: 400, error: (err as Error)?.message || `Invalid request for ${provider.id}` };
   }
 
   // Timeout = min(provider timeout, remaining global)
   const remaining = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
-  const timeout = Math.min(providerConfig.timeoutMs || 10000, Math.max(remaining, 1000));
+  const timeout = Math.min((providerConfig.timeoutMs as number) || 10000, Math.max(remaining, 1000));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
   log?.info?.("SEARCH", `${provider.id} | "${params.query.slice(0, 80)}" | type=${params.searchType}`);
 
   try {
-    const resp = await fetch(url, { ...init, headers: sanitizeHeaders(init.headers), signal: controller.signal });
+    const resp = await fetch(url, { ...init, headers: sanitizeHeaders(init.headers as Record<string, unknown>), signal: controller.signal });
     clearTimeout(timer);
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "");
@@ -124,36 +126,34 @@ async function tryDedicatedProvider({ provider, providerConfig, body, credential
         errors: []
       }
     };
-  } catch (err) {
+  } catch (err: unknown) {
     clearTimeout(timer);
-    const isTimeout = err.name === "AbortError";
+    const isTimeout = (err as Error).name === "AbortError";
     const status = isTimeout ? 504 : 502;
-    log?.error?.("SEARCH", `${provider.id} ${isTimeout ? "timeout" : "error"}: ${err.message}`);
-    return { success: false, status, error: `${provider.id} ${isTimeout ? "timeout" : "error"}: ${err.message}` };
+    log?.error?.("SEARCH", `${provider.id} ${isTimeout ? "timeout" : "error"}: ${(err as Error).message}`);
+    return { success: false, status, error: `${provider.id} ${isTimeout ? "timeout" : "error"}: ${(err as Error).message}` };
   }
 }
 
 /**
  * Core search handler. Dispatches to dedicated API or chat-based LLM.
- * Same calling convention as handleEmbeddingsCore: returns `{success, response, status?, error?}`.
- *
- * @param {object}   options
- * @param {object}   options.body            Sanitized body from auth wrapper
- * @param {object}   options.provider        Provider entry from AI_PROVIDERS
- * @param {object}   [options.providerConfig] Provider's searchConfig (if dedicated)
- * @param {object|null} options.credentials  Provider credentials
- * @param {object}   [options.log]           Logger
  */
-export async function handleSearchCore({ body, provider, providerConfig, credentials, log }) {
+export async function handleSearchCore({ body, provider, providerConfig, credentials, log }: {
+  body: Record<string, unknown>;
+  provider: { id: string; searchViaChat?: Record<string, unknown>; [key: string]: unknown };
+  providerConfig?: Record<string, unknown>;
+  credentials: Record<string, unknown>;
+  log?: { info?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void };
+}) {
   const globalStartTime = Date.now();
 
   // 1. Sanitize query
-  const { clean, error: sanitizeError } = sanitizeQuery(body.query || "");
+  const { clean, error: sanitizeError } = sanitizeQuery((body.query as string) || "");
   if (sanitizeError) return errorResult(400, sanitizeError);
-  const normalizedBody = { ...body, query: clean };
+  const normalizedBody: Record<string, unknown> = { ...body, query: clean! };
 
   // 2. Route: dedicated search API takes priority over chat-based
-  let result;
+  let result: { success: boolean; status?: number; error?: string; data?: unknown };
   if (providerConfig) {
     result = await tryDedicatedProvider({
       provider,
@@ -166,9 +166,9 @@ export async function handleSearchCore({ body, provider, providerConfig, credent
   } else if (provider.searchViaChat) {
     result = await handleChatSearch({
       provider: provider.id,
-      query: clean,
-      maxResults: normalizedBody.max_results,
-      model: provider.searchViaChat.defaultModel,
+      query: clean!,
+      maxResults: normalizedBody.max_results as number,
+      model: (provider.searchViaChat as Record<string, unknown>).defaultModel as string,
       credentials,
       log
     });
@@ -188,9 +188,9 @@ export async function handleSearchCore({ body, provider, providerConfig, credent
     log?.warn?.("SEARCH", `${provider.id} dedicated failed (${result.status}), falling back to chat-based search`);
     const fallback = await handleChatSearch({
       provider: provider.id,
-      query: clean,
-      maxResults: normalizedBody.max_results,
-      model: provider.searchViaChat.defaultModel,
+      query: clean!,
+      maxResults: normalizedBody.max_results as number,
+      model: (provider.searchViaChat as Record<string, unknown>).defaultModel as string,
       credentials,
       log
     });

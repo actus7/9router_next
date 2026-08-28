@@ -71,7 +71,7 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
                 </span>
               </Button>
               <span className="pointer-events-none absolute top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-                {isTesting ? "Testing..." : "Test"}
+                {isTesting ? "Testando..." : "Testar"}
               </span>
             </div>
           )}
@@ -153,7 +153,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     if (!newModel.trim() || adding) return;
     const modelId = newModel.trim();
     if (allModels.some((model: { id: string }) => model.id === modelId)) {
-      notify.warning("Model already exists for this provider.");
+      notify.warning("Modelo já existe para este provedor.");
       return;
     }
 
@@ -178,12 +178,12 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       const res = await fetch(`/api/providers/${activeConnection.id}/models`);
       const data = await res.json();
       if (!res.ok) {
-        notify.error(data.error || "Failed to import models");
+        notify.error(data.error || "Falha ao importar modelos");
         return;
       }
       const models = data.models || [];
       if (models.length === 0) {
-        notify.warning("No models returned from /models.");
+        notify.warning("Nenhum modelo retornado de /models.");
         return;
       }
       let importedCount = 0;
@@ -195,7 +195,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         importedCount += 1;
       }
       if (importedCount === 0) {
-        notify.warning("No new models were added.");
+        notify.warning("Nenhum modelo novo foi adicionado.");
       }
     } catch (error) {
       console.error("Error importing models:", error);
@@ -209,12 +209,12 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-text-muted">
-        Add {isAnthropic ? "Anthropic" : "OpenAI"}-compatible models manually or import them from the /models endpoint.
+        Adicione modelos compatíveis com {isAnthropic ? "Anthropic" : "OpenAI"} manualmente ou importe-os do endpoint /models.
       </p>
 
       <div className="flex items-end gap-2 flex-wrap">
         <div className="flex-1 min-w-[240px]">
-          <Label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">Model ID</Label>
+          <Label htmlFor="new-compatible-model-input" className="text-xs text-text-muted mb-1 block">ID do Modelo</Label>
           <Input
             id="new-compatible-model-input"
             type="text"
@@ -226,16 +226,16 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
           />
         </div>
         <Button size="sm" icon={<Plus className="size-4" />} onClick={handleAdd} disabled={!newModel.trim() || adding}>
-          {adding ? "Adding..." : "Add"}
+          {adding ? "Adicionando..." : "Adicionar"}
         </Button>
         <Button size="sm" variant="secondary" icon={<Download className="size-4" />} onClick={handleImport} disabled={!canImport || importing}>
-          {importing ? "Importing..." : "Import from /models"}
+          {importing ? "Importando..." : "Importar de /models"}
         </Button>
       </div>
 
       {!canImport && (
         <p className="text-xs text-text-muted">
-          Add a connection to enable importing models.
+          Adicione uma conexão para habilitar a importação de modelos.
         </p>
       )}
 

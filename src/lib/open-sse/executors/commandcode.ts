@@ -3,6 +3,7 @@ import { BaseExecutor } from "./base";
 import { PROVIDERS } from "../config/providers";
 import { commandCodeToOpenAIResponse } from "../translator/response/commandcode-to-openai";
 import { SSE_DONE } from "../utils/sseConstants";
+import type { Credentials } from "../services/types";
 
 /**
  * CommandCodeExecutor — talks to https://api.commandcode.ai/alpha/generate
@@ -20,15 +21,15 @@ export class CommandCodeExecutor extends BaseExecutor {
     super("commandcode", PROVIDERS.commandcode);
   }
 
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, _stream?: boolean, _credentials?: Credentials) {
     body.stream = true;
     return body;
   }
 
-  buildHeaders(credentials, stream = true) {
-    const headers = {
+  buildHeaders(credentials: Credentials, stream = true) {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...(this.config.headers || {}),
+      ...((this.config.headers || {}) as Record<string, string>),
       "x-session-id": randomUUID(),
     };
 
@@ -39,7 +40,7 @@ export class CommandCodeExecutor extends BaseExecutor {
     return headers;
   }
 
-  async execute(opts) {
+  async execute(opts: import("./base").ExecuteArgs) {
     const result = await super.execute(opts);
     if (!result?.response?.ok || !result.response.body) return result;
     result.response = wrapNdjsonAsOpenAISse(result.response, opts.model);
@@ -47,13 +48,13 @@ export class CommandCodeExecutor extends BaseExecutor {
   }
 }
 
-function wrapNdjsonAsOpenAISse(originalResponse, model) {
+function wrapNdjsonAsOpenAISse(originalResponse: Response, model: string) {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = "";
-  const state = { model };
+  const state: Record<string, unknown> = { model };
 
-  const emitChunks = (chunks, controller) => {
+  const emitChunks = (chunks: unknown, controller: TransformStreamDefaultController) => {
     if (!chunks) return;
     const list = Array.isArray(chunks) ? chunks : [chunks];
     for (const c of list) {
@@ -63,7 +64,7 @@ function wrapNdjsonAsOpenAISse(originalResponse, model) {
   };
 
   const transform = new TransformStream({
-    transform(chunk, controller) {
+    transform(chunk: Uint8Array, controller: TransformStreamDefaultController) {
       buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
@@ -74,7 +75,7 @@ function wrapNdjsonAsOpenAISse(originalResponse, model) {
         emitChunks(commandCodeToOpenAIResponse(trimmed, state), controller);
       }
     },
-    flush(controller) {
+    flush(controller: TransformStreamDefaultController) {
       const trimmed = buffer.trim();
       if (trimmed) {
         emitChunks(commandCodeToOpenAIResponse(trimmed, state), controller);
@@ -83,7 +84,7 @@ function wrapNdjsonAsOpenAISse(originalResponse, model) {
     },
   });
 
-  const newBody = originalResponse.body.pipeThrough(transform);
+  const newBody = originalResponse.body!.pipeThrough(transform);
   return new Response(newBody, {
     status: originalResponse.status,
     statusText: originalResponse.statusText,

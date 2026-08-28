@@ -40,7 +40,7 @@ async function discoverEndpoints(): Promise<{ authorizeUrl: string; tokenUrl: st
   if (cachedDiscovery) return cachedDiscovery;
 
   try {
-    const res: Response = await fetch((XAI_CONFIG as Record<string, string>).discoveryUrl, {
+    const res: Response = await fetch((XAI_CONFIG as unknown as Record<string, string>).discoveryUrl, {
       headers: { Accept: "application/json" },
     });
     if (res.ok) {
@@ -56,8 +56,8 @@ async function discoverEndpoints(): Promise<{ authorizeUrl: string; tokenUrl: st
   }
 
   cachedDiscovery = {
-    authorizeUrl: (XAI_CONFIG as Record<string, string>).authorizeUrl,
-    tokenUrl: (XAI_CONFIG as Record<string, string>).tokenUrl,
+    authorizeUrl: (XAI_CONFIG as unknown as Record<string, string>).authorizeUrl,
+    tokenUrl: (XAI_CONFIG as unknown as Record<string, string>).tokenUrl,
   };
   return cachedDiscovery;
 }
@@ -109,11 +109,11 @@ class XaiService extends OAuthService {
     const nonce: string = crypto.randomBytes(16).toString("hex");
     const params: Record<string, string> = {
       response_type: "code",
-      client_id: (XAI_CONFIG as Record<string, string>).clientId,
+      client_id: (XAI_CONFIG as unknown as Record<string, string>).clientId,
       redirect_uri: redirectUri,
-      scope: (XAI_CONFIG as Record<string, string>).scope,
+      scope: (XAI_CONFIG as unknown as Record<string, string>).scope,
       code_challenge: codeChallenge,
-      code_challenge_method: (XAI_CONFIG as Record<string, string>).codeChallengeMethod,
+      code_challenge_method: (XAI_CONFIG as unknown as Record<string, string>).codeChallengeMethod,
       state,
       nonce,
       plan: "generic",
@@ -137,7 +137,7 @@ class XaiService extends OAuthService {
       },
       body: new URLSearchParams({
         grant_type: "authorization_code",
-        client_id: (XAI_CONFIG as Record<string, string>).clientId,
+        client_id: (XAI_CONFIG as unknown as Record<string, string>).clientId,
         code,
         redirect_uri: redirectUri,
         code_verifier: codeVerifier,
@@ -164,7 +164,7 @@ class XaiService extends OAuthService {
       },
       body: new URLSearchParams({
         grant_type: "refresh_token",
-        client_id: (XAI_CONFIG as Record<string, string>).clientId,
+        client_id: (XAI_CONFIG as unknown as Record<string, string>).clientId,
         refresh_token: refreshToken,
       }),
     });
@@ -184,12 +184,12 @@ class XaiService extends OAuthService {
       spinner.text = "Discovering xAI endpoints...";
       const { authorizeUrl, tokenUrl } = await discoverEndpoints();
 
-      spinner.text = `Starting local server on port ${(XAI_CONFIG as Record<string, number>).loopbackPort}...`;
+      spinner.text = `Starting local server on port ${(XAI_CONFIG as unknown as Record<string, number>).loopbackPort}...`;
       let callbackParams: CallbackParams | null = null;
       const { port, close } = await startLocalServer((params: Record<string, string>) => {
         callbackParams = params as CallbackParams;
-      }, (XAI_CONFIG as Record<string, number>).loopbackPort);
-      const redirectUri: string = `http://127.0.0.1:${port}${(XAI_CONFIG as Record<string, string>).callbackPath}`;
+      }, (XAI_CONFIG as unknown as Record<string, number>).loopbackPort);
+      const redirectUri: string = `http://127.0.0.1:${port}${(XAI_CONFIG as unknown as Record<string, string>).callbackPath}`;
       spinner.succeed(`Local server started on port ${port}`);
 
       const codeVerifier: string = generateCodeVerifier(XAI_PKCE_VERIFIER_BYTES);

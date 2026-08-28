@@ -123,15 +123,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       connection: {
-        id: connection.id,
-        provider: connection.provider,
-        email: connection.email,
+        id: connection!.id,
+        provider: connection!.provider,
+        email: connection!.email,
         apiKey: refreshedKey.apiKey.substring(0, 10) + "...", // masked
         expireTime: refreshedKey.expireTime,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("iFlow cookie auth error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

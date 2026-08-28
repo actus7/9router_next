@@ -4,6 +4,6 @@
 import { injectSystemPrompt } from "./systemInject";
 import { PONYTAIL_PROMPTS } from "./ponytailPrompt";
 
-export function injectPonytail(body, format, level) {
+export function injectPonytail(body: Record<string, unknown>, format: string, level: string) {
   injectSystemPrompt(body, format, PONYTAIL_PROMPTS[level]);
 }

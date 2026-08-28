@@ -79,7 +79,7 @@ interface WriteBufferItem {
   [key: string]: unknown;
 }
 
-let writeBuffer: WriteBufferItem[] = [];
+const writeBuffer: WriteBufferItem[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let isFlushing: boolean = false;
 
@@ -149,7 +149,7 @@ async function flushToDatabase(): Promise<void> {
           );
         }
 
-        const cnt: { c: number } | undefined = db.get(`SELECT COUNT(*) as c FROM requestDetails`);
+        const cnt = db.get(`SELECT COUNT(*) as c FROM requestDetails`) as { c: number } | undefined;
         if (cnt && cnt.c > config.maxRecords) {
           db.run(
             `DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`,
@@ -222,7 +222,7 @@ export async function getRequestDetails(filter: RequestDetailsFilter = {}): Prom
   if (filter.endDate) { conds.push("timestamp <= ?"); params.push(new Date(filter.endDate).toISOString()); }
 
   const where: string = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-  const cntRow: { c: number } | undefined = db.get(`SELECT COUNT(*) as c FROM requestDetails ${where}`, params);
+  const cntRow = db.get(`SELECT COUNT(*) as c FROM requestDetails ${where}`, params) as { c: number } | undefined;
   const totalItems: number = cntRow ? cntRow.c : 0;
 
   const page: number = filter.page || 1;
@@ -230,10 +230,10 @@ export async function getRequestDetails(filter: RequestDetailsFilter = {}): Prom
   const totalPages: number = Math.ceil(totalItems / pageSize);
   const offset: number = (page - 1) * pageSize;
 
-  const rows: Array<{ data: string }> = db.all(
+  const rows = db.all(
     `SELECT data FROM requestDetails ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, offset]
-  );
+  ) as Array<{ data: string }>;
   const details: Record<string, unknown>[] = rows.map((r: { data: string }) => parseJson(r.data, {}) as Record<string, unknown>);
 
   return {
@@ -244,13 +244,13 @@ export async function getRequestDetails(filter: RequestDetailsFilter = {}): Prom
 
 export async function getDistinctProviders(): Promise<string[]> {
   const db = await getAdapter();
-  const rows: Array<{ provider: string }> = db.all(`SELECT DISTINCT provider FROM requestDetails WHERE provider IS NOT NULL ORDER BY provider ASC`);
+  const rows = db.all(`SELECT DISTINCT provider FROM requestDetails WHERE provider IS NOT NULL ORDER BY provider ASC`) as Array<{ provider: string }>;
   return rows.map((r: { provider: string }) => r.provider);
 }
 
-async function getRequestDetailById(id: string): Promise<Record<string, unknown> | null> {
+export async function getRequestDetailById(id: string): Promise<Record<string, unknown> | null> {
   const db = await getAdapter();
-  const row: { data: string } | undefined = db.get(`SELECT data FROM requestDetails WHERE id = ?`, [id]);
+  const row = db.get(`SELECT data FROM requestDetails WHERE id = ?`, [id]) as { data: string } | undefined;
   return row ? (parseJson(row.data, null) as Record<string, unknown> | null) : null;
 }
 

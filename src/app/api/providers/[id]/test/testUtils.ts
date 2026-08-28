@@ -132,7 +132,7 @@ const OAUTH_TEST_CONFIG: Record<string, OAuthTestConfig> = {
   },
   "codebuddy-cn": { tokenExists: true },
   kimchi: {
-    url: KIMCHI_CONFIG.validationUrl || "https://api.cast.ai/v1/llm/openai/supported-providers",
+    url: (KIMCHI_CONFIG.validationUrl as string) || "https://api.cast.ai/v1/llm/openai/supported-providers",
     method: "GET",
     authHeader: "Authorization",
     authPrefix: "Bearer ",
@@ -143,7 +143,7 @@ const OAUTH_TEST_CONFIG: Record<string, OAuthTestConfig> = {
     refreshable: false,
   },
   "grok-cli": {
-    url: PROVIDERS["grok-cli"]?.userUrl || "https://cli-chat-proxy.grok.com/v1/user",
+    url: (PROVIDERS["grok-cli"]?.userUrl as string) || "https://cli-chat-proxy.grok.com/v1/user",
     method: "GET",
     authHeader: "Authorization",
     authPrefix: "Bearer ",
@@ -171,12 +171,12 @@ const OAUTH_TEST_CONFIG: Record<string, OAuthTestConfig> = {
  * Exported for unit tests.
  */
 function classifyOAuthProbeResult(res: Response | null, config: OAuthTestConfig | null, bodyText = ""): ProbeResult {
-  if (!res) return { valid: false, error: "No response", soft: false , refreshed: false };
+  if (!res) return { valid: false, error: "No response", soft: false };
   const status = res.status;
   const accepted = res.ok || (config?.acceptStatuses && config.acceptStatuses.includes(status));
   if (!accepted) {
-    if (status === 401) return { valid: false, error: "Token invalid or revoked", soft: false , refreshed: false };
-    if (status === 403) return { valid: false, error: "Access denied", soft: false , refreshed: false };
+    if (status === 401) return { valid: false, error: "Token invalid or revoked", soft: false };
+    if (status === 403) return { valid: false, error: "Access denied", soft: false };
     return { valid: false, error: `API returned ${status}`, soft: false };
   }
 
@@ -261,8 +261,8 @@ async function refreshOAuthToken(connection: Record<string, unknown>): Promise<R
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
+          client_id: config.clientId as string,
+          client_secret: config.clientSecret as string,
           grant_type: "refresh_token",
           refresh_token: refreshToken,
         }),
@@ -277,7 +277,7 @@ async function refreshOAuthToken(connection: Record<string, unknown>): Promise<R
     }
 
     if (provider === "claude") {
-      const response = await fetch(CLAUDE_CONFIG.tokenUrl, {
+      const response = await fetch(CLAUDE_CONFIG.tokenUrl as string, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify({
@@ -307,7 +307,7 @@ async function refreshOAuthToken(connection: Record<string, unknown>): Promise<R
         const data = await response.json();
         return { accessToken: data.accessToken, expiresIn: data.expiresIn || 3600, refreshToken: data.refreshToken || refreshToken };
       }
-      const response = await fetch(KIRO_CONFIG.socialRefreshUrl, {
+      const response = await fetch(KIRO_CONFIG.socialRefreshUrl as string, {
         method: "POST",
         headers: { "Content-Type": "application/json", "User-Agent": "kiro-cli/1.0.0" },
         body: JSON.stringify({ refreshToken }),
@@ -318,7 +318,7 @@ async function refreshOAuthToken(connection: Record<string, unknown>): Promise<R
     }
 
     if (provider === "cline") {
-      const response = await fetch(CLINE_CONFIG.refreshUrl, {
+      const response = await fetch(CLINE_CONFIG.refreshUrl as string, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
@@ -650,7 +650,7 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
       }
       case "volcengine-ark":
       case "byteplus": {
-        const res = await fetchWithConnectionProxy(PROVIDERS[connection.provider as string]?.baseUrl, {
+        const res = await fetchWithConnectionProxy(PROVIDERS[connection.provider as string]?.baseUrl as string, {
           method: "POST",
           headers: { "Authorization": `Bearer ${connection.apiKey}`, "content-type": "application/json" },
           body: JSON.stringify({ model: getDefaultModel(connection.provider as string), max_tokens: 1, messages: [{ role: "user", content: "test" }] }),
@@ -791,7 +791,7 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" , refreshed: false };
       }
       case "blackbox": {
-        const baseUrl = PROVIDERS["blackbox"]?.baseUrl?.replace(/\/chat\/completions$/, "") || "https://api.blackbox.ai/v1";
+        const baseUrl = (PROVIDERS["blackbox"]?.baseUrl as string)?.replace(/\/chat\/completions$/, "") || "https://api.blackbox.ai/v1";
         const res = await fetchWithConnectionProxy(`${baseUrl}/models`, {
           headers: { Authorization: `Bearer ${connection.apiKey}` },
         }, effectiveProxy);
@@ -824,7 +824,7 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
         return { valid: res.ok, error: res.ok ? null : "Invalid API key or base URL" , refreshed: false };
       }
       case "kimchi": {
-        const url = KIMCHI_CONFIG.validationUrl || "https://api.cast.ai/v1/llm/openai/supported-providers";
+        const url = (KIMCHI_CONFIG.validationUrl as string) || "https://api.cast.ai/v1/llm/openai/supported-providers";
         const res = await fetchWithConnectionProxy(url, {
           method: "GET",
           headers: {

@@ -1,4 +1,5 @@
 import { BaseExecutor } from "./base";
+import type { Logger } from "../services/types";
 import { PROVIDERS, PROVIDER_OAUTH } from "../config/providers";
 import { HTTP_STATUS } from "../config/runtimeConfig";
 import {
@@ -21,12 +22,12 @@ import crypto from "crypto";
 // Detect cloud environment
 const isCloudEnv = () => {
   if (typeof caches !== "undefined" && typeof caches === "object") return true;
-  if (typeof EdgeRuntime !== "undefined") return true;
+  if (typeof (globalThis as Record<string, unknown>).EdgeRuntime !== "undefined") return true;
   return false;
 };
 
 // Lazy import http2 (only in Node.js environment)
-let http2 = null;
+let http2: typeof import("http2") | null = null;
 if (!isCloudEnv()) {
   try {
     http2 = await import("http2");
@@ -46,7 +47,13 @@ const AGENT_RUN_PATH = "/agent.v1.AgentService/Run";
 const PROTOBUF_LEN = 2;
 const PROTOBUF_VARINT = 0;
 
-function concatBuffers(...parts) {
+interface CursorResponse {
+  status: number;
+  headers: Record<string, unknown>;
+  body: Buffer;
+}
+
+function concatBuffers(...parts: Uint8Array[]) {
   const length = parts.reduce((total, part) => total + part.length, 0);
   const result = new Uint8Array(length);
   let offset = 0;
@@ -57,34 +64,34 @@ function concatBuffers(...parts) {
   return result;
 }
 
-const agentString = (field, value) => encodeField(field, PROTOBUF_LEN, value);
-const agentMessage = (field, value) => encodeField(field, PROTOBUF_LEN, value);
-const agentBool = (field, value) => encodeField(field, PROTOBUF_VARINT, value ? 1 : 0);
+const agentString = (field: number, value: string) => encodeField(field, PROTOBUF_LEN, value);
+const agentMessage = (field: number, value: Uint8Array) => encodeField(field, PROTOBUF_LEN, value);
+const agentBool = (field: number, value: boolean) => encodeField(field, PROTOBUF_VARINT, value ? 1 : 0);
 
-function textFromContent(content) {
+function textFromContent(content: string | Record<string, unknown>[]) {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
   return content
-    .filter((part) => part?.type === "text" && typeof part.text === "string")
-    .map((part) => part.text)
+    .filter((part: Record<string, unknown>) => part?.type === "text" && typeof part.text === "string")
+    .map((part: Record<string, unknown>) => part.text as string)
     .join("\n");
 }
 
-function isAgentTextRequest(body) {
+function isAgentTextRequest(body: Record<string, unknown>) {
   // Many compatible clients always attach their built-in tool schemas, even
   // for a normal text turn. Cursor's retired ChatService rejects those
   // requests; AgentService can still answer the text turn, so ignore schemas
   // here. A real tool-call/result conversation is kept on the legacy path
   // until its AgentService tool protocol is implemented.
-  return Array.isArray(body?.messages) && body.messages.every((message) => {
-    if (message?.tool_calls?.length || message?.role === "tool") return false;
+  return Array.isArray(body?.messages) && (body.messages as Record<string, unknown>[]).every((message: Record<string, unknown>) => {
+    if ((message?.tool_calls as unknown[])?.length || message?.role === "tool") return false;
     return typeof message?.content === "string"
-      || Array.isArray(message?.content) && message.content.every((part) => part?.type === "text");
+      || Array.isArray(message?.content) && (message.content as Record<string, unknown>[]).every((part: Record<string, unknown>) => part?.type === "text");
   });
 }
 
-function encodeHistoryMessage(message) {
-  const content = textFromContent(message?.content);
+function encodeHistoryMessage(message: Record<string, unknown>) {
+  const content = textFromContent(message?.content as string | Record<string, unknown>[]);
   if (!content) return null;
 
   // ConversationHistoryMessage.user / .assistant -> repeated content -> text.
@@ -95,20 +102,20 @@ function encodeHistoryMessage(message) {
   return agentMessage(1, agentMessage(1, agentMessage(1, text)));
 }
 
-function buildAgentRunFrame(messages, model) {
-  const system = messages
-    .filter((message) => message?.role === "system")
-    .map((message) => textFromContent(message.content))
+function buildAgentRunFrame(messages: Record<string, unknown>[], model: string) {
+  const system = (messages as Record<string, unknown>[])
+    .filter((message: Record<string, unknown>) => message?.role === "system")
+    .map((message: Record<string, unknown>) => textFromContent(message.content as string | Record<string, unknown>[]))
     .filter(Boolean)
     .join("\n\n");
-  const chatMessages = messages.filter((message) => message?.role !== "system");
-  const currentIndex = [...chatMessages].map((message) => message?.role).lastIndexOf("user");
+  const chatMessages = (messages as Record<string, unknown>[]).filter((message: Record<string, unknown>) => message?.role !== "system");
+  const currentIndex = [...chatMessages].map((message: Record<string, unknown>) => message?.role as string).lastIndexOf("user");
   const current = currentIndex >= 0 ? chatMessages[currentIndex] : chatMessages.at(-1);
   const history = chatMessages
     .slice(0, currentIndex >= 0 ? currentIndex : -1)
     .map(encodeHistoryMessage)
     .filter(Boolean);
-  const userText = textFromContent(current?.content) || "Continue.";
+  const userText = textFromContent((current as Record<string, unknown>)?.content as string | Record<string, unknown>[]) || "Continue.";
 
   // agent.v1.UserMessageAction.user_message and its optional history.
   const userMessage = concatBuffers(
@@ -116,7 +123,7 @@ function buildAgentRunFrame(messages, model) {
     agentString(2, crypto.randomUUID()),
   );
   const conversationHistory = history.length
-    ? concatBuffers(...history.map((entry) => agentMessage(1, entry)))
+    ? concatBuffers(...(history as Uint8Array[]).map((entry: Uint8Array) => agentMessage(1, entry)))
     : null;
   const userAction = concatBuffers(
     agentMessage(1, userMessage),
@@ -136,12 +143,12 @@ function buildAgentRunFrame(messages, model) {
   return wrapConnectRPCFrame(agentMessage(1, runRequest));
 }
 
-function extractAgentString(message, field) {
+function extractAgentString(message: { get(field: number): { value: unknown }[] | undefined }, field: number) {
   const value = message?.get(field)?.[0]?.value;
-  return value ? Buffer.from(value).toString("utf8") : "";
+  return value ? Buffer.from(value as Uint8Array).toString("utf8") : "";
 }
 
-function decodeAgentFrames(buffer, onFrame) {
+function decodeAgentFrames(buffer: Buffer | Uint8Array | null, onFrame: (frame: Uint8Array) => void) {
   let pending = Buffer.from(buffer || []);
   while (pending.length >= 5) {
     const flags = pending[0];
@@ -167,16 +174,16 @@ function createRequestContextResponse() {
 }
 
 const CURSOR_STREAM_DEBUG = process.env.CURSOR_STREAM_DEBUG === "1";
-const debugLog = (...args) => {
+const debugLog = (...args: unknown[]) => {
   if (CURSOR_STREAM_DEBUG) console.log(...args);
 };
 
-function isComposerModel(model) {
-  const modelId = String(model || "").split("/").pop();
+function isComposerModel(model: string) {
+  const modelId = String(model || "").split("/").pop() ?? "";
   return /^composer(?:-|$)/i.test(modelId);
 }
 
-function visibleComposerContentFromThinking(thinking) {
+function visibleComposerContentFromThinking(thinking: string) {
   if (!thinking) return "";
   const endTag = "</think>";
   const endIdx = thinking.lastIndexOf(endTag);
@@ -184,7 +191,7 @@ function visibleComposerContentFromThinking(thinking) {
   return thinking.slice(endIdx + endTag.length).trimStart();
 }
 
-function decompressPayload(payload, flags) {
+function decompressPayload(payload: Buffer<ArrayBufferLike>, flags: number) {
   // Check if payload is JSON error (starts with {"error")
   if (payload.length > 10 && payload[0] === 0x7b && payload[1] === 0x22) {
     try {
@@ -204,17 +211,20 @@ function decompressPayload(payload, flags) {
     // Primary: try gzip decompression (standard gzip header 0x1f 0x8b)
     try {
       return zlib.gunzipSync(payload);
-    } catch (gzipErr) {
+    } catch (gzipErr: unknown) {
       // Fallback: TRAILER and GZIP_TRAILER frames sometimes use raw zlib deflate format
       try {
         return zlib.inflateSync(payload);
-      } catch (deflateErr) {
+      } catch (deflateErr: unknown) {
         // Last resort: try raw deflate (no zlib header)
         try {
           return zlib.inflateRawSync(payload);
-        } catch (rawErr) {
+        } catch (rawErr: unknown) {
+          const gzipMsg = gzipErr instanceof Error ? gzipErr.message : String(gzipErr);
+          const deflateMsg = deflateErr instanceof Error ? deflateErr.message : String(deflateErr);
+          const rawMsg = rawErr instanceof Error ? rawErr.message : String(rawErr);
           debugLog(
-            `[DECOMPRESS ERROR] flags=${flags}, payloadSize=${payload.length}, gzip=${gzipErr.message}, deflate=${deflateErr.message}, raw=${rawErr.message}`
+            `[DECOMPRESS ERROR] flags=${flags}, payloadSize=${payload.length}, gzip=${gzipMsg}, deflate=${deflateMsg}, raw=${rawMsg}`
           );
           debugLog(
             `[DECOMPRESS ERROR] First 50 bytes (hex):`,
@@ -229,7 +239,7 @@ function decompressPayload(payload, flags) {
 }
 
 // Read one cursor protobuf frame: header + bounds + decompress. Returns status + payload + new offset.
-function readCursorFrame(buffer, offset, frameNum, tag) {
+function readCursorFrame(buffer: Buffer<ArrayBufferLike>, offset: number, frameNum: number, tag: string) {
   if (offset + 5 > buffer.length) {
     debugLog(`[CURSOR BUFFER${tag}] Reached end, offset=${offset}, remaining=${buffer.length - offset}`);
     return { status: "done" };
@@ -244,9 +254,9 @@ function readCursorFrame(buffer, offset, frameNum, tag) {
     return { status: "done" };
   }
 
-  let payload = buffer.slice(offset + 5, offset + 5 + length);
+  let payload: Buffer<ArrayBufferLike> = buffer.slice(offset + 5, offset + 5 + length);
   const newOffset = offset + 5 + length;
-  payload = decompressPayload(payload, flags);
+  payload = decompressPayload(payload, flags) as Buffer<ArrayBufferLike>;
   if (!payload) {
     debugLog(`[CURSOR BUFFER${tag}] Frame ${frameNum + 1}: decompression failed, skipping`);
     return { status: "skip", offset: newOffset };
@@ -254,19 +264,23 @@ function readCursorFrame(buffer, offset, frameNum, tag) {
   return { status: "ok", payload, offset: newOffset };
 }
 
-function createErrorResponse(jsonError) {
-  const errorMsg = jsonError?.error?.details?.[0]?.debug?.details?.title
-    || jsonError?.error?.details?.[0]?.debug?.details?.detail
-    || jsonError?.error?.message
+function createErrorResponse(jsonError: Record<string, unknown>) {
+  const err = jsonError?.error as Record<string, unknown> | undefined;
+  const details = err?.details as Record<string, unknown>[] | undefined;
+  const debug = details?.[0]?.debug as Record<string, unknown> | undefined;
+  const debugDetails = debug?.details as Record<string, unknown> | undefined;
+  const errorMsg = (debugDetails?.title as string)
+    || (debugDetails?.detail as string)
+    || (err?.message as string)
     || "API Error";
   
-  const isRateLimit = jsonError?.error?.code === "resource_exhausted";
+  const isRateLimit = err?.code === "resource_exhausted";
   
   return new Response(JSON.stringify({
     error: {
       message: errorMsg,
       type: isRateLimit ? "rate_limit_error" : "api_error",
-      code: jsonError?.error?.details?.[0]?.debug?.error || "unknown"
+      code: (debug?.error as string) || "unknown"
     }
   }), {
     status: isRateLimit ? HTTP_STATUS.RATE_LIMITED : HTTP_STATUS.BAD_REQUEST,
@@ -283,10 +297,11 @@ export class CursorExecutor extends BaseExecutor {
     return `${this.config.baseUrl}${this.config.chatPath}`;
   }
 
-  buildHeaders(credentials) {
-    const accessToken = credentials.accessToken;
-    const machineId = credentials.providerSpecificData?.machineId;
-    const ghostMode = credentials.providerSpecificData?.ghostMode !== false;
+  buildHeaders(credentials: Record<string, unknown>, _stream = true, ..._extraArgs: unknown[]) {
+    const accessToken = (credentials as Record<string, unknown>).accessToken as string;
+    const providerData = (credentials as Record<string, unknown>).providerSpecificData as Record<string, unknown> | undefined;
+    const machineId = providerData?.machineId as string | undefined;
+    const ghostMode = providerData?.ghostMode !== false;
 
     if (!machineId) {
       throw new Error("Machine ID is required for Cursor API");
@@ -295,23 +310,23 @@ export class CursorExecutor extends BaseExecutor {
     return buildCursorHeaders(accessToken, machineId, ghostMode);
   }
 
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>): Record<string, unknown> {
     // Messages are already translated by chatCore (claude→openai→cursor)
     // Do NOT call openaiToCursorRequest again — double-translation drops tool_results
-    const messages = body.messages || [];
-    const tools = body.tools || [];
-    const reasoningEffort = body.reasoning_effort || null;
+    const messages = (body.messages || []) as Record<string, unknown>[];
+    const tools = (body.tools || []) as Record<string, unknown>[];
+    const reasoningEffort = (body.reasoning_effort || null) as string | null;
     // Detect Claude Code UA to force Agent mode (issue #643)
-    const ua = credentials?.rawHeaders?.["user-agent"] || "";
+    const ua = ((credentials as Record<string, unknown>).rawHeaders as Record<string, string> | undefined)?.["user-agent"] || "";
     const forceAgentMode = ua.includes("claude-cli") || ua.includes("claude-code") || ua.includes("Claude Code");
-    return generateCursorBody(messages, model, tools, reasoningEffort, forceAgentMode);
+    return generateCursorBody(messages, model, tools, reasoningEffort, forceAgentMode) as unknown as Record<string, unknown>;
   }
 
-  async makeFetchRequest(url, headers, body, signal, proxyOptions = null) {
+  async makeFetchRequest(url: string, headers: Record<string, string>, body: Buffer, signal?: AbortSignal, proxyOptions: Record<string, unknown> | null = null): Promise<CursorResponse> {
     const response = await proxyAwareFetch(url, {
       method: "POST",
       headers,
-      body,
+      body: body as unknown as BodyInit,
       signal
     }, proxyOptions);
 
@@ -322,7 +337,7 @@ export class CursorExecutor extends BaseExecutor {
     };
   }
 
-  makeHttp2Request(url, headers, body, signal) {
+  makeHttp2Request(url: string, headers: Record<string, string>, body: Buffer, signal?: AbortSignal): Promise<CursorResponse> {
     if (!http2) {
       throw new Error("http2 module not available");
     }
@@ -332,12 +347,12 @@ export class CursorExecutor extends BaseExecutor {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
       const client = http2.connect(`https://${urlObj.host}`);
-      const chunks = [];
-      let responseHeaders = {};
+      const chunks: Buffer[] = [];
+      let responseHeaders: Record<string, unknown> = {};
       let settled = false;
 
       // Ensure client is always closed on settle
-      const finish = (fn) => (...args) => {
+      const finish = (fn: (...a: unknown[]) => void) => (...args: unknown[]) => {
         if (settled) return;
         settled = true;
         clearTimeout(hangTimeout);
@@ -360,11 +375,11 @@ export class CursorExecutor extends BaseExecutor {
         ...headers
       });
 
-      req.on("response", (hdrs) => { responseHeaders = hdrs; });
-      req.on("data", (chunk) => { chunks.push(chunk); });
+      req.on("response", (hdrs: Record<string, unknown>) => { responseHeaders = hdrs; });
+      req.on("data", (chunk: Buffer) => { chunks.push(chunk); });
       req.on("end", finish(() => {
         resolve({
-          status: responseHeaders[":status"],
+          status: (responseHeaders as Record<string, unknown>) [":status"] as number,
           headers: responseHeaders,
           body: Buffer.concat(chunks)
         });
@@ -385,27 +400,27 @@ export class CursorExecutor extends BaseExecutor {
    * AgentService (agent.api5.cursor.sh) is HTTP/2-only. Node's fetch/undici speaks
    * HTTP/1.1 and fails with HTTPParserError on the h2 preface — use http2 duplex.
    */
-  openAgentHttp2Stream(url, headers, signal) {
+  openAgentHttp2Stream(url: string, headers: Record<string, string>, signal: AbortSignal | null) {
     if (!http2) {
       throw new Error("HTTP/2 is required for Cursor AgentService (endpoint is h2-only)");
     }
 
     const urlObj = new URL(url);
     const client = http2.connect(`https://${urlObj.host}`);
-    const chunkQueue = [];
-    let waiting = null;
+    const chunkQueue: Buffer[] = [];
+    let waiting: ((value: { value: Buffer | undefined; done: boolean } | null) => void) | null = null;
     let ended = false;
-    let streamError = null;
-    let req = null;
+    let streamError: Error | null = null;
+    let req: ReturnType<typeof client.request> | null = null;
 
-    const wake = (result) => {
+    const wake = (result: { value: Buffer | undefined; done: boolean } | null) => {
       if (!waiting) return;
       const resolve = waiting;
       waiting = null;
       resolve(result);
     };
 
-    const fail = (error) => {
+    const fail = (error: Error) => {
       if (streamError) return;
       streamError = error;
       ended = true;
@@ -446,20 +461,20 @@ export class CursorExecutor extends BaseExecutor {
       else signal.addEventListener("abort", onAbort, { once: true });
     }
 
-    const responseHeaders = new Promise((resolve, reject) => {
-      const onEarlyError = (error) => reject(error);
+    const responseHeaders = new Promise<Record<string, unknown>>((resolve, reject) => {
+      const onEarlyError = (error: Error) => reject(error);
       client.once("error", onEarlyError);
-      req.once("error", onEarlyError);
-      req.once("response", (hdrs) => {
+      req!.once("error", onEarlyError);
+      req!.once("response", (hdrs: Record<string, unknown>) => {
         client.off("error", onEarlyError);
-        req.off("error", onEarlyError);
+        req!.off("error", onEarlyError);
         resolve(hdrs);
       });
     });
 
     return {
       responseHeaders,
-      write(frame) {
+      write(frame: Uint8Array) {
         if (req && !req.destroyed) req.write(Buffer.from(frame));
       },
       end() {
@@ -479,7 +494,7 @@ export class CursorExecutor extends BaseExecutor {
     };
   }
 
-  async executeAgent({ model, body, stream, credentials, signal }) {
+  async executeAgent({ model, body, stream, credentials, signal }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Record<string, unknown>; signal?: AbortSignal }) {
     const agentEndpoint = PROVIDER_OAUTH.cursor?.agentEndpoint;
     if (!agentEndpoint) throw new Error("Cursor AgentService endpoint is not configured");
 
@@ -493,27 +508,29 @@ export class CursorExecutor extends BaseExecutor {
     let session;
     try {
       session = this.openAgentHttp2Stream(url, headers, requestController.signal);
-      session.write(buildAgentRunFrame(body.messages || [], model));
-    } catch (error) {
-      throw new Error(`Cursor AgentService request failed: ${error.message}`);
+      session.write(buildAgentRunFrame(((body.messages || []) as Record<string, unknown>[]), model));
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Cursor AgentService request failed: ${msg}`);
     }
 
-    let responseHeaders;
+    let responseHeaders: Record<string, unknown>;
     try {
       responseHeaders = await session.responseHeaders;
-    } catch (error) {
+    } catch (error: unknown) {
       session.close();
-      throw new Error(`Cursor AgentService request failed: ${error.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Cursor AgentService request failed: ${msg}`);
     }
 
-    const status = Number(responseHeaders[":status"] || 0);
+    const status = Number((responseHeaders as Record<string, unknown>) [":status"] || 0);
     if (status !== 200) {
       let errorText = "";
       try {
         while (true) {
-          const { done, value } = await session.read();
-          if (done) break;
-          errorText += Buffer.from(value).toString("utf8");
+          const readResult = await session.read() as { done: boolean; value: Buffer | undefined } | null;
+          if (!readResult || readResult.done) break;
+          errorText += Buffer.from(readResult.value!).toString("utf8");
         }
       } catch {}
       session.close();
@@ -536,12 +553,12 @@ export class CursorExecutor extends BaseExecutor {
     let pending = Buffer.alloc(0);
     let finished = false;
 
-    const consume = async (onEvent) => {
+    const consume = async (onEvent: (event: { type: string; value?: string }) => void) => {
       try {
         while (!finished) {
-          const { done, value } = await session.read();
-          if (done) break;
-          pending = Buffer.concat([pending, Buffer.from(value)]);
+          const readResult = await session.read() as { done: boolean; value: Buffer | undefined } | null;
+          if (!readResult || readResult.done) break;
+          pending = Buffer.concat([pending, Buffer.from(readResult.value!)]);
           pending = decodeAgentFrames(pending, (payload) => {
             // A single read can carry several frames; once the turn is over the
             // rest of the batch must not reach the already-closed controller.
@@ -550,9 +567,9 @@ export class CursorExecutor extends BaseExecutor {
 
             // agent.v1.AgentServerMessage.interaction_update
             if (serverMessage.has(1)) {
-              const update = decodeMessage(serverMessage.get(1)[0].value);
+              const update = decodeMessage(serverMessage.get(1)![0].value as Uint8Array);
               if (update.has(1)) {
-                const textDelta = extractAgentString(decodeMessage(update.get(1)[0].value), 1);
+                const textDelta = extractAgentString(decodeMessage(update.get(1)![0].value as Uint8Array), 1);
                 if (textDelta) onEvent({ type: "text", value: textDelta });
               }
               // Cursor's AgentService emits internal reasoning without the
@@ -569,7 +586,7 @@ export class CursorExecutor extends BaseExecutor {
             // AgentService requests IDE context before producing a response.
             // Return an empty context; 9router is not coupled to an editor.
             if (serverMessage.has(2)) {
-              const execRequest = decodeMessage(serverMessage.get(2)[0].value);
+              const execRequest = decodeMessage(serverMessage.get(2)![0].value as Uint8Array);
               if (execRequest.has(10)) {
                 session.write(createRequestContextResponse());
               } else {
@@ -663,14 +680,15 @@ export class CursorExecutor extends BaseExecutor {
     };
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
+  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Record<string, unknown>; signal?: AbortSignal; log: Logger; proxyOptions?: Record<string, unknown> | null }) {
     if (isAgentTextRequest(body)) {
       try {
         return await this.executeAgent({ model, body, stream, credentials, signal });
-      } catch (error) {
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
         return {
           response: new Response(JSON.stringify({
-            error: { message: error.message, type: "connection_error", code: "" },
+            error: { message: msg, type: "connection_error", code: "" },
           }), { status: HTTP_STATUS.SERVER_ERROR, headers: { "Content-Type": "application/json" } }),
           url: `${PROVIDER_OAUTH.cursor?.agentEndpoint || ""}${AGENT_RUN_PATH}`,
           headers: {},
@@ -684,10 +702,11 @@ export class CursorExecutor extends BaseExecutor {
     const transformedBody = this.transformRequest(model, body, stream, credentials);
 
     try {
-      const shouldForceFetch = proxyOptions?.enabled === true || proxyOptions?.connectionProxyEnabled === true || !!proxyOptions?.vercelRelayUrl;
+      const proxyOpts = proxyOptions as Record<string, unknown> | null | undefined;
+      const shouldForceFetch = proxyOpts?.enabled === true || proxyOpts?.connectionProxyEnabled === true || !!proxyOpts?.vercelRelayUrl;
       const response = (http2 && !shouldForceFetch)
-        ? await this.makeHttp2Request(url, headers, transformedBody, signal)
-        : await this.makeFetchRequest(url, headers, transformedBody, signal, proxyOptions);
+        ? await this.makeHttp2Request(url, headers, transformedBody as unknown as Buffer, signal)
+        : await this.makeFetchRequest(url, headers, transformedBody as unknown as Buffer, signal, proxyOptions);
 
       if (response.status !== 200) {
         const errorText = response.body?.toString() || "Unknown error";
@@ -709,10 +728,11 @@ export class CursorExecutor extends BaseExecutor {
         : this.transformProtobufToJSON(response.body, model, body);
 
       return { response: transformedResponse, url, headers, transformedBody: body };
-    } catch (error) {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
       const errorResponse = new Response(JSON.stringify({
         error: {
-          message: error.message,
+          message: msg,
           type: "connection_error",
           code: ""
         }
@@ -724,7 +744,7 @@ export class CursorExecutor extends BaseExecutor {
     }
   }
 
-  transformProtobufToJSON(buffer, model, body) {
+  transformProtobufToJSON(buffer: Buffer<ArrayBufferLike>, model: string, body: Record<string, unknown>) {
     const responseId = `chatcmpl-cursor-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
 
@@ -741,10 +761,10 @@ export class CursorExecutor extends BaseExecutor {
     while (offset < buffer.length) {
       const frame = readCursorFrame(buffer, offset, frameCount, "");
       if (frame.status === "done") break;
-      offset = frame.offset;
+      offset = frame.offset!;
       frameCount++;
       if (frame.status === "skip") continue;
-      const payload = frame.payload;
+      const payload = frame.payload!;
 
       // Check for JSON error frames (byte guard: skip toString on non-JSON frames)
       if (payload.length > 0 && payload[0] === 0x7b) {
@@ -763,7 +783,7 @@ export class CursorExecutor extends BaseExecutor {
         } catch {}
       }
 
-      const result = extractTextFromResponse(new Uint8Array(payload));
+      const result = extractTextFromResponse(new Uint8Array(payload) as Uint8Array<ArrayBuffer>);
       debugLog(`[CURSOR DECODED] Frame ${frameCount}:`, result);
 
       if (result.error) {
@@ -847,7 +867,7 @@ export class CursorExecutor extends BaseExecutor {
     debugLog(`[CURSOR BUFFER] Final toolCalls count: ${toolCalls.length}`);
 
 
-    const message = {
+    const message: Record<string, unknown> = {
       role: "assistant",
       content: finalContent || null
     };
@@ -877,7 +897,7 @@ export class CursorExecutor extends BaseExecutor {
     });
   }
 
-  transformProtobufToSSE(buffer, model, body) {
+  transformProtobufToSSE(buffer: Buffer<ArrayBufferLike>, model: string, body: Record<string, unknown>) {
     const responseId = `chatcmpl-cursor-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
 
@@ -897,10 +917,10 @@ export class CursorExecutor extends BaseExecutor {
     while (offset < buffer.length) {
       const frame = readCursorFrame(buffer, offset, frameCount, " SSE");
       if (frame.status === "done") break;
-      offset = frame.offset;
+      offset = frame.offset!;
       frameCount++;
       if (frame.status === "skip") continue;
-      const payload = frame.payload;
+      const payload = frame.payload!;
 
       // Check for JSON error frames (byte-guard: only decode if starts with '{')
       if (payload[0] === 0x7b) {
@@ -919,7 +939,7 @@ export class CursorExecutor extends BaseExecutor {
         } catch {}
       }
 
-      const result = extractTextFromResponse(new Uint8Array(payload));
+      const result = extractTextFromResponse(new Uint8Array(payload) as Uint8Array<ArrayBuffer>);
       debugLog(`[CURSOR DECODED SSE] Frame ${frameCount}:`, result);
 
       if (result.error) {
@@ -979,7 +999,7 @@ export class CursorExecutor extends BaseExecutor {
           }
         } else {
           // New tool call - assign index and add to map
-          const toolCallIndex = toolCalls.length;
+          const toolCallIndex: number = toolCalls.length;
           finalizedIds.add(tc.id);
           toolCalls.push({ ...tc, index: toolCallIndex });
           toolCallsMap.set(tc.id, { ...tc, index: toolCallIndex });
@@ -1042,7 +1062,7 @@ export class CursorExecutor extends BaseExecutor {
     for (const [id, tc] of toolCallsMap.entries()) {
       if (!finalizedIds.has(id)) {
         debugLog(`[CURSOR BUFFER SSE] Finalizing incomplete tool call: ${id}, isLast=${tc.isLast}`);
-        const toolCallIndex = toolCalls.length;
+        const toolCallIndex: number = toolCalls.length;
         toolCalls.push({
           id: tc.id,
           type: tc.type,

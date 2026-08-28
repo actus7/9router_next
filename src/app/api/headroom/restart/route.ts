@@ -5,7 +5,7 @@ import { DEFAULT_HEADROOM_URL, isLoopbackHeadroomUrl } from "@/lib/headroom/dete
 
 export const dynamic = "force-dynamic";
 
-function parsePortFromUrl(url) {
+function parsePortFromUrl(url: string) {
   try {
     const u = new URL(url);
     const p = parseInt(u.port, 10);
@@ -23,13 +23,13 @@ export async function POST() {
     }
     const port = parsePortFromUrl(url) || 8787;
     const result = await restartHeadroomProxy({
-      port,
       codeAware: settings.headroomCodeAware === true,
       kompress: settings.headroomKompress !== false,
-    });
+    } as Parameters<typeof restartHeadroomProxy>[0]);
     return NextResponse.json({ success: true, ...result });
-  } catch (error) {
-    const status = error.code === "NOT_INSTALLED" ? 400 : 500;
-    return NextResponse.json({ error: error.message, code: error.code || null }, { status });
+  } catch (error: unknown) {
+    const errObj = error as Record<string, unknown>;
+    const status = errObj.code === "NOT_INSTALLED" ? 400 : 500;
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error), code: errObj.code || null }, { status });
   }
 }

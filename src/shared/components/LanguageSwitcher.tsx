@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Button from "@/shared/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LOCALES, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
@@ -66,16 +66,18 @@ interface LanguageSwitcherProps {
 }
 
 export default function LanguageSwitcher({ className = "", isOpen: controlledOpen, onClose, hideTrigger = false }: LanguageSwitcherProps) {
-  const [locale, setLocale] = useState<string>("en");
+  const cookieLocale = useSyncExternalStore(
+    () => () => {},
+    getLocaleFromCookie,
+    () => "en",
+  );
+  const [selectedLocale, setSelectedLocale] = useState<string | null>(null);
+  const locale = selectedLocale ?? cookieLocale;
   const [isPending, setIsPending] = useState<boolean>(false);
   const [internalOpen, setInternalOpen] = useState<boolean>(false);
 
   const isControlled = typeof controlledOpen === "boolean";
   const isOpen = isControlled ? controlledOpen : internalOpen;
-
-  useEffect(() => {
-    setLocale(getLocaleFromCookie());
-  }, []);
 
   const handleSetLocale = async (nextLocale: string) => {
     if (nextLocale === locale || isPending) return;
@@ -90,7 +92,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
       
       // Reload translations without full page reload
       await reloadTranslations();
-      setLocale(nextLocale);
+      setSelectedLocale(nextLocale);
       if (isControlled) {
         onClose?.(nextLocale);
       } else {
@@ -118,7 +120,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
           }}
           disabled={isPending}
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface/60"
-          title="Language"
+          title="Idioma"
           data-i18n-skip="true"
         >
           <Globe className="size-5" />
@@ -140,11 +142,11 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
         }}
       >
         <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-2xl max-h-[80vh] flex flex-col" data-i18n-skip="true">
-          <DialogTitle className="sr-only">Select Language</DialogTitle>
+          <DialogTitle className="sr-only">Selecionar Idioma</DialogTitle>
 
           {/* Modal header */}
           <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5">
-            <h2 className="text-lg font-semibold text-text-main">Select Language</h2>
+            <h2 className="text-lg font-semibold text-text-main">Selecionar Idioma</h2>
           </div>
 
           {/* Modal body - fixed grid columns, equal sizing */}

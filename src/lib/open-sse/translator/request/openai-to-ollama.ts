@@ -18,8 +18,8 @@ import { ROLE, OPENAI_BLOCK } from "../schema/index";
  * - Multimodal images should be mapped to `message.images[]` (raw base64, no data: prefix)
  * - tool role maps to tool (Ollama supports tool messages)
  */
-export function openaiToOllamaRequest(model, body, stream) {
-  const result = {
+export function openaiToOllamaRequest(model: string, body: Record<string, unknown>, stream: boolean) {
+  const result: Record<string, unknown> = {
     model: model,
     messages: normalizeMessages(body.messages),
     stream: stream
@@ -27,20 +27,20 @@ export function openaiToOllamaRequest(model, body, stream) {
 
   // Temperature
   if (body.temperature !== undefined) {
-    result.options = result.options || {};
-    result.options.temperature = body.temperature;
+    if (!result.options) result.options = {} as Record<string, unknown>;
+    (result.options as Record<string, unknown>).temperature = body.temperature;
   }
 
   // Max tokens (Ollama uses num_predict)
   if (body.max_tokens !== undefined) {
-    result.options = result.options || {};
-    result.options.num_predict = body.max_tokens;
+    if (!result.options) result.options = {} as Record<string, unknown>;
+    (result.options as Record<string, unknown>).num_predict = body.max_tokens;
   }
 
   // Top_p
   if (body.top_p !== undefined) {
-    result.options = result.options || {};
-    result.options.top_p = body.top_p;
+    if (!result.options) result.options = {} as Record<string, unknown>;
+    (result.options as Record<string, unknown>).top_p = body.top_p;
   }
 
   // Tools (Ollama supports tools in OpenAI format)
@@ -62,32 +62,32 @@ export function openaiToOllamaRequest(model, body, stream) {
  * - tool messages: convert tool_call_id to tool_name
  * - assistant messages: keep tool_calls as-is
  */
-function normalizeMessages(messages) {
-  if (!Array.isArray(messages)) return messages;
+function normalizeMessages(messages: unknown): unknown[] {
+  if (!Array.isArray(messages)) return messages as unknown[];
 
-  const result = [];
-  const toolCallMap = new Map(); // Map tool_call_id -> tool_name
+  const result: Record<string, unknown>[] = [];
+  const toolCallMap = new Map<string, string>(); // Map tool_call_id -> tool_name
 
   // First pass: build tool_call_id -> tool_name map from assistant messages
-  for (const msg of messages) {
+  for (const msg of messages as Record<string, unknown>[]) {
     if (msg.role === ROLE.ASSISTANT && msg.tool_calls) {
-      for (const tc of msg.tool_calls) {
-        if (tc.id && tc.function?.name) {
-          toolCallMap.set(tc.id, tc.function.name);
+      for (const tc of msg.tool_calls as Record<string, unknown>[]) {
+        if (tc.id && (tc.function as Record<string, unknown>)?.name) {
+          toolCallMap.set(tc.id as string, (tc.function as Record<string, unknown>).name as string);
         }
       }
     }
   }
 
   // Second pass: convert messages
-  for (const msg of messages) {
+  for (const msg of messages as Record<string, unknown>[]) {
     // Handle tool result messages (OpenAI format -> Ollama format)
     if (msg.role === ROLE.TOOL) {
       const toolResult = normalizeContent(msg.content);
       if (!toolResult) continue;
 
       // Get tool_name from map or use msg.name as fallback
-      const toolName = toolCallMap.get(msg.tool_call_id) || msg.name || "unknown_tool";
+      const toolName = toolCallMap.get(msg.tool_call_id as string) || (msg.name as string) || "unknown_tool";
 
       result.push({
         role: ROLE.TOOL,
@@ -102,14 +102,14 @@ function normalizeMessages(messages) {
       const content = normalizeContent(msg.content) || "";
       
       // Convert OpenAI tool_calls format to Ollama format
-      const ollamaToolCalls = msg.tool_calls.map(tc => ({
+      const ollamaToolCalls = (msg.tool_calls as Record<string, unknown>[]).map((tc: Record<string, unknown>) => ({
         type: OPENAI_BLOCK.FUNCTION,
         function: {
-          index: tc.index || 0,
-          name: tc.function?.name || "",
-          arguments: typeof tc.function?.arguments === "string" 
-            ? safeParseJSON(tc.function.arguments || "{}", {})
-            : tc.function?.arguments || {}
+          index: (tc.index as number) || 0,
+          name: ((tc.function as Record<string, unknown>)?.name as string) || "",
+          arguments: typeof (tc.function as Record<string, unknown>)?.arguments === "string" 
+            ? safeParseJSON(((tc.function as Record<string, unknown>).arguments as string) || "{}", {})
+            : (tc.function as Record<string, unknown>)?.arguments || {}
         }
       }));
 
@@ -122,14 +122,14 @@ function normalizeMessages(messages) {
     }
 
     // Normal messages
-    const role = msg.role;
+    const role = msg.role as string;
     const content = normalizeContent(msg.content);
     const images = extractImagesFromContent(msg.content);
 
     // Skip empty messages (except assistant)
     if (!content && role !== ROLE.ASSISTANT) continue;
 
-    const out = {
+    const out: Record<string, unknown> = {
       role: role,
       content: content
     };
@@ -148,7 +148,7 @@ function normalizeMessages(messages) {
  * Normalize content to string
  * Ollama only accepts string content
  */
-function normalizeContent(content) {
+function normalizeContent(content: unknown): string {
   if (typeof content === "string") {
     return content;
   }
@@ -156,8 +156,8 @@ function normalizeContent(content) {
   if (Array.isArray(content)) {
     // Extract text from content array
     const textParts = content
-      .filter(block => block && block.type === OPENAI_BLOCK.TEXT && block.text)
-      .map(block => block.text);
+      .filter((block: unknown) => block && (block as Record<string, unknown>).type === OPENAI_BLOCK.TEXT && (block as Record<string, unknown>).text)
+      .map((block: unknown) => (block as Record<string, unknown>).text as string);
 
     return textParts.join("\n") || "";
   }
@@ -171,15 +171,15 @@ function normalizeContent(content) {
  *   { type: "image_url", image_url: { url: "data:image/png;base64,..." } }
  * Ollama expects raw base64 strings in message.images[].
  */
-function extractImagesFromContent(content) {
+function extractImagesFromContent(content: unknown): string[] {
   if (!Array.isArray(content)) return [];
 
-  const images = [];
+  const images: string[] = [];
 
-  for (const block of content) {
+  for (const block of content as Record<string, unknown>[]) {
     if (!block || block.type !== OPENAI_BLOCK.IMAGE_URL) continue;
 
-    const url = typeof block.image_url === "string" ? block.image_url : block.image_url?.url;
+    const url = typeof block.image_url === "string" ? block.image_url : (block.image_url as Record<string, unknown>)?.url;
     if (typeof url !== "string" || !url) continue;
 
     const parsed = parseDataUri(url);

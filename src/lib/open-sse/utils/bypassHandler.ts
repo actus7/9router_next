@@ -3,17 +3,18 @@ import { translateResponse, initState } from "../translator/index";
 import { FORMATS } from "../translator/formats";
 import { SKIP_PATTERNS } from "../config/runtimeConfig";
 import { formatSSE } from "./stream";
+import type { RequestBody } from "../services/types";
 
 /**
  * Check for bypass patterns - return fake response without calling provider
  * Only works for Claude CLI requests
  */
-export function handleBypassRequest(body, model, userAgent = "", ccFilterNaming = false) {
+export function handleBypassRequest(body: RequestBody, model: string, userAgent = "", ccFilterNaming = false) {
   if (!userAgent.includes("claude-cli")) return null;
   if (!body.messages?.length) return null;
 
   const messages = body.messages;
-  const getText = (content) => {
+  const getText = (content: unknown): string => {
     if (typeof content === "string") return content;
     if (Array.isArray(content)) {
       return content.filter(c => c.type === "text").map(c => c.text).join(" ");
@@ -26,7 +27,7 @@ export function handleBypassRequest(body, model, userAgent = "", ccFilterNaming 
 
   // Pattern 1: Title extraction (assistant message = "{")
   const lastMsg = messages[messages.length - 1];
-  if (lastMsg?.role === "assistant" && lastMsg.content?.[0]?.text === "{") {
+  if (lastMsg?.role === "assistant" && (lastMsg.content as Record<string, unknown>[])?.[0]?.text === "{") {
     shouldBypass = true;
   }
 
@@ -96,7 +97,7 @@ const DEFAULT_BYPASS_TEXT = "CLI Command Execution: Clear Terminal";
 /**
  * Create OpenAI standard format response
  */
-function createOpenAIResponse(model, text = DEFAULT_BYPASS_TEXT) {
+function createOpenAIResponse(model: string, text = DEFAULT_BYPASS_TEXT) {
   const id = `chatcmpl-${Date.now()}`;
   const created = Math.floor(Date.now() / 1000);
 
@@ -125,7 +126,7 @@ function createOpenAIResponse(model, text = DEFAULT_BYPASS_TEXT) {
  * Create non-streaming response with translation
  * Use translator to convert OpenAI → sourceFormat
  */
-function createNonStreamingResponse(sourceFormat, model, text) {
+function createNonStreamingResponse(sourceFormat: string, model: string, text?: string) {
   const openaiResponse = createOpenAIResponse(model, text);
 
   // If sourceFormat is OpenAI, return directly
@@ -142,22 +143,22 @@ function createNonStreamingResponse(sourceFormat, model, text) {
   }
 
   // Use translator to convert: simulate streaming then collect all chunks
-  const state = initState(sourceFormat);
+  const state = initState(sourceFormat) as Record<string, unknown>;
   state.model = model;
 
   const openaiChunks = createOpenAIStreamingChunks(openaiResponse);
-  const allTranslated = [];
+  const allTranslated: unknown[] = [];
 
   for (const chunk of openaiChunks) {
     const translated = translateResponse(FORMATS.OPENAI, sourceFormat, chunk, state);
-    if (translated?.length > 0) {
+    if (translated && translated.length > 0) {
       allTranslated.push(...translated);
     }
   }
 
   // Flush remaining
   const flushed = translateResponse(FORMATS.OPENAI, sourceFormat, null, state);
-  if (flushed?.length > 0) {
+  if (flushed && flushed.length > 0) {
     allTranslated.push(...flushed);
   }
 
@@ -179,9 +180,9 @@ function createNonStreamingResponse(sourceFormat, model, text) {
  * Create streaming response with translation
  * Use translator to convert OpenAI chunks → sourceFormat
  */
-function createStreamingResponse(sourceFormat, model, text) {
+function createStreamingResponse(sourceFormat: string, model: string, text?: string) {
   const openaiResponse = createOpenAIResponse(model, text);
-  const state = initState(sourceFormat);
+  const state = initState(sourceFormat) as Record<string, unknown>;
   state.model = model;
 
   // Create OpenAI streaming chunks
@@ -227,30 +228,30 @@ function createStreamingResponse(sourceFormat, model, text) {
  * Merge translated chunks into final response object (for non-streaming)
  * Takes the last complete chunk as the final response
  */
-function mergeChunksToResponse(chunks, sourceFormat) {
+function mergeChunksToResponse(chunks: unknown[], sourceFormat: string): Record<string, unknown> {
   if (!chunks || chunks.length === 0) {
     return createOpenAIResponse("unknown");
   }
 
   // For most formats, the last chunk before done contains the complete response
   // Find the most complete chunk (usually the last one with content)
-  let finalChunk = chunks[chunks.length - 1];
+  let finalChunk: Record<string, unknown> = chunks[chunks.length - 1] as Record<string, unknown>;
 
   // For Claude format, find the message_stop or final message
   if (sourceFormat === FORMATS.CLAUDE) {
-    const messageStop = chunks.find(c => c.type === "message_stop");
+    const messageStop = chunks.find((c) => (c as Record<string, unknown>).type === "message_stop");
     if (messageStop) {
       // Reconstruct complete message from chunks
-      const contentDelta = chunks.find(c => c.type === "content_block_delta");
-      const messageDelta = chunks.find(c => c.type === "message_delta");
-      const messageStart = chunks.find(c => c.type === "message_start");
+      const contentDelta = chunks.find((c) => (c as Record<string, unknown>).type === "content_block_delta");
+      const messageDelta = chunks.find((c) => (c as Record<string, unknown>).type === "message_delta") as Record<string, unknown> | undefined;
+      const messageStart = chunks.find((c) => (c as Record<string, unknown>).type === "message_start") as Record<string, unknown> | undefined;
 
       if (messageStart?.message) {
-        finalChunk = messageStart.message;
+        finalChunk = messageStart.message as Record<string, unknown>;
         // message_start.usage has input + cache; message_delta.usage has the
         // final output_tokens. Merge so cache survives (delta omits it).
-        const startUsage = messageStart.message.usage;
-        const deltaUsage = messageDelta?.usage;
+        const startUsage = (messageStart.message as Record<string, unknown>)?.usage as Record<string, unknown> | undefined;
+        const deltaUsage = messageDelta?.usage as Record<string, unknown> | undefined;
         if (startUsage || deltaUsage) {
           finalChunk.usage = {
             ...(startUsage || {}),
@@ -276,8 +277,8 @@ function mergeChunksToResponse(chunks, sourceFormat) {
 /**
  * Create OpenAI streaming chunks from complete response
  */
-function createOpenAIStreamingChunks(completeResponse) {
-  const { id, created, model, choices } = completeResponse;
+function createOpenAIStreamingChunks(completeResponse: Record<string, unknown>) {
+  const { id, created, model, choices } = completeResponse as { id: string; created: number; model: string; choices: Array<{ message: { content: string } }> };
   const content = choices[0].message.content;
 
   return [

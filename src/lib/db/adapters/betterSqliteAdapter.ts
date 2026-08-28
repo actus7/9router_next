@@ -17,19 +17,19 @@ interface DbAdapter {
 const CHECKPOINT_INTERVAL_MS: number = 60 * 1000;
 
 export function createBetterSqliteAdapter(filePath: string): DbAdapter {
-  const db: Database.Database = new Database(filePath);
+  const db = new Database(filePath);
   db.exec(PRAGMA_SQL);
   // Schema is created/synced by migrate.js after adapter init
 
   const stmtCache: Map<string, Database.Statement> = new Map();
 
   function prepare(sql: string): Database.Statement {
-    let stmt: Database.Statement | undefined = stmtCache.get(sql);
+    let stmt = stmtCache.get(sql);
     if (!stmt) {
       stmt = db.prepare(sql);
       stmtCache.set(sql, stmt);
     }
-    return stmt;
+    return stmt!;
   }
 
   // Truncate WAL periodically so file stays small for backup/copy

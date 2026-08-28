@@ -12,7 +12,7 @@ export async function OPTIONS() {
   return new Response(null, { headers: CORS_HEADERS });
 }
 
-function countValueChars(value) {
+function countValueChars(value: unknown): number {
   if (value == null) return 0;
   if (typeof value === "string") return value.length;
   if (typeof value === "number" || typeof value === "boolean") {
@@ -29,28 +29,29 @@ function countValueChars(value) {
   return 0;
 }
 
-function countContentBlockChars(block) {
+function countContentBlockChars(block: unknown): number {
   if (block == null) return 0;
   if (typeof block === "string") return block.length;
   if (typeof block !== "object") return countValueChars(block);
 
-  switch (block.type) {
+  const b = block as Record<string, unknown>;
+  switch (b.type) {
     case "text":
-      return countValueChars(block.text);
+      return countValueChars(b.text);
     case "tool_use":
-      return countValueChars(block.name) + countValueChars(block.input);
+      return countValueChars(b.name) + countValueChars(b.input);
     case "tool_result":
-      return countValueChars(block.content);
+      return countValueChars(b.content);
     case "thinking":
-      return countValueChars(block.thinking);
+      return countValueChars(b.thinking);
     default:
       return countValueChars(block);
   }
 }
 
-function countMessageChars(message) {
+function countMessageChars(message: unknown): number {
   if (!message || typeof message !== "object") return 0;
-  const content = message.content;
+  const content = (message as Record<string, unknown>).content;
 
   if (typeof content === "string") return content.length;
   if (Array.isArray(content)) {
@@ -59,7 +60,7 @@ function countMessageChars(message) {
   return countValueChars(content);
 }
 
-export function estimateAnthropicInputTokens(body = {}) {
+export function estimateAnthropicInputTokens(body: Record<string, unknown> = {}) {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   let totalChars = countValueChars(body.system) + countValueChars(body.tools);
 

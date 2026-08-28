@@ -108,15 +108,15 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
   const proxyBadgeVariant: "secondary" | "default" | "destructive" = boundProxyPool?.isActive === true ? "default" : (boundProxyPoolId || hasLegacyProxy) ? "destructive" : "secondary";
   const proxyBadgeClassName: string | undefined = boundProxyPool?.isActive === true ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined;
 
-  const modelLockUntil = Object.entries(connection)
+  const modelLockUntil: string | null = (Object.entries(connection)
     .filter(([k]) => k.startsWith("modelLock_"))
-    .map(([, v]) => v).filter(Boolean).sort()[0] || null;
+    .map(([, v]) => v).filter((v): v is string => typeof v === 'string').sort()[0]) || null;
 
   useEffect(() => {
     const check = () => {
       const until = Object.entries(connection)
         .filter(([k]) => k.startsWith("modelLock_"))
-        .map(([, v]) => v).filter((v): v is string => v && new Date(v).getTime() > Date.now()).sort()[0] || null;
+        .map(([, v]) => v).filter((v): v is string => typeof v === 'string' && new Date(v).getTime() > Date.now()).sort()[0] || null;
       setIsCooldown(!!until);
     };
     check();
@@ -136,7 +136,7 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
 
   const effectiveStatus = connection.testStatus === "unavailable" && !isCooldown ? "active" : connection.testStatus;
 
-  const getStatusVariant = () => getConnectionStatusVariant(connection.isActive, effectiveStatus);
+  const getStatusVariant = () => getConnectionStatusVariant(connection.isActive, effectiveStatus ?? "unknown");
 
   const displayName = isOAuth
     ? connection.name || connection.email || connection.displayName || "OAuth Account"
@@ -163,7 +163,7 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{displayName}</p>
           <div className="flex flex-wrap items-center gap-2 mt-1">
-            <Badge variant={getStatusVariant()} className={getStatusClassName(connection.isActive, effectiveStatus)}>
+            <Badge variant={getStatusVariant()} className={getStatusClassName(connection.isActive, effectiveStatus ?? "unknown")}>
               {connection.isActive === false ? "disabled" : (effectiveStatus || "Unknown")}
             </Badge>
             {hasAnyProxy && <Badge variant={proxyBadgeVariant} className={proxyBadgeClassName}>Proxy</Badge>}
@@ -214,7 +214,7 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
             <span className="text-[10px] leading-tight">Delete</span>
           </Button>
         </div>
-        <Switch checked={connection.isActive ?? true} onCheckedChange={onToggleActive} title={(connection.isActive ?? true) ? "Disable" : "Enable"} />
+        <Switch checked={connection.isActive ?? true} onCheckedChange={onToggleActive} title={(connection.isActive ?? true) ? "Desabilitar" : "Habilitar"} />
       </div>
     </div>
   );
@@ -284,34 +284,34 @@ function AddApiKeyModal({ isOpen, provider, providerName, proxyPools, onSave, on
     <Modal isOpen={isOpen} title={`Add ${providerName || provider} API Key`} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div>
-          <Label className="text-xs text-text-muted mb-1 block">Name</Label>
+          <Label className="text-xs text-text-muted mb-1 block">Nome</Label>
           <Input className="w-full px-3 py-2 text-sm" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Production Key" />
         </div>
         <div className="flex gap-2">
           <div className="flex-1">
-            <Label className="text-xs text-text-muted mb-1 block">API Key</Label>
+            <Label className="text-xs text-text-muted mb-1 block">Chave de API</Label>
             <Input type="password" className="w-full px-3 py-2 text-sm" value={formData.apiKey} onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })} />
           </div>
           <div className="pt-6">
             <Button onClick={handleValidate} disabled={!formData.apiKey || validating || saving} variant="secondary">
-              {validating ? "Checking..." : "Check"}
+              {validating ? "Verificando..." : "Verificar"}
             </Button>
           </div>
         </div>
         {validationResult && (
           <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
-            {validationResult === "success" ? "Valid" : "Invalid"}
+            {validationResult === "success" ? "Válido" : "Inválido"}
           </Badge>
         )}
         <div>
-          <Label className="text-xs text-text-muted mb-1 block">Priority</Label>
+          <Label className="text-xs text-text-muted mb-1 block">Prioridade</Label>
           <Input type="number" className="w-full px-3 py-2 text-sm" value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value) || 1 })} />
         </div>
-        <Select label="Proxy Pool" value={formData.proxyPoolId} onChange={(val: string) => setFormData({ ...formData, proxyPoolId: val })}
-          options={[{ value: NONE, label: "None" }, ...(proxyPools || []).map((p) => ({ value: p.id, label: p.name }))]} />
+        <Select label="Pool de Proxy" value={formData.proxyPoolId} onChange={(val: string) => setFormData({ ...formData, proxyPoolId: val })}
+          options={[{ value: NONE, label: "Nenhum" }, ...(proxyPools || []).map((p) => ({ value: p.id, label: p.name }))]} />
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={!formData.name || !formData.apiKey || saving}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Salvando..." : "Salvar"}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>Cancel</Button>
         </div>
@@ -359,7 +359,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
       const override = (settingsData.providerStrategies || {})[providerId] || {};
       setProviderStrategy(override.fallbackStrategy || null);
       setProviderStickyLimit(override.stickyRoundRobinLimit != null ? String(override.stickyRoundRobinLimit) : "1");
-    } catch ($1) { console.error("ConnectionsCard fetch error:", e); }
+    } catch (e) { console.error("ConnectionsCard fetch error:", e); }
     finally { setLoading(false); }
   }, [providerId]);
 
@@ -377,7 +377,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
       if (Object.keys(override).length === 0) delete updated[providerId];
       else updated[providerId] = override;
       await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerStrategies: updated }) });
-    } catch ($1) { console.error("saveStrategy error:", e); }
+    } catch (e) { console.error("saveStrategy error:", e); }
   };
 
   const handleSwapPriority = async (i1: number, i2: number) => {
@@ -394,14 +394,14 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
 
   const handleDelete = async (id: string) => {
     setConfirmState({
-      title: "Delete Connection",
-      message: "Delete this connection?",
+      title: "Excluir Conexão",
+      message: "Excluir esta conexão?",
       onConfirm: async () => {
         setConfirmState(null);
         try {
           const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
           if (res.ok) setConnections((prev) => prev.filter((c) => c.id !== id));
-        } catch ($1) { console.error("delete error:", e); }
+        } catch (e) { console.error("delete error:", e); }
       }
     });
   };
@@ -410,28 +410,28 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
     try {
       const res = await fetch(`/api/providers/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) });
       if (res.ok) setConnections((prev) => prev.map((c) => c.id === id ? { ...c, isActive } : c));
-    } catch ($1) { console.error("toggle error:", e); }
+    } catch (e) { console.error("toggle error:", e); }
   };
 
   const handleUpdateProxy = async (connId: string, proxyPoolId: string | null) => {
     try {
       const res = await fetch(`/api/providers/${connId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proxyPoolId: proxyPoolId || null }) });
-      if (res.ok) setConnections((prev) => prev.map((c) => c.id === connId ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId || null } } : c));
-    } catch ($1) { console.error("proxy error:", e); }
+      if (res.ok) setConnections((prev) => prev.map((c) => c.id === connId ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId ?? undefined } } : c));
+    } catch (e) { console.error("proxy error:", e); }
   };
 
   const handleSaveApiKey = async (formData: Record<string, unknown>) => {
     try {
       const res = await fetch("/api/providers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: providerId, ...formData }) });
       if (res.ok) { await fetch_(); setShowAddModal(false); }
-    } catch ($1) { console.error("save apikey error:", e); }
+    } catch (e) { console.error("save apikey error:", e); }
   };
 
   const handleUpdateConnection = async (formData: Record<string, unknown>) => {
     try {
       const res = await fetch(`/api/providers/${selectedConnection!.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
       if (res.ok) { await fetch_(); setShowEditModal(false); }
-    } catch ($1) { console.error("update connection error:", e); }
+    } catch (e) { console.error("update connection error:", e); }
   };
 
   if (loading) return <Card><div className="h-20 animate-pulse bg-black/5 rounded-lg" /></Card>;
@@ -440,7 +440,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
     <>
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-          <h2 className="text-lg font-semibold">Connections</h2>
+          <h2 className="text-lg font-semibold">Conexões</h2>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-text-muted font-medium">Round Robin</span>
             <Switch
@@ -467,8 +467,8 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
 
         {connections.length === 0 ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-text-muted">No connections yet</p>
-            <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>Add Connection</Button>
+            <p className="text-sm text-text-muted">Nenhuma conexão ainda</p>
+            <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>Adicionar Conexão</Button>
           </div>
         ) : (
           <>
@@ -491,7 +491,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
               ))}
             </div>
             <div className="mt-4 flex justify-stretch sm:justify-start">
-              <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>Add</Button>
+              <Button icon={<Plus className="size-4" />} onClick={() => setShowAddModal(true)}>Adicionar</Button>
             </div>
           </>
         )}
@@ -516,7 +516,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
       <ConfirmModal
         isOpen={!!confirmState}
         onClose={() => setConfirmState(null)}
-        onConfirm={confirmState?.onConfirm}
+        onConfirm={confirmState?.onConfirm ?? (() => {})}
         title={confirmState?.title || "Confirm"}
         message={confirmState?.message}
         variant="danger"

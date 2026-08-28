@@ -1,14 +1,14 @@
 // OpenRouter TTS — via chat completions + audio modality (SSE stream)
 import { PROVIDER_MEDIA } from "../../providers/index";
 
-const TTS_CFG = PROVIDER_MEDIA["openrouter"]?.ttsConfig || {};
+const TTS_CFG = (PROVIDER_MEDIA["openrouter"]?.ttsConfig || {}) as Record<string, unknown>;
 
 export default {
-  async synthesize(text, model, credentials) {
+  async synthesize(text: string, model: string, credentials: Record<string, unknown>): Promise<{ base64: string; format: string }> {
     if (!credentials?.apiKey) throw new Error("No OpenRouter API key configured");
 
     // model format: "tts-model/voice" e.g. "openai/gpt-4o-mini-tts/alloy"
-    let ttsModel = TTS_CFG.defaultModel;
+    let ttsModel = TTS_CFG.defaultModel as string;
     let voice = "alloy";
     if (model && model.includes("/")) {
       const lastSlash = model.lastIndexOf("/");
@@ -24,12 +24,12 @@ export default {
       voice = model;
     }
 
-    const res = await fetch(TTS_CFG.baseUrl, {
+    const res = await fetch(TTS_CFG.baseUrl as string, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${credentials.apiKey}`,
-        ...(TTS_CFG.headers || {}),
+        ...((TTS_CFG.headers || {}) as Record<string, string>),
       },
       body: JSON.stringify({
         model: ttsModel,
@@ -41,13 +41,13 @@ export default {
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `OpenRouter TTS failed: ${res.status}`);
+      const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(((err?.error as Record<string, unknown>)?.message as string) || `OpenRouter TTS failed: ${res.status}`);
     }
 
     // Parse SSE stream, accumulate base64 audio chunks
-    const chunks = [];
-    const reader = res.body.getReader();
+    const chunks: string[] = [];
+    const reader = res.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
 
@@ -56,7 +56,7 @@ export default {
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
-      buffer = lines.pop();
+      buffer = lines.pop() || "";
       for (const line of lines) {
         if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
         try {

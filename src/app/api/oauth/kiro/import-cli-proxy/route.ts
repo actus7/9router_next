@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
       provider: "kiro",
       authType: "oauth",
       accessToken: tokenData.accessToken,
-      refreshToken: tokenData.refreshToken,
+      refreshToken: tokenData.refreshToken ?? undefined,
       expiresAt: tokenData.expiresAt,
-      email: tokenData.email || null,
+      email: tokenData.email ?? undefined,
       providerSpecificData: tokenData.providerSpecificData,
       testStatus: "active",
     });
@@ -26,14 +26,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       connection: {
-        id: connection.id,
-        provider: connection.provider,
-        email: connection.email,
+        id: connection!.id,
+        provider: connection!.provider,
+        email: connection!.email,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: error?.message || "CLIProxyAPI import failed" },
+      { error: error instanceof Error ? error.message : "CLIProxyAPI import failed" },
       { status: 400 }
     );
   }

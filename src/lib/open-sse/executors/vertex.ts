@@ -2,6 +2,7 @@ import { BaseExecutor } from "./base";
 import { PROVIDERS } from "../config/providers";
 import { parseVertexSaJson, refreshVertexToken, refreshGoogleToken } from "../services/tokenRefresh";
 import { proxyAwareFetch } from "../utils/proxyFetch";
+import type { Credentials, Logger, RefreshResult } from "../services/types";
 
 // Cache project IDs resolved from raw API keys { apiKey → projectId }
 const projectIdCache = new Map();
@@ -10,7 +11,7 @@ const projectIdCache = new Map();
  * Parse Google ADC user credential JSON from apiKey string.
  * This is the format produced by `gcloud auth application-default login`.
  */
-function parseVertexAdcJson(apiKey) {
+function parseVertexAdcJson(apiKey: string): Record<string, unknown> | null {
   if (typeof apiKey !== "string") return null;
   try {
     const parsed = JSON.parse(apiKey);
@@ -32,7 +33,7 @@ function parseVertexAdcJson(apiKey) {
  * Resolve GCP project ID from a raw Vertex API key.
  * Sends a dummy 404 request and parses "projects/{id}" from the error message.
  */
-async function resolveProjectId(apiKey) {
+async function resolveProjectId(apiKey: string): Promise<string | null> {
   if (projectIdCache.has(apiKey)) return projectIdCache.get(apiKey);
 
   const res = await fetch(
@@ -63,9 +64,9 @@ export class VertexExecutor extends BaseExecutor {
     super(providerId, PROVIDERS[providerId] || {});
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
-    const saJson = parseVertexSaJson(credentials?.apiKey);
-    const adcJson = parseVertexAdcJson(credentials?.apiKey);
+  buildUrl(model: string, stream: boolean, urlIndex = 0, credentials: Credentials | null = null) {
+    const saJson = parseVertexSaJson(credentials?.apiKey as string);
+    const adcJson = parseVertexAdcJson(credentials?.apiKey as string);
     const usesOAuth = !!saJson || !!adcJson || !!credentials?.accessToken;
     const rawKey = !usesOAuth ? credentials?.apiKey : null;
     const projectId =
@@ -105,8 +106,8 @@ export class VertexExecutor extends BaseExecutor {
     return url;
   }
 
-  buildHeaders(credentials, stream = true) {
-    const headers = { "Content-Type": "application/json" };
+  buildHeaders(credentials: Credentials, stream = true) {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
 
     // Only set Bearer token if using SA JSON flow (raw key goes in URL ?key=)
     if (credentials.accessToken) {
@@ -118,19 +119,19 @@ export class VertexExecutor extends BaseExecutor {
     return headers;
   }
 
-  async refreshCredentials(credentials, log) {
-    const saJson = parseVertexSaJson(credentials?.apiKey);
+  async refreshCredentials(credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
+    const saJson = parseVertexSaJson(credentials?.apiKey as string);
     if (!saJson) return null;
 
     const result = await refreshVertexToken(saJson, log);
     if (!result) return null;
 
-    return { accessToken: result.accessToken, expiresAt: result.expiresAt };
+    return { accessToken: result.accessToken, expiresAt: result.expiresAt as unknown as string };
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
-    const saJson = parseVertexSaJson(credentials?.apiKey);
-    const adcJson = parseVertexAdcJson(credentials?.apiKey);
+  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: import("./base").ExecuteArgs) {
+    const saJson = parseVertexSaJson(credentials?.apiKey as string);
+    const adcJson = parseVertexAdcJson(credentials?.apiKey as string);
 
     // SA JSON flow: mint Bearer token via JWT assertion (cached)
     if (saJson) {
@@ -142,9 +143,9 @@ export class VertexExecutor extends BaseExecutor {
     // ADC user credential flow: refresh Bearer token via Google OAuth2 token endpoint
     if (adcJson) {
       const result = await refreshGoogleToken(
-        adcJson.refresh_token,
-        adcJson.client_id,
-        adcJson.client_secret,
+        adcJson.refresh_token as string,
+        adcJson.client_id as string,
+        adcJson.client_secret as string,
         log
       );
       if (!result?.accessToken) throw new Error("Vertex: failed to refresh access token from ADC JSON (authorized_user)");
@@ -153,7 +154,7 @@ export class VertexExecutor extends BaseExecutor {
 
     // vertex-partner with raw key: auto-resolve project_id if not provided
     if (this.provider === "vertex-partner" && !saJson && !adcJson && !credentials?.providerSpecificData?.projectId) {
-      const projectId = await resolveProjectId(credentials.apiKey);
+      const projectId = await resolveProjectId(credentials.apiKey as string);
       if (!projectId) throw new Error("Vertex: could not resolve project_id from API key. Please add it manually in provider settings.");
       log?.debug?.("VERTEX", `Resolved project_id: ${projectId}`);
       credentials.providerSpecificData = { ...credentials.providerSpecificData, projectId };
@@ -168,7 +169,7 @@ export class VertexExecutor extends BaseExecutor {
       headers,
       body: JSON.stringify(transformedBody),
       signal,
-    }, proxyOptions);
+    }, proxyOptions as null);
 
     return { response, url, headers, transformedBody };
   }

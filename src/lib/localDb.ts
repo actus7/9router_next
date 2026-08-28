@@ -13,6 +13,8 @@ export {
   getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey,
   getCombos, getComboById, getComboByName,
   createCombo, updateCombo, deleteCombo,
+  getSmartModelProfiles, getSmartModelProfile,
+  upsertSmartModelProfiles, deleteSmartModelProfiles,
   getModelAliases, setModelAlias, deleteModelAlias,
   getCustomModels, addCustomModel, deleteCustomModel,
   getPricing, updatePricing, resetPricing, resetAllPricing,

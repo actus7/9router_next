@@ -6,10 +6,11 @@ import { GEMINI_ROLE, OPENAI_FINISH, GEMINI_FINISH } from "../schema/index";
 // Real Antigravity format:
 //   data: {"response":{"candidates":[{"content":{"role":"model","parts":[...]}, "finishReason":"STOP"}], "usageMetadata":{...}, "modelVersion":"...", "responseId":"..."}}
 // Tool calls: OpenAI sends incremental args across chunks → accumulate and emit ONCE at finish
-export function openaiToAntigravityResponse(chunk, state) {
+export function openaiToAntigravityResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
   if (!chunk) return null;
 
-  const choice = chunk.choices?.[0];
+  const choices = chunk.choices as Record<string, unknown>[] | undefined;
+  const choice = choices?.[0];
   if (!choice) {
     if (chunk.usage) {
       state._usage = chunk.usage;
@@ -17,15 +18,15 @@ export function openaiToAntigravityResponse(chunk, state) {
     return null;
   }
 
-  const delta = choice.delta || {};
-  const finishReason = choice.finish_reason;
+  const delta = (choice.delta as Record<string, unknown>) || {};
+  const finishReason = choice.finish_reason as string | null | undefined;
 
   // Init state
   if (!state._toolCallAccum) state._toolCallAccum = {};
-  if (!state._responseId) state._responseId = chunk.id || `resp_${Date.now()}`;
-  if (!state._modelVersion) state._modelVersion = chunk.model || "";
+  if (!state._responseId) state._responseId = (chunk.id as string) || `resp_${Date.now()}`;
+  if (!state._modelVersion) state._modelVersion = (chunk.model as string) || "";
 
-  const parts = [];
+  const parts: Record<string, unknown>[] = [];
 
   // Thinking/reasoning → thought part
   if (delta.reasoning_content) {
@@ -39,15 +40,17 @@ export function openaiToAntigravityResponse(chunk, state) {
 
   // Accumulate tool calls silently (no emit until finish)
   if (delta.tool_calls) {
-    for (const tc of delta.tool_calls) {
-      const idx = tc.index ?? 0;
-      if (!state._toolCallAccum[idx]) {
-        state._toolCallAccum[idx] = { id: "", name: "", arguments: "" };
+    const toolCallAccum = state._toolCallAccum as Record<string, Record<string, unknown>>;
+    for (const tc of delta.tool_calls as Record<string, unknown>[]) {
+      const idx = (tc.index as number) ?? 0;
+      if (!toolCallAccum[idx]) {
+        toolCallAccum[idx] = { id: "", name: "", arguments: "" };
       }
-      const accum = state._toolCallAccum[idx];
+      const accum = toolCallAccum[idx];
       if (tc.id) accum.id = tc.id;
-      if (tc.function?.name) accum.name += tc.function.name;
-      if (tc.function?.arguments) accum.arguments += tc.function.arguments;
+      const fn = tc.function as Record<string, unknown> | undefined;
+      if (fn?.name) accum.name = (accum.name as string) + (fn.name as string);
+      if (fn?.arguments) accum.arguments = (accum.arguments as string) + (fn.arguments as string);
     }
     // Skip emit — wait for finish_reason
     if (parts.length === 0 && !finishReason) return null;
@@ -55,13 +58,15 @@ export function openaiToAntigravityResponse(chunk, state) {
 
   // On finish, emit accumulated tool calls as complete functionCall parts
   if (finishReason) {
-    const indices = Object.keys(state._toolCallAccum);
+    const toolCallAccum = state._toolCallAccum as Record<string, Record<string, unknown>>;
+    const indices = Object.keys(toolCallAccum);
     for (const idx of indices) {
-      const accum = state._toolCallAccum[idx];
-      let args = {};
-      try { args = JSON.parse(accum.arguments); } catch { /* empty */ }
+      const accum = toolCallAccum[idx];
+      let args: Record<string, unknown> = {};
+      try { args = JSON.parse(accum.arguments as string); } catch { /* empty */ }
       // Restore original tool name if it was prefixed during cloaking
-      const originalName = state.toolNameMap?.get(accum.name) || accum.name;
+      const toolNameMap = state.toolNameMap as Map<string, string> | undefined;
+      const originalName = toolNameMap?.get(accum.name as string) || accum.name;
       parts.push({
         functionCall: {
           name: originalName,
@@ -80,44 +85,47 @@ export function openaiToAntigravityResponse(chunk, state) {
   }
 
   // Build candidate
-  const candidate = { content: { role: GEMINI_ROLE.MODEL, parts } };
+  const candidate: Record<string, unknown> = { content: { role: GEMINI_ROLE.MODEL, parts } };
 
   // Finish reason mapping
   if (finishReason) {
-    const reasonMap = {
-      [OPENAI_FINISH.STOP]: GEMINI_FINISH.STOP,
-      [OPENAI_FINISH.LENGTH]: GEMINI_FINISH.MAX_TOKENS,
-      [OPENAI_FINISH.TOOL_CALLS]: GEMINI_FINISH.STOP,
-      [OPENAI_FINISH.CONTENT_FILTER]: GEMINI_FINISH.SAFETY
+    const reasonMap: Record<string, string> = {
+      [OPENAI_FINISH.STOP as string]: GEMINI_FINISH.STOP,
+      [OPENAI_FINISH.LENGTH as string]: GEMINI_FINISH.MAX_TOKENS,
+      [OPENAI_FINISH.TOOL_CALLS as string]: GEMINI_FINISH.STOP,
+      [OPENAI_FINISH.CONTENT_FILTER as string]: GEMINI_FINISH.SAFETY
     };
     candidate.finishReason = reasonMap[finishReason] || GEMINI_FINISH.STOP;
   }
 
   // Build response
-  const response = {
+  const response: Record<string, unknown> = {
     candidates: [candidate],
     modelVersion: state._modelVersion,
     responseId: state._responseId
   };
 
   // Usage metadata
-  const usage = chunk.usage || state._usage;
+  const usage = (chunk.usage || state._usage) as Record<string, unknown> | undefined;
   if (usage) {
-    response.usageMetadata = {
-      promptTokenCount: usage.prompt_tokens || 0,
-      candidatesTokenCount: usage.completion_tokens || 0,
-      totalTokenCount: usage.total_tokens || 0
+    const usageMetadata: Record<string, unknown> = {
+      promptTokenCount: (usage.prompt_tokens as number) || 0,
+      candidatesTokenCount: (usage.completion_tokens as number) || 0,
+      totalTokenCount: (usage.total_tokens as number) || 0
     };
-    if (usage.completion_tokens_details?.reasoning_tokens) {
-      response.usageMetadata.thoughtsTokenCount = usage.completion_tokens_details.reasoning_tokens;
+    const compDetails = usage.completion_tokens_details as Record<string, unknown> | undefined;
+    if (compDetails?.reasoning_tokens) {
+      usageMetadata.thoughtsTokenCount = compDetails.reasoning_tokens;
     }
-    if (usage.prompt_tokens_details?.cached_tokens) {
-      response.usageMetadata.cachedContentTokenCount = usage.prompt_tokens_details.cached_tokens;
+    const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+    if (promptDetails?.cached_tokens) {
+      usageMetadata.cachedContentTokenCount = promptDetails.cached_tokens;
     }
+    response.usageMetadata = usageMetadata;
   }
 
   return { response };
 }
 
 // Register
-register(FORMATS.OPENAI, FORMATS.ANTIGRAVITY, null, openaiToAntigravityResponse);
+register(FORMATS.OPENAI, FORMATS.ANTIGRAVITY, null, openaiToAntigravityResponse as (chunk: unknown, state: unknown) => unknown);

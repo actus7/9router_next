@@ -66,7 +66,7 @@ const PROVIDERS: Record<string, ProviderHandler> = {
   trae,
   windsurf,
   zed,
-};
+} as unknown as Record<string, ProviderHandler>;
 
 // Re-export helpers that other files import from this path
 export { extractCodexAccountInfo };

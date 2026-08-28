@@ -17,7 +17,7 @@ export default async function WebMediaProvidersPage() {
         </div>
       }
     >
-      <WebMediaProvidersClient initialConnections={connections} initialCombos={combos} />
+      <WebMediaProvidersClient initialConnections={connections} initialCombos={combos as unknown as { id: string; name: string; kind?: string; models: string[] }[]} />
     </Suspense>
   );
 }

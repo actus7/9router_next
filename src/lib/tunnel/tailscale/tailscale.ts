@@ -620,6 +620,7 @@ function getAuthUrlFromStatus(): string | null {
 }
 
 interface LoginResult {
+  success: boolean;
   authUrl?: string;
   alreadyLoggedIn?: boolean;
 }
@@ -637,7 +638,7 @@ export function startLogin(hostname: string): Promise<LoginResult> {
     ensureDaemon();
 
     if (isTailscaleLoggedIn()) {
-      resolve({ alreadyLoggedIn: true });
+      resolve({ success: true, alreadyLoggedIn: true });
       return;
     }
 
@@ -664,7 +665,7 @@ export function startLogin(hostname: string): Promise<LoginResult> {
       clearInterval(statusPoll);
       console.log(`[Tailscale] login authUrl detected (${source})`);
       child.unref();
-      resolve({ authUrl: url });
+      resolve({ success: true, authUrl: url });
     };
 
     const statusPoll: ReturnType<typeof setInterval> = setInterval(() => {
@@ -679,7 +680,7 @@ export function startLogin(hostname: string): Promise<LoginResult> {
       clearInterval(statusPoll);
       child.unref();
       const url: string | null = parseAuthUrl(output) || getAuthUrlFromStatus();
-      if (url) resolve({ authUrl: url });
+      if (url) resolve({ success: true, authUrl: url });
       else reject(new Error("tailscale up timed out without auth URL"));
     }, 15000);
 
@@ -713,7 +714,7 @@ export function startLogin(hostname: string): Promise<LoginResult> {
         resolved = true;
         clearTimeout(timeout);
         clearInterval(statusPoll);
-        resolve({ alreadyLoggedIn: true });
+        resolve({ success: true, alreadyLoggedIn: true });
         return;
       }
     });

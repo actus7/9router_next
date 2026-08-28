@@ -125,18 +125,18 @@ export async function runBackgroundTokenRefreshTick(deps: TickDeps = {}): Promis
             id: conn.id,
             provider: conn.provider,
           });
-        } catch (err: any) {
+        } catch (err: unknown) {
           log.warn("BG_TOKEN_REFRESH", "Connection refresh failed (swallowed)", {
             id: conn?.id,
             provider: conn?.provider,
-            error: err?.message ?? String(err),
+            error: err instanceof Error ? err.message : String(err),
           });
         }
       })
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     log.warn("BG_TOKEN_REFRESH", "Tick failed (swallowed)", {
-      error: err?.message ?? String(err),
+      error: err instanceof Error ? err.message : String(err),
     });
   } finally {
     tickRunning = false;

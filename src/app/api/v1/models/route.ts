@@ -23,14 +23,26 @@ import { capabilitiesFromServiceKind, getCapabilitiesForModel } from "@/lib/open
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
 // Adding a provider here makes /v1/models prefer the live catalog for it.
-const LIVE_MODEL_RESOLVERS = {
+interface ConnectionRecord {
+  id: string;
+  accessToken: string;
+  refreshToken?: string;
+  apiKey?: string;
+  email?: string;
+  displayName?: string;
+  provider?: string;
+  providerSpecificData?: Record<string, unknown>;
+  isActive?: boolean;
+}
+
+const LIVE_MODEL_RESOLVERS: Record<string, (conn: ConnectionRecord) => Promise<{ models: Array<Record<string, unknown>> } | null>> = {
   kiro: async (conn) => {
     const result = await resolveKiroModels({
       accessToken: conn.accessToken,
       refreshToken: conn.refreshToken,
       providerSpecificData: conn.providerSpecificData || {}
-    }, { log: console });
-    return result?.models?.length ? { models: result.models } : null;
+    } as Parameters<typeof resolveKiroModels>[0], { log: console });
+    return result?.models?.length ? { models: result.models as unknown as Array<Record<string, unknown>> } : null;
   },
   qoder: async (conn) => {
     const result = await resolveQoderModels({
@@ -39,10 +51,10 @@ const LIVE_MODEL_RESOLVERS = {
       email: conn.email,
       displayName: conn.displayName,
       providerSpecificData: conn.providerSpecificData || {}
-    });
+    } as Parameters<typeof resolveQoderModels>[0]);
     if (!result?.models?.length) return null;
     return {
-      models: result.models.map((m) => ({ id: m.id, name: m.name })),
+      models: result.models.map((m) => ({ id: (m as Record<string, unknown>).id, name: (m as Record<string, unknown>).name })),
     };
   },
   kimchi: async (conn) => {
@@ -50,39 +62,39 @@ const LIVE_MODEL_RESOLVERS = {
       accessToken: conn.accessToken,
       apiKey: conn.apiKey,
       providerSpecificData: conn.providerSpecificData || {}
-    }, { log: console });
-    return result?.models?.length ? { models: result.models } : null;
+    } as Parameters<typeof resolveKimchiModels>[0], { log: console });
+    return result?.models?.length ? { models: result.models as unknown as Array<Record<string, unknown>> } : null;
   },
   github: async (conn) => {
     const result = await resolveCopilotModels({
       accessToken: conn.accessToken,
       refreshToken: conn.refreshToken,
       providerSpecificData: conn.providerSpecificData || {}
-    }, {
+    } as Parameters<typeof resolveCopilotModels>[0], {
       log: console,
-      onCredentialsRefreshed: async (refreshed) => {
+      onCredentialsRefreshed: async (refreshed: Record<string, unknown>) => {
         await updateProviderCredentials(conn.id, {
-          copilotToken: refreshed.copilotToken,
-          copilotTokenExpiresAt: refreshed.copilotTokenExpiresAt,
+          copilotToken: refreshed.copilotToken as string,
+          copilotTokenExpiresAt: refreshed.copilotTokenExpiresAt as number,
           existingProviderSpecificData: conn.providerSpecificData || {},
         });
       },
     });
-    return result?.models?.length ? { models: result.models } : null;
+    return result?.models?.length ? { models: result.models as unknown as Array<Record<string, unknown>> } : null;
   },
   clinepass: async (conn) => {
     const result = await resolveClinepassModels({
       accessToken: conn.accessToken,
       apiKey: conn.apiKey,
-    });
-    return result?.models?.length ? { models: result.models } : null;
+    } as Parameters<typeof resolveClinepassModels>[0]);
+    return result?.models?.length ? { models: result.models as unknown as Array<Record<string, unknown>> } : null;
   },
   "grok-cli": async (conn) => {
     const proxy = await resolveConnectionProxyConfig(conn.providerSpecificData || {});
     const result = await resolveGrokCliModels({
       ...conn,
       connectionId: conn.id,
-    }, {
+    } as Parameters<typeof resolveGrokCliModels>[0], {
       log: console,
       proxyOptions: {
         connectionProxyEnabled: proxy.connectionProxyEnabled === true,
@@ -91,43 +103,47 @@ const LIVE_MODEL_RESOLVERS = {
         vercelRelayUrl: proxy.vercelRelayUrl || "",
         strictProxy: proxy.strictProxy === true,
       },
-      onCredentialsRefreshed: async (refreshed) => {
+      onCredentialsRefreshed: async (refreshed: Record<string, unknown>) => {
         await updateProviderCredentials(conn.id, {
           ...refreshed,
           existingProviderSpecificData: conn.providerSpecificData || {},
-        });
+        } as Parameters<typeof updateProviderCredentials>[1]);
       },
     });
-    return result?.models?.length ? { models: result.models } : null;
+    return result?.models?.length ? { models: result.models as unknown as Array<Record<string, unknown>> } : null;
   },
   cursor: async (conn) => {
     const result = await resolveCursorModels({
       accessToken: conn.accessToken,
       providerSpecificData: conn.providerSpecificData || {},
-    }, { log: console });
-    return result?.models?.length ? { models: result.models } : null;
+    } as Parameters<typeof resolveCursorModels>[0], { log: console });
+    return result?.models?.length ? { models: result.models as unknown as Array<Record<string, unknown>> } : null;
   },
   zed: async (conn) => {
     const result = await resolveZedModels({
       accessToken: conn.accessToken,
       providerSpecificData: conn.providerSpecificData || {},
-    });
+    } as Parameters<typeof resolveZedModels>[0]);
     if (!result?.models?.length) return null;
     return {
       models: result.models
-        .filter((m) => !m.isDisabled)
-        .map((m) => ({
-          id: m.id,
-          name: m.name,
-          capabilities: m.supportsTools ? { tools: true } : undefined,
-        })),
+        .filter((m) => !(m as unknown as Record<string, unknown>).isDisabled)
+        .map((m) => {
+          const r = m as unknown as Record<string, unknown>;
+          return {
+            id: r.id,
+            name: r.name,
+            capabilities: r.supportsTools ? { tools: true } : undefined,
+          };
+        }),
     };
   },
 };
 
-const parseOpenAIStyleModels = (data) => {
+const parseOpenAIStyleModels = (data: unknown) => {
   if (Array.isArray(data)) return data;
-  return data?.data || data?.models || data?.results || [];
+  const d = data as Record<string, unknown>;
+  return (d?.data || d?.models || d?.results || []) as unknown[];
 };
 
 // Header sent by fetchCompatibleModelIds to detect cross-instance /models fetches
@@ -139,7 +155,7 @@ const LLM_KIND = "llm";
 
 // Map per-model `type` field (in PROVIDER_MODELS) to service kind.
 // Models without `type` are treated as LLM.
-const MODEL_TYPE_TO_KIND = {
+const MODEL_TYPE_TO_KIND: Record<string, string> = {
   image: "image",
   tts: "tts",
   embedding: "embedding",
@@ -148,15 +164,15 @@ const MODEL_TYPE_TO_KIND = {
   video: "video",
 };
 
-function modelKind(model) {
-  const k = model?.kind || model?.type;
+function modelKind(model: Record<string, unknown>) {
+  const k = (model?.kind || model?.type) as string | undefined;
   if (!k) return LLM_KIND;
   return MODEL_TYPE_TO_KIND[k] || LLM_KIND;
 }
 
 // For dynamic/unknown model IDs (compatible providers, alias map, custom models)
 // fall back to provider-level kind matching when per-model type is unavailable.
-function inferKindFromUnknownModelId(modelId) {
+function inferKindFromUnknownModelId(modelId: string) {
   const lower = String(modelId).toLowerCase();
   if (/embed/.test(lower)) return "embedding";
   if (/tts|speech|audio|voice/.test(lower)) return "tts";
@@ -164,23 +180,23 @@ function inferKindFromUnknownModelId(modelId) {
   return LLM_KIND;
 }
 
-async function fetchCompatibleModelIds(connection) {
+async function fetchCompatibleModelIds(connection: ConnectionRecord) {
   if (!connection?.apiKey) return [];
 
   const baseUrl = typeof connection?.providerSpecificData?.baseUrl === "string"
-    ? connection.providerSpecificData.baseUrl.trim().replace(/\/$/, "")
+    ? (connection.providerSpecificData.baseUrl as string).trim().replace(/\/$/, "")
     : "";
 
   if (!baseUrl) return [];
 
   let url = `${baseUrl}/models`;
-  const headers = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
-  if (isOpenAICompatibleProvider(connection.provider)) {
+  if (connection.provider && isOpenAICompatibleProvider(connection.provider)) {
     headers.Authorization = `Bearer ${connection.apiKey}`;
-  } else if (isAnthropicCompatibleProvider(connection.provider)) {
+  } else if (connection.provider && isAnthropicCompatibleProvider(connection.provider)) {
     if (url.endsWith("/messages/models")) {
       url = url.slice(0, -9);
     } else if (url.endsWith("/messages")) {
@@ -223,7 +239,7 @@ async function fetchCompatibleModelIds(connection) {
 
 // Provider matches kindFilter when its serviceKinds intersect the requested kinds.
 // LLM is the default kind for providers missing serviceKinds.
-function providerMatchesKinds(providerId, kindFilter) {
+function providerMatchesKinds(providerId: string, kindFilter: string[]) {
   const provider = AI_PROVIDERS[providerId];
   const kinds = Array.isArray(provider?.serviceKinds) && provider.serviceKinds.length > 0
     ? provider.serviceKinds
@@ -233,8 +249,9 @@ function providerMatchesKinds(providerId, kindFilter) {
 
 // Combo matches kindFilter when its `kind` field is in the list.
 // Combos with no kind are treated as LLM.
-function comboMatchesKinds(combo, kindFilter) {
-  const kind = combo?.kind || LLM_KIND;
+function comboMatchesKinds(combo: Record<string, unknown>, kindFilter: string[]) {
+  const kind = (combo?.kind || LLM_KIND) as string;
+  if (kind === "smart") return true;
   return kindFilter.includes(kind);
 }
 
@@ -242,61 +259,61 @@ function comboMatchesKinds(combo, kindFilter) {
  * Build OpenAI-format models list filtered by service kinds.
  * @param {string[]} kindFilter - List of service kinds to include (e.g. ["llm"], ["webSearch","webFetch"]).
  */
-export async function buildModelsList(kindFilter, options = {}) {
+export async function buildModelsList(kindFilter: string[], options: { skipDynamicFetch?: boolean } = {}) {
   // When this header is present, the /v1/models request came from another
   // 9router instance's fetchCompatibleModelIds — skip dynamic fetch to break
   // cross-instance recursive loops.
   const skipDynamicFetch = options.skipDynamicFetch === true;
-  let connections = [];
+  let connections: ConnectionRecord[] = [];
   try {
-    connections = await getProviderConnections();
-    connections = connections.filter(c => c.isActive !== false);
+    connections = (await getProviderConnections()) as unknown as ConnectionRecord[];
+    connections = connections.filter((c) => c.isActive !== false);
   } catch ($1) { console.error("Could not fetch providers, returning all models");
   }
 
-  let combos = [];
+  let combos: Record<string, unknown>[] = [];
   try {
-    combos = await getCombos();
+    combos = (await getCombos()) as unknown as Record<string, unknown>[];
   } catch ($1) { console.error("Could not fetch combos");
   }
 
-  let customModels = [];
+  let customModels: Record<string, unknown>[] = [];
   try {
-    customModels = await getCustomModels();
+    customModels = (await getCustomModels()) as unknown as Record<string, unknown>[];
   } catch ($1) { console.error("Could not fetch custom models");
   }
 
-  let modelAliases = {};
+  let modelAliases: Record<string, unknown> = {};
   try {
-    modelAliases = await getModelAliases();
+    modelAliases = (await getModelAliases()) as unknown as Record<string, unknown>;
   } catch ($1) { console.error("Could not fetch model aliases");
   }
 
-  let disabledByAlias = {};
+  let disabledByAlias: Record<string, string[]> = {};
   try {
-    disabledByAlias = await getDisabledModels();
+    disabledByAlias = (await getDisabledModels()) as unknown as Record<string, string[]>;
   } catch ($1) { console.error("Could not fetch disabled models");
   }
-  const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
+  const isDisabled = (alias: string, modelId: string) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
-  const activeConnectionByProvider = new Map();
+  const activeConnectionByProvider = new Map<string, ConnectionRecord>();
   for (const conn of connections) {
-    if (!activeConnectionByProvider.has(conn.provider)) {
+    if (conn.provider && !activeConnectionByProvider.has(conn.provider)) {
       activeConnectionByProvider.set(conn.provider, conn);
     }
   }
 
-  const models = [];
+  const models: Record<string, unknown>[] = [];
 
   // Combos first (filtered by kind). Web combos expose `kind` so AI knows search vs fetch.
   for (const combo of combos) {
     if (!comboMatchesKinds(combo, kindFilter)) continue;
-    const entry = {
+    const entry: Record<string, unknown> = {
       id: combo.name,
       object: "model",
       owned_by: "combo",
     };
-    if (combo.kind === "webSearch" || combo.kind === "webFetch") {
+    if (combo.kind === "webSearch" || combo.kind === "webFetch" || combo.kind === "smart") {
       entry.kind = combo.kind;
     }
     models.push(entry);
@@ -310,9 +327,9 @@ export async function buildModelsList(kindFilter, options = {}) {
     for (const [alias, providerModels] of Object.entries(PROVIDER_MODELS)) {
       const providerId = aliasToProviderId[alias] || alias;
       if (!providerMatchesKinds(providerId, kindFilter)) continue;
-      for (const model of providerModels) {
+      for (const model of providerModels as Array<Record<string, unknown>>) {
         if (!kindFilter.includes(modelKind(model))) continue;
-        if (isDisabled(alias, model.id)) continue;
+        if (isDisabled(alias, model.id as string)) continue;
         models.push({
           id: `${alias}/${model.id}`,
           object: "model",
@@ -342,11 +359,11 @@ export async function buildModelsList(kindFilter, options = {}) {
       if (!providerMatchesKinds(providerId, kindFilter)) continue;
 
       const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
-      const outputAlias = (
+      const outputAlias = ((
         conn?.providerSpecificData?.prefix
         || getProviderAlias(providerId)
         || staticAlias
-      ).trim();
+      ) as string).trim();
       const providerModels = PROVIDER_MODELS[staticAlias] || [];
       const enabledModels = conn?.providerSpecificData?.enabledModels;
       const hasExplicitEnabledModels =
@@ -395,7 +412,7 @@ export async function buildModelsList(kindFilter, options = {}) {
                 .map((m) => [m.id, m.capabilities])
             );
           }
-        } catch ($1) { console.error(`Live model fetch failed for ${providerId}: ${err?.message || err}`);
+        } catch ($1) { console.error(`Live model fetch failed for ${providerId}: ${($1 instanceof Error ? $1.message : String($1))}`);
         }
       }
 
@@ -414,9 +431,9 @@ export async function buildModelsList(kindFilter, options = {}) {
         })
         .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "");
 
-      const customModelKindById = new Map();
+      const customModelKindById = new Map<string, string>();
       const customModelIds = customModels
-        .filter((m) => {
+        .filter((m: Record<string, unknown>) => {
           if (!m?.id) return false;
           const kind = getModelKind(m) || LLM_KIND;
           // imageToText custom models are vision-capable chat models: expose them
@@ -432,8 +449,8 @@ export async function buildModelsList(kindFilter, options = {}) {
         })
         .filter((modelId) => modelId !== "");
 
-      const aliasModelIds = Object.values(modelAliases || {})
-        .filter((fullModel) => {
+      const aliasModelIds = (Object.values(modelAliases || {}) as string[])
+        .filter((fullModel: string) => {
           if (typeof fullModel !== "string" || !fullModel.includes("/")) return false;
           return (
             fullModel.startsWith(`${outputAlias}/`) ||
@@ -441,7 +458,7 @@ export async function buildModelsList(kindFilter, options = {}) {
             fullModel.startsWith(`${providerId}/`)
           );
         })
-        .map((fullModel) => {
+        .map((fullModel: string) => {
           if (fullModel.startsWith(`${outputAlias}/`)) {
             return fullModel.slice(outputAlias.length + 1);
           }
@@ -467,7 +484,7 @@ export async function buildModelsList(kindFilter, options = {}) {
         if (!kindFilter.includes(kind) && !allowAsLlm) continue;
         if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId)) continue;
 
-        const model = {
+        const model: Record<string, unknown> = {
           id: `${outputAlias}/${modelId}`,
           object: "model",
           owned_by: outputAlias,
@@ -561,10 +578,10 @@ export async function GET(request: NextRequest) {
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching models:", error);
     return Response.json(
-      { error: { message: error.message, type: "server_error" } },
+      { error: { message: error instanceof Error ? error.message : String(error), type: "server_error" } },
       { status: 500 }
     );
   }

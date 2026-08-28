@@ -42,7 +42,7 @@ if (cleanupInterval.unref) cleanupInterval.unref();
  * @param {string} connectionId - The connection identifier (email or unique ID)
  * @returns {string} A stable session ID string matching binary format
  */
-export function deriveSessionId(connectionId) {
+export function deriveSessionId(connectionId: string) {
     if (!connectionId) {
         return generateBinaryStyleId();
     }
@@ -95,12 +95,12 @@ const MAX_CONTINUATION_SESSIONS = 5000;
 const SESSION_HEADER_KEYS = ["x-session-id", "session-id", "session_id", "x-amp-thread-id"];
 const CLAUDE_CODE_SESSION_RE = /_session_([a-f0-9-]+)$/;
 
-function sha16(text) {
+function sha16(text: string) {
     return crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
 // Normalize a session id candidate (trim, length cap)
-function normalizeSessionId(value) {
+function normalizeSessionId(value: unknown): string | null {
     if (typeof value !== "string") return null;
     const v = value.trim();
     if (!v || v.length > 256) return null;
@@ -108,7 +108,7 @@ function normalizeSessionId(value) {
 }
 
 // Extract Claude Code session id from metadata.user_id (_session_{uuid} | JSON {session_id})
-function extractClaudeCodeSession(userId) {
+function extractClaudeCodeSession(userId: unknown): string | null {
     if (typeof userId !== "string" || !userId) return null;
     const m = userId.match(CLAUDE_CODE_SESSION_RE);
     if (m) return m[1];
@@ -119,7 +119,7 @@ function extractClaudeCodeSession(userId) {
 }
 
 // Lowercase-key lookup for raw client headers
-function headerValue(headers, key) {
+function headerValue(headers: Record<string, unknown> | null | undefined, key: string): string | null {
     if (!headers || typeof headers !== "object") return null;
     return normalizeSessionId(headers[key] ?? headers[key.toLowerCase()]);
 }
@@ -127,17 +127,17 @@ function headerValue(headers, key) {
 // Read client-provided session id from headers/body (no generation)
 // Antigravity envelope carries session in request.sessionId; requestId embeds conversation uuid
 const ANTIGRAVITY_CONV_RE = /^[a-z]+\/([0-9a-f-]{36})\//i;
-function extractAntigravitySession(body) {
-    const sid = body?.request?.sessionId;
+function extractAntigravitySession(body: Record<string, unknown>): string | null {
+    const sid = (body?.request as Record<string, unknown>)?.sessionId;
     if (sid != null && sid !== "") return normalizeSessionId(String(sid));
     const m = typeof body?.requestId === "string" ? body.requestId.match(ANTIGRAVITY_CONV_RE) : null;
     return m ? normalizeSessionId(m[1]) : null;
 }
 
-function extractClientSessionId(headers, body, scope = "") {
-    const claude = extractClaudeCodeSession(body?.metadata?.user_id);
+function extractClientSessionId(headers: Record<string, unknown> | null | undefined, body: Record<string, unknown> | null | undefined, scope = "") {
+    const claude = extractClaudeCodeSession((body?.metadata as Record<string, unknown>)?.user_id);
     if (claude) return `claude:${claude}`;
-    const antigravity = extractAntigravitySession(body);
+    const antigravity = extractAntigravitySession(body ?? {});
     if (antigravity) return `antigravity:${antigravity}`;
     for (const key of SESSION_HEADER_KEYS) {
         const v = headerValue(headers, key);
@@ -149,26 +149,27 @@ function extractClientSessionId(headers, body, scope = "") {
         normalizeSessionId(body?.prompt_cache_key) ||
         normalizeSessionId(body?.session_id) ||
         normalizeSessionId(body?.conversation_id) ||
-        (scope === "kiro" ? null : normalizeSessionId(body?.metadata?.user_id));
+        (scope === "kiro" ? null : normalizeSessionId((body?.metadata as Record<string, unknown>)?.user_id));
     return fromBody || null;
 }
 
-function requestMessages(body) {
+function requestMessages(body: Record<string, unknown>): unknown[] {
     if (Array.isArray(body?.messages)) return body.messages;
     if (Array.isArray(body?.input)) return body.input;
     return [];
 }
 
 // Accumulate assistant text from OpenAI/Responses-style input/messages (cap-limited)
-function accumulateAssistantText(body) {
+function accumulateAssistantText(body: Record<string, unknown>) {
     const items = requestMessages(body);
     if (!items) return "";
     let text = "";
     for (const item of items) {
-        if (item?.role !== "assistant") continue;
-        if (typeof item.content === "string") text += item.content;
-        else if (Array.isArray(item.content)) {
-            for (const c of item.content) text += c?.text || c?.output || "";
+        const msg = item as Record<string, unknown>;
+        if (msg?.role !== "assistant") continue;
+        if (typeof msg.content === "string") text += msg.content;
+        else if (Array.isArray(msg.content)) {
+            for (const c of msg.content) text += (c as Record<string, unknown>)?.text || (c as Record<string, unknown>)?.output || "";
         }
         if (text.length >= ASSISTANT_CAP_LEN) break;
     }
@@ -176,7 +177,7 @@ function accumulateAssistantText(body) {
 }
 
 // Stable session id keyed on accumulated assistant text (avoids collision on identical first user prompt)
-function assistantTextSessionId(scope, body) {
+function assistantTextSessionId(scope: string, body: Record<string, unknown>) {
     const text = accumulateAssistantText(body);
     if (text.length < ASSISTANT_MIN_LEN) return null;
     const hash = sha16(`${scope}:${text.slice(0, ASSISTANT_CAP_LEN)}`);
@@ -205,22 +206,37 @@ function assistantTextSessionId(scope, body) {
  * @param {string} [opts.scope] - Provider scope to isolate cache keys across providers
  * @returns {{sessionId: string, ephemeral: boolean}} A session id plus whether it is one-shot
  */
-export function resolveSessionIdentity({ headers, body, connectionId, workspaceId, scope = "" } = {}) {
-    const client = extractClientSessionId(headers, body, scope);
+interface SessionIdentityOpts {
+  headers?: Record<string, unknown> | null;
+  body?: Record<string, unknown> | null;
+  connectionId?: string | null;
+  workspaceId?: string | null;
+  scope?: string;
+}
+
+interface ContinuationIdOpts {
+  sessionId?: string | null;
+  connectionId?: string | null;
+  scope?: string;
+  ephemeral?: boolean;
+}
+
+export function resolveSessionIdentity({ headers, body, connectionId, workspaceId, scope = "" }: SessionIdentityOpts = {}) {
+    const client = extractClientSessionId(headers, body ?? undefined, scope);
     if (client) return { sessionId: client, ephemeral: false };
-    const fromAssistant = scope === "kiro" ? null : assistantTextSessionId(`${scope}:${connectionId || ""}`, body);
+    const fromAssistant = scope === "kiro" ? null : assistantTextSessionId(`${scope}:${connectionId || ""}`, body ?? {});
     if (fromAssistant) return { sessionId: fromAssistant, ephemeral: false };
     const ws = normalizeSessionId(workspaceId);
     if (ws) return { sessionId: ws, ephemeral: false };
     if (scope === "kiro") return { sessionId: generateBinaryStyleId(), ephemeral: true };
-    return { sessionId: deriveSessionId(connectionId), ephemeral: false };
+    return { sessionId: deriveSessionId(connectionId ?? ""), ephemeral: false };
 }
 
-export function resolveSessionId(opts = {}) {
+export function resolveSessionId(opts: SessionIdentityOpts = {}) {
     return resolveSessionIdentity(opts).sessionId;
 }
 
-export function resolveContinuationId({ sessionId, connectionId, scope = "", ephemeral = false } = {}) {
+export function resolveContinuationId({ sessionId, connectionId, scope = "", ephemeral = false }: ContinuationIdOpts = {}) {
     if (ephemeral) return crypto.randomUUID();
     const key = `${scope}:${connectionId || ""}:${sessionId || ""}`;
     const existing = continuationStore.get(key);
@@ -239,13 +255,13 @@ export function resolveContinuationId({ sessionId, connectionId, scope = "", eph
 }
 
 // Capture session id from request body + credentials (envelope still intact here)
-export function captureSessionId(body, credentials, connectionId, scope = "") {
-    return resolveSessionId({ headers: credentials?.rawHeaders, body, connectionId, scope });
+export function captureSessionId(body: Record<string, unknown>, credentials: Record<string, unknown> | null | undefined, connectionId: string, scope = "") {
+    return resolveSessionId({ headers: credentials?.rawHeaders as Record<string, unknown> | undefined, body, connectionId, scope });
 }
 
 // Convert any session id to Antigravity numeric format "-<int64>" (matches real AG / CLIProxyAPI).
 // Already-numeric ids (native AG sessionId) pass through unchanged.
-export function toNumericSessionId(sessionId) {
+export function toNumericSessionId(sessionId: unknown) {
     const v = normalizeSessionId(sessionId);
     if (!v) return null;
     if (/^-?\d+$/.test(v)) return v;

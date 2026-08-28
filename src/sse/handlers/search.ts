@@ -13,12 +13,15 @@ import { HTTP_STATUS } from "@/lib/open-sse/config/runtimeConfig";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh";
 import { handleComboChat, getComboModelsFromData } from "@/lib/open-sse/services/combo";
+import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
+import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/lib/open-sse/services/smart-routing/router";
+import { classifySmartRouting } from "../services/smartRoutingClassifier";
 
 /**
  * Handle web search request for the SSE/Next.js server.
  */
 export async function handleSearch(request: Request): Promise<Response> {
-  let body: any;
+  let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
@@ -27,8 +30,8 @@ export async function handleSearch(request: Request): Promise<Response> {
   }
 
   const url: URL = new URL(request.url);
-  const providerInput: string = body.provider || body.model;
-  const query: string = body.query;
+  const providerInput: string = (body.provider || body.model) as string;
+  const query: string = body.query as string;
 
   log.request("POST", `${url.pathname} | ${providerInput}`);
 
@@ -39,7 +42,7 @@ export async function handleSearch(request: Request): Promise<Response> {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  const settings: any = await getSettings();
+  const settings = await getSettings();
   if (settings.requireApiKey) {
     if (!apiKey) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
@@ -62,17 +65,46 @@ export async function handleSearch(request: Request): Promise<Response> {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: query");
   }
 
-  const combos: any[] = await getCombos();
+  const smartCombo = await getSmartCombo(providerInput);
+  if (smartCombo) {
+    try {
+      const routing = await resolveSmartRouting({
+        combo: smartCombo,
+        body,
+        headers: request.headers,
+        endpointNeed: "web_search",
+        sessionKey: deriveRoutingSessionKey(request.headers, body),
+        classifyWithModel: (model, prompt, timeoutMs) => classifySmartRouting(model, prompt, timeoutMs, request, apiKey),
+      });
+      const providers = [...new Set(routing.models.map((candidate) => candidate.split("/", 1)[0]).filter(Boolean))];
+      if (providers.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible web search provider is active");
+      attachRoutingDecision(body, routing.meta);
+      log.info("ROUTING", `Smart combo "${providerInput}" → web_search/${routing.meta.tier} → ${providers[0]}`);
+      return handleComboChat({
+        body,
+        models: providers,
+        handleSingleModel: (b: Record<string, unknown>, provider: string) => handleSingleProviderSearch(b, provider, request, apiKey, settings as Record<string, unknown>),
+        log,
+        comboName: providerInput,
+        comboStrategy: "fallback",
+        autoSwitch: false,
+      });
+    } catch (error) {
+      return errorResponse(HTTP_STATUS.BAD_REQUEST, error instanceof Error ? error.message : "Invalid smart routing configuration");
+    }
+  }
+
+  const combos = await getCombos() as unknown as Parameters<typeof getComboModelsFromData>[1];
   const comboModels: string[] | null = getComboModelsFromData(providerInput, combos);
   if (comboModels) {
-    const comboStrategies: Record<string, any> = settings.comboStrategies || {};
-    const comboStrategy: string = comboStrategies[providerInput]?.fallbackStrategy || settings.comboStrategy || "fallback";
-    const comboStickyLimit: number = settings.comboStickyRoundRobinLimit;
+    const comboStrategies: Record<string, unknown> = (settings as Record<string, unknown>).comboStrategies as Record<string, unknown> || {};
+    const comboStrategy: string = ((comboStrategies[providerInput] as Record<string, unknown> | undefined)?.fallbackStrategy as string) || (settings as Record<string, unknown>).comboStrategy as string || "fallback";
+    const comboStickyLimit: number = (settings as Record<string, unknown>).comboStickyRoundRobinLimit as number;
     log.info("SEARCH", `Combo "${providerInput}" with ${comboModels.length} providers (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
     return handleComboChat({
       body,
       models: comboModels,
-      handleSingleModel: (b: any, m: string) => handleSingleProviderSearch(b, m, request, apiKey, settings),
+      handleSingleModel: (b: Record<string, unknown>, m: string) => handleSingleProviderSearch(b, m, request, apiKey, settings as Record<string, unknown>),
       log,
       comboName: providerInput,
       comboStrategy,
@@ -83,18 +115,18 @@ export async function handleSearch(request: Request): Promise<Response> {
   return handleSingleProviderSearch(body, providerInput, request, apiKey, settings);
 }
 
-async function handleSingleProviderSearch(body: any, providerInput: string, request: Request, apiKey: string | null, settings: any): Promise<Response> {
-  const query: string = body.query;
+async function handleSingleProviderSearch(body: Record<string, unknown>, providerInput: string, request: Request, apiKey: string | null, settings: Record<string, unknown>): Promise<Response> {
+  const query: string = body.query as string;
   const providerId: string = resolveProviderId(providerInput);
-  const resolvedProvider: any = AI_PROVIDERS[providerId];
+  const resolvedProvider = AI_PROVIDERS[providerId];
 
   if (!resolvedProvider) {
     log.warn("SEARCH", "Unknown provider", { provider: providerInput });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Unknown provider: ${providerInput}`);
   }
 
-  const providerConfig: any = resolvedProvider.searchConfig;
-  const supportsSearch: boolean = !!providerConfig || !!resolvedProvider.searchViaChat;
+  const providerConfig = resolvedProvider?.searchConfig as Record<string, unknown> | undefined;
+  const supportsSearch: boolean = !!providerConfig || !!(resolvedProvider?.searchViaChat);
 
   if (!supportsSearch) {
     log.warn("SEARCH", "Provider does not support web search", { provider: providerId });
@@ -107,7 +139,7 @@ async function handleSingleProviderSearch(body: any, providerInput: string, requ
     log.info("ROUTING", `Provider: ${providerId}`);
   }
 
-  const coreBody: Record<string, any> = {
+  const coreBody: Record<string, unknown> = {
     query: query.trim(),
     provider: providerId,
     max_results: body.max_results,
@@ -121,17 +153,17 @@ async function handleSingleProviderSearch(body: any, providerInput: string, requ
     provider_options: body.provider_options
   };
 
-  if (resolvedProvider.noAuth) {
+  if (resolvedProvider?.noAuth) {
     log.info("AUTH", `\x1b[32m${providerId} no-auth mode\x1b[0m`);
-    const result: any = await handleSearchCore({
+    const result = await handleSearchCore({
       body: coreBody,
-      provider: resolvedProvider,
+      provider: resolvedProvider as unknown as Parameters<typeof handleSearchCore>[0]["provider"],
       providerConfig,
-      credentials: null,
-      log
-    });
-    if (result.success) return result.response;
-    return result.response;
+      credentials: null as unknown as Record<string, unknown>,
+      log: log as unknown as Parameters<typeof handleSearchCore>[0]["log"]
+    }) as unknown as Record<string, unknown>;
+    if (result.success) return result.response as Response;
+    return result.response as Response;
   }
 
   const excludeConnectionIds: Set<string> = new Set();
@@ -139,14 +171,14 @@ async function handleSingleProviderSearch(body: any, providerInput: string, requ
   let lastStatus: number | null = null;
 
   while (true) {
-    const credentials: any = await getProviderCredentials(providerId, excludeConnectionIds);
+    const credentials = await getProviderCredentials(providerId, excludeConnectionIds);
 
     if (!credentials || credentials.allRateLimited) {
       if (credentials?.allRateLimited) {
         const errorMsg: string = lastError || credentials.lastError || "Unavailable";
         const status: number = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
         log.warn("SEARCH", `[${providerId}] ${errorMsg} (${credentials.retryAfterHuman})`);
-        return unavailableResponse(status, `[${providerId}] ${errorMsg}`, credentials.retryAfter, credentials.retryAfterHuman);
+        return unavailableResponse(status, `[${providerId}] ${errorMsg}`, String(credentials.retryAfter ?? ""), credentials.retryAfterHuman ?? "");
       }
       if (excludeConnectionIds.size === 0) {
         log.error("AUTH", `No credentials for provider: ${providerId}`);
@@ -158,39 +190,39 @@ async function handleSingleProviderSearch(body: any, providerInput: string, requ
 
     log.info("AUTH", `\x1b[32mUsing ${providerId} account: ${credentials.connectionName}\x1b[0m`);
 
-    const refreshedCredentials: any = await checkAndRefreshToken(providerId, credentials);
+    const refreshedCredentials = await checkAndRefreshToken(providerId, credentials);
 
-    const result: any = await handleSearchCore({
+    const result = await handleSearchCore({
       body: coreBody,
-      provider: resolvedProvider,
+      provider: resolvedProvider as unknown as Parameters<typeof handleSearchCore>[0]["provider"],
       providerConfig,
-      credentials: refreshedCredentials,
+      credentials: refreshedCredentials as unknown as Record<string, unknown>,
       log,
-      onCredentialsRefreshed: async (newCreds: any) => {
-        await updateProviderCredentials(credentials.connectionId, {
-          accessToken: newCreds.accessToken,
-          refreshToken: newCreds.refreshToken,
-          providerSpecificData: newCreds.providerSpecificData,
+      onCredentialsRefreshed: async (newCreds: Record<string, unknown>) => {
+        await updateProviderCredentials(credentials.connectionId!, {
+          accessToken: newCreds.accessToken as string | undefined,
+          refreshToken: newCreds.refreshToken as string | undefined,
+          providerSpecificData: newCreds.providerSpecificData as Record<string, unknown> | undefined,
           testStatus: "active"
         });
       },
       onRequestSuccess: async () => {
-        await clearAccountError(credentials.connectionId, credentials);
+        await clearAccountError(credentials.connectionId!, credentials);
       }
-    });
+    } as Parameters<typeof handleSearchCore>[0]) as unknown as Record<string, unknown>;
 
-    if (result.success) return result.response;
+    if (result.success) return result.response as Response;
 
-    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, providerId);
+    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId!, result.status as number, result.error as string, providerId);
 
     if (shouldFallback) {
       log.warn("AUTH", `Account ${credentials.connectionName} unavailable (${result.status}), trying fallback`);
-      excludeConnectionIds.add(credentials.connectionId);
-      lastError = result.error;
-      lastStatus = result.status;
+      excludeConnectionIds.add(credentials.connectionId!);
+      lastError = result.error as string;
+      lastStatus = result.status as number;
       continue;
     }
 
-    return result.response;
+    return result.response as Response;
   }
 }

@@ -5,21 +5,20 @@
 import { PROVIDER_MEDIA } from "../../providers/index";
 
 // Default search model + endpoint derive from registry searchViaChat (single source)
-const searchModel = (id) => PROVIDER_MEDIA[id]?.searchViaChat?.defaultModel;
-const searchEndpoint = (id, model) =>
-  (PROVIDER_MEDIA[id]?.searchViaChat?.endpoint || "").replace("{model}", model || "");
+const searchModel = (id: string): string | undefined => (PROVIDER_MEDIA[id]?.searchViaChat as Record<string, unknown>)?.defaultModel as string | undefined;
+const searchEndpoint = (id: string, model?: string): string =>
+  (((PROVIDER_MEDIA[id]?.searchViaChat as Record<string, unknown>)?.endpoint as string) || "").replace("{model}", model || "");
 
 const REQUEST_TIMEOUT_MS = 15000;
 const DEFAULT_MAX_RESULTS = 10;
 
+interface Citation { url: string; title?: string; snippet?: string }
+interface SearchResult { title: string; url: string; snippet: string; position: number; score: null; published_at: null; favicon_url: null; content: null; metadata: Record<string, unknown>; citation: { provider: string; retrieved_at: string; rank: number }; provider_raw: null }
+
 /**
  * Normalize a citation entry into the unified result shape.
- * @param {{url:string, title?:string, snippet?:string}} c
- * @param {number} index
- * @param {string} provider
- * @param {string} retrievedAt
  */
-function toResult(c, index, provider, retrievedAt) {
+function toResult(c: Citation, index: number, provider: string, retrievedAt: string): SearchResult {
   return {
     title: c.title || "",
     url: c.url,
@@ -36,288 +35,300 @@ function toResult(c, index, provider, retrievedAt) {
 }
 
 /** Coerce a citation that might be a raw URL string or an object. */
-function normalizeCitation(c) {
+function normalizeCitation(c: unknown): Citation | null {
   if (!c) return null;
   if (typeof c === "string") return { url: c };
-  if (typeof c === "object" && c.url) return c;
+  if (typeof c === "object" && (c as Record<string, unknown>).url) return c as Citation;
   return null;
 }
 
+interface ChatSearchConfig {
+  endpoint: (model?: string) => string;
+  buildBody: (query: string, model: string) => Record<string, unknown>;
+  buildHeaders: (token: string) => Record<string, string>;
+  extractAnswer: (data: Record<string, unknown>) => { text: string; citations: Citation[]; tokens: number };
+}
+
 /**
- * Provider-specific configuration map. All providers must implement:
- * { endpoint, defaultModel, buildBody, buildHeaders, extractAnswer }
+ * Provider-specific configuration map.
  */
-const CHAT_SEARCH_CONFIG = {
+const CHAT_SEARCH_CONFIG: Record<string, ChatSearchConfig> = {
   gemini: {
-    endpoint: (model) => searchEndpoint("gemini", model),
-    buildBody: (query) => ({
+    endpoint: (model?: string) => searchEndpoint("gemini", model),
+    buildBody: (query: string) => ({
       contents: [{ role: "user", parts: [{ text: query }] }],
       tools: [{ google_search: {} }]
     }),
-    buildHeaders: (token) => ({
+    buildHeaders: (token: string) => ({
       "Content-Type": "application/json",
       "x-goog-api-key": token
     }),
-    extractAnswer: (data) => {
-      const candidate = data?.candidates?.[0];
-      const parts = candidate?.content?.parts || [];
-      const text = parts.map((p) => p?.text || "").filter(Boolean).join("");
-      const chunks = candidate?.groundingMetadata?.groundingChunks || [];
+    extractAnswer: (data: Record<string, unknown>) => {
+      const candidates = data?.candidates as Array<Record<string, unknown>> | undefined;
+      const candidate = candidates?.[0];
+      const parts = ((candidate?.content as Record<string, unknown>)?.parts as Array<Record<string, unknown>>) || [];
+      const text = parts.map((p) => (p?.text as string) || "").filter(Boolean).join("");
+      const chunks = ((candidate?.groundingMetadata as Record<string, unknown>)?.groundingChunks as Array<Record<string, unknown>>) || [];
       const citations = chunks
-        .map((ch) => ch?.web)
+        .map((ch) => ch?.web as Record<string, unknown>)
         .filter(Boolean)
-        .map((w) => ({ url: w.uri || w.url, title: w.title || "" }))
+        .map((w) => ({ url: (w.uri || w.url) as string, title: (w.title || "") as string }))
         .filter((c) => c.url);
-      const tokens = data?.usageMetadata?.totalTokenCount || 0;
+      const tokens = ((data?.usageMetadata as Record<string, unknown>)?.totalTokenCount as number) || 0;
       return { text, citations, tokens };
     }
   },
 
   openai: {
     endpoint: () => searchEndpoint("openai"),
-    buildBody: (query, model) => {
-      const body = {
+    buildBody: (query: string, model: string) => {
+      const body: Record<string, unknown> = {
         model,
         messages: [{ role: "user", content: query }]
       };
-      // Non-search-preview models need explicit web_search tool
       if (!/search/i.test(model)) {
         body.tools = [{ type: "web_search" }];
       }
       return body;
     },
-    buildHeaders: (token) => ({
+    buildHeaders: (token: string) => ({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`
     }),
-    extractAnswer: (data) => {
-      const msg = data?.choices?.[0]?.message || {};
-      const text = msg.content || "";
-      const annotations = Array.isArray(msg.annotations) ? msg.annotations : [];
+    extractAnswer: (data: Record<string, unknown>) => {
+      const choices = data?.choices as Array<Record<string, unknown>> | undefined;
+      const msg = (choices?.[0]?.message as Record<string, unknown>) || {};
+      const text = (msg.content as string) || "";
+      const annotations = Array.isArray(msg.annotations) ? msg.annotations as Array<Record<string, unknown>> : [];
       const fromAnn = annotations
-        .map((a) => a?.url_citation)
+        .map((a) => a?.url_citation as Record<string, unknown>)
         .filter(Boolean)
-        .map((u) => ({ url: u.url, title: u.title || "" }));
+        .map((u) => ({ url: u.url as string, title: (u.title || "") as string }));
       const fromTop = Array.isArray(data?.citations)
-        ? data.citations.map(normalizeCitation).filter(Boolean)
+        ? (data.citations as unknown[]).map(normalizeCitation).filter(Boolean) as Citation[]
         : [];
       const citations = fromAnn.length ? fromAnn : fromTop;
-      const tokens = data?.usage?.total_tokens || 0;
+      const tokens = ((data?.usage as Record<string, unknown>)?.total_tokens as number) || 0;
       return { text, citations, tokens };
     }
   },
 
   xai: {
     endpoint: () => searchEndpoint("xai"),
-    buildBody: (query, model) => ({
+    buildBody: (query: string, model: string) => ({
       model,
       input: [{ role: "user", content: query }],
       tools: [{ type: "web_search" }]
     }),
-    buildHeaders: (token) => ({
+    buildHeaders: (token: string) => ({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`
     }),
-    extractAnswer: (data) => {
-      // /v1/responses returns output[] array of message/tool blocks
-      const output = Array.isArray(data?.output) ? data.output : [];
+    extractAnswer: (data: Record<string, unknown>) => {
+      const output = Array.isArray(data?.output) ? data.output as Array<Record<string, unknown>> : [];
       let text = "";
-      const citations = [];
+      const citations: Citation[] = [];
       for (const item of output) {
-        const parts = Array.isArray(item?.content) ? item.content : [];
+        const parts = Array.isArray(item?.content) ? item.content as Array<Record<string, unknown>> : [];
         for (const p of parts) {
           if (typeof p?.text === "string") text += p.text;
-          const anns = Array.isArray(p?.annotations) ? p.annotations : [];
+          const anns = Array.isArray(p?.annotations) ? p.annotations as Array<Record<string, unknown>> : [];
           for (const a of anns) {
             const c = normalizeCitation(a?.url ? a : a?.url_citation);
             if (c) citations.push(c);
           }
         }
       }
-      // Fallback: top-level citations array (some response variants)
       if (!citations.length && Array.isArray(data?.citations)) {
-        for (const c of data.citations) {
+        for (const c of data.citations as unknown[]) {
           const n = normalizeCitation(c);
           if (n) citations.push(n);
         }
       }
-      const tokens = data?.usage?.total_tokens || 0;
+      const tokens = ((data?.usage as Record<string, unknown>)?.total_tokens as number) || 0;
       return { text, citations, tokens };
     }
   },
 
   kimi: {
     endpoint: () => searchEndpoint("kimi"),
-    buildBody: (query, model) => ({
+    buildBody: (query: string, model: string) => ({
       model,
       messages: [{ role: "user", content: query }],
       tools: [
         { type: "builtin_function", function: { name: "$web_search" } }
       ]
     }),
-    buildHeaders: (token) => ({
+    buildHeaders: (token: string) => ({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`
     }),
-    extractAnswer: (data) => {
-      const msg = data?.choices?.[0]?.message || {};
-      const text = msg.content || "";
-      const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
-      const citations = [];
+    extractAnswer: (data: Record<string, unknown>) => {
+      const choices = data?.choices as Array<Record<string, unknown>> | undefined;
+      const msg = (choices?.[0]?.message as Record<string, unknown>) || {};
+      const text = (msg.content as string) || "";
+      const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls as Array<Record<string, unknown>> : [];
+      const citations: Citation[] = [];
       for (const call of calls) {
-        const argStr = call?.function?.arguments;
+        const fn = call?.function as Record<string, unknown>;
+        const argStr = fn?.arguments as string;
         if (!argStr) continue;
-        let parsed;
+        let parsed: Record<string, unknown>;
         try {
           parsed = typeof argStr === "string" ? JSON.parse(argStr) : argStr;
         } catch {
           continue;
         }
         const items =
-          parsed?.search_results ||
-          parsed?.results ||
-          parsed?.references ||
+          (parsed?.search_results as unknown[]) ||
+          (parsed?.results as unknown[]) ||
+          (parsed?.references as unknown[]) ||
           [];
         if (Array.isArray(items)) {
           for (const it of items) {
-            const url = it?.url || it?.link;
+            const itObj = it as Record<string, unknown>;
+            const url = (itObj?.url || itObj?.link) as string;
             if (!url) continue;
             citations.push({
               url,
-              title: it.title || "",
-              snippet: it.snippet || it.summary || ""
+              title: (itObj.title as string) || "",
+              snippet: (itObj.snippet as string) || (itObj.summary as string) || ""
             });
           }
         }
       }
-      const tokens = data?.usage?.total_tokens || 0;
+      const tokens = ((data?.usage as Record<string, unknown>)?.total_tokens as number) || 0;
       return { text, citations, tokens };
     }
   },
 
   minimax: {
     endpoint: () => searchEndpoint("minimax"),
-    buildBody: (query, model) => ({
+    buildBody: (query: string, model: string) => ({
       model,
       messages: [{ role: "user", content: query }],
       tools: [{ type: "web_search" }]
     }),
-    buildHeaders: (token) => ({
+    buildHeaders: (token: string) => ({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`
     }),
-    extractAnswer: (data) => {
-      const msg = data?.choices?.[0]?.message || {};
-      const text = msg.content || "";
-      const citations = [];
+    extractAnswer: (data: Record<string, unknown>) => {
+      const choices = data?.choices as Array<Record<string, unknown>> | undefined;
+      const msg = (choices?.[0]?.message as Record<string, unknown>) || {};
+      const text = (msg.content as string) || "";
+      const citations: Citation[] = [];
       const direct = Array.isArray(data?.web_search_results)
-        ? data.web_search_results
+        ? data.web_search_results as Array<Record<string, unknown>>
         : [];
       for (const it of direct) {
-        const url = it?.url || it?.link;
+        const url = (it?.url || it?.link) as string;
         if (url) {
           citations.push({
             url,
-            title: it.title || "",
-            snippet: it.snippet || it.summary || ""
+            title: (it.title as string) || "",
+            snippet: (it.snippet as string) || (it.summary as string) || ""
           });
         }
       }
       if (!citations.length) {
-        const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
+        const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls as Array<Record<string, unknown>> : [];
         for (const call of calls) {
-          const argStr = call?.function?.arguments;
+          const fn = call?.function as Record<string, unknown>;
+          const argStr = fn?.arguments as string;
           if (!argStr) continue;
-          let parsed;
+          let parsed: Record<string, unknown>;
           try {
             parsed = typeof argStr === "string" ? JSON.parse(argStr) : argStr;
           } catch {
             continue;
           }
-          const items = parsed?.results || parsed?.search_results || [];
+          const items = (parsed?.results as unknown[]) || (parsed?.search_results as unknown[]) || [];
           if (Array.isArray(items)) {
             for (const it of items) {
-              const url = it?.url || it?.link;
+              const itObj = it as Record<string, unknown>;
+              const url = (itObj?.url || itObj?.link) as string;
               if (!url) continue;
               citations.push({
                 url,
-                title: it.title || "",
-                snippet: it.snippet || ""
+                title: (itObj.title as string) || "",
+                snippet: (itObj.snippet as string) || ""
               });
             }
           }
         }
       }
-      const tokens = data?.usage?.total_tokens || 0;
+      const tokens = ((data?.usage as Record<string, unknown>)?.total_tokens as number) || 0;
       return { text, citations, tokens };
     }
   },
 
   perplexity: {
     endpoint: () => searchEndpoint("perplexity"),
-    buildBody: (query, model) => ({
+    buildBody: (query: string, model: string) => ({
       model,
       messages: [{ role: "user", content: query }]
     }),
-    buildHeaders: (token) => ({
+    buildHeaders: (token: string) => ({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`
     }),
-    extractAnswer: (data) => {
-      const msg = data?.choices?.[0]?.message || {};
-      const text = msg.content || "";
+    extractAnswer: (data: Record<string, unknown>) => {
+      const choices = data?.choices as Array<Record<string, unknown>> | undefined;
+      const msg = (choices?.[0]?.message as Record<string, unknown>) || {};
+      const text = (msg.content as string) || "";
       const raw = data?.citations || [];
       const citations = Array.isArray(raw)
-        ? raw.map(normalizeCitation).filter(Boolean)
+        ? (raw as unknown[]).map(normalizeCitation).filter(Boolean) as Citation[]
         : [];
-      const tokens = data?.usage?.total_tokens || 0;
+      const tokens = ((data?.usage as Record<string, unknown>)?.total_tokens as number) || 0;
       return { text, citations, tokens };
     }
   },
 
   "perplexity-agent": {
     endpoint: () => searchEndpoint("perplexity-agent"),
-    buildBody: (query, model) => ({
+    buildBody: (query: string, model: string) => ({
       model,
       input: query,
       tools: [{ type: "web_search" }]
     }),
-    buildHeaders: (token) => ({
+    buildHeaders: (token: string) => ({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`
     }),
-    extractAnswer: (data) => {
-      const output = Array.isArray(data?.output) ? data.output : [];
+    extractAnswer: (data: Record<string, unknown>) => {
+      const output = Array.isArray(data?.output) ? data.output as Array<Record<string, unknown>> : [];
       let text = "";
-      const citations = [];
+      const citations: Citation[] = [];
       for (const item of output) {
-        const parts = Array.isArray(item?.content) ? item.content : [];
+        const parts = Array.isArray(item?.content) ? item.content as Array<Record<string, unknown>> : [];
         for (const p of parts) {
           if (typeof p?.text === "string") text += p.text;
-          const anns = Array.isArray(p?.annotations) ? p.annotations : [];
+          const anns = Array.isArray(p?.annotations) ? p.annotations as Array<Record<string, unknown>> : [];
           for (const a of anns) {
             const c = normalizeCitation(a?.url ? a : a?.url_citation);
             if (c) citations.push(c);
           }
         }
-        const results = Array.isArray(item?.results) ? item.results : [];
+        const results = Array.isArray(item?.results) ? item.results as Array<Record<string, unknown>> : [];
         for (const r of results) {
-          const url = r?.url || r?.link;
+          const url = (r?.url || r?.link) as string;
           if (!url) continue;
           citations.push({
             url,
-            title: r?.title || "",
-            snippet: r?.snippet || ""
+            title: (r?.title as string) || "",
+            snippet: (r?.snippet as string) || ""
           });
         }
       }
       if (!citations.length && Array.isArray(data?.citations)) {
-        for (const c of data.citations) {
+        for (const c of data.citations as unknown[]) {
           const n = normalizeCitation(c);
           if (n) citations.push(n);
         }
       }
-      const tokens = data?.usage?.total_tokens || 0;
+      const tokens = ((data?.usage as Record<string, unknown>)?.total_tokens as number) || 0;
       return { text, citations, tokens };
     }
   }
@@ -325,14 +336,6 @@ const CHAT_SEARCH_CONFIG = {
 
 /**
  * Execute a chat-search request against the chosen provider.
- * @param {object} params
- * @param {string} params.provider
- * @param {string} params.query
- * @param {number} [params.maxResults]
- * @param {string} [params.model]
- * @param {{apiKey?:string, accessToken?:string}} params.credentials
- * @param {{info?:Function, warn?:Function, error?:Function}} [params.log]
- * @returns {Promise<{success:boolean, status?:number, error?:string, data?:object}>}
  */
 export async function handleChatSearch({
   provider,
@@ -341,6 +344,13 @@ export async function handleChatSearch({
   model,
   credentials,
   log
+}: {
+  provider: string;
+  query: string;
+  maxResults?: number;
+  model?: string;
+  credentials: Record<string, unknown>;
+  log?: { info?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void };
 }) {
   const startTime = Date.now();
   const cfg = CHAT_SEARCH_CONFIG[provider];
@@ -357,7 +367,7 @@ export async function handleChatSearch({
     return { success: false, status: 400, error: "Missing query" };
   }
 
-  const token = credentials?.apiKey || credentials?.accessToken;
+  const token = (credentials?.apiKey || credentials?.accessToken) as string | undefined;
   if (!token) {
     return {
       success: false,
@@ -367,19 +377,19 @@ export async function handleChatSearch({
   }
 
   const limit =
-    Number.isFinite(maxResults) && maxResults > 0
-      ? Math.floor(maxResults)
+    Number.isFinite(maxResults) && (maxResults as number) > 0
+      ? Math.floor(maxResults as number)
       : DEFAULT_MAX_RESULTS;
   const useModel = model || searchModel(provider);
   const url = cfg.endpoint(useModel);
-  const body = cfg.buildBody(query, useModel);
+  const body = cfg.buildBody(query, useModel || "");
   const headers = cfg.buildHeaders(token);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  let upstreamStart = Date.now();
-  let resp;
+  const upstreamStart = Date.now();
+  let resp: Response;
   try {
     resp = await fetch(url, {
       method: "POST",
@@ -387,25 +397,25 @@ export async function handleChatSearch({
       body: JSON.stringify(body),
       signal: controller.signal
     });
-  } catch (err) {
+  } catch (err: unknown) {
     clearTimeout(timer);
-    if (err?.name === "AbortError") {
+    if ((err as Error)?.name === "AbortError") {
       log?.warn?.(`[chatSearch] timeout provider=${provider}`);
       return { success: false, status: 504, error: "Upstream timeout" };
     }
-    log?.error?.(`[chatSearch] network error provider=${provider}: ${err?.message}`);
+    log?.error?.(`[chatSearch] network error provider=${provider}: ${(err as Error)?.message}`);
     return {
       success: false,
       status: 502,
-      error: `Network error: ${err?.message || "unknown"}`
+      error: `Network error: ${(err as Error)?.message || "unknown"}`
     };
   }
   clearTimeout(timer);
   const upstreamLatency = Date.now() - upstreamStart;
 
-  let data;
+  let data: Record<string, unknown>;
   try {
-    data = await resp.json();
+    data = await resp.json() as Record<string, unknown>;
   } catch {
     return {
       success: false,
@@ -416,7 +426,7 @@ export async function handleChatSearch({
 
   if (!resp.ok) {
     const errMsg =
-      data?.error?.message ||
+      ((data?.error as Record<string, unknown>)?.message as string) ||
       data?.error ||
       data?.message ||
       `Upstream HTTP ${resp.status}`;
@@ -431,7 +441,7 @@ export async function handleChatSearch({
   const { text, citations, tokens } = cfg.extractAnswer(data);
   const retrievedAt = new Date().toISOString();
   const limited = (citations || []).slice(0, limit);
-  const results = limited.map((c, i) => toResult(c, i, provider, retrievedAt));
+  const results = limited.map((c: Citation, i: number) => toResult(c, i, provider, retrievedAt));
 
   return {
     success: true,

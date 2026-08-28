@@ -17,15 +17,15 @@ const getHermesEnvPath = () => path.join(getHermesDir(), ".env");
 // Match top-level "model:" block (until next non-indented, non-empty line)
 const MODEL_BLOCK_RE = /^model:[ \t]*\r?\n((?:[ \t]+.*\r?\n?|[ \t]*\r?\n)*)/m;
 
-const buildModelBlock = (model, baseUrl) =>
+const buildModelBlock = (model: string, baseUrl: string) =>
   `model:\n  default: "${model}"\n  provider: "custom"\n  base_url: "${baseUrl}"\n  api_key: \${OPENAI_API_KEY}\n`;
 
 // Parse current model block back to fields (best-effort, simple key:value)
-const parseModelBlock = (yaml) => {
+const parseModelBlock = (yaml: string) => {
   const match = yaml.match(MODEL_BLOCK_RE);
   if (!match) return null;
   const body = match[1] || "";
-  const get = (key) => {
+  const get = (key: string) => {
     const m = body.match(new RegExp(`^[ \\t]+${key}:[ \\t]*["']?([^"'\\r\\n]+)["']?`, "m"));
     return m ? m[1].trim() : null;
   };
@@ -37,22 +37,22 @@ const parseModelBlock = (yaml) => {
   };
 };
 
-const upsertModelBlock = (yaml, newBlock) => {
+const upsertModelBlock = (yaml: string, newBlock: string) => {
   if (MODEL_BLOCK_RE.test(yaml)) return yaml.replace(MODEL_BLOCK_RE, newBlock);
   return yaml.length > 0 ? `${newBlock}\n${yaml}` : newBlock;
 };
 
-const removeModelBlock = (yaml) => yaml.replace(MODEL_BLOCK_RE, "").replace(/^\n+/, "");
+const removeModelBlock = (yaml: string) => yaml.replace(MODEL_BLOCK_RE, "").replace(/^\n+/, "");
 
 // .env helpers — upsert/remove single KEY=VALUE line
-const upsertEnvVar = (envText, key, value) => {
+const upsertEnvVar = (envText: string, key: string, value: string) => {
   const re = new RegExp(`^${key}=.*$`, "m");
   const line = `${key}=${value}`;
   if (re.test(envText)) return envText.replace(re, line);
   return envText.length > 0 && !envText.endsWith("\n") ? `${envText}\n${line}\n` : `${envText}${line}\n`;
 };
 
-const removeEnvVar = (envText, key) => {
+const removeEnvVar = (envText: string, key: string) => {
   const re = new RegExp(`^${key}=.*\\r?\\n?`, "m");
   return envText.replace(re, "");
 };
@@ -76,8 +76,8 @@ const checkHermesInstalled = async () => {
 const readConfigYaml = async () => {
   try {
     return await fs.readFile(getHermesConfigPath(), "utf-8");
-  } catch (error) {
-    if (error.code === "ENOENT") return "";
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
     throw error;
   }
 };
@@ -85,16 +85,16 @@ const readConfigYaml = async () => {
 const readEnvFile = async () => {
   try {
     return await fs.readFile(getHermesEnvPath(), "utf-8");
-  } catch (error) {
-    if (error.code === "ENOENT") return "";
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
     throw error;
   }
 };
 
 // Detect 9router by base_url containing localhost/127.0.0.1 or matching tunnel URL
-const has9RouterConfig = (modelCfg) => {
+const has9RouterConfig = (modelCfg: Record<string, unknown> | null) => {
   if (!modelCfg?.base_url) return false;
-  return modelCfg.provider === "custom" && /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(modelCfg.base_url);
+  return modelCfg.provider === "custom" && /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(modelCfg.base_url as string);
 };
 
 export async function GET() {
@@ -158,8 +158,8 @@ export async function DELETE() {
     let yaml = "";
     try {
       yaml = await fs.readFile(configPath, "utf-8");
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({ success: true, message: "No config file to reset" });
       }
       throw error;

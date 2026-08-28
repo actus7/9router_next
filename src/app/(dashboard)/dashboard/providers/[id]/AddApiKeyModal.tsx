@@ -43,8 +43,9 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
 
   const isAzure = provider === "azure";
   const isCloudflareAi = provider === "cloudflare-ai";
-  const providerRegions = AI_PROVIDERS?.[provider]?.regions || null;
-  const defaultRegion = AI_PROVIDERS?.[provider]?.defaultRegion || providerRegions?.[0]?.id || "";
+  const providerInfo = provider ? AI_PROVIDERS[provider] : undefined;
+  const providerRegions = (providerInfo?.regions as { id: string; label: string }[] | undefined) || null;
+  const defaultRegion = (providerInfo?.defaultRegion as string | undefined) || providerRegions?.[0]?.id || "";
 
   const [formData, setFormData] = useState({
     name: "",
@@ -305,7 +306,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
           <Select
             label="Region"
             value={region}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRegion(e.target.value)}
+            onChange={(value: string) => setRegion(value)}
             options={providerRegions.map((r: { id: string; label: string }) => ({ value: r.id, label: r.label }))}
           />
         )}
@@ -391,7 +392,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         <Select
           label="Proxy Pool"
           value={formData.proxyPoolId}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, proxyPoolId: e.target.value })}
+          onChange={(value: string) => setFormData({ ...formData, proxyPoolId: value })}
           options={[
             { value: NONE_PROXY_POOL_VALUE, label: "None" },
             ...(proxyPools || []).map((pool) => ({ value: pool.id, label: pool.name })),
@@ -411,10 +412,10 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
 
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={saving || (!isOllamaLocal && (!formData.name || !formData.apiKey)) || (isCompatible && !formData.defaultModel.trim()) || (isAzure && (!azureData.azureEndpoint || !azureData.deployment || !azureData.organization)) || (isCloudflareAi && !cloudflareData.accountId)}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Salvando..." : "Salvar"}
           </Button>
           <Button onClick={onClose} variant="ghost" fullWidth>
-            Cancel
+            Cancelar
           </Button>
         </div>
         </>)}

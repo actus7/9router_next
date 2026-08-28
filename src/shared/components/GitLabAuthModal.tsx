@@ -121,9 +121,9 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            Connect GitLab Duo
+            Conectar GitLab Duo
           </DialogTitle>
-          <Button onClick={handleClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={handleClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -133,7 +133,7 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
         {!mode && (
           <>
             <p className="text-sm text-text-muted">
-              Choose how to authenticate with GitLab Duo:
+              Escolha como autenticar com o GitLab Duo:
             </p>
             <div className="grid grid-cols-2 gap-3">
               <Button
@@ -143,8 +143,8 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
               >
                 <Unlock className="size-4" />
                 <div>
-                  <p className="text-sm font-medium">OAuth App</p>
-                  <p className="text-xs text-text-muted">Use a GitLab OAuth application</p>
+                  <p className="text-sm font-medium">Aplicação OAuth</p>
+                  <p className="text-xs text-text-muted">Use uma aplicação OAuth do GitLab</p>
                 </div>
               </Button>
               <Button
@@ -154,8 +154,8 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
               >
                 <Key className="size-4" />
                 <div>
-                  <p className="text-sm font-medium">Personal Access Token</p>
-                  <p className="text-xs text-text-muted">Use a GitLab PAT with api scope</p>
+                  <p className="text-sm font-medium">Token de Acesso Pessoal</p>
+                  <p className="text-xs text-text-muted">Use um PAT do GitLab com escopo api</p>
                 </div>
               </Button>
             </div>
@@ -166,23 +166,23 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
         {mode === "oauth" && (
           <>
             <p className="text-xs text-text-muted">
-              Create an OAuth app at{" "}
+              Crie uma aplicação OAuth em{" "}
               <a href={`${baseUrl.trim() || GITLAB_COM}/-/profile/applications`} target="_blank" rel="noreferrer" className="text-primary underline">
                 GitLab Applications
               </a>{" "}
-              with redirect URI{" "}
+              com URI de redirecionamento{" "}
               <code className="bg-sidebar px-1 rounded text-xs">{getRedirectUri()}</code>
             </p>
-            <Input label="GitLab Base URL" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
-            <Input label="Client ID" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Your OAuth application client ID" />
-            <Input label="Client Secret (optional for PKCE)" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="Leave empty for public PKCE app" />
+            <Input label="URL Base do GitLab" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
+            <Input label="ID do Cliente" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="ID do cliente da aplicação OAuth" />
+            <Input label="Segredo do Cliente (opcional para PKCE)" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="Deixe vazio para aplicação PKCE pública" />
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2">
               <Button onClick={handleOAuthStart} fullWidth disabled={!clientId.trim()}>
-                Authorize
+                Autorizar
               </Button>
               <Button onClick={() => { setMode(null); setError(null); }} variant="ghost" fullWidth>
-                Back
+                Voltar
               </Button>
             </div>
           </>
@@ -192,23 +192,23 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
         {mode === "pat" && (
           <>
             <p className="text-xs text-text-muted">
-              Create a PAT at{" "}
+              Crie um PAT em{" "}
               <a href={`${baseUrl.trim() || GITLAB_COM}/-/user_settings/personal_access_tokens`} target="_blank" rel="noreferrer" className="text-primary underline">
                 GitLab Access Tokens
               </a>{" "}
-              with scopes: <code className="bg-sidebar px-1 rounded text-xs">api</code>,{" "}
+              com escopos: <code className="bg-sidebar px-1 rounded text-xs">api</code>,{" "}
               <code className="bg-sidebar px-1 rounded text-xs">read_user</code>, and{" "}
               <code className="bg-sidebar px-1 rounded text-xs">ai_features</code>.
             </p>
-            <Input label="GitLab Base URL" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
-            <Input label="Personal Access Token" value={pat} onChange={(e) => setPat(e.target.value)} placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" type="password" />
+            <Input label="URL Base do GitLab" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
+            <Input label="Token de Acesso Pessoal" value={pat} onChange={(e) => setPat(e.target.value)} placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" type="password" />
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2">
               <Button onClick={handlePATSubmit} fullWidth disabled={!pat.trim() || loading} loading={loading}>
-                Connect
+                Conectar
               </Button>
               <Button onClick={() => { setMode(null); setError(null); }} variant="ghost" fullWidth>
-                Back
+                Voltar
               </Button>
             </div>
           </>

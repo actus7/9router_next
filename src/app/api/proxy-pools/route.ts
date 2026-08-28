@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse  } from "next/server";
 import { createProxyPool, getProviderConnections, getProxyPools } from "@/models";
 
-function toBoolean(value) {
+function toBoolean(value: string | null) {
   if (value === "true") return true;
   if (value === "false") return false;
   return undefined;
@@ -9,13 +9,13 @@ function toBoolean(value) {
 
 const VALID_PROXY_TYPES = ["http", "vercel", "cloudflare", "deno"];
 
-function normalizeProxyPoolInput(body = {}) {
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const proxyUrl = typeof body?.proxyUrl === "string" ? body.proxyUrl.trim() : "";
-  const noProxy = typeof body?.noProxy === "string" ? body.noProxy.trim() : "";
+function normalizeProxyPoolInput(body: Record<string, unknown> = {}) {
+  const name = typeof body?.name === "string" ? (body.name as string).trim() : "";
+  const proxyUrl = typeof body?.proxyUrl === "string" ? (body.proxyUrl as string).trim() : "";
+  const noProxy = typeof body?.noProxy === "string" ? (body.noProxy as string).trim() : "";
   const isActive = body?.isActive === undefined ? true : body.isActive === true;
   const strictProxy = body?.strictProxy === true;
-  const type = VALID_PROXY_TYPES.includes(body?.type) ? body.type : "http";
+  const type = VALID_PROXY_TYPES.includes(body?.type as string) ? (body.type as string) : "http";
 
   if (!name) {
     return { error: "Name is required" };
@@ -28,11 +28,11 @@ function normalizeProxyPoolInput(body = {}) {
   return { name, proxyUrl, noProxy, isActive, strictProxy, type };
 }
 
-function buildUsageMap(connections = []) {
+function buildUsageMap(connections: Record<string, unknown>[] = []) {
   const usageMap = new Map();
 
   for (const connection of connections) {
-    const proxyPoolId = connection?.providerSpecificData?.proxyPoolId;
+    const proxyPoolId = (connection?.providerSpecificData as Record<string, unknown>)?.proxyPoolId;
     if (!proxyPoolId) continue;
 
     usageMap.set(proxyPoolId, (usageMap.get(proxyPoolId) || 0) + 1);
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const isActive = toBoolean(searchParams.get("isActive"));
     const includeUsage = searchParams.get("includeUsage") === "true";
 
-    const filter = {};
+    const filter: Record<string, unknown> = {};
     if (isActive !== undefined) {
       filter.isActive = isActive;
     }

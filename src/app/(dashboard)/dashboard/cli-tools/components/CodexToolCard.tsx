@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
@@ -20,7 +20,7 @@ interface CodexToolCardProps {
   onToggle: () => void;
   baseUrl: string;
   apiKeys: ApiKey[];
-  activeProviders: unknown[];
+  activeProviders: ActiveProvider[];
   cloudEnabled: boolean;
   initialStatus?: StatusData | null;
   tunnelEnabled: boolean;
@@ -41,7 +41,7 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
   const [subagentModel, setSubagentModel] = useState<string>("");
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [subagentModalOpen, setSubagentModalOpen] = useState<boolean>(false);
-  const [modelAliases, setModelAliases] = useState<Record<string, unknown>>({});
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
 

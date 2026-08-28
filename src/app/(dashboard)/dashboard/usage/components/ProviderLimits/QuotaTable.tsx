@@ -12,7 +12,7 @@ const PAGE_SIZE = 10;
 /**
  * Format reset time display (Today, 12:00 PM)
  */
-function formatResetTimeDisplay(resetTime) {
+function formatResetTimeDisplay(resetTime: string | null | undefined) {
   if (!resetTime) return null;
 
   try {
@@ -24,9 +24,9 @@ function formatResetTimeDisplay(resetTime) {
 
     let dayStr = "";
     if (date >= today && date < tomorrow) {
-      dayStr = "Today";
+      dayStr = "Hoje";
     } else if (date >= tomorrow && date < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)) {
-      dayStr = "Tomorrow";
+      dayStr = "Amanhã";
     } else {
       dayStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
@@ -46,7 +46,7 @@ function formatResetTimeDisplay(resetTime) {
 /**
  * Get color classes based on remaining percentage
  */
-function getColorClasses(remainingPercentage) {
+function getColorClasses(remainingPercentage: number) {
   if (remainingPercentage > 70) {
     return {
       text: "text-green-600 dark:text-green-400",
@@ -73,13 +73,13 @@ function getColorClasses(remainingPercentage) {
   };
 }
 
-function sortQuotas(quotas, sortMode) {
+function sortQuotas(quotas: QuotaTableQuota[], sortMode: string) {
   if (sortMode === "remaining-asc") {
-    return [...quotas].sort((a, b) => a.remaining - b.remaining || a.name.localeCompare(b.name));
+    return [...quotas].sort((a, b) => (a.remaining ?? 0) - (b.remaining ?? 0) || a.name.localeCompare(b.name));
   }
 
   if (sortMode === "remaining-desc") {
-    return [...quotas].sort((a, b) => b.remaining - a.remaining || a.name.localeCompare(b.name));
+    return [...quotas].sort((a, b) => (b.remaining ?? 0) - (a.remaining ?? 0) || a.name.localeCompare(b.name));
   }
 
   return quotas;
@@ -97,6 +97,7 @@ interface QuotaTableQuota {
   remainingPercentage?: number;
   resetAt?: string | null;
   recurring?: boolean;
+  index?: number;
 }
 
 interface QuotaTableProps {
@@ -155,14 +156,14 @@ export default function QuotaTable({
   const nameText = compact ? "text-[11px]" : "text-sm";
   const resetPrimary = compact ? "text-[11px]" : "text-sm";
   const resetSecondary = compact ? "text-[10px] leading-tight" : "text-xs";
-  const sortLabel = "Sorted by account remaining";
+  const sortLabel = "Ordenado por saldo restante";
   const hasHideAction = typeof onHideQuota === "function";
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[10px] text-text-muted">
-          {sortedQuotas.length} quota{sortedQuotas.length > 1 ? "s" : ""}
+          {sortedQuotas.length} cota{sortedQuotas.length > 1 ? "s" : ""}
         </div>
         {showSortLabel && (
           <div className="rounded-md border border-black/10 bg-black/[0.02] px-2 py-1 text-[10px] text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
@@ -173,7 +174,7 @@ export default function QuotaTable({
 
       <div className="space-y-px">
         {currentPageRows.map((quota) => {
-          const colors = getColorClasses(quota.remaining);
+          const colors = getColorClasses(quota.remaining ?? 0);
           const countdown = formatResetTime(quota.resetAt);
           const resetDisplay = formatResetTimeDisplay(quota.resetAt);
           // recurring defaults true: a missing flag means the quota
@@ -198,7 +199,7 @@ export default function QuotaTable({
               {/* Progress + used/total */}
               <div className={`min-w-0 flex-1 ${compact ? "space-y-1" : "space-y-1.5"}`}>
                 <Progress
-                  value={Math.min(quota.remaining, 100)}
+                  value={Math.min(quota.remaining ?? 0, 100)}
                   className={cn(
                     compact ? "h-1" : "h-1.5",
                     colors.bgLight,
@@ -272,10 +273,10 @@ export default function QuotaTable({
         <div className="rounded-md border border-black/10 bg-black/[0.02] px-2 py-1.5 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="flex items-center justify-between gap-2 text-[10px] text-text-muted">
             <span>
-              Showing {pageStart}-{pageEnd} of {sortedQuotas.length}
+              Mostrando {pageStart}-{pageEnd} de {sortedQuotas.length}
             </span>
             <span>
-              Page {page} / {totalPages}
+              Página {page} / {totalPages}
             </span>
           </div>
           <div className="mt-1.5 flex items-center justify-end gap-1">
@@ -286,7 +287,7 @@ export default function QuotaTable({
               onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
               disabled={page === 1}
             >
-              Prev
+              Anterior
             </Button>
             <Button
               type="button"
@@ -295,7 +296,7 @@ export default function QuotaTable({
               onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
               disabled={page === totalPages}
             >
-              Next
+              Próximo
             </Button>
           </div>
         </div>

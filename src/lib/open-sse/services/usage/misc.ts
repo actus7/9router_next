@@ -6,23 +6,23 @@ import { proxyAwareFetch } from "../../utils/proxyFetch";
 import { U } from "./shared";
 
 // GLM quota endpoints (region-aware) — url from registry transport.usage
-const GLM_QUOTA_URLS = {
-  international: U("glm").url,
-  china: U("glm-cn").url,
+const GLM_QUOTA_URLS: Record<string, unknown> = {
+  international: (U("glm") as Record<string, unknown>).url,
+  china: (U("glm-cn") as Record<string, unknown>).url,
 };
 
 // Vercel AI Gateway credits endpoint
 // Returns { balance: "95.50", total_used: "4.50" } (USD as decimal strings).
-const VERCEL_AI_GATEWAY_CREDITS_URL = U("vercel-ai-gateway").url;
+const VERCEL_AI_GATEWAY_CREDITS_URL = (U("vercel-ai-gateway") as Record<string, unknown>).url as string;
 
 /**
  * iFlow Usage
  */
-export async function getIflowUsage(accessToken) {
+export async function getIflowUsage(accessToken: string) {
   try {
     // iFlow may have usage endpoint
     return { message: "iFlow connected. Usage tracked per request." };
-  } catch (error) {
+  } catch (error: unknown) {
     return { message: "Unable to fetch iFlow usage." };
   }
 }
@@ -34,7 +34,7 @@ export async function getIflowUsage(accessToken) {
  * POST https://ollama.com/api/me — plan label (fail-open).
  * Auth: Authorization: Bearer <apiKey>
  */
-export async function getOllamaUsage(apiKey, providerSpecificData, proxyOptions = null) {
+export async function getOllamaUsage(apiKey: string, providerSpecificData: Record<string, unknown>, proxyOptions: unknown = null) {
   if (!apiKey) {
     return { message: "Ollama Cloud API key not available." };
   }
@@ -45,7 +45,7 @@ export async function getOllamaUsage(apiKey, providerSpecificData, proxyOptions 
         Authorization: `Bearer ${apiKey}`,
         Accept: "application/json",
       },
-    }, proxyOptions);
+    }, proxyOptions as null) as Response;
 
     if (response.status === 401 || response.status === 403) {
       return { message: "Ollama Cloud API key invalid or expired." };
@@ -55,7 +55,7 @@ export async function getOllamaUsage(apiKey, providerSpecificData, proxyOptions 
       return { message: `Ollama Cloud usage API error (${response.status}).` };
     }
 
-    let data;
+    let data: Record<string, unknown>;
     try {
       data = await response.json();
     } catch {
@@ -70,25 +70,25 @@ export async function getOllamaUsage(apiKey, providerSpecificData, proxyOptions 
         Accept: "application/json",
         "Content-Length": "0",
       },
-    }, proxyOptions).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    }, proxyOptions as null).then((r: unknown) => ((r as Response).ok ? (r as Response).json() : null)).catch(() => null);
 
-    const planRaw = typeof me?.Plan === "string" ? me.Plan : "";
+    const planRaw = typeof (me as Record<string, unknown>)?.Plan === "string" ? (me as Record<string, unknown>).Plan as string : "";
     const plan = planRaw
       ? planRaw.charAt(0).toUpperCase() + planRaw.slice(1).toLowerCase()
       : "Ollama Cloud";
 
-    const limits = data?.limits && typeof data.limits === "object" ? data.limits : {};
+    const limits = data?.limits && typeof data.limits === "object" ? data.limits as Record<string, unknown> : {};
 
     // Ollama `usage` is a 0..1 ratio (1.0 = limit reached). Convert to a 0..100
     // bar. Do NOT set absolute `remaining` — QuotaTable reads remainingPercentage.
-    function ratioQuota(usageRatio, resetAt = null) {
+    function ratioQuota(usageRatio: unknown, resetAt: string | null = null) {
       const ratio = Math.max(0, Math.min(1, Number(usageRatio) || 0));
       const usedPct = Math.round(ratio * 100);
       return { used: usedPct, total: 100, remainingPercentage: 100 - usedPct, resetAt, unlimited: false };
     }
 
-    const sessionRaw = limits.session?.usage;
-    const weeklyRaw = limits.weekly?.usage;
+    const sessionRaw = (limits.session as Record<string, unknown>)?.usage;
+    const weeklyRaw = (limits.weekly as Record<string, unknown>)?.usage;
     const sessionNum = Number(sessionRaw);
     const weeklyNum = Number(weeklyRaw);
     const hasSession = sessionRaw !== undefined && sessionRaw !== null && !Number.isNaN(sessionNum);
@@ -102,26 +102,26 @@ export async function getOllamaUsage(apiKey, providerSpecificData, proxyOptions 
       };
     }
 
-    const quotas = {};
+    const quotas: Record<string, unknown> = {};
     if (hasSession) quotas["Session (5h)"] = ratioQuota(sessionNum);
     if (hasWeekly) quotas["Weekly (7d)"] = ratioQuota(weeklyNum);
 
     return { plan, quotas };
-  } catch (error) {
-    return { message: `Ollama Cloud error: ${error.message}` };
+  } catch (error: unknown) {
+    return { message: `Ollama Cloud error: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
 /**
  * GLM Coding Plan usage (international + China regions)
  */
-export async function getGlmUsage(apiKey, provider, proxyOptions = null) {
+export async function getGlmUsage(apiKey: string, provider: string, proxyOptions: unknown = null) {
   if (!apiKey) {
     return { message: "GLM API key not available." };
   }
 
   const region = provider === "glm-cn" ? "china" : "international";
-  const quotaUrl = GLM_QUOTA_URLS[region];
+  const quotaUrl = GLM_QUOTA_URLS[region] as string;
 
   try {
     const response = await proxyAwareFetch(quotaUrl, {
@@ -129,7 +129,7 @@ export async function getGlmUsage(apiKey, provider, proxyOptions = null) {
         Authorization: `Bearer ${apiKey}`,
         Accept: "application/json",
       },
-    }, proxyOptions);
+    }, proxyOptions as null) as Response;
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -139,9 +139,9 @@ export async function getGlmUsage(apiKey, provider, proxyOptions = null) {
     }
 
     const json = await response.json();
-    const data = json?.data && typeof json.data === "object" ? json.data : {};
-    const limits = Array.isArray(data.limits) ? data.limits : [];
-    const quotas = {};
+    const data = json?.data && typeof json.data === "object" ? json.data as Record<string, unknown> : {};
+    const limits = Array.isArray(data.limits) ? data.limits as Record<string, unknown>[] : [];
+    const quotas: Record<string, unknown> = {};
 
     for (const limit of limits) {
       if (!limit || limit.type !== "TOKENS_LIMIT") continue;
@@ -165,8 +165,8 @@ export async function getGlmUsage(apiKey, provider, proxyOptions = null) {
       : "Unknown";
 
     return { plan, quotas };
-  } catch (error) {
-    return { message: `GLM error: ${error.message}` };
+  } catch (error: unknown) {
+    return { message: `GLM error: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
@@ -183,7 +183,7 @@ export async function getGlmUsage(apiKey, provider, proxyOptions = null) {
  *
  * Docs: https://vercel.com/docs/ai-gateway/usage
  */
-export async function getVercelAiGatewayUsage(apiKey, proxyOptions = null) {
+export async function getVercelAiGatewayUsage(apiKey: string, proxyOptions: unknown = null) {
   if (!apiKey) {
     return { message: "Vercel AI Gateway API key not available." };
   }
@@ -195,7 +195,7 @@ export async function getVercelAiGatewayUsage(apiKey, proxyOptions = null) {
         Authorization: `Bearer ${apiKey}`,
         Accept: "application/json",
       },
-    }, proxyOptions);
+    }, proxyOptions as null) as Response;
 
     if (response.status === 401 || response.status === 403) {
       return { message: "Vercel AI Gateway API key invalid or expired." };
@@ -247,18 +247,18 @@ export async function getVercelAiGatewayUsage(apiKey, proxyOptions = null) {
         },
       },
     };
-  } catch (error) {
-    return { message: `Vercel AI Gateway error: ${error.message}` };
+  } catch (error: unknown) {
+    return { message: `Vercel AI Gateway error: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
-export async function getQoderUsage(accessToken, proxyOptions = null) {
+export async function getQoderUsage(accessToken: string, proxyOptions: unknown = null) {
   if (!accessToken) {
     return { message: "Qoder usage unavailable: no access token" };
   }
   try {
     const response = await proxyAwareFetch(
-      U("qoder").url,
+      (U("qoder") as Record<string, unknown>).url as string,
       {
         method: "GET",
         headers: {
@@ -266,8 +266,8 @@ export async function getQoderUsage(accessToken, proxyOptions = null) {
           Accept: "application/json",
         },
       },
-      proxyOptions,
-    );
+      proxyOptions as null,
+    ) as Response;
     if (!response.ok) {
       return { message: `Qoder connected. Usage fetch returned ${response.status}.` };
     }
@@ -278,8 +278,8 @@ export async function getQoderUsage(accessToken, proxyOptions = null) {
     // Quota records live under `quotas`; scalar metadata
     // (totalUsagePercentage, isQuotaExceeded, expiresAt) are surfaced as
     // siblings so the dashboard parser doesn't try to render them as rows.
-    const userQuota = body.userQuota || {};
-    const orgQuota = body.orgResourcePackage || {};
+    const userQuota = (body.userQuota || {}) as Record<string, unknown>;
+    const orgQuota = (body.orgResourcePackage || {}) as Record<string, unknown>;
     // Qoder publishes a single absolute reset timestamp (`expiresAt` in ms);
     // surface it on every quota record as ISO so the table can render
     // "resets at" alongside used/total.
@@ -309,7 +309,7 @@ export async function getQoderUsage(accessToken, proxyOptions = null) {
       isQuotaExceeded: !!body.isQuotaExceeded,
       expiresAt: expiresAtMs,
     };
-  } catch (error) {
-    return { message: `Qoder connected. Unable to fetch usage: ${error.message}` };
+  } catch (error: unknown) {
+    return { message: `Qoder connected. Unable to fetch usage: ${error instanceof Error ? error.message : String(error)}` };
   }
 }

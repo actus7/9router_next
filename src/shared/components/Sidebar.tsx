@@ -4,13 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { APP_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
+import { APP_CONFIG } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
-import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Button from "@/shared/components/Button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { BarChart3, Copy, Film, FolderOpen, Globe, Languages, Layers, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Power, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
+import { BarChart3, Film, FolderOpen, Globe, Languages, Layers, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const KIND_ICON_MAP: Record<string, LucideIcon> = {
@@ -33,28 +31,28 @@ function getKindIcon(iconName: string): React.ReactNode {
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
 // Combined entry: webSearch + webFetch share one page at /dashboard/media-providers/web
-const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: <Globe className="size-4" />, href: "/dashboard/media-providers/web" };
+const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Busca", icon: <Globe className="size-4" />, href: "/dashboard/media-providers/web" };
 
 const navItems = [
-  { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: <Webhook className="size-5" /> },
-  { href: "/dashboard/providers", label: "Providers", icon: <Server className="size-5" /> },
+  { href: "/dashboard/usage", label: "Uso", icon: <BarChart3 className="size-5" /> },
+  { href: "/dashboard/endpoint", label: "Endpoint & Chave", icon: <Webhook className="size-5" /> },
+  { href: "/dashboard/providers", label: "Provedores", icon: <Server className="size-5" /> },
   // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" }, // Hidden
-  { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: <Layers className="size-5" /> },
-  { href: "/dashboard/usage", label: "Usage", icon: <BarChart3 className="size-5" /> },
-  { href: "/dashboard/quota", label: "Quota Tracker", icon: <PieChart className="size-5" /> },
-  { href: "/dashboard/token-saver", label: "Token Saver", icon: <PiggyBank className="size-5" /> },
+  { href: "/dashboard/combos", label: "Combo & Adaptador de Visão", icon: <Layers className="size-5" /> },
+  { href: "/dashboard/quota", label: "Rastreador de Cota", icon: <PieChart className="size-5" /> },
+  { href: "/dashboard/token-saver", label: "Economizador de Tokens", icon: <PiggyBank className="size-5" /> },
   // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" },
-  { href: "/dashboard/cli-tools", label: "CLI Tools", icon: <Terminal className="size-5" /> },
+  { href: "/dashboard/cli-tools", label: "Ferramentas CLI", icon: <Terminal className="size-5" /> },
 ];
 
 const debugItems = [
-  { href: "/dashboard/console-log", label: "Console Log", icon: <Terminal className="size-5" /> },
-  { href: "/dashboard/translator", label: "Translator", icon: <Languages className="size-5" /> },
+  { href: "/dashboard/console-log", label: "Log do Console", icon: <Terminal className="size-5" /> },
+  { href: "/dashboard/translator", label: "Tradutor", icon: <Languages className="size-5" /> },
 ];
 
 const systemItems = [
-  { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: <Network className="size-5" /> },
-  { href: "/dashboard/skills", label: "Skills", icon: <Puzzle className="size-5" /> },
+  { href: "/dashboard/proxy-pools", label: "Pools de Proxy", icon: <Network className="size-5" /> },
+  { href: "/dashboard/skills", label: "Habilidades", icon: <Puzzle className="size-5" /> },
 ];
 
 interface SidebarProps {
@@ -63,15 +61,7 @@ interface SidebarProps {
 
 export default function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
-  const [isDisconnected, setIsDisconnected] = useState(false);
-  const [updateInfo, setUpdateInfo] = useState<{ latestVersion?: string } | null>(null);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [shutdownCountdown, setShutdownCountdown] = useState(0);
   const [enableTranslator, setEnableTranslator] = useState(false);
-  const { copied, copy } = useCopyToClipboard(2000);
-
-  const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
 
   useEffect(() => {
     fetch("/api/settings")
@@ -80,56 +70,17 @@ export default function Sidebar({ onClose }: SidebarProps) {
       .catch(() => {});
   }, []);
 
-  // Lazy check for new npm version on mount
-  useEffect(() => {
-    fetch("/api/version")
-      .then(res => res.json())
-      .then(data => { if (data.hasUpdate) setUpdateInfo(data); })
-      .catch(() => {});
-  }, []);
-
   const isActive = (href: string): boolean => {
-    if (href === "/dashboard/endpoint") {
-      return pathname === "/dashboard" || pathname.startsWith("/dashboard/endpoint");
+    if (href === "/dashboard/usage") {
+      return pathname === "/dashboard" || pathname.startsWith("/dashboard/usage");
     }
     return pathname.startsWith(href);
   };
 
-  // Open manual update panel (no countdown yet — user must click Copy to trigger shutdown)
-  const handleUpdate = () => {
-    setShowUpdateModal(false);
-    setIsUpdating(true);
-  };
-
-  // Triggered by Copy button inside ManualUpdatePanel: copy + countdown + shutdown
-  const handleCopyAndShutdown = async () => {
-    try { await navigator.clipboard.writeText(INSTALL_CMD); } catch { /* clipboard blocked */ }
-    copy(INSTALL_CMD);
-    let remaining = UPDATER_CONFIG.shutdownCountdownSec;
-    setShutdownCountdown(remaining);
-    const timer = setInterval(() => {
-      remaining -= 1;
-      setShutdownCountdown(remaining);
-      if (remaining <= 0) {
-        clearInterval(timer);
-        fetch("/api/version/shutdown", { method: "POST" }).catch(() => {});
-        setIsDisconnected(true);
-      }
-    }, 1000);
-  };
-
-  const handleCancelUpdate = () => {
-    setIsUpdating(false);
-    setShutdownCountdown(0);
-  };
-
-  // Note: legacy updater poll removed. New flow: copy install cmd + shutdown server,
-  // user runs the command manually in another terminal.
-
 
   return (
     <>
-      <aside aria-label="Main navigation" className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
+      <aside aria-label="Navegação principal" className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
         {/* Traffic lights */}
         <div className="flex items-center gap-2 px-6 pt-5 pb-2" aria-hidden="true">
           <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
@@ -150,34 +101,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
               <span className="text-xs text-text-muted">v{APP_CONFIG.version}</span>
             </div>
           </Link>
-          {updateInfo && (
-            <div className="flex flex-col gap-1.5 rounded p-1 -m-1">
-              <span className="text-xs font-semibold text-green-600 dark:text-amber-500">
-                ↑ New version available: v{updateInfo.latestVersion}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setShowUpdateModal(true)}
-                  variant="default"
-                  size="sm"
-                  className="px-2 py-1 rounded bg-green-600 hover:bg-green-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white text-[11px] font-semibold"
-                >
-                  Update now
-                </Button>
-                <Button
-                  onClick={() => copy(INSTALL_CMD)}
-                  title="Copy install command"
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-left hover:opacity-80 transition-opacity cursor-pointer min-w-0 p-0 h-auto"
-                >
-                  <code className="block text-[10px] text-green-600/80 dark:text-amber-400/70 font-mono truncate">
-                    {copied ? "✓ copied!" : INSTALL_CMD}
-                  </code>
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Navigation */}
@@ -203,7 +126,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
           {/* System section */}
           <div className="pt-3 mt-2 space-y-0.5">
             <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
-              System
+              Sistema
             </p>
 
             {/* Media Providers accordion */}
@@ -218,7 +141,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                   )}
                 >
                   <FolderOpen className="size-5" />
-                  <span className="text-[13px] font-medium flex-1 text-left">Media Providers</span>
+                  <span className="text-[13px] font-medium flex-1 text-left">Provedores de Mídia</span>
                 </AccordionTrigger>
                 <AccordionContent className="pl-4">
                   <div id="media-providers-submenu" role="group">
@@ -309,111 +232,13 @@ export default function Sidebar({ onClose }: SidebarProps) {
               )}
             >
               <Settings className="size-5" />
-              <span className="text-[13px] font-medium">Settings</span>
+              <span className="text-[13px] font-medium">Configurações</span>
             </Link>
           </div>
         </nav>
 
       </aside>
 
-      {/* Update Confirmation Modal */}
-      <Dialog open={showUpdateModal} onOpenChange={(open) => { if (!open) setShowUpdateModal(false); }}>
-        <DialogContent className="max-w-sm">
-          <DialogTitle>Update 9Router</DialogTitle>
-          <p className="text-sm text-text-muted">{`Show install command for v${updateInfo?.latestVersion || ""}? You can copy it and shutdown to install manually.`}</p>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="ghost" onClick={() => setShowUpdateModal(false)}>Cancel</Button>
-            <Button variant="default" onClick={handleUpdate}>Show Command</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Disconnected / Updating Overlay */}
-      {(isDisconnected || isUpdating) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm p-6">
-          {isUpdating ? (
-            <ManualUpdatePanel
-              latestVersion={updateInfo?.latestVersion}
-              installCmd={INSTALL_CMD}
-              copied={!!copied}
-              onCopyAndShutdown={handleCopyAndShutdown}
-              onCancel={handleCancelUpdate}
-              countdown={shutdownCountdown}
-              isDisconnected={isDisconnected}
-            />
-          ) : (
-            <div className="text-center p-8">
-              <div className="flex items-center justify-center size-16 rounded-full bg-danger/20 text-danger mx-auto mb-4">
-                <Power className="size-8" />
-              </div>
-              <h2 className="text-xl font-semibold text-text-main mb-2">Server Disconnected</h2>
-              <p className="text-text-muted mb-6">The proxy server has been stopped.</p>
-              <Button variant="secondary" onClick={() => globalThis.location.reload()}>
-                Reload Page
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
     </>
-  );
-}
-
-interface ManualUpdatePanelProps {
-  latestVersion?: string;
-  installCmd: string;
-  copied: boolean;
-  onCopyAndShutdown: () => void;
-  onCancel: () => void;
-  countdown: number;
-  isDisconnected: boolean;
-}
-
-function ManualUpdatePanel({ latestVersion, installCmd, copied, onCopyAndShutdown, onCancel, countdown, isDisconnected }: ManualUpdatePanelProps) {
-  const isCountingDown = countdown > 0;
-  return (
-    <div className="w-full max-w-lg rounded-xl bg-surface border border-border p-6 text-text-main shadow-[var(--shadow-elev)]">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex items-center justify-center size-11 rounded-full bg-warning/20 text-warning">
-          <Copy className="size-6" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold">Update 9Router{latestVersion ? ` to v${latestVersion}` : ""}</h2>
-          <p className="text-xs text-text-muted">
-            {isDisconnected
-              ? "Server stopped. Paste the command into a terminal to install."
-              : isCountingDown
-                ? `Command copied. Server will stop in ${countdown}s...`
-                : "Click the button below to copy the install command and shutdown."}
-          </p>
-        </div>
-      </div>
-
-      <p className="text-sm text-text-main/80 mb-2">Install command:</p>
-      <div className="w-full px-3 py-2 rounded bg-bg-alt mb-4">
-        <code className="text-xs font-mono text-warning break-all">{installCmd}</code>
-      </div>
-
-      <ol className="text-xs text-text-muted space-y-1 list-decimal list-inside mb-4">
-        <li>Click <strong>Copy & Shutdown</strong> below.</li>
-        <li>Paste the command into your terminal and press Enter.</li>
-        <li>Run <code className="px-1 rounded bg-surface-2 text-success">9router</code> again after install.</li>
-      </ol>
-
-      {isDisconnected ? (
-        <Button variant="secondary" className="w-full" onClick={() => globalThis.location.reload()}>
-          Reload Page
-        </Button>
-      ) : (
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={onCancel} disabled={isCountingDown}>
-            Cancel
-          </Button>
-          <Button variant="default" className="w-full" onClick={onCopyAndShutdown} disabled={isCountingDown}>
-            {copied ? "✓ Copied — shutting down..." : isCountingDown ? `Shutting down in ${countdown}s` : "Copy & Shutdown"}
-          </Button>
-        </div>
-      )}
-    </div>
   );
 }

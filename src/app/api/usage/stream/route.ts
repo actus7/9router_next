@@ -4,7 +4,13 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const encoder = new TextEncoder();
-  const state = { closed: false, keepalive: null, send: null, sendPending: null, cachedStats: null };
+  const state: {
+    closed: boolean;
+    keepalive: ReturnType<typeof setInterval> | null;
+    send: (() => Promise<void>) | null;
+    sendPending: (() => Promise<void>) | null;
+    cachedStats: Record<string, unknown> | null;
+  } = { closed: false, keepalive: null, send: null, sendPending: null, cachedStats: null };
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -20,13 +26,13 @@ export async function GET() {
           }
           // Then do full recalc and update cache
           const stats = await getUsageStats();
-          state.cachedStats = stats;
+          state.cachedStats = stats as unknown as Record<string, unknown>;
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(stats)}\n\n`));
         } catch {
           state.closed = true;
-          statsEmitter.off("update", state.send);
-          statsEmitter.off("pending", state.sendPending);
-          clearInterval(state.keepalive);
+          statsEmitter.off("update", state.send!);
+          statsEmitter.off("pending", state.sendPending!);
+          if (state.keepalive) clearInterval(state.keepalive);
         }
       };
 
@@ -39,33 +45,33 @@ export async function GET() {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(stats)}\n\n`));
         } catch {
           state.closed = true;
-          statsEmitter.off("update", state.send);
-          statsEmitter.off("pending", state.sendPending);
-          clearInterval(state.keepalive);
+          statsEmitter.off("update", state.send!);
+          statsEmitter.off("pending", state.sendPending!);
+          if (state.keepalive) clearInterval(state.keepalive);
         }
       };
 
-      await state.send();
+      await state.send!();
 
-      statsEmitter.on("update", state.send);
-      statsEmitter.on("pending", state.sendPending);
+      statsEmitter.on("update", state.send!);
+      statsEmitter.on("pending", state.sendPending!);
 
       state.keepalive = setInterval(() => {
-        if (state.closed) { clearInterval(state.keepalive); return; }
+        if (state.closed) { if (state.keepalive) clearInterval(state.keepalive); return; }
         try {
           controller.enqueue(encoder.encode(": ping\n\n"));
         } catch {
           state.closed = true;
-          clearInterval(state.keepalive);
+          if (state.keepalive) clearInterval(state.keepalive);
         }
       }, 25000);
     },
 
     cancel() {
       state.closed = true;
-      statsEmitter.off("update", state.send);
-      statsEmitter.off("pending", state.sendPending);
-      clearInterval(state.keepalive);
+      if (state.send) statsEmitter.off("update", state.send);
+      if (state.sendPending) statsEmitter.off("pending", state.sendPending);
+      if (state.keepalive) clearInterval(state.keepalive);
     },
   });
 

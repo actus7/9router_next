@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // Extract account info from the JWT (email, workspace, plan)
     let email = null;
-    let providerSpecificData = { authMethod: "access_token" };
+    const providerSpecificData: Record<string, unknown> = { authMethod: "access_token" };
 
     // Try decoding as JWT to extract email + workspace
     try {
@@ -81,15 +81,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       connection: {
-        id: connection.id,
-        provider: connection.provider,
-        email: connection.email,
-        name: connection.name,
+        id: connection!.id,
+        provider: connection!.provider,
+        email: connection!.email,
+        name: connection!.name,
         workspace: providerSpecificData.chatgptAccountId || null,
         plan: providerSpecificData.chatgptPlanType || null,
       },
     });
-  } catch ($1) { console.error("Codex access token import error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) { console.error("Codex access token import error:", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

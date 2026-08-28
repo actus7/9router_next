@@ -11,14 +11,14 @@ import { CLOUD_CODE_API, LOAD_CODE_ASSIST_HEADERS, ANTIGRAVITY_LOAD_CODE_ASSIST_
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 // connectionId -> { projectId: string, fetchedAt: number }
-const projectIdCache = new Map();
+const projectIdCache = new Map<string, { projectId: string; fetchedAt: number }>();
 
 /** How long a cached project ID is considered fresh (1 hour). */
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
 // ─── Pending-fetch deduplication ─────────────────────────────────────────────
 // connectionId -> { promise: Promise<string|null>, controller: AbortController, startedAt: number }
-const pendingFetches = new Map();
+const pendingFetches = new Map<string, { promise: Promise<string | null>; controller: AbortController; startedAt: number }>();
 
 /** Abort and evict a pending fetch that has been running longer than this (2 min). */
 const PENDING_TTL_MS = 2 * 60 * 1000;
@@ -27,10 +27,10 @@ const PENDING_TTL_MS = 2 * 60 * 1000;
 /** How often the background sweep runs (10 min). */
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 
-let _cleanupTimer = null;
+let _cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Run one sweep immediately: evict stale cache entries and abort orphaned pending fetches. */
-export function cleanupNow() {
+export function cleanupNow(): void {
     const now = Date.now();
 
     for (const [id, entry] of projectIdCache) {
@@ -52,11 +52,11 @@ export function cleanupNow() {
 }
 
 /** Start the periodic background cleanup (idempotent). Called automatically on module load. */
-export function startCacheCleanup() {
+export function startCacheCleanup(): void {
     if (_cleanupTimer) return;
     _cleanupTimer = setInterval(() => {
-        try { cleanupNow(); } catch (e) {
-            console.warn("[ProjectId] cleanup sweep error:", e?.message ?? e);
+        try { cleanupNow(); } catch (e: unknown) {
+            console.warn("[ProjectId] cleanup sweep error:", e instanceof Error ? e.message : e);
         }
     }, CLEANUP_INTERVAL_MS);
     // Unref so the timer doesn't prevent Node from exiting when it is otherwise idle
@@ -64,7 +64,7 @@ export function startCacheCleanup() {
 }
 
 /** Stop the periodic background cleanup (e.g. during graceful shutdown). */
-export function stopCacheCleanup() {
+export function stopCacheCleanup(): void {
     if (!_cleanupTimer) return;
     clearInterval(_cleanupTimer);
     _cleanupTimer = null;
@@ -75,6 +75,11 @@ startCacheCleanup();
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+interface CloudCodeEndpoints {
+  loadCodeAssist: string;
+  onboardUser: string;
+}
+
 /**
  * Get the Project ID for a connection, with caching.
  * Returns null on failure (callers should fall back to random generation).
@@ -83,7 +88,7 @@ startCacheCleanup();
  * @param {string} accessToken  - Valid OAuth access token
  * @returns {Promise<string|null>} Real project ID or null
  */
-export async function getProjectIdForConnection(connectionId, accessToken, provider = "gemini-cli") {
+export async function getProjectIdForConnection(connectionId: string, accessToken: string, provider: string = "gemini-cli"): Promise<string | null> {
     if (!connectionId || !accessToken) return null;
 
     // Return cached value if still fresh
@@ -94,7 +99,7 @@ export async function getProjectIdForConnection(connectionId, accessToken, provi
 
     // Deduplicate concurrent fetches for the same connection
     if (pendingFetches.has(connectionId)) {
-        return pendingFetches.get(connectionId).promise;
+        return pendingFetches.get(connectionId)!.promise;
     }
 
     // Each fetch gets its own AbortController so it can be canceled via removeConnection()
@@ -109,8 +114,8 @@ export async function getProjectIdForConnection(connectionId, accessToken, provi
             }
             console.warn("[ProjectId] could not fetch projectId for connection", connectionId.slice(0, 8));
             return null;
-        } catch (error) {
-            console.warn(`[ProjectId] Error fetching project ID: ${error.message}`);
+        } catch (error: unknown) {
+            console.warn(`[ProjectId] Error fetching project ID: ${error instanceof Error ? error.message : String(error)}`);
             return null;
         } finally {
             pendingFetches.delete(connectionId);
@@ -125,7 +130,7 @@ export async function getProjectIdForConnection(connectionId, accessToken, provi
  * Invalidate the cached project ID for a connection.
  * Call this when a connection's credentials are fully revoked or refreshed.
  */
-export function invalidateProjectId(connectionId) {
+export function invalidateProjectId(connectionId: string): void {
     projectIdCache.delete(connectionId);
 }
 
@@ -135,7 +140,7 @@ export function invalidateProjectId(connectionId) {
  *
  * @param {string} connectionId
  */
-export function removeConnection(connectionId) {
+export function removeConnection(connectionId: string): void {
     if (!connectionId) return;
     projectIdCache.delete(connectionId);
     const pending = pendingFetches.get(connectionId);
@@ -155,8 +160,8 @@ export function removeConnection(connectionId) {
  * @param {AbortSignal} signal
  * @returns {Promise<string|null>}
  */
-async function fetchProjectId(accessToken, signal, provider) {
-    const endpoints = CLOUD_CODE_API[provider] || CLOUD_CODE_API["gemini-cli"];
+async function fetchProjectId(accessToken: string, signal: AbortSignal, provider: string): Promise<string | null> {
+    const endpoints = (CLOUD_CODE_API as Record<string, CloudCodeEndpoints>)[provider] || (CLOUD_CODE_API as Record<string, CloudCodeEndpoints>)["gemini-cli"];
     const headers = provider === "antigravity" ? ANTIGRAVITY_LOAD_CODE_ASSIST_HEADERS : LOAD_CODE_ASSIST_HEADERS;
     const response = await fetch(endpoints.loadCodeAssist, {
         method: "POST",
@@ -198,7 +203,7 @@ async function fetchProjectId(accessToken, signal, provider) {
  * @param {AbortSignal} externalSignal  – propagated from the connection's AbortController
  * @returns {Promise<string|null>}
  */
-async function onboardUser(accessToken, tierID, externalSignal, endpoints, provider) {
+async function onboardUser(accessToken: string, tierID: string, externalSignal: AbortSignal, endpoints: CloudCodeEndpoints, provider: string): Promise<string | null> {
     console.log(`[ProjectId] Onboarding user with tier: ${tierID}`);
 
     const reqBody = { tierId: tierID, metadata: LOAD_CODE_ASSIST_METADATA };
@@ -245,19 +250,19 @@ async function onboardUser(accessToken, tierID, externalSignal, endpoints, provi
             console.error(`[ProjectId] Onboard attempt ${attempt}/${MAX_ATTEMPTS}: not done yet, waiting...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
 
-        } catch (error) {
+        } catch (error: unknown) {
             clearTimeout(timeoutId);
-            if (error.name === "AbortError") {
+            if (error instanceof Error && error.name === "AbortError") {
                 console.warn(`[ProjectId] onboardUser attempt ${attempt} aborted (timeout or connection removed)`);
                 if (externalSignal?.aborted) return null;   // connection gone – stop retrying
                 continue;
             }
             if (attempt === MAX_ATTEMPTS) {
-                console.warn(`[ProjectId] onboardUser failed after ${MAX_ATTEMPTS} attempts: ${error.message}`);
+                console.warn(`[ProjectId] onboardUser failed after ${MAX_ATTEMPTS} attempts: ${error instanceof Error ? error.message : String(error)}`);
                 return null;
             }
             // Continue to next attempt instead of throwing (which would skip remaining retries)
-            console.warn(`[ProjectId] onboardUser attempt ${attempt} failed: ${error.message}, retrying...`);
+            console.warn(`[ProjectId] onboardUser attempt ${attempt} failed: ${error instanceof Error ? error.message : String(error)}, retrying...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
         } finally {
             clearTimeout(timeoutId);
@@ -271,7 +276,7 @@ async function onboardUser(accessToken, tierID, externalSignal, endpoints, provi
 /**
  * Extract project ID from loadCodeAssist response.
  */
-function extractProjectId(data) {
+function extractProjectId(data: Record<string, unknown>): string | null {
     if (!data) return null;
 
     if (typeof data.cloudaicompanionProject === "string") {
@@ -280,7 +285,7 @@ function extractProjectId(data) {
     }
 
     if (data.cloudaicompanionProject && typeof data.cloudaicompanionProject === "object") {
-        const id = data.cloudaicompanionProject.id;
+        const id = (data.cloudaicompanionProject as Record<string, unknown>).id;
         if (typeof id === "string" && id.trim()) return id.trim();
     }
 
@@ -290,10 +295,11 @@ function extractProjectId(data) {
 /**
  * Extract project ID from onboardUser response.
  */
-function extractProjectIdFromOnboard(data) {
+function extractProjectIdFromOnboard(data: Record<string, unknown>): string | null {
     if (!data?.response) return null;
 
-    const project = data.response.cloudaicompanionProject;
+    const response = data.response as Record<string, unknown>;
+    const project = response.cloudaicompanionProject;
 
     if (typeof project === "string") {
         const id = project.trim();
@@ -301,7 +307,7 @@ function extractProjectIdFromOnboard(data) {
     }
 
     if (project && typeof project === "object") {
-        const id = project.id;
+        const id = (project as Record<string, unknown>).id;
         if (typeof id === "string" && id.trim()) return id.trim();
     }
 

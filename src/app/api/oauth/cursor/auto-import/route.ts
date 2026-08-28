@@ -15,7 +15,7 @@ const MACHINE_ID_KEYS = [
 ];
 
 /** Get candidate db paths by platform */
-function getCandidatePaths(platform) {
+function getCandidatePaths(platform: string) {
   const home = homedir();
 
   if (platform === "darwin") {
@@ -62,7 +62,7 @@ function getCandidatePaths(platform) {
   ];
 }
 
-const normalize = (value) => {
+const normalize = (value: unknown) => {
   if (typeof value !== "string") return value;
   try {
     const parsed = JSON.parse(value);
@@ -76,18 +76,18 @@ const normalize = (value) => {
  * Extract tokens via better-sqlite3 (bundled dependency).
  * This is the preferred strategy — no external CLI required.
  */
-function extractTokensViaBetterSqlite(dbPath) {
+function extractTokensViaBetterSqlite(dbPath: string) {
   // Dynamic require so the route stays importable even if native bindings fail
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Database = require("better-sqlite3");
   const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 
-  const query = (key) => {
+  const query = (key: string) => {
     const row = db.prepare("SELECT value FROM itemTable WHERE key=? LIMIT 1").get(key);
     return row?.value || null;
   };
 
-  const normalize = (value) => {
+  const normalize = (value: unknown) => {
     if (typeof value !== "string") return value;
     try {
       const parsed = JSON.parse(value);
@@ -117,8 +117,8 @@ function extractTokensViaBetterSqlite(dbPath) {
  * Extract tokens via sqlite3 CLI.
  * Fallback when better-sqlite3 native bindings are unavailable.
  */
-async function extractTokensViaCLI(dbPath) {
-  const normalize = (raw) => {
+async function extractTokensViaCLI(dbPath: string) {
+  const normalize = (raw: string) => {
     const value = raw.trim();
     try {
       const parsed = JSON.parse(value);
@@ -128,7 +128,7 @@ async function extractTokensViaCLI(dbPath) {
     }
   };
 
-  const query = async (sql) => {
+  const query = async (sql: string) => {
     const { stdout } = await execFileAsync("sqlite3", [dbPath, sql], {
       timeout: 10000,
     });
@@ -248,9 +248,9 @@ export async function GET() {
 
     // Strategy 3: ask user to paste manually
     return NextResponse.json({ found: false, windowsManual: true, dbPath });
-  } catch ($1) { console.error("Cursor auto-import error:", error);
+  } catch ($1: unknown) { console.error("Cursor auto-import error:", $1);
     return NextResponse.json(
-      { found: false, error: error.message },
+      { found: false, error: ($1 as Error).message },
       { status: 500 },
     );
   }

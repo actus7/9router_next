@@ -14,11 +14,47 @@ import {
 } from "../endpoint/endpointConstants";
 import { Zap } from "lucide-react";
 
+interface HeadroomExtrasState {
+  version: string | null;
+  extras: Record<string, boolean>;
+  available: string[];
+  loading: boolean;
+}
+
+interface PxpipeCheck {
+  id: string;
+  label: string;
+  ok: boolean;
+  detail?: string;
+}
+
+interface PxpipeHealthData {
+  healthy: boolean;
+  checks: PxpipeCheck[];
+  error?: string;
+}
+
+interface ExtrasConfirmState {
+  title: string;
+  message: string;
+  confirmText: string;
+  variant: "primary" | "danger";
+  onConfirm: () => void;
+}
+
 export default function TokenSaverClient() {
   const [rtkEnabled, setRtkEnabledState] = useState(true);
   const [headroomEnabled, setHeadroomEnabled] = useState(false);
   const [headroomUrl, setHeadroomUrl] = useState("http://localhost:8787");
-  const [headroomStatus, setHeadroomStatus] = useState({
+  const [headroomStatus, setHeadroomStatus] = useState<{
+    installed: boolean;
+    running: boolean;
+    python: string | null;
+    loading: boolean;
+    localUrl?: string | false;
+    canStart?: boolean;
+    managedPid?: number | null;
+  }>({
     installed: false,
     running: false,
     python: null,
@@ -28,22 +64,22 @@ export default function TokenSaverClient() {
     useState(false);
   const [headroomActionLoading, setHeadroomActionLoading] = useState(false);
   const [headroomActionError, setHeadroomActionError] = useState("");
-  const [headroomExtras, setHeadroomExtras] = useState({
+  const [headroomExtras, setHeadroomExtras] = useState<HeadroomExtrasState>({
     version: null,
     extras: { code: false, ml: false },
     available: ["code", "ml"],
     loading: false,
   });
-  const [pendingExtras, setPendingExtras] = useState([]);
+  const [pendingExtras, setPendingExtras] = useState<string[]>([]);
   const [extrasActionLoading, setExtrasActionLoading] = useState(false);
   const [extrasActionError, setExtrasActionError] = useState("");
-  const [removingExtra, setRemovingExtra] = useState(null);
+  const [removingExtra, setRemovingExtra] = useState<string | null>(null);
   const [installLog, setInstallLog] = useState("");
-  const [extrasConfirm, setExtrasConfirm] = useState(null);
+  const [extrasConfirm, setExtrasConfirm] = useState<ExtrasConfirmState | null>(null);
   const [codeAware, setCodeAware] = useState(false);
   const [kompress, setKompress] = useState(true);
   const [restartingProxy, setRestartingProxy] = useState(false);
-  const logPollRef = useRef(null);
+  const logPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [cavemanEnabled, setCavemanEnabled] = useState(false);
   const [cavemanLevel, setCavemanLevel] = useState("full");
   const [ponytailEnabled, setPonytailEnabled] = useState(false);
@@ -57,7 +93,7 @@ export default function TokenSaverClient() {
     version: null,
     loading: true,
   });
-  const [pxpipeHealth, setPxpipeHealth] = useState(null);
+  const [pxpipeHealth, setPxpipeHealth] = useState<PxpipeHealthData | null>(null);
   const [showPxpipeModal, setShowPxpipeModal] = useState(false);
   const [pxpipeActionLoading, setPxpipeActionLoading] = useState(false);
   const [pxpipeActionError, setPxpipeActionError] = useState("");
@@ -83,7 +119,7 @@ export default function TokenSaverClient() {
     }
   }, [isWenyanLocale, cavemanLevel]);
 
-  const patchSetting = async (patch) => {
+  const patchSetting = async (patch: Record<string, unknown>) => {
     try {
       await fetch("/api/settings", {
         method: "PATCH",
@@ -95,7 +131,7 @@ export default function TokenSaverClient() {
     }
   };
 
-  const handleRtkEnabled = async (value) => {
+  const handleRtkEnabled = async (value: boolean) => {
     try {
       const res = await fetch("/api/settings", {
         method: "PATCH",
@@ -108,12 +144,12 @@ export default function TokenSaverClient() {
     }
   };
 
-  const handleCavemanEnabled = (value) => {
+  const handleCavemanEnabled = (value: boolean) => {
     setCavemanEnabled(value);
     patchSetting({ cavemanEnabled: value });
   };
 
-  const handleHeadroomEnabled = (value) => {
+  const handleHeadroomEnabled = (value: boolean) => {
     const nextUrl = headroomUrl.trim() || "http://localhost:8787";
     setHeadroomUrl(nextUrl);
     setHeadroomEnabled(value);
@@ -193,8 +229,8 @@ export default function TokenSaverClient() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to start proxy");
       await refreshHeadroomStatus();
-    } catch (e) {
-      setHeadroomActionError(e.message);
+    } catch (e: unknown) {
+      setHeadroomActionError(e instanceof Error ? e.message : String(e));
     } finally {
       setHeadroomActionLoading(false);
     }
@@ -210,7 +246,7 @@ export default function TokenSaverClient() {
     }
   }, [refreshHeadroomStatus]);
 
-  const togglePendingExtra = (extra) => {
+  const togglePendingExtra = (extra: string) => {
     setPendingExtras((cur) =>
       cur.includes(extra) ? cur.filter((e) => e !== extra) : [...cur, extra]
     );
@@ -261,15 +297,15 @@ export default function TokenSaverClient() {
         extras: data.extras || s.extras,
       }));
       setPendingExtras([]);
-    } catch (e) {
-      setExtrasActionError(e.message);
+    } catch (e: unknown) {
+      setExtrasActionError(e instanceof Error ? e.message : String(e));
     } finally {
       stopLogPolling();
       setExtrasActionLoading(false);
     }
   }, [pendingExtras, startLogPolling, stopLogPolling]);
 
-  const removeExtraConfirmed = useCallback(async (extra) => {
+  const removeExtraConfirmed = useCallback(async (extra: string) => {
     setRemovingExtra(extra);
     setExtrasActionError("");
     startLogPolling();
@@ -286,8 +322,8 @@ export default function TokenSaverClient() {
         version: data.version ?? s.version,
         extras: data.extras || s.extras,
       }));
-    } catch (e) {
-      setExtrasActionError(e.message);
+    } catch (e: unknown) {
+      setExtrasActionError(e instanceof Error ? e.message : String(e));
     } finally {
       stopLogPolling();
       setRemovingExtra(null);
@@ -310,7 +346,7 @@ export default function TokenSaverClient() {
     installExtrasConfirmed();
   }, [pendingExtras, installExtrasConfirmed]);
 
-  const handleRemoveExtra = useCallback((extra) => {
+  const handleRemoveExtra = useCallback((extra: string) => {
     setExtrasConfirm({
       title: `Remove [${extra}]`,
       message: `Remove [${extra}] and its packages?`,
@@ -322,7 +358,7 @@ export default function TokenSaverClient() {
 
   // Toggle an extra's active state (persist setting), then restart the proxy so
   // the new --code-aware / --disable-kompress flags take effect.
-  const toggleExtraActive = useCallback(async (extra, value) => {
+  const toggleExtraActive = useCallback(async (extra: string, value: boolean) => {
     setExtrasActionError("");
     if (extra === "code") setCodeAware(value);
     if (extra === "ml") setKompress(value);
@@ -335,24 +371,24 @@ export default function TokenSaverClient() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Restart failed");
       await refreshHeadroomStatus();
-    } catch (e) {
-      setExtrasActionError(e.message);
+    } catch (e: unknown) {
+      setExtrasActionError(e instanceof Error ? e.message : String(e));
     } finally {
       setRestartingProxy(false);
     }
   }, [headroomStatus.running, refreshHeadroomStatus]);
 
-  const handleCavemanLevel = (level) => {
+  const handleCavemanLevel = (level: string) => {
     setCavemanLevel(level);
     patchSetting({ cavemanLevel: level });
   };
 
-  const handlePonytailEnabled = (value) => {
+  const handlePonytailEnabled = (value: boolean) => {
     setPonytailEnabled(value);
     patchSetting({ ponytailEnabled: value });
   };
 
-  const handlePonytailLevel = (level) => {
+  const handlePonytailLevel = (level: string) => {
     setPonytailLevel(level);
     patchSetting({ ponytailLevel: level });
   };
@@ -375,13 +411,13 @@ export default function TokenSaverClient() {
     try {
       const res = await fetch("/api/pxpipe/health", { method: "POST" });
       setPxpipeHealth(await res.json());
-    } catch (e) {
-      setPxpipeHealth({ healthy: false, checks: [], error: e.message });
+    } catch (e: unknown) {
+      setPxpipeHealth({ healthy: false, checks: [], error: e instanceof Error ? e.message : String(e) });
     }
   }, []);
 
   const pxpipeAction = useCallback(
-    async (endpoint) => {
+    async (endpoint: string) => {
       setPxpipeActionError("");
       setPxpipeActionLoading(true);
       try {
@@ -390,8 +426,8 @@ export default function TokenSaverClient() {
         if (!res.ok) throw new Error(data.error || `PXPIPE ${endpoint} failed`);
         await refreshPxpipeStatus();
         await runPxpipeHealth();
-      } catch (e) {
-        setPxpipeActionError(e.message);
+      } catch (e: unknown) {
+        setPxpipeActionError(e instanceof Error ? e.message : String(e));
       } finally {
         setPxpipeActionLoading(false);
       }
@@ -399,7 +435,7 @@ export default function TokenSaverClient() {
     [refreshPxpipeStatus, runPxpipeHealth]
   );
 
-  const handlePxpipeEnabled = (value) => {
+  const handlePxpipeEnabled = (value: boolean) => {
     setPxpipeEnabled(value);
     patchSetting({ pxpipeEnabled: value });
   };
@@ -903,10 +939,10 @@ export default function TokenSaverClient() {
               {pxpipeStatus.version ? ` · v${pxpipeStatus.version}` : ""}
             </span>
           </div>
-          {pxpipeHealth?.checks?.length > 0 && (
+          {(pxpipeHealth?.checks?.length ?? 0) > 0 && (
             <div className="flex flex-col gap-1 rounded border border-border p-3">
               <p className="text-sm font-medium mb-1">Health check</p>
-              {pxpipeHealth.checks.map((check) => (
+              {pxpipeHealth?.checks?.map((check) => (
                 <div key={check.id} className="flex items-center justify-between text-xs">
                   <span className={check.ok ? "text-success" : "text-warning"}>
                     {check.ok ? "●" : "○"} {check.label}
@@ -916,7 +952,7 @@ export default function TokenSaverClient() {
                   )}
                 </div>
               ))}
-              {pxpipeHealth.error && (
+              {pxpipeHealth?.error && (
                 <p className="text-xs text-warning mt-1">{pxpipeHealth.error}</p>
               )}
             </div>
@@ -967,7 +1003,7 @@ export default function TokenSaverClient() {
             <p className="text-sm font-medium">Minimum prompt size (chars)</p>
             <Input
               value={String(pxpipeMinChars)}
-              onChange={(e) => setPxpipeMinChars(e.target.value)}
+              onChange={(e) => setPxpipeMinChars(Number(e.target.value) || 0)}
               onBlur={handlePxpipeMinCharsBlur}
               placeholder="25000"
               className="font-mono text-sm"

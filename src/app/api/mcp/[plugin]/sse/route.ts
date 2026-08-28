@@ -11,11 +11,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const encoder = new TextEncoder();
-  let sid;
+  let sid: string;
 
   const stream = new ReadableStream({
     start(controller) {
-      const send = (chunk) => controller.enqueue(encoder.encode(chunk));
+      const send = (chunk: string) => controller.enqueue(encoder.encode(chunk));
       sid = registerSession(plugin, send);
       // MCP SSE handshake: tell client where to POST messages.
       send(`event: endpoint\ndata: /api/mcp/${plugin}/message?sessionId=${sid}\n\n`);

@@ -12,8 +12,6 @@ interface SpinnerProps {
   className?: string;
 }
 
-interface CardSkeletonProps {}
-
 // Spinner loading
 export function Spinner({ size = "md", className }: SpinnerProps) {
   const sizes: Record<SpinnerSize, string> = {
@@ -29,7 +27,7 @@ export function Spinner({ size = "md", className }: SpinnerProps) {
 }
 
 // Card skeleton
-export function CardSkeleton(_props: CardSkeletonProps) {
+export function CardSkeleton() {
   return (
     <div className="p-6 rounded-[14px] border border-border-subtle bg-surface shadow-[var(--shadow-soft)]">
       <div className="flex items-center justify-between mb-4">

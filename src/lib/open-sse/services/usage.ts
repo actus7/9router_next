@@ -57,7 +57,7 @@ const USAGE_HANDLERS: Record<string, (c: UsageContext) => Promise<unknown>> = {
   qoder: async (c: UsageContext) => {
     // PAT (pt-...) connections must be exchanged to a job token before the
     // quota endpoint accepts them.
-    const resolved = await resolveQoderCredentials(c, c.proxyOptions).catch(() => null);
+    const resolved = await resolveQoderCredentials(c as unknown as import("./types").Credentials, c.proxyOptions).catch(() => null);
     return getQoderUsage(resolved?.accessToken || c.accessToken, c.proxyOptions);
   },
   iflow: (c: UsageContext) => getIflowUsage(c.accessToken),

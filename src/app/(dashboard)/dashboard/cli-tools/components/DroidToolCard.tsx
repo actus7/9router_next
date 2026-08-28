@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
@@ -21,7 +21,7 @@ interface DroidToolCardProps {
   baseUrl: string;
   hasActiveProviders: boolean;
   apiKeys: ApiKey[];
-  activeProviders: unknown[];
+  activeProviders: ActiveProvider[];
   cloudEnabled: boolean;
   initialStatus?: StatusData | null;
   tunnelEnabled: boolean;
@@ -45,7 +45,7 @@ export default function DroidToolCard({
   const [modelList, setModelList] = useState<string[]>([]);
   const [modelInput, setModelInput] = useState<string>("");
   const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [modelAliases, setModelAliases] = useState<Record<string, unknown>>({});
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [showInstallGuide, setShowInstallGuide] = useState<boolean>(false);
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
@@ -210,8 +210,8 @@ export default function DroidToolCard({
       })),
     };
 
-    const platform = typeof navigator !== "undefined" && navigator.platform;
-    const isWindows = platform?.toLowerCase().includes("win");
+    const platform = typeof navigator !== "undefined" ? navigator.platform : "";
+    const isWindows = platform.toLowerCase().includes("win");
     const settingsPath = isWindows
       ? "%USERPROFILE%\\.factory\\settings.json"
       : "~/.factory/settings.json";
@@ -371,7 +371,7 @@ export default function DroidToolCard({
       )}
 
       {modalOpen && (
-        <ModelSelectModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSelect={handleModelSelect} selectedModel={null} activeProviders={activeProviders} modelAliases={modelAliases} title="Select Model for Factory Droid" />
+        <ModelSelectModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSelect={handleModelSelect} selectedModel={undefined} activeProviders={activeProviders} modelAliases={modelAliases} title="Select Model for Factory Droid" />
       )}
 
       <ManualConfigModal isOpen={showManualConfigModal} onClose={() => setShowManualConfigModal(false)} title="Factory Droid - Manual Configuration" configs={getManualConfigs()} />

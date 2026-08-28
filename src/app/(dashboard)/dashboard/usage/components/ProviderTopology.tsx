@@ -8,6 +8,7 @@ import {
   Controls,
   BaseEdge,
   getBezierPath,
+  type EdgeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
@@ -21,11 +22,11 @@ const FE_ACTIVE_TICK_MS = 1000;
 const KAME_PARTICLE_COUNT = 6;
 const SPARK_COUNT = 5;
 
-function getProviderConfig(providerId) {
+function getProviderConfig(providerId: string) {
   return AI_PROVIDERS[providerId] || { color: "#6b7280", name: providerId };
 }
 
-function getProviderImageUrl(providerId) {
+function getProviderImageUrl(providerId: string) {
   return getProviderIconSrc(providerId);
 }
 
@@ -131,7 +132,7 @@ function RouterNode({ data }: { data: RouterNodeData }) {
       <span className={`text-sm font-bold ${powering ? "topology-router-label text-yellow-300" : "text-primary"}`}>
         9Router
       </span>
-      {data.activeCount > 0 && (
+      {data.activeCount !== undefined && data.activeCount > 0 && (
         <span className="ml-2 px-1.5 py-0.5 rounded-full bg-yellow-400 text-black text-xs font-bold topology-router-badge">
           {data.activeCount}
         </span>
@@ -149,7 +150,7 @@ function TopologyEdge({
   targetY,
   sourcePosition,
   targetPosition,
-  style = {},
+  style = {} as React.CSSProperties,
   data,
 }: {
   id?: string;
@@ -159,23 +160,23 @@ function TopologyEdge({
   targetY?: number;
   sourcePosition?: Position;
   targetPosition?: Position;
-  style?: Record<string, unknown>;
+  style?: React.CSSProperties;
   data?: TopologyEdgeData;
 }) {
   const [edgePath] = getBezierPath({
-    sourceX,
-    sourceY,
+    sourceX: sourceX ?? 0,
+    sourceY: sourceY ?? 0,
     sourcePosition,
-    targetX,
-    targetY,
+    targetX: targetX ?? 0,
+    targetY: targetY ?? 0,
     targetPosition,
   });
   const active = !!data?.active;
-  const stroke = style.stroke || "var(--color-border)";
+  const stroke = (style.stroke as string) || "var(--color-border)";
   const filterId = `topo-electric-${id}`;
 
   if (!active) {
-    return <BaseEdge id={id} path={edgePath} style={{ ...style, stroke }} />;
+    return <BaseEdge id={id} path={edgePath} style={{ ...style, stroke } as React.CSSProperties} />;
   }
 
   return (
@@ -262,10 +263,17 @@ function TopologyEdge({
 }
 
 const nodeTypes = { provider: ProviderNode, router: RouterNode };
-const edgeTypes = { topology: TopologyEdge };
+const edgeTypes = { topology: TopologyEdge } as Record<string, React.ComponentType<Record<string, unknown>>>;
 
 // Place N nodes evenly along an ellipse around the router center.
-function buildLayout(providers, activeSet, lastSet, errorSet) {
+interface TopologyProvider {
+  id?: string;
+  provider: string;
+  name?: string;
+  nodeName?: string;
+}
+
+function buildLayout(providers: TopologyProvider[], activeSet: Set<string>, lastSet: Set<string>, errorSet: Set<string>) {
   const nodeW = 180;
   const nodeH = 30;
   const routerW = 120;
@@ -285,8 +293,8 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
     };
   }
 
-  const nodes = [];
-  const edges = [];
+  const nodes: Array<{ id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown>; draggable: boolean }> = [];
+  const edges: Array<{ id: string; type: string; source: string; sourceHandle: string; target: string; targetHandle: string; animated: boolean; data: { active: boolean }; style: Record<string, unknown> }> = [];
 
   nodes.push({
     id: "router",
@@ -296,14 +304,14 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
     draggable: false,
   });
 
-  const edgeStyle = (active, last, error) => {
+  const edgeStyle = (active: boolean, last: boolean, error: boolean) => {
     if (error) return { stroke: "#ef4444", strokeWidth: 2.5, opacity: 0.9 };
     if (active) return { stroke: "#22d3ee", strokeWidth: 3.5, opacity: 1 };
     if (last) return { stroke: "#f59e0b", strokeWidth: 2, opacity: 0.7 };
     return { stroke: "var(--color-border)", strokeWidth: 1, opacity: 0.3 };
   };
 
-  providers.forEach((p, i) => {
+  providers.forEach((p: TopologyProvider, i: number) => {
     const config = getProviderConfig(p.provider);
     const active = activeSet.has(p.provider?.toLowerCase());
     const last = !active && lastSet.has(p.provider?.toLowerCase());
@@ -380,11 +388,11 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   const errorSet = useMemo(() => new Set(errorKey ? [errorKey] : []), [errorKey]);
 
   // Track firstSeen per active provider; drop provider if running too long (BE stuck)
-  const firstSeenRef = useRef({});
+  const firstSeenRef = useRef<Record<string, number>>({});
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const seen = firstSeenRef.current;
+    const seen = firstSeenRef.current as Record<string, number>;
     const now = Date.now();
     for (const p of rawActiveSet) {
       if (!seen[p]) seen[p] = now;
@@ -402,9 +410,9 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
 
   const activeSet = useMemo(() => {
     const now = Date.now();
-    const filtered = new Set();
+    const filtered = new Set<string>();
     for (const p of rawActiveSet) {
-      const ts = firstSeenRef.current[p];
+      const ts = (firstSeenRef.current as Record<string, number>)[p];
       if (!ts || now - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
     }
     return filtered;
@@ -421,12 +429,12 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     [providers]
   );
 
-  const rfInstance = useRef(null);
-  const containerRef = useRef(null);
+  const rfInstance = useRef<{ fitView: (opts?: Record<string, unknown>) => void } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const fitOpts = { padding: 0.2, duration: 200 };
-  const onInit = useCallback((instance) => {
+  const onInit = useCallback((instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
     rfInstance.current = instance;
-    setTimeout(() => instance.fitView(fitOpts), 50);
+    setTimeout(() => instance.fitView(fitOpts as unknown as Record<string, unknown>), 50);
   }, []);
 
   // Re-fit on container resize
@@ -434,7 +442,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
-      if (rfInstance.current) rfInstance.current.fitView(fitOpts);
+      if (rfInstance.current) rfInstance.current.fitView(fitOpts as unknown as Record<string, unknown>);
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -443,7 +451,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   // Re-fit when node count/layout changes
   useEffect(() => {
     if (rfInstance.current) {
-      const id = setTimeout(() => rfInstance.current.fitView(fitOpts), 50);
+      const id = setTimeout(() => rfInstance.current?.fitView(fitOpts as unknown as Record<string, unknown>), 50);
       return () => clearTimeout(id);
     }
   }, [nodes.length]);
@@ -452,7 +460,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     <div ref={containerRef} className="h-[320px] w-full min-w-0 rounded-lg border border-border bg-bg-subtle/30 sm:h-[480px]">
       {providers.length === 0 ? (
         <div className="h-full flex items-center justify-center text-text-muted text-sm">
-          No providers connected
+          Nenhum provedor conectado
         </div>
       ) : (
         <ReactFlow
@@ -460,7 +468,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
+          edgeTypes={edgeTypes as EdgeTypes}
           fitView
           fitViewOptions={fitOpts}
           minZoom={0.1}

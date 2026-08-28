@@ -1,5 +1,7 @@
 "use client";
 
+import { Network, Code } from "lucide-react";
+
 export default function Footer() {
   return (
     <footer className="border-t border-[#3a2f27] bg-[#120f0d] pt-16 pb-8 px-6">

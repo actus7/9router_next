@@ -1,7 +1,11 @@
-import { getMachineId } from "@/shared/utils/machine";
-import EndpointPageClient from "./endpoint/EndpointPageClient";
+import { Suspense } from "react";
+import { CardSkeleton } from "@/shared/components";
+import UsageClient from "./usage/UsageClient";
 
-export default async function DashboardPage() {
-  const machineId = await getMachineId();
-  return <EndpointPageClient machineId={machineId} />;
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<CardSkeleton />}>
+      <UsageClient />
+    </Suspense>
+  );
 }

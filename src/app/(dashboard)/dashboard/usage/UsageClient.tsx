@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 
 const PERIODS = [
-  { value: "today", label: "Today" },
+  { value: "today", label: "Hoje" },
   { value: "24h", label: "24h" },
   { value: "7d", label: "7D" },
   { value: "30d", label: "30D" },
@@ -38,8 +38,8 @@ export default function UsageClient() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="inline-flex w-full sm:w-auto">
           <TabsList variant="default" className="rounded-[10px] bg-surface-2 p-1">
-            <TabsTrigger value="overview" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">Overview</TabsTrigger>
-            <TabsTrigger value="details" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">Details</TabsTrigger>
+            <TabsTrigger value="overview" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">Visão Geral</TabsTrigger>
+            <TabsTrigger value="details" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">Detalhes</TabsTrigger>
           </TabsList>
         </Tabs>
         {activeTab === "overview" && (

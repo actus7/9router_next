@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       accessToken: tokenData.accessToken,
       refreshToken: tokenData.refreshToken,
       expiresAt: new Date(Date.now() + tokenData.expiresIn * 1000).toISOString(),
-      email: email || null,
+      email: email ?? undefined,
       providerSpecificData: {
         profileArn: tokenData.profileArn,
         authMethod: provider, // "google" or "github"
@@ -55,12 +55,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       connection: {
-        id: connection.id,
-        provider: connection.provider,
-        email: connection.email,
+        id: connection!.id,
+        provider: connection!.provider,
+        email: connection!.email,
       },
     });
-  } catch ($1) { console.error("Kiro social exchange error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) { console.error("Kiro social exchange error:", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

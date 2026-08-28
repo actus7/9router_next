@@ -85,10 +85,10 @@ const createOpenAIModelsConfig = (url: string) => ({
 });
 
 const getStaticProviderModels = (providerId: string) =>
-  getModelsByProviderId(providerId).map((model: { id: string; name?: string }) => ({
+  getModelsByProviderId(providerId).map((model: Record<string, unknown>) => ({
     ...model,
-    id: model.id,
-    name: model.name || model.id,
+    id: model.id as string,
+    name: (model.name as string) || (model.id as string),
   }));
 
 // Generic custom resolver for OAuth providers that need refresh-on-401 + token persist.
@@ -110,9 +110,9 @@ const buildOAuthResolver = ({ refreshFn, fetchFn, parseFn, errorLabel }: {
       const refreshed = await refreshFn(connection);
       if (refreshed?.accessToken) {
         await updateProviderCredentials(connection.id as string, {
-          accessToken: refreshed.accessToken,
-          refreshToken: refreshed.refreshToken || refreshToken,
-          expiresIn: refreshed.expiresIn,
+          accessToken: refreshed.accessToken as string,
+          refreshToken: (refreshed.refreshToken as string) || (refreshToken as string),
+          expiresIn: refreshed.expiresIn as number | undefined,
         });
         connection.accessToken = refreshed.accessToken;
         if (refreshed.refreshToken) connection.refreshToken = refreshed.refreshToken;
@@ -305,9 +305,9 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
           onCredentialsRefreshed: async (refreshed: Record<string, unknown>) => {
             if (refreshed?.accessToken) {
               await updateProviderCredentials(connection.id as string, {
-                accessToken: refreshed.accessToken,
-                refreshToken: refreshed.refreshToken || connection.refreshToken,
-                expiresIn: refreshed.expiresIn,
+                accessToken: refreshed.accessToken as string,
+                refreshToken: (refreshed.refreshToken as string) || (connection.refreshToken as string),
+                expiresIn: refreshed.expiresIn as number | undefined,
               });
               connection.accessToken = refreshed.accessToken;
               if (refreshed.refreshToken) connection.refreshToken = refreshed.refreshToken;
@@ -316,15 +316,18 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
         });
         if (result?.models?.length) {
           return {
-            models: result.models.map((m: Record<string, unknown>) => ({
-              id: m.id,
-              name: m.name,
-              upstreamModelId: m.upstreamModelId,
-              contextLength: m.contextLength,
-              rateMultiplier: m.rateMultiplier,
-              capabilities: m.capabilities,
-              description: m.description
-            }))
+            models: result.models.map((m: unknown) => {
+              const rec = m as Record<string, unknown>;
+              return {
+                id: rec.id,
+                name: rec.name,
+                upstreamModelId: rec.upstreamModelId,
+                contextLength: rec.contextLength,
+                rateMultiplier: rec.rateMultiplier,
+                capabilities: rec.capabilities,
+                description: rec.description,
+              };
+            })
           };
         }
         warning = "Kiro returned no models; falling back to static catalog.";
@@ -371,7 +374,7 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
   },
   "gemini-cli": {
     customResolver: buildOAuthResolver({
-      refreshFn: (conn) => refreshGoogleToken(conn.refreshToken as string, GEMINI_CONFIG.clientId, GEMINI_CONFIG.clientSecret),
+      refreshFn: (conn) => refreshGoogleToken(conn.refreshToken as string, GEMINI_CONFIG.clientId as string, GEMINI_CONFIG.clientSecret as string),
       fetchFn: (token, conn) => {
         const projectId = (conn.projectId || (conn.providerSpecificData as Record<string, unknown>)?.projectId) as string;
         const body = projectId ? { project: projectId } : {};
@@ -408,7 +411,7 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
         onCredentialsRefreshed: async (refreshed: Record<string, unknown>) => {
           await updateProviderCredentials(connection.id as string, {
             ...refreshed,
-            existingProviderSpecificData: connection.providerSpecificData || {},
+            existingProviderSpecificData: (connection.providerSpecificData || {}) as Record<string, unknown>,
           });
         },
       });
@@ -450,7 +453,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
     }
 
     if (isOpenAICompatibleProvider(connection.provider)) {
-      const baseUrl = connection.providerSpecificData?.baseUrl;
+      const baseUrl = connection.providerSpecificData?.baseUrl as string | undefined;
       if (!baseUrl) {
         return NextResponse.json({ error: "No base URL configured for OpenAI compatible provider" }, { status: 400 });
       }
@@ -483,7 +486,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
     }
 
     if (isAnthropicCompatibleProvider(connection.provider)) {
-      let baseUrl = connection.providerSpecificData?.baseUrl;
+      let baseUrl = connection.providerSpecificData?.baseUrl as string | undefined;
       if (!baseUrl) {
         return NextResponse.json({ error: "No base URL configured for Anthropic compatible provider" }, { status: 400 });
       }
@@ -498,7 +501,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": connection.apiKey,
+          "x-api-key": connection.apiKey as string,
           "anthropic-version": "2023-06-01",
           "Authorization": `Bearer ${connection.apiKey}`
         },

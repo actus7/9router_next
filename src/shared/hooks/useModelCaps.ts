@@ -91,11 +91,7 @@ export function useModelCaps(): UseModelCapsReturn {
   );
 
   useEffect(() => {
-    if (cache) {
-      setByFull(cache.byFull);
-      setById(cache.byId);
-      return;
-    }
+    if (cache) return;
     let alive = true;
     loadModelCaps().then((maps) => {
       if (alive) { setByFull(maps.byFull); setById(maps.byId); }

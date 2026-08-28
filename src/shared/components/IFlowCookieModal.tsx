@@ -77,9 +77,9 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            iFlow Cookie Authentication
+            Autenticação por Cookie iFlow
           </DialogTitle>
-          <Button onClick={handleClose} aria-label="Close" variant="ghost" size="sm" className="p-1.5">
+          <Button onClick={handleClose} aria-label="Fechar" variant="ghost" size="sm" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
@@ -88,14 +88,14 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
         {success ? (
           <div className="text-center py-8">
             <div className="text-6xl mb-4">✅</div>
-            <p className="text-lg font-medium text-text-primary">Authentication Successful!</p>
-            <p className="text-sm text-text-muted mt-2">Fresh API key obtained</p>
+            <p className="text-lg font-medium text-text-primary">Autenticação Bem-sucedida!</p>
+            <p className="text-sm text-text-muted mt-2">Chave API fresca obtida</p>
           </div>
         ) : (
           <>
             <div className="space-y-2">
               <p className="text-sm text-text-muted">
-                To get a fresh API key, paste your browser cookie from{" "}
+                Para obter uma chave API fresca, cole o cookie do seu navegador de{" "}
                 <a
                   href="https://platform.iflow.cn"
                   target="_blank"
@@ -106,20 +106,20 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
                 </a>
               </p>
               <div className="bg-surface-secondary p-3 rounded-lg text-xs space-y-2">
-                <p className="font-medium text-text-primary">How to get cookie:</p>
+                <p className="font-medium text-text-primary">Como obter o cookie:</p>
                 <ol className="list-decimal list-inside space-y-1 text-text-muted">
-                  <li>Open platform.iflow.cn in your browser</li>
-                  <li>Login to your account</li>
-                  <li>Open DevTools (F12) → Application/Storage → Cookies</li>
-                  <li>Copy the entire cookie string (must include BXAuth)</li>
-                  <li>Paste it below</li>
+                  <li>Abra platform.iflow.cn no seu navegador</li>
+                  <li>Faça login na sua conta</li>
+                  <li>Abra as DevTools (F12) → Application/Storage → Cookies</li>
+                  <li>Copie toda a string do cookie (deve incluir BXAuth)</li>
+                  <li>Cole abaixo</li>
                 </ol>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label className="block text-text-primary">
-                Cookie String
+                String do Cookie
               </Label>
               <Textarea
                 value={cookie}
@@ -139,10 +139,10 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
 
             <div className="flex gap-3 pt-2">
               <Button variant="secondary" onClick={handleClose} disabled={loading} fullWidth>
-                Cancel
+                Cancelar
               </Button>
               <Button onClick={handleSubmit} loading={loading} fullWidth>
-                Authenticate
+                Autenticar
               </Button>
             </div>
           </>

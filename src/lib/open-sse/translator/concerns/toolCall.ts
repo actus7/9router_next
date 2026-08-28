@@ -3,26 +3,39 @@
 // Anthropic tool_use.id must match: ^[a-zA-Z0-9_-]+$
 const TOOL_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
+interface ToolCallMessage {
+  role: string;
+  tool_calls?: { id?: string; type?: string; function?: { name?: string; arguments?: string | unknown } }[];
+  tool_call_id?: string;
+  content?: string | { type: string; id?: string; name?: string; tool_use_id?: string; text?: string }[];
+  [key: string]: unknown;
+}
+
+interface BodyWithMessages {
+  messages?: ToolCallMessage[];
+  [key: string]: unknown;
+}
+
 // Fallback streaming tool_call id when provider omits one (index optional)
-export function fallbackToolCallId(index) {
+export function fallbackToolCallId(index?: number): string {
   return index === undefined ? `call_${Date.now()}` : `call_${index}_${Date.now()}`;
 }
 
 // Generate deterministic tool call ID from position + tool name (cache-friendly)
-export function generateToolCallId(msgIndex = 0, tcIndex = 0, toolName = "") {
+export function generateToolCallId(msgIndex: number = 0, tcIndex: number = 0, toolName: string = ""): string {
   const name = toolName ? `_${toolName.replace(/[^a-zA-Z0-9_-]/g, "")}` : "";
   return `call_msg${msgIndex}_tc${tcIndex}${name}`;
 }
 
 // Sanitize ID to match Anthropic pattern: keep only alphanumeric, underscore, hyphen
-function sanitizeToolId(id) {
+function sanitizeToolId(id: string): string | null {
   if (!id || typeof id !== "string") return null;
   const sanitized = id.replace(/[^a-zA-Z0-9_-]/g, "");
   return sanitized.length > 0 ? sanitized : null;
 }
 
 // Ensure all tool_calls have valid id field and arguments is string (some providers require it)
-export function ensureToolCallIds(body) {
+export function ensureToolCallIds(body: BodyWithMessages): BodyWithMessages {
   if (!body.messages || !Array.isArray(body.messages)) return body;
 
   for (let i = 0; i < body.messages.length; i++) {
@@ -32,7 +45,7 @@ export function ensureToolCallIds(body) {
         const tc = msg.tool_calls[j];
         // Validate or regenerate ID for Anthropic compatibility
         if (!tc.id || !TOOL_ID_PATTERN.test(tc.id)) {
-          const sanitized = sanitizeToolId(tc.id);
+          const sanitized = sanitizeToolId(tc.id ?? "");
           tc.id = sanitized || generateToolCallId(i, j, tc.function?.name);
         }
         if (!tc.type) {
@@ -72,10 +85,10 @@ export function ensureToolCallIds(body) {
 }
 
 // Get tool_call ids from assistant message (OpenAI format: tool_calls, Claude format: tool_use in content)
-export function getToolCallIds(msg) {
+export function getToolCallIds(msg: ToolCallMessage): string[] {
   if (msg.role !== "assistant") return [];
 
-  const ids = [];
+  const ids: string[] = [];
 
   // OpenAI format: tool_calls array
   if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
@@ -97,7 +110,7 @@ export function getToolCallIds(msg) {
 }
 
 // Check if user message has tool_result for given ids (OpenAI format: role=tool, Claude format: tool_result in content)
-export function hasToolResults(msg, toolCallIds) {
+export function hasToolResults(msg: ToolCallMessage, toolCallIds: string[]): boolean {
   if (!msg || !toolCallIds.length) return false;
 
   // OpenAI format: role = "tool" with tool_call_id
@@ -108,7 +121,7 @@ export function hasToolResults(msg, toolCallIds) {
   // Claude format: tool_result blocks in user message content
   if (msg.role === "user" && Array.isArray(msg.content)) {
     for (const block of msg.content) {
-      if (block.type === "tool_result" && toolCallIds.includes(block.tool_use_id)) {
+      if (block.type === "tool_result" && toolCallIds.includes(block.tool_use_id ?? "")) {
         return true;
       }
     }
@@ -118,10 +131,10 @@ export function hasToolResults(msg, toolCallIds) {
 }
 
 // Fix missing tool responses - insert empty tool_result if assistant has tool_use but next message has no tool_result
-export function fixMissingToolResponses(body) {
+export function fixMissingToolResponses(body: BodyWithMessages): BodyWithMessages {
   if (!body.messages || !Array.isArray(body.messages)) return body;
 
-  const newMessages = [];
+  const newMessages: ToolCallMessage[] = [];
 
   for (let i = 0; i < body.messages.length; i++) {
     const msg = body.messages[i];
@@ -150,4 +163,3 @@ export function fixMissingToolResponses(body) {
   body.messages = newMessages;
   return body;
 }
-

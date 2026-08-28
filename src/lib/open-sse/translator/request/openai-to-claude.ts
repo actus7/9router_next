@@ -13,17 +13,18 @@ import { getCapabilitiesForModel } from "../../providers/capabilities";
 const CLAUDE_OAUTH_TOOL_PREFIX = "";
 
 // Convert OpenAI request to Claude format
-export function openaiToClaudeRequest(model, body, stream) {
+export function openaiToClaudeRequest(model: string, body: Record<string, unknown>, stream: boolean) {
   // Tool name mapping for Claude OAuth (capitalizedName → originalName)
-  const toolNameMap = new Map();
+  const toolNameMap = new Map<string, string>();
   // Cap max_tokens at the model's real output ceiling (e.g. Opus 4.8 = 128000),
   // not the conservative 64000 default — otherwise a high-output model is
   // pre-clamped here before prepareClaudeRequest's model-aware step runs.
-  const modelCeiling = getCapabilitiesForModel(null, model).maxOutput || undefined;
-  const result = {
+  const modelCeiling = getCapabilitiesForModel(null as unknown as string, model).maxOutput || undefined;
+  const result: { messages: Record<string, unknown>[]; [key: string]: unknown } = {
     model: model,
     max_tokens: adjustMaxTokens(body, modelCeiling),
-    stream: stream
+    stream: stream,
+    messages: []
   };
 
   // Temperature
@@ -33,23 +34,23 @@ export function openaiToClaudeRequest(model, body, stream) {
 
   // Messages
   result.messages = [];
-  const systemParts = [];
+  const systemParts: string[] = [];
 
   if (body.messages && Array.isArray(body.messages)) {
     // Extract system messages
-    for (const msg of body.messages) {
+    for (const msg of body.messages as Record<string, unknown>[]) {
       if (msg.role === ROLE.SYSTEM) {
-        systemParts.push(typeof msg.content === "string" ? msg.content : extractTextContent(msg.content, "\n"));
+        systemParts.push(typeof msg.content === "string" ? msg.content : extractTextContent(msg.content as string | Record<string, unknown>[], "\n"));
       }
     }
 
     // Filter out system messages for separate processing
-    const nonSystemMessages = body.messages.filter(m => m.role !== ROLE.SYSTEM);
+    const nonSystemMessages = (body.messages as Record<string, unknown>[]).filter((m: Record<string, unknown>) => m.role !== ROLE.SYSTEM);
 
     // Process messages with merging logic
     // CRITICAL: tool_result must be in separate message immediately after tool_use
-    let currentRole = undefined;
-    let currentParts = [];
+    let currentRole: string | undefined = undefined;
+    let currentParts: Record<string, unknown>[] = [];
 
     const flushCurrentMessage = () => {
       if (currentRole && currentParts.length > 0) {
@@ -61,13 +62,13 @@ export function openaiToClaudeRequest(model, body, stream) {
     for (const msg of nonSystemMessages) {
       const newRole = (msg.role === ROLE.USER || msg.role === ROLE.TOOL) ? ROLE.USER : ROLE.ASSISTANT;
       const blocks = getContentBlocksFromMessage(msg, toolNameMap);
-      const hasToolUse = blocks.some(b => b.type === CLAUDE_BLOCK.TOOL_USE);
-      const hasToolResult = blocks.some(b => b.type === CLAUDE_BLOCK.TOOL_RESULT);
+      const hasToolUse = blocks.some((b: Record<string, unknown>) => b.type === CLAUDE_BLOCK.TOOL_USE);
+      const hasToolResult = blocks.some((b: Record<string, unknown>) => b.type === CLAUDE_BLOCK.TOOL_RESULT);
 
       // Separate tool_result from other content
       if (hasToolResult) {
-        const toolResultBlocks = blocks.filter(b => b.type === CLAUDE_BLOCK.TOOL_RESULT);
-        const otherBlocks = blocks.filter(b => b.type !== CLAUDE_BLOCK.TOOL_RESULT);
+        const toolResultBlocks = blocks.filter((b: Record<string, unknown>) => b.type === CLAUDE_BLOCK.TOOL_RESULT);
+        const otherBlocks = blocks.filter((b: Record<string, unknown>) => b.type !== CLAUDE_BLOCK.TOOL_RESULT);
 
         flushCurrentMessage();
 
@@ -103,8 +104,8 @@ export function openaiToClaudeRequest(model, body, stream) {
         // Find the last block that can have cache_control (not thinking blocks)
         const validBlockTypes = [CLAUDE_BLOCK.TEXT, CLAUDE_BLOCK.TOOL_USE, CLAUDE_BLOCK.TOOL_RESULT, CLAUDE_BLOCK.IMAGE];
         for (let j = message.content.length - 1; j >= 0; j--) {
-          const block = message.content[j];
-          if (validBlockTypes.includes(block.type)) {
+          const block = message.content[j] as Record<string, unknown>;
+          if (validBlockTypes.includes(block.type as string)) {
             block.cache_control = { type: "ephemeral" };
             break;
           }
@@ -116,9 +117,10 @@ export function openaiToClaudeRequest(model, body, stream) {
 
   // Handle response_format for JSON mode
   if (body.response_format) {
-    const responseFormat = body.response_format;
-    if (responseFormat.type === "json_schema" && responseFormat.json_schema?.schema) {
-      const schemaJson = JSON.stringify(responseFormat.json_schema.schema, null, 2);
+    const responseFormat = body.response_format as Record<string, unknown>;
+    const jsonSchema = responseFormat.json_schema as Record<string, unknown> | undefined;
+    if (responseFormat.type === "json_schema" && jsonSchema?.schema) {
+      const schemaJson = JSON.stringify(jsonSchema.schema, null, 2);
       systemParts.push(`You must respond with valid JSON that strictly follows this JSON schema:
 \`\`\`json
 ${schemaJson}
@@ -144,12 +146,12 @@ Respond ONLY with the JSON object, no other text.`);
 
   // Tools - convert from OpenAI format to Claude format with prefix for OAuth
   if (body.tools && Array.isArray(body.tools)) {
-    result.tools = [];
-    for (const tool of body.tools) {
+    result.tools = [] as Record<string, unknown>[];
+    for (const tool of body.tools as Record<string, unknown>[]) {
       // Pass-through built-in tools (e.g. web_search_20250305) without prefix or conversion
       const toolType = tool.type;
       if (toolType && toolType !== OPENAI_BLOCK.FUNCTION) {
-        result.tools.push(tool);
+        (result.tools as Record<string, unknown>[]).push(tool);
         continue;
       }
 
@@ -161,8 +163,8 @@ Respond ONLY with the JSON object, no other text.`);
       // MiniMax M3 at api.minimaxi.com) reject payloads where this branch
       // falls through with `toolData.name === undefined`, returning their
       // upstream code (2013) "invalid tool type". See #2435.
-      const toolData = tool.function ?? tool;
-      const originalName = toolData.name;
+      const toolData = (tool.function ?? tool) as Record<string, unknown>;
+      const originalName = toolData.name as string;
 
       // Claude OAuth requires prefixed tool names to avoid conflicts
       const toolName = CLAUDE_OAUTH_TOOL_PREFIX + originalName;
@@ -170,15 +172,15 @@ Respond ONLY with the JSON object, no other text.`);
       // Store mapping for response translation (prefixed → original)
       toolNameMap.set(toolName, originalName);
 
-      result.tools.push({
+      (result.tools as Record<string, unknown>[]).push({
         name: toolName,
         description: toolData.description || "",
         input_schema: toolData.parameters || toolData.input_schema || { type: "object", properties: {}, required: [] }
       });
     }
 
-    if (result.tools.length > 0) {
-      result.tools[result.tools.length - 1].cache_control = { type: "ephemeral", ttl: "1h" };
+    if ((result.tools as Record<string, unknown>[]).length > 0) {
+      (result.tools as Record<string, unknown>[])[(result.tools as Record<string, unknown>[]).length - 1].cache_control = { type: "ephemeral", ttl: "1h" };
     }
   }
 
@@ -198,8 +200,8 @@ Respond ONLY with the JSON object, no other text.`);
 }
 
 // Get content blocks from single message
-function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
-  const blocks = [];
+function getContentBlocksFromMessage(msg: Record<string, unknown>, toolNameMap: Map<string, string> = new Map()): Record<string, unknown>[] {
+  const blocks: Record<string, unknown>[] = [];
 
   if (msg.role === ROLE.TOOL) {
     blocks.push({
@@ -213,7 +215,7 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
         blocks.push({ type: CLAUDE_BLOCK.TEXT, text: msg.content });
       }
     } else if (Array.isArray(msg.content)) {
-      for (const part of msg.content) {
+      for (const part of msg.content as Record<string, unknown>[]) {
         if (part.type === OPENAI_BLOCK.TEXT && part.text) {
           blocks.push({ type: CLAUDE_BLOCK.TEXT, text: part.text });
         } else if (part.type === CLAUDE_BLOCK.TOOL_RESULT) {
@@ -221,10 +223,11 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
             type: CLAUDE_BLOCK.TOOL_RESULT,
             tool_use_id: part.tool_use_id,
             content: part.content,
-            ...(part.is_error && { is_error: part.is_error })
+            ...(part.is_error ? { is_error: part.is_error } : {})
           });
         } else if (part.type === OPENAI_BLOCK.IMAGE_URL) {
-          const url = part.image_url.url;
+          const imgObj = part.image_url as Record<string, unknown>;
+          const url = imgObj.url as string;
           const parsed = parseDataUri(url);
           if (parsed) {
             blocks.push({
@@ -241,7 +244,8 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
           blocks.push({ type: CLAUDE_BLOCK.IMAGE, source: part.source });
         } else if (part.type === OPENAI_BLOCK.FILE && part.file) {
           // OpenAI file block -> Claude document (PDF only; Claude rejects other mimes).
-          const fileData = part.file.file_data;
+          const fileObj = part.file as Record<string, unknown>;
+          const fileData = fileObj.file_data as string;
           const parsed = parseDataUri(fileData);
           if (parsed && parsed.mimeType === "application/pdf") {
             blocks.push({
@@ -254,7 +258,7 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
     }
   } else if (msg.role === ROLE.ASSISTANT) {
     if (Array.isArray(msg.content)) {
-      for (const part of msg.content) {
+      for (const part of msg.content as Record<string, unknown>[]) {
         if (part.type === OPENAI_BLOCK.TEXT && part.text) {
           blocks.push({ type: CLAUDE_BLOCK.TEXT, text: part.text });
         } else if (part.type === CLAUDE_BLOCK.TOOL_USE) {
@@ -262,27 +266,29 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
           blocks.push({ type: CLAUDE_BLOCK.TOOL_USE, id: part.id, name: part.name, input: part.input });
         } else if (part.type === CLAUDE_BLOCK.THINKING) {
           // Include thinking block but strip cache_control (not allowed on thinking blocks)
-          const { cache_control, ...thinkingBlock } = part;
+          const thinkingBlock: Record<string, unknown> = { ...part };
+          delete thinkingBlock.cache_control;
           blocks.push(thinkingBlock);
         }
       }
     } else if (msg.content) {
-      const text = typeof msg.content === "string" ? msg.content : extractTextContent(msg.content, "\n");
+      const text = typeof msg.content === "string" ? msg.content : extractTextContent(msg.content as string | Record<string, unknown>[], "\n");
       if (text) {
         blocks.push({ type: CLAUDE_BLOCK.TEXT, text });
       }
     }
 
     if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
-      for (const tc of msg.tool_calls) {
+      for (const tc of msg.tool_calls as Record<string, unknown>[]) {
         if (tc.type === OPENAI_BLOCK.FUNCTION) {
+          const fn = tc.function as Record<string, unknown>;
           // Apply prefix to tool name
-          const toolName = CLAUDE_OAUTH_TOOL_PREFIX + tc.function.name;
+          const toolName = CLAUDE_OAUTH_TOOL_PREFIX + fn.name;
           blocks.push({
             type: CLAUDE_BLOCK.TOOL_USE,
             id: tc.id,
             name: toolName,
-            input: safeParseJSON(tc.function.arguments, tc.function.arguments)
+            input: safeParseJSON(fn.arguments as string, fn.arguments as string)
           });
         }
       }
@@ -298,7 +304,7 @@ function getContentBlocksFromMessage(msg, toolNameMap = new Map()) {
 // unrecognized type through.
 const CLAUDE_TOOL_CHOICE_TYPES = new Set(["auto", "any", "tool", "none"]);
 
-function convertOpenAIToolChoice(choice) {
+function convertOpenAIToolChoice(choice: unknown): Record<string, unknown> {
   if (!choice) return { type: "auto" };
 
   // OpenAI string forms: "auto" | "none" | "required"
@@ -308,16 +314,18 @@ function convertOpenAIToolChoice(choice) {
   }
 
   if (typeof choice === "object") {
+    const choiceObj = choice as Record<string, unknown>;
     // OpenAI forced tool: { type: "function", function: { name } }.
     // Checked before the native pass-through below, because the OpenAI shape
     // also carries a `.type` ("function") that Claude rejects.
-    if (choice.function?.name) {
-      return { type: "tool", name: choice.function.name };
+    const fn = choiceObj.function as Record<string, unknown> | undefined;
+    if (fn?.name) {
+      return { type: "tool", name: fn.name };
     }
     // Already Claude-native — only pass through types Claude actually accepts,
     // so a malformed or unknown type can never leak into the upstream request.
-    if (CLAUDE_TOOL_CHOICE_TYPES.has(choice.type)) {
-      return choice;
+    if (CLAUDE_TOOL_CHOICE_TYPES.has(choiceObj.type as string)) {
+      return choiceObj;
     }
   }
 
@@ -325,26 +333,26 @@ function convertOpenAIToolChoice(choice) {
 }
 
 // OpenAI -> Claude format for Antigravity (without system prompt modifications)
-function openaiToClaudeRequestForAntigravity(model, body, stream) {
+function openaiToClaudeRequestForAntigravity(model: string, body: Record<string, unknown>, stream: boolean) {
   const result = openaiToClaudeRequest(model, body, stream);
 
   // Remove Claude Code system prompt, keep only user's system messages
   if (result.system && Array.isArray(result.system)) {
-    result.system = result.system.filter(block =>
-      !block.text || !block.text.includes("You are Claude Code")
+    result.system = (result.system as Record<string, unknown>[]).filter((block: Record<string, unknown>) =>
+      !block.text || !(block.text as string).includes("You are Claude Code")
     );
-    if (result.system.length === 0) {
+    if ((result.system as unknown[]).length === 0) {
       delete result.system;
     }
   }
 
   // Strip prefix from tool names for Antigravity (doesn't use Claude OAuth)
   if (result.tools && Array.isArray(result.tools)) {
-    result.tools = result.tools.map(tool => {
-      if (tool.name && tool.name.startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) {
+    result.tools = (result.tools as Record<string, unknown>[]).map((tool: Record<string, unknown>) => {
+      if (tool.name && (tool.name as string).startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) {
         return {
           ...tool,
-          name: tool.name.slice(CLAUDE_OAUTH_TOOL_PREFIX.length)
+          name: (tool.name as string).slice(CLAUDE_OAUTH_TOOL_PREFIX.length)
         };
       }
       return tool;
@@ -353,16 +361,16 @@ function openaiToClaudeRequestForAntigravity(model, body, stream) {
 
   // Strip prefix from tool_use in messages
   if (result.messages && Array.isArray(result.messages)) {
-    result.messages = result.messages.map(msg => {
+    result.messages = result.messages.map((msg: Record<string, unknown>) => {
       if (!msg.content || !Array.isArray(msg.content)) {
         return msg;
       }
 
-      const updatedContent = msg.content.map(block => {
-        if (block.type === CLAUDE_BLOCK.TOOL_USE && block.name && block.name.startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) {
+      const updatedContent = (msg.content as Record<string, unknown>[]).map((block: Record<string, unknown>) => {
+        if (block.type === CLAUDE_BLOCK.TOOL_USE && block.name && (block.name as string).startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) {
           return {
             ...block,
-            name: block.name.slice(CLAUDE_OAUTH_TOOL_PREFIX.length)
+            name: (block.name as string).slice(CLAUDE_OAUTH_TOOL_PREFIX.length)
           };
         }
         return block;
@@ -380,4 +388,3 @@ export { openaiToClaudeRequestForAntigravity };
 
 // Register
 register(FORMATS.OPENAI, FORMATS.CLAUDE, openaiToClaudeRequest, null);
-

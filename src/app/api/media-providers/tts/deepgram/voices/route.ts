@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const data = await res.json();
     const ttsModels = data.tts || [];
 
-    const byLang = {};
+    const byLang: Record<string, { code: string; name: string; voices: Array<{ id: string; name: string; gender: string; lang: string }> }> = {};
     for (const m of ttsModels) {
       // Deepgram returns `languages: ["en"]` or sometimes language inferred from canonical_name suffix
       const langs = Array.isArray(m.languages) && m.languages.length
@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
           };
         }
         const voiceId = m.canonical_name || m.name;
-        if (!byLang[code].voices.find((x) => x.id === voiceId)) {
+        if (!byLang[code].voices.find((x: { id: string }) => x.id === voiceId)) {
           byLang[code].voices.push({
             id: voiceId,
             name: m.name || voiceId,
-            gender: m.metadata?.tags?.find((t) => t === "masculine" || t === "feminine") || "",
+            gender: m.metadata?.tags?.find((t: string) => t === "masculine" || t === "feminine") || "",
             lang: code,
           });
         }
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ voices: byLang[langFilter]?.voices || [] });
     }
     return NextResponse.json({ languages, byLang });
-  } catch (err) {
-    return NextResponse.json({ error: err.message || "Failed to fetch voices" }, { status: 502 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to fetch voices" }, { status: 502 });
   }
 }

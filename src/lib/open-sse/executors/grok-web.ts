@@ -2,11 +2,18 @@ import { BaseExecutor } from "./base";
 import { PROVIDERS } from "../config/providers";
 import { SSE_DONE, SSE_HEADERS_NO_BUFFER } from "../utils/sseConstants";
 import { sseChunk } from "../utils/sse";
+import type { Credentials, Logger } from "../services/types";
 
-const GROK_CHAT_API = PROVIDERS["grok-web"].baseUrl;
+const GROK_CHAT_API = PROVIDERS["grok-web"].baseUrl as string;
 const GROK_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
 
-const MODEL_MAP = {
+interface GrokModelInfo {
+  grokModel: string;
+  modelMode: string;
+  isThinking: boolean;
+}
+
+const MODEL_MAP: Record<string, GrokModelInfo> = {
   "grok-3": { grokModel: "grok-3", modelMode: "MODEL_MODE_GROK_3", isThinking: false },
   "grok-3-mini": { grokModel: "grok-3", modelMode: "MODEL_MODE_GROK_3_MINI_THINKING", isThinking: true },
   "grok-3-thinking": { grokModel: "grok-3", modelMode: "MODEL_MODE_GROK_3_THINKING", isThinking: true },
@@ -23,7 +30,7 @@ const MODEL_MAP = {
   "grok-4.20-beta": { grokModel: "grok-420", modelMode: "MODEL_MODE_GROK_420", isThinking: false },
 };
 
-function randomString(length, alphanumeric = false) {
+function randomString(length: number, alphanumeric = false) {
   const chars = alphanumeric ? "abcdefghijklmnopqrstuvwxyz0123456789" : "abcdefghijklmnopqrstuvwxyz";
   let result = "";
   for (let i = 0; i < length; i++) result += chars[Math.floor(Math.random() * chars.length)];
@@ -37,14 +44,14 @@ function generateStatsigId() {
   return btoa(msg);
 }
 
-function randomHex(bytes) {
+function randomHex(bytes: number) {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(arr, (b: number) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function parseOpenAIMessages(messages) {
-  const extracted = [];
+function parseOpenAIMessages(messages: Record<string, unknown>[]) {
+  const extracted: { role: string; text: string }[] = [];
   for (const msg of messages) {
     let role = String(msg.role || "user");
     if (role === "developer") role = "system";
@@ -52,7 +59,7 @@ function parseOpenAIMessages(messages) {
     if (typeof msg.content === "string") {
       content = msg.content;
     } else if (Array.isArray(msg.content)) {
-      content = msg.content.filter((c) => c.type === "text").map((c) => String(c.text || "")).join(" ");
+      content = msg.content.filter((c: Record<string, unknown>) => c.type === "text").map((c: Record<string, unknown>) => String(c.text || "")).join(" ");
     }
     if (!content.trim()) continue;
     extracted.push({ role, text: content });
@@ -63,7 +70,7 @@ function parseOpenAIMessages(messages) {
     if (extracted[i].role === "user") { lastUserIdx = i; break; }
   }
 
-  const parts = [];
+  const parts: string[] = [];
   for (let i = 0; i < extracted.length; i++) {
     const { role, text } = extracted[i];
     parts.push(i === lastUserIdx ? text : `${role}: ${text}`);
@@ -71,7 +78,17 @@ function parseOpenAIMessages(messages) {
   return parts.join("\n\n");
 }
 
-async function* readGrokNdjsonEvents(body, signal) {
+interface GrokChunk {
+  delta?: string;
+  thinking?: string;
+  fullMessage?: string;
+  fingerprint?: string;
+  responseId?: string;
+  error?: string;
+  done?: boolean;
+}
+
+async function* readGrokNdjsonEvents(body: ReadableStream, signal?: AbortSignal): AsyncGenerator<Record<string, unknown>> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -87,52 +104,50 @@ async function* readGrokNdjsonEvents(body, signal) {
         const line = buffer.slice(0, idx).trim();
         buffer = buffer.slice(idx + 1);
         if (!line) continue;
-        try { yield JSON.parse(line); } catch { /* skip */ }
+        try { yield JSON.parse(line) as Record<string, unknown>; } catch { /* skip */ }
       }
     }
     buffer += decoder.decode();
     const remaining = buffer.trim();
     if (remaining) {
-      try { yield JSON.parse(remaining); } catch { /* skip */ }
+      try { yield JSON.parse(remaining) as Record<string, unknown>; } catch { /* skip */ }
     }
   } finally {
     reader.releaseLock();
   }
 }
 
-async function* extractContent(eventStream, isThinkingModel, signal) {
+async function* extractContent(eventStream: ReadableStream, isThinkingModel: boolean, signal?: AbortSignal): AsyncGenerator<GrokChunk> {
   let fingerprint = "";
   let responseId = "";
-  let thinkOpened = false;
 
   for await (const event of readGrokNdjsonEvents(eventStream, signal)) {
     if (event.error) {
-      yield { error: event.error.message || `Grok error: ${event.error.code}`, done: true };
+      yield { error: (event.error as Record<string, unknown>)?.message as string || `Grok error: ${(event.error as Record<string, unknown>)?.code}`, done: true };
       return;
     }
-    const resp = event.result?.response;
+    const resp = (event.result as Record<string, unknown>)?.response as Record<string, unknown> | undefined;
     if (!resp) continue;
 
-    if (resp.llmInfo?.modelHash && !fingerprint) fingerprint = resp.llmInfo.modelHash;
-    if (resp.responseId) responseId = resp.responseId;
+    if ((resp.llmInfo as Record<string, unknown>)?.modelHash && !fingerprint) fingerprint = (resp.llmInfo as Record<string, unknown>).modelHash as string;
+    if (resp.responseId) responseId = resp.responseId as string;
 
     if (resp.modelResponse) {
-      const mr = resp.modelResponse;
-      if (thinkOpened && isThinkingModel) {
-        if (mr.message) yield { thinking: mr.message };
-        thinkOpened = false;
+      const mr = resp.modelResponse as Record<string, unknown>;
+      if (isThinkingModel) {
+        if (mr.message) yield { thinking: mr.message as string };
       }
-      if (mr.message) yield { fullMessage: mr.message, fingerprint, responseId };
-      if (mr.metadata?.llm_info?.modelHash) fingerprint = mr.metadata.llm_info.modelHash;
+      if (mr.message) yield { fullMessage: mr.message as string, fingerprint, responseId };
+      if ((mr.metadata as Record<string, unknown>)?.llm_info) fingerprint = ((mr.metadata as Record<string, unknown>).llm_info as Record<string, unknown>).modelHash as string || fingerprint;
       continue;
     }
 
-    if (resp.token != null) yield { delta: resp.token, fingerprint, responseId };
+    if (resp.token != null) yield { delta: resp.token as string, fingerprint, responseId };
   }
   yield { done: true, fingerprint, responseId };
 }
 
-function buildStreamingResponse(eventStream, model, cid, created, isThinkingModel, signal) {
+function buildStreamingResponse(eventStream: ReadableStream, model: string, cid: string, created: number, isThinkingModel: boolean, signal?: AbortSignal) {
   const encoder = new TextEncoder();
   return new ReadableStream({
     async start(controller) {
@@ -175,9 +190,10 @@ function buildStreamingResponse(eventStream, model, cid, created, isThinkingMode
         })));
         controller.enqueue(encoder.encode(SSE_DONE));
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
         controller.enqueue(encoder.encode(sseChunk({
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-          choices: [{ index: 0, delta: { content: `[Stream error: ${err.message || String(err)}]` }, finish_reason: "stop", logprobs: null }],
+          choices: [{ index: 0, delta: { content: `[Stream error: ${errorMsg}]` }, finish_reason: "stop", logprobs: null }],
         })));
         controller.enqueue(encoder.encode(SSE_DONE));
       } finally {
@@ -187,10 +203,10 @@ function buildStreamingResponse(eventStream, model, cid, created, isThinkingMode
   });
 }
 
-async function buildNonStreamingResponse(eventStream, model, cid, created, isThinkingModel, signal) {
+async function buildNonStreamingResponse(eventStream: ReadableStream, model: string, cid: string, created: number, isThinkingModel: boolean, signal?: AbortSignal) {
   let fullContent = "";
   let fingerprint = "";
-  const thinkingParts = [];
+  const thinkingParts: string[] = [];
 
   for await (const chunk of extractContent(eventStream, isThinkingModel, signal)) {
     if (chunk.fingerprint) fingerprint = chunk.fingerprint;
@@ -205,8 +221,8 @@ async function buildNonStreamingResponse(eventStream, model, cid, created, isThi
     else if (chunk.delta) fullContent += chunk.delta;
   }
 
-  const msg = { role: "assistant", content: fullContent };
-  if (thinkingParts.length > 0) msg.reasoning_content = thinkingParts.join("\n");
+  const msg: Record<string, unknown> = { role: "assistant", content: fullContent };
+  if (thinkingParts.length > 0) (msg as Record<string, unknown>).reasoning_content = thinkingParts.join("\n");
 
   const promptTokens = Math.ceil(fullContent.length / 4);
   const completionTokens = Math.ceil(fullContent.length / 4);
@@ -223,13 +239,13 @@ export class GrokWebExecutor extends BaseExecutor {
     super("grok-web", PROVIDERS["grok-web"]);
   }
 
-  async execute({ model, body, stream, credentials, signal, log }) {
-    const messages = body?.messages;
+  async execute({ model, body, stream, credentials, signal, log }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Credentials; signal?: AbortSignal; log?: Logger }) {
+    const messages = body?.messages as Record<string, unknown>[] | undefined;
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       const errResp = new Response(JSON.stringify({
         error: { message: "Missing or empty messages array", type: "invalid_request" },
       }), { status: 400, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: GROK_CHAT_API, headers: {}, transformedBody: body };
+      return { response: errResp, url: GROK_CHAT_API, headers: {} as Record<string, string>, transformedBody: body };
     }
 
     const modelInfo = MODEL_MAP[model];
@@ -241,10 +257,10 @@ export class GrokWebExecutor extends BaseExecutor {
       const errResp = new Response(JSON.stringify({
         error: { message: "Empty query after processing", type: "invalid_request" },
       }), { status: 400, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: GROK_CHAT_API, headers: {}, transformedBody: body };
+      return { response: errResp, url: GROK_CHAT_API, headers: {} as Record<string, string>, transformedBody: body };
     }
 
-    const grokPayload = {
+    const grokPayload: Record<string, unknown> = {
       temporary: true, modelName: grokModel, modelMode, message,
       fileAttachments: [], imageAttachments: [],
       disableSearch: false, enableImageGeneration: false, returnImageBytes: false,
@@ -260,7 +276,7 @@ export class GrokWebExecutor extends BaseExecutor {
 
     const traceId = randomHex(16);
     const spanId = randomHex(8);
-    const headers = {
+    const headers: Record<string, string> = {
       Accept: "*/*",
       "Accept-Encoding": "gzip, deflate, br, zstd",
       "Accept-Language": "en-US,en;q=0.9",
@@ -291,15 +307,16 @@ export class GrokWebExecutor extends BaseExecutor {
 
     log?.info?.("GROK-WEB", `Query to ${model} (grok=${grokModel}, mode=${modelMode}), len=${message.length}`);
 
-    let response;
+    let response: Response;
     try {
       response = await fetch(GROK_CHAT_API, {
         method: "POST", headers, body: JSON.stringify(grokPayload), signal,
       });
     } catch (err) {
-      log?.error?.("GROK-WEB", `Fetch failed: ${err.message || String(err)}`);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      log?.error?.("GROK-WEB", `Fetch failed: ${errMsg}`);
       const errResp = new Response(JSON.stringify({
-        error: { message: `Grok connection failed: ${err.message || String(err)}`, type: "upstream_error" },
+        error: { message: `Grok connection failed: ${errMsg}`, type: "upstream_error" },
       }), { status: 502, headers: { "Content-Type": "application/json" } });
       return { response: errResp, url: GROK_CHAT_API, headers, transformedBody: grokPayload };
     }
@@ -326,7 +343,7 @@ export class GrokWebExecutor extends BaseExecutor {
     const cid = `chatcmpl-grok-${crypto.randomUUID().slice(0, 12)}`;
     const created = Math.floor(Date.now() / 1000);
 
-    let finalResponse;
+    let finalResponse: Response;
     if (stream) {
       const sseStream = buildStreamingResponse(response.body, model, cid, created, isThinking, signal);
       finalResponse = new Response(sseStream, {

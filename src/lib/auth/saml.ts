@@ -102,13 +102,12 @@ function createSamlInstance(settings: SamlSettings, origin: string): SAML {
     entryPoint: settings?.samlEntryPoint || "https://example.com/sso",
     issuer: settings?.samlIssuer || "urn:9router:sp",
     idpCert: cert,
-    cert: cert,
     callbackUrl: callbackUrl,
     acceptedClockSkewMs: 60000,
     wantAssertionsSigned: true,
     validateInResponseTo: "never",
     requestIdExpirationMs: 28800000, // 8 hours
-  });
+  } as never);
 }
 
 interface SamlAuthorizeResult {
@@ -123,7 +122,7 @@ export async function buildSamlAuthorizeUrl(request: RequestLike, settings: Saml
   const origin: string = getSamlBaseUrl(request, settings);
   const samlInstance: SAML = createSamlInstance(settings, origin);
 
-  const xml: string = await samlInstance.generateAuthorizeRequestAsync(false, false);
+  const xml: string = await (samlInstance as unknown as { generateAuthorizeRequestAsync: (forceAuthn: boolean, isPassive: boolean) => Promise<string> }).generateAuthorizeRequestAsync(false, false);
   const match: RegExpMatchArray | null = xml.match(/ID="([^"]+)"/);
   const requestId: string = match ? match[1] : "";
 
@@ -166,8 +165,9 @@ export async function validateSamlResponse(
     }
   }
 
-  const result: any = await samlInstance.validatePostResponseAsync({ SAMLResponse: rawSamlResponse });
-  const profile: Record<string, unknown> = result?.profile || result;
+  const rawResult: unknown = await samlInstance.validatePostResponseAsync({ SAMLResponse: rawSamlResponse });
+  const resultObj = (rawResult && typeof rawResult === "object" ? rawResult : {}) as Record<string, unknown>;
+  const profile: Record<string, unknown> = (resultObj.profile as Record<string, unknown>) || resultObj;
 
   return profile;
 }
@@ -177,7 +177,7 @@ export async function validateSamlResponse(
  */
 export function generateSamlMetadata(origin: string, settings: SamlSettings): string {
   const samlInstance: SAML = createSamlInstance(settings, origin);
-  return samlInstance.generateServiceProviderMetadata();
+  return (samlInstance as unknown as { generateServiceProviderMetadata: (decryptionCert?: string, signingCert?: string) => string }).generateServiceProviderMetadata();
 }
 
 /**

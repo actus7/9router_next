@@ -72,7 +72,7 @@ export default function ModelSelectModal({
   onDeselect,
   selectedModel,
   activeProviders = [],
-  title = "Select Model",
+  title = "Selecionar Modelo",
   modelAliases = {},
   kindFilter = null,
   capFilter = null,
@@ -504,7 +504,7 @@ export default function ModelSelectModal({
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
             {title}
           </DialogTitle>
-          <Button onClick={() => { onClose(); setSearchQuery(""); }} aria-label="Close" variant="ghost" size="icon-sm">
+          <Button onClick={() => { onClose(); setSearchQuery(""); }} aria-label="Fechar" variant="ghost" size="icon-sm">
             <X className="size-5" />
           </Button>
         </div>
@@ -512,7 +512,7 @@ export default function ModelSelectModal({
       {/* Info bar */}
       <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-primary/8 border border-primary/20 rounded-lg text-xs text-text-muted">
         <Info className="size-3.5 text-primary shrink-0" />
-        <span>Click to add, click again to remove. Changes are saved automatically.</span>
+        <span>Clique para adicionar, clique novamente para remover. As alterações são salvas automaticamente.</span>
       </div>
 
       {/* Search - compact */}
@@ -521,7 +521,7 @@ export default function ModelSelectModal({
           <Search className="size-4" />
           <Input
             type="text"
-            placeholder="Search..."
+            placeholder="Pesquisar..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 text-xs"
@@ -597,7 +597,7 @@ export default function ModelSelectModal({
                   <Button
                     key={model.value}
                     onClick={() => handleSelect(model)}
-                    title={isPlaceholder ? "Select to pre-fill, then edit model ID in the input" : undefined}
+                    title={isPlaceholder ? "Selecione para preencher, depois edite o ID do modelo no campo" : undefined}
                     variant={isPlaceholder ? "outline" : isSelected || addedModelValues.includes(model.value) ? "default" : "outline"}
                     size="sm"
                     className={`
@@ -624,7 +624,7 @@ export default function ModelSelectModal({
                       ) : model.isCustom ? (
                         <>
                           {model.name}
-                          <span className="text-[9px] opacity-60 font-normal">custom</span>
+                          <span className="text-[9px] opacity-60 font-normal">personalizado</span>
                           <CapacityBadges caps={getCaps(model.value) as Record<string, boolean> | null} />
                         </>
                       ) : (
@@ -644,7 +644,7 @@ export default function ModelSelectModal({
         {Object.keys(filteredGroups).length === 0 && filteredCombos.length === 0 && (
           <div className="text-center py-4 text-text-muted">
             <SearchX className="size-4" />
-            <p className="text-xs">No models found</p>
+            <p className="text-xs">Nenhum modelo encontrado</p>
           </div>
         )}
         </div>

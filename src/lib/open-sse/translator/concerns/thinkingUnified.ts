@@ -6,9 +6,10 @@ import { getCapabilitiesForModel } from "../../providers/capabilities";
 import { getThinkingLevels } from "../../providers/thinkingLevels";
 import { PROVIDERS } from "../../providers/index";
 import { LEVEL_TO_BUDGET, budgetToLevel, effortToBudget, effortToThinkingLevel } from "./thinking";
+import type { ThinkingConfig, ModelCapabilities } from "./openaiTypes";
 
 // Map a target wire-format to its native thinking format (when capability has none).
-const FORMAT_TO_NATIVE = {
+const FORMAT_TO_NATIVE: Record<string, string> = {
   openai: "openai",
   "openai-responses": "openai",
   "openai-response": "openai",
@@ -22,7 +23,7 @@ const FORMAT_TO_NATIVE = {
 };
 
 // Strip a trailing thinking suffix "model(value)" → "model" (no-op when absent).
-export function stripThinkingSuffix(model) {
+export function stripThinkingSuffix(model: unknown): unknown {
   if (typeof model !== "string") return model;
   const m = model.match(/^(.*)\([^()]+\)\s*$/);
   return m ? m[1].trim() : model;
@@ -30,8 +31,8 @@ export function stripThinkingSuffix(model) {
 
 // Parse model-name suffix "model(value)" → { cleanModel, override }.
 // value: level name (high) | number (8192) | auto | none. null override when absent.
-export function parseSuffix(model) {
-  if (typeof model !== "string") return { cleanModel: model, override: null };
+export function parseSuffix(model: unknown): { cleanModel: string; override: ThinkingConfig | null } {
+  if (typeof model !== "string") return { cleanModel: model as string, override: null };
   const m = model.match(/^(.*)\(([^()]+)\)\s*$/);
   if (!m) return { cleanModel: model, override: null };
   const cleanModel = m[1].trim();
@@ -46,11 +47,12 @@ export function parseSuffix(model) {
 
 // Extract unified thinking intent from a request body (post-translation, mixed shapes).
 // Returns { mode, budget?, level? } or null when no thinking intent present.
-export function extractThinking(body) {
+export function extractThinking(body: unknown): ThinkingConfig | null {
   if (!body || typeof body !== "object") return null;
+  const b = body as Record<string, unknown>;
 
   // Claude output_config.effort (explicit) — priority over adaptive thinking
-  const oc = body.output_config?.effort;
+  const oc = (b.output_config as Record<string, unknown>)?.effort;
   if (typeof oc === "string" && oc) {
     const e = oc.toLowerCase();
     if (e === "none" || e === "off") return { mode: "none" };
@@ -59,7 +61,7 @@ export function extractThinking(body) {
   }
 
   // Claude shape
-  const t = body.thinking;
+  const t = b.thinking as Record<string, unknown> | undefined;
   if (t && typeof t === "object") {
     if (t.type === "disabled") return { mode: "none" };
     if (t.type === "adaptive" || t.type === "enabled") {
@@ -70,7 +72,7 @@ export function extractThinking(body) {
   }
 
   // OpenAI chat / Responses shape
-  const effort = body.reasoning_effort ?? (typeof body.reasoning === "object" ? body.reasoning?.effort : null);
+  const effort = b.reasoning_effort ?? (typeof b.reasoning === "object" ? (b.reasoning as Record<string, unknown>)?.effort : null);
   if (typeof effort === "string" && effort) {
     const e = effort.toLowerCase();
     if (e === "none" || e === "off") return { mode: "none" };
@@ -79,10 +81,11 @@ export function extractThinking(body) {
   }
 
   // Gemini shape (top-level, generationConfig, or request envelope)
-  const tc = body.thinkingConfig || body.generationConfig?.thinkingConfig || body.request?.generationConfig?.thinkingConfig;
+  const tc = b.thinkingConfig || (b.generationConfig as Record<string, unknown>)?.thinkingConfig || (b.request as Record<string, unknown>)?.generationConfig && ((b.request as Record<string, unknown>).generationConfig as Record<string, unknown>)?.thinkingConfig;
   if (tc && typeof tc === "object") {
-    if (typeof tc.thinkingLevel === "string") return { mode: "level", level: tc.thinkingLevel.toLowerCase() };
-    const tb = Number(tc.thinkingBudget);
+    const tco = tc as Record<string, unknown>;
+    if (typeof tco.thinkingLevel === "string") return { mode: "level", level: tco.thinkingLevel.toLowerCase() };
+    const tb = Number(tco.thinkingBudget);
     if (Number.isFinite(tb)) {
       if (tb === 0) return { mode: "none" };
       if (tb < 0) return { mode: "auto" };
@@ -91,9 +94,9 @@ export function extractThinking(body) {
   }
 
   // Qwen shape
-  if (body.enable_thinking === false) return { mode: "none" };
-  if (body.enable_thinking === true) {
-    const tb = Number(body.thinking_budget);
+  if (b.enable_thinking === false) return { mode: "none" };
+  if (b.enable_thinking === true) {
+    const tb = Number(b.thinking_budget);
     if (Number.isFinite(tb) && tb > 0) return { mode: "budget", budget: tb };
     return { mode: "auto" };
   }
@@ -106,65 +109,65 @@ export function extractThinking(body) {
 export const captureThinking = extractThinking;
 
 // Resolve thinking format: provider override > capability > derive(targetFormat).
-function resolveFormat(targetFormat, model, provider) {
-  const providerFmt = provider ? PROVIDERS[provider]?.thinkingFormat : null;
+function resolveFormat(targetFormat: string, model: string, provider: string | null): string {
+  const providerFmt = provider ? (PROVIDERS[provider]?.thinkingFormat as string | undefined) : null;
   if (providerFmt) return providerFmt;
-  const caps = getCapabilitiesForModel(provider, model);
-  if (caps.thinkingFormat) return caps.thinkingFormat;
+  const caps = getCapabilitiesForModel(provider ?? "", model);
+  if (caps.thinkingFormat) return caps.thinkingFormat as string;
   return FORMAT_TO_NATIVE[targetFormat] || "openai";
 }
 
 // Convert unified config to a budget number (for budget-based formats).
-function toBudget(cfg, range) {
-  let budget;
+function toBudget(cfg: ThinkingConfig, range: { min?: number; max?: number } | null): number | undefined {
+  let budget: number | undefined;
   if (cfg.mode === "budget") budget = cfg.budget;
   else if (cfg.mode === "level") budget = effortToBudget(cfg.level);
   else if (cfg.mode === "auto") return -1;
   if (!Number.isFinite(budget)) return undefined;
   if (range) {
-    if (range.min != null && budget < range.min) budget = range.min;
-    if (range.max != null && budget > range.max) budget = range.max;
+    if (range.min != null && budget! < range.min) budget = range.min;
+    if (range.max != null && budget! > range.max) budget = range.max;
   }
   return budget;
 }
 
 // Convert unified config to a discrete level string.
-function toLevel(cfg) {
-  if (cfg.mode === "level") return cfg.level;
+function toLevel(cfg: ThinkingConfig): string | null {
+  if (cfg.mode === "level") return cfg.level ?? null;
   if (cfg.mode === "budget") return budgetToLevel(cfg.budget) || "medium";
   if (cfg.mode === "auto") return "auto";
   return null;
 }
 
-function normalizeOpenAILevel(level, supportedLevels) {
+function normalizeOpenAILevel(level: string, supportedLevels: string[] | null): string {
   if (level !== "max" && level !== "ultra") return level;
   if (supportedLevels?.includes(level)) return level;
   if (level === "ultra" && supportedLevels?.includes("max")) return "max";
   return "xhigh";
 }
 
-function toGeminiThinkingLevel(cfg) {
+function toGeminiThinkingLevel(cfg: ThinkingConfig): string {
   const raw = cfg.mode === "auto" ? "high" : (toLevel(cfg) || "high");
   return effortToThinkingLevel(raw);
 }
 
-function toKimiReasoningEffort(cfg) {
+function toKimiReasoningEffort(cfg: ThinkingConfig): string | null {
   const level = toLevel(cfg);
   if (level === "auto") return "high";
   if (level === "minimal") return "low";
   if (level === "xhigh") return "max";
-  if (["low", "medium", "high", "max"].includes(level)) return level;
+  if (["low", "medium", "high", "max"].includes(level!)) return level;
   return null;
 }
 
-const GEMINI_LEVEL_OUTPUT_FLOOR = {
+const GEMINI_LEVEL_OUTPUT_FLOOR: Record<string, number> = {
   minimal: 4096,
   low: 8192,
   medium: 16384,
   high: 65535,
 };
 
-function geminiBudgetOutputFloor(budget) {
+function geminiBudgetOutputFloor(budget: number): number {
   if (budget === -1) return 32768;
   if (!Number.isFinite(budget)) return 32768;
   if (budget <= 1024) return 8192;
@@ -173,32 +176,33 @@ function geminiBudgetOutputFloor(budget) {
   return 65535;
 }
 
-function geminiLevelOutputFloor(level) {
+function geminiLevelOutputFloor(level: string): number {
   return GEMINI_LEVEL_OUTPUT_FLOOR[level] || GEMINI_LEVEL_OUTPUT_FLOOR.high;
 }
 
 // Gemini nests thinkingConfig under generationConfig. gemini-cli / antigravity wrap
 // the whole request in a { request: { generationConfig } } envelope — target the
 // envelope's generationConfig when present, else the top-level one.
-function getGeminiGenerationConfig(body) {
+function getGeminiGenerationConfig(body: Record<string, unknown>): Record<string, unknown> {
   if (body.request && typeof body.request === "object") {
-    if (!body.request.generationConfig || typeof body.request.generationConfig !== "object") {
-      body.request.generationConfig = {};
+    const req = body.request as Record<string, unknown>;
+    if (!req.generationConfig || typeof req.generationConfig !== "object") {
+      req.generationConfig = {};
     }
-    return body.request.generationConfig;
+    return req.generationConfig as Record<string, unknown>;
   }
   if (!body.generationConfig || typeof body.generationConfig !== "object") {
     body.generationConfig = {};
   }
-  return body.generationConfig;
+  return body.generationConfig as Record<string, unknown>;
 }
 
-function setGeminiThinking(body, tc) {
+function setGeminiThinking(body: Record<string, unknown>, tc: Record<string, unknown>): void {
   const gc = getGeminiGenerationConfig(body);
   gc.thinkingConfig = tc;
 }
 
-function ensureGeminiOutputFloor(body, floor, caps) {
+function ensureGeminiOutputFloor(body: Record<string, unknown>, floor: number, caps: ModelCapabilities): void {
   const cap = Number.isFinite(caps?.maxOutput) ? caps.maxOutput : floor;
   const target = Math.min(floor, cap);
   const gc = getGeminiGenerationConfig(body);
@@ -209,7 +213,7 @@ function ensureGeminiOutputFloor(body, floor, caps) {
 }
 
 // Strip every known thinking field from a body (used before re-applying / when unsupported).
-function stripAll(body) {
+function stripAll(body: Record<string, unknown>): void {
   delete body.thinking;
   delete body.reasoning_effort;
   delete body.reasoning;
@@ -217,16 +221,16 @@ function stripAll(body) {
   delete body.enable_thinking;
   delete body.thinking_budget;
   delete body.output_config;
-  if (body.generationConfig) delete body.generationConfig.thinkingConfig;
-  if (body.request?.generationConfig) delete body.request.generationConfig.thinkingConfig;
+  if (body.generationConfig) delete (body.generationConfig as Record<string, unknown>).thinkingConfig;
+  if ((body.request as Record<string, unknown>)?.generationConfig) delete ((body.request as Record<string, unknown>).generationConfig as Record<string, unknown>).thinkingConfig;
 }
 
 // Apply unified thinking config to body in the resolved provider-native format.
-function applyFormat(fmt, body, cfg, caps, supportedLevels) {
+function applyFormat(fmt: string, body: Record<string, unknown>, cfg: ThinkingConfig, caps: ModelCapabilities, supportedLevels: string[] | null): void {
   const none = cfg.mode === "none";
   const canDisable = caps.thinkingCanDisable !== false;
   // Model cannot disable thinking → clamp "none" to minimal effort instead.
-  const eff = none && !canDisable ? { mode: "level", level: "minimal" } : cfg;
+  const eff: ThinkingConfig = none && !canDisable ? { mode: "level", level: "minimal" } : cfg;
 
   switch (fmt) {
     case "openai": {
@@ -276,7 +280,7 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels) {
       if (none && canDisable) { body.enable_thinking = false; break; }
       body.enable_thinking = true;
       const budget = toBudget(eff, caps.thinkingRange);
-      if (Number.isFinite(budget) && budget > 0) body.thinking_budget = budget;
+      if (Number.isFinite(budget) && budget! > 0) body.thinking_budget = budget;
       break;
     }
     case "deepseek": {
@@ -331,12 +335,12 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels) {
 // Mutates and returns body. No-op when model has no reasoning capability.
 // `intent` is a pre-captured config (from captureThinking on the original body);
 // falls back to extracting from the current body when omitted.
-export function applyThinking(targetFormat, model, body, provider = null, intent = undefined) {
+export function applyThinking(targetFormat: string, model: string, body: Record<string, unknown>, provider: string | null = null, intent: ThinkingConfig | undefined = undefined): Record<string, unknown> {
   if (!body || typeof body !== "object") return body;
 
   const { cleanModel, override } = parseSuffix(model);
   const cfg = override || intent || extractThinking(body);
-  const caps = getCapabilitiesForModel(provider, cleanModel);
+  const caps = getCapabilitiesForModel(provider ?? "", cleanModel);
 
   // Model cannot reason → strip any stray thinking fields.
   if (!caps.reasoning) {
@@ -346,8 +350,8 @@ export function applyThinking(targetFormat, model, body, provider = null, intent
   if (!cfg) return body;
 
   const fmt = resolveFormat(targetFormat, cleanModel, provider);
-  const supportedLevels = getThinkingLevels(provider, cleanModel);
+  const supportedLevels = getThinkingLevels(provider ?? "", cleanModel);
   stripAll(body);
-  applyFormat(fmt, body, cfg, caps, supportedLevels);
+  applyFormat(fmt, body, cfg, caps as ModelCapabilities, supportedLevels);
   return body;
 }

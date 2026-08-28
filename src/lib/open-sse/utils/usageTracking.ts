@@ -30,38 +30,38 @@ function getTimeString() {
  * @param {object} usage - Usage object (any format)
  * @returns {object} Usage with buffer added
  */
-export function addBufferToUsage(usage) {
+export function addBufferToUsage(usage: Record<string, unknown>): Record<string, unknown> {
   if (!usage || typeof usage !== "object") return usage;
 
-  const result = { ...usage };
+  const result: Record<string, unknown> = { ...usage };
 
   // Claude format
   if (result.input_tokens !== undefined) {
-    result.input_tokens += BUFFER_TOKENS;
+    result.input_tokens = (result.input_tokens as number) + BUFFER_TOKENS;
   }
 
   // OpenAI format
   if (result.prompt_tokens !== undefined) {
-    result.prompt_tokens += BUFFER_TOKENS;
+    result.prompt_tokens = (result.prompt_tokens as number) + BUFFER_TOKENS;
   }
 
   // Calculate or update total_tokens
   if (result.total_tokens !== undefined) {
-    result.total_tokens += BUFFER_TOKENS;
+    result.total_tokens = (result.total_tokens as number) + BUFFER_TOKENS;
   } else if (result.prompt_tokens !== undefined && result.completion_tokens !== undefined) {
     // Calculate total_tokens if not exists
-    result.total_tokens = result.prompt_tokens + result.completion_tokens;
+    result.total_tokens = (result.prompt_tokens as number) + (result.completion_tokens as number);
   }
 
   return result;
 }
 
-export function filterUsageForFormat(usage, targetFormat) {
+export function filterUsageForFormat(usage: Record<string, unknown>, targetFormat: string) {
   if (!usage || typeof usage !== "object") return usage;
 
   // Helper to pick only defined fields from usage
-  const pickFields = (fields) => {
-    const filtered = {};
+  const pickFields = (fields: string[]) => {
+    const filtered: Record<string, unknown> = {};
     for (const field of fields) {
       if (usage[field] !== undefined) {
         filtered[field] = usage[field];
@@ -114,11 +114,11 @@ export function filterUsageForFormat(usage, targetFormat) {
 /**
  * Normalize usage object - ensure all values are valid numbers
  */
-export function normalizeUsage(usage) {
+export function normalizeUsage(usage: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
   if (!usage || typeof usage !== "object" || Array.isArray(usage)) return null;
 
-  const normalized = {};
-  const assignNumber = (key, value) => {
+  const normalized: Record<string, unknown> = {};
+  const assignNumber = (key: string, value: unknown) => {
     if (value === undefined || value === null) return;
     const numeric = Number(value);
     if (Number.isFinite(numeric)) normalized[key] = numeric;
@@ -161,17 +161,17 @@ export function normalizeUsage(usage) {
  * @param {object} usage - a normalizeUsage()-shaped object
  * @returns {object|null} canonical token object, or null for invalid input
  */
-export function canonicalizeUsage(usage) {
+export function canonicalizeUsage(usage: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
   if (!usage || typeof usage !== "object" || Array.isArray(usage)) return null;
 
-  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
   const completion = num(usage.completion_tokens ?? usage.output_tokens);
   const reasoning = num(usage.reasoning_tokens);
   // Fall back to the nested prompt_tokens_details.cache_creation_tokens shape
   // (buildUsage()'s OpenAI-forwarding format) when the top-level field is
   // absent, so callers that pass a buildUsage() object through don't silently
   // drop cache_creation.
-  const cacheCreation = num(usage.cache_creation_input_tokens ?? usage.prompt_tokens_details?.cache_creation_tokens);
+  const cacheCreation = num(usage.cache_creation_input_tokens ?? (usage.prompt_tokens_details as Record<string, unknown>)?.cache_creation_tokens);
 
   let prompt = num(usage.prompt_tokens ?? usage.input_tokens);
   let cached;
@@ -193,7 +193,7 @@ export function canonicalizeUsage(usage) {
     cached = num(usage.cached_tokens);
   }
 
-  const result = {
+  const result: Record<string, unknown> = {
     prompt_tokens: prompt,
     completion_tokens: completion,
     // Recompute rather than pass through: when the fold branch ran above,
@@ -211,7 +211,7 @@ export function canonicalizeUsage(usage) {
  * Valid = has at least one token field with value > 0
  * Invalid = empty object {}, null, undefined, no token fields, or all zeros
  */
-export function hasValidUsage(usage) {
+export function hasValidUsage(usage: Record<string, unknown> | null | undefined): boolean {
   if (!usage || typeof usage !== "object") return false;
 
   // Check for any known token field with value > 0
@@ -233,67 +233,82 @@ export function hasValidUsage(usage) {
 /**
  * Extract usage from any format (Claude, OpenAI, Gemini, Responses API)
  */
-export function extractUsage(chunk) {
+export function extractUsage(chunk: Record<string, unknown>): Record<string, unknown> | null {
   if (!chunk || typeof chunk !== "object") return null;
 
   // Claude format (message_start event): carries input_tokens + cache_read +
   // cache_creation. message_delta later carries only the final output_tokens,
   // so callers must MERGE (mergeUsage), not overwrite, to keep cache counts.
-  if (chunk.type === "message_start" && chunk.message?.usage && typeof chunk.message.usage === "object") {
-    const u = chunk.message.usage;
+  if (chunk.type === "message_start" && chunk.message && typeof chunk.message === "object") {
+    const msg = chunk.message as Record<string, unknown>;
+    const u = msg.usage as Record<string, unknown> | undefined;
+    if (u && typeof u === "object") {
+      return normalizeUsage({
+        prompt_tokens: (u.input_tokens as number) || 0,
+        completion_tokens: (u.output_tokens as number) || 0,
+        cache_read_input_tokens: u.cache_read_input_tokens,
+        cache_creation_input_tokens: u.cache_creation_input_tokens
+      });
+    }
+  }
+
+  // Claude format (message_delta event)
+  if (chunk.type === "message_delta" && chunk.usage && typeof chunk.usage === "object") {
+    const u = chunk.usage as Record<string, unknown>;
     return normalizeUsage({
-      prompt_tokens: u.input_tokens || 0,
-      completion_tokens: u.output_tokens || 0,
+      prompt_tokens: (u.input_tokens as number) || 0,
+      completion_tokens: (u.output_tokens as number) || 0,
       cache_read_input_tokens: u.cache_read_input_tokens,
       cache_creation_input_tokens: u.cache_creation_input_tokens
     });
   }
 
-  // Claude format (message_delta event)
-  if (chunk.type === "message_delta" && chunk.usage && typeof chunk.usage === "object") {
-    return normalizeUsage({
-      prompt_tokens: chunk.usage.input_tokens || 0,
-      completion_tokens: chunk.usage.output_tokens || 0,
-      cache_read_input_tokens: chunk.usage.cache_read_input_tokens,
-      cache_creation_input_tokens: chunk.usage.cache_creation_input_tokens
-    });
-  }
-
   // OpenAI Responses API format (response.completed or response.done)
-  if ((chunk.type === "response.completed" || chunk.type === "response.done") && chunk.response?.usage && typeof chunk.response.usage === "object") {
-    const usage = chunk.response.usage;
-    const cachedTokens = usage.input_tokens_details?.cached_tokens;
-    return normalizeUsage({
-      prompt_tokens: usage.input_tokens || usage.prompt_tokens || 0,
-      completion_tokens: usage.output_tokens || usage.completion_tokens || 0,
-      cached_tokens: cachedTokens,
-      reasoning_tokens: usage.output_tokens_details?.reasoning_tokens,
-      prompt_tokens_details: cachedTokens ? { cached_tokens: cachedTokens } : undefined
-    });
+  if ((chunk.type === "response.completed" || chunk.type === "response.done") && chunk.response && typeof chunk.response === "object") {
+    const resp = chunk.response as Record<string, unknown>;
+    const usage = resp.usage as Record<string, unknown> | undefined;
+    if (usage && typeof usage === "object") {
+      const inputDetails = usage.input_tokens_details as Record<string, unknown> | undefined;
+      const outputDetails = usage.output_tokens_details as Record<string, unknown> | undefined;
+      const cachedTokens = inputDetails?.cached_tokens;
+      return normalizeUsage({
+        prompt_tokens: (usage.input_tokens as number) || (usage.prompt_tokens as number) || 0,
+        completion_tokens: (usage.output_tokens as number) || (usage.completion_tokens as number) || 0,
+        cached_tokens: cachedTokens,
+        reasoning_tokens: outputDetails?.reasoning_tokens,
+        prompt_tokens_details: cachedTokens ? { cached_tokens: cachedTokens } : undefined
+      });
+    }
   }
 
   // OpenAI format (also covers DeepSeek which uses prompt_cache_hit_tokens)
-  if (chunk.usage && typeof chunk.usage === "object" && chunk.usage.prompt_tokens !== undefined) {
-    return normalizeUsage({
-      prompt_tokens: chunk.usage.prompt_tokens,
-      completion_tokens: chunk.usage.completion_tokens || 0,
-      cached_tokens: chunk.usage.prompt_tokens_details?.cached_tokens || chunk.usage.prompt_cache_hit_tokens,
-      reasoning_tokens: chunk.usage.completion_tokens_details?.reasoning_tokens,
-      prompt_tokens_details: chunk.usage.prompt_tokens_details,
-      completion_tokens_details: chunk.usage.completion_tokens_details
-    });
+  if (chunk.usage && typeof chunk.usage === "object") {
+    const u = chunk.usage as Record<string, unknown>;
+    if (u.prompt_tokens !== undefined) {
+      const promptDetails = u.prompt_tokens_details as Record<string, unknown> | undefined;
+      const compDetails = u.completion_tokens_details as Record<string, unknown> | undefined;
+      return normalizeUsage({
+        prompt_tokens: u.prompt_tokens,
+        completion_tokens: (u.completion_tokens as number) || 0,
+        cached_tokens: promptDetails?.cached_tokens || u.prompt_cache_hit_tokens,
+        reasoning_tokens: compDetails?.reasoning_tokens,
+        prompt_tokens_details: u.prompt_tokens_details,
+        completion_tokens_details: u.completion_tokens_details
+      });
+    }
   }
 
   // Gemini format (Antigravity)
   // Antigravity wraps usageMetadata inside response: { response: { usageMetadata: {...} } }
-  const usageMeta = chunk.usageMetadata || chunk.response?.usageMetadata;
+  const usageMeta = chunk.usageMetadata || (chunk.response as Record<string, unknown>)?.usageMetadata;
   if (usageMeta && typeof usageMeta === "object") {
+    const meta = usageMeta as Record<string, unknown>;
     return normalizeUsage({
-      prompt_tokens: usageMeta.promptTokenCount || 0,
-      completion_tokens: usageMeta.candidatesTokenCount || 0,
-      total_tokens: usageMeta.totalTokenCount,
-      cached_tokens: usageMeta.cachedContentTokenCount,
-      reasoning_tokens: usageMeta.thoughtsTokenCount
+      prompt_tokens: (meta.promptTokenCount as number) || 0,
+      completion_tokens: (meta.candidatesTokenCount as number) || 0,
+      total_tokens: meta.totalTokenCount,
+      cached_tokens: meta.cachedContentTokenCount,
+      reasoning_tokens: meta.thoughtsTokenCount
     });
   }
 
@@ -302,8 +317,8 @@ export function extractUsage(chunk) {
   if (chunk.done === true && typeof chunk.prompt_eval_count === "number") {
     return normalizeUsage({
       prompt_tokens: chunk.prompt_eval_count || 0,
-      completion_tokens: chunk.eval_count || 0,
-      total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0)
+      completion_tokens: (chunk.eval_count as number) || 0,
+      total_tokens: (chunk.prompt_eval_count || 0) + ((chunk.eval_count as number) || 0)
     });
   }
 
@@ -315,7 +330,7 @@ export function extractUsage(chunk) {
 // message_delta has the real cumulative output (input/cache absent). Max keeps
 // the meaningful value from each without clobbering. Idempotent for other
 // providers that emit a single complete usage object.
-export function mergeUsage(prev, next) {
+export function mergeUsage(prev: Record<string, unknown> | null | undefined, next: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
   if (!prev) return next || null;
   if (!next) return prev;
   const merged = { ...prev };
@@ -335,7 +350,7 @@ export function mergeUsage(prev, next) {
  * Estimate input tokens from request body
  * Calculate total body size for more accurate estimation
  */
-export function estimateInputTokens(body) {
+export function estimateInputTokens(body: Record<string, unknown> | null | undefined): number {
   if (!body || typeof body !== "object") return 0;
 
   try {
@@ -354,7 +369,7 @@ export function estimateInputTokens(body) {
 /**
  * Estimate output tokens from content length
  */
-export function estimateOutputTokens(contentLength) {
+export function estimateOutputTokens(contentLength: number): number {
   if (!contentLength || contentLength <= 0) return 0;
   return Math.max(1, Math.floor(contentLength / 4));
 }
@@ -365,7 +380,7 @@ export function estimateOutputTokens(contentLength) {
  * @param {number} outputTokens - Output/completion tokens
  * @param {string} targetFormat - Target format from FORMATS
  */
-export function formatUsage(inputTokens, outputTokens, targetFormat) {
+export function formatUsage(inputTokens: number, outputTokens: number, targetFormat: string) {
   // Claude format uses input_tokens/output_tokens
   if (targetFormat === FORMATS.CLAUDE) {
     return addBufferToUsage({ 
@@ -390,7 +405,7 @@ export function formatUsage(inputTokens, outputTokens, targetFormat) {
  * @param {number} contentLength - Content length for output token estimation
  * @param {string} targetFormat - Target format from FORMATS constant
  */
-export function estimateUsage(body, contentLength, targetFormat = FORMATS.OPENAI) {
+export function estimateUsage(body: Record<string, unknown> | null | undefined, contentLength: number, targetFormat: string = FORMATS.OPENAI) {
   return formatUsage(
     estimateInputTokens(body),
     estimateOutputTokens(contentLength),
@@ -401,7 +416,7 @@ export function estimateUsage(body, contentLength, targetFormat = FORMATS.OPENAI
 /**
  * Log usage with cache info (green color)
  */
-export function logUsage(provider, usage, model = null, connectionId = null, apiKey = null) {
+export function logUsage(provider: string | null, usage: Record<string, unknown>, model: string | null = null, connectionId: string | null = null, apiKey: string | null = null) {
   if (!usage || typeof usage !== "object") return;
 
   // Console output moved to the unified "📊 done" line (streamingHandler). Kept as
@@ -425,7 +440,7 @@ export function logUsage(provider, usage, model = null, connectionId = null, api
   }
 
   // Add cache info if present (unified from different formats)
-  const cacheRead = usage.cache_read_input_tokens || usage.cached_tokens || usage.prompt_tokens_details?.cached_tokens;
+  const cacheRead = usage.cache_read_input_tokens || usage.cached_tokens || (usage.prompt_tokens_details as Record<string, unknown>)?.cached_tokens;
   if (cacheRead) msg += ` | cache_read=${cacheRead}`;
 
   const cacheCreation = usage.cache_creation_input_tokens;

@@ -28,14 +28,14 @@ async function getTargetBase() {
   return target;
 }
 
-function buildTargetUrl(base, path, search) {
+function buildTargetUrl(base: URL, path: string[], search: string) {
   const target = new URL(base);
   target.pathname = `/${path.join("/")}`;
   target.search = search;
   return target;
 }
 
-function forwardedHeaders(request, target) {
+function forwardedHeaders(request: NextRequest, target: URL) {
   const headers = new Headers(request.headers);
   for (const header of headers.keys()) {
     if (HOP_BY_HOP_HEADERS.has(header.toLowerCase())) headers.delete(header);
@@ -49,7 +49,7 @@ function forwardedHeaders(request, target) {
   return headers;
 }
 
-function rewriteDashboardHtml(html) {
+function rewriteDashboardHtml(html: string) {
   return html.replace(
     /fetch\('(?=\/(?:stats|health|stats-history|transformations\/feed))/g,
     `fetch('${DASHBOARD_PREFIX}`,
@@ -71,7 +71,7 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
       body: hasBody ? request.body : undefined,
       duplex: hasBody ? "half" : undefined,
       redirect: "manual",
-    });
+    } as RequestInit & { duplex?: string });
 
     const headers = new Headers(response.headers);
     for (const header of headers.keys()) {
@@ -90,8 +90,8 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
     }
 
     return new NextResponse(response.body, { status: response.status, headers });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 

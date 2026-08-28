@@ -39,7 +39,7 @@ export default async function handler(req) {
 }
 `;
 
-async function pollDeployment(deploymentId, token, maxMs = 120000) {
+async function pollDeployment(deploymentId: string, token: string, maxMs = 120000) {
   const start = Date.now();
   while (Date.now() - start < maxMs) {
     const res = await fetch(`${VERCEL_API}/v13/deployments/${deploymentId}`, {
@@ -135,8 +135,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ proxyPool, deployUrl }, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error deploying Vercel relay:", error);
-    return NextResponse.json({ error: error.message || "Deploy failed" }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || "Deploy failed" }, { status: 500 });
   }
 }

@@ -115,7 +115,7 @@ const DEFAULT_SETTINGS: Settings = {
 
 async function readRaw(): Promise<Record<string, unknown>> {
   const db = await getAdapter();
-  const row: { data: string } | undefined = db.get(`SELECT data FROM settings WHERE id = 1`);
+  const row = db.get(`SELECT data FROM settings WHERE id = 1`) as { data: string } | undefined;
   return row ? (parseJson(row.data, {}) as Record<string, unknown>) : {};
 }
 
@@ -148,7 +148,7 @@ export async function updateSettings(updates: Record<string, unknown>): Promise<
   const db = await getAdapter();
   let next: Settings;
   db.transaction(function () {
-    const row: { data: string } | undefined = db.get(`SELECT data FROM settings WHERE id = 1`);
+    const row = db.get(`SELECT data FROM settings WHERE id = 1`) as { data: string } | undefined;
     const current: Record<string, unknown> = row ? (parseJson(row.data, {}) as Record<string, unknown>) : {};
     next = { ...current, ...updates } as Settings;
     db.run(

@@ -115,16 +115,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // Convert OpenAI JSON response => Gemini GenerateContentResponse
       return await convertOpenAIResponseToGemini(response, model);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error handling Gemini request:", error);
     return Response.json(
-      { error: { message: error.message, code: 500 } },
+      { error: { message: error instanceof Error ? error.message : String(error), code: 500 } },
       { status: 500 }
     );
   }
 }
 
-function extractGeminiClientApiKey(request) {
+function extractGeminiClientApiKey(request: Request) {
   const authHeader = request.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
 
@@ -135,7 +135,7 @@ function extractGeminiClientApiKey(request) {
   return url.searchParams.get("key");
 }
 
-function normalizeGeminiNativeModel(model) {
+function normalizeGeminiNativeModel(model: string) {
   return String(model || "")
     .replace(/^models\//, "")
     .replace(/^gemini\//, "");
@@ -150,13 +150,14 @@ function getGeminiTtsModelIds() {
   ]);
 }
 
-function hasAudioResponseModality(body) {
-  const modalities = body?.generationConfig?.responseModalities;
+function hasAudioResponseModality(body: Record<string, unknown>) {
+  const genConfig = body?.generationConfig as Record<string, unknown> | undefined;
+  const modalities = genConfig?.responseModalities;
   return Array.isArray(modalities)
     && modalities.some((modality) => String(modality).toUpperCase() === "AUDIO");
 }
 
-function isGeminiNativeTtsRequest(model, body) {
+function isGeminiNativeTtsRequest(model: string, body: Record<string, unknown>) {
   const rawModel = String(model || "");
   if (rawModel.includes("/") && !rawModel.startsWith("gemini/") && !rawModel.startsWith("models/")) {
     return false;
@@ -166,7 +167,7 @@ function isGeminiNativeTtsRequest(model, body) {
   return hasAudioResponseModality(body) || getGeminiTtsModelIds().has(modelId);
 }
 
-function buildGeminiNativeUrl(requestUrl, model, action) {
+function buildGeminiNativeUrl(requestUrl: string, model: string, action: string) {
   const sourceUrl = new URL(requestUrl);
   const upstreamUrl = new URL(`${GEMINI_NATIVE_BASE_URL}/${normalizeGeminiNativeModel(model)}${action}`);
 
@@ -178,7 +179,7 @@ function buildGeminiNativeUrl(requestUrl, model, action) {
   return upstreamUrl.toString();
 }
 
-async function validateGeminiNativeClientKey(request) {
+async function validateGeminiNativeClientKey(request: Request) {
   const settings = await getSettings();
   if (!settings.requireApiKey) return null;
 
@@ -195,13 +196,13 @@ async function validateGeminiNativeClientKey(request) {
   return null;
 }
 
-function buildGeminiNativeAuthHeaders(credentials) {
-  if (credentials?.apiKey) return { "x-goog-api-key": credentials.apiKey };
+function buildGeminiNativeAuthHeaders(credentials: Record<string, unknown>): Record<string, string> | null {
+  if (credentials?.apiKey) return { "x-goog-api-key": credentials.apiKey as string };
   if (credentials?.accessToken) return { Authorization: `Bearer ${credentials.accessToken}` };
   return null;
 }
 
-function corsHeadersFrom(response) {
+function corsHeadersFrom(response: Response) {
   const headers = new Headers(response.headers);
   // Node fetch may expose a decoded body while preserving upstream compression
   // headers. Forwarding those headers makes clients decompress plain bytes again.
@@ -212,7 +213,7 @@ function corsHeadersFrom(response) {
   return headers;
 }
 
-function getSafeGeminiConnectionLabel(credentials) {
+function getSafeGeminiConnectionLabel(credentials: Record<string, unknown>) {
   const connectionId = String(credentials?.connectionId || "unknown");
   const shortId = connectionId.slice(0, 8);
   const connectionName = String(credentials?.connectionName || "");
@@ -220,23 +221,26 @@ function getSafeGeminiConnectionLabel(credentials) {
   return `${connectionName}:${shortId}`;
 }
 
-function getGeminiNativeErrorCode(error) {
-  return error?.cause?.code || error?.code || error?.cause?.name || error?.name || "UNKNOWN";
+function getGeminiNativeErrorCode(error: unknown) {
+  const e = error as Record<string, unknown>;
+  const cause = e?.cause as Record<string, unknown> | undefined;
+  return (cause?.code || e?.code || cause?.name || e?.name || "UNKNOWN") as string;
 }
 
-function isGeminiNativeTimeoutError(error, timedOut) {
+function isGeminiNativeTimeoutError(error: unknown, timedOut: boolean) {
   if (timedOut) return true;
   const code = getGeminiNativeErrorCode(error);
   return code === "UND_ERR_HEADERS_TIMEOUT" || code === "HeadersTimeoutError";
 }
 
-function getSafeGeminiNativeErrorText(error) {
-  const message = error?.message || String(error);
+function getSafeGeminiNativeErrorText(error: unknown) {
+  const e = error as Record<string, unknown>;
+  const message = (e?.message as string) || String(error);
   const code = getGeminiNativeErrorCode(error);
   return `${message} (${code})`;
 }
 
-async function forwardGeminiNativeRequest(request, body, model, action) {
+async function forwardGeminiNativeRequest(request: Request, body: Record<string, unknown>, model: string, action: string) {
   const authError = await validateGeminiNativeClientKey(request);
   if (authError) return authError;
 
@@ -244,7 +248,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
   if (!GEMINI_NATIVE_MODEL_PATTERN.test(modelId)) {
     return Response.json({ error: { message: "Invalid model" } }, { status: 400 });
   }
-  const excludeConnectionIds = new Set();
+  const excludeConnectionIds = new Set<string>();
   const bodyText = JSON.stringify(body);
   let lastError = null;
   let lastStatus = null;
@@ -259,7 +263,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
       );
     }
 
-    const authHeaders = buildGeminiNativeAuthHeaders(credentials);
+    const authHeaders = buildGeminiNativeAuthHeaders(credentials as unknown as Record<string, unknown>);
     if (!authHeaders) {
       return Response.json(
         { error: { message: "No Gemini API key configured" } },
@@ -267,7 +271,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
       );
     }
 
-    const safeConnection = getSafeGeminiConnectionLabel(credentials);
+    const safeConnection = getSafeGeminiConnectionLabel(credentials as unknown as Record<string, unknown>);
     const startedAt = Date.now();
     const upstreamUrl = buildGeminiNativeUrl(request.url, modelId, action);
     const attemptController = new AbortController();
@@ -297,7 +301,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
         body: bodyText,
         signal: attemptController.signal,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       const durationMs = Date.now() - startedAt;
       if (request.signal?.aborted && !timedOut) {
         console.error(`[GEMINI_NATIVE] client aborted model=${modelId} ms=${durationMs} conn=${safeConnection}`);
@@ -309,7 +313,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
       console.error(`[GEMINI_NATIVE] fetch failed model=${modelId} status=${status} ms=${durationMs} conn=${safeConnection} error=${errorText}`);
 
       const { shouldFallback } = await markAccountUnavailable(
-        credentials.connectionId,
+        credentials.connectionId as string,
         status,
         errorText,
         "gemini",
@@ -317,7 +321,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
       );
 
       if (shouldFallback) {
-        excludeConnectionIds.add(credentials.connectionId);
+        excludeConnectionIds.add(credentials.connectionId as string);
         lastError = errorText;
         lastStatus = status;
         console.error(`[GEMINI_NATIVE] fallback model=${modelId} status=${status} conn=${safeConnection} exclude=${excludeConnectionIds.size}`);
@@ -333,7 +337,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
     console.error(`[GEMINI_NATIVE] upstream model=${modelId} status=${upstreamResponse.status} ms=${Date.now() - startedAt} conn=${safeConnection} ct=${upstreamResponse.headers.get("content-type") || "?"} cl=${upstreamResponse.headers.get("content-length") || "?"}`);
 
     if (upstreamResponse.ok) {
-      await clearAccountError(credentials.connectionId, credentials, modelId);
+      await clearAccountError(credentials.connectionId as string, credentials as unknown as Record<string, unknown>, modelId);
       return new Response(upstreamResponse.body, {
         status: upstreamResponse.status,
         statusText: upstreamResponse.statusText,
@@ -343,7 +347,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
 
     const errorText = await upstreamResponse.text();
     const { shouldFallback } = await markAccountUnavailable(
-      credentials.connectionId,
+      credentials.connectionId as string,
       upstreamResponse.status,
       errorText,
       "gemini",
@@ -351,7 +355,7 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
     );
 
     if (shouldFallback) {
-      excludeConnectionIds.add(credentials.connectionId);
+      excludeConnectionIds.add(credentials.connectionId as string);
       lastError = errorText;
       lastStatus = upstreamResponse.status;
       continue;
@@ -372,13 +376,14 @@ async function forwardGeminiNativeRequest(request, body, model, action) {
  * @param {string} model       - resolved model string (e.g. "gemini-pro-high")
  * @param {boolean} stream     - whether to stream (from URL action)
  */
-function convertGeminiToInternal(geminiBody, model, stream) {
+function convertGeminiToInternal(geminiBody: Record<string, unknown>, model: string, stream: boolean) {
   const messages = [];
 
   // Convert system instruction
   if (geminiBody.systemInstruction) {
-    const systemText = geminiBody.systemInstruction.parts
-      ?.map(p => p.text)
+    const sysInst = geminiBody.systemInstruction as Record<string, unknown>;
+    const systemText = (sysInst.parts as Array<Record<string, unknown>> | undefined)
+      ?.map((p) => p.text)
       .join("\n") || "";
     if (systemText) {
       messages.push({ role: "system", content: systemText });
@@ -387,25 +392,26 @@ function convertGeminiToInternal(geminiBody, model, stream) {
 
   // Convert contents to messages
   if (geminiBody.contents) {
-    for (const content of geminiBody.contents) {
+    for (const content of geminiBody.contents as Array<Record<string, unknown>>) {
       const role = content.role === "model" ? "assistant" : "user";
-      const text = content.parts?.map(p => p.text).join("\n") || "";
+      const text = (content.parts as Array<Record<string, unknown>> | undefined)?.map((p) => p.text).join("\n") || "";
       messages.push({ role, content: text });
     }
   }
 
+  const genConfig = geminiBody.generationConfig as Record<string, unknown> | undefined;
   return {
     model,
     messages,
     stream,
-    max_tokens: geminiBody.generationConfig?.maxOutputTokens,
-    temperature: geminiBody.generationConfig?.temperature,
-    top_p: geminiBody.generationConfig?.topP,
+    max_tokens: genConfig?.maxOutputTokens,
+    temperature: genConfig?.temperature,
+    top_p: genConfig?.topP,
   };
 }
 
 /** Map OpenAI finish_reason => Gemini finishReason */
-const FINISH_REASON_MAP = {
+const FINISH_REASON_MAP: Record<string, string> = {
   stop: "STOP",
   length: "MAX_TOKENS",
   tool_calls: "STOP",
@@ -425,7 +431,7 @@ const FINISH_REASON_MAP = {
  *   data: {"candidates":[{"content":{"role":"model","parts":[{"text":""}]},"finishReason":"STOP","index":0}],"usageMetadata":{...}}
  *   (stream closes — no [DONE])
  */
-function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
+function transformOpenAISSEToGeminiSSE(upstreamResponse: Response, model: string) {
   if (!upstreamResponse.ok || !upstreamResponse.body) {
     return upstreamResponse;
   }
@@ -434,7 +440,7 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
   const encoder = new TextEncoder();
 
   const transformStream = new TransformStream({
-    transform(chunk, controller) {
+    transform(chunk: BufferSource, controller: TransformStreamDefaultController<Uint8Array>) {
       const text = decoder.decode(chunk, { stream: true });
       const lines = text.split("\n");
 
@@ -470,7 +476,7 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
         // Skip pure role-only deltas with no content and no finish signal
         if (parts.length === 0 && !choice.finish_reason) continue;
 
-        const candidate = {
+        const candidate: Record<string, unknown> = {
           content: {
             role: "model",
             parts: parts.length > 0 ? parts : [{ text: "" }],
@@ -482,11 +488,11 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
           candidate.finishReason = FINISH_REASON_MAP[choice.finish_reason] || "STOP";
         }
 
-        const geminiChunk = { candidates: [candidate] };
+        const geminiChunk: Record<string, unknown> = { candidates: [candidate] };
 
         // Attach usage + modelVersion on the final chunk (when finish_reason is set)
         if (choice.finish_reason && parsed.usage) {
-          geminiChunk.usageMetadata = {
+          const usageMeta: Record<string, unknown> = {
             promptTokenCount: parsed.usage.prompt_tokens || 0,
             candidatesTokenCount: parsed.usage.completion_tokens || 0,
             totalTokenCount: parsed.usage.total_tokens || 0,
@@ -494,8 +500,9 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
           const reasoningTokens =
             parsed.usage.completion_tokens_details?.reasoning_tokens;
           if (reasoningTokens) {
-            geminiChunk.usageMetadata.thoughtsTokenCount = reasoningTokens;
+            usageMeta.thoughtsTokenCount = reasoningTokens;
           }
+          geminiChunk.usageMetadata = usageMeta;
           geminiChunk.modelVersion = parsed.model || model;
         }
 
@@ -521,7 +528,7 @@ function transformOpenAISSEToGeminiSSE(upstreamResponse, model) {
  * Convert an OpenAI chat.completion JSON response into a Gemini
  * GenerateContentResponse so that Gemini CLI can parse it.
  */
-async function convertOpenAIResponseToGemini(response, model) {
+async function convertOpenAIResponseToGemini(response: Response, model: string) {
   if (!response.ok) return response;
 
   let body;
@@ -557,7 +564,7 @@ async function convertOpenAIResponseToGemini(response, model) {
 
   const finishReason = FINISH_REASON_MAP[finish_reason] || "STOP";
 
-  const geminiResponse = {
+  const geminiResponse: Record<string, unknown> = {
     candidates: [
       {
         content: { role: "model", parts },
@@ -569,15 +576,16 @@ async function convertOpenAIResponseToGemini(response, model) {
   };
 
   if (body.usage) {
-    geminiResponse.usageMetadata = {
+    const usageMeta: Record<string, unknown> = {
       promptTokenCount: body.usage.prompt_tokens || 0,
       candidatesTokenCount: body.usage.completion_tokens || 0,
       totalTokenCount: body.usage.total_tokens || 0,
     };
     const reasoningTokens = body.usage.completion_tokens_details?.reasoning_tokens;
     if (reasoningTokens) {
-      geminiResponse.usageMetadata.thoughtsTokenCount = reasoningTokens;
+      usageMeta.thoughtsTokenCount = reasoningTokens;
     }
+    geminiResponse.usageMetadata = usageMeta;
   }
 
   return Response.json(geminiResponse, {

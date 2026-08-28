@@ -15,35 +15,36 @@ import { randomUUID } from "crypto";
 import { ROLE, OPENAI_BLOCK } from "../schema/index";
 import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig";
 
-function flattenText(content) {
+function flattenText(content: unknown): string {
   if (content == null) return "";
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
-    const parts = [];
+    const parts: string[] = [];
     for (const p of content) {
       if (typeof p === "string") parts.push(p);
-      else if (p && typeof p === "object" && typeof p.text === "string") parts.push(p.text);
+      else if (p && typeof p === "object" && typeof (p as Record<string, unknown>).text === "string") parts.push((p as Record<string, unknown>).text as string);
     }
     return parts.join("\n");
   }
   return String(content);
 }
 
-function toContentBlocks(content) {
+function toContentBlocks(content: unknown): Record<string, unknown>[] {
   if (content == null) return [{ type: OPENAI_BLOCK.TEXT, text: "" }];
   if (typeof content === "string") return [{ type: OPENAI_BLOCK.TEXT, text: content }];
   if (Array.isArray(content)) {
-    const blocks = [];
+    const blocks: Record<string, unknown>[] = [];
     for (const part of content) {
       if (typeof part === "string") {
         blocks.push({ type: OPENAI_BLOCK.TEXT, text: part });
       } else if (part && typeof part === "object") {
-        if (part.type === OPENAI_BLOCK.TEXT && typeof part.text === "string") {
-          blocks.push({ type: OPENAI_BLOCK.TEXT, text: part.text });
-        } else if (part.type === OPENAI_BLOCK.IMAGE_URL || part.type === OPENAI_BLOCK.IMAGE) {
+        const p = part as Record<string, unknown>;
+        if (p.type === OPENAI_BLOCK.TEXT && typeof p.text === "string") {
+          blocks.push({ type: OPENAI_BLOCK.TEXT, text: p.text });
+        } else if (p.type === OPENAI_BLOCK.IMAGE_URL || p.type === OPENAI_BLOCK.IMAGE) {
           blocks.push({ type: OPENAI_BLOCK.TEXT, text: "[image omitted]" });
-        } else if (typeof part.text === "string") {
-          blocks.push({ type: OPENAI_BLOCK.TEXT, text: part.text });
+        } else if (typeof p.text === "string") {
+          blocks.push({ type: OPENAI_BLOCK.TEXT, text: p.text });
         }
       }
     }
@@ -52,15 +53,23 @@ function toContentBlocks(content) {
   return [{ type: OPENAI_BLOCK.TEXT, text: String(content) }];
 }
 
-function safeParseJson(s) {
+function safeParseJson(s: unknown): unknown {
   if (s == null) return {};
   if (typeof s !== "string") return s;
   try { return JSON.parse(s); } catch { return {}; }
 }
 
-function convertMessages(messages = []) {
-  const out = [];
-  const systemTexts = [];
+interface OpenAIMessage {
+  role?: string;
+  content?: unknown;
+  tool_calls?: Record<string, unknown>[];
+  tool_call_id?: string;
+  name?: string;
+}
+
+function convertMessages(messages: OpenAIMessage[] = []) {
+  const out: Record<string, unknown>[] = [];
+  const systemTexts: string[] = [];
 
   for (const m of messages) {
     if (!m) continue;
@@ -87,16 +96,16 @@ function convertMessages(messages = []) {
     }
 
     if (role === ROLE.ASSISTANT) {
-      const blocks = [];
+      const blocks: Record<string, unknown>[] = [];
       const text = flattenText(m.content);
       if (text) blocks.push({ type: OPENAI_BLOCK.TEXT, text });
       if (Array.isArray(m.tool_calls)) {
         for (const tc of m.tool_calls) {
-          const fn = tc.function || {};
+          const fn = (tc.function as Record<string, unknown>) || {};
           blocks.push({
             type: "tool-call",
-            toolCallId: tc.id || "",
-            toolName: fn.name || "",
+            toolCallId: (tc.id as string) || "",
+            toolName: (fn.name as string) || "",
             input: safeParseJson(fn.arguments),
           });
         }
@@ -111,36 +120,38 @@ function convertMessages(messages = []) {
   return { messages: out, system: systemTexts.join("\n\n") };
 }
 
-function convertTools(tools) {
+function convertTools(tools: unknown): Record<string, unknown>[] | undefined {
   if (!Array.isArray(tools) || tools.length === 0) return undefined;
-  const result = [];
+  const result: Record<string, unknown>[] = [];
   for (const t of tools) {
     if (!t) continue;
-    if (t.type === OPENAI_BLOCK.FUNCTION && t.function) {
+    const tool = t as Record<string, unknown>;
+    if (tool.type === OPENAI_BLOCK.FUNCTION && tool.function) {
+      const fn = tool.function as Record<string, unknown>;
       result.push({
-        name: t.function.name,
-        description: t.function.description,
-        input_schema: t.function.parameters || { type: "object" },
+        name: fn.name,
+        description: fn.description,
+        input_schema: fn.parameters || { type: "object" },
       });
-    } else if (t.name && (t.input_schema || t.parameters)) {
+    } else if (tool.name && (tool.input_schema || tool.parameters)) {
       result.push({
-        name: t.name,
-        description: t.description,
-        input_schema: t.input_schema || t.parameters,
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.input_schema || tool.parameters,
       });
     }
   }
   return result.length ? result : undefined;
 }
 
-export function openaiToCommandCodeRequest(model, body, stream /* , credentials */) {
-  const { messages, system } = convertMessages(body.messages);
-  const params = {
+export function openaiToCommandCodeRequest(model: string, body: Record<string, unknown>, stream: boolean /* , credentials */) {
+  const { messages, system } = convertMessages(body.messages as OpenAIMessage[]);
+  const params: Record<string, unknown> = {
     model,
     messages,
     stream: stream !== false,
-    max_tokens: body.max_tokens ?? body.max_output_tokens ?? DEFAULT_MAX_TOKENS,
-    temperature: body.temperature ?? 0.3,
+    max_tokens: (body.max_tokens as number) ?? (body.max_output_tokens as number) ?? DEFAULT_MAX_TOKENS,
+    temperature: (body.temperature as number) ?? 0.3,
   };
 
   if (system) params.system = system;

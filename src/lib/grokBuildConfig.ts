@@ -197,7 +197,7 @@ function rememberPreviousSubagent(toml: string, type: string): string {
 function restorePreviousSubagent(toml: string, type: string): string {
   const regexp: RegExp = previousSubagentRegExp(type);
   const previous: string = toml.match(regexp)?.[1] || UNSET_SENTINEL;
-  let next: string = toml.replace(regexp, "");
+  const next: string = toml.replace(regexp, "");
   if (getSectionField(next, SUBAGENT_MODELS_SECTION, type) !== modelSlot(type)) {
     return next;
   }

@@ -26,13 +26,13 @@ interface TranslatorMeta {
 
 // 7 steps matching requestLogger files exactly
 const STEPS: Step[] = [
-  { id: 1, label: "Client Request",         file: "1_req_client.json",  lang: "json", desc: "Raw request from client" },
-  { id: 2, label: "Source Body",            file: "2_req_source.json",  lang: "json", desc: "After initial conversion" },
-  { id: 3, label: "OpenAI Intermediate",    file: "3_req_openai.json",  lang: "json", desc: "source → openai" },
-  { id: 4, label: "Target Request",         file: "4_req_target.json",  lang: "json", desc: "openai → target + URL + headers" },
-  { id: 5, label: "Provider Response",      file: "5_res_provider.txt", lang: "text", desc: "Raw SSE from provider" },
-  { id: 6, label: "OpenAI Response",        file: "6_res_openai.txt",   lang: "text", desc: "target → openai (response)" },
-  { id: 7, label: "Client Response",        file: "7_res_client.txt",   lang: "text", desc: "Final response to client" },
+  { id: 1, label: "Requisição do Cliente",         file: "1_req_client.json",  lang: "json", desc: "Requisição raw do cliente" },
+  { id: 2, label: "Corpo Fonte",            file: "2_req_source.json",  lang: "json", desc: "Após conversão inicial" },
+  { id: 3, label: "OpenAI Intermediário",    file: "3_req_openai.json",  lang: "json", desc: "fonte → openai" },
+  { id: 4, label: "Requisição Alvo",         file: "4_req_target.json",  lang: "json", desc: "openai → alvo + URL + headers" },
+  { id: 5, label: "Resposta do Provedor",      file: "5_res_provider.txt", lang: "text", desc: "SSE raw do provedor" },
+  { id: 6, label: "Resposta OpenAI",        file: "6_res_openai.txt",   lang: "text", desc: "alvo → openai (resposta)" },
+  { id: 7, label: "Resposta ao Cliente",        file: "7_res_client.txt",   lang: "text", desc: "Resposta final ao cliente" },
 ];
 
 const EDITOR_OPTIONS = {
@@ -223,8 +223,8 @@ export default function TranslatorClient() {
   // Render action button per step
   const getAction = (stepId: number) => {
     if (stepId === 1) return <Button size="sm" icon={<ArrowRight className="size-4" />} loading={loading["toOpenAI"]} onClick={handleToOpenAI}>→ OpenAI</Button>;
-    if (stepId === 3) return <Button size="sm" icon={<ArrowRight className="size-4" />} loading={loading["toTarget"]} onClick={handleToTarget}>→ Target</Button>;
-    if (stepId === 4) return <Button size="sm" icon={<Send className="size-4" />} loading={loading["send"]} onClick={handleSend}>Send</Button>;
+    if (stepId === 3) return <Button size="sm" icon={<ArrowRight className="size-4" />} loading={loading["toTarget"]} onClick={handleToTarget}>→ Alvo</Button>;
+    if (stepId === 4) return <Button size="sm" icon={<Send className="size-4" />} loading={loading["send"]} onClick={handleSend}>Enviar</Button>;
     return null;
   };
 
@@ -233,8 +233,8 @@ export default function TranslatorClient() {
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h1 className="text-2xl font-bold text-text-main">Translator Debug</h1>
-          <p className="text-sm text-text-muted mt-1">Replay request flow — matches log files</p>
+          <h1 className="text-2xl font-bold text-text-main">Depurador do Tradutor</h1>
+          <p className="text-sm text-text-muted mt-1">Replay do fluxo de requisições — corresponde aos arquivos de log</p>
         </div>
         {meta && (
           <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -289,9 +289,9 @@ export default function TranslatorClient() {
                     />
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" icon={<FolderOpen className="size-4" />} loading={loading[`load-${step.id}`]} onClick={() => handleLoad(step.id)}>Load</Button>
-                    <Button size="sm" variant="outline" icon={<Braces className="size-4" />} onClick={() => handleFormat(step.id)}>Format</Button>
-                    <Button size="sm" variant="outline" icon={<Copy className="size-4" />} onClick={() => handleCopy(step.id)}>Copy</Button>
+                    <Button size="sm" variant="outline" icon={<FolderOpen className="size-4" />} loading={loading[`load-${step.id}`]} onClick={() => handleLoad(step.id)}>Carregar</Button>
+                    <Button size="sm" variant="outline" icon={<Braces className="size-4" />} onClick={() => handleFormat(step.id)}>Formatar</Button>
+                    <Button size="sm" variant="outline" icon={<Copy className="size-4" />} onClick={() => handleCopy(step.id)}>Copiar</Button>
                     {action}
                   </div>
                 </>

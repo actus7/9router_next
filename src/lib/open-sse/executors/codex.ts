@@ -1,4 +1,6 @@
 import { BaseExecutor } from "./base";
+import type { ExecuteArgs } from "./base";
+import type { Credentials, Logger, RefreshResult } from "../services/types";
 import { CODEX_DEFAULT_INSTRUCTIONS } from "../config/codexInstructions";
 import { PROVIDERS } from "../config/providers";
 import {
@@ -46,39 +48,43 @@ const RESPONSES_API_ALLOWLIST = new Set([
 ]);
 
 // Convert role=system → role=developer in body.input (keeps content in cacheable prefix)
-function convertSystemToDeveloperRole(body) {
+function convertSystemToDeveloperRole(body: Record<string, unknown>) {
   if (!Array.isArray(body.input)) return;
   for (const item of body.input) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const isSystemMsg = item.role === "system" && (!item.type || item.type === "message");
-    if (isSystemMsg) item.role = "developer";
+    const rec = item as Record<string, unknown>;
+    const isSystemMsg = rec.role === "system" && (!rec.type || rec.type === "message");
+    if (isSystemMsg) rec.role = "developer";
   }
 }
 
 // Strip server-generated item IDs (rs_/fc_/resp_/msg_) from input — avoids 404 with store=false
-function stripStoredItemReferences(body) {
+function stripStoredItemReferences(body: Record<string, unknown>) {
   if (!Array.isArray(body.input)) return;
-  body.input = body.input.filter((item) => {
+  body.input = body.input.filter((item: unknown) => {
     if (typeof item === "string" && SERVER_ID_PATTERN.test(item)) return false;
     if (item && typeof item === "object" && !Array.isArray(item)) {
-      if (item.type === "item_reference") return false;
-      if (typeof item.id === "string" && SERVER_ID_PATTERN.test(item.id)) delete item.id;
+      const rec = item as Record<string, unknown>;
+      if (rec.type === "item_reference") return false;
+      if (typeof rec.id === "string" && SERVER_ID_PATTERN.test(rec.id)) delete rec.id;
     }
     return true;
   });
 }
 
 // Flatten Chat-Completions tool shape into Responses flat format + filter unsupported tools
-function normalizeCodexTools(body) {
+function normalizeCodexTools(body: Record<string, unknown>) {
   if (!Array.isArray(body.tools)) return;
-  const validNames = new Set();
-  body.tools = body.tools.filter((tool) => {
+  const validNames = new Set<string>();
+  body.tools = body.tools.filter((tool: unknown) => {
     if (!tool || typeof tool !== "object" || Array.isArray(tool)) return false;
-    const type = typeof tool.type === "string" ? tool.type : "";
+    const t = tool as Record<string, unknown>;
+    const type = typeof t.type === "string" ? t.type : "";
     if (type === "namespace") {
-      if (Array.isArray(tool.tools)) {
-        for (const st of tool.tools) {
-          const n = typeof st?.name === "string" ? st.name.trim().slice(0, 128) : "";
+      if (Array.isArray(t.tools)) {
+        for (const st of t.tools) {
+          const stRec = st as Record<string, unknown> | null;
+          const n = typeof stRec?.name === "string" ? (stRec.name as string).trim().slice(0, 128) : "";
           if (n) validNames.add(n);
         }
       }
@@ -86,46 +92,47 @@ function normalizeCodexTools(body) {
     }
     if (type !== "function") {
       if (CODEX_PASSTHROUGH_TOOL_TYPES.has(type)) return true;
-      if (!type || tool.function || typeof tool.name === "string") return false;
+      if (!type || t.function || typeof t.name === "string") return false;
       return CODEX_HOSTED_TOOL_TYPES.has(type);
     }
-    const fn = tool.function && typeof tool.function === "object" && !Array.isArray(tool.function) ? tool.function : null;
-    const rawName = typeof tool.name === "string" ? tool.name : (typeof fn?.name === "string" ? fn.name : "");
+    const fn = t.function && typeof t.function === "object" && !Array.isArray(t.function) ? t.function as Record<string, unknown> : null;
+    const rawName = typeof t.name === "string" ? t.name : (typeof fn?.name === "string" ? fn.name : "");
     const name = rawName.trim();
     if (!name) return false;
-    const description = typeof tool.description === "string" ? tool.description : (typeof fn?.description === "string" ? fn.description : "");
-    const parameters = (tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters))
-      ? tool.parameters
+    const description = typeof t.description === "string" ? t.description : (typeof fn?.description === "string" ? fn.description : "");
+    const parameters = (t.parameters && typeof t.parameters === "object" && !Array.isArray(t.parameters))
+      ? t.parameters
       : (fn?.parameters && typeof fn.parameters === "object" && !Array.isArray(fn.parameters) ? fn.parameters : { type: "object", properties: {} });
-    for (const k of Object.keys(tool)) delete tool[k];
-    tool.type = "function";
-    tool.name = name.slice(0, 128);
-    if (description) tool.description = description;
-    tool.parameters = parameters;
+    for (const k of Object.keys(t)) delete t[k];
+    t.type = "function";
+    t.name = name.slice(0, 128);
+    if (description) t.description = description;
+    t.parameters = parameters;
     validNames.add(name);
     return true;
   });
   // Drop tool_choice if it references an unknown function name
   if (body.tool_choice && typeof body.tool_choice === "object" && !Array.isArray(body.tool_choice)) {
-    if (body.tool_choice.type === "function") {
-      const n = typeof body.tool_choice.name === "string" ? body.tool_choice.name.trim() : "";
+    const tc = body.tool_choice as Record<string, unknown>;
+    if (tc.type === "function") {
+      const n = typeof tc.name === "string" ? (tc.name as string).trim() : "";
       if (!n || !validNames.has(n)) delete body.tool_choice;
     }
   }
 }
 
 // Resolve prompt-cache session id: client session → assistant-text-hash → workspaceId → connection
-function resolveCacheSessionId(body, credentials) {
+function resolveCacheSessionId(body: Record<string, unknown>, credentials: Credentials) {
   return resolveSessionId({
-    headers: credentials?.rawHeaders,
+    headers: credentials?.rawHeaders as Record<string, string> | undefined,
     body,
     connectionId: credentials?.connectionId,
-    workspaceId: credentials?.providerSpecificData?.workspaceId,
+    workspaceId: credentials?.providerSpecificData?.workspaceId as string | undefined,
     scope: "codex"
   });
 }
 
-function normalizeReasoningEffort(model, value) {
+function normalizeReasoningEffort(model: string, value: string) {
   const supportedLevels = getThinkingLevels("codex", model);
   if (supportedLevels?.includes(value)) return value;
   if (value === "ultra" && supportedLevels?.includes("max")) return "max";
@@ -133,27 +140,31 @@ function normalizeReasoningEffort(model, value) {
   return value;
 }
 
-function findNestedMessage(value, depth = 0) {
+function findNestedMessage(value: unknown, depth = 0): string | null {
   if (!value || depth > 6 || typeof value === "string") return null;
   if (Array.isArray(value)) {
     for (const item of value) {
-      const found = findNestedMessage(item, depth + 1);
+      const found: string | null = findNestedMessage(item, depth + 1);
       if (found) return found;
     }
     return null;
   }
   if (typeof value !== "object") return null;
-  if (typeof value.message === "string" && value.message.trim()) return value.message;
-  if (typeof value.error?.message === "string" && value.error.message.trim()) return value.error.message;
-  if (typeof value.response?.error?.message === "string" && value.response.error.message.trim()) return value.response.error.message;
-  for (const child of Object.values(value)) {
-    const found = findNestedMessage(child, depth + 1);
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.message === "string" && (obj.message as string).trim()) return obj.message as string;
+  const err = obj.error as Record<string, unknown> | undefined;
+  if (typeof err?.message === "string" && (err.message as string).trim()) return err.message as string;
+  const resp = obj.response as Record<string, unknown> | undefined;
+  const respErr = resp?.error as Record<string, unknown> | undefined;
+  if (typeof respErr?.message === "string" && (respErr.message as string).trim()) return respErr.message as string;
+  for (const child of Object.values(obj)) {
+    const found: string | null = findNestedMessage(child, depth + 1);
     if (found) return found;
   }
   return null;
 }
 
-function extractSseErrorMessage(text, fallback) {
+function extractSseErrorMessage(text: string, fallback: string) {
   const exact = text?.match(/Selected model is at capacity\. Please try a different model\./i)?.[0];
   if (exact) return exact;
 
@@ -172,7 +183,7 @@ function extractSseErrorMessage(text, fallback) {
   return fallback || CODEX_MODEL_CAPACITY_MESSAGE;
 }
 
-function codexSseErrorResponse(status, message) {
+function codexSseErrorResponse(status: number, message: string) {
   return new Response(JSON.stringify({
     error: {
       message,
@@ -190,6 +201,9 @@ function codexSseErrorResponse(status, message) {
  * Automatically injects default instructions if missing
  */
 export class CodexExecutor extends BaseExecutor {
+  protected _currentSessionId!: string | null;
+  protected _isCompact!: boolean;
+
   constructor() {
     super("codex", PROVIDERS.codex);
     this._currentSessionId = null;
@@ -199,7 +213,7 @@ export class CodexExecutor extends BaseExecutor {
    * Override headers to add codex-specific identity headers.
    * transformRequest runs BEFORE buildHeaders, sets this._currentSessionId.
    */
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials: Credentials, stream = true) {
     const headers = super.buildHeaders(credentials, stream);
     headers["session_id"] = this._currentSessionId || credentials?.connectionId || "default";
     // Identify client type to Codex backend (matches official codex CLI)
@@ -219,17 +233,17 @@ export class CodexExecutor extends BaseExecutor {
     return headers;
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
+  buildUrl(model: string, stream: boolean, urlIndex = 0, credentials: Credentials | null = null) {
     const base = super.buildUrl(model, stream, urlIndex, credentials);
     return this._isCompact ? `${base}/compact` : base;
   }
 
-  async refreshCredentials(credentials, log) {
+  async refreshCredentials(credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
     if (!credentials?.refreshToken) return null;
     return refreshProviderCredentials("codex", credentials, log);
   }
 
-  needsRefresh(credentials) {
+  needsRefresh(credentials: Credentials) {
     return shouldRefreshCredentials("codex", credentials);
   }
 
@@ -238,14 +252,15 @@ export class CodexExecutor extends BaseExecutor {
    * Runs before execute() because Codex backend cannot fetch remote images.
    * Mutates body.input in place.
    */
-  async prefetchImages(body) {
+  async prefetchImages(body: Record<string, unknown>) {
     if (!Array.isArray(body?.input)) return;
-    for (const item of body.input) {
+    for (const item of body.input as Record<string, unknown>[]) {
       if (!Array.isArray(item.content)) continue;
-      const pending = item.content.map(async (c) => {
+      const pending = (item.content as Record<string, unknown>[]).map(async (c: Record<string, unknown>) => {
         if (c.type !== "image_url") return c;
-        const url = typeof c.image_url === "string" ? c.image_url : c.image_url?.url;
-        const detail = c.image_url?.detail || "auto";
+        const imageUrl = c.image_url;
+        const url: string = typeof imageUrl === "string" ? imageUrl : String((imageUrl as Record<string, unknown>)?.url ?? "");
+        const detail = String((imageUrl as Record<string, unknown>)?.detail ?? "auto");
         if (!url) return c;
         if (url.startsWith("data:")) return { type: "input_image", image_url: url, detail };
         const fetched = await fetchImageAsBase64(url, { timeoutMs: 15000 });
@@ -255,9 +270,10 @@ export class CodexExecutor extends BaseExecutor {
     }
   }
 
-  async execute(args) {
-    const imgCount = Array.isArray(args.body?.input) ? args.body.input.reduce((n, it) => n + (Array.isArray(it.content) ? it.content.filter(c => c.type === "image_url").length : 0), 0) : 0;
-    const inputLen = Array.isArray(args.body?.input) ? args.body.input.length : 0;
+  async execute(args: ExecuteArgs) {
+    const input = args.body?.input;
+    const imgCount = Array.isArray(input) ? (input as Record<string, unknown>[]).reduce((n: number, it: Record<string, unknown>) => n + (Array.isArray(it.content) ? (it.content as Record<string, unknown>[]).filter((c: Record<string, unknown>) => c.type === "image_url").length : 0), 0) : 0;
+    const inputLen = Array.isArray(input) ? input.length : 0;
     dbg("CODEX", `execute start | inputItems=${inputLen} | images=${imgCount} | sessionId=${this._currentSessionId || "pending"}`);
     if (imgCount > 0) {
       const t0 = Date.now();
@@ -306,11 +322,11 @@ export class CodexExecutor extends BaseExecutor {
   // Peek first N bytes of SSE body to detect upstream transient errors.
   // Returns { matched: string|null, message: string|null, accountFallback: boolean, replacementBody: ReadableStream|null }.
   // Caller must use replacementBody when no error matched (original body has been read).
-  async _peekSseTransientError(response) {
+  async _peekSseTransientError(response: Response) {
     if (!response || !response.ok || !response.body) return { matched: null, message: null, accountFallback: false, replacementBody: null };
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    const chunks = [];
+    const chunks: Uint8Array[] = [];
     let text = "";
     let matched = null;
     let accountFallback = false;
@@ -327,8 +343,8 @@ export class CodexExecutor extends BaseExecutor {
         if (retryHit) { matched = retryHit; break; }
         if (CODEX_SSE_USER_OUTPUT_PATTERNS.some(p => lowerText.includes(p))) break;
       }
-    } catch (e) {
-      dbg("CODEX", `peek read error: ${e.message}`);
+    } catch (e: unknown) {
+      dbg("CODEX", `peek read error: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     if (matched) {
@@ -341,7 +357,7 @@ export class CodexExecutor extends BaseExecutor {
 
     // Re-assemble stream: prefix chunks + remaining upstream body
     const upstream = response.body;
-    let upstreamReader = null;
+    let upstreamReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
     const replacementBody = new ReadableStream({
       start(controller) {
         for (const c of chunks) controller.enqueue(c);
@@ -349,6 +365,7 @@ export class CodexExecutor extends BaseExecutor {
       },
       async pull(controller) {
         try {
+          if (!upstreamReader) { controller.close(); return; }
           const { done, value } = await upstreamReader.read();
           if (done) { controller.close(); return; }
           controller.enqueue(value);
@@ -362,7 +379,7 @@ export class CodexExecutor extends BaseExecutor {
   }
 
   // Parse Codex usage_limit_reached to extract precise resetsAtMs; fallback to default otherwise
-  parseError(response, bodyText) {
+  parseError(response: Response, bodyText: string) {
     if (response.status === 429 && bodyText) {
       try {
         const json = JSON.parse(bodyText);
@@ -390,13 +407,13 @@ export class CodexExecutor extends BaseExecutor {
    * Transform request before sending - inject default instructions if missing.
    * Image fetching is handled separately in prefetchImages() so this stays sync.
    */
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials) {
     this._isCompact = !!body._compact;
     delete body._compact;
     // Resolve conversation-stable session_id (priority: body → assistant-text → workspace → machine)
     this._currentSessionId = resolveCacheSessionId(body, credentials);
     // Convert string input to array format (Codex API requires input as array)
-    const normalized = normalizeResponsesInput(body.input);
+    const normalized = normalizeResponsesInput(body.input as string | Record<string, unknown>[]);
     if (normalized) body.input = normalized;
 
     // Ensure input is present and non-empty (Codex API rejects empty input)
@@ -415,7 +432,7 @@ export class CodexExecutor extends BaseExecutor {
     body.stream = true;
 
     // If no instructions provided, inject default Codex instructions
-    if (!body.instructions || body.instructions.trim() === "") {
+    if (!body.instructions || (body.instructions as string).trim() === "") {
       body.instructions = CODEX_DEFAULT_INSTRUCTIONS;
     }
 
@@ -428,33 +445,34 @@ export class CodexExecutor extends BaseExecutor {
     }
 
     // Map virtual Codex review models to the upstream Codex model before suffix parsing.
-    body.model = getModelUpstreamId("cx", body.model || model);
+    body.model = getModelUpstreamId("cx", (body.model as string) || model);
 
     // Extract thinking level from model name suffix
     // e.g., gpt-5.3-codex-high → high, gpt-5.3-codex → medium (default)
     const effortLevels = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
     let modelEffort = null;
     for (const level of effortLevels) {
-      if (body.model.endsWith(`-${level}`)) {
+      if ((body.model as string).endsWith(`-${level}`)) {
         modelEffort = level;
         // Strip suffix from model name for actual API call
-        body.model = body.model.replace(`-${level}`, '');
+        body.model = (body.model as string).replace(`-${level}`, '');
         break;
       }
     }
 
     // Priority: explicit reasoning.effort > reasoning_effort param > model suffix > default (medium)
     if (!body.reasoning) {
-      const effort = normalizeReasoningEffort(body.model, body.reasoning_effort || modelEffort || 'low');
+      const effort = normalizeReasoningEffort(body.model as string, (body.reasoning_effort as string) || modelEffort || 'low');
       body.reasoning = { effort, summary: "auto" };
     } else {
-      body.reasoning.effort = normalizeReasoningEffort(body.model, body.reasoning.effort);
-      if (!body.reasoning.summary) body.reasoning.summary = "auto";
+      const reasoning = body.reasoning as Record<string, unknown>;
+      reasoning.effort = normalizeReasoningEffort(body.model as string, reasoning.effort as string);
+      if (!reasoning.summary) reasoning.summary = "auto";
     }
     delete body.reasoning_effort;
 
     // Include reasoning encrypted content (required by Codex backend for reasoning models)
-    if (body.reasoning && body.reasoning.effort && body.reasoning.effort !== 'none') {
+    if (body.reasoning && (body.reasoning as Record<string, unknown>).effort && (body.reasoning as Record<string, unknown>).effort !== 'none') {
       body.include = ["reasoning.encrypted_content"];
     }
 

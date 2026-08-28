@@ -17,12 +17,12 @@ const NATIVE_PAIRS = {
  * @param {object} headers - Lowercase header key/value object
  * @param {object} body    - Parsed request body
  */
-export function detectClientTool(headers = {}, body = {}) {
-  const ua = (headers["user-agent"] || "").toLowerCase();
-  const xApp = (headers["x-app"] || "").toLowerCase();
-  const openaiIntent = (headers["openai-intent"] || "").toLowerCase();
-  const initiator = (headers["x-initiator"] || headers["X-Initiator"] || "").toLowerCase();
-  const originator = (headers["originator"] || "").toLowerCase();
+export function detectClientTool(headers: Record<string, string> = {}, body: Record<string, unknown> = {}) {
+  const ua = ((headers["user-agent"] || headers["User-Agent"]) as string || "").toLowerCase();
+  const xApp = ((headers["x-app"] || headers["X-App"]) as string || "").toLowerCase();
+  const openaiIntent = ((headers["openai-intent"] || headers["Openai-Intent"]) as string || "").toLowerCase();
+  const initiator = ((headers["x-initiator"] || headers["X-Initiator"]) as string || "").toLowerCase();
+  const originator = ((headers["originator"] || headers["Originator"]) as string || "").toLowerCase();
 
   // Antigravity: detected via body field (not header)
   if (body.userAgent === "antigravity") return "antigravity";
@@ -54,9 +54,9 @@ export function detectClientTool(headers = {}, body = {}) {
  * @param {string|null} clientTool - Result of detectClientTool()
  * @param {string} provider        - Provider ID (e.g. "claude", "gemini-cli")
  */
-export function isNativePassthrough(clientTool, provider) {
+export function isNativePassthrough(clientTool: string | null, provider: string) {
   if (!clientTool) return false;
-  const nativeProviders = NATIVE_PAIRS[clientTool];
+  const nativeProviders = NATIVE_PAIRS[clientTool as keyof typeof NATIVE_PAIRS];
   if (!nativeProviders) return false;
   // Support anthropic-compatible-* variants
   const normalizedProvider = provider.startsWith("anthropic-compatible")

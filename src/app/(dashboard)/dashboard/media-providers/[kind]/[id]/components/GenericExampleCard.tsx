@@ -8,13 +8,13 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { MEDIA_PROVIDER_KINDS, getProviderAlias, resolveProviderId } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { Row, KIND_EXAMPLE_CONFIG } from "./exampleShared";
+import { Row, KIND_EXAMPLE_CONFIG, type KindExampleConfigItem } from "./exampleShared";
 import { Check, CheckCircle2, Copy, Download, Loader2, Play, Wifi, X } from "lucide-react";
 
 const CLOUDFLARE_TEST_IMAGE_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog.png";
 const CLOUDFLARE_TEST_MASK_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog-mask.png";
 
-function getImageEditDefaults(providerId, modelId) {
+function getImageEditDefaults(providerId: string, modelId: string): Record<string, string> {
   if (providerId !== "cloudflare-ai") return {};
   if (modelId === "@cf/runwayml/stable-diffusion-v1-5-img2img") {
     return { image: CLOUDFLARE_TEST_IMAGE_URL };
@@ -25,23 +25,23 @@ function getImageEditDefaults(providerId, modelId) {
   return {};
 }
 
-function toImagePreviewSrc(value) {
+function toImagePreviewSrc(value: unknown): string {
   const trimmed = typeof value === "string" ? value.trim() : "";
   if (!trimmed) return "";
   if (/^(data:image\/|https?:\/\/)/i.test(trimmed)) return trimmed;
   return `data:image/png;base64,${trimmed}`;
 }
 
-export function GenericExampleCard({ providerId, kind }) {
+export function GenericExampleCard({ providerId, kind }: { providerId: string; kind: string }) {
   const providerAlias = getProviderAlias(providerId);
   const resolvedId = resolveProviderId(providerAlias);
   const safeProviderAlias = resolvedId === providerId ? providerAlias : providerId;
   const kindConfig = MEDIA_PROVIDER_KINDS.find((k) => k.id === kind);
   const exConfig = KIND_EXAMPLE_CONFIG[kind];
-  const safeExConfig = exConfig || {};
+  const safeExConfig = exConfig || {} as KindExampleConfigItem;
 
   // Get models for this kind (e.g., type="image")
-  const kindModels = getModelsByProviderId(providerId).filter((m) => getModelKind(m) === kind);
+  const kindModels = (getModelsByProviderId(providerId) as unknown as { id: string; name?: string; capabilities?: string[]; params?: string[] }[]).filter((m) => getModelKind(m) === kind);
   // Kinds that need a model identifier in the request (image/video/music)
   const KIND_NEEDS_MODEL = new Set(["image", "video", "music", "imageToText"]);
   const needsModel = KIND_NEEDS_MODEL.has(kind);
@@ -54,21 +54,21 @@ export function GenericExampleCard({ providerId, kind }) {
   const [input, setInput] = useState(safeExConfig.defaultInput || "");
   const [refImage, setRefImage] = useState("");
   const [maskImage, setMaskImage] = useState("");
-  const [extraValues, setExtraValues] = useState(() =>
-    (safeExConfig.extraFields || []).reduce((acc, f) => { acc[f.key] = f.default ?? ""; return acc; }, {})
+  const [extraValues, setExtraValues] = useState<Record<string, string | number>>(() =>
+    (safeExConfig.extraFields || []).reduce<Record<string, string | number>>((acc, f) => { acc[f.key] = f.default ?? ""; return acc; }, {})
   );
   const [apiKey, setApiKey] = useState("");
   const [useTunnel, setUseTunnel] = useState(false);
   const [localEndpoint, setLocalEndpoint] = useState("");
   const [tunnelEndpoint, setTunnelEndpoint] = useState("");
-  const [result, setResult] = useState(null);
-  const [progress, setProgress] = useState(null); // { stage, bytesReceived }
-  const [partialImage, setPartialImage] = useState(null);
+  const [result, setResult] = useState<{ data: Record<string, unknown>; latencyMs: number } | null>(null);
+  const [progress, setProgress] = useState<{ stage?: string; bytesReceived?: number } | null>(null);
+  const [partialImage, setPartialImage] = useState<{ b64_json?: string } | null>(null);
   const [imageOutputFormat, setImageOutputFormat] = useState("json"); // json | binary
   const [binaryImageUrl, setBinaryImageUrl] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
-  const [connections, setConnections] = useState([]);
+  const [connections, setConnections] = useState<{ id: string; email?: string; name?: string; providerSpecificData?: Record<string, unknown>; [key: string]: unknown }[]>([]);
   const [pinnedConnectionId, setPinnedConnectionId] = useState("");
   const { copied: copiedCurl, copy: copyCurl } = useCopyToClipboard();
   const { copied: copiedRes, copy: copyRes } = useCopyToClipboard();
@@ -77,7 +77,7 @@ export function GenericExampleCard({ providerId, kind }) {
     setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
-      .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
+      .then((d) => { setApiKey(((d.keys || []) as { isActive?: boolean; key: string }[]).find((k) => k.isActive !== false)?.key || ""); })
       .catch(() => {});
     fetch("/api/tunnel/status")
       .then((r) => r.json())
@@ -87,7 +87,8 @@ export function GenericExampleCard({ providerId, kind }) {
     fetch("/api/providers/client")
       .then((r) => r.json())
       .then((d) => {
-        const conns = (d.connections || []).filter((c) => c.provider === providerId && c.isActive !== false);
+        const conns = ((d.connections || []) as { id: string; provider: string; isActive?: boolean; email?: string; name?: string; providerSpecificData?: Record<string, unknown>; [key: string]: unknown }[])
+          .filter((c) => c.provider === providerId && c.isActive !== false);
         setConnections(conns);
       })
       .catch(() => {});
@@ -109,16 +110,17 @@ export function GenericExampleCard({ providerId, kind }) {
   const maskImagePreviewSrc = toImagePreviewSrc(effectiveMaskImage);
 
   // Build request body with optional extra fields (only non-empty values)
-  const extraBodyFromFields = Object.entries(extraValues).reduce((acc, [k, v]) => {
+  const extraBodyFromFields = Object.entries(extraValues).reduce<Record<string, string | number>>((acc, [k, v]) => {
     if (v === "" || v === null || v === undefined) return acc;
     if (typeof v === "number" && Number.isNaN(v)) return acc;
     acc[k] = v;
     return acc;
   }, {});
-  const requestBody = {
+  const bodyKey = exConfig.bodyKey || "input";
+  const requestBody: Record<string, unknown> = {
     model: modelFull,
-    [exConfig.bodyKey]: input,
-    ...exConfig.extraBody,
+    [bodyKey]: input,
+    ...(exConfig.extraBody || {}),
     ...extraBodyFromFields,
     ...(supportsEdit && effectiveRefImage ? { image: effectiveRefImage } : {}),
     ...(supportsMask && effectiveMaskImage ? { mask_image: effectiveMaskImage } : {}),
@@ -143,7 +145,7 @@ export function GenericExampleCard({ providerId, kind }) {
     if (binaryImageUrl) { try { URL.revokeObjectURL(binaryImageUrl); } catch {} setBinaryImageUrl(""); }
     const start = Date.now();
     try {
-      const headers = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
       if (pinnedConnectionId) headers["x-connection-id"] = pinnedConnectionId;
       if (useStreaming) headers["Accept"] = "text/event-stream";
@@ -206,19 +208,19 @@ export function GenericExampleCard({ providerId, kind }) {
         const latencyMs = Date.now() - start;
         setResult({ data, latencyMs });
       }
-    } catch (e) {
-      setError(e.message || "Network error");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setRunning(false);
     }
   };
 
   // Mask large b64_json strings in JSON view to keep it readable
-  const maskB64 = (obj) => {
+  const maskB64 = (obj: unknown): unknown => {
     if (!obj || typeof obj !== "object") return obj;
     if (Array.isArray(obj)) return obj.map(maskB64);
-    const out = {};
-    for (const [k, v] of Object.entries(obj)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
       out[k] = (k === "b64_json" && typeof v === "string" && v.length > 100)
         ? `<${v.length} chars base64>`
         : maskB64(v);
@@ -234,7 +236,7 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Model selector — dropdown if presets exist, else manual input for media kinds */}
         {kindModels.length > 0 ? (
           <Row label="Model">
-            <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <Select value={selectedModel} onValueChange={(v) => setSelectedModel(v ?? "")}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select model" />
               </SelectTrigger>
@@ -287,7 +289,7 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Connection picker - only show when 2+ connections (or any with email) */}
         {connections.length > 0 && (
           <Row label="Connection">
-            <Select value={pinnedConnectionId || "__auto__"} onValueChange={(v) => setPinnedConnectionId(v === "__auto__" ? "" : v)}>
+            <Select value={pinnedConnectionId || "__auto__"} onValueChange={(v) => setPinnedConnectionId((v ?? "") === "__auto__" ? "" : (v ?? ""))}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Auto (by priority)" />
               </SelectTrigger>
@@ -308,7 +310,7 @@ export function GenericExampleCard({ providerId, kind }) {
         )}
 
         {/* Input */}
-        <Row label={exConfig.inputLabel}>
+        <Row label={exConfig.inputLabel || "Input"}>
           <div className="relative">
             <Input
               value={input}
@@ -411,7 +413,7 @@ export function GenericExampleCard({ providerId, kind }) {
           .map((f) => (
           <Row key={f.key} label={f.label}>
             {f.type === "select" ? (
-              <Select value={extraValues[f.key] || "__default__"} onValueChange={(v) => setExtraValues((s) => ({ ...s, [f.key]: v === "__default__" ? "" : v }))}>
+              <Select value={String(extraValues[f.key] || "__default__")} onValueChange={(v) => setExtraValues((s) => ({ ...s, [f.key]: (v ?? "") === "__default__" ? "" : (v ?? "") }))}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="(default)" />
                 </SelectTrigger>
@@ -445,7 +447,7 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Output Format toggle (image only) — last */}
         {kind === "image" && (
           <Row label="Output Format">
-            <Select value={imageOutputFormat} onValueChange={setImageOutputFormat}>
+            <Select value={imageOutputFormat} onValueChange={(v) => setImageOutputFormat(v ?? "json")}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Output format" />
               </SelectTrigger>
@@ -534,11 +536,11 @@ export function GenericExampleCard({ providerId, kind }) {
           <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all opacity-70">
             {result ? resultJson : exConfig.defaultResponse}
           </pre>
-          {kind === "image" && (binaryImageUrl || result?.data?.data?.[0]) && (
+          {kind === "image" && (binaryImageUrl || (result?.data?.data as Record<string, unknown>[] | undefined)?.[0]) && (
             <div className="mt-2">
               <div className="flex items-center justify-end mb-1.5">
                 <a
-                  href={binaryImageUrl || (result?.data?.data?.[0]?.b64_json ? `data:image/png;base64,${result.data.data[0].b64_json}` : result?.data?.data?.[0]?.url || "")}
+                  href={binaryImageUrl || ((result?.data?.data as Record<string, unknown>[] | undefined)?.[0]?.b64_json ? `data:image/png;base64,${(result!.data.data as Record<string, unknown>[])[0].b64_json}` : ((result?.data?.data as Record<string, unknown>[] | undefined)?.[0]?.url as string) || "")}
                   download="image.png"
                   className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
                 >
@@ -547,7 +549,7 @@ export function GenericExampleCard({ providerId, kind }) {
                 </a>
               </div>
               <img
-                src={binaryImageUrl || (result?.data?.data?.[0]?.b64_json ? `data:image/png;base64,${result.data.data[0].b64_json}` : result?.data?.data?.[0]?.url)}
+                src={binaryImageUrl || ((result?.data?.data as Record<string, unknown>[] | undefined)?.[0]?.b64_json ? `data:image/png;base64,${(result!.data.data as Record<string, unknown>[])[0].b64_json}` : ((result?.data?.data as Record<string, unknown>[] | undefined)?.[0]?.url as string))}
                 alt="Generated"
                 className="max-w-full rounded-lg border border-border"
               loading="lazy"

@@ -3,7 +3,7 @@ import { getProxyPoolById, updateProxyPool } from "@/models";
 import { testProxyUrl } from "@/lib/network/proxyTest";
 import { fetch as undiciFetch } from "undici";
 
-async function testVercelRelay(relayUrl, timeoutMs = 10000) {
+async function testVercelRelay(relayUrl: string, timeoutMs = 10000) {
   const controller = new AbortController();
   const startedAt = Date.now();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -26,7 +26,7 @@ async function testVercelRelay(relayUrl, timeoutMs = 10000) {
     return {
       ok: false,
       status: 500,
-      error: err?.name === "AbortError" ? "Relay test timed out" : (err?.message || String(err)),
+      error: (err as Error & { name?: string })?.name === "AbortError" ? "Relay test timed out" : ((err as Error)?.message || String(err)),
     };
   } finally {
     clearTimeout(timer);
@@ -44,14 +44,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const result = proxyPool.type === "vercel" || proxyPool.type === "cloudflare" || proxyPool.type === "deno"
-      ? await testVercelRelay(proxyPool.proxyUrl)
-      : await testProxyUrl({ proxyUrl: proxyPool.proxyUrl });
+      ? await testVercelRelay(proxyPool.proxyUrl as string)
+      : await testProxyUrl({ proxyUrl: proxyPool.proxyUrl as string });
     const now = new Date().toISOString();
 
     await updateProxyPool(id, {
       testStatus: result.ok ? "active" : "error",
       lastTestedAt: now,
-      lastError: result.ok ? null : (result.error || `Proxy test failed with status ${result.status}`),
+      lastError: result.ok ? null : ((result as Record<string, unknown>).error as string || `Proxy test failed with status ${result.status}`),
       isActive: result.ok,
     });
 

@@ -10,7 +10,7 @@ async function canAccessTestRoute(): Promise<boolean> {
 
   const cookieStore = await cookies();
   const token = cookieStore.get("auth_token")?.value;
-  return await verifyDashboardAuthToken(token);
+  return await verifyDashboardAuthToken(token as string);
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const discovery = await fetchOidcDiscovery(issuerUrl);
     const redirectUri = `${getPublicOrigin(request)}/api/auth/oidc/callback`;
     const secretProbe = await probeOidcClientSecret({
-      tokenEndpoint: discovery.token_endpoint,
+      tokenEndpoint: discovery.token_endpoint as string,
       clientId,
       clientSecret,
       redirectUri,

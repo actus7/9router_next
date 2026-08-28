@@ -14,18 +14,18 @@ export async function GET() {
     const providerIds = await getDistinctProviders();
 
     const providerNodes = await getProviderNodes();
-    const nodeMap = {};
+    const nodeMap: Record<string, string> = {};
     for (const node of providerNodes) {
-      nodeMap[node.id] = node.name;
+      nodeMap[node.id as string] = node.name as string;
     }
 
     const providers = providerIds.map(providerId => {
-      let name = providerId;
+      let name: string = providerId;
       if (nodeMap[providerId]) {
         name = nodeMap[providerId];
       } else {
         const providerConfig = getProviderByAlias(providerId) || AI_PROVIDERS[providerId];
-        if (providerConfig?.name) name = providerConfig.name;
+        if (providerConfig?.name) name = providerConfig.name as string;
       }
       return { id: providerId, name };
     });

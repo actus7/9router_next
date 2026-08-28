@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
       available: HEADROOM_COMPRESSION_EXTRAS,
       ...status,
     });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -27,9 +27,10 @@ export async function POST(req: NextRequest) {
     const requested = Array.isArray(body?.extras) ? body.extras : [];
     const result = await installHeadroomExtras(requested);
     return NextResponse.json(result);
-  } catch (error) {
-    const status = error.code === "NOT_INSTALLED" || error.code === "NO_PYTHON" ? 400 : 500;
-    return NextResponse.json({ error: error.message, code: error.code || null }, { status });
+  } catch (error: unknown) {
+    const errObj = error as Record<string, unknown>;
+    const status = errObj.code === "NOT_INSTALLED" || errObj.code === "NO_PYTHON" ? 400 : 500;
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error), code: errObj.code || null }, { status });
   }
 }
 
@@ -39,8 +40,9 @@ export async function DELETE(req: NextRequest) {
     const requested = Array.isArray(body?.extras) ? body.extras : [];
     const result = await uninstallHeadroomExtras(requested);
     return NextResponse.json(result);
-  } catch (error) {
-    const status = error.code === "NO_PYTHON" || error.code === "INVALID_EXTRAS" ? 400 : 500;
-    return NextResponse.json({ error: error.message, code: error.code || null }, { status });
+  } catch (error: unknown) {
+    const errObj = error as Record<string, unknown>;
+    const status = errObj.code === "NO_PYTHON" || errObj.code === "INVALID_EXTRAS" ? 400 : 500;
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error), code: errObj.code || null }, { status });
   }
 }

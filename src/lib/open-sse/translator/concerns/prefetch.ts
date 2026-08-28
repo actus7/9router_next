@@ -3,6 +3,7 @@
 // (they require inline base64). Runs on the source-format body.
 import { FORMATS } from "../formats";
 import { fetchImageAsBase64, parseDataUri } from "./image";
+import type { ImageFetchOptions, ImageRef } from "./openaiTypes";
 
 // Targets that require inline base64 images (cannot accept remote URLs).
 const TARGETS_NEED_BASE64 = new Set([
@@ -10,31 +11,31 @@ const TARGETS_NEED_BASE64 = new Set([
   FORMATS.ANTIGRAVITY, FORMATS.OLLAMA, FORMATS.KIRO,
 ]);
 
-function isRemoteUrl(url) {
+function isRemoteUrl(url: unknown): url is string {
   return typeof url === "string" && (url.startsWith("http://") || url.startsWith("https://"));
 }
 
 // Collect {get,set} accessors for every remote image URL in a source body.
-function collectImageRefs(body, sourceFormat) {
-  const refs = [];
-  const pushOpenAI = (messages) => {
-    for (const msg of messages || []) {
+function collectImageRefs(body: Record<string, unknown>, sourceFormat: string): ImageRef[] {
+  const refs: ImageRef[] = [];
+  const pushOpenAI = (messages: unknown) => {
+    for (const msg of (messages as Record<string, unknown>[] || [])) {
       if (!Array.isArray(msg.content)) continue;
-      for (const block of msg.content) {
+      for (const block of msg.content as Record<string, unknown>[]) {
         if (block?.type === "image_url") {
-          const url = typeof block.image_url === "string" ? block.image_url : block.image_url?.url;
-          if (isRemoteUrl(url)) refs.push({ get: () => url, set: (v) => {
-            if (typeof block.image_url === "string") block.image_url = v; else block.image_url.url = v;
+          const url = typeof block.image_url === "string" ? block.image_url : (block.image_url as Record<string, unknown>)?.url;
+          if (isRemoteUrl(url)) refs.push({ get: () => url, set: (v: string) => {
+            if (typeof block.image_url === "string") block.image_url = v; else (block.image_url as Record<string, unknown>).url = v;
           } });
         }
       }
     }
   };
-  const pushGemini = (contents) => {
-    for (const c of contents || []) {
-      for (const p of c.parts || []) {
-        const uri = p?.fileData?.fileUri;
-        if (isRemoteUrl(uri)) refs.push({ get: () => uri, part: p });
+  const pushGemini = (contents: unknown) => {
+    for (const c of (contents as Record<string, unknown>[] || [])) {
+      for (const p of (c.parts as Record<string, unknown>[] || [])) {
+        const uri = (p?.fileData as Record<string, unknown>)?.fileUri;
+        if (isRemoteUrl(uri)) refs.push({ get: () => uri as string, part: p });
       }
     }
   };
@@ -48,11 +49,11 @@ function collectImageRefs(body, sourceFormat) {
       pushOpenAI(body.messages);
       break;
     case FORMATS.CLAUDE:
-      for (const msg of body.messages || []) {
+      for (const msg of (body.messages as Record<string, unknown>[] || [])) {
         if (!Array.isArray(msg.content)) continue;
-        for (const block of msg.content) {
-          if (block?.type === "image" && block.source?.type === "url" && isRemoteUrl(block.source.url)) {
-            refs.push({ get: () => block.source.url, claudeBlock: block });
+        for (const block of msg.content as Record<string, unknown>[]) {
+          if (block?.type === "image" && (block.source as Record<string, unknown>)?.type === "url" && isRemoteUrl((block.source as Record<string, unknown>)?.url)) {
+            refs.push({ get: () => (block.source as Record<string, unknown>).url as string, claudeBlock: block });
           }
         }
       }
@@ -63,7 +64,7 @@ function collectImageRefs(body, sourceFormat) {
       pushGemini(body.contents);
       break;
     case FORMATS.ANTIGRAVITY:
-      pushGemini(body?.request?.contents);
+      pushGemini((body?.request as Record<string, unknown>)?.contents);
       break;
     default:
       pushOpenAI(body.messages);
@@ -76,7 +77,7 @@ function collectImageRefs(body, sourceFormat) {
  * No-op when target accepts remote URLs (e.g. openai, claude) or body has none.
  * @returns {Promise<number>} count of images converted
  */
-export async function prefetchRemoteImages(body, sourceFormat, targetFormat, options = {}) {
+export async function prefetchRemoteImages(body: Record<string, unknown>, sourceFormat: string, targetFormat: string, options: ImageFetchOptions = {}): Promise<number> {
   if (!body || !TARGETS_NEED_BASE64.has(targetFormat)) return 0;
   const refs = collectImageRefs(body, sourceFormat);
   if (!refs.length) return 0;

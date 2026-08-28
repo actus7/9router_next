@@ -19,10 +19,15 @@ export async function OPTIONS() {
  */
 export async function GET() {
   try {
-    const models = [];
-    const seen = new Set();
+    const models: Record<string, unknown>[] = [];
+    const seen = new Set<string>();
 
-    function addModel({ name, displayName, description, methods = ["generateContent"] }) {
+    function addModel({ name, displayName, description, methods = ["generateContent"] }: {
+      name: string;
+      displayName: string;
+      description: string;
+      methods?: string[];
+    }) {
       if (seen.has(name)) return;
       seen.add(name);
       models.push({
@@ -36,17 +41,17 @@ export async function GET() {
     }
     
     for (const [provider, providerModels] of Object.entries(PROVIDER_MODELS)) {
-      for (const model of providerModels) {
+      for (const model of providerModels as Array<Record<string, unknown>>) {
         addModel({
           name: `models/${provider}/${model.id}`,
-          displayName: model.name || model.id,
+          displayName: (model.name || model.id) as string,
           description: `${provider} model: ${model.name || model.id}`,
         });
 
         if (provider === "gemini") {
           addModel({
             name: `models/${model.id}`,
-            displayName: model.name || model.id,
+            displayName: (model.name || model.id) as string,
             description: `Gemini model: ${model.name || model.id}`,
             methods: ["generateContent", "streamGenerateContent"],
           });
@@ -55,8 +60,8 @@ export async function GET() {
     }
 
     return Response.json({ models });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching models:", error);
-    return Response.json({ error: { message: error.message } }, { status: 500 });
+    return Response.json({ error: { message: error instanceof Error ? error.message : String(error) } }, { status: 500 });
   }
 }

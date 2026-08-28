@@ -1,5 +1,6 @@
 import { DefaultExecutor } from "./default";
 import { getCachedKimchiModelMetadata } from "../services/kimchiModels";
+import type { Credentials } from "../services/types";
 
 const TOP_LEVEL_OPENAI_GATEWAY_DROPS = [
   "anthropic_version",
@@ -11,13 +12,13 @@ const TOP_LEVEL_OPENAI_GATEWAY_DROPS = [
   "top_k",
 ];
 
-function systemToText(system) {
+function systemToText(system: unknown): string {
   if (typeof system === "string") return system;
   if (Array.isArray(system)) {
     return system
-      .map((part) => {
+      .map((part: unknown) => {
         if (typeof part === "string") return part;
-        if (typeof part?.text === "string") return part.text;
+        if (part && typeof part === "object" && typeof (part as Record<string, unknown>).text === "string") return (part as Record<string, unknown>).text as string;
         return "";
       })
       .filter(Boolean)
@@ -26,31 +27,31 @@ function systemToText(system) {
   return "";
 }
 
-function mergeTopLevelSystem(body) {
+function mergeTopLevelSystem(body: Record<string, unknown>): void {
   if (!body?.system || !Array.isArray(body.messages)) return;
   const text = systemToText(body.system).trim();
   if (!text) return;
 
-  const existing = body.messages.find((msg) => msg?.role === "system");
+  const existing = (body.messages as Record<string, unknown>[]).find((msg: Record<string, unknown>) => msg?.role === "system");
   if (!existing) {
-    body.messages.unshift({ role: "system", content: text });
+    (body.messages as Record<string, unknown>[]).unshift({ role: "system", content: text });
     return;
   }
 
   if (typeof existing.content === "string") {
     existing.content = `${text}\n\n${existing.content}`;
   } else if (Array.isArray(existing.content)) {
-    existing.content.unshift({ type: "text", text });
+    (existing.content as Record<string, unknown>[]).unshift({ type: "text", text });
   }
 }
 
-function stripMessageArtifacts(body) {
+function stripMessageArtifacts(body: Record<string, unknown>): void {
   if (!Array.isArray(body?.messages)) return;
-  for (const msg of body.messages) {
+  for (const msg of body.messages as Record<string, unknown>[]) {
     if (!msg || typeof msg !== "object") continue;
     delete msg.cache_control;
     if (!Array.isArray(msg.content)) continue;
-    msg.content = msg.content.map((part) => {
+    msg.content = (msg.content as Record<string, unknown>[]).map((part: Record<string, unknown>) => {
       if (!part || typeof part !== "object") return part;
       const { cache_control, signature, ...clean } = part;
       return clean;
@@ -58,9 +59,9 @@ function stripMessageArtifacts(body) {
   }
 }
 
-function stripToolArtifacts(body) {
+function stripToolArtifacts(body: Record<string, unknown>): void {
   if (!Array.isArray(body?.tools)) return;
-  body.tools = body.tools.map((tool) => {
+  body.tools = (body.tools as Record<string, unknown>[]).map((tool: Record<string, unknown>) => {
     if (!tool || typeof tool !== "object") return tool;
     const { cache_control, ...clean } = tool;
     return clean;
@@ -76,17 +77,17 @@ function stripToolArtifacts(body) {
 // placeholder length with a safety margin.
 const REASONING_PLACEHOLDER_MAX_LEN = 8;
 
-export function stripReasoningContent(body) {
+export function stripReasoningContent(body: Record<string, unknown>): void {
   if (!Array.isArray(body?.messages)) return;
-  for (const msg of body.messages) {
+  for (const msg of body.messages as Record<string, unknown>[]) {
     if (msg && msg.role === "assistant" && typeof msg.reasoning_content === "string"
-        && msg.reasoning_content.length > REASONING_PLACEHOLDER_MAX_LEN) {
+        && (msg.reasoning_content as string).length > REASONING_PLACEHOLDER_MAX_LEN) {
       delete msg.reasoning_content;
     }
   }
 }
 
-function isAnthropicBackedKimchiModel(model) {
+function isAnthropicBackedKimchiModel(model: string): boolean {
   const meta = getCachedKimchiModelMetadata(model);
   if (meta?.provider === "anthropic" || meta?.upstreamProvider === "anthropic") return true;
   return /(^|[-_/])(?:claude|anthropic)(?:[-_/]|$)/i.test(String(model || ""));
@@ -97,7 +98,7 @@ export class KimchiExecutor extends DefaultExecutor {
     super("kimchi");
   }
 
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials) {
     const transformed = super.transformRequest(model, body, stream, credentials);
     if (!transformed || typeof transformed !== "object") return transformed;
 

@@ -7,7 +7,38 @@ import {
 
 const DEFAULT_TIMEOUT_MS = 3000;
 
-function jsonBytes(value) {
+interface HeadroomMessage {
+  role: string;
+  content: string | unknown[];
+  [key: string]: unknown;
+}
+
+interface HeadroomTarget {
+  object: Record<string, unknown>;
+  key: string;
+}
+
+interface HeadroomProjection {
+  messages: HeadroomMessage[];
+  targets: HeadroomTarget[];
+}
+
+interface SizeSnapshot {
+  bodyBytes: number;
+  messageBytes: number;
+  toolSchemaBytes: number;
+  toolHistoryBytes: number;
+}
+
+interface HeadroomDiagnostics {
+  reason?: string;
+  endpoint?: string;
+  before?: SizeSnapshot;
+  after?: SizeSnapshot;
+  [key: string]: unknown;
+}
+
+function jsonBytes(value: unknown): number {
   try {
     return new TextEncoder().encode(JSON.stringify(value) || "").length;
   } catch {
@@ -15,48 +46,53 @@ function jsonBytes(value) {
   }
 }
 
-function messagePayload(body) {
-  if (Array.isArray(body?.messages)) return body.messages;
-  if (Array.isArray(body?.input)) return body.input;
+function messagePayload(body: Record<string, unknown>): unknown[] | null {
+  if (Array.isArray(body?.messages)) return body.messages as unknown[];
+  if (Array.isArray(body?.input)) return body.input as unknown[];
   const kiro = collectKiroHeadroomMessages(body);
   if (kiro) return kiro.messages;
   return null;
 }
 
-function captureSizeSnapshot(body) {
+function captureSizeSnapshot(body: Record<string, unknown>): SizeSnapshot {
   const messages = messagePayload(body);
-  const toolHistory = messages?.filter((message) =>
-    message?.role === "tool"
-    || message?.role === "function"
-    || message?.tool_calls?.length
-    || message?.content?.some?.((part) => part?.type === "tool_use" || part?.type === "tool_result")
-  ) || [];
+  const toolHistory = messages?.filter((message: unknown) => {
+    const m = message as Record<string, unknown>;
+    return m?.role === "tool"
+      || m?.role === "function"
+      || (m?.tool_calls as unknown[])?.length
+      || (m?.content as unknown[])?.some?.((part: unknown) => {
+        const p = part as Record<string, unknown>;
+        return p?.type === "tool_use" || p?.type === "tool_result";
+      });
+  }) || [];
   return {
     bodyBytes: jsonBytes(body),
     messageBytes: messages ? jsonBytes(messages) : 0,
-    toolSchemaBytes: jsonBytes(body?.tools || []),
+    toolSchemaBytes: jsonBytes((body as Record<string, unknown>)?.tools || []),
     toolHistoryBytes: jsonBytes(toolHistory),
   };
 }
 
-function setDiagnostic(diagnostics, reason) {
+function setDiagnostic(diagnostics: HeadroomDiagnostics | null | undefined, reason: string) {
   if (diagnostics && !diagnostics.reason) diagnostics.reason = reason;
 }
 
-function scrubSensitiveUrlText(text) {
+function scrubSensitiveUrlText(text: unknown): string {
   return String(text)
     .replace(/\/\/[^/@\s]+@/g, "//")
     .replace(/(https?:\/\/[^\s?#]+)[?#][^\s)]*/g, "$1");
 }
 
-function describeFetchError(error) {
-  const cause = error?.cause;
-  const code = cause?.code || error?.code;
-  const message = scrubSensitiveUrlText(cause?.message || error?.message || String(error));
+function describeFetchError(error: unknown): string {
+  const err = error as Record<string, unknown> | undefined;
+  const cause = err?.cause as Record<string, unknown> | undefined;
+  const code = (cause?.code || err?.code) as string | undefined;
+  const message = scrubSensitiveUrlText(cause?.message || err?.message || String(error));
   return code ? `${code}: ${message}` : message;
 }
 
-function buildCompressEndpoint(url) {
+function buildCompressEndpoint(url: string): string {
   try {
     const parsed = new URL(url);
     parsed.pathname = `${parsed.pathname.replace(/\/$/, "")}/v1/compress`;
@@ -70,7 +106,7 @@ function buildCompressEndpoint(url) {
   }
 }
 
-function maskEndpoint(endpoint) {
+function maskEndpoint(endpoint: string): string {
   try {
     const parsed = new URL(endpoint);
     parsed.username = "";
@@ -83,57 +119,63 @@ function maskEndpoint(endpoint) {
   }
 }
 
-function hasUnsafeResponsesInputForCompression(body) {
+function hasUnsafeResponsesInputForCompression(body: Record<string, unknown>): boolean {
   if (!Array.isArray(body?.input)) return false;
-  return body.input.some((item) => {
+  return (body.input as unknown[]).some((item: unknown) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return false;
-    return typeof item.type === "string" && item.type !== "message";
+    return typeof (item as Record<string, unknown>).type === "string" && (item as Record<string, unknown>).type !== "message";
   });
 }
 
-function collectKiroHeadroomMessages(body) {
-  const state = body?.conversationState;
+function collectKiroHeadroomMessages(body: Record<string, unknown>): HeadroomProjection | null {
+  const state = body?.conversationState as Record<string, unknown> | undefined;
   if (!state || typeof state !== "object") return null;
 
-  const messages = [];
-  const targets = [];
+  const messages: HeadroomMessage[] = [];
+  const targets: HeadroomTarget[] = [];
 
-  const addTextTarget = (role, text, target, extra = {}) => {
+  const addTextTarget = (role: string, text: unknown, target: HeadroomTarget, extra: Record<string, unknown> = {}) => {
     if (typeof text !== "string") return;
     messages.push({ role, content: text, ...extra });
     targets.push(target);
   };
 
-  const toToolCalls = (toolUses) => {
+  const toToolCalls = (toolUses: unknown) => {
     if (!Array.isArray(toolUses) || toolUses.length === 0) return undefined;
-    const calls = toolUses.map((toolUse) => ({
-      id: toolUse?.toolUseId,
-      type: "function",
-      function: {
-        name: toolUse?.name || "",
-        arguments: JSON.stringify(toolUse?.input || {}),
-      },
-    })).filter((call) => call.id || call.function.name);
+    const calls = toolUses.map((toolUse: unknown) => {
+      const tu = toolUse as Record<string, unknown>;
+      return {
+        id: tu?.toolUseId as string,
+        type: "function",
+        function: {
+          name: (tu?.name as string) || "",
+          arguments: JSON.stringify(tu?.input || {}),
+        },
+      };
+    }).filter((call) => call.id || call.function.name);
     return calls.length > 0 ? calls : undefined;
   };
 
-  const visit = (item) => {
-    const user = item?.userInputMessage;
+  const visit = (item: unknown) => {
+    const it = item as Record<string, unknown>;
+    const user = it?.userInputMessage as Record<string, unknown> | undefined;
     if (user) {
       addTextTarget("system", user.systemInstruction, { object: user, key: "systemInstruction" });
       addTextTarget("user", user.content, { object: user, key: "content" });
 
-      const toolResults = user.userInputMessageContext?.toolResults;
+      const toolResults = (user.userInputMessageContext as Record<string, unknown>)?.toolResults as unknown[] | undefined;
       if (Array.isArray(toolResults)) {
         for (const toolResult of toolResults) {
-          const content = toolResult?.content;
+          const tr = toolResult as Record<string, unknown>;
+          const content = tr?.content;
           if (!Array.isArray(content)) continue;
           for (const part of content) {
+            const p = part as Record<string, unknown>;
             addTextTarget(
               "tool",
-              part?.text,
-              { object: part, key: "text" },
-              toolResult?.toolUseId ? { tool_call_id: toolResult.toolUseId } : {}
+              p?.text,
+              { object: p, key: "text" },
+              tr?.toolUseId ? { tool_call_id: tr.toolUseId } : {}
             );
           }
         }
@@ -141,7 +183,7 @@ function collectKiroHeadroomMessages(body) {
       return;
     }
 
-    const assistant = item?.assistantResponseMessage;
+    const assistant = it?.assistantResponseMessage as Record<string, unknown> | undefined;
     if (assistant) {
       const toolCalls = toToolCalls(assistant.toolUses);
       addTextTarget(
@@ -161,32 +203,33 @@ function collectKiroHeadroomMessages(body) {
   return messages.length > 0 ? { messages, targets } : null;
 }
 
-function textFromHeadroomMessage(message) {
-  const content = message?.content;
+function textFromHeadroomMessage(message: unknown): string | null {
+  const m = message as Record<string, unknown>;
+  const content = m?.content;
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return null;
 
-  const parts = [];
+  const parts: string[] = [];
   for (const part of content) {
     if (typeof part === "string") {
       parts.push(part);
-    } else if (typeof part?.text === "string") {
-      parts.push(part.text);
+    } else if (typeof (part as Record<string, unknown>)?.text === "string") {
+      parts.push((part as Record<string, unknown>).text as string);
     }
   }
   return parts.length > 0 ? parts.join("\n") : null;
 }
 
-function applyKiroHeadroomMessages(projection, compressedMessages, diagnostics) {
+function applyKiroHeadroomMessages(projection: HeadroomProjection, compressedMessages: unknown[], diagnostics: HeadroomDiagnostics | null): boolean {
   if (!Array.isArray(compressedMessages) || compressedMessages.length !== projection.messages.length) {
     setDiagnostic(diagnostics, "proxy response did not match Kiro message count");
     return false;
   }
 
-  const updates = [];
+  const updates: Array<{ target: HeadroomTarget; text: string }> = [];
   for (let i = 0; i < projection.messages.length; i++) {
     const expected = projection.messages[i];
-    const actual = compressedMessages[i];
+    const actual = compressedMessages[i] as Record<string, unknown>;
     if (!actual || actual.role !== expected.role) {
       setDiagnostic(diagnostics, "proxy response did not preserve Kiro message order");
       return false;
@@ -207,10 +250,10 @@ function applyKiroHeadroomMessages(projection, compressedMessages, diagnostics) 
 }
 
 // POST messages to Headroom /v1/compress; returns compressed messages + stats or null.
-async function callCompress(url, messages, model, timeoutMs, compressUserMessages, diagnostics) {
+async function callCompress(url: string, messages: unknown[], model: string, timeoutMs: number, compressUserMessages: boolean | undefined, diagnostics: HeadroomDiagnostics): Promise<Record<string, unknown> | null> {
   const endpoint = buildCompressEndpoint(url);
   diagnostics.endpoint = maskEndpoint(endpoint);
-  const payload = { messages, model };
+  const payload: Record<string, unknown> = { messages, model };
   if (compressUserMessages) payload.config = { compress_user_messages: true };
   let res;
   try {
@@ -228,7 +271,7 @@ async function callCompress(url, messages, model, timeoutMs, compressUserMessage
     setDiagnostic(diagnostics, `proxy returned HTTP ${res.status}`);
     return null;
   }
-  const data = await res.json();
+  const data = await res.json() as Record<string, unknown>;
   if (!Array.isArray(data?.messages)) {
     setDiagnostic(diagnostics, "proxy response missing messages[]");
     return null;
@@ -239,7 +282,7 @@ async function callCompress(url, messages, model, timeoutMs, compressUserMessage
 // Compress request body via Headroom proxy. Fail-open: returns null on any error.
 // /v1/compress only understands OpenAI shape, so Claude bodies are translated
 // to OpenAI, compressed, then translated back using 9Router's own translators.
-export async function compressWithHeadroom(body, { enabled, url, model, format, compressUserMessages, timeoutMs = DEFAULT_TIMEOUT_MS, diagnostics = null } = {}) {
+export async function compressWithHeadroom(body: Record<string, unknown>, { enabled, url, model, format, compressUserMessages, timeoutMs = DEFAULT_TIMEOUT_MS, diagnostics = null }: { enabled?: boolean; url?: string; model?: string; format?: string; compressUserMessages?: boolean; timeoutMs?: number; diagnostics?: HeadroomDiagnostics | null } = {}) {
   if (!enabled) {
     setDiagnostic(diagnostics, "disabled");
     return null;
@@ -258,14 +301,14 @@ export async function compressWithHeadroom(body, { enabled, url, model, format, 
 
     // Claude shape: translate → OpenAI → compress → translate back.
     if (format === "claude") {
-      const oai = claudeToOpenAIRequest(model, body, false);
+      const oai = claudeToOpenAIRequest(model!, body, false) as Record<string, unknown>;
       if (!Array.isArray(oai?.messages)) {
         setDiagnostic(diagnostics, "Claude request did not translate to messages[]");
         return null;
       }
-      const data = await callCompress(url, oai.messages, model, timeoutMs, compressUserMessages, diagnostics || {});
+      const data = await callCompress(url, oai.messages as unknown[], model!, timeoutMs, compressUserMessages, diagnostics || {});
       if (!data) return null;
-      const claudeBody = openaiToClaudeRequest(model, { ...oai, messages: data.messages }, false);
+      const claudeBody = openaiToClaudeRequest(model!, { ...oai, messages: data.messages }, false) as Record<string, unknown>;
       if (Array.isArray(claudeBody?.messages)) body.messages = claudeBody.messages;
       if (claudeBody?.system !== undefined) body.system = claudeBody.system;
       if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
@@ -280,17 +323,18 @@ export async function compressWithHeadroom(body, { enabled, url, model, format, 
         setDiagnostic(diagnostics, "skipped: openai-responses tool/reasoning input is not safe to compress");
         return null;
       }
-      const oai = openaiResponsesToOpenAIRequest(model, body, false);
+      const oai = openaiResponsesToOpenAIRequest(model!, body, false, undefined as unknown as Record<string, unknown>) as Record<string, unknown>;
       if (!Array.isArray(oai?.messages)) return null;
-      const data = await callCompress(url, oai.messages, model, timeoutMs, compressUserMessages, diagnostics || {});
+      const data = await callCompress(url, oai.messages as unknown[], model!, timeoutMs, compressUserMessages, diagnostics || {});
       if (!data) return null;
       // input: undefined so the translator rebuilds input from the compressed
       // messages instead of returning the original input unchanged.
       const responsesBody = openaiToOpenAIResponsesRequest(
-        model,
+        model!,
         { ...oai, input: undefined, messages: data.messages },
-        false
-      );
+        false,
+        undefined as unknown as Record<string, unknown>
+      ) as Record<string, unknown>;
       if (Array.isArray(responsesBody?.input)) body.input = responsesBody.input;
       if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
       return data;
@@ -305,9 +349,9 @@ export async function compressWithHeadroom(body, { enabled, url, model, format, 
         setDiagnostic(diagnostics, "Kiro request did not project to messages[]");
         return null;
       }
-      const data = await callCompress(url, projection.messages, model, timeoutMs, compressUserMessages, diagnostics || {});
+      const data = await callCompress(url, projection.messages, model!, timeoutMs, compressUserMessages, diagnostics || {});
       if (!data) return null;
-      if (!applyKiroHeadroomMessages(projection, data.messages, diagnostics)) return null;
+      if (!applyKiroHeadroomMessages(projection, data.messages as unknown[], diagnostics)) return null;
       if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
       return data;
     }
@@ -320,27 +364,27 @@ export async function compressWithHeadroom(body, { enabled, url, model, format, 
       setDiagnostic(diagnostics, `unsupported ${format || "unknown"} request shape`);
       return null;
     }
-    const data = await callCompress(url, body[key], model, timeoutMs, compressUserMessages, diagnostics || {});
+    const data = await callCompress(url, body[key] as unknown[], model!, timeoutMs, compressUserMessages, diagnostics || {});
     if (!data) return null;
     body[key] = data.messages;
     if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
     return data;
-  } catch (error) {
-    setDiagnostic(diagnostics, `unexpected error: ${error?.message || String(error)}`);
+  } catch (error: unknown) {
+    setDiagnostic(diagnostics, `unexpected error: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }
 
-export function formatHeadroomLog(stats) {
+export function formatHeadroomLog(stats: Record<string, unknown> | null | undefined) {
   if (!stats) return null;
-  const before = stats.tokens_before || 0;
-  const after = stats.tokens_after || 0;
-  const delta = stats.tokens_saved || 0;
+  const before = (stats.tokens_before as number) || 0;
+  const after = (stats.tokens_after as number) || 0;
+  const delta = (stats.tokens_saved as number) || 0;
   const pct = before > 0 ? ((delta / before) * 100).toFixed(1) : "0";
   return `reported token delta=${delta} before=${before}${after ? ` after=${after}` : ""} (${pct}%)`.trim();
 }
 
-export function formatHeadroomSizeLog(diagnostics) {
+export function formatHeadroomSizeLog(diagnostics: HeadroomDiagnostics | null | undefined) {
   const before = diagnostics?.before;
   const after = diagnostics?.after;
   if (!before || !after) return "";
@@ -350,8 +394,8 @@ export function formatHeadroomSizeLog(diagnostics) {
   return `body=${before.bodyBytes}B→${after.bodyBytes}B messages=${before.messageBytes}B→${after.messageBytes}B tools=${before.toolSchemaBytes || 0}B→${after.toolSchemaBytes || 0}B toolHistory=${before.toolHistoryBytes || 0}B→${after.toolHistoryBytes || 0}B effective=${effective}%`;
 }
 
-export function isHeadroomPhantomSavings(stats, diagnostics, minShrinkRatio = 0.05) {
-  if (!stats?.tokens_saved || stats.tokens_saved <= 0) return false;
+export function isHeadroomPhantomSavings(stats: Record<string, unknown> | null | undefined, diagnostics: HeadroomDiagnostics | null | undefined, minShrinkRatio = 0.05) {
+  if (!stats?.tokens_saved || (stats.tokens_saved as number) <= 0) return false;
   const before = diagnostics?.before?.bodyBytes || 0;
   const after = diagnostics?.after?.bodyBytes || 0;
   if (before <= 0 || after <= 0) return false;

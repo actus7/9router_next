@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
@@ -10,8 +10,8 @@ import { matchKnownEndpoint } from "./cliEndpointMatch";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, History, Info, Loader2, Save, TriangleAlert, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
-interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; }
-interface StatusData { installed?: boolean; has9Router?: boolean; settings?: { model?: { base_url?: string; default?: string; }; }; }
+interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; image?: string; notes?: Array<{ type: string; text: string }>; }
+interface StatusData { installed?: boolean; has9Router?: boolean; envApiKey?: string; config?: { providers?: Record<string, { base_url?: string; default_model?: string }>; }; settings?: { model?: { base_url?: string; default?: string; }; }; }
 interface Message { type: "success" | "error"; text: string; }
 
 interface JcodeToolCardProps {
@@ -21,7 +21,7 @@ interface JcodeToolCardProps {
   baseUrl: string;
   hasActiveProviders: boolean;
   apiKeys: ApiKey[];
-  activeProviders: unknown[];
+  activeProviders: ActiveProvider[];
   cloudEnabled: boolean;
   initialStatus?: StatusData | null;
   tunnelEnabled: boolean;
@@ -42,7 +42,7 @@ export default function JcodeToolCard({
   const [selectedApiKey, setSelectedApiKey] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [modelAliases, setModelAliases] = useState<Record<string, unknown>>({});
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
   const hasInitializedModel = useRef(false);
@@ -52,7 +52,7 @@ export default function JcodeToolCard({
     if (!jcodeStatus?.has9Router) return "not_configured";
     const currentProvider = jcodeStatus.config?.providers?.["9router"];
     if (!currentProvider) return "not_configured";
-    return matchKnownEndpoint(currentProvider.base_url, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
+    return matchKnownEndpoint(currentProvider.base_url || "", { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
   };
 
   const configStatus = getConfigStatus();

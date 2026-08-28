@@ -21,16 +21,16 @@ const DEDUP_RULES = [
   },
 ];
 
-function getToolName(t) {
-  return t?.name || t?.function?.name || "";
+function getToolName(t: Record<string, unknown>) {
+  return (t?.name as string) || (t?.function as Record<string, unknown>)?.name as string || "";
 }
 
-function matches(name, pattern) {
+function matches(name: string, pattern: string | RegExp) {
   if (typeof pattern === "string") return name === pattern;
   return pattern instanceof RegExp ? pattern.test(name) : false;
 }
 
-function dedupeTools(tools) {
+function dedupeTools(tools: Record<string, unknown>[]) {
   if (!Array.isArray(tools) || tools.length === 0) return { tools, stripped: [] };
   const names = tools.map(getToolName);
   const toStrip = new Set();

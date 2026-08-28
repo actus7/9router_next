@@ -55,7 +55,7 @@ function importWithAssertion(
   const dropped: DroppedRow[] = [];
   for (const row of rows) {
     try { insertFn(row); }
-    catch (err: any) { dropped.push({ ...rowMeta(row), reason: err.message }); }
+    catch (err: unknown) { dropped.push({ ...rowMeta(row), reason: (err as Error).message }); }
   }
   const inserted: number = (adapter.get(`SELECT COUNT(*) as c FROM ${tableName}`)?.c as number) ?? 0;
   if (inserted !== rows.length) {
@@ -121,8 +121,8 @@ function syncSchemaFromTables(adapter: DbAdapter): void {
         try {
           adapter.exec(`ALTER TABLE ${tableName} ADD COLUMN ${colName} ${safeDef}`);
           console.log(`[DB][sync] +column ${tableName}.${colName}`);
-        } catch (e: any) {
-          console.warn(`[DB][sync] add column ${tableName}.${colName} failed: ${e.message}`);
+        } catch (e: unknown) {
+          console.warn(`[DB][sync] add column ${tableName}.${colName} failed: ${(e as Error).message}`);
         }
       }
     }
@@ -261,8 +261,8 @@ export async function runMigrationOnce(adapter: DbAdapter): Promise<void> {
       backupDbLite(adapter, backupDir);
       pruneOldBackups();
       console.log(`[DB][migrate] pre-schema backup ${storedSchemaVer} → ${SCHEMA_VERSION}: ${backupDir}`);
-    } catch (e: any) {
-      console.warn(`[DB][migrate] pre-schema backup failed (continuing): ${e.message}`);
+    } catch (e: unknown) {
+      console.warn(`[DB][migrate] pre-schema backup failed (continuing): ${(e as Error).message}`);
     }
   }
 

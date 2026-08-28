@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
     const content = fs.readFileSync(filePath, "utf-8");
 
     return NextResponse.json({ success: true, content });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error loading file:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

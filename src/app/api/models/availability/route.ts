@@ -43,24 +43,24 @@ export async function GET(): Promise<NextResponse> {
       const locks = getActiveModelLocks(connection);
       for (const lock of locks) {
         models.push({
-          provider: connection.provider,
+          provider: connection.provider as string,
           model: lock.model,
           status: "cooldown",
           until: lock.until,
-          connectionId: connection.id,
-          connectionName: connection.name || connection.email || connection.id,
-          lastError: connection.lastError || null,
+          connectionId: connection.id as string,
+          connectionName: (connection.name || connection.email || connection.id) as string,
+          lastError: connection.lastError ? String(connection.lastError) : null,
         });
       }
 
       if (locks.length === 0 && connection.testStatus === "unavailable") {
         models.push({
-          provider: connection.provider,
+          provider: connection.provider as string,
           model: "__all",
           status: "unavailable",
-          connectionId: connection.id,
-          connectionName: connection.name || connection.email || connection.id,
-          lastError: connection.lastError || null,
+          connectionId: connection.id as string,
+          connectionName: (connection.name || connection.email || connection.id) as string,
+          lastError: connection.lastError ? String(connection.lastError) : null,
         });
       }
     }

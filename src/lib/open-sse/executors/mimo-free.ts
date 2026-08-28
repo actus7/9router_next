@@ -3,9 +3,10 @@ import { PROVIDERS } from "../config/providers";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { createHash } from "crypto";
 import os from "os";
+import type { Credentials, Logger } from "../services/types";
 
 const BOOTSTRAP_URL = "https://api.xiaomimimo.com/api/free-ai/bootstrap";
-const CHAT_URL = PROVIDERS["mimo-free"].baseUrl;
+const CHAT_URL = PROVIDERS["mimo-free"].baseUrl as string;
 const SESSION_AFFINITY_PREFIX = "ses_";
 const SESSION_ID_LENGTH = 24;
 const JWT_FALLBACK_TTL_SEC = 3000;
@@ -25,7 +26,7 @@ export const MIMO_SYSTEM_MARKER =
   "You are MiMoCode, an interactive CLI tool that helps users with software engineering tasks.";
 
 // In-memory JWT cache (per-process, survives across requests but not restarts)
-let cachedJwt = null;
+let cachedJwt: string | null = null;
 let jwtExpiresAt = 0;
 
 // Device fingerprint reused as the bootstrap "client" — stable per machine
@@ -50,10 +51,10 @@ function generateSessionId() {
 }
 
 // Derive expiry from the JWT exp claim; fall back to a fixed TTL when unparseable
-function parseJwtExp(jwt) {
+function parseJwtExp(jwt: string) {
   try {
-    const payload = JSON.parse(Buffer.from(jwt.split(".")[1], "base64").toString());
-    if (payload.exp) return payload.exp * 1000;
+    const payload = JSON.parse(Buffer.from(jwt.split(".")[1], "base64").toString()) as Record<string, unknown>;
+    if (payload.exp) return (payload.exp as number) * 1000;
   } catch {
     // ignore
   }
@@ -61,8 +62,8 @@ function parseJwtExp(jwt) {
 }
 
 // Ensure the body carries the anti-abuse marker in a system message (idempotent)
-function injectSystemMarker(body) {
-  const messages = body?.messages;
+function injectSystemMarker(body: Record<string, unknown>) {
+  const messages = body?.messages as Record<string, unknown>[] | undefined;
   if (!Array.isArray(messages)) return body;
   const hasMarker = messages.some(
     (m) => m?.role === "system" && typeof m.content === "string" && m.content.includes(MIMO_SYSTEM_MARKER)
@@ -76,7 +77,7 @@ function resetJwtCache() {
   jwtExpiresAt = 0;
 }
 
-async function bootstrapJwt(proxyOptions = null) {
+async function bootstrapJwt(proxyOptions: unknown = null) {
   if (cachedJwt && Date.now() < jwtExpiresAt - JWT_EXPIRY_BUFFER_MS) {
     return cachedJwt;
   }
@@ -88,23 +89,25 @@ async function bootstrapJwt(proxyOptions = null) {
       "User-Agent": USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
     },
     body: JSON.stringify({ client: generateFingerprint() }),
-  }, proxyOptions);
+  }, proxyOptions as null);
 
   if (!response.ok) {
     throw new Error(`MiMo bootstrap failed: ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as Record<string, unknown>;
   if (!data.jwt) {
     throw new Error("MiMo bootstrap returned no JWT");
   }
 
-  cachedJwt = data.jwt;
-  jwtExpiresAt = parseJwtExp(data.jwt);
+  cachedJwt = data.jwt as string;
+  jwtExpiresAt = parseJwtExp(data.jwt as string);
   return cachedJwt;
 }
 
 export class MimoFreeExecutor extends BaseExecutor {
+  sessionId: string;
+
   constructor() {
     super("mimo-free", PROVIDERS["mimo-free"]);
     this.sessionId = generateSessionId();
@@ -114,7 +117,7 @@ export class MimoFreeExecutor extends BaseExecutor {
     return CHAT_URL;
   }
 
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials: Credentials, stream = true) {
     return {
       "Content-Type": "application/json",
       "X-Mimo-Source": "mimocode-cli-free",
@@ -124,16 +127,17 @@ export class MimoFreeExecutor extends BaseExecutor {
     };
   }
 
-  transformRequest(model, body) {
+  transformRequest(model: string, body: Record<string, unknown>) {
     return injectSystemMarker(body);
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
-    let jwt;
+  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Credentials; signal?: AbortSignal; log?: Logger; proxyOptions?: unknown }) {
+    let jwt: string;
     try {
       jwt = await bootstrapJwt(proxyOptions);
     } catch (error) {
-      log?.error?.("AUTH", `MiMo bootstrap failed: ${error.message}`);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      log?.error?.("AUTH", `MiMo bootstrap failed: ${errMsg}`);
       throw error;
     }
 
@@ -143,7 +147,7 @@ export class MimoFreeExecutor extends BaseExecutor {
     const bodyStr = JSON.stringify(transformedBody);
     log?.debug?.("FETCH", `MIMO-FREE → ${url} | body=${bodyStr.length}B`);
 
-    const response = await proxyAwareFetch(url, { method: "POST", headers, body: bodyStr, signal }, proxyOptions);
+    const response = await proxyAwareFetch(url, { method: "POST", headers, body: bodyStr, signal }, proxyOptions as null);
 
     // On auth failure, invalidate cache and retry once with a fresh JWT
     if (response.status === 401 || response.status === 403) {
@@ -151,7 +155,7 @@ export class MimoFreeExecutor extends BaseExecutor {
       resetJwtCache();
       jwt = await bootstrapJwt(proxyOptions);
       headers["Authorization"] = `Bearer ${jwt}`;
-      const retryResponse = await proxyAwareFetch(url, { method: "POST", headers, body: bodyStr, signal }, proxyOptions);
+      const retryResponse = await proxyAwareFetch(url, { method: "POST", headers, body: bodyStr, signal }, proxyOptions as null);
       return { response: retryResponse, url, headers, transformedBody };
     }
 

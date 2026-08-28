@@ -7,7 +7,6 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
-import DonateModal from "@/shared/components/DonateModal";
 import Button from "@/shared/components/Button";
 import { Input } from "@/components/ui/input";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
@@ -15,7 +14,7 @@ import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
-import { BarChart3, ChevronRight, Globe, Heart, Key, Languages, Layers, Menu, Monitor, Network, PieChart, PiggyBank, Puzzle, Search, Server, Settings, Terminal, User, Webhook, X } from "lucide-react";
+import { BarChart3, ChevronRight, Globe, Key, Languages, Layers, Menu, Monitor, Network, PieChart, PiggyBank, Puzzle, Search, Server, Settings, Terminal, User, Webhook, X } from "lucide-react";
 
 interface Breadcrumb {
   label: string;
@@ -44,7 +43,7 @@ const getPageInfo = (pathname: string | null): PageInfo => {
       title: (provider?.name as string) || providerId,
       description: "",
       breadcrumbs: [
-        { label: "Media Providers", href: `/dashboard/media-providers/${kindId}` },
+        { label: "Provedores de Mídia", href: `/dashboard/media-providers/${kindId}` },
         { label: kindConfig?.label || kindId, href: `/dashboard/media-providers/${kindId}` },
         { label: (provider?.name as string) || providerId, image: getProviderIconSrc(providerId) ?? undefined },
       ],
@@ -58,7 +57,7 @@ const getPageInfo = (pathname: string | null): PageInfo => {
     const kindConfig = MEDIA_PROVIDER_KINDS.find((k) => k.id === kindId);
     return {
       title: kindConfig?.label || kindId,
-      description: `Manage your ${kindConfig?.label || kindId} providers`,
+      description: `Gerencie seus provedores de ${kindConfig?.label || kindId}`,
       icon: <Globe className="size-6" />,
       breadcrumbs: [],
     };
@@ -75,7 +74,7 @@ const getPageInfo = (pathname: string | null): PageInfo => {
         title: providerInfo.name as string,
         description: "",
         breadcrumbs: [
-          { label: "Providers", href: "/dashboard/providers" },
+          { label: "Provedores", href: "/dashboard/providers" },
           {
             label: providerInfo.name as string,
             image: getProviderIconSrc(providerInfo.id as string) ?? undefined,
@@ -87,100 +86,100 @@ const getPageInfo = (pathname: string | null): PageInfo => {
 
   if (pathname.includes("/providers") && !pathname.includes("/media-providers"))
     return {
-      title: "Providers",
-      description: "Manage your AI provider connections",
+      title: "Provedores",
+      description: "Gerencie suas conexões com provedores de IA",
       icon: <Server className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/combos"))
     return {
       title: "Combos",
-      description: "Model combos with fallback",
+      description: "Combos de modelos com fallback",
       icon: <Layers className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/usage"))
     return {
-      title: "Usage & Analytics",
+      title: "Uso & Análises",
       description:
-        "Monitor your API usage, token consumption, and request logs",
+        "Monitore seu uso de API, consumo de tokens e logs de requisições",
       icon: <BarChart3 className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/auth-files"))
     return {
-      title: "Auth Files",
-      description: "Map provider credentials stored in the local database",
+      title: "Arquivos de Autenticação",
+      description: "Mapeie credenciais de provedores armazenadas no banco local",
       icon: <Key className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/quota"))
     return {
-      title: "Quota Tracker",
-      description: "Track and manage your API quota limits",
+      title: "Rastreador de Cota",
+      description: "Acompanhe e gerencie seus limites de cota da API",
       icon: <PieChart className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/token-saver"))
     return {
-      title: "Token Saver",
-      description: "Compress prompts and outputs to save tokens",
+      title: "Economizador de Tokens",
+      description: "Comprima prompts e saídas para economizar tokens",
       icon: <PiggyBank className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/cli-tools"))
     return {
-      title: "CLI Tools",
-      description: "Configure CLI tools",
+      title: "Ferramentas CLI",
+      description: "Configure ferramentas CLI",
       icon: <Terminal className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/proxy-pools"))
     return {
-      title: "Proxy Pools",
-      description: "Manage your proxy pool configurations",
+      title: "Pools de Proxy",
+      description: "Gerencie suas configurações de pools de proxy",
       icon: <Network className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/skills"))
     return {
-      title: "Agent Skills",
-      description: "Copy a link and paste to your AI to use 9Router — no install needed",
+      title: "Habilidades do Agente",
+      description: "Copie um link e cole no seu IA para usar o 9Router — sem instalação",
       icon: <Puzzle className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/endpoint"))
     return {
       title: "Endpoint",
-      description: "API endpoint configuration",
+      description: "Configuração do endpoint da API",
       icon: <Webhook className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/profile"))
     return {
-      title: "Settings",
-      description: "Manage your preferences",
+      title: "Configurações",
+      description: "Gerencie suas preferências",
       icon: <Settings className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/translator"))
     return {
-      title: "Translator",
-      description: "Debug translation flow between formats",
+      title: "Tradutor",
+      description: "Depure o fluxo de tradução entre formatos",
       icon: <Languages className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname.includes("/console-log"))
     return {
-      title: "Console Log",
-      description: "Live server console output",
+      title: "Log do Console",
+      description: "Saída ao vivo do console do servidor",
       icon: <Monitor className="size-6" />,
       breadcrumbs: [],
     };
   if (pathname === "/dashboard")
     return {
       title: "Endpoint",
-      description: "API endpoint configuration",
+      description: "Configuração do endpoint da API",
       icon: <Webhook className="size-6" />,
       breadcrumbs: [],
     };
@@ -196,7 +195,6 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
   const pathname = usePathname();
   const [displayName, setDisplayName] = useState("");
   const [loginMethod, setLoginMethod] = useState("");
-  const [donateOpen, setDonateOpen] = useState(false);
 
   // Memoize page info to prevent unnecessary recalculations
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
@@ -248,7 +246,7 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
             variant="ghost"
             size="icon"
             onClick={onMenuClick}
-            aria-label="Open navigation menu"
+            aria-label="Abrir menu de navegação"
             aria-expanded="false"
             className="text-text-main hover:text-primary"
           >
@@ -331,21 +329,10 @@ export default function Header({ onMenuClick, showMenuButton = true }: HeaderPro
           </div>
         )}
         <HeaderSearch />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setDonateOpen(true)}
-          className="flex items-center gap-1.5 px-3 h-8 border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20 text-sm font-medium"
-          aria-label="Donate"
-        >
-          <Heart className="size-5" />
-          <span className="hidden sm:inline">Donate</span>
-        </Button>
         <ThemeToggle />
         <HeaderLanguage />
         <HeaderMenu onLogout={handleLogout} />
       </div>
-      <DonateModal isOpen={donateOpen} onClose={() => setDonateOpen(false)} />
     </header>
   );
 }
@@ -360,13 +347,16 @@ function HeaderSearch() {
 
   return (
     <div className="relative w-[160px] sm:w-[220px]">
-      <Search className="size-4" />
+      <Search
+        aria-hidden="true"
+        className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-4 -translate-y-1/2 text-text-muted"
+      />
       <Input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 text-sm"
+        className="h-8 w-full pl-8 pr-7 text-sm"
       />
       {query && (
         <Button
@@ -375,7 +365,7 @@ function HeaderSearch() {
           type="button"
           onClick={() => setQuery("")}
           className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main"
-          aria-label="Clear search"
+          aria-label="Limpar busca"
         >
           <X className="size-4" />
         </Button>

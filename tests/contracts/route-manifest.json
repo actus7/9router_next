@@ -1,0 +1,1156 @@
+﻿{
+    "generatedAt":  "2026-08-27T14:53:13",
+    "totalRoutes":  150,
+    "rewrites":  [
+                     "/v1/v1/:path* -\u003e /api/v1/:path*",
+                     "/v1/v1 -\u003e /api/v1",
+                     "/codex/:path* -\u003e /api/v1/responses",
+                     "/responses -\u003e /api/v1/responses",
+                     "/v1beta/:path* -\u003e /api/v1beta/:path*",
+                     "/v1beta -\u003e /api/v1beta",
+                     "/v1/:path* -\u003e /api/v1/:path*",
+                     "/v1 -\u003e /api/v1"
+                 ],
+    "routes":  [
+                   {
+                       "path":  "//api/auth/login",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/logout",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/oidc/callback",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/oidc/start",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/oidc/test",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/reset-password",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/saml/acs",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/saml/metadata",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/saml/start",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/saml/test",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/auth/status",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/all-statuses",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/claude-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/cline-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/codex-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/copilot-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/cowork-mcp-registry",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/cowork-mcp-tools",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/cowork-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/deepseek-tui-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/devin-settings",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/droid-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/grok-build-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/hermes-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/jcode-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/kilo-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/openclaw-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/cli-tools/opencode-settings",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "PATCH",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/combos",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/combos/[id]",
+                       "methods":  [
+                                       "GET",
+                                       "PUT",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/headroom/extras",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/headroom/proxy/[...path]",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "PUT",
+                                       "PATCH",
+                                       "DELETE",
+                                       "HEAD",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/headroom/restart",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/headroom/start",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/headroom/status",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/headroom/stop",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/health",
+                       "methods":  [
+                                       "GET",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/init",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/keys",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/keys/[id]",
+                       "methods":  [
+                                       "GET",
+                                       "PUT",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/locale",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/mcp/[plugin]/message",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/mcp/[plugin]/sse",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/media-providers/tts/deepgram/voices",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/media-providers/tts/elevenlabs/voices",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/media-providers/tts/inworld/voices",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/media-providers/tts/minimax/voices",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/media-providers/tts/voices",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/models",
+                       "methods":  [
+                                       "GET",
+                                       "PUT"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/models/alias",
+                       "methods":  [
+                                       "GET",
+                                       "PUT",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/models/availability",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/models/custom",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/models/disabled",
+                       "methods":  [
+                                       "GET",
+                                       "POST",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/models/test",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/[provider]/[action]",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/codex/bulk-import",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/codex/import-token",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/cursor/auto-import",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/cursor/import",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/gitlab/pat",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/iflow/cookie",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/kiro/api-key",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/kiro/auto-import",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/kiro/import",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/kiro/import-cli-proxy",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/kiro/social-authorize",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/oauth/kiro/social-exchange",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pricing",
+                       "methods":  [
+                                       "GET",
+                                       "PATCH",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/provider-nodes",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/provider-nodes/[id]",
+                       "methods":  [
+                                       "PUT",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/provider-nodes/validate",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/[id]",
+                       "methods":  [
+                                       "GET",
+                                       "PUT",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/[id]/models",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/[id]/test",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/[id]/test-models",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/client",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/kilo/free-models",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/suggested-models",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/test-batch",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/providers/validate",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/proxy-pools",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/proxy-pools/[id]",
+                       "methods":  [
+                                       "GET",
+                                       "PUT",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/proxy-pools/[id]/test",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/proxy-pools/cloudflare-deploy",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/proxy-pools/deno-deploy",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/proxy-pools/vercel-deploy",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pxpipe/health",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pxpipe/install",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pxpipe/logs",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pxpipe/restart",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pxpipe/start",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pxpipe/stats",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pxpipe/status",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/pxpipe/stop",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/settings",
+                       "methods":  [
+                                       "GET",
+                                       "PATCH"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/settings/database",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/settings/proxy-test",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/settings/require-login",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/shutdown",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/tags",
+                       "methods":  [
+                                       "GET",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/translator/console-logs",
+                       "methods":  [
+                                       "GET",
+                                       "DELETE"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/translator/console-logs/stream",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/translator/load",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/translator/save",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/translator/send",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/translator/translate",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/tunnel/disable",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/tunnel/enable",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/tunnel/status",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/tunnel/tailscale-check",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/tunnel/tailscale-disable",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/tunnel/tailscale-enable",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/tunnel/tailscale-install",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/[connectionId]",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/[connectionId]/codex-reset-credits",
+                       "methods":  [
+                                       "GET",
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/chart",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/history",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/logs",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/providers",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/request-details",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/request-logs",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/stats",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/usage/stream",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1",
+                       "methods":  [
+
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/api/chat",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/audio/speech",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/audio/transcriptions",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/audio/voices",
+                       "methods":  [
+                                       "GET",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/chat/completions",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/embeddings",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/images/generations",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/messages",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/messages/count_tokens",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/models",
+                       "methods":  [
+                                       "GET",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/models/[kind]",
+                       "methods":  [
+                                       "GET",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/models/info",
+                       "methods":  [
+                                       "GET",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/responses",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/responses/compact",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/search",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/videos/[id]",
+                       "methods":  [
+                                       "GET",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/videos/edits",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/videos/extensions",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/videos/generations",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1/web/fetch",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1beta/models",
+                       "methods":  [
+                                       "GET",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/v1beta/models/[...path]",
+                       "methods":  [
+                                       "POST",
+                                       "OPTIONS"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/version",
+                       "methods":  [
+                                       "GET"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/version/shutdown",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   },
+                   {
+                       "path":  "//api/version/update",
+                       "methods":  [
+                                       "POST"
+                                   ],
+                       "runtime":  "nodejs"
+                   }
+               ]
+}

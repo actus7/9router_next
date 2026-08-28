@@ -40,7 +40,7 @@ for (const entry of REGISTRY as Array<{ id: string; alias?: string; aliases?: st
 }
 
 function parseModel(modelStr: string): ParsedModel {
-  const parsed: ParsedModel = parseModelCore(modelStr);
+  const parsed = parseModelCore(modelStr) as unknown as ParsedModel;
   if (parsed?.providerAlias && LOCAL_PROVIDER_ALIASES[parsed.providerAlias]) {
     return { ...parsed, provider: LOCAL_PROVIDER_ALIASES[parsed.providerAlias] };
   }
@@ -51,8 +51,8 @@ function parseModel(modelStr: string): ParsedModel {
  * Resolve model alias from localDb
  */
 async function resolveModelAlias(alias: string): Promise<string | null> {
-  const aliases: Record<string, string> = await getModelAliases();
-  return resolveModelAliasFromMap(alias, aliases);
+  const aliases = await getModelAliases() as Record<string, string>;
+  return resolveModelAliasFromMap(alias, aliases) as unknown as string | null;
 }
 
 /**
@@ -63,19 +63,19 @@ export async function getModelInfo(modelStr: string): Promise<ModelInfo> {
 
   if (!parsed.isAlias) {
     if (!RESERVED_PROVIDER_PREFIXES.has(parsed.providerAlias!)) {
-      const openaiNodes: ProviderNode[] = await getProviderNodes({ type: "openai-compatible" });
+      const openaiNodes = await getProviderNodes({ type: "openai-compatible" }) as unknown as ProviderNode[];
       const matchedOpenAI: ProviderNode | undefined = openaiNodes.find((node: ProviderNode) => node.prefix === parsed.providerAlias);
       if (matchedOpenAI) {
         return { provider: matchedOpenAI.id, model: parsed.model };
       }
 
-      const anthropicNodes: ProviderNode[] = await getProviderNodes({ type: "anthropic-compatible" });
+      const anthropicNodes = await getProviderNodes({ type: "anthropic-compatible" }) as unknown as ProviderNode[];
       const matchedAnthropic: ProviderNode | undefined = anthropicNodes.find((node: ProviderNode) => node.prefix === parsed.providerAlias);
       if (matchedAnthropic) {
         return { provider: matchedAnthropic.id, model: parsed.model };
       }
 
-      const embeddingNodes: ProviderNode[] = await getProviderNodes({ type: "custom-embedding" });
+      const embeddingNodes = await getProviderNodes({ type: "custom-embedding" }) as unknown as ProviderNode[];
       const matchedEmbedding: ProviderNode | undefined = embeddingNodes.find((node: ProviderNode) => node.prefix === parsed.providerAlias);
       if (matchedEmbedding) {
         return { provider: matchedEmbedding.id, model: parsed.model };
@@ -87,12 +87,12 @@ export async function getModelInfo(modelStr: string): Promise<ModelInfo> {
     };
   }
 
-  const combo: Combo | null = await getComboByName(parsed.model);
+  const combo = await getComboByName(parsed.model) as unknown as Combo | null;
   if (combo) {
     return { provider: null, model: parsed.model };
   }
 
-  return getModelInfoCore(modelStr, getModelAliases);
+  return getModelInfoCore(modelStr, getModelAliases as unknown as Parameters<typeof getModelInfoCore>[1]) as unknown as ModelInfo;
 }
 
 /**
@@ -102,7 +102,7 @@ export async function getModelInfo(modelStr: string): Promise<ModelInfo> {
 export async function getComboModels(modelStr: string): Promise<string[] | null> {
   if (modelStr.includes("/")) return null;
 
-  const combo: Combo | null = await getComboByName(modelStr);
+  const combo = await getComboByName(modelStr) as unknown as Combo | null;
   if (combo && combo.models && combo.models.length > 0) {
     return combo.models;
   }

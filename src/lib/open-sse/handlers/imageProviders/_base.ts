@@ -3,12 +3,12 @@
 export const POLL_INTERVAL_MS = 1500;
 export const POLL_TIMEOUT_MS = 120000;
 
-export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Map OpenAI size to provider-specific aspect ratio
-export function sizeToAspectRatio(size) {
+export function sizeToAspectRatio(size: string | undefined | null): string {
   if (!size || typeof size !== "string") return "1:1";
-  const map = {
+  const map: Record<string, string> = {
     "1024x1024": "1:1",
     "1024x1792": "9:16",
     "1792x1024": "16:9",
@@ -19,7 +19,7 @@ export function sizeToAspectRatio(size) {
 }
 
 // Fetch URL → base64 (for providers returning image URLs)
-export async function urlToBase64(url) {
+export async function urlToBase64(url: string) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
   const buf = await res.arrayBuffer();

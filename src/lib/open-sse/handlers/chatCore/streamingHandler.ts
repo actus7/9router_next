@@ -8,10 +8,13 @@ import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamH
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail";
 import { saveRequestDetail } from "@/lib/usageDb";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants";
+import type { StreamingHandlerContext, OnStreamCompleteContext } from "./types";
+
+// Local types
+interface JsonObject { [key: string]: unknown }
 
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
-// Gemini-family all map to ANTIGRAVITY decoder; unknown sources fall back to OPENAI.
-const CODEX_SOURCE_TO_TARGET = {
+const CODEX_SOURCE_TO_TARGET: Record<string, string> = {
   [FORMATS.OPENAI_RESPONSES]: FORMATS.OPENAI_RESPONSES,
   [FORMATS.CLAUDE]: FORMATS.CLAUDE,
   [FORMATS.ANTIGRAVITY]: FORMATS.ANTIGRAVITY,
@@ -22,43 +25,48 @@ const CODEX_SOURCE_TO_TARGET = {
 /**
  * Determine which SSE transform stream to use based on provider/format.
  */
-function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey }) {
+function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey }: {
+  provider: string;
+  sourceFormat: string;
+  targetFormat: string;
+  userAgent?: string;
+  reqLogger: Record<string, unknown>;
+  toolNameMap?: Record<string, string>;
+  customToolNames?: Set<string>;
+  model: string;
+  connectionId: string;
+  body: Record<string, unknown>;
+  onStreamComplete: (contentObj: Record<string, unknown>, usage: Record<string, unknown> | null, ttftAt: number | null) => void;
+  apiKey?: string;
+}) {
   const isDroidCLI = userAgent?.toLowerCase().includes("droid") || userAgent?.toLowerCase().includes("codex-cli");
-  // Responses-API providers (e.g. codex) emit Responses SSE → translate into client format
-  const isResponsesProvider = PROVIDERS[provider]?.format === FORMATS.OPENAI_RESPONSES;
+  const isResponsesProvider = (PROVIDERS[provider] as Record<string, unknown>)?.format === FORMATS.OPENAI_RESPONSES;
   const needsCodexTranslation = isResponsesProvider && targetFormat === FORMATS.OPENAI_RESPONSES && !isDroidCLI;
 
   if (needsCodexTranslation) {
     const codexTarget = CODEX_SOURCE_TO_TARGET[sourceFormat] || FORMATS.OPENAI;
-    return createSSETransformStreamWithLogger(FORMATS.OPENAI_RESPONSES, codexTarget, provider, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames);
+    return createSSETransformStreamWithLogger(FORMATS.OPENAI_RESPONSES, codexTarget, provider as unknown as null, reqLogger as unknown as null, toolNameMap as unknown as null, model as unknown as null, connectionId as unknown as null, body as unknown as null, onStreamComplete as unknown as null, apiKey as unknown as null, customToolNames as unknown as null);
   }
 
   if (needsTranslation(targetFormat, sourceFormat)) {
-    return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames);
+    return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider as unknown as null, reqLogger as unknown as null, toolNameMap as unknown as null, model as unknown as null, connectionId as unknown as null, body as unknown as null, onStreamComplete as unknown as null, apiKey as unknown as null, customToolNames as unknown as null);
   }
 
-  return createPassthroughStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey);
+  return createPassthroughStreamWithLogger(provider as unknown as null, reqLogger as unknown as null, model as unknown as null, connectionId as unknown as null, body as unknown as null, onStreamComplete as unknown as null, apiKey as unknown as null);
 }
 
 /**
  * Handle streaming response — pipe provider SSE through transform stream to client.
  */
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }) {
+export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }: StreamingHandlerContext) {
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)
-      .catch(err => {
-        console.error("[ChatCore] onRequestSuccess failed:", err?.message || err);
+      .catch((err: unknown) => {
+        console.error("[ChatCore] onRequestSuccess failed:", (err as Error)?.message || err);
       });
   }
 
-  // When upstream returns HTML/text instead of SSE (e.g. Cloudflare 5xx error
-  // page), piping it through the SSE transform stream causes Next.js
-  // "failed to pipe response" and crashes the chat router. Read the body,
-  // pull a short human-readable message from the <title>, sanitize it, and
-  // return a clean JSON error instead. The message is stripped of HTML tags
-  // and clamped so untrusted upstream text never reaches the client verbatim
-  // (the UI may render error.message as HTML).
   const upstreamContentType = (providerResponse.headers.get('content-type') || '').toLowerCase();
   if (upstreamContentType && !upstreamContentType.includes('text/event-stream') && !upstreamContentType.includes('application/json')) {
     const bodyText = await providerResponse.text().catch(() => '');
@@ -79,13 +87,12 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     };
   }
 
-  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey });
+  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger: reqLogger as unknown as Record<string, unknown>, toolNameMap: toolNameMap as Record<string, string> | undefined, customToolNames: customToolNames as Set<string> | undefined, model, connectionId, body, onStreamComplete, apiKey });
 
-  // Responses passthrough: synthesize response.failed + [DONE] if the stream aborts/stalls before a terminal event
   const isResponsesPassthrough = sourceFormat === FORMATS.OPENAI_RESPONSES && targetFormat === FORMATS.OPENAI_RESPONSES;
   const onAbortTerminal = isResponsesPassthrough ? buildAbortedResponsesTerminalBytes : null;
-  const stallTimeoutMs = PROVIDERS[provider]?.stallTimeoutMs || STREAM_STALL_TIMEOUT_MS;
-  const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal, stallTimeoutMs);
+  const stallTimeoutMs = ((PROVIDERS[provider] as Record<string, unknown>)?.stallTimeoutMs as number) || STREAM_STALL_TIMEOUT_MS;
+  const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController as unknown as Parameters<typeof pipeWithDisconnect>[2], onAbortTerminal as unknown as Parameters<typeof pipeWithDisconnect>[3], stallTimeoutMs);
 
   saveRequestDetail(buildRequestDetail({
     provider, model, connectionId,
@@ -97,8 +104,8 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     response: { content: "[Streaming in progress...]", thinking: null, type: "streaming" },
     pxpipe,
     status: "success"
-  }, { id: streamDetailId })).catch(err => {
-    console.error("[RequestDetail] Failed to save streaming request:", err.message);
+  }, { id: streamDetailId })).catch((err: unknown) => {
+    console.error("[RequestDetail] Failed to save streaming request:", (err as Error).message);
   });
 
   return {
@@ -110,10 +117,10 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 /**
  * Build onStreamComplete callback for streaming usage tracking.
  */
-export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
+export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }: OnStreamCompleteContext) {
   const streamDetailId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
-  const onStreamComplete = (contentObj, usage, ttftAt) => {
+  const onStreamComplete = (contentObj: Record<string, unknown>, usage: Record<string, unknown> | null, ttftAt: number | null) => {
     const latency = {
       ttft: ttftAt ? ttftAt - requestStartTime : Date.now() - requestStartTime,
       total: Date.now() - requestStartTime
@@ -131,11 +138,10 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       response: { content: safeContent, thinking: safeThinking, type: "streaming" },
       pxpipe,
       status: "success"
-    }, { id: streamDetailId })).catch(err => {
-      console.error("[RequestDetail] Failed to update streaming content:", err.message);
+    }, { id: streamDetailId })).catch((err: unknown) => {
+      console.error("[RequestDetail] Failed to update streaming content:", (err as Error).message);
     });
 
-    // Persist stream usage to DB (no console line; the "📊 done" line below is authoritative)
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true });
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
   };

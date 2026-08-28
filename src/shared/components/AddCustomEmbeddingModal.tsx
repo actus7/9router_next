@@ -118,14 +118,14 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
     if (valid) {
       return (
         <>
-          <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Valid</Badge>
-          {dimensions && <span className="text-sm text-text-muted">{dimensions} dims</span>}
+          <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Válido</Badge>
+          {dimensions && <span className="text-sm text-text-muted">{dimensions} dimensões</span>}
         </>
       );
     }
     return (
       <div className="flex flex-col gap-1">
-        <Badge variant="destructive">Invalid</Badge>
+        <Badge variant="destructive">Inválido</Badge>
         {error && <span className="text-sm text-red-500">{error}</span>}
       </div>
     );
@@ -143,47 +143,47 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
       >
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
           <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            {isEdit ? "Edit Custom Embedding" : "Add Custom Embedding"}
+            {isEdit ? "Editar Embedding Personalizado" : "Adicionar Embedding Personalizado"}
           </DialogTitle>
-          <Button onClick={onClose} aria-label="Close" variant="ghost" className="p-1.5">
+          <Button onClick={onClose} aria-label="Fechar" variant="ghost" className="p-1.5">
             <X className="size-5" />
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-4">
         <Input
-          label="Name"
+          label="Nome"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="Voyage AI"
-          hint="Required. A friendly label for this embedding provider."
+          hint="Obrigatório. Um nome amigável para este provedor de embedding."
         />
         <Input
-          label="Prefix"
+          label="Prefixo"
           value={formData.prefix}
           onChange={(e) => setFormData({ ...formData, prefix: e.target.value })}
           placeholder="voyage"
-          hint="Required. Used as the provider prefix for model IDs (e.g. voyage/voyage-3)."
+          hint="Obrigatório. Usado como prefixo do provedor para IDs de modelos (ex: voyage/voyage-3)."
         />
         <Input
-          label="Base URL"
+          label="URL Base"
           value={formData.baseUrl}
           onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
           placeholder="https://api.voyageai.com/v1"
-          hint="Most embedding APIs are OpenAI-compatible: Voyage, Cohere, Jina, Mistral, Together..."
+          hint="A maioria das APIs de embedding são compatíveis com OpenAI: Voyage, Cohere, Jina, Mistral, Together..."
         />
         <Input
-          label="API Key (for Check)"
+          label="Chave API (para Verificação)"
           type="password"
           value={checkKey}
           onChange={(e) => setCheckKey(e.target.value)}
         />
         <Input
-          label="Model ID (for Check)"
+          label="ID do Modelo (para Verificação)"
           value={checkModelId}
           onChange={(e) => setCheckModelId(e.target.value)}
-          placeholder="e.g. voyage-3, embed-english-v3.0, text-embedding-3-small"
-          hint="Required for validation. Will send a test embeddings request."
+          placeholder="ex: voyage-3, embed-english-v3.0, text-embedding-3-small"
+          hint="Obrigatório para validação. Enviará uma requisição de teste de embeddings."
         />
         <div className="flex items-center gap-3">
           <Button
@@ -191,7 +191,7 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
             disabled={!checkKey || !checkModelId.trim() || validating || !formData.baseUrl.trim()}
             variant="secondary"
           >
-            {validating ? "Checking..." : "Check"}
+            {validating ? "Verificando..." : "Verificar"}
           </Button>
           {renderValidationResult()}
         </div>
@@ -201,9 +201,9 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
             fullWidth
             disabled={!formData.name.trim() || !formData.prefix.trim() || !formData.baseUrl.trim() || submitting}
           >
-            {submitting ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save" : "Create")}
+            {submitting ? (isEdit ? "Salvando..." : "Criando...") : (isEdit ? "Salvar" : "Criar")}
           </Button>
-          <Button onClick={onClose} variant="ghost" fullWidth>Cancel</Button>
+          <Button onClick={onClose} variant="ghost" fullWidth>Cancelar</Button>
           </div>
         </div>
         </div>

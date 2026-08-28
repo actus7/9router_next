@@ -13,33 +13,43 @@
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { GITHUB_COPILOT } from "../config/appConstants";
 import { refreshCopilotToken } from "./tokenRefresh";
+import type { Credentials, Logger } from "./types";
 
 const MODELS_URL = "https://api.githubcopilot.com/models";
 const FETCH_TIMEOUT_MS = 10_000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes per credential
 
-/** @type {Map<string, { expiresAt: number, models: any[] }>} */
-const catalogCache = new Map();
+interface CatalogCacheEntry {
+  expiresAt: number;
+  models: { id: string; name: string }[];
+}
 
-function cacheKey(credentials) {
+/** @type {Map<string, { expiresAt: number, models: any[] }>} */
+const catalogCache = new Map<string, CatalogCacheEntry>();
+
+function cacheKey(credentials: Credentials): string {
   return credentials?.providerSpecificData?.copilotToken
     || credentials?.accessToken
     || "copilot-anonymous";
 }
 
-function buildHeaders(token) {
+function buildHeaders(token: string): Record<string, string> {
   return {
     "Authorization": `Bearer ${token}`,
     "Content-Type": "application/json",
     "Copilot-Integration-Id": "vscode-chat",
     "editor-version": `vscode/${GITHUB_COPILOT.VSCODE_VERSION}`,
     "editor-plugin-version": `copilot-chat/${GITHUB_COPILOT.COPILOT_CHAT_VERSION}`,
-    "user-agent": GITHUB_COPILOT.USER_AGENT,
-    "x-github-api-version": GITHUB_COPILOT.API_VERSION,
+    "user-agent": GITHUB_COPILOT.USER_AGENT || "",
+    "x-github-api-version": GITHUB_COPILOT.API_VERSION || "",
   };
 }
 
-async function fetchCatalogRaw(token, signal) {
+interface CopilotError extends Error {
+  status?: number;
+}
+
+async function fetchCatalogRaw(token: string, signal?: AbortSignal | null): Promise<Record<string, unknown>[]> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -48,9 +58,9 @@ async function fetchCatalogRaw(token, signal) {
       headers: buildHeaders(token),
       cache: "no-store",
       signal: signal || controller.signal,
-    });
+    }) as Response;
     if (!response.ok) {
-      const err = new Error(`Copilot /models returned ${response.status}`);
+      const err: CopilotError = new Error(`Copilot /models returned ${response.status}`);
       err.status = response.status;
       throw err;
     }
@@ -63,19 +73,28 @@ async function fetchCatalogRaw(token, signal) {
 
 // Keep only chat models the account is allowed to use. The static registry
 // surfaced disabled/embedding entries inconsistently; here we trust upstream.
-function expandCatalog(raw) {
-  const seen = new Set();
-  const models = [];
+function expandCatalog(raw: Record<string, unknown>[]): { id: string; name: string }[] {
+  const seen = new Set<string>();
+  const models: { id: string; name: string }[] = [];
   for (const m of raw) {
     if (!m || typeof m !== "object") continue;
-    if (m.capabilities?.type !== "chat") continue;
-    if (m.policy && m.policy.state !== "enabled") continue;
-    const id = m.id;
+    const caps = m.capabilities as Record<string, unknown> | undefined;
+    if (caps?.type !== "chat") continue;
+    const policy = m.policy as Record<string, unknown> | undefined;
+    if (policy && policy.state !== "enabled") continue;
+    const id = m.id as string;
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    models.push({ id, name: m.name || id });
+    models.push({ id, name: (m.name as string) || id });
   }
   return models;
+}
+
+interface CopilotModelsOptions {
+  forceRefresh?: boolean;
+  log?: Logger;
+  signal?: AbortSignal;
+  onCredentialsRefreshed?: (data: Record<string, unknown>) => Promise<void>;
 }
 
 /**
@@ -91,7 +110,7 @@ function expandCatalog(raw) {
  *   copilotTokenExpiresAt }` whenever a 401 triggers a refresh.
  * @returns {Promise<{ models: object[] } | null>}
  */
-export async function resolveCopilotModels(credentials, options = {}) {
+export async function resolveCopilotModels(credentials: Credentials, options: CopilotModelsOptions = {}): Promise<{ models: { id: string; name: string }[] } | null> {
   const token = credentials?.providerSpecificData?.copilotToken || credentials?.accessToken;
   if (!token) {
     options.log?.debug?.("COPILOT_MODELS", "No copilotToken/accessToken; skipping live fetch");
@@ -107,14 +126,15 @@ export async function resolveCopilotModels(credentials, options = {}) {
     }
   }
 
-  let raw;
+  let raw: Record<string, unknown>[];
   try {
     raw = await fetchCatalogRaw(token, options.signal);
-  } catch (err) {
+  } catch (err: unknown) {
+    const copilotErr = err as CopilotError;
     // A 401/403 means the Copilot token is stale — refresh from the GitHub
     // access token and retry once.
-    if (err && (err.status === 401 || err.status === 403) && credentials.accessToken) {
-      options.log?.info?.("COPILOT_MODELS", `Got ${err.status}; refreshing Copilot token`);
+    if (copilotErr && (copilotErr.status === 401 || copilotErr.status === 403) && credentials.accessToken) {
+      options.log?.info?.("COPILOT_MODELS", `Got ${copilotErr.status}; refreshing Copilot token`);
       const refreshed = await refreshCopilotToken(credentials.accessToken);
       if (refreshed?.token) {
         if (typeof options.onCredentialsRefreshed === "function") {
@@ -123,14 +143,14 @@ export async function resolveCopilotModels(credentials, options = {}) {
               copilotToken: refreshed.token,
               copilotTokenExpiresAt: refreshed.expiresAt,
             });
-          } catch (e) {
-            options.log?.warn?.("COPILOT_MODELS", `onCredentialsRefreshed failed: ${e?.message || e}`);
+          } catch (e: unknown) {
+            options.log?.warn?.("COPILOT_MODELS", `onCredentialsRefreshed failed: ${e instanceof Error ? e.message : String(e)}`);
           }
         }
         try {
-          raw = await fetchCatalogRaw(refreshed.token, options.signal);
-        } catch (err2) {
-          options.log?.warn?.("COPILOT_MODELS", `Retry after refresh failed: ${err2?.message || err2}`);
+          raw = await fetchCatalogRaw(refreshed.token as string, options.signal);
+        } catch (err2: unknown) {
+          options.log?.warn?.("COPILOT_MODELS", `Retry after refresh failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
           return null;
         }
       } else {
@@ -138,7 +158,7 @@ export async function resolveCopilotModels(credentials, options = {}) {
         return null;
       }
     } else {
-      options.log?.warn?.("COPILOT_MODELS", `Live model fetch failed: ${err?.message || err}`);
+      options.log?.warn?.("COPILOT_MODELS", `Live model fetch failed: ${copilotErr?.message || copilotErr}`);
       return null;
     }
   }
@@ -150,6 +170,6 @@ export async function resolveCopilotModels(credentials, options = {}) {
   return { models };
 }
 
-export function clearCopilotModelCache() {
+export function clearCopilotModelCache(): void {
   catalogCache.clear();
 }

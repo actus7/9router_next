@@ -30,6 +30,7 @@ import {
   QODER_IDE_VERSION,
   QODER_CLIENT_TYPE,
 } from "../shared/qoder/constants";
+import type { Credentials, Logger } from "./types";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h, same as the Kiro catalog
@@ -41,15 +42,39 @@ const PAT_PREFIX = "pt-";
 const PAT_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 const PAT_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
-export function isQoderPat(token) {
+export function isQoderPat(token: unknown): boolean {
   return typeof token === "string" && token.startsWith(PAT_PREFIX);
 }
 
+interface PatJobEntry {
+  accessToken: string;
+  userId: string;
+  expiresAt: number;
+}
+
 /** @type {Map<string, { accessToken: string, userId: string, expiresAt: number }>} */
-const patJobCache = new Map();
+const patJobCache = new Map<string, PatJobEntry>();
+
+interface QoderModel {
+  id: string;
+  name: string;
+  contextLength: number;
+  isVL: boolean;
+  isReasoning: boolean;
+  maxOutputTokens: number;
+  description: string;
+  [key: string]: unknown;
+}
+
+interface CatalogCacheEntry {
+  expiresAt: number;
+  models: QoderModel[];
+  rawConfigs: Map<string, Record<string, unknown>>;
+  fetched: boolean;
+}
 
 /** @type {Map<string, { expiresAt: number, models: any[], rawConfigs: Map<string, object>, fetched: boolean }>} */
-const catalogCache = new Map();
+const catalogCache = new Map<string, CatalogCacheEntry>();
 
 /**
  * In-flight fetch promises keyed by cacheKey. Concurrent first-time
@@ -57,13 +82,13 @@ const catalogCache = new Map();
  * fan-out exactly one upstream request per credential per miss.
  * @type {Map<string, Promise<{ expiresAt: number, models: any[], rawConfigs: Map<string, object>, fetched: boolean } | null>>}
  */
-const inflight = new Map();
+const inflight = new Map<string, Promise<CatalogCacheEntry | null>>();
 
 /**
  * Exchange a Qoder PAT (pt-...) for a short-lived job token (jt-...).
  * This endpoint is plain JSON POST — NOT COSY-signed.
  */
-async function exchangeJobToken(pat, proxyOptions = null, signal = null) {
+async function exchangeJobToken(pat: string, proxyOptions: unknown = null, signal: AbortSignal | null = null): Promise<{ jobToken: string; jobRefreshToken: string; expiresAt: number }> {
   const res = await proxyAwareFetch(
     QODER_JOB_TOKEN_EXCHANGE_URL,
     {
@@ -78,8 +103,8 @@ async function exchangeJobToken(pat, proxyOptions = null, signal = null) {
       body: JSON.stringify({ personal_token: pat }),
       signal,
     },
-    proxyOptions,
-  );
+    proxyOptions as null,
+  ) as Response;
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`qoder PAT exchange failed: ${res.status} ${text.slice(0, 200)}`);
@@ -101,7 +126,7 @@ async function exchangeJobToken(pat, proxyOptions = null, signal = null) {
  * Resolve the Qoder userId for a job token (needed for COSY signing).
  * Returns "" on any failure — callers fall back to the stored userId.
  */
-async function fetchUserIdForJobToken(jobToken, proxyOptions = null, signal = null) {
+async function fetchUserIdForJobToken(jobToken: string, proxyOptions: unknown = null, signal: AbortSignal | null = null): Promise<string> {
   try {
     const res = await proxyAwareFetch(
       QODER_USERINFO_URL,
@@ -114,8 +139,8 @@ async function fetchUserIdForJobToken(jobToken, proxyOptions = null, signal = nu
         },
         signal,
       },
-      proxyOptions,
-    );
+      proxyOptions as null,
+    ) as Response;
     if (!res.ok) return "";
     const data = await res.json().catch(() => ({}));
     return data.id || data.userId || data.user_id || "";
@@ -127,13 +152,13 @@ async function fetchUserIdForJobToken(jobToken, proxyOptions = null, signal = nu
 /**
  * Resolve a PAT to a job-token credential, cached per-PAT.
  */
-async function resolvePatCredential(pat, proxyOptions = null, signal = null) {
+async function resolvePatCredential(pat: string, proxyOptions: unknown = null, signal: AbortSignal | null = null): Promise<PatJobEntry> {
   const cached = patJobCache.get(pat);
   if (cached && cached.expiresAt - Date.now() > PAT_REFRESH_BUFFER_MS) return cached;
 
   const { jobToken, expiresAt } = await exchangeJobToken(pat, proxyOptions, signal);
   const userId = await fetchUserIdForJobToken(jobToken, proxyOptions, signal);
-  const resolved = { accessToken: jobToken, userId, expiresAt };
+  const resolved: PatJobEntry = { accessToken: jobToken, userId, expiresAt };
   patJobCache.set(pat, resolved);
   return resolved;
 }
@@ -143,8 +168,8 @@ async function resolvePatCredential(pat, proxyOptions = null, signal = null) {
  *   - PAT (pt-...) connections → exchanged to a job token (jt-...) + userId
  *   - everything else → passed through unchanged
  */
-export async function resolveQoderCredentials(credentials, proxyOptions = null, signal = null) {
-  const raw = credentials?.apiKey || credentials?.accessToken;
+export async function resolveQoderCredentials(credentials: Credentials, proxyOptions: unknown = null, signal: AbortSignal | null = null): Promise<Credentials> {
+  const raw = (credentials?.apiKey || credentials?.accessToken) as string;
   if (isQoderPat(raw)) {
     const resolved = await resolvePatCredential(raw, proxyOptions, signal);
     return {
@@ -166,23 +191,23 @@ export async function resolveQoderCredentials(credentials, proxyOptions = null, 
  * Stable cache key per credential (so different login sessions for the same
  * account share an entry).
  */
-function cacheKey(credentials) {
+function cacheKey(credentials: Credentials): string {
   const psd = credentials?.providerSpecificData || {};
-  const seed = psd.userId || credentials?.refreshToken || credentials?.accessToken || "anonymous";
+  const seed = (psd.userId || credentials?.refreshToken || credentials?.accessToken || "anonymous") as string;
   return createHash("sha256").update(`qoder:${seed}`).digest("hex");
 }
 
 /**
  * Strip credential -> COSY creds for buildCosyHeaders.
  */
-function cosyCredsFromConnection(credentials) {
+function cosyCredsFromConnection(credentials: Credentials): Record<string, string> {
   const psd = credentials?.providerSpecificData || {};
   return {
-    userId: psd.userId,
-    authToken: credentials.accessToken,
-    name: credentials.displayName || "",
-    email: credentials.email || "",
-    machineId: psd.machineId || "",
+    userId: (psd.userId || "") as string,
+    authToken: (credentials.accessToken || "") as string,
+    name: (credentials.displayName || "") as string,
+    email: (credentials.email || "") as string,
+    machineId: (psd.machineId || "") as string,
   };
 }
 
@@ -192,7 +217,7 @@ function cosyCredsFromConnection(credentials) {
  *     rawConfigs: Map<modelKey, modelConfigObject> }
  * or `null` on any error.
  */
-async function fetchQoderCatalogRaw(credentials, signal, proxyOptions = null) {
+async function fetchQoderCatalogRaw(credentials: Credentials, signal?: AbortSignal | null, proxyOptions: unknown = null): Promise<{ models: QoderModel[]; rawConfigs: Map<string, Record<string, unknown>> } | null> {
   const creds = cosyCredsFromConnection(credentials);
   if (!creds.userId || !creds.authToken) return null;
 
@@ -205,13 +230,13 @@ async function fetchQoderCatalogRaw(credentials, signal, proxyOptions = null) {
   const headers = {
     Accept: "application/json",
     "Accept-Encoding": "identity",
-    ...buildCosyHeaders(Buffer.alloc(0), modelListUrl, creds),
+    ...buildCosyHeaders(Buffer.alloc(0), modelListUrl, creds as { userId: string; authToken: string; name?: string; email?: string; machineId?: string }),
   };
 
   const controller = new AbortController();
-  let timer = null;
-  let abortListener = null;
-  let response;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let abortListener: (() => void) | null = null;
+  let response: Response;
   try {
     timer = setTimeout(() => controller.abort("timeout"), FETCH_TIMEOUT_MS);
     if (signal && typeof signal.addEventListener === "function") {
@@ -232,8 +257,8 @@ async function fetchQoderCatalogRaw(credentials, signal, proxyOptions = null) {
         headers,
         signal: controller.signal,
       },
-      proxyOptions,
-    );
+      proxyOptions as null,
+    ) as Response;
   } finally {
     if (timer) clearTimeout(timer);
     if (signal && abortListener) signal.removeEventListener("abort", abortListener);
@@ -244,8 +269,8 @@ async function fetchQoderCatalogRaw(credentials, signal, proxyOptions = null) {
   const body = await response.json().catch(() => null);
   if (!body || !Array.isArray(body.chat)) return null;
 
-  const models = [];
-  const rawConfigs = new Map();
+  const models: QoderModel[] = [];
+  const rawConfigs = new Map<string, Record<string, unknown>>();
   for (const entry of body.chat) {
     if (!entry || typeof entry !== "object") continue;
     const key = entry.key;
@@ -272,12 +297,19 @@ async function fetchQoderCatalogRaw(credentials, signal, proxyOptions = null) {
   return { models, rawConfigs };
 }
 
+interface QoderModelsOptions {
+  forceRefresh?: boolean;
+  log?: Logger;
+  signal?: AbortSignal;
+  proxyOptions?: unknown;
+}
+
 /**
  * Get the cached model_config block for a given model key, fetching the
  * catalog first if needed. Returns null when the catalog can't be fetched
  * (so callers can fall back to the static registry).
  */
-export async function getQoderModelConfig(credentials, modelKey, options = {}) {
+export async function getQoderModelConfig(credentials: Credentials, modelKey: string, options: QoderModelsOptions = {}): Promise<Record<string, unknown> | null> {
   const cached = await resolveQoderModels(credentials, options);
   if (!cached) return null;
   const config = cached.rawConfigs.get(modelKey);
@@ -292,12 +324,12 @@ export async function getQoderModelConfig(credentials, modelKey, options = {}) {
  * deduplicates concurrent misses so parallel chat windows fan-out exactly
  * one upstream request per credential.
  */
-export async function resolveQoderModels(credentials, options = {}) {
-  let resolved;
+export async function resolveQoderModels(credentials: Credentials, options: QoderModelsOptions = {}): Promise<CatalogCacheEntry | null> {
+  let resolved: Credentials;
   try {
-    resolved = await resolveQoderCredentials(credentials, options.proxyOptions, options.signal);
-  } catch (error) {
-    options.log?.warn?.("QODER", `PAT exchange failed: ${error.message}`);
+    resolved = await resolveQoderCredentials(credentials, options.proxyOptions, options.signal ?? null);
+  } catch (error: unknown) {
+    options.log?.warn?.("QODER", `PAT exchange failed: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
   if (!resolved?.accessToken || !(resolved.providerSpecificData || {}).userId) return null;
@@ -321,7 +353,7 @@ export async function resolveQoderModels(credentials, options = {}) {
   const fetchPromise = (async () => {
     const fetched = await fetchQoderCatalogRaw(resolved, options.signal, options.proxyOptions);
     if (!fetched) return null;
-    const entry = {
+    const entry: CatalogCacheEntry = {
       expiresAt: Date.now() + CACHE_TTL_MS,
       models: fetched.models,
       rawConfigs: fetched.rawConfigs,
@@ -343,11 +375,11 @@ export async function resolveQoderModels(credentials, options = {}) {
   }
 }
 
-export function invalidateQoderCatalog(credentials) {
+export function invalidateQoderCatalog(credentials: Credentials): void {
   if (!credentials) return;
   catalogCache.delete(cacheKey(credentials));
 }
 
-export function clearQoderCatalog() {
+export function clearQoderCatalog(): void {
   catalogCache.clear();
 }

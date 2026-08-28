@@ -14,7 +14,7 @@ export default async function MediaProviderDetailPage() {
         </div>
       }
     >
-      <MediaProviderDetailClient initialNodes={nodes} />
+      <MediaProviderDetailClient initialNodes={nodes as unknown as { id: string; name?: string; type?: string; prefix?: string }[]} />
     </Suspense>
   );
 }

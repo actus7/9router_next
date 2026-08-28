@@ -10,9 +10,9 @@ const execAsync = promisify(exec);
 // OpenClaw 2026.5.x writes agents[].model as either a plain string
 // (legacy) or as an object `{ primary, fallbacks }`. Normalize to the
 // string id so downstream consumers can call `.startsWith()` safely.
-const resolveAgentModel = (m) => {
+const resolveAgentModel = (m: unknown): string => {
   if (typeof m === "string") return m;
-  if (m && typeof m === "object") return m.primary ?? "";
+  if (m && typeof m === "object") return (m as Record<string, unknown>).primary as string ?? "";
   return "";
 };
 
@@ -55,13 +55,15 @@ const readSettings = async () => {
 };
 
 // Check if settings has 9Router config
-const has9RouterConfig = (settings) => {
-  if (!settings || !settings.models || !settings.models.providers) return false;
-  return !!settings.models.providers["9router"];
+const has9RouterConfig = (settings: Record<string, unknown> | null) => {
+  if (!settings || !settings.models) return false;
+  const models = settings.models as Record<string, unknown>;
+  if (!models.providers) return false;
+  return !!(models.providers as Record<string, unknown>)["9router"];
 };
 
 // Read per-agent models.json and return current model id (without "9router/" prefix)
-const readAgentModel = async (agentDir) => {
+const readAgentModel = async (agentDir: string) => {
   try {
     const modelsPath = path.join(agentDir, "models.json");
     const content = await fs.readFile(modelsPath, "utf-8");
@@ -91,10 +93,10 @@ export async function GET() {
     // Enrich agents list with current per-agent model from models.json.
     // Coerce agent.model to its string id when OpenClaw stores it as
     // `{ primary, fallbacks }` so downstream `.startsWith()` calls work.
-    const agentList = settings?.agents?.list || [];
+    const agentList = (settings?.agents as Record<string, unknown>)?.list || [];
     const enrichedAgents = await Promise.all(
-      agentList.map(async (agent) => {
-        const agentModel = agent.agentDir ? await readAgentModel(agent.agentDir) : null;
+      (agentList as Record<string, unknown>[]).map(async (agent: Record<string, unknown>) => {
+        const agentModel = agent.agentDir ? await readAgentModel(agent.agentDir as string) : null;
         return { ...agent, model: resolveAgentModel(agent.model), currentModel: agentModel };
       })
     );
@@ -113,17 +115,17 @@ export async function GET() {
 }
 
 // Write per-agent models.json
-const writeAgentModels = async (agentDir, model, baseUrl, apiKey) => {
+const writeAgentModels = async (agentDir: string, model: string, baseUrl: string, apiKey: string) => {
   await fs.mkdir(agentDir, { recursive: true });
   const modelsPath = path.join(agentDir, "models.json");
-  let existing = {};
+  let existing: Record<string, unknown> = {};
   try {
     const content = await fs.readFile(modelsPath, "utf-8");
     existing = JSON.parse(content);
   } catch { /* No existing */ }
 
   if (!existing.providers) existing.providers = {};
-  existing.providers["9router"] = {
+  (existing.providers as Record<string, unknown>)["9router"] = {
     baseUrl,
     apiKey: apiKey || "your_api_key",
     api: "openai-completions",
@@ -147,43 +149,46 @@ export async function POST(request: NextRequest) {
 
     await fs.mkdir(openclawDir, { recursive: true });
 
-    let settings = {};
+    let settings: Record<string, unknown> = {};
     try {
       const existingSettings = await fs.readFile(settingsPath, "utf-8");
       settings = JSON.parse(existingSettings);
     } catch { /* No existing settings */ }
 
-    if (!settings.agents) settings.agents = {};
-    if (!settings.agents.defaults) settings.agents.defaults = {};
-    if (!settings.agents.defaults.model) settings.agents.defaults.model = {};
-    if (!settings.agents.defaults.models) settings.agents.defaults.models = {};
-    if (!settings.models) settings.models = {};
-    if (!settings.models.providers) settings.models.providers = {};
+    if (!settings.agents) settings.agents = {} as Record<string, unknown>;
+    const agents = settings.agents as Record<string, unknown>;
+    if (!agents.defaults) agents.defaults = {} as Record<string, unknown>;
+    const defaults = agents.defaults as Record<string, unknown>;
+    if (!defaults.model) defaults.model = {} as Record<string, unknown>;
+    if (!defaults.models) defaults.models = {} as Record<string, unknown>;
+    if (!settings.models) settings.models = {} as Record<string, unknown>;
+    const models = settings.models as Record<string, unknown>;
+    if (!models.providers) models.providers = {} as Record<string, unknown>;
 
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     const fullModelId = `9router/${model}`;
 
     // Remove all old 9router/* entries from agents.defaults.models
-    Object.keys(settings.agents.defaults.models)
+    Object.keys(defaults.models as Record<string, unknown>)
       .filter((k) => k.startsWith("9router/"))
-      .forEach((k) => { delete settings.agents.defaults.models[k]; });
+      .forEach((k) => { delete (defaults.models as Record<string, unknown>)[k]; });
 
     // Update default model
-    settings.agents.defaults.model.primary = fullModelId;
+    (defaults.model as Record<string, unknown>).primary = fullModelId;
 
     // Collect all unique models (default + per-agent)
     const allModelIds = new Set([model]);
-    Object.values(agentModels).forEach((m) => { if (m) allModelIds.add(m); });
+    Object.values(agentModels as Record<string, unknown>).forEach((m) => { if (m) allModelIds.add(m as string); });
 
     // Add fresh 9router models to allowlist
     allModelIds.forEach((m) => {
-      settings.agents.defaults.models[`9router/${m}`] = {};
+      (defaults.models as Record<string, unknown>)[`9router/${m}`] = {};
     });
 
     // Remove old 9router model from each agent in agents.list. The
     // model field may be a plain string or `{ primary, fallbacks }`.
-    if (settings.agents.list) {
-      settings.agents.list = settings.agents.list.map((agent) => {
+    if (agents.list) {
+      agents.list = (agents.list as Record<string, unknown>[]).map((agent: Record<string, unknown>) => {
         if (resolveAgentModel(agent.model).startsWith("9router/")) {
           const { model: _, ...rest } = agent;
           return rest;
@@ -193,7 +198,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update models.providers.9router with all models
-    settings.models.providers["9router"] = {
+    (models.providers as Record<string, unknown>)["9router"] = {
       baseUrl: normalizedBaseUrl,
       apiKey: apiKey || "your_api_key",
       api: "openai-completions",
@@ -201,20 +206,20 @@ export async function POST(request: NextRequest) {
     };
 
     // Set per-agent model in agents.list and write models.json
-    if (settings.agents.list) {
-      settings.agents.list = settings.agents.list.map((agent) => {
-        const agentModel = agentModels[agent.id];
+    if (agents.list) {
+      agents.list = (agents.list as Record<string, unknown>[]).map((agent: Record<string, unknown>) => {
+        const agentModel = (agentModels as Record<string, unknown>)[agent.id as string];
         if (agentModel) return { ...agent, model: `9router/${agentModel}` };
         return agent;
       });
 
       // Write per-agent models.json for agents with agentDir
       await Promise.all(
-        settings.agents.list.map(async (agent) => {
+        (agents.list as Record<string, unknown>[]).map(async (agent: Record<string, unknown>) => {
           if (!agent.agentDir) return;
-          const agentModel = agentModels[agent.id];
-          const modelToWrite = agentModel || model; // fallback to default
-          await writeAgentModels(agent.agentDir, modelToWrite, normalizedBaseUrl, apiKey);
+          const agentModel = (agentModels as Record<string, unknown>)[agent.id as string];
+          const modelToWrite = (agentModel as string) || model; // fallback to default
+          await writeAgentModels(agent.agentDir as string, modelToWrite, normalizedBaseUrl, apiKey);
         })
       );
     }
@@ -238,12 +243,12 @@ export async function DELETE() {
     const settingsPath = getOpenClawSettingsPath();
 
     // Read existing settings
-    let settings = {};
+    let settings: Record<string, unknown> = {};
     try {
       const existingSettings = await fs.readFile(settingsPath, "utf-8");
       settings = JSON.parse(existingSettings);
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({
           success: true,
           message: "No settings file to reset",
@@ -253,29 +258,34 @@ export async function DELETE() {
     }
 
     // Remove 9Router from models.providers
-    if (settings.models && settings.models.providers) {
-      delete settings.models.providers["9router"];
+    const delModels = settings.models as Record<string, unknown> | undefined;
+    if (delModels && delModels.providers) {
+      delete (delModels.providers as Record<string, unknown>)["9router"];
       
       // Remove providers object if empty
-      if (Object.keys(settings.models.providers).length === 0) {
-        delete settings.models.providers;
+      if (Object.keys(delModels.providers as Record<string, unknown>).length === 0) {
+        delete delModels.providers;
       }
     }
 
     // Remove 9router models from agents.defaults.models allowlist
-    if (settings.agents?.defaults?.models) {
-      const keysToRemove = Object.keys(settings.agents.defaults.models).filter((k) => k.startsWith("9router/"));
+    const delAgents = settings.agents as Record<string, unknown> | undefined;
+    const delDefaults = delAgents?.defaults as Record<string, unknown> | undefined;
+    const delDefModels = delDefaults?.models as Record<string, unknown> | undefined;
+    if (delDefModels) {
+      const keysToRemove = Object.keys(delDefModels).filter((k) => k.startsWith("9router/"));
       for (const key of keysToRemove) {
-        delete settings.agents.defaults.models[key];
+        delete delDefModels[key];
       }
-      if (Object.keys(settings.agents.defaults.models).length === 0) {
-        delete settings.agents.defaults.models;
+      if (Object.keys(delDefModels).length === 0) {
+        delete delDefaults!.models;
       }
     }
 
     // Reset agents.defaults.model.primary if it uses 9router
-    if (settings.agents?.defaults?.model?.primary?.startsWith("9router/")) {
-      delete settings.agents.defaults.model.primary;
+    const delDefModel = delDefaults?.model as Record<string, unknown> | undefined;
+    if (typeof delDefModel?.primary === "string" && delDefModel.primary.startsWith("9router/")) {
+      delete delDefModel.primary;
     }
 
     // Write updated settings

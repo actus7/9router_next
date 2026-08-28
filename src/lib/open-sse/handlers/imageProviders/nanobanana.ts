@@ -2,23 +2,23 @@
 import { sleep, nowSec, sizeToAspectRatio, POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "./_base";
 import { PROVIDER_MEDIA } from "../../providers/index";
 
-const IMG_CFG = PROVIDER_MEDIA["nanobanana"]?.imageConfig || {};
-const SUBMIT_URL = IMG_CFG.baseUrl;
-const POLL_BASE = IMG_CFG.pollUrl;
+const IMG_CFG = (PROVIDER_MEDIA["nanobanana"]?.imageConfig || {}) as Record<string, unknown>;
+const SUBMIT_URL = IMG_CFG.baseUrl as string;
+const POLL_BASE = IMG_CFG.pollUrl as string;
 
 export default {
   async: true,
-  buildUrl: () => SUBMIT_URL,
-  buildHeaders: (creds) => {
-    const headers = { "Content-Type": "application/json" };
-    const key = creds?.apiKey || creds?.accessToken;
+  buildUrl: (): string => SUBMIT_URL,
+  buildHeaders: (creds: Record<string, unknown>): Record<string, string> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const key = (creds?.apiKey || creds?.accessToken) as string;
     if (key) headers["Authorization"] = `Bearer ${key}`;
     return headers;
   },
-  buildBody: (_model, body) => {
-    const ratio = sizeToAspectRatio(body.size);
+  buildBody: (_model: string, body: Record<string, unknown>): Record<string, unknown> => {
+    const ratio = sizeToAspectRatio(body.size as string);
     const isEdit = !!(body.image || (Array.isArray(body.images) && body.images.length));
-    const req = {
+    const req: Record<string, unknown> = {
       prompt: body.prompt,
       type: isEdit ? "IMAGETOIAMGE" : "TEXTTOIAMGE",
       numImages: body.n || 1,
@@ -27,33 +27,33 @@ export default {
       callBackUrl: "https://localhost/callback",
     };
     if (isEdit) {
-      const urls = Array.isArray(body.images) ? body.images.filter(Boolean) : [];
+      const urls = Array.isArray(body.images) ? (body.images as unknown[]).filter(Boolean) : [];
       if (body.image) urls.push(body.image);
       req.imageUrls = urls;
     }
     return req;
   },
   // Async: parse submit → poll until SUCCESS, return raw poll data
-  async parseResponse(response, { headers }) {
-    const submitData = await response.json();
-    if (submitData.code !== 200) throw new Error(submitData.msg || "NanoBanana submit failed");
-    const taskId = submitData.data?.taskId;
+  async parseResponse(response: Response, { headers }: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const submitData = await response.json() as Record<string, unknown>;
+    if (submitData.code !== 200) throw new Error((submitData.msg as string) || "NanoBanana submit failed");
+    const taskId = (submitData.data as Record<string, unknown>)?.taskId as string;
     if (!taskId) throw new Error("NanoBanana: no taskId returned");
     const pollUrl = `${POLL_BASE}?taskId=${encodeURIComponent(taskId)}`;
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     while (Date.now() < deadline) {
       await sleep(POLL_INTERVAL_MS);
-      const r = await fetch(pollUrl, { headers });
+      const r = await fetch(pollUrl, { headers: headers as Record<string, string> });
       if (!r.ok) throw new Error(`NanoBanana status ${r.status}`);
-      const s = await r.json();
-      const flag = s.data?.successFlag;
-      if (flag === 1) return s.data;
-      if (flag === 2 || flag === 3) throw new Error(s.data?.errorMessage || "NanoBanana generation failed");
+      const s = await r.json() as Record<string, unknown>;
+      const flag = (s.data as Record<string, unknown>)?.successFlag as number;
+      if (flag === 1) return s.data as Record<string, unknown>;
+      if (flag === 2 || flag === 3) throw new Error(((s.data as Record<string, unknown>)?.errorMessage as string) || "NanoBanana generation failed");
     }
     throw new Error("NanoBanana polling timeout");
   },
-  normalize: (responseBody, prompt) => {
-    const url = responseBody.response?.resultImageUrl || responseBody.response?.originImageUrl;
+  normalize: (responseBody: Record<string, unknown>, prompt?: string): Record<string, unknown> => {
+    const url = ((responseBody.response as Record<string, unknown>)?.resultImageUrl || (responseBody.response as Record<string, unknown>)?.originImageUrl) as string;
     if (url) return { created: nowSec(), data: [{ url, revised_prompt: prompt }] };
     return { created: nowSec(), data: [] };
   },

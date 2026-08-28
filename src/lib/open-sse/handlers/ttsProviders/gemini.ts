@@ -2,22 +2,22 @@
 import { Buffer } from "node:buffer";
 import { PROVIDER_MEDIA, PROVIDER_MODELS } from "../../providers/index";
 
-const TTS_CFG = PROVIDER_MEDIA["gemini"]?.ttsConfig || {};
-const TTS_BASE = TTS_CFG.baseUrl;
+const TTS_CFG = (PROVIDER_MEDIA["gemini"]?.ttsConfig || {}) as Record<string, unknown>;
+const TTS_BASE = TTS_CFG.baseUrl as string;
 const FALLBACK_MODEL = "gemini-3.1-flash-tts-preview";
 const KNOWN_MODELS = [
-  ...(TTS_CFG.models || []),
-  ...(PROVIDER_MODELS["gemini-tts-models"] || []),
-  ...(PROVIDER_MODELS.gemini || []).filter((m) => (m.kind || m.type) === "tts"),
+  ...((TTS_CFG.models || []) as Array<{ id?: string }>),
+  ...((PROVIDER_MODELS["gemini-tts-models"] || []) as Array<{ id?: string }>),
+  ...((PROVIDER_MODELS.gemini || []) as Array<{ id?: string; kind?: string; type?: string }>).filter((m) => (m.kind || m.type) === "tts"),
 ]
   .map((m) => m?.id)
   .filter(Boolean)
-  .filter((id, index, list) => list.indexOf(id) === index);
+  .filter((id, index, list) => list.indexOf(id) === index) as string[];
 const DEFAULT_MODEL = KNOWN_MODELS[0] || FALLBACK_MODEL;
 const DEFAULT_VOICE = "Kore";
 
 // Parse "model/voice" — if input doesn't match a known TTS model, treat it as voice with default model
-function parseGeminiModelVoice(input) {
+function parseGeminiModelVoice(input: string | undefined): { modelId: string; voiceId: string } {
   if (!input) return { modelId: DEFAULT_MODEL, voiceId: DEFAULT_VOICE };
   for (const id of KNOWN_MODELS) {
     if (input === id) return { modelId: id, voiceId: DEFAULT_VOICE };
@@ -31,7 +31,7 @@ const CHANNELS = 1;
 const BITS_PER_SAMPLE = 16;
 
 // Build WAV header for raw PCM payload
-function pcmToWav(pcmBuffer) {
+function pcmToWav(pcmBuffer: Buffer): Buffer {
   const dataSize = pcmBuffer.length;
   const byteRate = SAMPLE_RATE * CHANNELS * BITS_PER_SAMPLE / 8;
   const blockAlign = CHANNELS * BITS_PER_SAMPLE / 8;
@@ -53,13 +53,13 @@ function pcmToWav(pcmBuffer) {
 }
 
 // Build TTS prompt: add "Say [in {language}]:" prefix to force TTS mode
-function buildPrompt(text, language) {
+function buildPrompt(text: string, language?: string): string {
   if (/:\s/.test(text)) return text; // user already provided style instruction
   return language ? `Say in ${language}: ${text}` : `Say: ${text}`;
 }
 
 export default {
-  async synthesize(text, model, credentials, _responseFormat, opts = {}) {
+  async synthesize(text: string, model: string, credentials: Record<string, unknown>, _responseFormat?: string, opts: { language?: string } = {}): Promise<{ base64: string; format: string }> {
     if (!credentials?.apiKey) throw new Error("No Gemini API key configured");
     const { modelId, voiceId } = parseGeminiModelVoice(model);
     const url = `${TTS_BASE}/${modelId}:generateContent?key=${credentials.apiKey}`;
@@ -75,16 +75,19 @@ export default {
       }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `Gemini TTS failed: ${res.status}`);
+      const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(((err?.error as Record<string, unknown>)?.message as string) || `Gemini TTS failed: ${res.status}`);
     }
-    const data = await res.json();
-    const b64 = data?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData?.data;
-    if (!b64) {
-      const reason = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason || "unknown";
+    const data = await res.json() as Record<string, unknown>;
+    const candidates = data?.candidates as Array<Record<string, unknown>> | undefined;
+    const parts = (candidates?.[0]?.content as Record<string, unknown>)?.parts as Array<Record<string, unknown>> | undefined;
+    const b64 = parts?.find((p) => (p.inlineData as Record<string, unknown>)?.data)?.inlineData as Record<string, unknown> | undefined;
+    const audioData = b64?.data as string | undefined;
+    if (!audioData) {
+      const reason = (candidates?.[0]?.finishReason as string) || ((data?.promptFeedback as Record<string, unknown>)?.blockReason as string) || "unknown";
       throw new Error(`Gemini TTS returned no audio (finishReason: ${reason}, voice: ${voiceId}, model: ${modelId})`);
     }
-    const wav = pcmToWav(Buffer.from(b64, "base64"));
+    const wav = pcmToWav(Buffer.from(audioData, "base64"));
     return { base64: wav.toString("base64"), format: "wav" };
   },
 };
@@ -123,6 +126,6 @@ const PREBUILT_VOICES = [
   { id: "Sulafat", lang: "en", gender: "Female" },
 ];
 
-export async function fetchGeminiVoices() {
+export async function fetchGeminiVoices(): Promise<Array<Record<string, unknown>>> {
   return PREBUILT_VOICES.map((v) => ({ voice_id: v.id, name: v.id, labels: { language: v.lang, gender: v.gender } }));
 }

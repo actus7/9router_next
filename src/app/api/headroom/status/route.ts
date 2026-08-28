@@ -12,7 +12,7 @@ export async function GET() {
     const status = await getHeadroomStatus(url);
     const managedPid = getManagedPid();
     return NextResponse.json({ ...status, url, managedPid });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

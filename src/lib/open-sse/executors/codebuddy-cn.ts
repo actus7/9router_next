@@ -1,4 +1,5 @@
 import { DefaultExecutor } from "./default";
+import type { Credentials } from "../services/types";
 
 /**
  * CodeBuddyExecutor — talks to https://copilot.tencent.com/v2/chat/completions
@@ -14,7 +15,7 @@ export class CodeBuddyExecutor extends DefaultExecutor {
     super("codebuddy-cn");
   }
 
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials) {
     const transformed = super.transformRequest(model, body, stream, credentials);
     transformed.stream = true;
 
@@ -27,14 +28,14 @@ export class CodeBuddyExecutor extends DefaultExecutor {
     // flatten before matching and preserve the original shape on replacement.
     const NEUTRAL_PROMPT = "You are a helpful AI assistant that helps with software engineering tasks.";
     const AGENT_PATTERN = /you are claude code|claude.?code.+official.+cli|anthropic.+official.+cli|anxthxropic.+official.+cli|you are (?:cursor|windsurf|cline|aider|continue|copilot|cody)|you are an? (?:ai )?(?:coding |code )?agent|cc_entrypoint\s*=\s*(?:cli|vscode|jetbrains|gui)|claude.?code.+issues|give feedback.+claude.?code|you are .{0,30}(?:powerful )?ai agent|orchestration capabilities|OhMyOpenCode|<agent-identity>|<Role>|<Behavior_Instructions>/i;
-    const flatten = (content) =>
+    const flatten = (content: unknown): string =>
       typeof content === "string"
         ? content
         : Array.isArray(content)
-          ? content.map((b) => (b && typeof b.text === "string" ? b.text : "")).join("\n")
+          ? (content as Record<string, unknown>[]).map((b: Record<string, unknown>) => (b && typeof b.text === "string" ? b.text : "")).join("\n")
           : "";
     if (Array.isArray(transformed.messages)) {
-      transformed.messages = transformed.messages.map((message) => {
+      transformed.messages = (transformed.messages as Record<string, unknown>[]).map((message: Record<string, unknown>) => {
         if (!message || message.role !== "system") return message;
         const text = flatten(message.content);
         if (!text) return message;

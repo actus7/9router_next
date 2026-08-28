@@ -1,6 +1,7 @@
 import { BaseExecutor } from "./base";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { PROVIDERS } from "../config/providers";
+import type { Credentials, Logger } from "../services/types";
 
 // Trae executor — SOLO remote agent API.
 //
@@ -19,16 +20,16 @@ const TRAE_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
-function flattenQuery(messages) {
-  const parts = [];
+function flattenQuery(messages: Record<string, unknown>[]) {
+  const parts: string[] = [];
   for (const m of messages) {
     let content = "";
     if (typeof m.content === "string") content = m.content;
     else if (Array.isArray(m.content)) {
       content = m.content
-        .map((p) => {
+        .map((p: unknown) => {
           if (typeof p === "string") return p;
-          if (p && typeof p === "object") return String(p.text ?? "");
+          if (p && typeof p === "object") return String((p as Record<string, unknown>).text ?? "");
           return "";
         })
         .join("");
@@ -47,18 +48,18 @@ export default class TraeExecutor extends BaseExecutor {
   }
 
   base() {
-    return (this.config.baseUrl || "https://core-normal.trae.ai/api/remote/v1").replace(/\/$/, "");
+    return ((this.config.baseUrl as string) || "https://core-normal.trae.ai/api/remote/v1").replace(/\/$/, "");
   }
 
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials: Credentials, stream = true) {
     const token = credentials?.accessToken || "";
-    const psd = credentials?.providerSpecificData || {};
+    const psd = (credentials?.providerSpecificData || {}) as Record<string, unknown>;
     return {
       Authorization: `Cloud-IDE-JWT ${token}`,
       "Content-Type": "application/json",
       "X-Trae-Client-Type": "web",
-      "X-Preferenced-Language": psd.appLanguage || "en",
-      "x-user-region": psd.userRegion || "US",
+      "X-Preferenced-Language": (psd.appLanguage as string) || "en",
+      "x-user-region": (psd.userRegion as string) || "US",
       Referer: "https://solo.trae.ai/",
       "User-Agent": TRAE_UA,
       Accept: stream ? "text/event-stream" : "application/json",
@@ -66,7 +67,7 @@ export default class TraeExecutor extends BaseExecutor {
   }
 
   // SOLO session modes: "code" (model picker) vs "work" (fast auto lane).
-  resolveMode(model) {
+  resolveMode(model: string) {
     const m = (model || "").trim().toLowerCase();
     if (m === "work" || m === "auto-work" || m === "solo-work") {
       return { mode: "work", strategy: "auto", modelName: "" };
@@ -76,21 +77,21 @@ export default class TraeExecutor extends BaseExecutor {
   }
 
   // common_params is a JSON-encoded string embedded inside initial_message.
-  commonParams(psd, mode, sessionId) {
-    const cp = {
+  commonParams(psd: Record<string, unknown>, mode: string, sessionId?: string) {
+    const cp: Record<string, unknown> = {
       language: "en-us",
-      app_language: psd.appLanguage || "en",
+      app_language: (psd.appLanguage as string) || "en",
       quality: "stable",
-      app_version: psd.appVersion || "1.0.0.1229",
-      web_id: psd.webId || "",
-      user_identity: psd.userIdentity || "Free",
+      app_version: (psd.appVersion as string) || "1.0.0.1229",
+      web_id: (psd.webId as string) || "",
+      user_identity: (psd.userIdentity as string) || "Free",
       is_freshman: "0",
-      biz_user_id: psd.bizUserId || "",
-      user_unique_id: psd.userUniqueId || "",
-      scope: psd.scope || "marscode-us",
-      tenant: psd.tenant || "marscode",
-      region: psd.region || "US-East",
-      aiRegion: psd.aiRegion || psd.region || "US-East",
+      biz_user_id: (psd.bizUserId as string) || "",
+      user_unique_id: (psd.userUniqueId as string) || "",
+      scope: (psd.scope as string) || "marscode-us",
+      tenant: (psd.tenant as string) || "marscode",
+      region: (psd.region as string) || "US-East",
+      aiRegion: (psd.aiRegion as string) || (psd.region as string) || "US-East",
       is_privacy_mode: 0,
       privacy_mode: "off",
       solo_chat_mode: mode,
@@ -100,9 +101,9 @@ export default class TraeExecutor extends BaseExecutor {
   }
 
   // POST /chat_sessions — creates a session and submits the first turn.
-  async createSession(headers, query, model, psd, signal) {
+  async createSession(headers: Record<string, string>, query: string, model: string, psd: Record<string, unknown>, signal?: AbortSignal) {
     const { mode, strategy, modelName } = this.resolveMode(model);
-    const body = {
+    const body: Record<string, unknown> = {
       mode,
       environment_id: "default",
       initial_message: {
@@ -126,14 +127,15 @@ export default class TraeExecutor extends BaseExecutor {
     }, null);
     const text = await res.text();
     if (!res.ok) throw new Error(`[${res.status}] ${text}`);
-    const json = JSON.parse(text);
+    const json = JSON.parse(text) as Record<string, unknown>;
     if (json?.code !== 0) throw new Error(`Trae create_session: ${JSON.stringify(json)}`);
-    return { sessionId: json.data.chat_session_id, messageId: json.data.message_id };
+    const data = json.data as Record<string, unknown>;
+    return { sessionId: data.chat_session_id as string, messageId: data.message_id as string };
   }
 
   // GET /events SSE → invoke onEvent(eventType, dataObj) per frame.
   // Resolves when `done`/`error` arrives, the stream ends, or timeout fires.
-  async streamEvents(headers, sessionId, replyTo, onEvent, signal) {
+  async streamEvents(headers: Record<string, string>, sessionId: string, replyTo: string, onEvent: (ev: string | null, data: Record<string, unknown>) => boolean, signal?: AbortSignal) {
     const url = `${this.base()}/chat_sessions/${sessionId}/events?reply_to_message_id=${encodeURIComponent(replyTo)}`;
     const ctrl = new AbortController();
     if (signal?.aborted) ctrl.abort();
@@ -146,7 +148,7 @@ export default class TraeExecutor extends BaseExecutor {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
-      let ev = null;
+      let ev: string | null = null;
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -158,8 +160,8 @@ export default class TraeExecutor extends BaseExecutor {
           if (line.startsWith("event:")) ev = line.slice(6).trim();
           else if (line.startsWith("data:")) {
             const payload = line.slice(5).trim();
-            let data;
-            try { data = JSON.parse(payload); } catch { data = { _raw: payload }; }
+            let data: Record<string, unknown>;
+            try { data = JSON.parse(payload) as Record<string, unknown>; } catch { data = { _raw: payload }; }
             if (onEvent(ev, data)) {
               await reader.cancel().catch(() => {});
               return;
@@ -173,36 +175,37 @@ export default class TraeExecutor extends BaseExecutor {
     }
   }
 
-  async execute({ model, body, stream, credentials, signal }) {
+  async execute({ model, body, stream, credentials, signal }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Credentials; signal?: AbortSignal }) {
     const headers = this.buildHeaders(credentials, stream !== false);
-    const psd = credentials?.providerSpecificData || {};
-    const query = flattenQuery(body?.messages || []);
+    const psd = (credentials?.providerSpecificData || {}) as Record<string, unknown>;
+    const query = flattenQuery((body?.messages || []) as Record<string, unknown>[]);
     const responseId = `chatcmpl-trae-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
 
-    const errResponse = (status, message) => new Response(
+    const errResponse = (status: number, message: string) => new Response(
       JSON.stringify({ error: { message, type: "api_error", code: "" } }),
       { status, headers: { "Content-Type": "application/json" } }
     );
 
-    let session;
+    let session: { sessionId: string; messageId: string };
     try {
       session = await this.createSession(headers, query, model, psd, signal);
     } catch (err) {
-      return { response: errResponse(502, err?.message ? String(err.message) : String(err)), url: this.base(), headers, transformedBody: body };
+      const errMsg = err instanceof Error ? err.message : String(err);
+      return { response: errResponse(502, errMsg), url: this.base(), headers, transformedBody: body };
     }
 
     // Shared per-turn state: plan_item thoughts (cumulative, longest wins).
-    const order = [];
-    const thoughts = {};
+    const order: string[] = [];
+    const thoughts: Record<string, string> = {};
     let sent = 0;
-    let usage = null;
-    let errorEvent = null;
-    const renderNewText = (data) => {
-      const pid = data.id;
+    let usage: Record<string, unknown> | null = null;
+    let errorEvent: Record<string, unknown> | null = null;
+    const renderNewText = (data: Record<string, unknown>) => {
+      const pid = data.id as string;
       if (!pid) return "";
       if (!(pid in thoughts)) order.push(pid);
-      const t = data.thought || "";
+      const t = (data.thought as string) || "";
       if (t.length >= (thoughts[pid] || "").length) thoughts[pid] = t;
       const full = order.map((i) => thoughts[i]).join("");
       const piece = full.slice(sent);
@@ -214,7 +217,7 @@ export default class TraeExecutor extends BaseExecutor {
       const enc = new TextEncoder();
       const sse = new ReadableStream({
         start: async (controller) => {
-          const emit = (obj) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
+          const emit = (obj: Record<string, unknown>) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
           emit({
             id: responseId,
             object: "chat.completion.chunk",
@@ -303,13 +306,15 @@ export default class TraeExecutor extends BaseExecutor {
         return ev === "done";
       }, signal);
     } catch (err) {
-      return { response: errResponse(502, err?.message ? String(err.message) : String(err)), url: this.base(), headers, transformedBody: body };
+      const errMsg = err instanceof Error ? err.message : String(err);
+      return { response: errResponse(502, errMsg), url: this.base(), headers, transformedBody: body };
     }
     if (errorEvent) {
-      return { response: errResponse(502, `trae ${errorEvent.code || ""}: ${errorEvent.message || ""}`), url: this.base(), headers, transformedBody: body };
+      const evt = errorEvent as Record<string, unknown>;
+      return { response: errResponse(502, `trae ${evt.code || ""}: ${evt.message || ""}`), url: this.base(), headers, transformedBody: body };
     }
     const content = order.map((i) => thoughts[i]).join("");
-    const out = {
+    const out: Record<string, unknown> = {
       id: responseId,
       object: "chat.completion",
       created,
@@ -317,10 +322,11 @@ export default class TraeExecutor extends BaseExecutor {
       choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
     };
     if (usage) {
+      const u = usage as Record<string, unknown>;
       out.usage = {
-        prompt_tokens: usage.prompt_tokens || 0,
-        completion_tokens: usage.completion_tokens || 0,
-        total_tokens: usage.total_tokens || 0,
+        prompt_tokens: u.prompt_tokens || 0,
+        completion_tokens: u.completion_tokens || 0,
+        total_tokens: u.total_tokens || 0,
       };
     }
     return {

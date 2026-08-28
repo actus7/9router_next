@@ -2,9 +2,9 @@
 import { Buffer } from "node:buffer";
 
 const VOICES_TTL = 24 * 60 * 60 * 1000;
-const _voicesCache = new Map(); // by API key
+const _voicesCache = new Map<string, { voices: unknown[]; time: number }>(); // by API key
 
-export async function fetchElevenLabsVoices(apiKey) {
+export async function fetchElevenLabsVoices(apiKey: string): Promise<unknown[]> {
   if (!apiKey) throw new Error("ElevenLabs API key required");
   const now = Date.now();
   const cached = _voicesCache.get(apiKey);
@@ -14,15 +14,15 @@ export async function fetchElevenLabsVoices(apiKey) {
     headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
   });
   if (!res.ok) throw new Error(`ElevenLabs voices fetch failed: ${res.status}`);
-  const data = await res.json();
+  const data = await res.json() as { voices?: unknown[] };
   // Normalize: derive lang from labels for grouping
-  const voices = (data.voices || []).map((v) => ({ ...v, lang: v.labels?.language || "en" }));
+  const voices = (data.voices || []).map((v: unknown) => ({ ...(v as Record<string, unknown>), lang: ((v as Record<string, unknown>)?.labels as Record<string, unknown>)?.language || "en" }));
   _voicesCache.set(apiKey, { voices, time: now });
   return voices;
 }
 
 export default {
-  async synthesize(text, model, credentials) {
+  async synthesize(text: string, model: string, credentials: Record<string, unknown>): Promise<{ base64: string; format: string }> {
     if (!credentials?.apiKey) throw new Error("ElevenLabs API key required");
     let modelId = "eleven_flash_v2_5";
     let voiceId = model;
@@ -30,7 +30,7 @@ export default {
 
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: "POST",
-      headers: { "xi-api-key": credentials.apiKey, "Content-Type": "application/json" },
+      headers: { "xi-api-key": credentials.apiKey as string, "Content-Type": "application/json" },
       body: JSON.stringify({
         text,
         model_id: modelId,
@@ -38,8 +38,8 @@ export default {
       }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.detail?.message || `ElevenLabs TTS failed: ${res.status}`);
+      const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(((err?.detail as Record<string, unknown>)?.message as string) || `ElevenLabs TTS failed: ${res.status}`);
     }
     const buf = await res.arrayBuffer();
     if (buf.byteLength < 1024) throw new Error("ElevenLabs TTS returned empty audio");

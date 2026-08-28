@@ -8,9 +8,9 @@ import { collapseTextParts } from "../concerns/message";
 
 // Convert Antigravity request to OpenAI format
 // Antigravity body: { project, model, userAgent, requestType, requestId, request: { contents, systemInstruction, tools, toolConfig, generationConfig, sessionId } }
-export function antigravityToOpenAIRequest(model, body, stream) {
-  const req = body.request || body;
-  const result = {
+export function antigravityToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean) {
+  const req = ((body as Record<string, unknown>).request || body) as Record<string, unknown>;
+  const result: { messages: Record<string, unknown>[]; [key: string]: unknown } = {
     model: model,
     messages: [],
     stream: stream
@@ -18,7 +18,7 @@ export function antigravityToOpenAIRequest(model, body, stream) {
 
   // Generation config
   if (req.generationConfig) {
-    const config = req.generationConfig;
+    const config = req.generationConfig as Record<string, unknown>;
     if (config.maxOutputTokens) {
       const tempBody = { max_tokens: config.maxOutputTokens, tools: req.tools };
       result.max_tokens = adjustMaxTokens(tempBody);
@@ -35,7 +35,7 @@ export function antigravityToOpenAIRequest(model, body, stream) {
 
     // Thinking config → reasoning_effort
     if (config.thinkingConfig) {
-      const effort = budgetToEffort(config.thinkingConfig.thinkingBudget || 0);
+      const effort = budgetToEffort((config.thinkingConfig as Record<string, unknown>).thinkingBudget as number || 0);
       if (effort) result.reasoning_effort = effort;
     }
   }
@@ -51,7 +51,7 @@ export function antigravityToOpenAIRequest(model, body, stream) {
   // Convert contents to messages
   if (req.contents && Array.isArray(req.contents)) {
     for (const content of req.contents) {
-      const converted = convertContent(content);
+      const converted = convertContent(content as Record<string, unknown>);
       if (converted) {
         if (Array.isArray(converted)) {
           result.messages.push(...converted);
@@ -64,11 +64,12 @@ export function antigravityToOpenAIRequest(model, body, stream) {
 
   // Tools
   if (req.tools && Array.isArray(req.tools)) {
-    result.tools = [];
+    result.tools = [] as Record<string, unknown>[];
     for (const tool of req.tools) {
-      if (tool.functionDeclarations) {
-        for (const func of tool.functionDeclarations) {
-          result.tools.push({
+      const toolObj = tool as Record<string, unknown>;
+      if (toolObj.functionDeclarations) {
+        for (const func of toolObj.functionDeclarations as Record<string, unknown>[]) {
+          (result.tools as Record<string, unknown>[]).push({
             type: OPENAI_BLOCK.FUNCTION,
             function: {
               name: func.name,
@@ -86,10 +87,10 @@ export function antigravityToOpenAIRequest(model, body, stream) {
 
 // Recursively convert Antigravity schema types (OBJECT, STRING, etc.) to lowercase
 // and strip unsupported fields like enumDescriptions
-function normalizeSchemaTypes(schema) {
+function normalizeSchemaTypes(schema: unknown): unknown {
   if (!schema || typeof schema !== "object") return schema;
 
-  const result = Array.isArray(schema) ? [...schema] : { ...schema };
+  const result = Array.isArray(schema) ? ([...schema as unknown[]] as unknown as Record<string, unknown>) : { ...(schema as Record<string, unknown>) };
 
 
   if (typeof result.type === "string") {
@@ -101,8 +102,8 @@ function normalizeSchemaTypes(schema) {
 
 
   if (result.properties) {
-    const normalized = {};
-    for (const [key, val] of Object.entries(result.properties)) {
+    const normalized: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(result.properties as Record<string, unknown>)) {
       normalized[key] = normalizeSchemaTypes(val);
     }
     result.properties = normalized;
@@ -117,22 +118,22 @@ function normalizeSchemaTypes(schema) {
 
 // Convert Antigravity content to OpenAI message
 // Handles: text, thought, thoughtSignature, functionCall, functionResponse, inlineData
-function convertContent(content) {
+function convertContent(content: Record<string, unknown>): Record<string, unknown> | Record<string, unknown>[] | null {
   const role = content.role === GEMINI_ROLE.MODEL ? ROLE.ASSISTANT : content.role === GEMINI_ROLE.USER ? ROLE.USER : content.role;
 
   if (!content.parts || !Array.isArray(content.parts)) {
     return null;
   }
 
-  const textParts = [];
-  const toolCalls = [];
-  const toolResults = [];
+  const textParts: Record<string, unknown>[] = [];
+  const toolCalls: Record<string, unknown>[] = [];
+  const toolResults: Record<string, unknown>[] = [];
   let reasoningContent = "";
 
-  for (const part of content.parts) {
+  for (const part of content.parts as Record<string, unknown>[]) {
     // Thinking content (thought: true)
     if (part.thought === true && part.text) {
-      reasoningContent += part.text;
+      reasoningContent += part.text as string;
       continue;
     }
 
@@ -151,33 +152,37 @@ function convertContent(content) {
 
     // Inline data (images)
     if (part.inlineData) {
+      const inlineData = part.inlineData as Record<string, unknown>;
       textParts.push({
         type: OPENAI_BLOCK.IMAGE_URL,
         image_url: {
-          url: encodeDataUri(part.inlineData.mimeType, part.inlineData.data)
+          url: encodeDataUri(inlineData.mimeType as string, inlineData.data as string)
         }
       });
     }
 
     // Function call
     if (part.functionCall) {
+      const fc = part.functionCall as Record<string, unknown>;
       toolCalls.push({
         // Deterministic id from name so the matching functionResponse pairs correctly.
-        id: part.functionCall.id || `call_${part.functionCall.name}`,
+        id: fc.id || `call_${fc.name}`,
         type: OPENAI_BLOCK.FUNCTION,
         function: {
-          name: part.functionCall.name,
-          arguments: JSON.stringify(part.functionCall.args || {})
+          name: fc.name,
+          arguments: JSON.stringify(fc.args || {})
         }
       });
     }
 
     // Function response → collect all, each becomes a separate tool message
     if (part.functionResponse) {
+      const fr = part.functionResponse as Record<string, unknown>;
+      const response = fr.response as Record<string, unknown> | undefined;
       toolResults.push({
         role: ROLE.TOOL,
-        tool_call_id: part.functionResponse.id || `call_${part.functionResponse.name}`,
-        content: JSON.stringify(part.functionResponse.response?.result || part.functionResponse.response || {})
+        tool_call_id: fr.id || `call_${fr.name}`,
+        content: JSON.stringify(response?.result || response || {})
       });
     }
   }
@@ -186,7 +191,7 @@ function convertContent(content) {
   // plus an assistant message for any co-located tool calls / text.
   if (toolResults.length > 0) {
     if (toolCalls.length > 0 || textParts.length > 0 || reasoningContent) {
-      const assistantMsg = { role: ROLE.ASSISTANT };
+      const assistantMsg: Record<string, unknown> = { role: ROLE.ASSISTANT };
       if (textParts.length > 0) {
         assistantMsg.content = collapseTextParts(textParts);
       }
@@ -203,7 +208,7 @@ function convertContent(content) {
 
   // Assistant with tool calls
   if (toolCalls.length > 0) {
-    const msg = { role: ROLE.ASSISTANT };
+    const msg: Record<string, unknown> = { role: ROLE.ASSISTANT };
     if (textParts.length > 0) {
       msg.content = collapseTextParts(textParts);
     }
@@ -216,7 +221,7 @@ function convertContent(content) {
 
   // Regular message
   if (textParts.length > 0 || reasoningContent) {
-    const msg = { role };
+    const msg: Record<string, unknown> = { role };
     if (textParts.length > 0) {
       msg.content = collapseTextParts(textParts);
     }
@@ -230,10 +235,13 @@ function convertContent(content) {
 }
 
 // Extract text from systemInstruction
-function extractText(instruction) {
+function extractText(instruction: unknown): string {
   if (typeof instruction === "string") return instruction;
-  if (instruction.parts && Array.isArray(instruction.parts)) {
-    return instruction.parts.map(p => p.text || "").join("");
+  if (instruction && typeof instruction === "object") {
+    const inst = instruction as Record<string, unknown>;
+    if (inst.parts && Array.isArray(inst.parts)) {
+      return (inst.parts as Record<string, unknown>[]).map((p: Record<string, unknown>) => (p.text as string) || "").join("");
+    }
   }
   return "";
 }

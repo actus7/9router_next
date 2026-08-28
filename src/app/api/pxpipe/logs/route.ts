@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       installLog: getInstallLogTail(),
       events: readPxpipeEvents({ limit }).reverse(),
     });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

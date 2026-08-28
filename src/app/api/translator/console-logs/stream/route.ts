@@ -8,7 +8,7 @@ initConsoleLogCapture();
 export async function GET(request: NextRequest) {
   const encoder = new TextEncoder();
   const emitter = getConsoleEmitter();
-  const state = { closed: false, send: null, sendLines: null, sendClear: null, keepalive: null };
+  const state: { closed: boolean; send: ((line: unknown) => void) | null; sendLines: ((lines: unknown) => void) | null; sendClear: (() => void) | null; keepalive: ReturnType<typeof setInterval> | null } = { closed: false, send: null, sendLines: null, sendClear: null, keepalive: null };
 
   // Idempotent: safe to call from request.signal abort, cancel(), or enqueue failure.
   const cleanup = () => {
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
       // Keepalive ping every 25s
       state.keepalive = setInterval(() => {
-        if (state.closed) { clearInterval(state.keepalive); return; }
+        if (state.closed) { clearInterval(state.keepalive!); return; }
         try {
           controller.enqueue(encoder.encode(": ping\n\n"));
         } catch {

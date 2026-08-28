@@ -152,10 +152,10 @@ export function normalizeKiroExternalIdpAuth(rawAuth: string | KiroExternalIdpAu
   const accessToken: string = normalizeString(input.access_token || input.accessToken);
   const refreshToken: string = normalizeString(input.refresh_token || input.refreshToken);
   const clientId: string = normalizeString(input.client_id || input.clientId);
-  const tokenEndpoint: string = validateMicrosoftTokenEndpoint(input.token_endpoint || input.tokenEndpoint);
-  const profileArn: string = normalizeString(input.profile_arn || input.profileArn);
+  const tokenEndpoint: string = validateMicrosoftTokenEndpoint(input.token_endpoint || input.tokenEndpoint || "");
+  const profileArn: string = normalizeString(input.profile_arn || input.profileArn || "");
   const region: string = normalizeString(input.region) || DEFAULT_REGION;
-  const scope: string = normalizeScope(input.scopes || input.scope);
+  const scope: string = normalizeScope((input.scopes || input.scope) as string | string[] || "");
 
   if (!accessToken) throw new Error("access_token is required");
   if (!refreshToken) throw new Error("refresh_token is required");

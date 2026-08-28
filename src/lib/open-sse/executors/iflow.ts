@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { BaseExecutor } from "./base";
 import { PROVIDERS } from "../config/providers";
+import type { Credentials } from "../services/types";
 
 /**
  * IFlowExecutor - Executor for iFlow API with HMAC-SHA256 signature
@@ -20,13 +21,8 @@ export class IFlowExecutor extends BaseExecutor {
 
   /**
    * Create iFlow signature using HMAC-SHA256
-   * @param {string} userAgent - User agent string
-   * @param {string} sessionID - Session ID
-   * @param {number} timestamp - Unix timestamp in milliseconds
-   * @param {string} apiKey - API key for signing
-   * @returns {string} Hex-encoded signature
    */
-  createIFlowSignature(userAgent, sessionID, timestamp, apiKey) {
+  createIFlowSignature(userAgent: string, sessionID: string, timestamp: number, apiKey: string) {
     if (!apiKey) return "";
     const payload = `${userAgent}:${sessionID}:${timestamp}`;
     const hmac = crypto.createHmac("sha256", apiKey);
@@ -36,17 +32,14 @@ export class IFlowExecutor extends BaseExecutor {
 
   /**
    * Build headers with iFlow-specific signature
-   * @param {object} credentials - Provider credentials
-   * @param {boolean} stream - Whether streaming is enabled
-   * @returns {object} Headers object
    */
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials: Credentials, stream = true) {
     // Generate session ID and timestamp
     const sessionID = `session-${this.generateUUID()}`;
     const timestamp = Date.now();
 
     // Get user agent from config
-    const userAgent = this.config.headers["User-Agent"] || "iFlow-Cli";
+    const userAgent = ((this.config.headers as Record<string, string>)?.["User-Agent"] as string) || "iFlow-Cli";
 
     // Get API key (prefer apiKey, fallback to accessToken)
     const apiKey = credentials.apiKey || credentials.accessToken || "";
@@ -55,9 +48,9 @@ export class IFlowExecutor extends BaseExecutor {
     const signature = this.createIFlowSignature(userAgent, sessionID, timestamp, apiKey);
 
     // Build headers
-    const headers = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...this.config.headers,
+      ...(this.config.headers as Record<string, string>),
       "session-id": sessionID,
       "x-iflow-timestamp": timestamp.toString(),
       "x-iflow-signature": signature
@@ -78,25 +71,15 @@ export class IFlowExecutor extends BaseExecutor {
 
   /**
    * Build URL for iFlow API
-   * @param {string} model - Model name
-   * @param {boolean} stream - Whether streaming is enabled
-   * @param {number} urlIndex - URL index for fallback
-   * @param {object} credentials - Provider credentials
-   * @returns {string} API URL
    */
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
-    return this.config.baseUrl;
+  buildUrl(_model: string, _stream: boolean, _urlIndex = 0, _credentials: Credentials | null = null) {
+    return this.config.baseUrl as string;
   }
 
   /**
    * Transform request body - inject stream_options for usage data
-   * @param {string} model - Model name
-   * @param {object} body - Request body
-   * @param {boolean} stream - Whether streaming is enabled
-   * @param {object} credentials - Provider credentials
-   * @returns {object} Transformed body
    */
-  transformRequest(model, body, stream, credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, _credentials: Credentials) {
     // Inject stream_options for streaming requests to get usage data
     if (stream && body.messages && !body.stream_options) {
       body.stream_options = { include_usage: true };

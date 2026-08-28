@@ -23,23 +23,38 @@ const DEFAULT_TTS_RESPONSE_EXAMPLE = `// Audio will appear here after running.
   "audio": "//NExAANaAIIAUAAANNNNNNNN..." // base64 encoded MP3
 }`;
 
-export function TtsExampleCard({ providerId }) {
+interface TtsVoice {
+  id: string;
+  name: string;
+  language?: string;
+  gender?: string;
+  free_users_allowed?: boolean;
+}
+
+interface TtsLanguage {
+  code: string;
+  name: string;
+  voices?: TtsVoice[];
+}
+
+export function TtsExampleCard({ providerId }: { providerId: string }) {
   const providerAlias = getProviderAlias(providerId);
-  const config = TTS_PROVIDER_CONFIG[providerId] || TTS_PROVIDER_CONFIG["edge-tts"];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const config = (TTS_PROVIDER_CONFIG as any)[providerId] || (TTS_PROVIDER_CONFIG as any)["edge-tts"];
 
   // Voice state
   const [selectedVoice, setSelectedVoice]     = useState(config.defaultVoiceId || "");
   const [selectedVoiceName, setSelectedVoiceName] = useState("");
   const [voiceId, setVoiceId]               = useState(config.defaultVoiceId || ""); // editable voice id (elevenlabs/config providers)
   // Voices shown below Voice row after language selected
-  const [countryVoices, setCountryVoices]     = useState([]);
+  const [countryVoices, setCountryVoices]     = useState<TtsVoice[]>([]);
   const [selectedLang, setSelectedLang]       = useState("");
-  const [selectedModel, setSelectedModel]     = useState(() => {
-    const cfgModels = AI_PROVIDERS[providerId]?.ttsConfig?.models;
+  const [selectedModel, setSelectedModel]     = useState<string>(() => {
+    const cfgModels = (AI_PROVIDERS[providerId]?.ttsConfig as Record<string, unknown> | undefined)?.models as { id: string }[] | undefined;
     if (cfgModels?.length) return cfgModels[0].id;
     if (config.hasModelSelector && config.modelKey) {
       const models = getModelsByProviderId(config.modelKey);
-      return models?.[0]?.id || "";
+      return (models?.[0]?.id as string) || "";
     }
     return "";
   });
@@ -53,19 +68,19 @@ export function TtsExampleCard({ providerId }) {
   const [tunnelEndpoint, setTunnelEndpoint] = useState("");
   const [responseFormat, setResponseFormat] = useState("mp3"); // mp3 | json
   const [audioUrl, setAudioUrl]         = useState("");
-  const [jsonResponse, setJsonResponse] = useState(null); // Store JSON response
+  const [jsonResponse, setJsonResponse] = useState<Record<string, unknown> | null>(null); // Store JSON response
   const [running, setRunning]           = useState(false);
   const [error, setError]               = useState("");
-  const [latency, setLatency]           = useState(null);
+  const [latency, setLatency]           = useState<number | null>(null);
   const { copied: copiedCurl, copy: copyCurl } = useCopyToClipboard();
 
   // Country picker modal state
   const [modalOpen, setModalOpen]           = useState(false);
-  const [languages, setLanguages]           = useState([]);
+  const [languages, setLanguages]           = useState<TtsLanguage[]>([]);
   const [modalLoading, setModalLoading]     = useState(false);
   const [modalSearch, setModalSearch]       = useState("");
   const [modalError, setModalError]         = useState("");
-  const [byLang, setByLang]                 = useState({});
+  const [byLang, setByLang]                 = useState<Record<string, TtsLanguage & { voices: TtsVoice[] }>>({});
   // Language hint (e.g. Gemini/MiMo): guides the spoken language without affecting voice selection
   const [languageHint, setLanguageHint]     = useState("");
   // Number of stored provider connections (shown when no dashboard API key)
@@ -75,11 +90,11 @@ export function TtsExampleCard({ providerId }) {
     setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
-      .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
+      .then((d: Record<string, unknown>) => { setApiKey(((d.keys as Record<string, unknown>[] | undefined) || []).find((k: Record<string, unknown>) => k.isActive !== false)?.key as string || ""); })
       .catch(() => {});
     fetch("/api/providers", { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => { setConnectionCount((d.connections || []).filter((c) => c.provider === providerId && c.isActive !== false).length); })
+      .then((d: Record<string, unknown>) => { setConnectionCount(((d.connections as Record<string, unknown>[] | undefined) || []).filter((c: Record<string, unknown>) => c.provider === providerId && c.isActive !== false).length); })
       .catch(() => {});
     fetch("/api/tunnel/status")
       .then((r) => r.json())
@@ -89,12 +104,12 @@ export function TtsExampleCard({ providerId }) {
     // Pre-select default voice based on provider config
     if (config.voiceSource === "hardcoded") {
       const defaultModel = config.hasModelSelector && config.modelKey
-        ? (getModelsByProviderId(config.modelKey)?.[0]?.id || "")
+        ? ((getModelsByProviderId(config.modelKey)?.[0]?.id as string) || "")
         : "";
       // Use per-model voices if available, else flat list
-      const voices = (config.voicesPerModel && defaultModel)
-        ? (getTtsVoicesForModel(providerId, defaultModel) || [])
-        : getModelsByProviderId(config.voiceKey || providerId).filter((m) => getModelKind(m) === "tts");
+      const voices: TtsVoice[] = (config.voicesPerModel && defaultModel)
+        ? ((getTtsVoicesForModel(providerId, defaultModel) || []) as TtsVoice[])
+        : (getModelsByProviderId(config.voiceKey || providerId).filter((m) => getModelKind(m) === "tts") as unknown as TtsVoice[]);
       if (voices.length) {
         if (config.hasBrowseButton) {
           // Google TTS: pre-select "en" (English) as default, show as single voice chip
@@ -119,7 +134,7 @@ export function TtsExampleCard({ providerId }) {
   // Update voices when model changes (voicesPerModel providers)
   useEffect(() => {
     if (!config.voicesPerModel || !selectedModel) return;
-    const voices = getTtsVoicesForModel(providerId, selectedModel) || [];
+    const voices = (getTtsVoicesForModel(providerId, selectedModel) || []) as TtsVoice[];
     setCountryVoices(voices);
     if (voices.length) {
       setSelectedVoice(voices[0].id);
@@ -142,10 +157,12 @@ export function TtsExampleCard({ providerId }) {
       if (config.voiceSource === "hardcoded") {
         // Build languages/byLang from static providerModels data
         const voiceKey = config.voiceKey || providerId;
-        const voices = getModelsByProviderId(voiceKey).filter((m) => getModelKind(m) === "tts");
-        const byLangMap = {};
+        const voices = getModelsByProviderId(voiceKey).filter((m) => getModelKind(m) === "tts") as Record<string, unknown>[];
+        const byLangMap: Record<string, TtsLanguage & { voices: TtsVoice[] }> = {};
         for (const v of voices) {
-          if (!byLangMap[v.id]) byLangMap[v.id] = { code: v.id, name: v.name, voices: [{ id: v.id, name: v.name }] };
+          const vId = v.id as string;
+          const vName = v.name as string;
+          if (!byLangMap[vId]) byLangMap[vId] = { code: vId, name: vName, voices: [{ id: vId, name: vName }] };
         }
         setByLang(byLangMap);
         setLanguages(Object.values(byLangMap).sort((a, b) => a.name.localeCompare(b.name)));
@@ -155,20 +172,20 @@ export function TtsExampleCard({ providerId }) {
           ? config.apiEndpoint
           : `/api/media-providers/tts/voices?provider=${providerId === "local-device" ? "local-device" : "edge-tts"}`;
         const r = await fetch(url);
-        const d = await r.json();
-        if (d.error) { setModalError(d.error); return; }
-        setLanguages(d.languages || []);
-        setByLang(d.byLang || {});
+        const d = await r.json() as Record<string, unknown>;
+        if (d.error) { setModalError(d.error as string); return; }
+        setLanguages((d.languages || []) as TtsLanguage[]);
+        setByLang((d.byLang || {}) as Record<string, TtsLanguage & { voices: TtsVoice[] }>);
       }
-    } catch (e) {
-      setModalError(e.message);
+    } catch (e: unknown) {
+      setModalError(e instanceof Error ? e.message : String(e));
     } finally {
       setModalLoading(false);
     }
   };
 
   // Click language → close modal → show voices below
-  const handlePickLanguage = (lang) => {
+  const handlePickLanguage = (lang: TtsLanguage) => {
     setModalOpen(false);
     setSelectedLang(lang.code);
     const voices = byLang[lang.code]?.voices || [];
@@ -199,7 +216,7 @@ export function TtsExampleCard({ providerId }) {
   })();
 
   const ttsBody = (() => {
-    const b = { model: modelFull, input };
+    const b: Record<string, string> = { model: modelFull, input };
     if (config.hasLanguageHint && languageHint) b.language = languageHint;
     if (config.hasStyleInput && style.trim()) b.style = style.trim();
     return b;
@@ -218,7 +235,7 @@ export function TtsExampleCard({ providerId }) {
     setJsonResponse(null);
     const start = Date.now();
     try {
-      const headers = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
       const url = `/api/v1/audio/speech${responseFormat === "json" ? "?response_format=json" : ""}`;
       const res = await fetch(url, {
@@ -243,8 +260,8 @@ export function TtsExampleCard({ providerId }) {
         const blob = await res.blob();
         setAudioUrl(URL.createObjectURL(blob));
       }
-    } catch (e) {
-      setError(e.message || "Network error");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setRunning(false);
     }
@@ -291,15 +308,15 @@ export function TtsExampleCard({ providerId }) {
           {/* Model selector — prefer PROVIDER_MODELS[kind=tts], else providerModels via modelKey */}
           {config.hasModelSelector && (config.modelKey || getModelsByProviderId(providerId).some(m => getModelKind(m) === "tts")) && (
             <Row label="Model">
-              <Select value={selectedModel} onValueChange={setSelectedModel}>
+              <Select value={selectedModel} onValueChange={(v) => setSelectedModel(v ?? "")}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select model" />
                 </SelectTrigger>
                 <SelectContent>
                   {(() => {
-                    const ttsModels = getModelsByProviderId(providerId).filter(m => getModelKind(m) === "tts");
+                    const ttsModels = getModelsByProviderId(providerId).filter(m => getModelKind(m) === "tts") as Record<string, unknown>[];
                     return (ttsModels.length ? ttsModels : getModelsByProviderId(config.modelKey) || []).map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.name || m.id}</SelectItem>
+                      <SelectItem key={String(m.id)} value={String(m.id)}>{String(m.name || m.id)}</SelectItem>
                     ));
                   })()}
                 </SelectContent>
@@ -310,13 +327,13 @@ export function TtsExampleCard({ providerId }) {
           {/* Language hint dropdown (Gemini, Xiaomi MiMo) — sends body.language to guide pronunciation */}
           {config.hasLanguageHint && (
             <Row label="Language">
-              <Select value={languageHint || "__auto__"} onValueChange={(v) => setLanguageHint(v === "__auto__" ? "" : v)}>
+              <Select value={languageHint || "__auto__"} onValueChange={(v) => setLanguageHint(v === "__auto__" || v === null ? "" : v)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Auto-detect" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__auto__">Auto-detect</SelectItem>
-                  {(config.languageOptions || GOOGLE_TTS_LANGUAGES).map((l) =>
+                  {(config.languageOptions || GOOGLE_TTS_LANGUAGES).map((l: string | { id: string; name: string }) =>
                     typeof l === "string"
                       ? <SelectItem key={l} value={l}>{l}</SelectItem>
                       : <SelectItem key={l.id} value={l.name}>{l.name}</SelectItem>
@@ -430,7 +447,7 @@ export function TtsExampleCard({ providerId }) {
                 </SelectTrigger>
                 <SelectContent>
                   {getModelsByProviderId(providerId).filter((m) => getModelKind(m) === "tts").map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name || m.id}</SelectItem>
+                    <SelectItem key={String(m.id)} value={String(m.id)}>{String(m.name || m.id)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -461,12 +478,12 @@ export function TtsExampleCard({ providerId }) {
 
           {/* Style / voice instructions (Xiaomi MiMo) */}
           {config.hasStyleInput && (
-            <Row label={translate("Style")}>
+            <Row label={translate("Style") || "Style"}>
               <div className="relative">
                 <Textarea
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
-                  placeholder={translate("e.g. a warm, gentle voice, speaking slowly with a British accent")}
+                  placeholder={translate("e.g. a warm, gentle voice, speaking slowly with a British accent") ?? undefined}
                   rows={2}
                   className="pr-7 resize-none"
                 />
@@ -487,7 +504,7 @@ export function TtsExampleCard({ providerId }) {
 
           {/* Output Format */}
           <Row label="Output Format">
-            <Select value={responseFormat} onValueChange={setResponseFormat}>
+            <Select value={responseFormat} onValueChange={(v) => setResponseFormat(v ?? "mp3")}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
@@ -551,7 +568,7 @@ export function TtsExampleCard({ providerId }) {
                   <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">
                     {JSON.stringify({
                       format: jsonResponse.format,
-                      audio: jsonResponse.audio ? `${jsonResponse.audio.substring(0, 100)}...` : ""
+                      audio: jsonResponse.audio ? `${(jsonResponse.audio as string).substring(0, 100)}...` : ""
                     }, null, 2)}
                   </pre>
                 </div>
@@ -615,7 +632,7 @@ export function TtsExampleCard({ providerId }) {
                     >
                       <span className="text-sm">{c.name}</span>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-text-muted">{c.voices.length} voices</span>
+                        <span className="text-xs text-text-muted">{c.voices?.length ?? 0} voices</span>
                         {selectedLang === c.code && (
                           <Check className="size-4" />
                         )}

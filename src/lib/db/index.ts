@@ -38,6 +38,11 @@ export {
   createCombo, updateCombo, deleteCombo,
 } from "./repos/combosRepo";
 
+export {
+  getSmartModelProfiles, getSmartModelProfile,
+  upsertSmartModelProfiles, deleteSmartModelProfiles,
+} from "./repos/smartModelProfilesRepo";
+
 // Aliases (model + custom)
 export {
   getModelAliases, setModelAlias, deleteModelAlias,
@@ -73,11 +78,22 @@ export async function exportDb(): Promise<Record<string, unknown>> {
 
   const out: Record<string, unknown> = {
     settings: await exportSettings(),
-    providerConnections: (db.all(`SELECT * FROM providerConnections`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, {}>), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    providerNodes: (db.all(`SELECT * FROM providerNodes`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, {}>), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    proxyPools: (db.all(`SELECT * FROM proxyPools`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, {}>), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    providerConnections: (db.all(`SELECT * FROM providerConnections`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    providerNodes: (db.all(`SELECT * FROM providerNodes`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    proxyPools: (db.all(`SELECT * FROM proxyPools`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
     apiKeys: (db.all(`SELECT * FROM apiKeys`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt })),
-    combos: (db.all(`SELECT * FROM combos`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    combos: (db.all(`SELECT * FROM combos`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), routing: parseJson(r.routing, null), createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    smartModelProfiles: (db.all(`SELECT * FROM smartModelProfiles`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({
+      modelKey: r.modelKey,
+      inventoryFingerprint: r.inventoryFingerprint,
+      source: r.source,
+      profile: parseJson(r.profile, {}),
+      classifierModel: r.classifierModel,
+      sources: parseJson(r.sources, []),
+      researchedAt: r.researchedAt,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    })),
     modelAliases: {} as Record<string, unknown>,
     customModels: [] as unknown[],
     pricing: {} as Record<string, unknown>,
@@ -104,6 +120,7 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
     db.run(`DELETE FROM proxyPools`);
     db.run(`DELETE FROM apiKeys`);
     db.run(`DELETE FROM combos`);
+    db.run(`DELETE FROM smartModelProfiles`);
     db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'pricing')`);
 
     // Settings
@@ -140,8 +157,14 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
     }
     for (const c of (payload.combos || []) as Array<Record<string, unknown>>) {
       db.run(
-        `INSERT OR REPLACE INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
-        [c.id, c.name, c.kind || null, stringifyJson(c.models || []), c.createdAt || new Date().toISOString(), c.updatedAt || new Date().toISOString()]
+        `INSERT OR REPLACE INTO combos(id, name, kind, models, routing, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)`,
+        [c.id, c.name, c.kind || null, stringifyJson(c.models || []), c.routing ? stringifyJson(c.routing) : null, c.createdAt || new Date().toISOString(), c.updatedAt || new Date().toISOString()]
+      );
+    }
+    for (const p of (payload.smartModelProfiles || []) as Array<Record<string, unknown>>) {
+      db.run(
+        `INSERT OR REPLACE INTO smartModelProfiles(modelKey, inventoryFingerprint, source, profile, classifierModel, sources, researchedAt, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [p.modelKey, p.inventoryFingerprint, p.source || "deterministic", stringifyJson(p.profile || {}), p.classifierModel || null, stringifyJson(p.sources || []), p.researchedAt || null, p.createdAt || new Date().toISOString(), p.updatedAt || new Date().toISOString()]
       );
     }
     for (const [a, m] of Object.entries((payload.modelAliases || {}) as Record<string, unknown>)) {

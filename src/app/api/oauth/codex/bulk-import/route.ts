@@ -20,9 +20,9 @@ export async function POST(request: NextRequest) {
   let body;
   try {
     body = await request.json();
-  } catch (err) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: `Invalid JSON body: ${err.message}` },
+      { error: `Invalid JSON body: ${(err as Error).message}` },
       { status: 400 }
     );
   }
@@ -109,10 +109,10 @@ export async function POST(request: NextRequest) {
         ...item,
       });
 
-      results.push({ index: i, ok: true, id: created.id });
+      results.push({ index: i, ok: true, id: created!.id });
       success++;
-    } catch (e) {
-      results.push({ index: i, ok: false, error: e.message || "Unknown error" });
+    } catch (e: unknown) {
+      results.push({ index: i, ok: false, error: (e as Error).message || "Unknown error" });
       failed++;
     }
   }

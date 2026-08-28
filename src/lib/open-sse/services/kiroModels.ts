@@ -22,6 +22,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { createHash } from "crypto";
 import { refreshKiroToken } from "./tokenRefresh";
+import type { Credentials, Logger } from "./types";
 
 const KIRO_RUNTIME_SDK_VERSION = "1.0.0";
 const KIRO_AGENT_OS = "windows";
@@ -33,15 +34,31 @@ const DEFAULT_REGION = "us-east-1";
 const FETCH_TIMEOUT_MS = 30_000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes per credential
 
+interface KiroVariant {
+  id: string;
+  name: string;
+  capabilities: { thinking: boolean; agentic: boolean };
+  contextLength?: number;
+  rateMultiplier?: number;
+  upstreamModelId?: string;
+  description?: string;
+}
+
+interface CatalogCacheEntry {
+  expiresAt: number;
+  models: KiroVariant[];
+  rawModels: Record<string, unknown>[];
+}
+
 /** @type {Map<string, { expiresAt: number, models: any[] }>} */
-const catalogCache = new Map();
+const catalogCache = new Map<string, CatalogCacheEntry>();
 
 /**
  * Strip the `-agentic` and/or `-thinking` suffixes from a synthetic id, if
  * any. Used only for display naming when a Kiro upstream id happens to look
  * synthetic (defensive).
  */
-function stripSyntheticSuffixes(id) {
+function stripSyntheticSuffixes(id: string): string {
   let out = id;
   if (out.endsWith("-agentic")) out = out.slice(0, -"-agentic".length);
   if (out.endsWith("-thinking")) out = out.slice(0, -"-thinking".length);
@@ -52,7 +69,7 @@ function stripSyntheticSuffixes(id) {
  * Extract region from a profileArn like
  *   arn:aws:codewhisperer:us-east-1:123456789012:profile/ABC
  */
-function regionFromProfileArn(profileArn) {
+function regionFromProfileArn(profileArn: unknown): string {
   if (!profileArn || typeof profileArn !== "string") return DEFAULT_REGION;
   const parts = profileArn.split(":");
   if (parts.length >= 4 && parts[3]) return parts[3];
@@ -64,7 +81,7 @@ function regionFromProfileArn(profileArn) {
  * Keyed off whatever stable identifier we have for this credential, so the
  * same account always presents the same machineId.
  */
-function buildKiroFingerprintHeaders(credentials) {
+function buildKiroFingerprintHeaders(credentials: Credentials): Record<string, string> {
   const seed =
     credentials?.providerSpecificData?.clientId
     || credentials?.refreshToken
@@ -103,12 +120,12 @@ function buildKiroFingerprintHeaders(credentials) {
  * targets coding-agent file writes). Match CLIProxyAPIPlus and skip
  * `-agentic` / `-thinking-agentic` for `auto`.
  */
-function buildVariants(upstream, displayName) {
+function buildVariants(upstream: string, displayName: string): KiroVariant[] {
   const safeUpstream = stripSyntheticSuffixes(upstream);
   const display = displayName || `Kiro ${safeUpstream}`;
   const isAuto = safeUpstream === "auto";
 
-  const variants = [
+  const variants: KiroVariant[] = [
     {
       id: safeUpstream,
       name: display,
@@ -141,8 +158,8 @@ function buildVariants(upstream, displayName) {
  * Format the human-friendly display name for a Kiro model, including the
  * rate multiplier when it is something other than 1.0x.
  */
-function formatDisplayName(modelName, modelId, rateMultiplier) {
-  const base = (modelName || modelId || "Kiro").trim();
+function formatDisplayName(modelName: unknown, modelId: unknown, rateMultiplier: unknown): string {
+  const base = ((modelName || modelId || "Kiro") as string).trim();
   const rate = Number(rateMultiplier);
   if (!Number.isFinite(rate) || Math.abs(rate - 1.0) < 1e-9 || rate <= 0) {
     return `Kiro ${base}`;
@@ -152,16 +169,21 @@ function formatDisplayName(modelName, modelId, rateMultiplier) {
   return `Kiro ${base} (${rateStr}x credit)`;
 }
 
+interface KiroFetchError extends Error {
+  status?: number;
+  body?: string;
+}
+
 /**
  * Fetch the raw model catalog from Kiro. Returns the array under `.models`
  * from the API response, or throws on network/HTTP error.
  */
-async function fetchKiroCatalogRaw(credentials, signal) {
+async function fetchKiroCatalogRaw(credentials: Credentials, signal?: AbortSignal | null): Promise<Record<string, unknown>[]> {
   const profileArn = credentials?.providerSpecificData?.profileArn || "";
   const region = regionFromProfileArn(profileArn);
   const params = new URLSearchParams();
   params.set("origin", "AI_EDITOR");
-  if (profileArn) params.set("profileArn", profileArn);
+  if (profileArn) params.set("profileArn", profileArn as string);
   const url = `https://q.${region}.amazonaws.com/ListAvailableModels?${params.toString()}`;
 
   const headers = {
@@ -176,7 +198,7 @@ async function fetchKiroCatalogRaw(credentials, signal) {
     signal.addEventListener("abort", () => controller.abort(signal.reason));
   }
 
-  let response;
+  let response: Response;
   try {
     response = await fetch(url, {
       method: "GET",
@@ -189,7 +211,7 @@ async function fetchKiroCatalogRaw(credentials, signal) {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    const err = new Error(`Kiro ListAvailableModels ${response.status}: ${text || response.statusText}`);
+    const err: KiroFetchError = new Error(`Kiro ListAvailableModels ${response.status}: ${text || response.statusText}`);
     err.status = response.status;
     err.body = text;
     throw err;
@@ -205,7 +227,7 @@ async function fetchKiroCatalogRaw(credentials, signal) {
  * have available so different login sessions for the same account share a
  * cache entry.
  */
-function cacheKey(credentials) {
+function cacheKey(credentials: Credentials): string {
   const psd = credentials?.providerSpecificData || {};
   const seed =
     psd.profileArn
@@ -216,24 +238,21 @@ function cacheKey(credentials) {
   return createHash("sha256").update(`kiro:${seed}`).digest("hex");
 }
 
+interface KiroModelsOptions {
+  forceRefresh?: boolean;
+  log?: Logger;
+  signal?: AbortSignal;
+  onCredentialsRefreshed?: (data: Record<string, unknown>) => Promise<void>;
+}
+
 /**
  * Resolve the live Kiro model catalog for a credential and expand each entry
  * into 9router variants (`-thinking`, `-agentic`, `-thinking-agentic`).
  *
  * On any error (network, 4xx, 5xx), returns `null` so callers can fall back
  * to the static catalog without taking down the dashboard or `/v1/models`.
- *
- * @param {object} credentials Connection record (accessToken, refreshToken,
- *   providerSpecificData {profileArn, authMethod, clientId, clientSecret, region})
- * @param {object} [options]
- * @param {boolean} [options.forceRefresh] Bypass the per-credential cache.
- * @param {object}  [options.log] Logger.
- * @param {function} [options.onCredentialsRefreshed] Persist refreshed token
- *   back to your credential store. Called with `{ accessToken, refreshToken,
- *   expiresIn }` whenever a 401 triggers a token refresh.
- * @returns {Promise<{ models: object[], rawModels: object[] } | null>}
  */
-export async function resolveKiroModels(credentials, options = {}) {
+export async function resolveKiroModels(credentials: Credentials, options: KiroModelsOptions = {}): Promise<{ models: KiroVariant[]; rawModels: Record<string, unknown>[] } | null> {
   if (!credentials || !credentials.accessToken) {
     options.log?.debug?.("KIRO_MODELS", "No accessToken; skipping live fetch");
     return null;
@@ -248,11 +267,12 @@ export async function resolveKiroModels(credentials, options = {}) {
     }
   }
 
-  let raw;
+  let raw: Record<string, unknown>[];
   try {
     raw = await fetchKiroCatalogRaw(credentials, options.signal);
-  } catch (err) {
-    if (err && err.status === 401 && credentials.refreshToken) {
+  } catch (err: unknown) {
+    const kiroErr = err as KiroFetchError;
+    if (kiroErr && kiroErr.status === 401 && credentials.refreshToken) {
       options.log?.info?.("KIRO_MODELS", "Got 401 from Kiro; refreshing token");
       const refreshed = await refreshKiroToken(
         credentials.refreshToken,
@@ -262,18 +282,18 @@ export async function resolveKiroModels(credentials, options = {}) {
       if (refreshed?.accessToken) {
         const next = { ...credentials, ...refreshed };
         if (typeof options.onCredentialsRefreshed === "function") {
-          try { await options.onCredentialsRefreshed(refreshed); } catch (e) {
-            options.log?.warn?.("KIRO_MODELS", `onCredentialsRefreshed failed: ${e?.message || e}`);
+          try { await options.onCredentialsRefreshed(refreshed as Record<string, unknown>); } catch (e: unknown) {
+            options.log?.warn?.("KIRO_MODELS", `onCredentialsRefreshed failed: ${e instanceof Error ? e.message : String(e)}`);
           }
         }
         try {
-          raw = await fetchKiroCatalogRaw(next, options.signal);
+          raw = await fetchKiroCatalogRaw(next as Credentials, options.signal);
           // Update the in-memory credential reference too so retry logic uses
           // the fresh token consistently.
           credentials.accessToken = next.accessToken;
           if (next.refreshToken) credentials.refreshToken = next.refreshToken;
-        } catch (err2) {
-          options.log?.warn?.("KIRO_MODELS", `Retry after refresh failed: ${err2?.message || err2}`);
+        } catch (err2: unknown) {
+          options.log?.warn?.("KIRO_MODELS", `Retry after refresh failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
           return null;
         }
       } else {
@@ -281,27 +301,28 @@ export async function resolveKiroModels(credentials, options = {}) {
         return null;
       }
     } else {
-      options.log?.warn?.("KIRO_MODELS", `ListAvailableModels failed: ${err?.message || err}`);
+      options.log?.warn?.("KIRO_MODELS", `ListAvailableModels failed: ${kiroErr?.message || kiroErr}`);
       return null;
     }
   }
 
-  const expanded = [];
+  const expanded: KiroVariant[] = [];
   for (const m of raw) {
     if (!m || typeof m !== "object") continue;
-    const upstreamId = m.modelId || m.id;
+    const mObj = m as Record<string, unknown>;
+    const upstreamId = (mObj.modelId || mObj.id) as string;
     if (!upstreamId) continue;
-    const display = formatDisplayName(m.modelName, upstreamId, m.rateMultiplier);
-    const ctx = Number(m?.tokenLimits?.maxInputTokens) || 200_000;
+    const display = formatDisplayName(mObj.modelName, upstreamId, mObj.rateMultiplier);
+    const ctx = Number((mObj.tokenLimits as Record<string, unknown>)?.maxInputTokens) || 200_000;
     for (const v of buildVariants(upstreamId, display)) {
       expanded.push({
         ...v,
         // Carry over context window + raw upstream metadata so the caller
         // (e.g. the dashboard models endpoint) can render it.
         contextLength: ctx,
-        rateMultiplier: Number.isFinite(Number(m.rateMultiplier)) ? Number(m.rateMultiplier) : 1.0,
+        rateMultiplier: Number.isFinite(Number(mObj.rateMultiplier)) ? Number(mObj.rateMultiplier) : 1.0,
         upstreamModelId: upstreamId,
-        description: m.description || ""
+        description: (mObj.description as string) || ""
       });
     }
   }
@@ -319,7 +340,7 @@ export async function resolveKiroModels(credentials, options = {}) {
  * Drop any cached catalog for this credential. Call this after rotating /
  * importing tokens so the next fetch is fresh.
  */
-export function invalidateKiroModelCache(credentials) {
+export function invalidateKiroModelCache(credentials: Credentials): void {
   if (!credentials) return;
   catalogCache.delete(cacheKey(credentials));
 }
@@ -327,6 +348,6 @@ export function invalidateKiroModelCache(credentials) {
 /**
  * Drop the entire in-memory cache. Mostly for tests / manual debug.
  */
-export function clearKiroModelCache() {
+export function clearKiroModelCache(): void {
   catalogCache.clear();
 }

@@ -4,10 +4,18 @@
  * Used when client requests non-streaming but provider forces streaming (e.g., Codex)
  */
 
+interface ConverterState {
+  responseId: string;
+  created: number;
+  status: string;
+  usage: { input_tokens: number; output_tokens: number; total_tokens: number };
+  items: Map<number, unknown>;
+}
+
 /**
  * Process a single SSE message and update state accordingly.
  */
-function processSSEMessage(msg, state) {
+function processSSEMessage(msg: string, state: ConverterState) {
   if (!msg.trim()) return;
 
   const eventMatch = msg.match(/^event:\s*(.+)$/m);
@@ -46,7 +54,7 @@ const EMPTY_RESPONSE = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
  * @param {ReadableStream} stream - SSE stream from provider
  * @returns {Promise<Object>} Final JSON response in Responses API format
  */
-export async function convertResponsesStreamToJson(stream) {
+export async function convertResponsesStreamToJson(stream: ReadableStream | null | undefined) {
   if (!stream || typeof stream.getReader !== "function") {
     return { id: `resp_${Date.now()}`, object: "response", created_at: Math.floor(Date.now() / 1000), status: "failed", output: [], usage: { ...EMPTY_RESPONSE } };
   }

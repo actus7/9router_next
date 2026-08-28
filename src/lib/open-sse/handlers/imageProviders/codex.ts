@@ -3,14 +3,14 @@ import { randomUUID } from "node:crypto";
 import { nowSec } from "./_base";
 import { PROVIDERS } from "../../config/providers";
 
-const CODEX_RESPONSES_URL = PROVIDERS["codex"].baseUrl;
+const CODEX_RESPONSES_URL = PROVIDERS["codex"].baseUrl as string;
 const CODEX_USER_AGENT = "codex_cli_rs/0.136.0";
 const CODEX_VERSION = "0.136.0";
 const CODEX_ORIGINATOR = "codex_cli_rs";
 const CODEX_MODEL_SUFFIX = "-image";
 const CODEX_REF_DETAIL = "high";
 
-function decodeAccountId(idToken) {
+function decodeAccountId(idToken: string): string | null {
   try {
     const parts = String(idToken || "").split(".");
     if (parts.length !== 3) return null;
@@ -23,19 +23,19 @@ function decodeAccountId(idToken) {
   }
 }
 
-function stripImageSuffix(model) {
+function stripImageSuffix(model: string): string {
   return model.endsWith(CODEX_MODEL_SUFFIX) ? model.slice(0, -CODEX_MODEL_SUFFIX.length) : model;
 }
 
-function toDataUrl(input) {
+function toDataUrl(input: unknown): string | null {
   if (!input || typeof input !== "string") return null;
   if (/^data:image\//i.test(input) || /^https?:\/\//i.test(input)) return input;
   return `data:image/png;base64,${input}`;
 }
 
-function buildContent(prompt, refs, detail = CODEX_REF_DETAIL) {
-  const content = [];
-  refs.forEach((url, index) => {
+function buildContent(prompt: string, refs: string[], detail: string = CODEX_REF_DETAIL): Array<Record<string, unknown>> {
+  const content: Array<Record<string, unknown>> = [];
+  refs.forEach((url: string, index: number) => {
     content.push({ type: "input_text", text: `<image name=image${index + 1}>` });
     content.push({ type: "input_image", image_url: url, detail });
     content.push({ type: "input_text", text: "</image>" });
@@ -44,13 +44,18 @@ function buildContent(prompt, refs, detail = CODEX_REF_DETAIL) {
   return content;
 }
 
+interface CodexCallbacks {
+  onProgress?: (info: Record<string, unknown>) => void;
+  onPartialImage?: (info: Record<string, unknown>) => void;
+}
+
 // Parse Codex SSE stream → final base64 image. Optional callbacks for client streaming.
-async function parseStream(response, log, callbacks = {}) {
-  const reader = response.body.getReader();
+async function parseStream(response: Response, log?: Record<string, unknown>, callbacks: CodexCallbacks = {}): Promise<string | null> {
+  const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let imageB64 = null;
-  let lastEvent = null;
+  let imageB64: string | null = null;
+  let lastEvent: string | null = null;
   let bytesReceived = 0;
   let lastProgressLogMs = 0;
 
@@ -66,7 +71,7 @@ async function parseStream(response, log, callbacks = {}) {
       buffer = buffer.slice(sepIdx + 2);
 
       const lines = block.split("\n");
-      let eventName = null;
+      let eventName: string | null = null;
       let dataStr = "";
       for (const line of lines) {
         if (line.startsWith("event:")) eventName = line.slice(6).trim();
@@ -74,7 +79,7 @@ async function parseStream(response, log, callbacks = {}) {
       }
       if (!eventName) continue;
       if (eventName !== lastEvent) {
-        log?.info?.("IMAGE", `codex progress: ${eventName}`);
+        (log as { info?: (...a: unknown[]) => void })?.info?.("IMAGE", `codex progress: ${eventName}`);
         lastEvent = eventName;
       }
 
@@ -108,17 +113,17 @@ async function parseStream(response, log, callbacks = {}) {
 }
 
 // SSE Response that pipes codex progress + partial + done events to client
-function buildSseResponse(providerResponse, log, onSuccess) {
+function buildSseResponse(providerResponse: Response, log?: Record<string, unknown>, onSuccess?: () => void | Promise<void>): Response {
   const stream = new ReadableStream({
     async start(controller) {
       const enc = new TextEncoder();
-      const send = (event, data) => {
+      const send = (event: string, data: Record<string, unknown>) => {
         controller.enqueue(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
       try {
         const b64 = await parseStream(providerResponse, log, {
-          onProgress: (info) => send("progress", info),
-          onPartialImage: (info) => send("partial_image", info),
+          onProgress: (info: Record<string, unknown>) => send("progress", info),
+          onPartialImage: (info: Record<string, unknown>) => send("partial_image", info),
         });
         if (!b64) {
           send("error", { message: "Codex did not return an image. Account may not be entitled (Plus/Pro required)." });
@@ -126,8 +131,8 @@ function buildSseResponse(providerResponse, log, onSuccess) {
           if (onSuccess) await onSuccess();
           send("done", { created: nowSec(), data: [{ b64_json: b64 }] });
         }
-      } catch (err) {
-        send("error", { message: err?.message || "Stream failed" });
+      } catch (err: unknown) {
+        send("error", { message: (err as Error)?.message || "Stream failed" });
       } finally {
         controller.close();
       }
@@ -146,9 +151,9 @@ function buildSseResponse(providerResponse, log, onSuccess) {
 
 export default {
   stream: true,
-  buildUrl: () => CODEX_RESPONSES_URL,
-  buildHeaders: (creds) => {
-    const accountId = creds?.providerSpecificData?.chatgptAccountId || decodeAccountId(creds?.idToken);
+  buildUrl: (): string => CODEX_RESPONSES_URL,
+  buildHeaders: (creds: Record<string, unknown>): Record<string, string> => {
+    const accountId = (creds?.providerSpecificData as Record<string, unknown>)?.chatgptAccountId as string || decodeAccountId(creds?.idToken as string);
     return {
       "accept": "text/event-stream, application/json",
       "authorization": `Bearer ${creds?.accessToken || ""}`,
@@ -161,20 +166,20 @@ export default {
       "x-client-request-id": randomUUID(),
     };
   },
-  buildBody: (model, body) => {
-    const refs = [];
-    if (Array.isArray(body.images)) body.images.forEach((i) => { const u = toDataUrl(i); if (u) refs.push(u); });
+  buildBody: (model: string, body: Record<string, unknown>): Record<string, unknown> => {
+    const refs: string[] = [];
+    if (Array.isArray(body.images)) body.images.forEach((i: unknown) => { const u = toDataUrl(i); if (u) refs.push(u); });
     const single = toDataUrl(body.image);
     if (single) refs.push(single);
-    const detail = body.image_detail || CODEX_REF_DETAIL;
-    const imgTool = { type: "image_generation", output_format: (body.output_format || "png").toLowerCase() };
+    const detail = (body.image_detail as string) || CODEX_REF_DETAIL;
+    const imgTool: Record<string, unknown> = { type: "image_generation", output_format: ((body.output_format as string) || "png").toLowerCase() };
     if (body.size && body.size !== "") imgTool.size = body.size;
     if (body.quality && body.quality !== "") imgTool.quality = body.quality;
     if (body.background && body.background !== "") imgTool.background = body.background;
     return {
       model: stripImageSuffix(model),
       instructions: "",
-      input: [{ type: "message", role: "user", content: buildContent(body.prompt, refs, detail) }],
+      input: [{ type: "message", role: "user", content: buildContent(body.prompt as string, refs, detail) }],
       tools: [imgTool],
       tool_choice: "auto",
       parallel_tool_calls: false,
@@ -185,15 +190,15 @@ export default {
     };
   },
   // Custom: codex parses SSE → either pipe to client or collect b64
-  async parseResponse(response, { log, streamToClient, onRequestSuccess }) {
+  async parseResponse(response: Response, { log, streamToClient, onRequestSuccess }: Record<string, unknown>) {
     if (streamToClient) {
-      return { sseResponse: buildSseResponse(response, log, onRequestSuccess) };
+      return { sseResponse: buildSseResponse(response, log as Record<string, unknown>, onRequestSuccess as () => void | Promise<void>) };
     }
-    const b64 = await parseStream(response, log);
+    const b64 = await parseStream(response, log as Record<string, unknown>);
     if (!b64) {
       throw new Error("Codex did not return an image. Account may not be entitled (Plus/Pro required).");
     }
     return { created: nowSec(), data: [{ b64_json: b64 }] };
   },
-  normalize: (responseBody) => responseBody,
+  normalize: (responseBody: Record<string, unknown>): Record<string, unknown> => responseBody,
 };

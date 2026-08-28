@@ -4,7 +4,7 @@ import { nowSec } from "./_base";
 import { getExecutor } from "../../executors/index";
 
 // Convert image input (data URI or raw base64) to Gemini inlineData part
-function resolveImageInput(input) {
+function resolveImageInput(input: unknown): { inlineData: { mimeType: string; data: string } } | null {
   if (!input || typeof input !== "string") return null;
   // data:image/png;base64,... format
   const dataUriMatch = input.match(/^data:(image\/[^;]+);base64,(.+)$/);
@@ -23,20 +23,20 @@ export default {
   useExecutor: true,
 
   // Stubs - required by imageGenerationCore interface but unused with useExecutor
-  buildUrl: () => "",
-  buildHeaders: () => ({}),
-  buildBody: () => ({}),
+  buildUrl: (): string => "",
+  buildHeaders: (): Record<string, string> => ({}),
+  buildBody: (): Record<string, unknown> => ({}),
 
-  async executeViaExecutor(model, body, credentials, log) {
+  async executeViaExecutor(model: string, body: Record<string, unknown>, credentials: Record<string, unknown>, log?: Record<string, unknown>): Promise<Record<string, unknown>> {
     const executor = getExecutor("antigravity");
     if (!executor) throw new Error("Antigravity executor not found");
 
     // Build parts: text prompt + optional input image for editing
-    const parts = [{ text: body.prompt }];
+    const parts: Array<Record<string, unknown>> = [{ text: body.prompt }];
     const imageInput = body.image || (Array.isArray(body.images) && body.images[0]);
     if (imageInput) {
       const inlineData = resolveImageInput(imageInput);
-      if (inlineData) parts.unshift(inlineData);
+      if (inlineData) parts.unshift(inlineData as unknown as Record<string, unknown>);
     }
 
     const chatBody = {
@@ -59,11 +59,11 @@ export default {
     return result.response.json();
   },
 
-  normalize: (responseBody, prompt) => {
-    const candidates = responseBody.candidates || responseBody.response?.candidates || [];
-    const parts = candidates[0]?.content?.parts || [];
-    const images = parts.filter((p) => p.inlineData?.data).map((p) => ({
-      b64_json: p.inlineData.data,
+  normalize: (responseBody: Record<string, unknown>, prompt?: string): Record<string, unknown> => {
+    const candidates = (responseBody.candidates || (responseBody.response as Record<string, unknown>)?.candidates || []) as Array<Record<string, unknown>>;
+    const parts = ((candidates[0]?.content as Record<string, unknown>)?.parts || []) as Array<Record<string, unknown>>;
+    const images = parts.filter((p) => (p.inlineData as Record<string, unknown>)?.data).map((p) => ({
+      b64_json: (p.inlineData as Record<string, unknown>).data,
     }));
     return {
       created: nowSec(),

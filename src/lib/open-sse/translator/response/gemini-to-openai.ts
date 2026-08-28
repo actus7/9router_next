@@ -8,17 +8,19 @@ import { encodeDataUri } from "../concerns/image";
 import { toOpenAIFinish } from "../concerns/finishReason";
 
 // Build chunk meta for current gemini state
-function chunkMeta(state) {
-  return { id: `chatcmpl-${state.messageId}`, created: Math.floor(Date.now() / 1000), model: state.model };
+function chunkMeta(state: Record<string, unknown>) {
+  return { id: `chatcmpl-${state.messageId}`, created: Math.floor(Date.now() / 1000), model: state.model as string };
 }
 
 // Build a tool_call chunk from a gemini functionCall part (shared by sig/non-sig branches)
-function emitFunctionCall(functionCall, state) {
-  const rawName = functionCall.name;
+function emitFunctionCall(functionCall: Record<string, unknown>, state: Record<string, unknown>) {
+  const rawName = functionCall.name as string;
   // Restore original tool name from mapping (AG cloaking)
-  const fcName = state.toolNameMap?.get(rawName) || rawName;
+  const toolNameMap = state.toolNameMap as Map<string, string> | undefined;
+  const fcName = toolNameMap?.get(rawName) || rawName;
   const fcArgs = functionCall.args || {};
-  const toolCallIndex = state.functionIndex++;
+  const toolCallIndex = state.functionIndex as number;
+  state.functionIndex = toolCallIndex + 1;
   const toolCall = {
     id: `${fcName}-${Date.now()}-${toolCallIndex}`,
     index: toolCallIndex,
@@ -28,26 +30,26 @@ function emitFunctionCall(functionCall, state) {
   // Keep Gemini bookkeeping separate from the shared translator state.toolCalls map.
   // The downstream OpenAI→Claude translator uses state.toolCalls for Claude block
   // metadata; pre-populating it here makes Anthropic tool deltas lose index.
-  state.geminiToolCallCount = (state.geminiToolCallCount || 0) + 1;
+  state.geminiToolCallCount = ((state.geminiToolCallCount as number) || 0) + 1;
   return buildChunk(chunkMeta(state), { tool_calls: [toolCall] }, null);
 }
 
 // Convert Gemini response chunk to OpenAI format
-export function geminiToOpenAIResponse(chunk, state) {
+export function geminiToOpenAIResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
   if (!chunk) return null;
   
   // Handle Antigravity wrapper
-  const response = chunk.response || chunk;
-  if (!response || !response.candidates?.[0]) return null;
+  const response = (chunk.response || chunk) as Record<string, unknown>;
+  if (!response || !(response.candidates as unknown[])?.[0]) return null;
 
-  const results = [];
-  const candidate = response.candidates[0];
-  const content = candidate.content;
+  const results: Record<string, unknown>[] = [];
+  const candidate = (response.candidates as Record<string, unknown>[])[0];
+  const content = candidate.content as Record<string, unknown> | undefined;
 
   // Initialize state
   if (!state.messageId) {
-    state.messageId = response.responseId || `msg_${Date.now()}`;
-    state.model = response.modelVersion || "gemini";
+    state.messageId = (response.responseId as string) || `msg_${Date.now()}`;
+    state.model = (response.modelVersion as string) || "gemini";
     state.functionIndex = 0;
     state.geminiToolCallCount = 0;
     results.push(buildChunk(chunkMeta(state), { role: ROLE.ASSISTANT }, null));
@@ -55,7 +57,7 @@ export function geminiToOpenAIResponse(chunk, state) {
 
   // Process parts
   if (content?.parts) {
-    for (const part of content.parts) {
+    for (const part of content.parts as Record<string, unknown>[]) {
       const hasThoughtSig = part.thoughtSignature || part.thought_signature;
       const isThought = part.thought === true;
       
@@ -67,13 +69,13 @@ export function geminiToOpenAIResponse(chunk, state) {
         if (hasTextContent) {
           results.push(buildChunk(
             chunkMeta(state),
-            isThought ? reasoningDelta(part.text) : { content: part.text },
+            isThought ? reasoningDelta(part.text as string) : { content: part.text },
             null
           ));
         }
         
         if (hasFunctionCall) {
-          results.push(emitFunctionCall(part.functionCall, state));
+          results.push(emitFunctionCall(part.functionCall as Record<string, unknown>, state));
         }
         continue;
       }
@@ -85,26 +87,26 @@ export function geminiToOpenAIResponse(chunk, state) {
       if (part.text !== undefined && part.text !== "") {
         results.push(buildChunk(
           chunkMeta(state),
-          isThought ? reasoningDelta(part.text) : { content: part.text },
+          isThought ? reasoningDelta(part.text as string) : { content: part.text },
           null
         ));
       }
 
       // Function call
       if (part.functionCall) {
-        results.push(emitFunctionCall(part.functionCall, state));
+        results.push(emitFunctionCall(part.functionCall as Record<string, unknown>, state));
       }
 
       // Inline data (images)
-      const inlineData = part.inlineData || part.inline_data;
+      const inlineData = (part.inlineData || part.inline_data) as Record<string, unknown> | undefined;
       if (inlineData?.data) {
-        const mimeType = inlineData.mimeType || inlineData.mime_type || DEFAULT_IMAGE_MIME;
+        const mimeType = (inlineData.mimeType || inlineData.mime_type || DEFAULT_IMAGE_MIME) as string;
         results.push(buildChunk(
           chunkMeta(state),
           {
             images: [{
               type: OPENAI_BLOCK.IMAGE_URL,
-              image_url: { url: encodeDataUri(mimeType, inlineData.data) }
+              image_url: { url: encodeDataUri(mimeType, inlineData.data as string) }
             }]
           },
           null
@@ -115,13 +117,13 @@ export function geminiToOpenAIResponse(chunk, state) {
 
   // Usage metadata - extract before finish reason so we can include it
   const usageMeta = response.usageMetadata || chunk.usageMetadata;
-  const geminiUsage = toOpenAIUsage(usageMeta, "gemini");
+  const geminiUsage = toOpenAIUsage(usageMeta as Record<string, unknown>, "gemini");
   if (geminiUsage) state.usage = geminiUsage;
 
   // Finish reason - include usage in final chunk
   if (candidate.finishReason) {
-    let finishReason = toOpenAIFinish(candidate.finishReason, "gemini");
-    if (finishReason === OPENAI_FINISH.STOP && state.geminiToolCallCount > 0) {
+    let finishReason = toOpenAIFinish(candidate.finishReason as string, "gemini");
+    if (finishReason === OPENAI_FINISH.STOP && (state.geminiToolCallCount as number) > 0) {
       finishReason = OPENAI_FINISH.TOOL_CALLS;
     }
     
@@ -129,7 +131,7 @@ export function geminiToOpenAIResponse(chunk, state) {
     
     // Include usage in final chunk for downstream translators
     if (state.usage) {
-      finalChunk.usage = state.usage;
+      (finalChunk as Record<string, unknown>).usage = state.usage;
     }
     
     results.push(finalChunk);
@@ -140,8 +142,9 @@ export function geminiToOpenAIResponse(chunk, state) {
 }
 
 // Register
-register(FORMATS.GEMINI, FORMATS.OPENAI, null, geminiToOpenAIResponse);
-register(FORMATS.GEMINI_CLI, FORMATS.OPENAI, null, geminiToOpenAIResponse);
-register(FORMATS.ANTIGRAVITY, FORMATS.OPENAI, null, geminiToOpenAIResponse);
-register(FORMATS.VERTEX, FORMATS.OPENAI, null, geminiToOpenAIResponse);
+const _geminiResp = geminiToOpenAIResponse as (chunk: unknown, state: unknown) => unknown;
+register(FORMATS.GEMINI, FORMATS.OPENAI, null, _geminiResp);
+register(FORMATS.GEMINI_CLI, FORMATS.OPENAI, null, _geminiResp);
+register(FORMATS.ANTIGRAVITY, FORMATS.OPENAI, null, _geminiResp);
+register(FORMATS.VERTEX, FORMATS.OPENAI, null, _geminiResp);
 

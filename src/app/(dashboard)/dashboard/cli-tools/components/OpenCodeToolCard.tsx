@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
@@ -11,7 +11,7 @@ import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Copy, Hi
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; }
-interface StatusData { installed?: boolean; has9Router?: boolean; settings?: { model?: { base_url?: string; default?: string; }; }; }
+interface StatusData { installed?: boolean; has9Router?: boolean; opencode?: { models?: string[]; activeModel?: string; }; config?: { agent?: { explorer?: { model?: string; }; }; provider?: { "9router"?: { options?: { baseURL?: string; }; }; }; }; settings?: { model?: { base_url?: string; default?: string; }; }; }
 interface Message { type: "success" | "error"; text: string; }
 
 interface OpenCodeToolCardProps {
@@ -20,7 +20,7 @@ interface OpenCodeToolCardProps {
   onToggle: () => void;
   baseUrl: string;
   apiKeys: ApiKey[];
-  activeProviders: unknown[];
+  activeProviders: ActiveProvider[];
   cloudEnabled: boolean;
   initialStatus?: StatusData | null;
   tunnelEnabled: boolean;
@@ -41,7 +41,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
   const [subagentModel, setSubagentModel] = useState<string>("");
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [subagentModalOpen, setSubagentModalOpen] = useState<boolean>(false);
-  const [modelAliases, setModelAliases] = useState<Record<string, unknown>>({});
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
@@ -432,7 +432,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
             setSelectedModels(remaining);
             if (activeModel === model.value) setActiveModel(remaining[0] || "");
           }}
-          selectedModel={null}
+          selectedModel={undefined}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
           addedModelValues={selectedModels}

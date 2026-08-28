@@ -4,6 +4,7 @@ import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLock
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/lib/open-sse/config/errorConfig";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
+import type { Connection, Settings } from "@/lib/data-access";
 
 // Mutex to prevent race conditions during account selection
 let selectionMutex: Promise<void> = Promise.resolve();
@@ -17,7 +18,7 @@ function githubMonthlyResetMs(status: number, errorText: string, provider: strin
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
 }
 
-interface CredentialsResult {
+export interface CredentialsResult extends Record<string, unknown> {
   id?: string;
   authType?: string;
   apiKey?: string;
@@ -30,16 +31,60 @@ interface CredentialsResult {
   projectId?: string;
   connectionName?: string;
   copilotToken?: string;
-  providerSpecificData?: Record<string, any>;
+  providerSpecificData?: Record<string, unknown>;
   connectionId?: string;
   testStatus?: string;
   lastError?: string;
-  _connection?: Record<string, any>;
+  _connection?: Record<string, unknown>;
   allRateLimited?: boolean;
   retryAfter?: number;
   retryAfterHuman?: string;
   lastErrorCode?: number;
   isActive?: boolean;
+}
+
+interface ProviderStrategy extends Record<string, unknown> {
+  fallbackStrategy?: string;
+  rotateStrategy?: string;
+  proxyPoolId?: string;
+  stickyRoundRobinLimit?: number;
+}
+
+interface AuthSettings extends Settings {
+  providerStrategies: Record<string, ProviderStrategy>;
+  fallbackStrategy?: string;
+}
+
+interface AuthConnection extends Connection {
+  accessToken?: string;
+  apiKey?: string;
+  backoffLevel?: number;
+  consecutiveUseCount?: number;
+  displayName?: string;
+  errorCode?: number;
+  expiresAt?: string;
+  expiresIn?: number;
+  idToken?: string;
+  lastError?: string;
+  lastRefreshAt?: string;
+  lastUsedAt?: string;
+  projectId?: string;
+  providerSpecificData?: Record<string, unknown>;
+  refreshToken?: string;
+  testStatus?: string;
+}
+
+interface AuthProxyPool extends Record<string, unknown> {
+  id: string;
+  proxyUrl?: string;
+}
+
+interface ResolvedProxyConfig {
+  connectionNoProxy?: string;
+  connectionProxyEnabled?: boolean;
+  connectionProxyUrl?: string;
+  proxyPoolId?: string;
+  vercelRelayUrl?: string;
 }
 
 interface GetCredentialsOptions {
@@ -69,16 +114,16 @@ export async function getProviderCredentials(
     const providerId: string = resolveProviderId(provider);
 
     if (FREE_PROVIDERS[providerId]?.noAuth) {
-      const settings: any = await getSettings();
-      const override: any = (settings.providerStrategies || {})[providerId] || {};
+      const settings = await getSettings() as AuthSettings;
+      const override: ProviderStrategy = settings.providerStrategies[providerId] || {};
       const strategy: string = override.rotateStrategy || "none";
       let pickedId: string | null = override.proxyPoolId || null;
       if (strategy !== "none") {
-        const allPools: any[] = await getProxyPools({ isActive: true });
-        const poolIds: string[] = allPools.filter((p: any) => p.proxyUrl).map((p: any) => p.id);
+        const allPools = await getProxyPools({ isActive: true }) as AuthProxyPool[];
+        const poolIds = allPools.filter((pool) => Boolean(pool.proxyUrl)).map((pool) => pool.id);
         pickedId = pickProxyPoolId(poolIds, strategy, providerId);
       }
-      const resolvedProxy: any = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
+      const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" }) as ResolvedProxyConfig;
       return {
         id: "noauth",
         connectionName: "Public",
@@ -94,7 +139,7 @@ export async function getProviderCredentials(
       };
     }
 
-    const connections: any[] = await getProviderConnections({ provider: providerId, isActive: true });
+    const connections = await getProviderConnections({ provider: providerId, isActive: true }) as AuthConnection[];
     log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
     if (connections.length === 0) {
@@ -102,48 +147,48 @@ export async function getProviderCredentials(
       return null;
     }
 
-    const availableConnections: any[] = connections.filter((c: any) => {
-      if (excludeSet.has(c.id)) return false;
-      if (isModelLockActive(c, model)) return false;
+    const availableConnections = connections.filter((connection) => {
+      if (excludeSet.has(connection.id)) return false;
+      if (isModelLockActive(connection as unknown as Parameters<typeof isModelLockActive>[0], model)) return false;
       return true;
     });
 
     log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
-    connections.forEach((c: any) => {
-      const excluded: boolean = excludeSet.has(c.id);
-      const locked: boolean = isModelLockActive(c, model);
+    connections.forEach((connection) => {
+      const excluded: boolean = excludeSet.has(connection.id);
+      const locked: boolean = isModelLockActive(connection as unknown as Parameters<typeof isModelLockActive>[0], model);
       if (excluded || locked) {
-        const lockUntil: number | null = getEarliestModelLockUntil(c);
-        log.debug("AUTH", `  → ${c.id?.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
+        const lockUntil = getEarliestModelLockUntil(connection as unknown as Parameters<typeof getEarliestModelLockUntil>[0]);
+        log.debug("AUTH", `  → ${connection.id.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
       }
     });
 
     if (availableConnections.length === 0) {
-      const lockedConns: any[] = connections.filter((c: any) => isModelLockActive(c, model));
-      const expiries: (number | null)[] = lockedConns.map((c: any) => getEarliestModelLockUntil(c)).filter(Boolean);
+      const lockedConns = connections.filter((connection) => isModelLockActive(connection as unknown as Parameters<typeof isModelLockActive>[0], model));
+      const expiries = lockedConns.map((connection) => getEarliestModelLockUntil(connection as unknown as Parameters<typeof getEarliestModelLockUntil>[0])).filter((expiry): expiry is string => Boolean(expiry));
       const earliest: string | null = expiries.sort()[0] || null;
       if (earliest) {
-        const earliestConn: any = lockedConns[0];
+        const earliestConn = lockedConns[0];
         log.warn("AUTH", `${provider} | all ${connections.length} accounts locked for ${model || "all"} (${formatRetryAfter(earliest)}) | lastError=${earliestConn?.lastError?.slice(0, 50)}`);
         return {
           allRateLimited: true,
-          retryAfter: earliest as any,
+          retryAfter: Date.parse(earliest),
           retryAfterHuman: formatRetryAfter(earliest),
-          lastError: earliestConn?.lastError || null,
-          lastErrorCode: earliestConn?.errorCode || null
+          lastError: earliestConn?.lastError ?? undefined,
+          lastErrorCode: earliestConn?.errorCode ?? undefined
         };
       }
       log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
       return null;
     }
 
-    const settings: any = await getSettings();
-    const providerOverride: any = (settings.providerStrategies || {})[providerId] || {};
+    const settings = await getSettings() as AuthSettings;
+    const providerOverride: ProviderStrategy = settings.providerStrategies[providerId] || {};
     const strategy: string = providerOverride.fallbackStrategy || settings.fallbackStrategy || "fill-first";
 
-    let connection: any;
+    let connection: AuthConnection | undefined;
     if (preferredConnectionId) {
-      connection = availableConnections.find((c: any) => c.id === preferredConnectionId);
+      connection = availableConnections.find((candidate) => candidate.id === preferredConnectionId);
       if (connection) {
         log.info("AUTH", `${provider} | pinned to ${connection.id?.slice(0, 8)} (${connection.name || connection.email || "unnamed"})`);
       }
@@ -153,14 +198,14 @@ export async function getProviderCredentials(
     } else if (strategy === "round-robin") {
       const stickyLimit: number = providerOverride.stickyRoundRobinLimit || settings.stickyRoundRobinLimit || 3;
 
-      const byRecency: any[] = [...availableConnections].sort((a: any, b: any) => {
+      const byRecency = [...availableConnections].sort((a, b) => {
         if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
         if (!a.lastUsedAt) return 1;
         if (!b.lastUsedAt) return -1;
         return new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime();
       });
 
-      const current: any = byRecency[0];
+      const current = byRecency[0];
       const currentCount: number = current?.consecutiveUseCount || 0;
 
       if (current && current.lastUsedAt && currentCount < stickyLimit) {
@@ -170,7 +215,7 @@ export async function getProviderCredentials(
           consecutiveUseCount: (connection.consecutiveUseCount || 0) + 1
         });
       } else {
-        const sortedByOldest: any[] = [...availableConnections].sort((a: any, b: any) => {
+        const sortedByOldest = [...availableConnections].sort((a, b) => {
           if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
           if (!a.lastUsedAt) return -1;
           if (!b.lastUsedAt) return 1;
@@ -188,7 +233,7 @@ export async function getProviderCredentials(
       connection = availableConnections[0];
     }
 
-    const resolvedProxy: any = await resolveConnectionProxyConfig(connection.providerSpecificData || {});
+    const resolvedProxy = await resolveConnectionProxyConfig(connection.providerSpecificData || {}) as ResolvedProxyConfig;
 
     return {
       authType: connection.authType,
@@ -201,7 +246,7 @@ export async function getProviderCredentials(
       lastRefreshAt: connection.lastRefreshAt,
       projectId: connection.projectId,
       connectionName: connection.displayName || connection.name || connection.email || connection.id,
-      copilotToken: connection.providerSpecificData?.copilotToken,
+      copilotToken: typeof connection.providerSpecificData?.copilotToken === "string" ? connection.providerSpecificData.copilotToken : undefined,
       providerSpecificData: {
         ...(connection.providerSpecificData || {}),
         connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
@@ -237,8 +282,8 @@ export async function markAccountUnavailable(
   resetsAtMs: number | null = null
 ): Promise<MarkUnavailableResult> {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
-  const connections: any[] = await getProviderConnections({ provider });
-  const conn: any = connections.find((c: any) => c.id === connectionId);
+  const connections = await getProviderConnections({ provider: provider ?? undefined }) as AuthConnection[];
+  const conn = connections.find((connection) => connection.id === connectionId);
   const backoffLevel: number = conn?.backoffLevel || 0;
 
   const githubResetAtMs: number | null = githubMonthlyResetMs(status, errorText, provider!);
@@ -253,7 +298,7 @@ export async function markAccountUnavailable(
     cooldownMs = Math.min(resetsAtMs - Date.now(), MAX_RATE_LIMIT_COOLDOWN_MS);
     newBackoffLevel = 0;
   } else {
-    ({ shouldFallback, cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel));
+    ({ shouldFallback, cooldownMs = 0, newBackoffLevel = 0 } = checkFallbackError(status, errorText, backoffLevel));
   }
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 
@@ -283,9 +328,9 @@ export async function markAccountUnavailable(
 /**
  * Clear account error status on successful request.
  */
-export async function clearAccountError(connectionId: string, currentConnection: any, model: string | null = null): Promise<void> {
+export async function clearAccountError(connectionId: string, currentConnection: CredentialsResult | Record<string, unknown>, model: string | null = null): Promise<void> {
   if (!connectionId || connectionId === "noauth") return;
-  const conn: any = currentConnection._connection || currentConnection;
+  const conn = (currentConnection._connection || currentConnection) as Record<string, unknown>;
   const now: number = Date.now();
   const allLockKeys: string[] = Object.keys(conn).filter((k: string) => k.startsWith("modelLock_"));
 
@@ -294,19 +339,19 @@ export async function clearAccountError(connectionId: string, currentConnection:
   const keysToClear: string[] = allLockKeys.filter((k: string) => {
     if (model && k === `modelLock_${model}`) return true;
     if (model && k === "modelLock___all") return true;
-    const expiry: string | null = conn[k];
-    return expiry && new Date(expiry).getTime() <= now;
+    const expiry = conn[k];
+    return typeof expiry === "string" && new Date(expiry).getTime() <= now;
   });
 
   if (keysToClear.length === 0 && conn.testStatus !== "unavailable" && !conn.lastError) return;
 
   const remainingActiveLocks: string[] = allLockKeys.filter((k: string) => {
     if (keysToClear.includes(k)) return false;
-    const expiry: string | null = conn[k];
-    return expiry && new Date(expiry).getTime() > now;
+    const expiry = conn[k];
+    return typeof expiry === "string" && new Date(expiry).getTime() > now;
   });
 
-  const clearObj: Record<string, any> = Object.fromEntries(keysToClear.map((k: string) => [k, null]));
+  const clearObj: Record<string, unknown> = Object.fromEntries(keysToClear.map((key) => [key, null]));
 
   if (remainingActiveLocks.length === 0) {
     Object.assign(clearObj, {

@@ -5,7 +5,7 @@ import { autoDetectFilter } from "./autodetect";
 import { safeApply } from "./applyFilter";
 
 // Compress tool_result content in-place. Returns stats or null if disabled/failed.
-export function compressMessages(body, enabled) {
+export function compressMessages(body: Record<string, unknown> | null | undefined, enabled: boolean) {
   if (!enabled) return null;
   if (!body) return null;
 
@@ -20,10 +20,10 @@ export function compressMessages(body, enabled) {
     : null;
   if (!items) return null;
 
-  const stats = { bytesBefore: 0, bytesAfter: 0, hits: [] };
+  const stats: RtkStats = { bytesBefore: 0, bytesAfter: 0, hits: [] };
   try {
     for (let i = 0; i < items.length; i++) {
-      const msg = items[i];
+      const msg = items[i] as Record<string, unknown>;
       if (!msg) continue;
 
       // Shape 4: OpenAI Responses — top-level { type:"function_call_output", output: string | [{type:"input_text", text}] }
@@ -80,44 +80,50 @@ export function compressMessages(body, enabled) {
         }
       }
     }
-  } catch (e) {
-    console.warn("[RTK] compressMessages error:", e.message);
+  } catch (e: unknown) {
+    console.warn("[RTK] compressMessages error:", e instanceof Error ? e.message : e);
     return null;
   }
   return stats;
 }
 
 // Compress Kiro format: conversationState.history[].userInputMessage.userInputMessageContext.toolResults[].content[].text
-function compressKiroFormat(body, enabled) {
-  const stats = { bytesBefore: 0, bytesAfter: 0, hits: [] };
+function compressKiroFormat(body: Record<string, unknown>, enabled: boolean) {
+  const stats: RtkStats = { bytesBefore: 0, bytesAfter: 0, hits: [] };
   try {
-    const state = body.conversationState;
-    const allMessages = [...(Array.isArray(state?.history) ? state.history : [])];
-    if (state?.currentMessage) allMessages.push(state.currentMessage);
+    const state = body.conversationState as Record<string, unknown> | undefined;
+    const allMessages = [...(Array.isArray(state?.history) ? state.history : [])] as Record<string, unknown>[];
+    if (state?.currentMessage) allMessages.push(state.currentMessage as Record<string, unknown>);
 
     for (const msg of allMessages) {
-      const toolResults = msg?.userInputMessage?.userInputMessageContext?.toolResults;
+      const toolResults = (msg?.userInputMessage as Record<string, unknown>)?.userInputMessageContext as Record<string, unknown> | undefined;
       if (!Array.isArray(toolResults)) continue;
 
       for (const tr of toolResults) {
-        if (tr.status === "error") continue; // preserve error traces
-        if (!Array.isArray(tr.content)) continue;
+        if ((tr as Record<string, unknown>).status === "error") continue; // preserve error traces
+        if (!Array.isArray((tr as Record<string, unknown>).content)) continue;
 
-        for (const part of tr.content) {
+        for (const part of (tr as Record<string, unknown>).content as Record<string, unknown>[]) {
           if (part && typeof part.text === "string") {
             part.text = compressText(part.text, stats, "kiro-tool-result");
           }
         }
       }
     }
-  } catch (e) {
-    console.warn("[RTK] compressKiroFormat error:", e.message);
+  } catch (e: unknown) {
+    console.warn("[RTK] compressKiroFormat error:", e instanceof Error ? e.message : e);
     return null;
   }
   return stats;
 }
 
-function compressText(text, stats, shape) {
+interface RtkStats {
+  bytesBefore: number;
+  bytesAfter: number;
+  hits: Array<{ shape: string; filter: string; saved: number }>;
+}
+
+function compressText(text: string, stats: RtkStats, shape: string) {
   const bytesIn = text.length;
   stats.bytesBefore += bytesIn;
 
@@ -146,7 +152,7 @@ function compressText(text, stats, shape) {
 }
 
 // Convenience: format a log line from stats
-export function formatRtkLog(stats) {
+export function formatRtkLog(stats: RtkStats | null | undefined) {
   if (!stats || !stats.hits || stats.hits.length === 0) return null;
   const saved = stats.bytesBefore - stats.bytesAfter;
   const pct = stats.bytesBefore > 0 ? ((saved / stats.bytesBefore) * 100).toFixed(1) : "0";

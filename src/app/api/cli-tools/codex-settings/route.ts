@@ -13,27 +13,27 @@ const getCodexConfigPath = () => path.join(getCodexDir(), "config.toml");
 const getCodexAuthPath = () => path.join(getCodexDir(), "auth.json");
 
 // Flatten confbox-parsed TOML into a writable object, preserving nested tables
-const parsedToWritable = (obj) => obj ?? {};
+const parsedToWritable = (obj: unknown): Record<string, unknown> => (obj as Record<string, unknown>) ?? {};
 
 // Set a nested key from a flat dotted path, creating intermediate objects as needed
-const setNestedSection = (obj, dottedKey, value) => {
+const setNestedSection = (obj: Record<string, unknown>, dottedKey: string, value: unknown) => {
   const keys = dottedKey.split(".");
-  let cur = obj;
+  let cur: Record<string, unknown> = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     if (cur[keys[i]] == null || typeof cur[keys[i]] !== "object") {
       cur[keys[i]] = {};
     }
-    cur = cur[keys[i]];
+    cur = cur[keys[i]] as Record<string, unknown>;
   }
   cur[keys[keys.length - 1]] = value;
 };
 
 // Delete a nested key from a flat dotted path
-const deleteNestedSection = (obj, dottedKey) => {
+const deleteNestedSection = (obj: Record<string, unknown>, dottedKey: string) => {
   const keys = dottedKey.split(".");
-  let cur = obj;
+  let cur: Record<string, unknown> | undefined = obj;
   for (let i = 0; i < keys.length - 1; i++) {
-    cur = cur?.[keys[i]];
+    cur = cur?.[keys[i]] as Record<string, unknown> | undefined;
     if (cur == null) return;
   }
   delete cur[keys[keys.length - 1]];
@@ -65,14 +65,14 @@ const readConfig = async () => {
     const configPath = getCodexConfigPath();
     const content = await fs.readFile(configPath, "utf-8");
     return content;
-  } catch (error) {
-    if (error.code === "ENOENT") return null;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
 };
 
 // Check if config has 9Router settings
-const has9RouterConfig = (config) => {
+const has9RouterConfig = (config: string | null) => {
   if (!config) return false;
   return config.includes("model_provider = \"9router\"") || config.includes("[model_providers.9router]");
 };
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     await fs.mkdir(codexDir, { recursive: true });
 
     // Read and parse existing config
-    let parsed = {};
+    let parsed: Record<string, unknown> = {};
     try {
       const existingConfig = await fs.readFile(configPath, "utf-8");
       parsed = parsedToWritable(parseTOML(existingConfig));
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
 
     // Update auth.json with OPENAI_API_KEY (Codex reads this first)
     const authPath = getCodexAuthPath();
-    let authData = {};
+    let authData: Record<string, unknown> = {};
     try {
       const existingAuth = await fs.readFile(authPath, "utf-8");
       authData = JSON.parse(existingAuth);
@@ -179,12 +179,12 @@ export async function DELETE() {
     const configPath = getCodexConfigPath();
 
     // Read and parse existing config
-    let parsed = {};
+    let parsed: Record<string, unknown> = {};
     try {
       const existingConfig = await fs.readFile(configPath, "utf-8");
       parsed = parsedToWritable(parseTOML(existingConfig));
-    } catch (error) {
-      if (error.code === "ENOENT") {
+    } catch (error: unknown) {
+      if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
         return NextResponse.json({
           success: true,
           message: "No config file to reset",

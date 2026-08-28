@@ -60,14 +60,14 @@ const executors = {
 
 const defaultCache = new Map();
 
-export function getExecutor(provider) {
-  if (executors[provider]) return executors[provider];
+export function getExecutor(provider: string) {
+  if ((executors as Record<string, unknown>)[provider]) return (executors as Record<string, unknown>)[provider];
   if (!defaultCache.has(provider)) defaultCache.set(provider, new DefaultExecutor(provider));
   return defaultCache.get(provider);
 }
 
-export function hasSpecializedExecutor(provider) {
-  return !!executors[provider];
+export function hasSpecializedExecutor(provider: string) {
+  return !!(executors as Record<string, unknown>)[provider];
 }
 
 export { BaseExecutor } from "./base";

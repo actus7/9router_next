@@ -57,7 +57,7 @@ export default function ApiKeySelect({ value, onChange, apiKeys = [], cloudEnabl
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <Select value={mode} onValueChange={handleSelect}>
+      <Select value={mode} onValueChange={(v) => handleSelect(v ?? "")}>
         <SelectTrigger className="w-full">
           <SelectValue />
         </SelectTrigger>

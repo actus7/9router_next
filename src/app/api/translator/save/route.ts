@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
     fs.writeFileSync(filePath, content, "utf-8");
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error saving file:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
   }
 }

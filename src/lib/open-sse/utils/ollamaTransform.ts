@@ -1,7 +1,7 @@
 // Transform OpenAI SSE stream to Ollama JSON lines format
-export function transformToOllama(response, model) {
+export function transformToOllama(response: Response, model: string) {
   let buffer = "";
-  let pendingToolCalls = {};
+  let pendingToolCalls: Record<string, { id: string; function: { name: string; arguments: string } }> = {};
   
   const transform = new TransformStream({
     transform(chunk, controller) {
@@ -27,7 +27,7 @@ export function transformToOllama(response, model) {
           const toolCalls = delta.tool_calls;
 
           if (toolCalls) {
-            for (const tc of toolCalls) {
+            for (const tc of toolCalls as Array<{ index: number; id: string; function?: { name?: string; arguments?: string } }>) {
               const idx = tc.index;
               if (!pendingToolCalls[idx]) {
                 pendingToolCalls[idx] = { id: tc.id, function: { name: "", arguments: "" } };

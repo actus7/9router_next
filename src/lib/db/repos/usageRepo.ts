@@ -231,7 +231,7 @@ async function calculateCost(provider: string, model: string, tokens: Record<str
     if (!pricing) return 0;
 
     const { calculateCostFromTokens } = await import("@/lib/open-sse/providers/pricing");
-    return calculateCostFromTokens(tokens, pricing);
+    return calculateCostFromTokens(tokens as Record<string, number | undefined>, pricing as Record<string, number | undefined>);
   } catch (e: unknown) {
     console.error("Error calculating cost:", e);
     return 0;
@@ -362,7 +362,7 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
     let inserted: boolean = false;
 
     db.transaction(() => {
-      const existing: { id: number; endpoint: string | null } | undefined = db.get(
+      const existing = db.get(
         `SELECT id, endpoint FROM usageHistory
          WHERE timestamp = ?
            AND COALESCE(provider, '') = COALESCE(?, '')
@@ -377,7 +377,7 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
           entry.connectionId || null, entry.apiKey || null,
           promptTokens, completionTokens,
         ]
-      );
+      ) as { id: number; endpoint: string | null } | undefined;
 
       if (existing) {
         if (!existing.endpoint && entry.endpoint) {
@@ -397,15 +397,15 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
       );
 
       const dateKey: string = getLocalDateKey(entry.timestamp);
-      const row: { data: string } | undefined = db.get(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]);
+      const row = db.get(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]) as { data: string } | undefined;
       const day: DayData = row ? (parseJson(row.data, {}) as DayData) : {
-        requests: 0, promptTokens: 0, completionTokens: 0, cost: 0,
+        requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0,
         byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
       };
       aggregateEntryToDay(day, entry);
       db.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON CONFLICT(dateKey) DO UPDATE SET data = excluded.data`, [dateKey, stringifyJson(day)]);
 
-      const cur: { value: string } | undefined = db.get(`SELECT value FROM _meta WHERE key = 'totalRequestsLifetime'`);
+      const cur = db.get(`SELECT value FROM _meta WHERE key = 'totalRequestsLifetime'`) as { value: string } | undefined;
       const next: number = (cur ? parseInt(cur.value, 10) : 0) + 1;
       db.run(`INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [String(next)]);
       inserted = true;
@@ -459,14 +459,20 @@ export async function getUsageHistory(filter: UsageHistoryFilter = {}): Promise<
   }));
 }
 
-function loadDaysInRange(adapter: any, maxDays: number | null): Array<{ dateKey: string; data: string }> {
+interface DbLike {
+  run(sql: string, params?: unknown[]): void;
+  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
+  all(sql: string, params?: unknown[]): Array<Record<string, unknown>>;
+}
+
+function loadDaysInRange(adapter: DbLike, maxDays: number | null): Array<{ dateKey: string; data: string }> {
   if (maxDays == null) {
-    return adapter.all(`SELECT dateKey, data FROM usageDaily`);
+    return adapter.all(`SELECT dateKey, data FROM usageDaily`) as unknown as Array<{ dateKey: string; data: string }>;
   }
   const today: Date = new Date();
   const cutoff: Date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - maxDays + 1);
   const cutoffKey: string = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
-  return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
+  return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]) as unknown as Array<{ dateKey: string; data: string }>;
 }
 
 interface UsageStats {
@@ -525,7 +531,7 @@ export async function getUsageStats(period: string = "all"): Promise<UsageStats>
         status: (r.status as string) || "ok",
       };
     })
-    .filter((e: any) => {
+    .filter((e: RecentRequest) => {
       if (e.promptTokens === 0 && e.completionTokens === 0) return false;
       const minute: string = e.timestamp ? e.timestamp.slice(0, 16) : "";
       const key: string = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}`;
@@ -909,8 +915,8 @@ export async function getRecentLogs(limit: number = 200): Promise<string[]> {
       const received: number | string = (r.completionTokens as number) ?? (tk.completion_tokens as number) ?? "-";
       return `${ts} | ${m} | ${p} | ${account} | ${sent} | ${received} | ${r.status || "-"}`;
     });
-  } catch (e: any) {
-    console.error("[usageRepo] getRecentLogs failed:", e.message);
+  } catch (e: unknown) {
+    console.error("[usageRepo] getRecentLogs failed:", (e as Error).message);
     return [];
   }
 }

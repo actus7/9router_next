@@ -22,10 +22,11 @@ import { ROLE, GEMINI_ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index";
 // Sanitize function names for Gemini API.
 // Gemini requires: starts with [a-zA-Z_], followed by [a-zA-Z0-9_.:\-], max 64 chars.
 // Replace any invalid character with '_' and truncate to 64.
-function sanitizeGeminiFunctionName(name) {
+function sanitizeGeminiFunctionName(name: unknown): string {
   if (!name) return "_unknown";
+  const nameStr = String(name);
   // Replace any char not in [a-zA-Z0-9_.:\-] with '_'
-  let sanitized = name.replace(/[^a-zA-Z0-9_.:\-]/g, "_");
+  let sanitized = nameStr.replace(/[^a-zA-Z0-9_.:\-]/g, "_");
   // First char must be letter or underscore
   if (!/^[a-zA-Z_]/.test(sanitized)) {
     sanitized = "_" + sanitized;
@@ -34,48 +35,50 @@ function sanitizeGeminiFunctionName(name) {
   return sanitized.substring(0, 64);
 }
 
-function normalizeGeminiContents(contents) {
-  const out = [];
+function normalizeGeminiContents(contents: Record<string, unknown>[]): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
   for (const c of contents || []) {
     if (!c?.role || !Array.isArray(c.parts) || c.parts.length === 0) continue;
     const last = out.at(-1);
-    if (last?.role === c.role) last.parts.push(...c.parts);
-    else out.push({ ...c, parts: [...c.parts] });
+    if (last?.role === c.role) (last.parts as unknown[]).push(...(c.parts as unknown[]));
+    else out.push({ ...c, parts: [...(c.parts as unknown[])] });
   }
   return out;
 }
 
 // Core: Convert OpenAI request to Gemini format (base for all variants)
-function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG_SIGNATURE) {
-  const result = {
+function openaiToGeminiBase(model: string, body: Record<string, unknown>, stream: boolean, signature: string = DEFAULT_THINKING_AG_SIGNATURE): Record<string, unknown> {
+  const result: Record<string, unknown> = {
     model: model,
-    contents: [],
-    generationConfig: {},
+    contents: [] as Record<string, unknown>[],
+    generationConfig: {} as Record<string, unknown>,
     safetySettings: DEFAULT_SAFETY_SETTINGS
   };
 
+  const generationConfig = result.generationConfig as Record<string, unknown>;
+
   // Generation config
   if (body.temperature !== undefined) {
-    result.generationConfig.temperature = body.temperature;
+    generationConfig.temperature = body.temperature;
   }
   if (body.top_p !== undefined) {
-    result.generationConfig.topP = body.top_p;
+    generationConfig.topP = body.top_p;
   }
   if (body.top_k !== undefined) {
-    result.generationConfig.topK = body.top_k;
+    generationConfig.topK = body.top_k;
   }
   if (body.max_tokens !== undefined) {
-    result.generationConfig.maxOutputTokens = body.max_tokens;
+    generationConfig.maxOutputTokens = body.max_tokens;
   }
 
   // Build tool_call_id -> name map
-  const tcID2Name = {};
+  const tcID2Name: Record<string, string> = {};
   if (body.messages && Array.isArray(body.messages)) {
-    for (const msg of body.messages) {
+    for (const msg of body.messages as Record<string, unknown>[]) {
       if (msg.role === ROLE.ASSISTANT && msg.tool_calls) {
-        for (const tc of msg.tool_calls) {
-          if (tc.type === OPENAI_BLOCK.FUNCTION && tc.id && tc.function?.name) {
-            tcID2Name[tc.id] = tc.function.name;
+        for (const tc of msg.tool_calls as Record<string, unknown>[]) {
+          if (tc.type === OPENAI_BLOCK.FUNCTION && tc.id && (tc.function as Record<string, unknown>)?.name) {
+            tcID2Name[tc.id as string] = (tc.function as Record<string, unknown>).name as string;
           }
         }
       }
@@ -83,21 +86,23 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
   }
 
   // Build tool responses cache
-  const toolResponses = {};
+  const toolResponses: Record<string, unknown> = {};
   if (body.messages && Array.isArray(body.messages)) {
-    for (const msg of body.messages) {
+    for (const msg of body.messages as Record<string, unknown>[]) {
       if (msg.role === ROLE.TOOL && msg.tool_call_id) {
-        toolResponses[msg.tool_call_id] = msg.content;
+        toolResponses[msg.tool_call_id as string] = msg.content;
       }
     }
   }
 
+  const contents = result.contents as Record<string, unknown>[];
+
   // Convert messages
   if (body.messages && Array.isArray(body.messages)) {
     for (let i = 0; i < body.messages.length; i++) {
-      const msg = body.messages[i];
-      const role = msg.role;
-      const content = msg.content;
+      const msg = (body.messages as Record<string, unknown>[])[i];
+      const role = msg.role as string;
+      const content = msg.content as string | Record<string, unknown>[];
 
       if (role === ROLE.SYSTEM && body.messages.length > 1) {
         result.systemInstruction = {
@@ -107,10 +112,10 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
       } else if (role === ROLE.USER || (role === ROLE.SYSTEM && body.messages.length === 1)) {
         const parts = convertOpenAIContentToParts(content);
         if (parts.length > 0) {
-          result.contents.push({ role: GEMINI_ROLE.USER, parts });
+          contents.push({ role: GEMINI_ROLE.USER, parts });
         }
       } else if (role === ROLE.ASSISTANT) {
-        const parts = [];
+        const parts: Record<string, unknown>[] = [];
 
         // Thinking/reasoning → thought part with signature
         if (msg.reasoning_content) {
@@ -132,31 +137,31 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
         }
 
         if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
-          const toolCallIds = [];
-          for (const tc of msg.tool_calls) {
+          const toolCallIds: string[] = [];
+          for (const tc of msg.tool_calls as Record<string, unknown>[]) {
             if (tc.type !== OPENAI_BLOCK.FUNCTION) continue;
 
-            const args = tryParseJSON(tc.function?.arguments || "{}");
+            const args = tryParseJSON(((tc.function as Record<string, unknown>)?.arguments as string) || "{}");
             parts.push({
               thoughtSignature: signature,
               functionCall: {
                 id: tc.id,
-                name: sanitizeGeminiFunctionName(tc.function.name),
+                name: sanitizeGeminiFunctionName((tc.function as Record<string, unknown>).name),
                 args: args
               }
             });
-            toolCallIds.push(tc.id);
+            toolCallIds.push(tc.id as string);
           }
 
           if (parts.length > 0) {
-            result.contents.push({ role: GEMINI_ROLE.MODEL, parts });
+            contents.push({ role: GEMINI_ROLE.MODEL, parts });
           }
 
           // Check if there are actual tool responses in the next messages
           const hasActualResponses = toolCallIds.some(fid => toolResponses[fid]);
 
           if (hasActualResponses) {
-            const toolParts = [];
+            const toolParts: Record<string, unknown>[] = [];
             for (const fid of toolCallIds) {
               if (!toolResponses[fid]) continue;
 
@@ -170,7 +175,7 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
                 }
               }
 
-              let resp = toolResponses[fid];
+              const resp = toolResponses[fid] as string;
               let parsedResp = tryParseJSON(resp);
               if (parsedResp === null) {
                 parsedResp = { result: resp };
@@ -187,11 +192,11 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
               });
             }
             if (toolParts.length > 0) {
-              result.contents.push({ role: GEMINI_ROLE.USER, parts: toolParts });
+              contents.push({ role: GEMINI_ROLE.USER, parts: toolParts });
             }
           }
         } else if (parts.length > 0) {
-          result.contents.push({ role: GEMINI_ROLE.MODEL, parts });
+          contents.push({ role: GEMINI_ROLE.MODEL, parts });
         }
       }
     }
@@ -199,11 +204,11 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
 
   // Convert tools
   if (body.tools && Array.isArray(body.tools) && body.tools.length > 0) {
-    const functionDeclarations = [];
-    for (const t of body.tools) {
+    const functionDeclarations: Record<string, unknown>[] = [];
+    for (const t of body.tools as Record<string, unknown>[]) {
       // Check if already in Anthropic/Claude format (no type field, direct name/description/input_schema)
       if (t.name && t.input_schema) {
-        const cleanedSchema = cleanJSONSchemaForAntigravity(structuredClone(t.input_schema || { type: "object", properties: {} }));
+        const cleanedSchema = cleanJSONSchemaForAntigravity(structuredClone((t.input_schema as Record<string, unknown>) || { type: "object", properties: {} }));
         functionDeclarations.push({
           name: sanitizeGeminiFunctionName(t.name),
           description: t.description || "",
@@ -212,8 +217,8 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
       }
       // OpenAI format
       else if (t.type === OPENAI_BLOCK.FUNCTION && t.function) {
-        const fn = t.function;
-        const cleanedSchema = cleanJSONSchemaForAntigravity(structuredClone(fn.parameters || { type: "object", properties: {} }));
+        const fn = t.function as Record<string, unknown>;
+        const cleanedSchema = cleanJSONSchemaForAntigravity(structuredClone((fn.parameters as Record<string, unknown>) || { type: "object", properties: {} }));
         functionDeclarations.push({
           name: sanitizeGeminiFunctionName(fn.name),
           description: fn.description || "",
@@ -227,32 +232,26 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
     }
   }
 
-  result.contents = normalizeGeminiContents(result.contents);
+  result.contents = normalizeGeminiContents(contents);
   return result;
 }
 
 // OpenAI -> Gemini (standard API)
-export function openaiToGeminiRequest(model, body, stream) {
+export function openaiToGeminiRequest(model: string, body: Record<string, unknown>, stream: boolean): Record<string, unknown> {
   return openaiToGeminiBase(model, body, stream);
 }
 
 // OpenAI -> Gemini CLI (Cloud Code Assist)
-export function openaiToGeminiCLIRequest(model, body, stream) {
+export function openaiToGeminiCLIRequest(model: string, body: Record<string, unknown>, stream: boolean): Record<string, unknown> {
   const gemini = openaiToGeminiBase(model, body, stream, DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
   // Thinking is normalized centrally by applyThinking (thinkingUnified.js) after translation.
 
   // Clean schema for tools
-  if (gemini.tools?.[0]?.functionDeclarations) {
-    for (const fn of gemini.tools[0].functionDeclarations) {
+  if ((gemini.tools as Record<string, unknown>[])?.[0]?.functionDeclarations) {
+    for (const fn of (gemini.tools as Record<string, unknown>[])[0].functionDeclarations as Record<string, unknown>[]) {
       if (fn.parameters) {
-        const cleanedSchema = cleanJSONSchemaForAntigravity(fn.parameters);
+        const cleanedSchema = cleanJSONSchemaForAntigravity(fn.parameters as Record<string, unknown>);
         fn.parameters = cleanedSchema;
-        // if (isClaude) {
-        //   fn.parameters = cleanedSchema;
-        // } else {
-        //   fn.parametersJsonSchema = cleanedSchema;
-        //   delete fn.parameters;
-        // }
       }
     }
   }
@@ -261,21 +260,21 @@ export function openaiToGeminiCLIRequest(model, body, stream) {
 }
 
 // Wrap Gemini CLI format in Cloud Code wrapper
-function wrapInCloudCodeEnvelope(model, geminiCLI, credentials = null, isAntigravity = false) {
-  const projectId = credentials?.projectId || generateProjectId();
+function wrapInCloudCodeEnvelope(model: string, geminiCLI: Record<string, unknown>, credentials: Record<string, unknown> | null = null, isAntigravity = false): Record<string, unknown> {
+  const projectId = (credentials?.projectId as string) || generateProjectId();
 
-  const envelope = {
+  const envelope: Record<string, unknown> = {
     project: projectId,
     model: model,
     userAgent: isAntigravity ? "antigravity" : "gemini-cli",
     requestId: isAntigravity ? `agent-${generateUUID()}` : generateRequestId(),
     request: {
-      sessionId: toNumericSessionId(credentials?._clientSessionId) || (isAntigravity ? deriveSessionId(credentials?.email || credentials?.connectionId) : generateSessionId()),
+      sessionId: toNumericSessionId(credentials?._clientSessionId as string) || (isAntigravity ? deriveSessionId((credentials?.email as string) || (credentials?.connectionId as string)) : generateSessionId()),
       contents: geminiCLI.contents,
       systemInstruction: geminiCLI.systemInstruction,
       generationConfig: geminiCLI.generationConfig,
       tools: geminiCLI.tools,
-    }
+    } as Record<string, unknown>
   };
 
   // Antigravity specific fields
@@ -283,11 +282,11 @@ function wrapInCloudCodeEnvelope(model, geminiCLI, credentials = null, isAntigra
     envelope.requestType = "agent";
   } else {
     // Keep safetySettings for Gemini CLI
-    envelope.request.safetySettings = geminiCLI.safetySettings;
+    (envelope.request as Record<string, unknown>).safetySettings = geminiCLI.safetySettings;
   }
 
-  if (geminiCLI.tools?.length > 0) {
-    envelope.request.toolConfig = {
+  if ((geminiCLI.tools as unknown[])?.length > 0) {
+    (envelope.request as Record<string, unknown>).toolConfig = {
       functionCallingConfig: { mode: "VALIDATED" }
     };
   }
@@ -296,33 +295,36 @@ function wrapInCloudCodeEnvelope(model, geminiCLI, credentials = null, isAntigra
 }
 
 // Wrap Claude format in Cloud Code envelope for Antigravity
-function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = null, signature = DEFAULT_THINKING_AG_SIGNATURE) {
-  const projectId = credentials?.projectId || generateProjectId();
+function wrapInCloudCodeEnvelopeForClaude(model: string, claudeRequest: Record<string, unknown>, credentials: Record<string, unknown> | null = null, signature: string = DEFAULT_THINKING_AG_SIGNATURE): Record<string, unknown> {
+  const projectId = (credentials?.projectId as string) || generateProjectId();
 
-  const envelope = {
+  const envelope: Record<string, unknown> = {
     project: projectId,
     model: model,
     userAgent: "antigravity",
     requestId: `agent-${generateUUID()}`,
     requestType: "agent",
     request: {
-      sessionId: toNumericSessionId(credentials?._clientSessionId) || deriveSessionId(credentials?.email || credentials?.connectionId),
-      contents: [],
+      sessionId: toNumericSessionId(credentials?._clientSessionId as string) || deriveSessionId((credentials?.email as string) || (credentials?.connectionId as string)),
+      contents: [] as Record<string, unknown>[],
       generationConfig: {
-        temperature: claudeRequest.temperature || 1,
-        maxOutputTokens: claudeRequest.max_tokens || 4096
+        temperature: (claudeRequest.temperature as number) || 1,
+        maxOutputTokens: (claudeRequest.max_tokens as number) || 4096
       }
-    }
+    } as Record<string, unknown>
   };
 
+  const request = envelope.request as Record<string, unknown>;
+  const contents = request.contents as Record<string, unknown>[];
+
   // Build tool_use id -> name map so functionResponse can use the correct name
-  const toolUseIdToName = {};
+  const toolUseIdToName: Record<string, string> = {};
   if (claudeRequest.messages && Array.isArray(claudeRequest.messages)) {
-    for (const msg of claudeRequest.messages) {
+    for (const msg of claudeRequest.messages as Record<string, unknown>[]) {
       if (Array.isArray(msg.content)) {
-        for (const block of msg.content) {
+        for (const block of msg.content as Record<string, unknown>[]) {
           if (block.type === CLAUDE_BLOCK.TOOL_USE && block.id && block.name) {
-            toolUseIdToName[block.id] = block.name;
+            toolUseIdToName[block.id as string] = block.name as string;
           }
         }
       }
@@ -331,11 +333,11 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
 
   // Convert Claude messages to Gemini contents
   if (claudeRequest.messages && Array.isArray(claudeRequest.messages)) {
-    for (const msg of claudeRequest.messages) {
-      const parts = [];
+    for (const msg of claudeRequest.messages as Record<string, unknown>[]) {
+      const parts: Record<string, unknown>[] = [];
 
       if (Array.isArray(msg.content)) {
-        for (const block of msg.content) {
+        for (const block of msg.content as Record<string, unknown>[]) {
           if (block.type === CLAUDE_BLOCK.TEXT) {
             parts.push({ text: block.text });
           } else if (block.type === CLAUDE_BLOCK.TOOL_USE) {
@@ -350,17 +352,17 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
           } else if (block.type === CLAUDE_BLOCK.TOOL_RESULT) {
             let content = block.content;
             if (Array.isArray(content)) {
-              content = content.map(c => c.type === CLAUDE_BLOCK.TEXT ? c.text : JSON.stringify(c)).join("\n");
+              content = (content as Record<string, unknown>[]).map(c => c.type === CLAUDE_BLOCK.TEXT ? c.text : JSON.stringify(c)).join("\n");
             }
             // Resolve the original tool name from the id — Gemini requires it to match the functionCall name
-            const resolvedName = toolUseIdToName[block.tool_use_id]
-              ? sanitizeGeminiFunctionName(toolUseIdToName[block.tool_use_id])
+            const resolvedName = toolUseIdToName[block.tool_use_id as string]
+              ? sanitizeGeminiFunctionName(toolUseIdToName[block.tool_use_id as string])
               : "tool";
             parts.push({
               functionResponse: {
                 id: block.tool_use_id,
                 name: resolvedName,
-                response: { result: tryParseJSON(content) || content }
+                response: { result: tryParseJSON(content as string) || content }
               }
             });
           }
@@ -370,7 +372,7 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
       }
 
       if (parts.length > 0) {
-        envelope.request.contents.push({
+        contents.push({
           role: msg.role === ROLE.ASSISTANT ? GEMINI_ROLE.MODEL : GEMINI_ROLE.USER,
           parts
         });
@@ -380,10 +382,10 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
 
   // Convert Claude tools to Gemini functionDeclarations
   if (claudeRequest.tools && Array.isArray(claudeRequest.tools)) {
-    const functionDeclarations = [];
-    for (const tool of claudeRequest.tools) {
+    const functionDeclarations: Record<string, unknown>[] = [];
+    for (const tool of claudeRequest.tools as Record<string, unknown>[]) {
       if (tool.name && tool.input_schema) {
-        const cleanedSchema = cleanJSONSchemaForAntigravity(tool.input_schema);
+        const cleanedSchema = cleanJSONSchemaForAntigravity(tool.input_schema as Record<string, unknown>);
         functionDeclarations.push({
           name: sanitizeGeminiFunctionName(tool.name),
           description: tool.description || "",
@@ -392,18 +394,18 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
       }
     }
     if (functionDeclarations.length > 0) {
-      envelope.request.tools = [{ functionDeclarations }];
-      envelope.request.toolConfig = {
+      request.tools = [{ functionDeclarations }];
+      request.toolConfig = {
         functionCallingConfig: { mode: "VALIDATED" }
       };
     }
   }
 
-  const systemParts = [];
+  const systemParts: Record<string, unknown>[] = [];
   // Merge user system prompt from claudeRequest
   if (claudeRequest.system) {
     if (Array.isArray(claudeRequest.system)) {
-      for (const block of claudeRequest.system) {
+      for (const block of claudeRequest.system as Record<string, unknown>[]) {
         if (block.text) systemParts.push({ text: block.text });
       }
     } else if (typeof claudeRequest.system === "string") {
@@ -412,23 +414,23 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
   }
 
   if (systemParts.length > 0) {
-    envelope.request.systemInstruction = { role: GEMINI_ROLE.USER, parts: systemParts };
+    request.systemInstruction = { role: GEMINI_ROLE.USER, parts: systemParts };
   }
 
-  envelope.request.contents = normalizeGeminiContents(envelope.request.contents);
+  request.contents = normalizeGeminiContents(contents);
   return envelope;
 }
 
 // Detect if model should use Claude backend in Antigravity
 // Claude models have specific ID patterns — more reliable than caps at routing level
-function isClaudeModel(model) {
+function isClaudeModel(model: string): boolean {
   return model.toLowerCase().includes("claude");
 }
 
 // OpenAI -> Antigravity (Sandbox Cloud Code with wrapper)
-export function openaiToAntigravityRequest(model, body, stream, credentials = null) {
+export function openaiToAntigravityRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown> | null = null): Record<string, unknown> {
   if (isClaudeModel(model)) {
-    const claudeRequest = openaiToClaudeRequestForAntigravity(model, body, stream);
+    const claudeRequest = openaiToClaudeRequestForAntigravity(model, body, stream) as Record<string, unknown>;
     return wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials);
   }
 
@@ -437,6 +439,6 @@ export function openaiToAntigravityRequest(model, body, stream, credentials = nu
 }
 
 // Register
-register(FORMATS.OPENAI, FORMATS.GEMINI, openaiToGeminiRequest, null);
-register(FORMATS.OPENAI, FORMATS.GEMINI_CLI, (model, body, stream, credentials) => wrapInCloudCodeEnvelope(model, openaiToGeminiCLIRequest(model, body, stream), credentials), null);
-register(FORMATS.OPENAI, FORMATS.ANTIGRAVITY, openaiToAntigravityRequest, null);
+register(FORMATS.OPENAI, FORMATS.GEMINI, openaiToGeminiRequest as unknown as Parameters<typeof register>[2], null);
+register(FORMATS.OPENAI, FORMATS.GEMINI_CLI, ((model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown> | null) => wrapInCloudCodeEnvelope(model, openaiToGeminiCLIRequest(model, body, stream), credentials)) as unknown as Parameters<typeof register>[2], null);
+register(FORMATS.OPENAI, FORMATS.ANTIGRAVITY, openaiToAntigravityRequest as unknown as Parameters<typeof register>[2], null);

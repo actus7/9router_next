@@ -67,10 +67,10 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Custom Model">
+    <Modal isOpen={isOpen} onClose={onClose} title="Adicionar Modelo Customizado">
       <div className="flex flex-col gap-4">
         <div>
-          <Label className="mb-1.5 block">Model ID</Label>
+          <Label className="mb-1.5 block">ID do Modelo</Label>
           <div className="flex gap-2">
             <Input
               type="text"
@@ -88,11 +88,11 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
               onClick={handleTest}
               disabled={!modelId.trim() || testStatus === "testing"}
             >
-              {testStatus === "testing" ? "Testing..." : "Test"}
+              {testStatus === "testing" ? "Testando..." : "Testar"}
             </Button>
           </div>
           <p className="text-xs text-text-muted mt-1">
-            Sent to provider as: <code className="font-mono bg-sidebar px-1 rounded">{stripAlias(modelId.trim()) || "model-id"}</code>
+            Enviado ao provedor como: <code className="font-mono bg-sidebar px-1 rounded">{stripAlias(modelId.trim()) || "model-id"}</code>
           </p>
         </div>
 
@@ -100,25 +100,25 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
         {testStatus === "ok" && (
           <div className="flex items-center gap-2 text-sm text-green-600">
             <CheckCircle2 className="size-4" />
-            Model is reachable
+            Modelo está acessível
           </div>
         )}
         {testStatus === "error" && (
           <div className="flex items-start gap-2 text-sm text-red-500">
             <XCircle className="size-4" />
-            <span>{testError || "Model not reachable"}</span>
+            <span>{testError || "Modelo não acessível"}</span>
           </div>
         )}
 
         <div className="flex gap-2 pt-1">
-          <Button onClick={onClose} variant="ghost" fullWidth size="sm">Cancel</Button>
+          <Button onClick={onClose} variant="ghost" fullWidth size="sm">Cancelar</Button>
           <Button
             onClick={handleSave}
             fullWidth
             size="sm"
             disabled={!modelId.trim() || saving}
           >
-            {saving ? "Adding..." : "Add Model"}
+            {saving ? "Adicionando..." : "Adicionar Modelo"}
           </Button>
         </div>
       </div>

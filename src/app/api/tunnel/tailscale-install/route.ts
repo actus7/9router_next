@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       let closed = false;
-      const send = (event, data) => {
+      const send = (event: string, data: Record<string, unknown>) => {
         if (closed) return;
         try {
           controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
@@ -49,11 +49,11 @@ export async function POST(request: NextRequest) {
           send("progress", { message: msg });
         });
         send("done", { success: true, authUrl: result?.authUrl || null });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Tailscale install error:", error);
-        const msg = error.message?.includes("incorrect password") || error.message?.includes("Sorry")
+        const msg = error instanceof Error && (error.message?.includes("incorrect password") || error.message?.includes("Sorry"))
           ? "Wrong sudo password"
-          : error.message;
+          : error instanceof Error ? error.message : String(error);
         send("error", { error: msg });
       } finally {
         if (!closed) { try { controller.close(); } catch {} }

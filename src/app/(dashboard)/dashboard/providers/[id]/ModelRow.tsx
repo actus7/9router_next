@@ -63,7 +63,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
               </span>
             </Button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-              {isTesting ? "Testing..." : "Test"}
+              {isTesting ? "Testando..." : "Testar"}
             </span>
           </div>
         )}

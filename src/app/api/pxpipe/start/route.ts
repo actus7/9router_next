@@ -20,7 +20,7 @@ export async function POST() {
     }
     await loadPxpipe();
     return NextResponse.json(getPxpipeStatus());
-  } catch (error) {
-    return NextResponse.json({ error: error.message, code: error.code || null }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error), code: (error as Record<string, unknown>).code || null }, { status: 500 });
   }
 }

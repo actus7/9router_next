@@ -9,14 +9,31 @@ import { captureSessionId } from "../utils/sessionManager";
 import { AntigravityExecutor } from "../executors/antigravity";
 import { PROVIDERS } from "../providers/index";
 
+interface Credentials {
+  accessToken?: string;
+  apiKey?: string;
+  rawHeaders?: Record<string, unknown>;
+  _clientSessionId?: string | null;
+  [key: string]: unknown;
+}
+
+interface RequestLogger {
+  logOpenAIRequest?: (result: Record<string, unknown>) => void;
+}
+
+type RequestTranslatorFn = (model: string, body: Record<string, unknown>, stream: boolean, credentials?: unknown) => Record<string, unknown>;
+type ResponseTranslatorFn = (chunk: unknown, state: unknown) => unknown;
+
 // Registry for translators. Lazy-init guards against circular-import order:
 // translator modules call register() (side-effect) before this module's body runs.
 // var (not let): hoisted as undefined so register() can run during circular import (no TDZ).
-var requestRegistry;
-var responseRegistry;
+// eslint-disable-next-line no-var -- required: let/const cause TDZ errors during circular import side-effects
+var requestRegistry: Map<string, RequestTranslatorFn> | undefined;
+// eslint-disable-next-line no-var -- required: let/const cause TDZ errors during circular import side-effects
+var responseRegistry: Map<string, ResponseTranslatorFn> | undefined;
 
 // Register translator
-export function register(from, to, requestFn, responseFn) {
+export function register(from: string, to: string, requestFn: RequestTranslatorFn | null | undefined, responseFn: ResponseTranslatorFn | null | undefined) {
   requestRegistry ??= new Map();
   responseRegistry ??= new Map();
   const key = `${from}:${to}`;
@@ -32,24 +49,24 @@ export function register(from, to, requestFn, responseFn) {
 function ensureInitialized() {}
 
 // Strip specific content types from messages (explicit opt-in via strip[] in PROVIDER_MODELS)
-function stripContentTypes(body, stripList = []) {
+function stripContentTypes(body: Record<string, unknown>, stripList: string[] = []) {
   if (!stripList.length || !body.messages || !Array.isArray(body.messages)) return;
   const imageTypes = new Set(["image_url", "image"]);
   const audioTypes = new Set(["audio_url", "input_audio"]);
-  const shouldStrip = (type) => {
+  const shouldStrip = (type: string) => {
     if (imageTypes.has(type)) return stripList.includes("image");
     if (audioTypes.has(type)) return stripList.includes("audio");
     return false;
   };
-  for (const msg of body.messages) {
+  for (const msg of body.messages as Record<string, unknown>[]) {
     if (!Array.isArray(msg.content)) continue;
-    msg.content = msg.content.filter(part => !shouldStrip(part.type));
-    if (msg.content.length === 0) msg.content = "";
+    msg.content = (msg.content as Record<string, unknown>[]).filter((part: Record<string, unknown>) => !shouldStrip(part.type as string));
+    if ((msg.content as unknown[]).length === 0) msg.content = "";
   }
 }
 
 // Translate request: source -> openai -> target
-export function translateRequest(sourceFormat: string, targetFormat: string, model: string, body: any, stream = true, credentials: any = null, provider: string | null = null, reqLogger: any = null, stripList: any[] = [], connectionId: string | null = null, clientTool: string | null = null) {
+export function translateRequest(sourceFormat: string, targetFormat: string, model: string, body: Record<string, unknown>, stream = true, credentials: Credentials | null = null, provider: string | null = null, reqLogger: RequestLogger | null = null, stripList: string[] = [], connectionId: string | null = null, clientTool: string | null = null) {
   ensureInitialized();
   let result = body;
 
@@ -75,7 +92,7 @@ export function translateRequest(sourceFormat: string, targetFormat: string, mod
   const thinkingIntent = captureThinking(result);
 
   // Capture session id from the original body (envelope still intact, e.g. antigravity request.sessionId)
-  const clientSessionId = captureSessionId(result, credentials, connectionId, targetFormat);
+  const clientSessionId = captureSessionId(result, credentials, connectionId!, targetFormat);
   // Expose to downstream translators (gemini-cli/antigravity envelopes) that run after envelope is stripped
   if (credentials) credentials._clientSessionId = clientSessionId;
 
@@ -84,13 +101,13 @@ export function translateRequest(sourceFormat: string, targetFormat: string, mod
     // Direct route: if a translator is registered for this exact source:target
     // pair, use it instead of pivoting through OpenAI. This is lossless for
     // pairs like claude:kiro (avoids the claude->openai->kiro double-hop).
-    const directFn = requestRegistry.get(`${sourceFormat}:${targetFormat}`);
+    const directFn = requestRegistry?.get(`${sourceFormat}:${targetFormat}`);
     if (directFn) {
       result = directFn(model, result, stream, credentials);
     } else {
       // Step 1: source -> openai (if source is not openai)
       if (sourceFormat !== FORMATS.OPENAI) {
-        const toOpenAI = requestRegistry.get(`${sourceFormat}:${FORMATS.OPENAI}`);
+        const toOpenAI = requestRegistry?.get(`${sourceFormat}:${FORMATS.OPENAI}`);
         if (toOpenAI) {
           result = toOpenAI(model, result, stream, credentials);
           // Log OpenAI intermediate format
@@ -100,7 +117,7 @@ export function translateRequest(sourceFormat: string, targetFormat: string, mod
 
       // Step 2: openai -> target (if target is not openai)
       if (targetFormat !== FORMATS.OPENAI) {
-        const fromOpenAI = requestRegistry.get(`${FORMATS.OPENAI}:${targetFormat}`);
+        const fromOpenAI = requestRegistry?.get(`${FORMATS.OPENAI}:${targetFormat}`);
         if (fromOpenAI) {
           result = fromOpenAI(model, result, stream, credentials);
         }
@@ -116,14 +133,14 @@ export function translateRequest(sourceFormat: string, targetFormat: string, mod
     targetFormat === FORMATS.KIRO &&
     (sourceFormat === FORMATS.OPENAI || sourceFormat === FORMATS.CLAUDE);
   if (!kiroThinkingMappedByTranslator) {
-    applyThinking(targetFormat, model, result, provider, thinkingIntent);
+    applyThinking(targetFormat, model, result, provider, thinkingIntent ?? undefined);
   }
 
   // Always normalize to clean OpenAI format when target is OpenAI
   // This handles hybrid requests (e.g., OpenAI messages + Claude tools)
   if (targetFormat === FORMATS.OPENAI) {
     result = filterToOpenAIFormat(result, {
-      preserveCacheControl: !!PROVIDERS[provider]?.quirks?.preserveCacheControl,
+      preserveCacheControl: !!(PROVIDERS[provider as string]?.quirks as Record<string, unknown>)?.preserveCacheControl,
     });
   }
 
@@ -135,12 +152,12 @@ export function translateRequest(sourceFormat: string, targetFormat: string, mod
 
   // Claude cloaking: rename client tools with _cc suffix (anti-ban)
   // quirk: only providers flagged cloakToolsOnOAuth, and only with an OAuth token
-  if (PROVIDERS[provider]?.quirks?.cloakToolsOnOAuth) {
+  if ((PROVIDERS[provider as string]?.quirks as Record<string, unknown>)?.cloakToolsOnOAuth) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || null;
     if (apiKey?.includes("sk-ant-oat")) {
       const { body: cloakedBody, toolNameMap } = cloakClaudeTools(result);
       result = cloakedBody;
-      if (toolNameMap?.size > 0) {
+      if ((toolNameMap?.size ?? 0) > 0) {
         result._toolNameMap = toolNameMap;
       }
     }
@@ -159,7 +176,7 @@ export function translateRequest(sourceFormat: string, targetFormat: string, mod
 }
 
 // Translate response chunk: target -> openai -> source
-export function translateResponse(targetFormat, sourceFormat, chunk, state) {
+export function translateResponse(targetFormat: string, sourceFormat: string, chunk: unknown, state: unknown) {
   ensureInitialized();
   // If same format, return as-is
   if (sourceFormat === targetFormat) {
@@ -173,7 +190,7 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
   // target:source pair, use it instead of pivoting through OpenAI. Mirrors the
   // request-side direct route (e.g. kiro:claude — KiroExecutor already emits
   // OpenAI-shaped chunks, so this converts them straight to Claude SSE).
-  const directFn = responseRegistry.get(`${targetFormat}:${sourceFormat}`);
+  const directFn = responseRegistry?.get(`${targetFormat}:${sourceFormat}`);
   if (directFn) {
     const converted = directFn(chunk, state);
     return converted ? (Array.isArray(converted) ? converted : [converted]) : [];
@@ -181,7 +198,7 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
 
   // Step 1: target -> openai (if target is not openai)
   if (targetFormat !== FORMATS.OPENAI) {
-    const toOpenAI = responseRegistry.get(`${targetFormat}:${FORMATS.OPENAI}`);
+    const toOpenAI = responseRegistry?.get(`${targetFormat}:${FORMATS.OPENAI}`);
     if (toOpenAI) {
       results = [];
       const converted = toOpenAI(chunk, state);
@@ -194,7 +211,7 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
 
   // Step 2: openai -> source (if source is not openai)
   if (sourceFormat !== FORMATS.OPENAI) {
-    const fromOpenAI = responseRegistry.get(`${FORMATS.OPENAI}:${sourceFormat}`);
+    const fromOpenAI = responseRegistry?.get(`${FORMATS.OPENAI}:${sourceFormat}`);
     if (fromOpenAI) {
       const finalResults = [];
       for (const r of results) {
@@ -209,19 +226,19 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
 
   // Attach OpenAI intermediate results for logging
   if (openaiResults && sourceFormat !== FORMATS.OPENAI && targetFormat !== FORMATS.OPENAI) {
-    results._openaiIntermediate = openaiResults;
+    (results as unknown as Record<string, unknown>)._openaiIntermediate = openaiResults;
   }
 
   return results;
 }
 
 // Check if translation needed
-export function needsTranslation(sourceFormat, targetFormat) {
+export function needsTranslation(sourceFormat: string, targetFormat: string) {
   return sourceFormat !== targetFormat;
 }
 
 // Initialize state for streaming response based on format
-export function initState(sourceFormat) {
+export function initState(sourceFormat: string) {
   // Base state for all formats
   const base = {
     messageId: null,

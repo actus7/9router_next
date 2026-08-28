@@ -3,22 +3,22 @@ import { bearerAuth } from "./_base";
 import { PROVIDER_MEDIA } from "../../providers/index";
 
 // media-only providers without a registry file keep URL here; rest derive from registry media.embeddingConfig.baseUrl
-const ENDPOINTS = {
+const ENDPOINTS: Record<string, string> = {
   "jina-ai": "https://api.jina.ai/v1/embeddings",
 };
 
-const embedCfg = (id) => PROVIDER_MEDIA[id]?.embeddingConfig || {};
-const embedUrl = (id) => embedCfg(id).baseUrl || ENDPOINTS[id];
+const embedCfg = (id: string) => (PROVIDER_MEDIA[id] as Record<string, unknown>)?.embeddingConfig as Record<string, unknown> || {};
+const embedUrl = (id: string) => (embedCfg(id).baseUrl as string) || ENDPOINTS[id];
 
-export default function createOpenAIEmbeddingAdapter(providerId) {
+export default function createOpenAIEmbeddingAdapter(providerId: string) {
   const cfg = embedCfg(providerId);
   return {
     buildUrl: () => embedUrl(providerId),
-    buildHeaders: (creds) => {
-      return { "Content-Type": "application/json", ...bearerAuth(creds), ...(cfg.headers || {}) };
+    buildHeaders: (creds: Record<string, unknown>) => {
+      return { "Content-Type": "application/json", ...bearerAuth(creds), ...((cfg.headers as Record<string, string>) || {}) };
     },
-    buildBody: (model, { input, encoding_format, dimensions }) => {
-      const body = { model, input };
+    buildBody: (model: string, { input, encoding_format, dimensions }: { input: unknown; encoding_format?: string; dimensions?: unknown }) => {
+      const body: Record<string, unknown> = { model, input };
       if (encoding_format) body.encoding_format = encoding_format;
       if (dimensions != null && dimensions !== "") {
         const dim = Number(dimensions);
@@ -26,6 +26,6 @@ export default function createOpenAIEmbeddingAdapter(providerId) {
       }
       return body;
     },
-    normalize: (responseBody) => responseBody,
+    normalize: (responseBody: Record<string, unknown>) => responseBody,
   };
 }

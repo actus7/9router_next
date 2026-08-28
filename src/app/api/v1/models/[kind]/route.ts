@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { buildModelsList } from "../route";
 
 // URL slug → service kind(s). `web` covers both webSearch and webFetch.
-const KIND_SLUG_MAP = {
+const KIND_SLUG_MAP: Record<string, string[]> = {
   "image": ["image"],
   "tts": ["tts"],
   "stt": ["stt"],
@@ -46,10 +46,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching models by kind:", error);
     return Response.json(
-      { error: { message: error.message, type: "server_error" } },
+      { error: { message: error instanceof Error ? error.message : String(error), type: "server_error" } },
       { status: 500 }
     );
   }

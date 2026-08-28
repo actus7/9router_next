@@ -210,7 +210,7 @@ export async function installHeadroomExtras(extras: string[] = []): Promise<Inst
       fs.closeSync(outFd);
       if (code === 0) {
         const status: { installed: boolean; version: string | null; extras: Record<string, boolean> } = getInstalledHeadroomExtras(py);
-        resolve({ success: true, code: code!, spec, extras: requested, ...status, extrasStatus: status.extras });
+        resolve({ success: true, code: code!, spec, extras: requested, installed: status.installed, version: status.version, extrasStatus: status.extras });
       } else {
         const err: Error & { code?: string } = new Error(`pip install exited with code=${code} — see headroom/install.log`) as Error & { code?: string };
         err.code = "INSTALL_FAILED";
@@ -261,7 +261,7 @@ export async function uninstallHeadroomExtras(extras: string[] = []): Promise<Un
       fs.closeSync(outFd);
       if (code === 0) {
         const status: { installed: boolean; version: string | null; extras: Record<string, boolean> } = getInstalledHeadroomExtras(py);
-        resolve({ success: true, code: code!, removed: pkgs, extras: requested, ...status, extrasStatus: status.extras });
+        resolve({ success: true, code: code!, removed: pkgs, extras: requested, installed: status.installed, version: status.version, extrasStatus: status.extras });
       } else {
         const err: Error & { code?: string } = new Error(`pip uninstall exited with code=${code} — see headroom/install.log`) as Error & { code?: string };
         err.code = "UNINSTALL_FAILED";

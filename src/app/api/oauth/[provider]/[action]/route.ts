@@ -37,7 +37,7 @@ import {
 import { detectIdeInstalled } from "@/lib/oauth/utils/ideDetect";
 import { ZED_HOSTED_CONFIG } from "@/lib/oauth/constants/oauth";
 
-async function completeXaiManualCode(code, state) {
+async function completeXaiManualCode(code: string, state: string) {
   const session = state ? getXaiSessionStatus(state) : null;
   if (!session) {
     throw new Error("xAI OAuth session not found; restart the login flow and paste the code again");
@@ -57,17 +57,17 @@ async function completeXaiManualCode(code, state) {
       authType: "oauth",
       ...tokenData,
       expiresAt: tokenData.expiresIn
-        ? new Date(Date.now() + tokenData.expiresIn * 1000).toISOString()
+        ? new Date(Date.now() + (tokenData.expiresIn as number) * 1000).toISOString()
         : null,
       testStatus: "active",
     });
     clearXaiSession(state);
     stopXaiProxy();
     return {
-      id: connection.id,
-      provider: connection.provider,
-      email: connection.email,
-      displayName: connection.displayName,
+      id: connection!.id,
+      provider: connection!.provider,
+      email: connection!.email,
+      displayName: connection!.displayName,
     };
   } catch (err) {
     clearXaiSession(state);
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const redirectUri = searchParams.get("redirect_uri") || "http://localhost:8080/callback";
       // Collect provider-specific meta params (e.g. gitlab passes baseUrl, clientId, clientSecret)
       const reservedParams = new Set(["redirect_uri"]);
-      const meta = {};
+      const meta: Record<string, string> = {};
       searchParams.forEach((value, key) => { if (!reservedParams.has(key)) meta[key] = value; });
       // Zed: derive native_app_port from the local callback URL so the RSA keypair
       // is bound to the port the proxy is actually listening on.
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (provider === "zed") {
         // Prefer ZED_HOSTED_CONFIG.defaultNativeAppPort (58443) so the browser redirect
         // matches what Zed expects; falls back to a random port if it's busy.
-        const result = await startZedProxy(searchParams.get("native_app_port") || ZED_HOSTED_CONFIG.defaultNativeAppPort);
+        const result = await startZedProxy(Number(searchParams.get("native_app_port") || ZED_HOSTED_CONFIG.defaultNativeAppPort) as number | undefined);
         return NextResponse.json(result);
       }
       if (!["codex", "xai"].includes(provider)) {
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "Provider does not support device code flow" }, { status: 400 });
       }
 
-      const authData = await generateAuthData(provider, null);
+      const authData = await generateAuthData(provider, "" as string);
       const startUrl = searchParams.get("start_url");
       const region = searchParams.get("region");
       const authMethod = searchParams.get("auth_method");
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ];
       let deviceData;
       if (noPkceDeviceProviders.includes(provider)) {
-        deviceData = await requestDeviceCode(provider, undefined, deviceOptions);
+        deviceData = await requestDeviceCode(provider, undefined as unknown as string, deviceOptions);
       } else {
         // Qwen and other PKCE providers
         deviceData = await requestDeviceCode(provider, authData.codeChallenge, deviceOptions);
@@ -233,9 +233,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("OAuth GET error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -276,27 +276,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           return NextResponse.json({ error: "Missing token or callback URL" }, { status: 400 });
         }
         try {
-          const tokenData = await exchangeTokens(provider, token, null, null, state);
+          const tokenData = await exchangeTokens(provider, token, "" as string, "" as string, state);
           const connection = await createProviderConnection({
             provider,
             authType: provider === "windsurf" ? "api_key" : "oauth",
             ...tokenData,
             expiresAt: tokenData.expiresIn
-              ? new Date(Date.now() + tokenData.expiresIn * 1000).toISOString()
+              ? new Date(Date.now() + (tokenData.expiresIn as number) * 1000).toISOString()
               : null,
             testStatus: "active",
           });
           return NextResponse.json({
             success: true,
             connection: {
-              id: connection.id,
-              provider: connection.provider,
-              email: connection.email,
-              displayName: connection.displayName,
+              id: connection!.id,
+              provider: connection!.provider,
+              email: connection!.email,
+              displayName: connection!.displayName,
             }
           });
-        } catch (err) {
-          return NextResponse.json({ error: err.message }, { status: 500 });
+        } catch (err: unknown) {
+          return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
         }
       }
 
@@ -307,7 +307,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
         // Also decode JWT directly for ChatGPT website tokens which use
         // top-level account_id/plan_type instead of nested openai auth claims
-        let directPayload = {};
+        let directPayload: Record<string, unknown> = {};
         try {
           const b64 = code.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
           const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const planType = info.chatgptPlanType || directPayload.plan_type;
         const email = info.email || directPayload.email;
 
-        const providerSpecificData = { authMethod: "access_token" };
+        const providerSpecificData: Record<string, unknown> = { authMethod: "access_token" };
         if (accountId) providerSpecificData.chatgptAccountId = accountId;
         if (planType) providerSpecificData.chatgptPlanType = planType;
 
@@ -326,7 +326,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           provider,
           authType: "access_token",
           accessToken: code,
-          email: email || null,
+          email: (email as string) ?? undefined,
           providerSpecificData,
           testStatus: "active",
         });
@@ -334,10 +334,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({
           success: true,
           connection: {
-            id: connection.id,
-            provider: connection.provider,
-            email: connection.email,
-            displayName: connection.displayName,
+            id: connection!.id,
+            provider: connection!.provider,
+            email: connection!.email,
+            displayName: connection!.displayName,
           }
         });
       }
@@ -357,7 +357,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         authType: "oauth",
         ...tokenData,
         expiresAt: tokenData.expiresIn 
-          ? new Date(Date.now() + tokenData.expiresIn * 1000).toISOString() 
+          ? new Date(Date.now() + (tokenData.expiresIn as number) * 1000).toISOString() 
           : null,
         testStatus: "active",
       });
@@ -365,10 +365,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ 
         success: true, 
         connection: {
-          id: connection.id,
-          provider: connection.provider,
-          email: connection.email,
-          displayName: connection.displayName,
+          id: connection!.id,
+          provider: connection!.provider,
+          email: connection!.email,
+          displayName: connection!.displayName,
         }
       });
     }
@@ -385,10 +385,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       let result;
       if (noPkceProviders.includes(provider)) {
         // kimi needs extraData._kimiDeviceId for stable X-Msh-Device-Id (CLIProxyAPI parity)
-        result = await pollForToken(provider, deviceCode, null, extraData);
+        result = await pollForToken(provider, deviceCode, "" as string, extraData);
       } else if (provider === "kiro") {
         // Kiro needs extraData (clientId, clientSecret) from device code response
-        result = await pollForToken(provider, deviceCode, null, extraData);
+        result = await pollForToken(provider, deviceCode, "" as string, extraData);
       } else if (provider === "qoder") {
         // Qoder needs both the PKCE verifier (codeVerifier) and the machineId
         // captured at device-code time (extraData._qoderMachineId) so
@@ -408,12 +408,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (result.success) {
         // Save to database (legacy kimi-coding OAuth → dual-auth kimi)
         const providerId = provider === "kimi-coding" ? "kimi" : provider;
+        const tokens = result.tokens!;
         const connection = await createProviderConnection({
           provider: providerId,
           authType: "oauth",
-          ...result.tokens,
-          expiresAt: result.tokens.expiresIn 
-            ? new Date(Date.now() + result.tokens.expiresIn * 1000).toISOString() 
+          ...tokens,
+          expiresAt: tokens.expiresIn 
+            ? new Date(Date.now() + (tokens.expiresIn as number) * 1000).toISOString() 
             : null,
           testStatus: "active",
         });
@@ -421,8 +422,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return NextResponse.json({ 
           success: true, 
           connection: {
-            id: connection.id,
-            provider: connection.provider,
+            id: connection!.id,
+            provider: connection!.provider,
           }
         });
       }
@@ -448,8 +449,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("OAuth POST error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

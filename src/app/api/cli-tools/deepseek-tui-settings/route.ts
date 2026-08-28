@@ -13,9 +13,9 @@ const getDeepSeekDir = () => path.join(os.homedir(), ".deepseek");
 const getDeepSeekConfigPath = () => path.join(getDeepSeekDir(), "config.toml");
 
 // Simple TOML parser for key = "value" and [section] patterns
-const parseToml = (content) => {
-    const result = {};
-    let currentSection = result;
+const parseToml = (content: string): Record<string, unknown> => {
+    const result: Record<string, unknown> = {};
+    let currentSection: Record<string, string> = result as Record<string, string>;
 
     const lines = content.split(/\r?\n/);
     for (const line of lines) {
@@ -28,7 +28,7 @@ const parseToml = (content) => {
         if (sectionMatch) {
             const sectionName = sectionMatch[1];
             if (!result[sectionName]) result[sectionName] = {};
-            currentSection = result[sectionName];
+            currentSection = result[sectionName] as Record<string, string>;
             continue;
         }
 
@@ -50,7 +50,7 @@ const parseToml = (content) => {
 };
 
 // Build TOML config for 9Router (openai provider mode)
-const build9RouterConfig = (baseUrl, apiKey, model) => {
+const build9RouterConfig = (baseUrl: string, apiKey: string, model: string) => {
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     return `provider = "openai"
 
@@ -84,18 +84,18 @@ const checkDeepSeekInstalled = async () => {
 const readConfigToml = async () => {
     try {
         return await fs.readFile(getDeepSeekConfigPath(), "utf-8");
-    } catch (error) {
-        if (error.code === "ENOENT") return "";
+    } catch (error: unknown) {
+        if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") return "";
         throw error;
     }
 };
 
 // Detect 9Router by checking if provider is "openai" and base_url points to localhost/127.0.0.1
-const has9RouterConfig = (config) => {
+const has9RouterConfig = (config: Record<string, unknown>) => {
     if (!config) return false;
     const provider = config.provider;
     if (provider !== "openai") return false;
-    const openaiSection = config["providers.openai"];
+    const openaiSection = config["providers.openai"] as Record<string, string> | undefined;
     if (!openaiSection?.base_url) return false;
     return /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(openaiSection.base_url);
 };

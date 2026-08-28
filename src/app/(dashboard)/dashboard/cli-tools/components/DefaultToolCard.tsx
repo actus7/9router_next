@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, ModelSelectModal } from "@/shared/components";
+import { Card, ModelSelectModal, ActiveProvider } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import Button from "@/shared/components/Button";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
@@ -32,7 +32,7 @@ interface DefaultToolCardProps {
   onToggle: () => void;
   baseUrl: string;
   apiKeys: ApiKey[];
-  activeProviders?: unknown[];
+  activeProviders?: ActiveProvider[];
   cloudEnabled?: boolean;
   tunnelEnabled?: boolean;
 }

@@ -104,7 +104,7 @@ const HTTPS_PORT = 443;
 const HTTP_SUCCESS_MIN = 200;
 const HTTP_SUCCESS_MAX = 300;
 
-function normalizeString(value) {
+function normalizeString(value: unknown): string {
   if (value === undefined || value === null) return "";
   return String(value).trim();
 }
@@ -112,7 +112,7 @@ function normalizeString(value) {
 /**
  * Resolve real IP using Google DNS (bypass system DNS)
  */
-async function resolveRealIP(hostname) {
+async function resolveRealIP(hostname: string): Promise<string | null> {
   const cached = DNS_CACHE.get(hostname);
   if (cached && Date.now() < cached.expiry) return cached.ip;
 
@@ -125,13 +125,14 @@ async function resolveRealIP(hostname) {
     const addresses = await resolve4(hostname);
     DNS_CACHE.set(hostname, { ip: addresses[0], expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
     return addresses[0];
-  } catch (error) {
-    console.warn(`[ProxyFetch] DNS resolve failed for ${hostname}:`, error.message);
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.warn(`[ProxyFetch] DNS resolve failed for ${hostname}:`, errMsg);
     return null;
   }
 }
 
-function shouldBypassByNoProxy(targetUrl, noProxyValue) {
+function shouldBypassByNoProxy(targetUrl: string, noProxyValue: unknown): boolean {
   const noProxy = normalizeString(noProxyValue);
   if (!noProxy) return false;
 
@@ -149,12 +150,12 @@ function shouldBypassByNoProxy(targetUrl, noProxyValue) {
 /**
  * Get proxy URL from environment
  */
-function getEnvProxyUrl(targetUrl) {
+function getEnvProxyUrl(targetUrl: string): string | undefined {
   const noProxy = process.env.NO_PROXY || process.env.no_proxy;
-  if (shouldBypassByNoProxy(targetUrl, noProxy)) return null;
+  if (shouldBypassByNoProxy(targetUrl, noProxy)) return undefined;
 
   let protocol;
-  try { protocol = new URL(targetUrl).protocol; } catch { return null; }
+  try { protocol = new URL(targetUrl).protocol; } catch { return undefined; }
 
   if (protocol === "https:") {
     return process.env.HTTPS_PROXY || process.env.https_proxy ||
@@ -168,7 +169,7 @@ function getEnvProxyUrl(targetUrl) {
 /**
  * Normalize proxy URL (allow host:port)
  */
-function normalizeProxyUrl(proxyUrl) {
+function normalizeProxyUrl(proxyUrl: unknown): string | null {
   const normalizedInput = normalizeString(proxyUrl);
   if (!normalizedInput) return null;
 
@@ -182,7 +183,19 @@ function normalizeProxyUrl(proxyUrl) {
   }
 }
 
-function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
+interface ProxyOptions {
+  enabled?: boolean;
+  connectionProxyEnabled?: boolean;
+  url?: string;
+  connectionProxyUrl?: string;
+  noProxy?: string;
+  connectionNoProxy?: string;
+  vercelRelayUrl?: string;
+  strictProxy?: boolean;
+  [key: string]: unknown;
+}
+
+function resolveConnectionProxyUrl(targetUrl: string, proxyOptions: ProxyOptions | null): string | null {
   const enabled = proxyOptions?.enabled === true || proxyOptions?.connectionProxyEnabled === true;
   if (!enabled) return null;
 
@@ -198,7 +211,7 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
 /**
  * Create proxy dispatcher lazily (undici-compatible)
  */
-async function getDispatcher(proxyUrl) {
+async function getDispatcher(proxyUrl: string) {
   const normalized = normalizeProxyUrl(proxyUrl);
   if (!normalized) return null;
 
@@ -217,7 +230,7 @@ async function getDispatcher(proxyUrl) {
 /**
  * Create HTTPS request with manual socket connection (bypass DNS)
  */
-async function createBypassRequest(parsedUrl, realIP, options) {
+async function createBypassRequest(parsedUrl: URL, realIP: string, options: Record<string, unknown>) {
   const httpsModule = await import("https");
   const netModule = await import("net");
   // CJS modules expose exports via .default in ESM dynamic import context
@@ -237,16 +250,16 @@ async function createBypassRequest(parsedUrl, realIP, options) {
         // so default verification works without any extra trust store.
         servername: parsedUrl.hostname,
         path: parsedUrl.pathname + parsedUrl.search,
-        method: options.method || "POST",
+        method: (options.method as string) || "POST",
         headers: {
-          ...options.headers,
+          ...(options.headers as Record<string, string> || {}),
           Host: parsedUrl.hostname,
         },
       };
 
       const req = https.request(reqOptions, (res) => {
         const response = {
-          ok: res.statusCode >= HTTP_SUCCESS_MIN && res.statusCode < HTTP_SUCCESS_MAX,
+          ok: (res.statusCode ?? 0) >= HTTP_SUCCESS_MIN && (res.statusCode ?? 0) < HTTP_SUCCESS_MAX,
           status: res.statusCode,
           statusText: res.statusMessage,
           headers: new Map(Object.entries(res.headers)),
@@ -272,15 +285,15 @@ async function createBypassRequest(parsedUrl, realIP, options) {
   });
 }
 
-export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
+export async function proxyAwareFetch(url: string | URL, options: RequestInit & { dispatcher?: unknown } = {}, proxyOptions: ProxyOptions | null = null): Promise<Response> {
   const targetUrl = typeof url === "string" ? url : url.toString();
 
   // Vercel relay: forward request via relay headers
   const vercelRelayUrl = normalizeString(proxyOptions?.vercelRelayUrl);
   if (vercelRelayUrl) {
     const parsed = new URL(targetUrl);
-    const relayHeaders = {
-      ...options.headers,
+    const relayHeaders: Record<string, string> = {
+      ...((options.headers as Record<string, string>) || {}),
       "x-relay-target": `${parsed.protocol}//${parsed.host}`,
       "x-relay-path": `${parsed.pathname}${parsed.search}`,
     };
@@ -294,13 +307,14 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   if (proxyUrl) {
     try {
       const dispatcher = await getDispatcher(proxyUrl);
-      return await originalFetch(url, { ...options, dispatcher });
-    } catch (proxyError) {
+      return await originalFetch(url, { ...options, dispatcher } as RequestInit);
+    } catch (proxyError: unknown) {
+      const proxyErrMsg = proxyError instanceof Error ? proxyError.message : String(proxyError);
       // If strictProxy is enabled, fail hard instead of falling back to direct
       if (proxyOptions?.strictProxy === true) {
-        throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
+        throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyErrMsg}`);
       }
-      console.warn(`[ProxyFetch] Proxy failed, falling back to direct: ${proxyError.message}`);
+      console.warn(`[ProxyFetch] Proxy failed, falling back to direct: ${proxyErrMsg}`);
       return originalFetch(url, options);
     }
   }
@@ -313,8 +327,9 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
 /**
  * Patched global fetch with env-proxy support
  */
-async function patchedFetch(url, options = {}) {
-  return proxyAwareFetch(url, options, null);
+async function patchedFetch(url: string | URL | Request, options: RequestInit = {}) {
+  const fetchUrl: string | URL = url instanceof Request ? url.url : url;
+  return proxyAwareFetch(fetchUrl, options, null);
 }
 
 // Idempotency guard — only patch once to avoid wrapping multiple times

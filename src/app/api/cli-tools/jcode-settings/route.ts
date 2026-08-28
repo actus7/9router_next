@@ -32,25 +32,25 @@ const checkJcodeInstalled = async () => {
   }
 };
 
-const readConfig = async () => {
+const readConfig = async (): Promise<Record<string, unknown>> => {
   try {
     const configPath = getConfigPath();
     const content = await fs.readFile(configPath, "utf-8");
-    return parseTOML(content);
+    return parseTOML(content) as Record<string, unknown>;
   } catch (error) {
     return { providers: {} };
   }
 };
 
-const has9RouterConfig = (config) => {
+const has9RouterConfig = (config: Record<string, unknown>) => {
   if (!config || !config.providers) return false;
 
-  const providers = config.providers;
+  const providers = config.providers as Record<string, Record<string, unknown>>;
 
   if (providers["9router"]) return true;
 
-  for (const [name, provider] of Object.entries(providers)) {
-    if (provider.base_url && provider.base_url.includes("localhost:20128")) {
+  for (const [, provider] of Object.entries(providers)) {
+    if ((provider as Record<string, unknown>).base_url && ((provider as Record<string, unknown>).base_url as string).includes("localhost:20128")) {
       return true;
     }
   }
@@ -58,7 +58,7 @@ const has9RouterConfig = (config) => {
   return false;
 };
 
-const writeConfig = async (config) => {
+const writeConfig = async (config: Record<string, unknown>) => {
   const configPath = getConfigPath();
   const content = stringifyTOML(config);
   await fs.writeFile(configPath, content, "utf-8");
@@ -68,7 +68,7 @@ const readProviderEnv = async () => {
   try {
     const envPath = getProviderEnvPath();
     const content = await fs.readFile(envPath, "utf-8");
-    const env = {};
+    const env: Record<string, string> = {};
 
     for (const line of content.split("\n")) {
       const trimmed = line.trim();
@@ -94,7 +94,7 @@ const readProviderEnv = async () => {
   }
 };
 
-const writeProviderEnv = async (env) => {
+const writeProviderEnv = async (env: Record<string, string>) => {
   const envPath = getProviderEnvPath();
   let content = "# jcode provider environment variables\n";
 
@@ -141,13 +141,13 @@ export async function POST(request: NextRequest) {
       ? baseUrl
       : `${baseUrl}/v1`;
 
-    let config = await readConfig();
+    const config = await readConfig();
 
     if (!config.providers) {
-      config.providers = {};
+      config.providers = {} as Record<string, Record<string, unknown>>;
     }
 
-    config.providers["9router"] = {
+    (config.providers as Record<string, Record<string, unknown>>)["9router"] = {
       type: "openai-compatible",
       base_url: normalizedBaseUrl,
       auth: "bearer",
@@ -175,10 +175,10 @@ export async function POST(request: NextRequest) {
       message: "jcode configured successfully. Use: jcode --provider-profile 9router",
       configPath: getConfigPath(),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error configuring jcode:", error);
     return NextResponse.json(
-      { error: error.message },
+      { error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -192,7 +192,7 @@ export async function DELETE() {
       return NextResponse.json({ success: true, message: "No configuration to remove" });
     }
 
-    delete config.providers["9router"];
+    delete (config.providers as Record<string, unknown>)["9router"];
 
     await writeConfig(config);
 
@@ -204,10 +204,10 @@ export async function DELETE() {
       success: true,
       message: "9router configuration removed from jcode",
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error removing jcode configuration:", error);
     return NextResponse.json(
-      { error: error.message },
+      { error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

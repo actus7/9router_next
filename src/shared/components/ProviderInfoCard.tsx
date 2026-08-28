@@ -12,17 +12,17 @@ interface FieldSchema {
 
 // Only show fields user actually cares about
 const FIELD_SCHEMA: Record<string, FieldSchema> = {
-  mode:             { label: "Mode",       format: (v) => String(v) },
-  defaultModel:     { label: "Model",      format: (v) => String(v), mono: true },
+  mode:             { label: "Modo",       format: (v) => String(v) },
+  defaultModel:     { label: "Modelo",      format: (v) => String(v), mono: true },
   baseUrl:          { label: "Endpoint",   format: (v) => String(v), isLink: true, mono: true },
-  costPerQuery:     { label: "Cost / call", format: (v) => v === 0 ? "Free" : `$${(v as number).toFixed(4)}` },
-  pricingUrl:       { label: "Pricing",    format: () => "View pricing", isLink: true },
-  freeTier:         { label: "Free tier",  format: (v) => String(v) },
-  freeMonthlyQuota: { label: "Free quota",  format: (v) => v === 0 ? "—" : (v as number) >= 999999 ? "Unlimited" : `${(v as number).toLocaleString()} / mo` },
-  searchTypes:      { label: "Types",      format: (v) => (v as string[]).join(", ") },
-  formats:          { label: "Formats",    format: (v) => (v as string[]).join(", ") },
-  maxMaxResults:    { label: "Max results", format: (v) => String(v) },
-  maxCharacters:    { label: "Max chars",  format: (v) => (v as number).toLocaleString() },
+  costPerQuery:     { label: "Custo / chamada", format: (v) => v === 0 ? "Grátis" : `$${(v as number).toFixed(4)}` },
+  pricingUrl:       { label: "Preços",    format: () => "Ver preços", isLink: true },
+  freeTier:         { label: "Tier grátis",  format: (v) => String(v) },
+  freeMonthlyQuota: { label: "Cota grátis",  format: (v) => v === 0 ? "—" : (v as number) >= 999999 ? "Ilimitado" : `${(v as number).toLocaleString()} / mês` },
+  searchTypes:      { label: "Tipos",      format: (v) => (v as string[]).join(", ") },
+  formats:          { label: "Formatos",    format: (v) => (v as string[]).join(", ") },
+  maxMaxResults:    { label: "Máx. resultados", format: (v) => String(v) },
+  maxCharacters:    { label: "Máx. caracteres",  format: (v) => (v as number).toLocaleString() },
 };
 
 interface ProviderNotice {
@@ -41,7 +41,7 @@ interface ProviderInfoCardProps {
   title?: string;
 }
 
-export default function ProviderInfoCard({ config, provider, title = "Provider Info" }: ProviderInfoCardProps) {
+export default function ProviderInfoCard({ config, provider, title = "Informações do Provedor" }: ProviderInfoCardProps) {
   if (!config) return null;
 
   const rows = Object.entries(FIELD_SCHEMA)
@@ -71,7 +71,7 @@ export default function ProviderInfoCard({ config, provider, title = "Provider I
               className="text-xs text-primary hover:underline inline-flex items-center gap-1"
             >
               <ExternalLink className="size-4" />
-              Get API Key
+              Obter Chave API
             </a>
           )}
         </div>
@@ -97,7 +97,7 @@ export default function ProviderInfoCard({ config, provider, title = "Provider I
           ))}
           {noticeText && (
             <div className="flex items-start gap-3 min-w-0 sm:col-span-2">
-              <span className="text-xs text-text-muted w-28 shrink-0 mt-0.5">Notice</span>
+              <span className="text-xs text-text-muted w-28 shrink-0 mt-0.5">Aviso</span>
               <span className="text-sm text-text-main leading-relaxed">{noticeText}</span>
             </div>
           )}

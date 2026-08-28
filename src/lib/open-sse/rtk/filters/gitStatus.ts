@@ -10,7 +10,7 @@
 //   clean — nothing to commit
 import { STATUS_MAX_FILES, STATUS_MAX_UNTRACKED } from "../constants";
 
-export function gitStatus(input) {
+export function gitStatus(input: string) {
   const lines = input.split("\n");
   if (lines.length === 0 || (lines.length === 1 && !lines[0].trim())) {
     return "Clean working tree";

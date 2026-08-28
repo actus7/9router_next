@@ -72,7 +72,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
           prefix: prefix.trim(),
           apiType: node.type === "openai-compatible" ? apiType : undefined,
           baseUrl: sanitizedBaseUrl,
-          nodeName: updated.name,
+          nodeName: updated!.name,
         }
       })
     )));

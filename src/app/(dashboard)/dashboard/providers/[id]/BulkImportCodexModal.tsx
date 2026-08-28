@@ -67,7 +67,7 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }: Bul
 
     const accounts = normalizeToArray(parsed);
     if (!accounts || accounts.length === 0) {
-      setParseError(translate("No accounts found in input"));
+      setParseError(translate("No accounts found in input") || "");
       return;
     }
 
@@ -88,7 +88,7 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }: Bul
         onSuccess();
       }
     } catch (err: unknown) {
-      setParseError(err instanceof Error ? err.message : translate("Request failed"));
+      setParseError(err instanceof Error ? err.message : (translate("Request failed") || ""));
     } finally {
       setSubmitting(false);
     }
@@ -97,7 +97,7 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }: Bul
   const failedItems = result?.results?.filter((r) => !r.ok) || [];
 
   return (
-    <Modal isOpen={isOpen} title={translate("Bulk Add Codex Accounts")} onClose={handleClose}>
+    <Modal isOpen={isOpen} title={translate("Bulk Add Codex Accounts") ?? undefined} onClose={handleClose}>
       <div className="flex flex-col gap-4">
         <p className="text-xs text-text-muted">
           {translate(

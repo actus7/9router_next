@@ -19,9 +19,9 @@ export default async function MediaProviderKindPage() {
       }
     >
       <MediaProviderKindClient
-        initialConnections={connections}
-        initialNodes={nodes}
-        initialCombos={combos}
+        initialConnections={connections as unknown as { provider: string; isActive?: boolean; testStatus?: string; [key: string]: unknown }[]}
+        initialNodes={nodes as unknown as { id: string; name?: string; type?: string; prefix?: string }[]}
+        initialCombos={combos as unknown as { id: string; name: string; kind?: string; models: string[] }[]}
       />
     </Suspense>
   );

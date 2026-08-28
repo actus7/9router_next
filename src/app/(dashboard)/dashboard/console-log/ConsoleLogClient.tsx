@@ -21,9 +21,9 @@ function colorLine(line: string) {
 }
 
 export default function ConsoleLogClient() {
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
-  const logRef = useRef(null);
+  const logRef = useRef<HTMLDivElement>(null);
 
   const handleClear = async () => {
     try {
@@ -74,7 +74,7 @@ export default function ConsoleLogClient() {
       <Card>
         <div className="flex items-center justify-end px-4 pt-3 pb-2">
           <Button size="sm" variant="outline" icon={<Trash2 className="size-4" />} onClick={handleClear}>
-            Clear
+            Limpar
           </Button>
         </div>
         <div
@@ -82,7 +82,7 @@ export default function ConsoleLogClient() {
           className="bg-black rounded-b-lg p-4 text-xs font-mono h-[calc(100vh-220px)] overflow-y-auto"
         >
           {logs.length === 0 ? (
-            <span className="text-text-muted">No console logs yet.</span>
+            <span className="text-text-muted">Nenhum log de console ainda.</span>
           ) : (
             <div className="space-y-0.5">
               {logs.map((line, i) => (

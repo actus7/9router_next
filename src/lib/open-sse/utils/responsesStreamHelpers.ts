@@ -10,16 +10,17 @@ const OPENAI_RESPONSES_TERMINAL_EVENTS = new Set([
   "error"
 ]);
 
-export function getOpenAIResponsesEventName(eventName, chunk) {
+export function getOpenAIResponsesEventName(eventName: string | null, chunk: Record<string, unknown>) {
   if (eventName) return eventName;
   if (chunk && typeof chunk.type === "string") return chunk.type;
   return null;
 }
 
-export function isOpenAIResponsesTerminalEvent(eventName, chunk) {
+export function isOpenAIResponsesTerminalEvent(eventName: string | null, chunk: Record<string, unknown>) {
   const type = getOpenAIResponsesEventName(eventName, chunk);
-  if (OPENAI_RESPONSES_TERMINAL_EVENTS.has(type)) return true;
-  const status = chunk?.response?.status;
+  if (OPENAI_RESPONSES_TERMINAL_EVENTS.has(type!)) return true;
+  const response = chunk?.response as Record<string, unknown> | undefined;
+  const status = response?.status;
   return status === "completed" || status === "failed";
 }
 

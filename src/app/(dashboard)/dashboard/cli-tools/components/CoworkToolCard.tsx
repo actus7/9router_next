@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal, ComboFormModal, McpMarketplaceModal } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal, ComboFormModal, McpMarketplaceModal } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,7 +23,7 @@ interface CoworkToolCardProps {
   onToggle: () => void;
   baseUrl: string;
   apiKeys: ApiKey[];
-  activeProviders: unknown[];
+  activeProviders: ActiveProvider[];
   hasActiveProviders: boolean;
   cloudEnabled: boolean;
   cloudUrl?: string;
@@ -59,7 +59,7 @@ export default function CoworkToolCard({
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [localPlugins, setLocalPlugins] = useState<string[]>([]);
   const [customPlugins, setCustomPlugins] = useState<CustomPlugin[]>([]);
-  const [modelAliases, setModelAliases] = useState<Record<string, unknown>>({});
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [comboModalOpen, setComboModalOpen] = useState<boolean>(false);
   const [modelSelectOpen, setModelSelectOpen] = useState<boolean>(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState<boolean>(false);

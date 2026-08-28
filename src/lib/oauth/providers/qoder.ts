@@ -72,7 +72,7 @@ const qoder = {
     if (result.status === "pending") {
       return { ok: false, data: { error: "authorization_pending" } };
     }
-    const userInfo: { name: string; email: string; organizationId: string } = await svc.fetchUserInfo(result.accessToken);
+    const userInfo = await svc.fetchUserInfo(result.accessToken) as { name: string; email: string; organizationId: string };
     const minSeconds: number = 24 * 60 * 60;
     const remainingSeconds: number = Math.floor((result.expireTime - Date.now()) / 1000);
     const expiresIn: number = Math.max(minSeconds, remainingSeconds);

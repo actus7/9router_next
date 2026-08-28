@@ -11,14 +11,14 @@ const ANTIGRAVITY_CONFIG = {
   ...U("antigravity"),
   ...ANTIGRAVITY_OAUTH_CLIENT,
   userAgent: ANTIGRAVITY_IDE_USER_AGENT,
-};
+} as Record<string, unknown>;
 
 /**
  * Gemini CLI Usage — fetch per-model quota via Cloud Code Assist API.
  * Uses retrieveUserQuota (same endpoint as `gemini /stats`) returning
  * per-model buckets with remainingFraction + resetTime.
  */
-export async function getGeminiUsage(accessToken, providerSpecificData, proxyOptions = null) {
+export async function getGeminiUsage(accessToken: string, providerSpecificData: Record<string, unknown>, proxyOptions: unknown = null) {
   if (!accessToken) {
     return { plan: "Free", message: "Gemini CLI access token not available." };
   }
@@ -31,8 +31,8 @@ export async function getGeminiUsage(accessToken, providerSpecificData, proxyOpt
 
     if (!projectId) {
       const subInfo = await getGeminiSubscriptionInfo(accessToken, proxyOptions);
-      projectId = normalizeCloudCodeProjectId(subInfo?.cloudaicompanionProject);
-      plan = subInfo?.currentTier?.name || plan;
+      projectId = normalizeCloudCodeProjectId((subInfo as Record<string, unknown>)?.cloudaicompanionProject);
+      plan = ((subInfo as Record<string, unknown>)?.currentTier as Record<string, unknown>)?.name as string || plan;
     }
 
     if (!projectId) {
@@ -43,7 +43,7 @@ export async function getGeminiUsage(accessToken, providerSpecificData, proxyOpt
     }
 
     const response = await fetchWithTimeout(
-      U("gemini-cli").quotaUrl,
+      (U("gemini-cli") as Record<string, unknown>).quotaUrl as string,
       {
         method: "POST",
         headers: {
@@ -54,14 +54,14 @@ export async function getGeminiUsage(accessToken, providerSpecificData, proxyOpt
       },
       10000,
       proxyOptions
-    );
+    ) as Response;
 
     if (!response.ok) {
       return { plan, message: `Gemini CLI quota error (${response.status}).` };
     }
 
     const data = await response.json();
-    const quotas = {};
+    const quotas: Record<string, unknown> = {};
 
     if (Array.isArray(data.buckets)) {
       for (const bucket of data.buckets) {
@@ -83,18 +83,18 @@ export async function getGeminiUsage(accessToken, providerSpecificData, proxyOpt
     }
 
     return { plan, quotas };
-  } catch (error) {
-    return { message: `Gemini CLI error: ${error.message}` };
+  } catch (error: unknown) {
+    return { message: `Gemini CLI error: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
 /**
  * Get Gemini CLI subscription info via loadCodeAssist
  */
-async function getGeminiSubscriptionInfo(accessToken, proxyOptions = null) {
+async function getGeminiSubscriptionInfo(accessToken: string, proxyOptions: unknown = null): Promise<Record<string, unknown> | null> {
   try {
     const response = await fetchWithTimeout(
-      U("gemini-cli").loadCodeAssistUrl,
+      (U("gemini-cli") as Record<string, unknown>).loadCodeAssistUrl as string,
       {
         method: "POST",
         headers: {
@@ -105,7 +105,7 @@ async function getGeminiSubscriptionInfo(accessToken, proxyOptions = null) {
       },
       10000,
       proxyOptions
-    );
+    ) as Response;
     if (!response.ok) return null;
     return await response.json();
   } catch {
@@ -116,17 +116,17 @@ async function getGeminiSubscriptionInfo(accessToken, proxyOptions = null) {
 /**
  * Antigravity Usage - Fetch quota from Google Cloud Code API
  */
-export async function getAntigravityUsage(accessToken, providerSpecificData, proxyOptions = null) {
+export async function getAntigravityUsage(accessToken: string, providerSpecificData: Record<string, unknown>, proxyOptions: unknown = null) {
   try {
     // Fetch subscription info once — reuse for both projectId and plan
     const subscriptionInfo = await getAntigravitySubscriptionInfo(accessToken, proxyOptions);
-    const projectId = subscriptionInfo?.cloudaicompanionProject || null;
+    const projectId = (subscriptionInfo as Record<string, unknown>)?.cloudaicompanionProject || null;
 
-    const response = await fetchWithTimeout(ANTIGRAVITY_CONFIG.quotaApiUrl, {
+    const response = await fetchWithTimeout(ANTIGRAVITY_CONFIG.quotaApiUrl as string, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
-        "User-Agent": ANTIGRAVITY_CONFIG.userAgent,
+        "User-Agent": ANTIGRAVITY_CONFIG.userAgent as string,
         "Content-Type": "application/json",
         "X-Client-Name": "antigravity",
         "X-Client-Version": ANTIGRAVITY_IDE_VERSION,
@@ -134,7 +134,7 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       body: JSON.stringify({
         ...(projectId ? { project: projectId } : {})
       }),
-    }, 10000, proxyOptions);
+    }, 10000, proxyOptions) as Response;
 
     if (response.status === 403) {
       return {
@@ -155,7 +155,7 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
     }
 
     const data = await response.json();
-    const quotas = {};
+    const quotas: Record<string, unknown> = {};
 
     // Parse model quotas (inspired by vscode-antigravity-cockpit)
     if (data.models) {
@@ -179,17 +179,19 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       ];
 
       for (const [modelKey, info] of Object.entries(data.models)) {
+        const infoObj = info as Record<string, unknown>;
         // Skip models without quota info
-        if (!info.quotaInfo) {
+        if (!infoObj.quotaInfo) {
           continue;
         }
 
         // Skip internal models and non-important models
-        if (info.isInternal || !importantModels.includes(modelKey)) {
+        if (infoObj.isInternal || !importantModels.includes(modelKey)) {
           continue;
         }
 
-        const remainingFraction = info.quotaInfo.remainingFraction || 0;
+        const quotaInfo = infoObj.quotaInfo as Record<string, unknown>;
+        const remainingFraction = (quotaInfo.remainingFraction as number) || 0;
         const remainingPercentage = remainingFraction * 100;
 
         // Convert percentage to used/total for UI compatibility
@@ -201,44 +203,44 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
         quotas[modelKey] = {
           used,
           total,
-          resetAt: parseResetTime(info.quotaInfo.resetTime),
+          resetAt: parseResetTime(quotaInfo.resetTime),
           remainingPercentage,
           unlimited: false,
-          displayName: info.displayName || modelKey,
+          displayName: infoObj.displayName || modelKey,
         };
       }
     }
 
     return {
-      plan: subscriptionInfo?.currentTier?.name || "Unknown",
+      plan: ((subscriptionInfo as Record<string, unknown>)?.currentTier as Record<string, unknown>)?.name || "Unknown",
       quotas,
       subscriptionInfo,
     };
-  } catch (error) {
-    console.error("[Antigravity Usage] Error:", error.message, error.cause);
-    return { message: `Antigravity error: ${error.message}` };
+  } catch (error: unknown) {
+    console.error("[Antigravity Usage] Error:", error instanceof Error ? error.message : String(error), error instanceof Error ? error.cause : undefined);
+    return { message: `Antigravity error: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
 /**
  * Get Antigravity subscription info
  */
-async function getAntigravitySubscriptionInfo(accessToken, proxyOptions = null) {
+async function getAntigravitySubscriptionInfo(accessToken: string, proxyOptions: unknown = null): Promise<Record<string, unknown> | null> {
   try {
-    const response = await fetchWithTimeout(ANTIGRAVITY_CONFIG.loadProjectApiUrl, {
+    const response = await fetchWithTimeout(ANTIGRAVITY_CONFIG.loadProjectApiUrl as string, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
-        "User-Agent": ANTIGRAVITY_CONFIG.userAgent,
+        "User-Agent": ANTIGRAVITY_CONFIG.userAgent as string,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ metadata: CLIENT_METADATA, mode: 1 }),
-    }, 10000, proxyOptions);
+    }, 10000, proxyOptions) as Response;
 
     if (!response.ok) return null;
     return await response.json();
-  } catch (error) {
-    console.error("[Antigravity Subscription] Error:", error.message);
+  } catch (error: unknown) {
+    console.error("[Antigravity Subscription] Error:", error instanceof Error ? error.message : String(error));
     return null;
   }
 }

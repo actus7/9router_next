@@ -7,6 +7,7 @@ import {
   clearAccountError,
   extractApiKey,
   isValidApiKey,
+  type CredentialsResult,
 } from "../services/auth";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model";
@@ -23,25 +24,69 @@ import { detectFormatByEndpoint } from "@/lib/open-sse/translator/formats";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh";
 import { getProjectIdForConnection } from "@/lib/open-sse/services/projectId";
+import { attachRoutingDecision } from "@/lib/open-sse/services/smart-routing/context";
+import {
+  deriveRoutingSessionKey,
+  getSmartCombo,
+  resolveSmartRouting,
+  type LlmRoutingClassification,
+} from "@/lib/open-sse/services/smart-routing/router";
+import type { ClientRawRequest as CoreClientRawRequest, ProviderThinkingConfig } from "@/lib/open-sse/handlers/chatCore/types";
+import type { RequestBody } from "@/lib/open-sse/services/types";
 
-interface ChatBody {
-  model?: string;
-  [key: string]: any;
+type ChatBody = RequestBody;
+type ClientRawRequest = CoreClientRawRequest;
+
+type ChatResult =
+  | { success: true; response: Response }
+  | { success: false; response: Response; status: number; error: string; resetsAtMs?: number };
+
+interface ComboStrategyConfig {
+  fallbackStrategy?: string;
+  judgeModel?: string;
+  fusionTuning?: Parameters<typeof handleFusionChat>[0]["tuning"];
 }
 
-interface ClientRawRequest {
-  endpoint?: string;
-  body?: ChatBody;
-  headers?: Record<string, string>;
-  [key: string]: any;
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
 }
 
-interface ChatResult {
-  success: boolean;
-  response?: Response;
-  status?: number;
-  error?: string;
-  resetsAtMs?: number;
+function extractClassifierText(payload: unknown): string {
+  const root = asRecord(payload);
+  if (!root) return "";
+
+  const choices = Array.isArray(root.choices) ? root.choices : [];
+  const firstChoice = asRecord(choices[0]);
+  const choiceMessage = asRecord(firstChoice?.message);
+  if (typeof choiceMessage?.content === "string") return choiceMessage.content;
+
+  const content = Array.isArray(root.content) ? root.content : [];
+  const firstContent = asRecord(content[0]);
+  if (typeof firstContent?.text === "string") return firstContent.text;
+
+  const output = Array.isArray(root.output) ? root.output : [];
+  for (const item of output) {
+    const itemRecord = asRecord(item);
+    const itemContent = Array.isArray(itemRecord?.content) ? itemRecord.content : [];
+    const textPart = itemContent.map(asRecord).find((part) => typeof part?.text === "string");
+    if (typeof textPart?.text === "string") return textPart.text;
+  }
+
+  return typeof root.response === "string" ? root.response : "";
+}
+
+function parseRoutingClassification(payload: unknown): LlmRoutingClassification | null {
+  const raw = extractClassifierText(payload);
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const value = asRecord(JSON.parse(raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "")));
+    if (!value || typeof value.tier !== "string" || !["simple", "standard", "complex", "reasoning"].includes(value.tier)) return null;
+    return { tier: value.tier, need: value.need } as LlmRoutingClassification;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -75,7 +120,7 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  const settings: any = await getSettings();
+  const settings = await getSettings();
   if (settings.requireApiKey) {
     if (!apiKey) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
@@ -94,14 +139,65 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
   }
 
   const userAgent: string = request?.headers?.get("user-agent") || "";
-  const bypassResponse: any = handleBypassRequest(body, modelStr, userAgent, !!settings.ccFilterNaming);
+  const bypassResponse = handleBypassRequest(body, modelStr, userAgent, Boolean(settings.ccFilterNaming));
   if (bypassResponse) return bypassResponse.response || bypassResponse;
 
-  const requiredCapabilities: Set<string> = detectRequiredCapabilities(body);
+  const requiredCapabilities = detectRequiredCapabilities(body) as Set<string>;
+
+  const smartCombo = await getSmartCombo(modelStr);
+  if (smartCombo) {
+    let routing;
+    try {
+      routing = await resolveSmartRouting({
+        combo: smartCombo,
+        body,
+        headers: request.headers,
+        endpointNeed: "general",
+        sessionKey: deriveRoutingSessionKey(request.headers, body),
+        classifyWithModel: async (classifierModel, prompt, timeoutMs) => {
+          const classifierBody: ChatBody = {
+            model: classifierModel,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0,
+            max_tokens: 120,
+            stream: false,
+          };
+          const classifierRaw: ClientRawRequest = {
+            endpoint: "/v1/chat/completions",
+            body: classifierBody,
+            headers: { accept: "application/json", "x-router-internal": "classifier" },
+          };
+          const responsePromise = handleSingleModelChat(classifierBody, classifierModel, classifierRaw, request, apiKey);
+          const response = await Promise.race([
+            responsePromise,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+          ]);
+          if (!response || !response.ok) return null;
+          return parseRoutingClassification(await response.json());
+        },
+      });
+    } catch (error) {
+      return errorResponse(HTTP_STATUS.BAD_REQUEST, error instanceof Error ? error.message : "Invalid smart routing configuration");
+    }
+    if (routing.models.length === 0) {
+      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `No compatible active model found for smart combo: ${modelStr}`);
+    }
+    attachRoutingDecision(body, routing.meta);
+    log.info("ROUTING", `Smart combo "${modelStr}" → ${routing.meta.need}/${routing.meta.tier} → ${routing.models[0]}`);
+    return handleComboChat({
+      body,
+      models: routing.models,
+      handleSingleModel: (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+      log,
+      comboName: modelStr,
+      comboStrategy: "fallback",
+      autoSwitch: false,
+    });
+  }
 
   const comboModels: string[] | null = await getComboModels(modelStr);
   if (comboModels) {
-    const comboStrategies: Record<string, any> = settings.comboStrategies || {};
+    const comboStrategies = settings.comboStrategies as Record<string, ComboStrategyConfig>;
     const comboSpecificStrategy: string | undefined = comboStrategies[modelStr]?.fallbackStrategy;
     const comboStrategy: string = comboSpecificStrategy || settings.comboStrategy || "fallback";
     const augmentedModels: string[] = augmentModelsWithCapacityAdapter(comboModels, requiredCapabilities, settings);
@@ -115,7 +211,9 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
         handleSingleModel: (b: ChatBody, m: string, isPanel?: boolean) => {
           let cleanRawReq: ClientRawRequest | null = clientRawRequest;
           if (isPanel && clientRawRequest) {
-            const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
+            const cleanBody = Object.fromEntries(
+              Object.entries(clientRawRequest.body || {}).filter(([key]) => key !== "tools" && key !== "tool_choice")
+            );
             cleanRawReq = { ...clientRawRequest, body: cleanBody };
           }
           return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
@@ -135,7 +233,7 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
       handleSingleModel: withCapacityAdapterStripping(
         (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
         adapterAdded
-      ),
+      ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
       log,
       comboName: modelStr,
       comboStrategy,
@@ -153,7 +251,7 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
       handleSingleModel: withCapacityAdapterStripping(
         (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
         adapterAdded
-      ),
+      ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
       log,
       comboName: modelStr,
       comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings)
@@ -166,7 +264,7 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
 /**
  * Handle single model chat request
  */
-async function handleSingleModelChat(
+export async function handleSingleModelChat(
   body: ChatBody,
   modelStr: string,
   clientRawRequest: ClientRawRequest | null = null,
@@ -178,11 +276,11 @@ async function handleSingleModelChat(
   if (!modelInfo.provider) {
     const comboModels: string[] | null = await getComboModels(modelStr);
     if (comboModels) {
-      const chatSettings: any = await getSettings();
-      const comboStrategies: Record<string, any> = chatSettings.comboStrategies || {};
+      const chatSettings = await getSettings();
+      const comboStrategies = chatSettings.comboStrategies as Record<string, ComboStrategyConfig>;
       const comboSpecificStrategy: string | undefined = comboStrategies[modelStr]?.fallbackStrategy;
       const comboStrategy: string = comboSpecificStrategy || chatSettings.comboStrategy || "fallback";
-      const requiredCapabilities: Set<string> = detectRequiredCapabilities(body);
+      const requiredCapabilities = detectRequiredCapabilities(body) as Set<string>;
       const augmentedModels: string[] = augmentModelsWithCapacityAdapter(comboModels, requiredCapabilities, chatSettings);
       const adapterAdded: string[] = augmentedModels.filter((m: string) => !comboModels.includes(m));
 
@@ -194,7 +292,9 @@ async function handleSingleModelChat(
           handleSingleModel: (b: ChatBody, m: string, isPanel?: boolean) => {
             let cleanRawReq: ClientRawRequest | null = clientRawRequest;
             if (isPanel && clientRawRequest) {
-              const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
+              const cleanBody = Object.fromEntries(
+                Object.entries(clientRawRequest.body || {}).filter(([key]) => key !== "tools" && key !== "tool_choice")
+              );
               cleanRawReq = { ...clientRawRequest, body: cleanBody };
             }
             return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
@@ -211,10 +311,10 @@ async function handleSingleModelChat(
       return handleComboChat({
         body,
         models: augmentedModels,
-        handleSingleModel: withCapacityAdapterStripping(
-          (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
-          adapterAdded
-        ),
+      handleSingleModel: withCapacityAdapterStripping(
+        (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+        adapterAdded
+      ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
         log,
         comboName: modelStr,
         comboStrategy,
@@ -234,14 +334,14 @@ async function handleSingleModelChat(
   let lastStatus: number | null = null;
 
   while (true) {
-    const credentials: any = await getProviderCredentials(provider, excludeConnectionIds, model);
+    const credentials: CredentialsResult | null = await getProviderCredentials(provider, excludeConnectionIds, model);
 
     if (!credentials || credentials.allRateLimited) {
       if (credentials?.allRateLimited) {
         const errorMsg: string = lastError || credentials.lastError || "Unavailable";
         const status: number = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
         log.warn("CHAT", `[${provider}/${model}] ${errorMsg} (${credentials.retryAfterHuman})`);
-        return unavailableResponse(status, `[${provider}/${model}] ${errorMsg}`, credentials.retryAfter, credentials.retryAfterHuman);
+        return unavailableResponse(status, `[${provider}/${model}] ${errorMsg}`, String(credentials.retryAfter ?? ""), credentials.retryAfterHuman ?? "");
       }
       if (excludeConnectionIds.size === 0) {
         log.warn("AUTH", `No active credentials for provider: ${provider}`);
@@ -251,27 +351,32 @@ async function handleSingleModelChat(
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
-    const refreshedCredentials: any = await checkAndRefreshToken(provider, credentials);
+    if (!credentials.connectionId) {
+      return errorResponse(HTTP_STATUS.NOT_FOUND, `Provider ${provider} returned credentials without an identifier`);
+    }
+    const connectionId = credentials.connectionId;
+    const refreshedCredentials = await checkAndRefreshToken(provider, credentials) as CredentialsResult;
 
-    if ((provider === "antigravity" || provider === "gemini-cli") && !refreshedCredentials.projectId) {
-      const pid: string | null = await getProjectIdForConnection(credentials.connectionId, refreshedCredentials.accessToken, provider);
+    if ((provider === "antigravity" || provider === "gemini-cli") && !refreshedCredentials.projectId && refreshedCredentials.accessToken) {
+      const pid: string | null = await getProjectIdForConnection(connectionId, refreshedCredentials.accessToken, provider);
       if (pid) {
         refreshedCredentials.projectId = pid;
-        updateProviderCredentials(credentials.connectionId, { projectId: pid }).catch(() => { });
+        updateProviderCredentials(connectionId, { projectId: pid }).catch(() => { });
       }
     }
 
-    const chatSettings: any = await getSettings();
-    const providerThinking: any = (chatSettings.providerThinking || {})[provider] || null;
-    const result: ChatResult = await handleChatCore({
+    const chatSettings = await getSettings();
+    const providerThinkingById = chatSettings.providerThinking as Record<string, ProviderThinkingConfig> | undefined;
+    const providerThinking = providerThinkingById?.[provider] ?? null;
+    const result = await handleChatCore({
       body: { ...body, model: `${provider}/${model}` },
       modelInfo: { provider, model },
       credentials: refreshedCredentials,
-      log,
-      clientRawRequest,
-      connectionId: credentials.connectionId,
+      log: log as unknown as Parameters<typeof handleChatCore>[0]["log"],
+      clientRawRequest: clientRawRequest ?? undefined,
+      connectionId,
       userAgent,
-      apiKey,
+      apiKey: apiKey ?? undefined,
       ccFilterNaming: !!chatSettings.ccFilterNaming,
       rtkEnabled: !!chatSettings.rtkEnabled,
       headroomEnabled: !!chatSettings.headroomEnabled,
@@ -287,31 +392,31 @@ async function handleSingleModelChat(
       pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
       onPxpipeEvent: appendPxpipeEvent,
       providerThinking,
-      sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
-      onCredentialsRefreshed: async (newCreds: any) => {
-        await updateProviderCredentials(credentials.connectionId, {
+      sourceFormatOverride: request?.url ? (detectFormatByEndpoint(new URL(request.url).pathname, body) ?? undefined) : undefined,
+      onCredentialsRefreshed: async (newCreds: Record<string, unknown>) => {
+        await updateProviderCredentials(connectionId, {
           ...newCreds,
           existingProviderSpecificData: credentials.providerSpecificData,
           testStatus: "active"
         });
       },
       onRequestSuccess: async () => {
-        await clearAccountError(credentials.connectionId, credentials, model);
+        await clearAccountError(connectionId, credentials, model);
       }
-    });
+    } as Parameters<typeof handleChatCore>[0]) as ChatResult;
 
-    if (result.success) return result.response!;
+    if (result.success) return result.response;
 
-    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status!, result.error!, provider, model, result.resetsAtMs);
+    const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null);
 
     if (shouldFallback) {
       log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
-      excludeConnectionIds.add(credentials.connectionId);
-      lastError = result.error!;
-      lastStatus = result.status!;
+      excludeConnectionIds.add(connectionId);
+      lastError = result.error;
+      lastStatus = result.status;
       continue;
     }
 
-    return result.response!;
+    return result.response;
   }
 }

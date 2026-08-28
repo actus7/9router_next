@@ -161,7 +161,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
       const until = Object.entries(connection)
         .filter(([k]) => k.startsWith("modelLock_"))
         .map(([, v]) => v)
-        .filter((v): v is string => v && new Date(v).getTime() > Date.now())
+        .filter((v): v is string => typeof v === 'string' && new Date(v).getTime() > Date.now())
         .sort()[0] || null;
       setIsCooldown(!!until);
     };
@@ -178,7 +178,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     ? "active"  // Cooldown expired → treat as active
     : connection.testStatus;
 
-  const getStatusVariant = () => getConnectionStatusVariant(connection.isActive, effectiveStatus);
+  const getStatusVariant = () => getConnectionStatusVariant(connection.isActive, effectiveStatus ?? "");
 
   const getOneByOneVariant = (): "secondary" | "default" | "destructive" => {
     if (!oneByOneStatus) return "secondary";
@@ -237,7 +237,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <p className="text-xs text-text-muted truncate">{secondaryDisplayName}</p>
           )}
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
-            <Badge variant={getStatusVariant()} className={getStatusClassName(connection.isActive, effectiveStatus)}>
+            <Badge variant={getStatusVariant()} className={getStatusClassName(connection.isActive, effectiveStatus ?? "")}>
               {connection.isActive === false ? "disabled" : (effectiveStatus || "Unknown")}
             </Badge>
             <Badge variant="secondary">

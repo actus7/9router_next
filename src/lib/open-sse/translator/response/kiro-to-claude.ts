@@ -16,20 +16,20 @@
 import { register } from "../index";
 import { FORMATS } from "../formats";
 
-function stopThinkingBlock(state, results) {
+function stopThinkingBlock(state: Record<string, unknown>, results: Record<string, unknown>[]) {
   if (!state.thinkingBlockStarted) return;
   results.push({ type: "content_block_stop", index: state.thinkingBlockIndex });
   state.thinkingBlockStarted = false;
 }
 
-function stopTextBlock(state, results) {
+function stopTextBlock(state: Record<string, unknown>, results: Record<string, unknown>[]) {
   if (!state.textBlockStarted || state.textBlockClosed) return;
   state.textBlockClosed = true;
   results.push({ type: "content_block_stop", index: state.textBlockIndex });
   state.textBlockStarted = false;
 }
 
-function convertFinishReason(reason) {
+function convertFinishReason(reason: string) {
   switch (reason) {
     case "stop":
       return "end_turn";
@@ -46,10 +46,10 @@ function convertFinishReason(reason) {
  * Convert one OpenAI-format chunk (from KiroExecutor) into Claude SSE events.
  * Returns an array of Claude events, or null when the chunk yields nothing.
  */
-export function kiroToClaudeResponse(chunk, state) {
+export function kiroToClaudeResponse(chunk: Record<string, unknown> | string, state: Record<string, unknown>) {
   // KiroExecutor emits chat.completion.chunk objects; tolerate string chunks
   // by attempting a parse (defensive — the direct path is always objects).
-  let data = chunk;
+  let data: Record<string, unknown> | string = chunk;
   if (typeof chunk === "string") {
     const trimmed = chunk.trim();
     if (!trimmed || trimmed === "[DONE]") return null;
@@ -60,30 +60,33 @@ export function kiroToClaudeResponse(chunk, state) {
     }
   }
 
-  if (!data || !data.choices?.[0]) return null;
+  if (typeof data === "string") return null;
+  if (!data || !(data.choices as unknown[])?.[0]) return null;
 
-  const results = [];
-  const choice = data.choices[0];
-  const delta = choice.delta || {};
+  const results: Record<string, unknown>[] = [];
+  const choice = (data.choices as Record<string, unknown>[])[0];
+  const delta = (choice.delta as Record<string, unknown>) || {};
 
   // Track usage if present on the chunk.
   if (data.usage && typeof data.usage === "object") {
+    const usage = data.usage as Record<string, unknown>;
+    const details = usage.prompt_tokens_details as Record<string, unknown> | undefined;
     const promptTokens =
-      typeof data.usage.prompt_tokens === "number" ? data.usage.prompt_tokens : 0;
+      typeof usage.prompt_tokens === "number" ? usage.prompt_tokens : 0;
     const outputTokens =
-      typeof data.usage.completion_tokens === "number"
-        ? data.usage.completion_tokens
+      typeof usage.completion_tokens === "number"
+        ? usage.completion_tokens
         : 0;
     state.usage = { input_tokens: promptTokens, output_tokens: outputTokens };
     // Claude clients read cache_read/cache_creation to price a turn and to size
     // their prompt cache. Both spellings are accepted because the Kiro executor
     // emits the Chat shape and passthrough responses use the nested details form.
-    const cacheRead = data.usage.cache_read_input_tokens
-      ?? data.usage.prompt_tokens_details?.cached_tokens;
-    const cacheCreation = data.usage.cache_creation_input_tokens
-      ?? data.usage.prompt_tokens_details?.cache_creation_tokens;
-    if (typeof cacheRead === "number") state.usage.cache_read_input_tokens = cacheRead;
-    if (typeof cacheCreation === "number") state.usage.cache_creation_input_tokens = cacheCreation;
+    const cacheRead = usage.cache_read_input_tokens
+      ?? details?.cached_tokens;
+    const cacheCreation = usage.cache_creation_input_tokens
+      ?? details?.cache_creation_tokens;
+    if (typeof cacheRead === "number") (state.usage as Record<string, unknown>).cache_read_input_tokens = cacheRead;
+    if (typeof cacheCreation === "number") (state.usage as Record<string, unknown>).cache_creation_input_tokens = cacheCreation;
   }
 
   // First chunk → emit message_start.
@@ -114,7 +117,7 @@ export function kiroToClaudeResponse(chunk, state) {
   if (reasoningContent) {
     stopTextBlock(state, results);
     if (!state.thinkingBlockStarted) {
-      state.thinkingBlockIndex = state.nextBlockIndex++;
+      state.thinkingBlockIndex = (state.nextBlockIndex as number)++;
       state.thinkingBlockStarted = true;
       results.push({
         type: "content_block_start",
@@ -133,7 +136,7 @@ export function kiroToClaudeResponse(chunk, state) {
   if (delta.content) {
     stopThinkingBlock(state, results);
     if (!state.textBlockStarted) {
-      state.textBlockIndex = state.nextBlockIndex++;
+      state.textBlockIndex = (state.nextBlockIndex as number)++;
       state.textBlockStarted = true;
       state.textBlockClosed = false;
       results.push({
@@ -153,15 +156,17 @@ export function kiroToClaudeResponse(chunk, state) {
   if (delta.tool_calls) {
     if (!state.toolCalls) state.toolCalls = new Map();
     if (!state.toolArgBuffers) state.toolArgBuffers = new Map();
-    for (const tc of delta.tool_calls) {
-      const idx = tc.index ?? 0;
+    const toolCallsMap = state.toolCalls as Map<number, Record<string, unknown>>;
+    const toolArgBuffers = state.toolArgBuffers as Map<number, string>;
+    for (const tc of delta.tool_calls as Record<string, unknown>[]) {
+      const idx = (tc.index as number) ?? 0;
       if (tc.id) {
         stopThinkingBlock(state, results);
         stopTextBlock(state, results);
-        const toolBlockIndex = state.nextBlockIndex++;
-        state.toolCalls.set(idx, {
+        const toolBlockIndex = (state.nextBlockIndex as number)++;
+        toolCallsMap.set(idx, {
           id: tc.id,
-          name: tc.function?.name || "",
+          name: (tc.function as Record<string, unknown>)?.name || "",
           blockIndex: toolBlockIndex,
         });
         results.push({
@@ -170,17 +175,17 @@ export function kiroToClaudeResponse(chunk, state) {
           content_block: {
             type: "tool_use",
             id: tc.id,
-            name: tc.function?.name || "",
+            name: (tc.function as Record<string, unknown>)?.name || "",
             input: {},
           },
         });
       }
-      if (tc.function?.arguments) {
-        const toolInfo = state.toolCalls.get(idx);
+      if ((tc.function as Record<string, unknown>)?.arguments) {
+        const toolInfo = toolCallsMap.get(idx);
         if (toolInfo) {
-          state.toolArgBuffers.set(
+          toolArgBuffers.set(
             idx,
-            (state.toolArgBuffers.get(idx) || "") + tc.function.arguments
+            (toolArgBuffers.get(idx) || "") + ((tc.function as Record<string, unknown>).arguments as string)
           );
         }
       }
@@ -192,9 +197,11 @@ export function kiroToClaudeResponse(chunk, state) {
     stopThinkingBlock(state, results);
     stopTextBlock(state, results);
 
-    if (state.toolCalls) {
-      for (const [idx, toolInfo] of state.toolCalls) {
-        const buffered = state.toolArgBuffers?.get(idx);
+    const toolCallsMap = state.toolCalls as Map<number, Record<string, unknown>> | undefined;
+    if (toolCallsMap) {
+      const toolArgBuffers = state.toolArgBuffers as Map<number, string> | undefined;
+      for (const [idx, toolInfo] of toolCallsMap) {
+        const buffered = toolArgBuffers?.get(idx);
         if (buffered) {
           results.push({
             type: "content_block_delta",
@@ -210,7 +217,7 @@ export function kiroToClaudeResponse(chunk, state) {
     const finalUsage = state.usage || { input_tokens: 0, output_tokens: 0 };
     results.push({
       type: "message_delta",
-      delta: { stop_reason: convertFinishReason(choice.finish_reason) },
+      delta: { stop_reason: convertFinishReason(choice.finish_reason as string) },
       usage: finalUsage,
     });
     results.push({ type: "message_stop" });
@@ -224,54 +231,57 @@ export function kiroToClaudeResponse(chunk, state) {
  * a defensive helper for any non-streaming caller that hands us an aggregated
  * OpenAI-shaped completion.
  */
-export function kiroToClaudeNonStreaming(data) {
-  const content = [];
-  const choice = data?.choices?.[0];
-  const message = choice?.message || {};
+export function kiroToClaudeNonStreaming(data: Record<string, unknown>) {
+  const content: Record<string, unknown>[] = [];
+  const choices = data?.choices as Record<string, unknown>[] | undefined;
+  const choice = choices?.[0];
+  const message = ((choice as Record<string, unknown>)?.message || {}) as Record<string, unknown>;
 
   if (message.content) {
     content.push({ type: "text", text: message.content });
   }
   if (Array.isArray(message.tool_calls)) {
-    for (const tc of message.tool_calls) {
-      let input = {};
+    for (const tc of message.tool_calls as Record<string, unknown>[]) {
+      let input: Record<string, unknown> = {};
       try {
+        const fn = tc.function as Record<string, unknown> | undefined;
         input =
-          typeof tc.function?.arguments === "string"
-            ? JSON.parse(tc.function.arguments)
-            : tc.function?.arguments || {};
+          typeof fn?.arguments === "string"
+            ? JSON.parse(fn.arguments)
+            : (fn?.arguments as Record<string, unknown>) || {};
       } catch {
         input = {};
       }
       content.push({
         type: "tool_use",
-        id: tc.id || `toolu_${Date.now()}`,
-        name: tc.function?.name || "",
+        id: (tc.id as string) || `toolu_${Date.now()}`,
+        name: ((tc.function as Record<string, unknown>)?.name as string) || "",
         input,
       });
     }
   }
 
-  const usage = data?.usage || {};
+  const usage = (data?.usage || {}) as Record<string, unknown>;
+  const details = usage.prompt_tokens_details as Record<string, unknown> | undefined;
   return {
     id: `msg_${Date.now()}`,
     type: "message",
     role: "assistant",
     content,
-    model: data?.model || "kiro",
-    stop_reason: convertFinishReason(choice?.finish_reason || "stop"),
+    model: (data?.model as string) || "kiro",
+    stop_reason: convertFinishReason(((choice as Record<string, unknown>)?.finish_reason as string) || "stop"),
     usage: {
-      input_tokens: usage.prompt_tokens || 0,
-      output_tokens: usage.completion_tokens || 0,
+      input_tokens: (usage.prompt_tokens as number) || 0,
+      output_tokens: (usage.completion_tokens as number) || 0,
       // Same cache preservation as the streaming path above.
-      ...(typeof (usage.cache_read_input_tokens ?? usage.prompt_tokens_details?.cached_tokens) === "number"
-        ? { cache_read_input_tokens: usage.cache_read_input_tokens ?? usage.prompt_tokens_details.cached_tokens }
+      ...(typeof ((usage.cache_read_input_tokens as number) ?? details?.cached_tokens) === "number"
+        ? { cache_read_input_tokens: (usage.cache_read_input_tokens as number) ?? details?.cached_tokens }
         : {}),
-      ...(typeof (usage.cache_creation_input_tokens ?? usage.prompt_tokens_details?.cache_creation_tokens) === "number"
-        ? { cache_creation_input_tokens: usage.cache_creation_input_tokens ?? usage.prompt_tokens_details.cache_creation_tokens }
+      ...(typeof ((usage.cache_creation_input_tokens as number) ?? details?.cache_creation_tokens) === "number"
+        ? { cache_creation_input_tokens: (usage.cache_creation_input_tokens as number) ?? details?.cache_creation_tokens }
         : {}),
     },
   };
 }
 
-register(FORMATS.KIRO, FORMATS.CLAUDE, null, kiroToClaudeResponse);
+register(FORMATS.KIRO, FORMATS.CLAUDE, null, kiroToClaudeResponse as (chunk: unknown, state: unknown) => unknown);

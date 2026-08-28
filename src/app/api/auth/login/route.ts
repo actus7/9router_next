@@ -15,7 +15,7 @@ function isTunnelRequest(request: NextRequest, settings: Record<string, unknown>
   const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
   const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl as string).hostname.toLowerCase() : "";
   const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl as string).hostname.toLowerCase() : "";
-  return (tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost);
+  return Boolean((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost));
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Default password is '123456' if not set
-    const storedHash = settings.password;
+    const storedHash = settings.password as string | undefined;
 
     if (settings.authMode === "sso" || settings.authMode === "saml" || settings.authMode === "oidc") {
       const ssoType = settings.ssoType || (settings.authMode === "saml" ? "saml" : "oidc");
