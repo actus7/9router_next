@@ -21,7 +21,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { BarChart3, ChevronRight, Film, FolderOpen, Globe, Languages, Layers, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
+import { BarChart3, ChevronRight, CloudUpload, Film, FolderOpen, Globe, Languages, Layers, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 
@@ -55,6 +55,7 @@ const navItems = [
   { href: "/dashboard/quota", label: "Quota Tracker", icon: <PieChart /> },
   { href: "/dashboard/token-saver", label: "Token Saver", icon: <PiggyBank /> },
   { href: "/dashboard/cli-tools", label: "CLI Tools", icon: <Terminal /> },
+  { href: "/dashboard/cloud", label: "Cloud Deploy", icon: <CloudUpload /> },
 ];
 
 const debugItems = [
