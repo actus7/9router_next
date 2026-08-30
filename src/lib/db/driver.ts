@@ -42,7 +42,7 @@ async function tryBetterSqlite(): Promise<DbAdapter | null> {
   if (process.versions.bun) return null;
   try {
     const { createBetterSqliteAdapter } = await import("./adapters/betterSqliteAdapter");
-    return createBetterSqliteAdapter(DATA_FILE);
+    return await createBetterSqliteAdapter(DATA_FILE);
   } catch (e: unknown) {
     console.warn(`[DB] better-sqlite3 unavailable: ${(e as Error).message}`);
     return null;

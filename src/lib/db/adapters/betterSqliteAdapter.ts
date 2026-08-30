@@ -1,5 +1,6 @@
-import Database from "better-sqlite3";
 import { PRAGMA_SQL } from "../schema";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 interface DbAdapter {
   driver: string;
@@ -10,20 +11,23 @@ interface DbAdapter {
   transaction(fn: () => void): void;
   checkpoint(): void;
   close(): void;
-  raw: Database;
+  raw: any;
 }
 
 // Periodic checkpoint to keep WAL file small (avoid huge -wal/-shm growth)
 const CHECKPOINT_INTERVAL_MS: number = 60 * 1000;
 
-export function createBetterSqliteAdapter(filePath: string): DbAdapter {
-  const db = new Database(filePath);
+export async function createBetterSqliteAdapter(filePath: string): Promise<DbAdapter> {
+  // Use indirect import so Turbopack doesn't trace the optional native module at build time
+  const modName = ["better", "sqlite3"].join("-");
+  const { default: Database } = await import(/* webpackIgnore: true */ modName);
+  const db: any = new Database(filePath);
   db.exec(PRAGMA_SQL);
   // Schema is created/synced by migrate.js after adapter init
 
-  const stmtCache: Map<string, Database.Statement> = new Map();
+  const stmtCache: Map<string, any> = new Map();
 
-  function prepare(sql: string): Database.Statement {
+  function prepare(sql: string): any {
     let stmt = stmtCache.get(sql);
     if (!stmt) {
       stmt = db.prepare(sql);
