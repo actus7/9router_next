@@ -5,9 +5,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/shared/components";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
-import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, MessageSquare, Paperclip, Plus, Square, Trash2, X } from "lucide-react";
+import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, MessageSquare, Paperclip, Pencil, Plus, Search, Square, Trash2, X } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 
 const STORAGE_KEYS = {
@@ -109,6 +111,23 @@ function formatRelativeTime(value: string | undefined | null) {
   const diffHours = Math.round(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours}h`;
   return `${Math.round(diffHours / 24)}d`;
+}
+
+const DATE_GROUP_ORDER = ["Hoje", "Ontem", "Últimos 7 dias", "Últimos 30 dias", "Anteriores"];
+
+function getDateGroup(value: string): string {
+  const date = new Date(value);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+  const monthAgo = new Date(today.getTime() - 30 * 86400000);
+
+  if (date >= today) return "Hoje";
+  if (date >= yesterday) return "Ontem";
+  if (date >= weekAgo) return "Últimos 7 dias";
+  if (date >= monthAgo) return "Últimos 30 dias";
+  return "Anteriores";
 }
 
 function makeSessionTitle(text = ""): string {
@@ -250,12 +269,17 @@ export default function BasicChatPageClient() {
   const [streamingText, setStreamingText] = useState("");
   const [isHydrated, setIsHydrated] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelSearch, setModelSearch] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [renamingSessionId, setRenamingSessionId] = useState("");
+  const [renameValue, setRenameValue] = useState("");
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const initializedRef = useRef(false);
-  const modelMenuRef = useRef<HTMLDivElement>(null);
   const historyMenuRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -401,9 +425,6 @@ export default function BasicChatPageClient() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
-        setModelMenuOpen(false);
-      }
       if (historyMenuRef.current && !historyMenuRef.current.contains(event.target as Node)) {
         setHistoryOpen(false);
       }
@@ -412,6 +433,10 @@ export default function BasicChatPageClient() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (renamingSessionId) renameInputRef.current?.focus();
+  }, [renamingSessionId]);
 
   const modelIndex = useMemo(() => {
     const map = new Map();
@@ -444,6 +469,38 @@ export default function BasicChatPageClient() {
   const currentMessages = currentSession?.messages || [];
   const sessionItems = useMemo(() => [...sessions].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [sessions]);
   const canSend = !isSending && !!activeModel && (draft.trim().length > 0 || attachments.length > 0);
+
+  const filteredSessionItems = useMemo(() => {
+    const q = historySearch.trim().toLowerCase();
+    if (!q) return sessionItems;
+    return sessionItems.filter((session) => session.title.toLowerCase().includes(q));
+  }, [sessionItems, historySearch]);
+
+  const groupedSessionItems = useMemo(() => {
+    const groupMap = new Map<string, ChatSession[]>();
+    for (const session of filteredSessionItems) {
+      const group = getDateGroup(session.updatedAt);
+      if (!groupMap.has(group)) groupMap.set(group, []);
+      groupMap.get(group)!.push(session);
+    }
+    return DATE_GROUP_ORDER
+      .map((label) => ({ label, items: groupMap.get(label) || [] }))
+      .filter((group) => group.items.length > 0);
+  }, [filteredSessionItems]);
+
+  const selectedSessionCount = selectedSessionIds.size;
+  const allVisibleSessionsSelected = filteredSessionItems.length > 0 && filteredSessionItems.every((session) => selectedSessionIds.has(session.id));
+
+  const filteredProviderGroups = useMemo(() => {
+    const q = modelSearch.trim().toLowerCase();
+    if (!q) return providerGroups;
+    return providerGroups
+      .map((group) => ({
+        ...group,
+        models: group.models.filter((model) => model.name.toLowerCase().includes(q) || model.requestModel.toLowerCase().includes(q) || group.providerName.toLowerCase().includes(q)),
+      }))
+      .filter((group) => group.models.length > 0);
+  }, [providerGroups, modelSearch]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -539,20 +596,73 @@ export default function BasicChatPageClient() {
     setHistoryOpen(false);
   };
 
-  const handleDeleteCurrentChat = () => {
-    if (!activeSessionId) return;
-    const nextSessions = sessions.filter((session) => session.id !== activeSessionId);
-    const fallback = nextSessions[0] || null;
+  const handleDeleteSession = (sessionId: string) => {
+    const nextSessions = sessions.filter((session) => session.id !== sessionId);
     setSessions(nextSessions);
-    if (fallback) {
-      setActiveSessionId(fallback.id);
-      setActiveProviderId(fallback.providerId);
-      setActiveModelId(fallback.modelId);
-    } else {
-      setActiveSessionId("");
-      setActiveProviderId("");
-      setActiveModelId("");
+    setSelectedSessionIds((prev) => {
+      const next = new Set(prev);
+      next.delete(sessionId);
+      return next;
+    });
+    if (activeSessionId === sessionId) {
+      const fallback = nextSessions[0] || null;
+      if (fallback) {
+        setActiveSessionId(fallback.id);
+        setActiveProviderId(fallback.providerId);
+        setActiveModelId(fallback.modelId);
+      } else {
+        setActiveSessionId("");
+        setActiveProviderId("");
+        setActiveModelId("");
+      }
     }
+  };
+
+  const handleBulkDeleteSessions = () => {
+    const ids = selectedSessionIds;
+    if (ids.size === 0) return;
+    const nextSessions = sessions.filter((session) => !ids.has(session.id));
+    setSessions(nextSessions);
+    if (activeSessionId && ids.has(activeSessionId)) {
+      const fallback = nextSessions[0] || null;
+      setActiveSessionId(fallback?.id || "");
+      setActiveProviderId(fallback?.providerId || "");
+      setActiveModelId(fallback?.modelId || "");
+    }
+    setSelectedSessionIds(new Set());
+  };
+
+  const toggleSessionSelected = (event: React.MouseEvent, sessionId: string) => {
+    event.stopPropagation();
+    setSelectedSessionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleSessions = () => {
+    setSelectedSessionIds((prev) => {
+      if (allVisibleSessionsSelected) return new Set();
+      const next = new Set(prev);
+      filteredSessionItems.forEach((session) => next.add(session.id));
+      return next;
+    });
+  };
+
+  const startRenameSession = (event: React.MouseEvent, session: ChatSession) => {
+    event.stopPropagation();
+    setRenamingSessionId(session.id);
+    setRenameValue(session.title);
+  };
+
+  const commitRenameSession = (sessionId: string) => {
+    const title = renameValue.trim();
+    if (title) {
+      setSessions((prev) => prev.map((session) => (session.id === sessionId ? { ...session, title } : session)));
+    }
+    setRenamingSessionId("");
   };
 
   const handleSelectModel = (modelId: string) => {
@@ -799,63 +909,20 @@ export default function BasicChatPageClient() {
     <div className="relative flex-1 flex flex-col h-full min-h-0 min-w-0 bg-background text-foreground overflow-hidden">
       <div className="relative mx-auto flex flex-1 h-full min-h-0 w-full max-w-4xl flex-col">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 lg:px-6">
-          <div ref={modelMenuRef} className="relative">
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => setModelMenuOpen((value) => !value)}
-              className="gap-3 rounded-2xl px-4 py-3 h-auto text-left"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">{modelLabel}</span>
-                  <ChevronDown className="size-4 text-muted-foreground" />
-                </div>
-                <p className="truncate text-xs text-muted-foreground">{modelSubLabel}</p>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => setModelMenuOpen(true)}
+            className="gap-3 rounded-2xl px-4 py-3 h-auto text-left"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-foreground">{modelLabel}</span>
+                <ChevronDown className="size-4 text-muted-foreground" />
               </div>
-            </Button>
-
-            {modelMenuOpen ? (
-              <div className="absolute left-0 top-[calc(100%+10px)] z-30 w-[min(520px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-                <div className="border-b border-border px-4 py-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{translate("Models") || "Models"}</p>
-                  <p className="text-sm text-card-foreground/80">{translate("Only from connected providers") || "Only from connected providers"}</p>
-                </div>
-                <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
-                  {providerGroups.map((group) => (
-                    <div key={group.providerId} className="mb-2 rounded-xl border border-border bg-muted/40 p-2">
-                      <div className="flex items-center justify-between px-2 py-2">
-                        <p className="text-sm font-semibold text-card-foreground">{group.providerName}</p>
-                        <Badge variant="secondary">{group.models.length}</Badge>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {group.models.map((model) => {
-                          const isActive = model.id === activeModelId;
-                          return (
-                            <Button
-                              key={model.id}
-                              variant="ghost"
-                              type="button"
-                              onClick={() => handleSelectModel(model.id)}
-                              className={`rounded-xl border px-3 py-3 h-auto text-left ${isActive ? "border-primary/40 bg-primary/10" : "border-border bg-transparent hover:bg-muted"}`}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium text-card-foreground">{model.name}</p>
-                                  <p className="truncate text-[11px] text-muted-foreground">{model.requestModel}</p>
-                                </div>
-                                {isActive ? <CheckCircle2 className="size-4 text-primary" /> : null}
-                              </div>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
+              <p className="truncate text-xs text-muted-foreground">{modelSubLabel}</p>
+            </div>
+          </Button>
 
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" type="button" aria-label={translate("New chat") || "New chat"} onClick={handleNewChat} disabled={!activeModel} className="rounded-full">
@@ -869,43 +936,160 @@ export default function BasicChatPageClient() {
             >
               {translate("History") || "History"}
             </Button>
-            <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={handleDeleteCurrentChat} disabled={!activeSessionId || sessions.length === 0}>
-              {translate("Clear") || "Clear"}
-            </Button>
           </div>
         </div>
 
-        {historyOpen ? (
-          <div ref={historyMenuRef} className="absolute right-4 top-[72px] z-20 w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-border bg-card p-2 shadow-2xl lg:right-6">
-            <div className="px-3 py-2">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{translate("Recent conversations") || "Recent conversations"}</p>
+        <Dialog open={modelMenuOpen} onOpenChange={(open) => { setModelMenuOpen(open); if (!open) setModelSearch(""); }}>
+          <DialogContent className="max-w-2xl gap-0 p-0 overflow-hidden">
+            <DialogHeader className="border-b border-border px-4 py-4">
+              <DialogTitle>{translate("Select a model") || "Select a model"}</DialogTitle>
+            </DialogHeader>
+            <div className="border-b border-border px-4 py-3">
+              <div className="relative">
+                <Search aria-hidden="true" className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  autoFocus
+                  value={modelSearch}
+                  onChange={(event) => setModelSearch(event.target.value)}
+                  placeholder={translate("Search models or providers...") || "Search models or providers..."}
+                  className="h-9 pl-8"
+                />
+              </div>
             </div>
-            <div className="max-h-[48vh] space-y-2 overflow-y-auto p-1 custom-scrollbar">
-              {sessionItems.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-                  {translate("No conversations yet.") || "No conversations yet."}
+            <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
+              {filteredProviderGroups.length === 0 ? (
+                <p className="px-3 py-8 text-center text-sm text-muted-foreground">{translate("No models found.") || "No models found."}</p>
+              ) : filteredProviderGroups.map((group) => (
+                <div key={group.providerId} className="mb-2">
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{group.providerName}</p>
+                    <Badge variant="secondary">{group.models.length}</Badge>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {group.models.map((model) => {
+                      const isActive = model.id === activeModelId;
+                      return (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => { handleSelectModel(model.id); setModelSearch(""); }}
+                          className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${isActive ? "bg-primary/10" : "hover:bg-muted"}`}
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-card-foreground">{model.name}</p>
+                            <p className="truncate text-[11px] text-muted-foreground">{model.requestModel}</p>
+                          </div>
+                          {isActive ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              ) : sessionItems.map((session) => {
-                const isActive = session.id === activeSessionId;
-                const latestMessage = [...(session.messages || [])].reverse().find((message) => message.role === "user") || session.messages?.[0];
-                return (
-                  <Button
-                    key={session.id}
-                    variant="ghost"
-                    type="button"
-                    onClick={() => handleSelectSession(session.id)}
-                    className={`w-full rounded-xl border px-3 py-3 h-auto text-left ${isActive ? "border-primary/40 bg-primary/10" : "border-border bg-transparent hover:bg-muted"}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-card-foreground">{session.title}</p>
-                        <p className="mt-1 truncate text-xs text-muted-foreground">{textValue(latestMessage?.content) || (translate("Empty conversation") || "Empty conversation")}</p>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {historyOpen ? (
+          <div ref={historyMenuRef} className="absolute right-4 top-[72px] z-20 flex max-h-[70vh] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl lg:right-6">
+            <div className="shrink-0 border-b border-border px-3 py-2">
+              <div className="relative">
+                <Search aria-hidden="true" className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                  placeholder={translate("Search conversations...") || "Search conversations..."}
+                  className="h-8 pl-7 text-xs"
+                />
+              </div>
+            </div>
+
+            {selectedSessionCount > 0 ? (
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+                <button
+                  type="button"
+                  onClick={toggleAllVisibleSessions}
+                  className="flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Checkbox checked={allVisibleSessionsSelected} className="pointer-events-none" />
+                  {`${selectedSessionCount} ${translate("selected") || "selected"}`}
+                </button>
+                <Button variant="ghost" size="icon-sm" type="button" onClick={handleBulkDeleteSessions} aria-label={translate("Delete selected") || "Delete selected"} className="text-destructive hover:text-destructive">
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ) : null}
+
+            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2 custom-scrollbar">
+              {groupedSessionItems.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+                  {historySearch ? (translate("No results") || "No results") : (translate("No conversations yet.") || "No conversations yet.")}
+                </div>
+              ) : groupedSessionItems.map((group) => (
+                <div key={group.label}>
+                  <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+                  {group.items.map((session) => {
+                    const isActive = session.id === activeSessionId;
+                    const isSelected = selectedSessionIds.has(session.id);
+                    const isRenaming = renamingSessionId === session.id;
+                    return (
+                      <div
+                        key={session.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { if (!isRenaming) handleSelectSession(session.id); }}
+                        onKeyDown={(event) => { if (!isRenaming && event.key === "Enter") handleSelectSession(session.id); }}
+                        className={`group flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-muted ${isActive ? "bg-muted font-medium" : ""} ${isSelected ? "bg-muted/80" : ""}`}
+                      >
+                        <button
+                          type="button"
+                          aria-label={isSelected ? (translate("Deselect") || "Deselect") : (translate("Select") || "Select")}
+                          onClick={(event) => toggleSessionSelected(event, session.id)}
+                          className={`shrink-0 items-center justify-center rounded border transition-all ${
+                            isSelected || selectedSessionCount > 0
+                              ? "flex size-4 border-border bg-background"
+                              : "hidden group-hover:flex group-hover:size-4 group-hover:border-border group-hover:bg-background"
+                          } ${isSelected ? "border-primary bg-primary text-primary-foreground" : ""}`}
+                        >
+                          {isSelected ? <CheckCircle2 className="size-3" /> : null}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          {isRenaming ? (
+                            <input
+                              ref={renameInputRef}
+                              value={renameValue}
+                              onChange={(event) => setRenameValue(event.target.value)}
+                              onClick={(event) => event.stopPropagation()}
+                              onKeyDown={(event) => {
+                                event.stopPropagation();
+                                if (event.key === "Enter") commitRenameSession(session.id);
+                                if (event.key === "Escape") setRenamingSessionId("");
+                              }}
+                              onBlur={() => commitRenameSession(session.id)}
+                              className="h-6 w-full rounded border border-border bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                          ) : (
+                            <>
+                              <p className="truncate text-xs font-medium text-card-foreground">{session.title}</p>
+                              <p className="text-[10px] text-muted-foreground">{formatRelativeTime(session.updatedAt)}</p>
+                            </>
+                          )}
+                        </div>
+                        {!isRenaming ? (
+                          <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                            <Button variant="ghost" size="icon-sm" type="button" onClick={(event: React.MouseEvent) => startRenameSession(event, session)} aria-label={translate("Rename") || "Rename"} className="size-6">
+                              <Pencil className="size-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon-sm" type="button" onClick={(event: React.MouseEvent) => { event.stopPropagation(); handleDeleteSession(session.id); }} aria-label={translate("Delete") || "Delete"} className="size-6 text-destructive hover:text-destructive">
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{formatRelativeTime(session.updatedAt)}</span>
-                    </div>
-                  </Button>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
         ) : null}
