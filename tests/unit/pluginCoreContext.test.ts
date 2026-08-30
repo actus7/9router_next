@@ -23,4 +23,11 @@ describe("plugin-core context bootstrap", () => {
     const after = await bootstrap();
     expect(after).not.toBe(before);
   });
+
+  it("returns the same context to concurrent callers", async () => {
+    const [a, b] = await Promise.all([bootstrap(), bootstrap()]);
+    expect(a).toBe(b);
+    const singleton = await bootstrap();
+    expect(a).toBe(singleton);
+  });
 });
