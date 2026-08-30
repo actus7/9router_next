@@ -1,0 +1,38 @@
+export default {
+  id: "deepinfra",
+  alias: "deepinfra",
+  display: {
+    name: "DeepInfra",
+    icon: "cloud",
+    color: "#7C3AED",
+    textIcon: "DI",
+    website: "https://deepinfra.com",
+    notice: {
+      apiKeyUrl: "https://deepinfra.com/dash/api_keys",
+    },
+  },
+  category: "apikey",
+  transport: {
+    baseUrl: "https://api.deepinfra.com/v1/openai/chat/completions",
+    format: "openai",
+    validateUrl: "https://api.deepinfra.com/v1/openai/models",
+  },
+  models: [
+    { id: "anthropic/claude-4-opus", name: "Claude 4 Opus" },
+    { id: "anthropic/claude-4-sonnet", name: "Claude 4 Sonnet" },
+    { id: "openai/gpt-oss-120b", name: "GPT-OSS 120B" },
+    { id: "openai/gpt-oss-20b", name: "GPT-OSS 20B" },
+    { id: "google/gemma-4-31B-it", name: "Gemma 4 31B IT" },
+    { id: "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B", name: "Nemotron 3 Super 120B" },
+    { id: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama 4 Maverick" },
+    { id: "meta-llama/Llama-4-Scout-17B-16E-Instruct", name: "Llama 4 Scout" },
+    { id: "deepseek-ai/DeepSeek-V4-Pro", name: "DeepSeek V4 Pro" },
+    { id: "deepseek-ai/DeepSeek-V4-Flash", name: "DeepSeek V4 Flash" },
+    { id: "zai-org/GLM-5.1", name: "GLM 5.1" },
+    { id: "moonshotai/Kimi-K2.6", name: "Kimi K2.6" },
+    { id: "MiniMaxAI/MiniMax-M2.5", name: "MiniMax M2.5" },
+    { id: "Qwen/Qwen3.6-35B-A3B", name: "Qwen 3.6 35B A3B" },
+    { id: "Qwen/Qwen3.5-397B-A17B", name: "Qwen 3.5 397B A17B" },
+    { id: "XiaomiMiMo/MiMo-V2.5-Pro", name: "MiMo V2.5 Pro" },
+  ],
+};

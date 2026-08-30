@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Button from "@/shared/components/Button";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { LOCALE_FLAGS, type LocaleKey } from "@/shared/constants/locales";
@@ -17,7 +17,11 @@ function getLocaleFromCookie(): string {
 
 export default function HeaderLanguage() {
   const [open, setOpen] = useState(false);
-  const [locale, setLocale] = useState("en");
+  const locale = useSyncExternalStore(
+    () => () => {},
+    getLocaleFromCookie,
+    () => "en",
+  );
 
   return (
     <>
@@ -25,7 +29,6 @@ export default function HeaderLanguage() {
         variant="ghost"
         size="icon"
         onClick={() => {
-          setLocale(getLocaleFromCookie());
           setOpen(true);
         }}
         className="flex items-center justify-center p-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface-2/50"
@@ -38,9 +41,8 @@ export default function HeaderLanguage() {
       <LanguageSwitcher
         hideTrigger
         isOpen={open}
-        onClose={(next?: string) => {
+        onClose={() => {
           setOpen(false);
-          if (next) setLocale(next);
         }}
       />
     </>

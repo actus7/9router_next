@@ -1,0 +1,36 @@
+export default {
+  id: "crof",
+  alias: "crof",
+  display: {
+    name: "Crof",
+    icon: "bolt",
+    color: "#22C55E",
+    textIcon: "CR",
+    website: "https://crof.ai",
+    notice: {
+      apiKeyUrl: "https://crof.ai",
+    },
+  },
+  category: "apikey",
+  transport: {
+    baseUrl: "https://crof.ai/v1/chat/completions",
+    format: "openai",
+    validateUrl: "https://crof.ai/v1/models",
+  },
+  models: [
+    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+    { id: "deepseek-v3.2", name: "DeepSeek V3.2" },
+    { id: "kimi-k2.6", name: "Kimi K2.6" },
+    { id: "kimi-k2.7-code", name: "Kimi K2.7 Code" },
+    { id: "kimi-k3", name: "Kimi K3" },
+    { id: "kimi-k3-eco", name: "Kimi K3 Eco" },
+    { id: "glm-5.1", name: "GLM 5.1" },
+    { id: "glm-5.2", name: "GLM 5.2" },
+    { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro" },
+    { id: "gemma-4-31b-it", name: "Gemma 4 31B IT" },
+    { id: "qwen3.6-27b", name: "Qwen 3.6 27B" },
+    { id: "qwen3.5-397b-a17b", name: "Qwen 3.5 397B A17B" },
+    { id: "qwen3.5-9b", name: "Qwen 3.5 9B" },
+  ],
+};

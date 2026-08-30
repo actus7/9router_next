@@ -1,0 +1,38 @@
+export default {
+  id: "github-copilot",
+  priority: 45,
+  alias: "ghc",
+  aliases: ["copilot-api"],
+  uiAlias: "ghc",
+  category: "apikey",
+  authType: "apikey",
+  authHint: "Paste a GitHub token (gho_/ghu_/ghp_/ghs_/github_pat_...) or a Copilot token (tid=...). Get a token at https://github.com/settings/tokens — requires Copilot subscription.",
+  display: {
+    name: "GitHub Copilot",
+    icon: "code",
+    color: "#238636",
+    textIcon: "GH",
+    website: "https://github.com/features/copilot",
+    notice: {
+      text: "Uses your Copilot subscription. Token GitHub is exchanged for a short-lived Copilot token automatically.",
+      apiKeyUrl: "https://github.com/settings/tokens",
+    },
+  },
+  transport: {
+    baseUrl: "https://api.githubcopilot.com/chat/completions",
+    format: "openai",
+    executor: "github-copilot",
+  },
+  models: [
+    { id: "copilot/claude-opus-4.6", name: "Claude Opus 4.6", capabilities: ["tools"] },
+    { id: "copilot/claude-sonnet-4.6", name: "Claude Sonnet 4.6", capabilities: ["tools"] },
+    { id: "copilot/claude-haiku-4.5", name: "Claude Haiku 4.5", capabilities: ["tools"] },
+    { id: "copilot/gpt-5.4", name: "GPT-5.4", capabilities: ["vision", "reasoning"] },
+    { id: "copilot/gpt-5-mini", name: "GPT-5 Mini", capabilities: ["vision", "reasoning"] },
+    { id: "copilot/gpt-4.1", name: "GPT-4.1", capabilities: ["vision"] },
+    { id: "copilot/gpt-4o", name: "GPT-4o", capabilities: ["vision"] },
+    { id: "copilot/gpt-4o-mini", name: "GPT-4o Mini", capabilities: ["vision"] },
+    { id: "copilot/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro Preview", capabilities: ["vision", "reasoning"] },
+    { id: "copilot/grok-code-fast-1", name: "Grok Code Fast 1" },
+  ],
+};

@@ -23,17 +23,25 @@ function setAuth(headers: Record<string, string>, spec: Record<string, unknown>,
   headers[spec.header as string] = spec.scheme === "bearer" ? `Bearer ${token}` : (token ?? "");
 }
 
+// Synthetic credential injected by accountSelection for noAuth/free providers.
+// It marks "no credentials needed" — never a real bearer token upstream
+// (OVH 403s and Pollinations 400s when it is sent as `Authorization: Bearer public`).
+const SYNTHETIC_NOAUTH_TOKEN = "public";
+
 // Resolve auth onto headers from a descriptor.
 function applyAuth(headers: Record<string, string>, desc: Record<string, unknown>, credentials: Credentials) {
-  if (desc.combined) {
-    // combined providers always set the header (legacy behavior, incl. noAuth → "Bearer undefined")
-    setAuth(headers, desc, (credentials.apiKey || credentials.accessToken) as string | undefined);
-    if (desc.anthropicVersion && !headers["anthropic-version"]) headers["anthropic-version"] = ANTHROPIC_API_VERSION;
-    return;
+  const token = (credentials.apiKey || credentials.accessToken) as string | undefined;
+  const isSyntheticNoAuth = token === SYNTHETIC_NOAUTH_TOKEN;
+  if (!isSyntheticNoAuth) {
+    if (desc.combined) {
+      // combined providers always set the header (legacy behavior, incl. noAuth → "Bearer undefined")
+      setAuth(headers, desc, token);
+    } else {
+      // split apiKey/oauth: set only the matching branch (legacy: anthropic-compatible skips when both absent)
+      if (credentials.apiKey) setAuth(headers, desc.apiKey as Record<string, unknown>, credentials.apiKey);
+      else if (credentials.accessToken) setAuth(headers, desc.oauth as Record<string, unknown>, credentials.accessToken);
+    }
   }
-  // split apiKey/oauth: set only the matching branch (legacy: anthropic-compatible skips when both absent)
-  if (credentials.apiKey) setAuth(headers, desc.apiKey as Record<string, unknown>, credentials.apiKey);
-  else if (credentials.accessToken) setAuth(headers, desc.oauth as Record<string, unknown>, credentials.accessToken);
   if (desc.anthropicVersion && !headers["anthropic-version"]) headers["anthropic-version"] = ANTHROPIC_API_VERSION;
 }
 

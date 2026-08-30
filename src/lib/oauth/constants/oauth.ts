@@ -160,6 +160,21 @@ export const WINDSURF_CONFIG: Record<string, unknown> = {
   oauthTimeoutMs: 600_000,
 };
 
+// GHE Copilot OAuth Configuration (Device Code Flow)
+export const GHE_COPILOT_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["ghe-copilot"] };
+
+// Amazon Q OAuth Configuration (AWS Builder ID / Device Code Flow)
+export const AMAZON_Q_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["amazon-q"] };
+
+// Antigravity CLI OAuth Configuration (Google OAuth PKCE)
+export const AGY_CONFIG: Record<string, unknown> = {
+  ...(ANTIGRAVITY_OAUTH_CLIENT as Record<string, unknown>),
+  ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["agy"],
+};
+
+// Openference OAuth Configuration (Authorization Code PKCE)
+export const OPENFERENCE_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["openference"] };
+
 // Zed hosted LLM aggregator â€” RSA keypair native-app auth (NOT OAuth).
 export const ZED_HOSTED_CONFIG: Record<string, unknown> = {
   webBaseUrl: "https://zed.dev",
@@ -197,4 +212,8 @@ const PROVIDERS: Record<string, string> = {
   TRAE: "trae",
   WINDSURF: "windsurf",
   ZED: "zed",
+  GHE_COPILOT: "ghe-copilot",
+  AMAZON_Q: "amazon-q",
+  AGY: "agy",
+  OPENFERENCE: "openference",
 };

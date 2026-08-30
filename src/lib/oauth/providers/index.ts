@@ -26,6 +26,10 @@ import kimchi from "./kimchi";
 import trae from "./trae";
 import windsurf from "./windsurf";
 import zed from "./zed";
+import gheCopilot from "./ghe-copilot";
+import amazonQ from "./amazon-q";
+import agy from "./agy";
+import openference from "./openference";
 
 interface ProviderHandler {
   config: Record<string, unknown>;
@@ -66,6 +70,10 @@ const PROVIDERS: Record<string, ProviderHandler> = {
   trae,
   windsurf,
   zed,
+  "ghe-copilot": gheCopilot,
+  "amazon-q": amazonQ,
+  agy,
+  openference,
 } as unknown as Record<string, ProviderHandler>;
 
 // Re-export helpers that other files import from this path

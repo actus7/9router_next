@@ -1,0 +1,35 @@
+export default {
+  id: "pollinations",
+  alias: "pl",
+  display: {
+    name: "Pollinations AI",
+    icon: "public",
+    color: "#10B981",
+    textIcon: "PL",
+    website: "https://pollinations.ai",
+    notice: "Public free API — no API key required. Subject to rate limits.",
+  },
+  category: "free",
+  noAuth: true,
+  transport: {
+    baseUrl: "https://text.pollinations.ai/openai/chat/completions",
+    retry: {
+      402: { attempts: 1, delayMs: 8000 },
+      429: { attempts: 1, delayMs: 5000 },
+    },
+  },
+  models: [
+    { id: "openai", name: "GPT-OSS 20B" },
+    { id: "openai-fast", name: "GPT-OSS Fast" },
+    { id: "openai-large", name: "OpenAI Large" },
+    { id: "mistral", name: "Mistral" },
+    { id: "mistral-large", name: "Mistral Large" },
+    { id: "searchgpt", name: "SearchGPT" },
+    { id: "qwen", name: "Qwen" },
+    { id: "deepseek", name: "DeepSeek" },
+    { id: "deepseek-r1", name: "DeepSeek R1" },
+    { id: "llama", name: "Llama" },
+    { id: "llama-33", name: "Llama 3.3" },
+    { id: "gemini", name: "Gemini" },
+  ],
+};

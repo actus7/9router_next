@@ -21,6 +21,7 @@ import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActi
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
+import { FREE_PROVIDERS } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
 import { getProjectIdForConnection } from "@/server/llm-gateway/engine/services/projectId";
@@ -33,6 +34,25 @@ import {
 } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import type { ClientRawRequest as CoreClientRawRequest, ProviderThinkingConfig } from "@/server/llm-gateway/engine/handlers/chatCore/types";
 import type { RequestBody } from "@/server/llm-gateway/engine/services/types";
+
+// Server-side cooldown for noAuth providers to prevent rapid-fire retries
+// Keyed by provider only (not model) because rate limits are per-IP, not per-model
+const noAuthCooldowns = new Map<string, number>();
+
+function isNoAuthOnCooldown(provider: string): number {
+  const until = noAuthCooldowns.get(provider);
+  if (!until) return 0;
+  const remaining = until - Date.now();
+  if (remaining <= 0) {
+    noAuthCooldowns.delete(provider);
+    return 0;
+  }
+  return remaining;
+}
+
+function setNoAuthCooldown(provider: string, ms: number): void {
+  noAuthCooldowns.set(provider, Date.now() + ms);
+}
 
 type ChatBody = RequestBody;
 type ClientRawRequest = CoreClientRawRequest;
@@ -327,6 +347,27 @@ export async function handleSingleModelChat(
 
   const { provider, model } = modelInfo;
 
+  // Check server-side cooldown for noAuth providers (prevents rapid-fire retries)
+  const isNoAuth = FREE_PROVIDERS[provider]?.noAuth;
+  if (isNoAuth) {
+    const cooldownRemaining = isNoAuthOnCooldown(provider);
+    if (cooldownRemaining > 0) {
+      const retryAfterSec = Math.ceil(cooldownRemaining / 1000);
+      log.warn("CHAT", `[${provider}/${model}] Server-side cooldown active (${retryAfterSec}s remaining)`);
+      return new Response(
+        JSON.stringify({ error: { message: `[${provider}/${model}] Rate limited. Retry after ${retryAfterSec}s`, type: "rate_limit_error", code: "rate_limit_exceeded" } }),
+        {
+          status: HTTP_STATUS.RATE_LIMITED,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(retryAfterSec),
+            "Access-Control-Allow-Origin": "*",
+          }
+        }
+      );
+    }
+  }
+
   const userAgent: string = request?.headers?.get("user-agent") || "";
 
   const excludeConnectionIds: Set<string> = new Set();
@@ -403,6 +444,25 @@ export async function handleSingleModelChat(
     } as Parameters<typeof handleChatCore>[0]) as ChatResult;
 
     if (result.success) return result.response;
+
+    // For noAuth providers, apply server-side cooldown on rate-limit/billing errors
+    if (isNoAuth && (result.status === 429 || result.status === 402)) {
+      const cooldownMs = result.status === 429 ? 15000 : 30000; //15s for rate limit,30s for billing
+      setNoAuthCooldown(provider, cooldownMs);
+      const retryAfterSec = Math.ceil(cooldownMs / 1000);
+      log.warn("CHAT", `[${provider}/${model}] noAuth cooldown set (${retryAfterSec}s) after ${result.status}`);
+      return new Response(
+        JSON.stringify({ error: { message: `[${provider}/${model}] ${result.error}. Retry after ${retryAfterSec}s`, type: result.status === 429 ? "rate_limit_error" : "billing_error", code: result.status === 429 ? "rate_limit_exceeded" : "payment_required" } }),
+        {
+          status: result.status,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(retryAfterSec),
+            "Access-Control-Allow-Origin": "*",
+          }
+        }
+      );
+    }
 
     const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null);
 
