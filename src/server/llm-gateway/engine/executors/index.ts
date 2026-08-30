@@ -58,6 +58,8 @@ const executors = {
   "devin-cli": new DevinCliExecutor(),
 };
 
+export { executors };
+
 const defaultCache = new Map();
 
 export function getExecutor(provider: string) {

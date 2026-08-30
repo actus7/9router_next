@@ -1,10 +1,13 @@
 import { Context } from "cordis";
+import { executorsPlugin } from "./plugins/executors-plugin";
 
 let rootContext: Context | null = null;
 
-export function bootstrap(): Context {
+export async function bootstrap(): Promise<Context> {
   if (!rootContext) {
-    rootContext = new Context();
+    const ctx = new Context();
+    await ctx.plugin(executorsPlugin);
+    rootContext = ctx;
   }
   return rootContext;
 }

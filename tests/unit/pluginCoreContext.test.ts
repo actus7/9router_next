@@ -6,9 +6,9 @@ describe("plugin-core context bootstrap", () => {
     await resetContext();
   });
 
-  it("memoizes the root context across calls", () => {
-    const first = bootstrap();
-    const second = bootstrap();
+  it("memoizes the root context across calls", async () => {
+    const first = await bootstrap();
+    const second = await bootstrap();
     expect(second).toBe(first);
   });
 
@@ -18,9 +18,9 @@ describe("plugin-core context bootstrap", () => {
   });
 
   it("creates a fresh context after resetContext()", async () => {
-    const before = bootstrap();
+    const before = await bootstrap();
     await resetContext();
-    const after = bootstrap();
+    const after = await bootstrap();
     expect(after).not.toBe(before);
   });
 });
