@@ -247,6 +247,7 @@ export default function BasicChatPageClient() {
     if (typeof window === "undefined") return "";
     return globalThis.localStorage.getItem(STORAGE_KEYS.draft) || "";
   });
+  const [apiKey, setApiKey] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState("");
@@ -262,6 +263,37 @@ export default function BasicChatPageClient() {
 
   useEffect(() => {
     setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOrCreateApiKey() {
+      try {
+        const res = await fetch("/api/keys", { cache: "no-store" });
+        const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+        const keys = Array.isArray(data.keys) ? (data.keys as Array<{ key: string }>) : [];
+        if (keys[0]?.key) {
+          if (!cancelled) setApiKey(keys[0].key);
+          return;
+        }
+
+        const created = await fetch("/api/keys", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: "Basic Chat" }),
+        });
+        const createdData = await created.json().catch(() => ({})) as Record<string, unknown>;
+        if (!cancelled && typeof createdData.key === "string") setApiKey(createdData.key);
+      } catch {
+        // Ignore — the chat request will surface a clear "Missing API key" error if this fails.
+      }
+    }
+
+    loadOrCreateApiKey();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -691,11 +723,12 @@ export default function BasicChatPageClient() {
       }));
 
     try {
-      const response = await fetch("/api/dashboard/chat/completions", {
+      const response = await fetch("/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "text/event-stream",
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
         },
         body: JSON.stringify({
           model: model.requestModel || model.id,

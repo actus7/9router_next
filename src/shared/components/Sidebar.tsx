@@ -21,7 +21,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { BarChart3, ChevronRight, CloudUpload, Film, FolderOpen, Globe, Languages, Layers, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
+import { BarChart3, ChevronRight, CloudUpload, Film, FolderOpen, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 
@@ -48,6 +48,7 @@ const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
 const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: <Globe className="size-4" />, href: "/dashboard/media-providers/web" };
 
 const navItems = [
+  { href: "/dashboard/basic-chat", label: "Chat", icon: <MessageSquare /> },
   { href: "/dashboard/usage", label: "Usage", icon: <BarChart3 /> },
   { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: <Webhook /> },
   { href: "/dashboard/providers", label: "Providers", icon: <Server /> },
