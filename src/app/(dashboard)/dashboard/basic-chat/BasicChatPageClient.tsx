@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
-import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, MessageSquare, Paperclip, Square, Trash2, X } from "lucide-react";
+import { AlertCircle, ArrowUp, CheckCircle2, ChevronDown, MessageSquare, Paperclip, Plus, Square, Trash2, X } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 
 const STORAGE_KEYS = {
@@ -187,11 +187,7 @@ function normalizeLiveModel(model: string | Record<string, unknown>, connection:
     ? model
     : (model?.name as string) || (model?.displayName as string) || rawId;
 
-  let requestModel = rawId;
-  const isCompatible = isOpenAICompatibleProvider(connection.provider as string) || isAnthropicCompatibleProvider(connection.provider as string);
-  if (isCompatible && !rawId.includes("/")) {
-    requestModel = `${connection.provider}/${rawId}`;
-  }
+  const requestModel = rawId.includes("/") ? rawId : `${connection.provider}/${rawId}`;
 
   return {
     id: requestModel,
@@ -559,33 +555,6 @@ export default function BasicChatPageClient() {
     }
   };
 
-  const handleSelectProvider = (providerId: string) => {
-    const group = providerGroups.find((item) => item.providerId === providerId);
-    if (!group || group.models.length === 0) return;
-    const nextModel = group.models[0];
-
-    const current = sessions.find((session) => session.id === activeSessionId);
-    if (current && current.messages.length > 0) {
-      const session = ensureSessionForModel(nextModel);
-      if (!session) return;
-      setSessions((prev) => [session, ...prev]);
-      setActiveSessionId(session.id);
-    } else if (current) {
-      setSessions((prev) => prev.map((item) => (item.id === current.id ? {
-        ...item,
-        providerId: group.providerId,
-        providerName: group.providerName,
-        modelId: nextModel.id,
-        modelName: nextModel.name,
-      } : item)));
-      setActiveSessionId(current.id);
-    }
-
-    setActiveProviderId(group.providerId);
-    setActiveModelId(nextModel.id);
-    setModelMenuOpen(false);
-  };
-
   const handleSelectModel = (modelId: string) => {
     const model = modelIndex.get(modelId);
     if (!model) return;
@@ -827,36 +796,36 @@ export default function BasicChatPageClient() {
   const modelSubLabel = activeModel ? activeModel.requestModel : (translate("Choose from connected providers") || "Choose from connected providers");
 
   return (
-    <div className="relative flex-1 flex flex-col h-full min-h-0 min-w-0 bg-[#212121] text-white overflow-hidden">
+    <div className="relative flex-1 flex flex-col h-full min-h-0 min-w-0 bg-background text-foreground overflow-hidden">
       <div className="relative mx-auto flex flex-1 h-full min-h-0 w-full max-w-4xl flex-col">
-        <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 lg:px-6">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 lg:px-6">
           <div ref={modelMenuRef} className="relative">
             <Button
               variant="outline"
               type="button"
               onClick={() => setModelMenuOpen((value) => !value)}
-              className="gap-3 rounded-2xl border-white/10 bg-white/5 px-4 py-3 h-auto text-left hover:bg-white/8"
+              className="gap-3 rounded-2xl px-4 py-3 h-auto text-left"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white">{modelLabel}</span>
-                  <ChevronDown className="size-5" />
+                  <span className="text-sm font-semibold text-foreground">{modelLabel}</span>
+                  <ChevronDown className="size-4 text-muted-foreground" />
                 </div>
-                <p className="truncate text-xs text-white/55">{modelSubLabel}</p>
+                <p className="truncate text-xs text-muted-foreground">{modelSubLabel}</p>
               </div>
             </Button>
 
             {modelMenuOpen ? (
-              <div className="absolute left-0 top-[calc(100%+10px)] z-30 w-[min(520px,calc(100vw-2rem))] overflow-hidden rounded-[20px] border border-white/10 bg-[#262626] shadow-2xl shadow-black/50">
-                <div className="border-b border-white/10 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.22em] text-white/45">{translate("Models") || "Models"}</p>
-                  <p className="text-sm text-white/75">{translate("Only from connected providers") || "Only from connected providers"}</p>
+              <div className="absolute left-0 top-[calc(100%+10px)] z-30 w-[min(520px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+                <div className="border-b border-border px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{translate("Models") || "Models"}</p>
+                  <p className="text-sm text-card-foreground/80">{translate("Only from connected providers") || "Only from connected providers"}</p>
                 </div>
                 <div className="max-h-[60vh] overflow-y-auto p-2 custom-scrollbar">
                   {providerGroups.map((group) => (
-                    <div key={group.providerId} className="mb-2 rounded-[16px] border border-white/10 bg-black/20 p-2">
+                    <div key={group.providerId} className="mb-2 rounded-xl border border-border bg-muted/40 p-2">
                       <div className="flex items-center justify-between px-2 py-2">
-                        <p className="text-sm font-semibold text-white">{group.providerName}</p>
+                        <p className="text-sm font-semibold text-card-foreground">{group.providerName}</p>
                         <Badge variant="secondary">{group.models.length}</Badge>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -868,14 +837,14 @@ export default function BasicChatPageClient() {
                               variant="ghost"
                               type="button"
                               onClick={() => handleSelectModel(model.id)}
-                              className={`rounded-[14px] border px-3 py-3 h-auto text-left ${isActive ? "border-blue-400/40 bg-blue-500/15" : "border-white/10 bg-white/5 hover:bg-white/8"}`}
+                              className={`rounded-xl border px-3 py-3 h-auto text-left ${isActive ? "border-primary/40 bg-primary/10" : "border-border bg-transparent hover:bg-muted"}`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className="truncate text-sm font-medium text-white">{model.name}</p>
-                                  <p className="truncate text-[11px] text-white/45">{model.requestModel}</p>
+                                  <p className="truncate text-sm font-medium text-card-foreground">{model.name}</p>
+                                  <p className="truncate text-[11px] text-muted-foreground">{model.requestModel}</p>
                                 </div>
-                                {isActive ? <CheckCircle2 className="size-5" /> : null}
+                                {isActive ? <CheckCircle2 className="size-4 text-primary" /> : null}
                               </div>
                             </Button>
                           );
@@ -889,11 +858,14 @@ export default function BasicChatPageClient() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" type="button" aria-label={translate("New chat") || "New chat"} onClick={handleNewChat} disabled={!activeModel} className="rounded-full">
+              <Plus className="size-4" />
+            </Button>
             <Button
               variant="outline"
               type="button"
               onClick={() => setHistoryOpen((value) => !value)}
-              className="rounded-2xl border-white/10 bg-white/5 px-4 py-3 h-auto text-sm text-white/80 hover:bg-white/8"
+              className="rounded-2xl px-4 py-3 h-auto text-sm"
             >
               {translate("History") || "History"}
             </Button>
@@ -904,13 +876,13 @@ export default function BasicChatPageClient() {
         </div>
 
         {historyOpen ? (
-          <div ref={historyMenuRef} className="absolute right-4 top-[72px] z-20 w-[min(360px,calc(100vw-2rem))] rounded-[20px] border border-white/10 bg-[#262626] p-2 shadow-2xl shadow-black/50 lg:right-6">
+          <div ref={historyMenuRef} className="absolute right-4 top-[72px] z-20 w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-border bg-card p-2 shadow-2xl lg:right-6">
             <div className="px-3 py-2">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/45">{translate("Recent conversations") || "Recent conversations"}</p>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{translate("Recent conversations") || "Recent conversations"}</p>
             </div>
             <div className="max-h-[48vh] space-y-2 overflow-y-auto p-1 custom-scrollbar">
               {sessionItems.length === 0 ? (
-                <div className="rounded-[16px] border border-dashed border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
                   {translate("No conversations yet.") || "No conversations yet."}
                 </div>
               ) : sessionItems.map((session) => {
@@ -922,14 +894,14 @@ export default function BasicChatPageClient() {
                     variant="ghost"
                     type="button"
                     onClick={() => handleSelectSession(session.id)}
-                    className={`w-full rounded-[16px] border px-3 py-3 h-auto text-left ${isActive ? "border-blue-400/40 bg-blue-500/15" : "border-white/10 bg-white/5 hover:bg-white/8"}`}
+                    className={`w-full rounded-xl border px-3 py-3 h-auto text-left ${isActive ? "border-primary/40 bg-primary/10" : "border-border bg-transparent hover:bg-muted"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-white">{session.title}</p>
-                        <p className="mt-1 truncate text-xs text-white/50">{textValue(latestMessage?.content) || (translate("Empty conversation") || "Empty conversation")}</p>
+                        <p className="truncate text-sm font-medium text-card-foreground">{session.title}</p>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">{textValue(latestMessage?.content) || (translate("Empty conversation") || "Empty conversation")}</p>
                       </div>
-                      <span className="text-[10px] text-white/40 shrink-0">{formatRelativeTime(session.updatedAt)}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{formatRelativeTime(session.updatedAt)}</span>
                     </div>
                   </Button>
                 );
@@ -939,7 +911,7 @@ export default function BasicChatPageClient() {
         ) : null}
 
         {loadError ? (
-          <div className="mt-4 rounded-[18px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-rose-100">
+          <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
             <div className="flex items-start gap-3">
               <AlertCircle className="size-5" />
               <p className="text-sm leading-6">{loadError}</p>
@@ -952,12 +924,12 @@ export default function BasicChatPageClient() {
             {currentMessages.length === 0 ? (
               <div className="flex min-h-[50vh] items-center justify-center px-4 text-center">
                 <div className="max-w-xl space-y-4">
-                  <div className="mx-auto flex size-16 items-center justify-center rounded-[20px] border border-white/10 bg-white/5 text-white/80">
+                  <div className="mx-auto flex size-16 items-center justify-center rounded-2xl border border-border bg-muted/40 text-primary">
                     <MessageSquare className="size-8" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-semibold text-white">{translate("Start a conversation") || "Start a conversation"}</h2>
-                    <p className="text-sm leading-6 text-white/60">
+                    <h2 className="text-2xl font-semibold text-foreground">{translate("Start a conversation") || "Start a conversation"}</h2>
+                    <p className="text-sm leading-6 text-muted-foreground">
                       {translate("Simple chat interface to interact with any AI model from connected providers. Select a model and start chatting!") || "Simple chat interface to interact with any AI model from connected providers. Select a model and start chatting!"}
                     </p>
                   </div>
@@ -974,15 +946,15 @@ export default function BasicChatPageClient() {
 
                 return (
                   <div key={message.id} className={`flex w-full ${isUser ? "justify-end" : "justify-start"} mb-6`}>
-                    <div className={`max-w-[min(88%,42rem)] ${isUser ? "rounded-3xl bg-[#2f2f2f] px-5 py-3.5 text-white" : "text-white/90"}`}>
+                    <div className={`max-w-[min(88%,42rem)] ${isUser ? "rounded-3xl bg-primary text-primary-foreground px-5 py-3.5" : "text-foreground"}`}>
                       <div className="mb-1 flex items-center justify-between gap-3">
-                        <span className="text-xs font-semibold">{isUser ? (translate("You") || "You") : activeModel?.name || (translate("Assistant") || "Assistant")}</span>
+                        <span className={`text-xs font-semibold ${isUser ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{isUser ? (translate("You") || "You") : activeModel?.name || (translate("Assistant") || "Assistant")}</span>
                       </div>
 
                       {message.attachments?.length ? (
                         <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 mt-2">
                           {message.attachments.map((attachment) => (
-                            <a key={attachment.id} href={attachment.dataUrl} target="_blank" rel="noreferrer" className="overflow-hidden rounded-[18px] border border-white/10 bg-black/20">
+                            <a key={attachment.id} href={attachment.dataUrl} target="_blank" rel="noreferrer" className="overflow-hidden rounded-xl border border-border bg-muted/40">
                               <img src={attachment.dataUrl} alt={attachment.name} className="h-28 w-full object-cover" loading="lazy" decoding="async" />
                             </a>
                           ))}
@@ -991,7 +963,7 @@ export default function BasicChatPageClient() {
 
                       <div className="whitespace-pre-wrap break-words text-[15px] leading-7">
                         {content}
-                        {isAssistant && isStreaming && !streamingText ? <span className="inline-block animate-pulse">▋</span> : null}
+                        {isAssistant && isStreaming && !streamingText ? <span className="inline-block animate-pulse text-primary">▋</span> : null}
                       </div>
                     </div>
                   </div>
@@ -1004,10 +976,10 @@ export default function BasicChatPageClient() {
             {attachments.length > 0 ? (
               <div className="mx-auto mb-3 flex w-full max-w-3xl flex-wrap gap-2 px-4">
                 {attachments.map((attachment) => (
-                  <div key={attachment.id} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2">
-                    <span className="text-xs text-white/80 max-w-[12rem] truncate">{attachment.name}</span>
-                    <Button variant="ghost" size="icon-sm" type="button" onClick={() => removeAttachment(attachment.id)} className="text-white/55 hover:text-white" aria-label="Remove attachment">
-                      <X className="size-5" />
+                  <div key={attachment.id} className="flex items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-2">
+                    <span className="text-xs text-card-foreground max-w-[12rem] truncate">{attachment.name}</span>
+                    <Button variant="ghost" size="icon-sm" type="button" onClick={() => removeAttachment(attachment.id)} className="text-muted-foreground hover:text-foreground" aria-label="Remove attachment">
+                      <X className="size-4" />
                     </Button>
                   </div>
                 ))}
@@ -1015,23 +987,23 @@ export default function BasicChatPageClient() {
             ) : null}
 
             <div className="mx-auto w-full max-w-3xl px-4 pb-2">
-              <div className="rounded-[26px] bg-[#2f2f2f] px-3 pt-3 pb-2 shadow-[0_0_15px_rgba(0,0,0,0.10)] ring-1 ring-white/5">
+              <div className="rounded-[26px] border border-border bg-card px-3 pt-3 pb-2 shadow-sm">
                 <Textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={translate("Message to AI") || "Message to AI"}
                   rows={1}
-                  className="resize-none border-0 bg-transparent px-2 text-[15px] leading-6 text-white placeholder:text-white/40 custom-scrollbar max-h-[25vh] focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="resize-none border-0 bg-transparent px-2 text-[15px] leading-6 text-foreground placeholder:text-muted-foreground custom-scrollbar max-h-[25vh] focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
 
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" type="button" aria-label={translate("Attach image") || "Attach image"} onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="text-white/50 hover:text-white rounded-full hover:bg-white/5">
+                    <Button variant="ghost" size="icon" type="button" aria-label={translate("Attach image") || "Attach image"} onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="rounded-full text-muted-foreground hover:text-foreground">
                       <Paperclip className="size-5" />
                     </Button>
                     <Input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAttachFiles} />
-                    <span className="text-xs font-medium text-white/30 truncate max-w-[120px]">{activeModel ? activeModel.name : (translate("No model") || "No model")}</span>
+                    <span className="text-xs font-medium text-muted-foreground truncate max-w-[120px]">{activeModel ? activeModel.name : (translate("No model") || "No model")}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -1040,7 +1012,7 @@ export default function BasicChatPageClient() {
                         <Square className="size-4" />
                       </Button>
                     ) : null}
-                    <Button variant="secondary" size="icon" aria-label={translate("Send message") || "Send message"} onClick={sendMessage} disabled={!canSend} className={`rounded-full ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30'}`}>
+                    <Button variant="default" size="icon" aria-label={translate("Send message") || "Send message"} onClick={sendMessage} disabled={!canSend} className="rounded-full">
                       <ArrowUp className="size-4" />
                     </Button>
                   </div>
@@ -1049,7 +1021,7 @@ export default function BasicChatPageClient() {
             </div>
           </div>
 
-          <p className="mx-auto mt-2 max-w-3xl px-4 pb-4 text-center text-[11px] text-white/30">
+          <p className="mx-auto mt-2 max-w-3xl px-4 pb-4 text-center text-[11px] text-muted-foreground">
             {translate("Model list is filtered from connected providers.") || "Model list is filtered from connected providers."}
           </p>
         </div>
