@@ -16,10 +16,6 @@ export default {
   transport: {
     baseUrl: "https://inference.dahl.global/v1/chat/completions",
   },
-  models: [
-    { id: "minimax-m2.7", name: "MiniMax M2.7" },
-    { id: "kimi-k2.6", name: "Kimi K2.6" },
-  ],
   modelsFetcher: { url: "https://inference.dahl.global/v1/models", type: "openai" },
   passthroughModels: true,
 };

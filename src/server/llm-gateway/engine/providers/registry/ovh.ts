@@ -20,9 +20,4 @@ export default {
     validateUrl: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models",
   },
   modelsFetcher: { url: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models", type: "openai" },
-  models: [
-    { id: "gpt-oss-120b", name: "GPT-OSS 120B (OVH)" },
-    { id: "Meta-Llama-3_3-70B-Instruct", name: "Llama 3.3 70B Instruct (OVH)" },
-    { id: "Mistral-Nemo-Instruct-2407", name: "Mistral Nemo Instruct 2407 (OVH)" },
-  ],
 };

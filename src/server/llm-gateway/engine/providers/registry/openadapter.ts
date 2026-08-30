@@ -13,9 +13,6 @@ export default {
     baseUrl: "https://api.openadapter.in/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.openadapter.in/v1/models",
-    modelsFetcher: { url: "https://api.openadapter.in/v1/models", type: "openai" },
   },
-  models: [
-    { id: "glm-4.7", name: "GLM 4.7", contextLength: 128000 },
-  ],
+  modelsFetcher: { url: "https://api.openadapter.in/v1/models", type: "openai" },
 };

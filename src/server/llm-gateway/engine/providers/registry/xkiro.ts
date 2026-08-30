@@ -20,11 +20,5 @@ export default {
     // the authenticated /v1/usage endpoint instead.
     validateUrl: "https://api.xkiro.com/v1/usage",
   },
-  models: [
-    { id: "mistral-large-latest", name: "Mistral Large" },
-    { id: "mistral-small-latest", name: "Mistral Small" },
-    { id: "minimax-m2.5", name: "MiniMax M2.5" },
-    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
-  ],
   modelsFetcher: { url: "https://api.xkiro.com/v1/models", type: "openai" },
 };

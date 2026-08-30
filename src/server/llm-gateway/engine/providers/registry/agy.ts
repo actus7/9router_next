@@ -21,7 +21,8 @@ export default {
     { id: "agy-default", name: "Antigravity Default" },
   ],
   oauth: {
-    clientId: "",
+    clientId: process.env.ANTIGRAVITY_OAUTH_CLIENT_ID || "",
+    clientSecret: process.env.ANTIGRAVITY_OAUTH_CLIENT_SECRET || "",
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
     scopes: [

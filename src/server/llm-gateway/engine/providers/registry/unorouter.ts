@@ -18,10 +18,5 @@ export default {
     baseUrl: "https://api.unorouter.com/v1/chat/completions",
     validateUrl: "https://api.unorouter.com/v1/models",
   },
-  models: [
-    { id: "gpt-4o:free", name: "GPT-4o (free)" },
-    { id: "gpt-4o-mini:free", name: "GPT-4o Mini (free)" },
-    { id: "claude-3.5-sonnet:free", name: "Claude 3.5 Sonnet (free)" },
-  ],
   modelsFetcher: { url: "https://api.unorouter.com/v1/models", type: "openai" },
 };

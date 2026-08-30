@@ -17,7 +17,6 @@ export default {
     baseUrl: "https://api.tokenreply.com/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.tokenreply.com/v1/models",
-    modelsFetcher: { url: "https://api.tokenreply.com/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://api.tokenreply.com/v1/models", type: "openai" },
 };

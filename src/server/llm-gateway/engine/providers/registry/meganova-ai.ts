@@ -14,7 +14,6 @@ export default {
     baseUrl: "https://api.meganova.ai/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.meganova.ai/v1/models",
-    modelsFetcher: { url: "https://api.meganova.ai/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://api.meganova.ai/v1/models", type: "openai" },
 };

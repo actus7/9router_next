@@ -14,7 +14,6 @@ export default {
     baseUrl: "https://helyxai.space/v1/chat/completions",
     format: "openai",
     validateUrl: "https://helyxai.space/v1/models",
-    modelsFetcher: { url: "https://helyxai.space/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://helyxai.space/v1/models", type: "openai" },
 };

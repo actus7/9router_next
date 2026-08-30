@@ -18,9 +18,5 @@ export default {
     baseUrl: "https://api.reka.ai/v1/chat/completions",
     validateUrl: "https://api.reka.ai/v1/models",
   },
-  models: [
-    { id: "reka-flash-3", name: "Reka Flash 3" },
-    { id: "reka-edge-2603", name: "Reka Edge 2603" },
-  ],
   modelsFetcher: { url: "https://api.reka.ai/v1/models", type: "openai" },
 };

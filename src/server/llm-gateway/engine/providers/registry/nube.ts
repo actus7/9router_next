@@ -14,7 +14,6 @@ export default {
     baseUrl: "https://ai.nube.sh/api/v1/chat/completions",
     format: "openai",
     validateUrl: "https://ai.nube.sh/api/v1/models",
-    modelsFetcher: { url: "https://ai.nube.sh/api/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://ai.nube.sh/api/v1/models", type: "openai" },
 };

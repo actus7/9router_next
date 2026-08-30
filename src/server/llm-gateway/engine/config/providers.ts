@@ -2,14 +2,6 @@
 import { PROVIDERS } from "../providers/index";
 export { PROVIDERS, PROVIDER_OAUTH } from "../providers/index";
 
-export const OLLAMA_LOCAL_DEFAULT_HOST = "http://localhost:11434";
-
-export function resolveOllamaLocalHost(credentials: Record<string, unknown> | undefined) {
-  const psd = credentials?.providerSpecificData as Record<string, unknown> | undefined;
-  const raw = (psd?.baseUrl as string | undefined)?.trim();
-  return (raw || OLLAMA_LOCAL_DEFAULT_HOST).replace(/\/$/, "");
-}
-
 // Region URLs single-source from registry xiaomi-tokenplan.transport
 export const XIAOMI_TOKENPLAN_REGIONS: Record<string, string> = (PROVIDERS["xiaomi-tokenplan"]?.regions as Record<string, string>) || {};
 export const XIAOMI_TOKENPLAN_DEFAULT_REGION = PROVIDERS["xiaomi-tokenplan"]?.defaultRegion as string | undefined;

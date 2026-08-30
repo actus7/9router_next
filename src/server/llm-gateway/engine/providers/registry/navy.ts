@@ -22,10 +22,5 @@ export default {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     },
   },
-  models: [
-    { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B" },
-    { id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash" },
-    { id: "qwen/qwen3-coder", name: "Qwen3 Coder" },
-  ],
   modelsFetcher: { url: "https://api.navy/v1/models", type: "openai" },
 };

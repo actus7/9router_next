@@ -21,11 +21,4 @@ export default {
     validateUrl: "https://models.github.ai/inference/models",
   },
   modelsFetcher: { url: "https://models.github.ai/inference/catalog", type: "openai" },
-  models: [
-    { id: "openai/gpt-4o", name: "GPT-4o (GitHub Models)" },
-    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini (GitHub Models)" },
-    { id: "microsoft/Phi-4", name: "Phi-4 (GitHub Models)" },
-    { id: "meta/Llama-4-Scout-17B-16E-Instruct", name: "Llama 4 Scout (GitHub Models)" },
-    { id: "deepseek/DeepSeek-V3-0324", name: "DeepSeek V3 (GitHub Models)" },
-  ],
 };

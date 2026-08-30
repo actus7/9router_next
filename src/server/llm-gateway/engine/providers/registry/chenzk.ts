@@ -17,7 +17,6 @@ export default {
     baseUrl: "https://chenzk.top/v1/chat/completions",
     format: "openai",
     validateUrl: "https://chenzk.top/v1/models",
-    modelsFetcher: { url: "https://chenzk.top/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://chenzk.top/v1/models", type: "openai" },
 };

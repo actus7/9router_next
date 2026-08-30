@@ -3,7 +3,7 @@ import { getProviderConnectionById } from "@/models";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { GEMINI_CONFIG } from "@/lib/oauth/constants/oauth";
 import { refreshGoogleToken, refreshCodexToken, updateProviderCredentials } from "@/server/llm-gateway/auth";
-import { resolveOllamaLocalHost, getModelsByProviderId, resolveKiroModels, resolveKimchiModels, resolveQoderModels, resolveGrokCliModels, resolveCursorModels } from "@/server/llm-gateway/catalog";
+import { getModelsByProviderId, resolveKiroModels, resolveKimchiModels, resolveQoderModels, resolveGrokCliModels, resolveCursorModels } from "@/server/llm-gateway/catalog";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 
 interface RouteContext {
@@ -201,6 +201,7 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
   },
   openai: createOpenAIModelsConfig("https://api.openai.com/v1/models"),
   openrouter: createOpenAIModelsConfig("https://openrouter.ai/api/v1/models"),
+  aihorde: createOpenAIModelsConfig("https://oai.aihorde.net/v1/models"),
   anthropic: {
     url: "https://api.anthropic.com/v1/models",
     method: "GET",
@@ -416,21 +417,11 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
       };
     },
   },
-  "ollama-local": {
-    customResolver: async (connection: Record<string, unknown>) => {
-      const url = `${resolveOllamaLocalHost(connection)}/api/tags`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error fetching models from ollama-local:", errorText);
-        return { error: `Failed to fetch models: ${response.status}`, status: response.status };
-      }
-      const data = await response.json();
-      return { models: parseOpenAIStyleModels(data) };
-    }
+  // theoldllm.vercel.app exposes only a chat-completions endpoint, no models-list
+  // endpoint (confirmed against the upstream reference implementation too) — refresh
+  // re-syncs to the curated static catalog instead of erroring with "not supported".
+  theoldllm: {
+    customResolver: async () => ({ models: getStaticProviderModels("theoldllm") })
   }
 };
 

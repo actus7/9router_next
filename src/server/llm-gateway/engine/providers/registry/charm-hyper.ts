@@ -15,7 +15,6 @@ export default {
     baseUrl: "https://hyper.charm.land/v1/chat/completions",
     format: "openai",
     validateUrl: "https://hyper.charm.land/v1/models",
-    modelsFetcher: { url: "https://hyper.charm.land/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://hyper.charm.land/v1/models", type: "openai" },
 };

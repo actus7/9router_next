@@ -13,7 +13,6 @@ import { OpenCodeExecutor } from "./opencode";
 import { GrokWebExecutor } from "./grok-web";
 import { GrokCliExecutor } from "./grok-cli";
 import { PerplexityWebExecutor } from "./perplexity-web";
-import { OllamaLocalExecutor } from "./ollama-local";
 import { CommandCodeExecutor } from "./commandcode";
 import { XiaomiTokenplanExecutor } from "./xiaomi-tokenplan";
 import { MimoFreeExecutor } from "./mimo-free";
@@ -27,6 +26,8 @@ import { DevinCliExecutor } from "./devin-cli";
 import { GithubCopilotExecutor } from "./github-copilot";
 import { QuillbotExecutor } from "./quillbot";
 import { DuckAiExecutor } from "./duckai";
+import { Context7Executor } from "./context7";
+import { AnySearchExecutor } from "./anysearch";
 import { ModelScopeExecutor } from "./modelscope";
 import { AIHordeExecutor } from "./aihorde";
 import { ChatGPTWebCodexExecutor } from "./chatgpt-web-codex";
@@ -67,6 +68,7 @@ const executors = {
   iflow: new IFlowExecutor(),
   qoder: new QoderExecutor(),
   kiro: new KiroExecutor(),
+  "amazon-q": new KiroExecutor("amazon-q"),
   kimchi: new KimchiExecutor(),
   codex: new CodexExecutor(),
   cursor: new CursorExecutor(),
@@ -79,7 +81,6 @@ const executors = {
   gcli: new GrokCliExecutor(), // Alias
   gb: new GrokCliExecutor(), // Alias (Grok Build)
   "perplexity-web": new PerplexityWebExecutor(),
-  "ollama-local": new OllamaLocalExecutor(),
   commandcode: new CommandCodeExecutor(),
   "xiaomi-tokenplan": new XiaomiTokenplanExecutor(),
   "mimo-free": new MimoFreeExecutor(),
@@ -91,8 +92,11 @@ const executors = {
   windsurf: new WindsurfExecutor(),
   "devin-cli": new DevinCliExecutor(),
   "github-copilot": new GithubCopilotExecutor(),
+  "ghe-copilot": new GithubCopilotExecutor("ghe-copilot"),
   quillbot: new QuillbotExecutor(),
   duckai: new DuckAiExecutor(),
+  context7: new Context7Executor(),
+  anysearch: new AnySearchExecutor(),
   modelscope: new ModelScopeExecutor(),
   aihorde: new AIHordeExecutor(),
   "chatgpt-web-codex": new ChatGPTWebCodexExecutor(),
@@ -157,7 +161,6 @@ export { OpenCodeExecutor } from "./opencode";
 export { GrokWebExecutor } from "./grok-web";
 export { GrokCliExecutor } from "./grok-cli";
 export { PerplexityWebExecutor } from "./perplexity-web";
-export { OllamaLocalExecutor } from "./ollama-local";
 export { CommandCodeExecutor } from "./commandcode";
 export { XiaomiTokenplanExecutor } from "./xiaomi-tokenplan";
 export { MimoFreeExecutor } from "./mimo-free";

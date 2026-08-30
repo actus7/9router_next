@@ -1,6 +1,7 @@
 import { CapacityBadges } from "@/shared/components";
 import Button from "@/shared/components/Button";
 import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, X } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 
 interface ModelRowProps {
   model: { id: string; name?: string };
@@ -63,7 +64,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
               </span>
             </Button>
             <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-              {isTesting ? "Testing..." : "Test"}
+              {isTesting ? translate("Testing...") : translate("Test")}
             </span>
           </div>
         )}
@@ -78,7 +79,7 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             </span>
           </Button>
           <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
-            {copied === `model-${model.id}` ? "Copied!" : "Copy"}
+            {copied === `model-${model.id}` ? translate("Copied!") : translate("Copy")}
           </span>
         </div>
         {isCustom ? (

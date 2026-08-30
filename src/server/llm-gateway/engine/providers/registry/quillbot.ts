@@ -20,4 +20,6 @@ export default {
   models: [
     { id: "quillbot-ai", name: "Quillbot AI Chat" },
   ],
+  // No models-list endpoint — single-model scraped web session, nothing to discover.
+  noModelDiscovery: true,
 };

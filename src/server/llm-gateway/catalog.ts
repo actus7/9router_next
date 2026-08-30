@@ -37,7 +37,6 @@ export {
 // Provider config helpers
 export {
   PROVIDERS,
-  resolveOllamaLocalHost,
   resolveXiaomiTokenplanBaseUrl,
 } from "@/server/llm-gateway/engine/config/providers";
 

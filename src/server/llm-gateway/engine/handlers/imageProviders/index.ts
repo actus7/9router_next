@@ -2,8 +2,6 @@
 import createOpenAIAdapter from "./openai";
 import gemini from "./gemini";
 import codex from "./codex";
-import sdwebui from "./sdwebui";
-import comfyui from "./comfyui";
 import huggingface from "./huggingface";
 import nanobanana from "./nanobanana";
 import falAi from "./falAi";
@@ -35,8 +33,6 @@ const ADAPTERS: Record<string, {
   xai: createOpenAIAdapter("xai"),
   gemini,
   codex,
-  sdwebui,
-  comfyui,
   huggingface,
   nanobanana,
   antigravity,

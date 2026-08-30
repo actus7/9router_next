@@ -18,10 +18,5 @@ export default {
     baseUrl: "https://api.sea-lion.ai/v1/chat/completions",
     validateUrl: "https://api.sea-lion.ai/v1/models",
   },
-  models: [
-    { id: "aisingapore/sea-lion-v3-7b-instruct", name: "SEA-LION v3 7B" },
-    { id: "aisingapore/sea-lion-v3-9b-it", name: "SEA-LION v3 9B IT" },
-    { id: "aisingapore/sea-lion-e5-embedding-600m", name: "SEA-LION E5 Embedding 600M" },
-  ],
   modelsFetcher: { url: "https://api.sea-lion.ai/v1/models", type: "openai" },
 };

@@ -36,11 +36,6 @@ export default {
       baseUrl: "https://zenmux.ai/api/v1/vertex",
     },
   ],
-  models: [
-    { id: "gemini-3-flash", name: "Gemini 3 Flash" },
-    { id: "deepseek-v3.2", name: "DeepSeek V3.2" },
-    { id: "grok-4.1-fast", name: "Grok 4.1 Fast" },
-  ],
   modelsFetcher: { url: "https://zenmux.ai/api/v1/models", type: "openai" },
   passthroughModels: true,
 };

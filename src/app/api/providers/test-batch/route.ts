@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProviderConnections } from "@/models";
 import {
   FREE_PROVIDERS,
+  FREE_TIER_PROVIDERS,
   OAUTH_PROVIDERS,
   APIKEY_PROVIDERS,
   OPENAI_COMPATIBLE_PREFIX,
   ANTHROPIC_COMPATIBLE_PREFIX,
 } from "@/shared/constants/providers";
-import { testSingleConnection } from "../[id]/test/testUtils";
+import { testSingleConnection, testNoAuthProvider } from "../[id]/test/testUtils";
 
 function getAuthGroup(providerId: string, connection: Record<string, unknown> | null = null): string {
   // Prioritize authType from connection if available
@@ -17,11 +18,14 @@ function getAuthGroup(providerId: string, connection: Record<string, unknown> | 
       if (FREE_PROVIDERS[providerId]) return "free";
       return "oauth";
     }
+    // apikey connections for free-tier providers belong in the "free" group
+    if (FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId]) return "free";
     return connection.authType as string;
   }
-  
+
   // Fallback to constants
   if (FREE_PROVIDERS[providerId]) return "free";
+  if (FREE_TIER_PROVIDERS[providerId]) return "free";
   if (OAUTH_PROVIDERS[providerId]) return "oauth";
   if (APIKEY_PROVIDERS[providerId]) return "apikey";
   if (
@@ -71,7 +75,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    if (connectionsToTest.length === 0) {
+    // For "free" mode, we always proceed (even with 0 connections) to also test noAuth providers
+    if (mode !== "free" && connectionsToTest.length === 0) {
       return NextResponse.json({
         mode,
         providerId: providerId || null,
@@ -110,6 +115,52 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           statusCode: null,
           testedAt: new Date().toISOString(),
         });
+      }
+    }
+
+    // For "free" mode: discover and test noAuth providers that have no connection record,
+    // and classify auth-required providers that lack a connection as "skipped".
+    if (mode === "free") {
+      const allFreeProviders: Record<string, Record<string, unknown>> = { ...FREE_PROVIDERS };
+      // Include FREE_TIER_PROVIDERS that have LLM service kind (matching UI filter)
+      for (const [pid, info] of Object.entries(FREE_TIER_PROVIDERS as Record<string, Record<string, unknown>>)) {
+        const kinds = (info.serviceKinds as string[] | undefined) ?? ["llm"];
+        if (kinds.includes("llm")) allFreeProviders[pid] = info;
+      }
+      const providersWithConnections = new Set(connectionsToTest.map((c) => c.provider));
+
+      for (const [pId, pInfo] of Object.entries(allFreeProviders)) {
+        if (providersWithConnections.has(pId)) continue;
+        if (pInfo.hidden) continue;
+
+        if (pInfo.noAuth) {
+          const testResult = await testNoAuthProvider(pId);
+          results.push({
+            provider: pId,
+            connectionId: null,
+            connectionName: pInfo.name || pId,
+            authType: "noauth",
+            valid: testResult.valid,
+            latencyMs: testResult.latencyMs,
+            error: testResult.error,
+            diagnosis: testResult.valid ? null : { type: "connectivity", source: "upstream" },
+            statusCode: null,
+            testedAt: new Date().toISOString(),
+          });
+        } else {
+          results.push({
+            provider: pId,
+            connectionId: null,
+            connectionName: pInfo.name || pId,
+            authType: "none",
+            valid: false,
+            latencyMs: 0,
+            error: "No connection configured",
+            diagnosis: { type: "no_connection", source: "local" },
+            statusCode: null,
+            testedAt: new Date().toISOString(),
+          });
+        }
       }
     }
 

@@ -17,7 +17,7 @@ import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smar
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { classifySmartRouting } from "./smartRoutingClassifier";
 
-const NO_AUTH_PROVIDERS: Set<string> = new Set(["sdwebui", "comfyui"]);
+const NO_AUTH_PROVIDERS: Set<string> = new Set();
 
 interface ImageOptions {
   wantsStream?: boolean;

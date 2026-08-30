@@ -14,7 +14,6 @@ export default {
     baseUrl: "https://api.opper.ai/v3/compat/chat/completions",
     format: "openai",
     validateUrl: "https://api.opper.ai/v3/compat/models",
-    modelsFetcher: { url: "https://api.opper.ai/v3/compat/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://api.opper.ai/v3/compat/models", type: "openai" },
 };

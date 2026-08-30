@@ -29,25 +29,13 @@ export function normalizeProviderId(provider: string): string {
 }
 
 export function normalizeProviderSpecificData(
-  provider: string,
-  body: Record<string, unknown> = {},
+  _provider: string,
+  _body: Record<string, unknown> = {},
   providerSpecificData: Record<string, unknown> | null = null
 ): Record<string, unknown> | null {
   const next: Record<string, unknown> = providerSpecificData && typeof providerSpecificData === "object"
     ? { ...providerSpecificData }
     : {};
-
-  if (provider === "ollama-local") {
-    const baseUrl: string = (
-      (next.baseUrl as string) ||
-      (body.baseUrl as string) ||
-      (body.baseURL as string) ||
-      (body.ollamaHostUrl as string) ||
-      ""
-    ).trim();
-
-    if (baseUrl) next.baseUrl = baseUrl;
-  }
 
   return Object.keys(next).length > 0 ? next : null;
 }

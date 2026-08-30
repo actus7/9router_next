@@ -108,8 +108,8 @@ async function resolveCopilotToken(rawToken: string): Promise<string> {
 }
 
 export class GithubCopilotExecutor extends BaseExecutor {
-  constructor() {
-    super("github-copilot", PROVIDERS["github-copilot"] || {});
+  constructor(providerId = "github-copilot") {
+    super(providerId, PROVIDERS[providerId] || {});
   }
 
   buildHeaders(credentials: Credentials, stream = true) {

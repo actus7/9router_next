@@ -14,7 +14,6 @@ export default {
     baseUrl: "https://api.hcnsec.cn/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.hcnsec.cn/v1/models",
-    modelsFetcher: { url: "https://api.hcnsec.cn/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://api.hcnsec.cn/v1/models", type: "openai" },
 };

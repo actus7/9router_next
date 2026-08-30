@@ -7,7 +7,6 @@ import openai from "./openai";
 import openrouter from "./openrouter";
 import gemini, { fetchGeminiVoices } from "./gemini";
 import xiaomiMimo from "./xiaomi-mimo";
-import selfhostedTts from "./selfhostedTts";
 import { FORMAT_HANDLERS } from "./genericFormats";
 import { parseModelVoice } from "./_base";
 
@@ -23,7 +22,6 @@ const SPECIAL_ADAPTERS: Record<string, { noAuth?: boolean; synthesize: (...args:
   openrouter,
   gemini,
   "xiaomi-mimo": xiaomiMimo,
-  "selfhosted-tts": selfhostedTts,
 };
 
 export function getTtsAdapter(provider: string) {

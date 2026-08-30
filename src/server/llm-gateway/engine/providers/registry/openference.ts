@@ -22,7 +22,7 @@ export default {
   ],
   passthroughModels: true,
   oauth: {
-    clientId: "",
+    clientId: process.env.OPENFERENCE_OAUTH_CLIENT_ID || "",
     authorizeUrl: "https://auth.openference.ai/oauth/authorize",
     tokenUrl: "https://auth.openference.ai/oauth/token",
     scopes: ["openid", "profile", "email", "api:chat"],

@@ -16,10 +16,6 @@ export default {
     baseUrl: "https://api.friendli.ai/serverless/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.friendli.ai/serverless/v1/models",
-    modelsFetcher: { url: "https://api.friendli.ai/serverless/v1/models", type: "openai" },
   },
-  models: [
-    { id: "meta-llama-3.1-70b-instruct", name: "Llama 3.1 70B Instruct" },
-    { id: "meta-llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct" },
-  ],
+  modelsFetcher: { url: "https://api.friendli.ai/serverless/v1/models", type: "openai" },
 };

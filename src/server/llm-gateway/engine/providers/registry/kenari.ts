@@ -14,7 +14,6 @@ export default {
     baseUrl: "https://kenari.id/v1/chat/completions",
     format: "openai",
     validateUrl: "https://kenari.id/v1/models",
-    modelsFetcher: { url: "https://kenari.id/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://kenari.id/v1/models", type: "openai" },
 };

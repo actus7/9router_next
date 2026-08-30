@@ -17,11 +17,6 @@ export default {
     baseUrl: "https://api.freetheai.xyz/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.freetheai.xyz/v1/models",
-    modelsFetcher: { url: "https://api.freetheai.xyz/v1/models", type: "openai" },
   },
-  models: [
-    { id: "gpt-4o-mini", name: "GPT 4o Mini" },
-    { id: "llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
-    { id: "deepseek-chat", name: "DeepSeek Chat" },
-  ],
+  modelsFetcher: { url: "https://api.freetheai.xyz/v1/models", type: "openai" },
 };

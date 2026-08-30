@@ -17,9 +17,6 @@ export default {
   transport: {
     baseUrl: "https://api.1min.ai/v1/chat/completions",
   },
-  models: [
-    { id: "onemin-default", name: "1min Default" },
-  ],
   modelsFetcher: { url: "https://api.1min.ai/v1/models", type: "openai" },
   passthroughModels: true,
 };

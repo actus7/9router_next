@@ -17,9 +17,6 @@ export default {
     baseUrl: "https://api.dgrid.ai/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.dgrid.ai/v1/models",
-    modelsFetcher: { url: "https://api.dgrid.ai/v1/models", type: "openai" },
   },
-  models: [
-    { id: "dgridai/free", name: "DGrid Free" },
-  ],
+  modelsFetcher: { url: "https://api.dgrid.ai/v1/models", type: "openai" },
 };

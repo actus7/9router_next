@@ -58,7 +58,7 @@ async function getInternalHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
-export async function pingModelByKind(model: string, kind: string, baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`): Promise<PingResult> {
+export async function pingModelByKind(model: string, kind: string, baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`, timeoutMs = 25000): Promise<PingResult> {
   const headers = await getInternalHeaders();
   const start = Date.now();
 
@@ -67,7 +67,7 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
       method: "POST",
       headers,
       body: JSON.stringify({ model, input: "test" }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -91,7 +91,7 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
       method: "POST",
       headers,
       body: JSON.stringify({ model, prompt: "test" }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -121,7 +121,7 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
       method: "POST",
       headers: Object.fromEntries(Object.entries(headers).filter(([key]) => key.toLowerCase() !== "content-type")),
       body: form,
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -154,7 +154,7 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
       stream: false,
       messages: [{ role: "user", content: "hi" }],
     }),
-    signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const latencyMs = Date.now() - start;
 

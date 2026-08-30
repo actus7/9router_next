@@ -17,10 +17,6 @@ export default {
     baseUrl: "https://api.regolo.ai/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.regolo.ai/v1/models",
-    modelsFetcher: { url: "https://api.regolo.ai/v1/models", type: "openai" },
   },
-  models: [
-    { id: "regolo-chat", name: "Regolo Chat" },
-    { id: "regolo-fast", name: "Regolo Fast" },
-  ],
+  modelsFetcher: { url: "https://api.regolo.ai/v1/models", type: "openai" },
 };

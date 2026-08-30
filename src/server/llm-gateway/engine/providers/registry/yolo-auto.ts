@@ -17,9 +17,6 @@ export default {
     baseUrl: "https://yolo-auto.com/v1/chat/completions",
     format: "openai",
     validateUrl: "https://yolo-auto.com/v1/models",
-    modelsFetcher: { url: "https://yolo-auto.com/v1/models", type: "openai" },
   },
-  models: [
-    { id: "qwen3.6-35b-a3b", name: "Qwen3.6 35B A3B" },
-  ],
+  modelsFetcher: { url: "https://yolo-auto.com/v1/models", type: "openai" },
 };

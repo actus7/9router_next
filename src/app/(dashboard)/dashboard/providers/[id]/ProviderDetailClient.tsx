@@ -29,7 +29,7 @@ import AddApiKeyModal from "./AddApiKeyModal";
 import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
 import BulkImportCodexModal from "./BulkImportCodexModal";
-import { ArrowLeft, ArrowLeftRight, Ban, Cookie, Download, ExternalLink, Info, Key, ListPlus, Loader2, Lock, Network, Pencil, Plus, RefreshCw, RotateCcw, Square, Trash2, TriangleAlert, Unlink } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Ban, Beaker, Check, Cookie, Download, ExternalLink, Info, Key, ListPlus, Loader2, Lock, Network, Pencil, Plus, RefreshCw, RotateCcw, Square, Trash2, TriangleAlert, Unlink, X as XIcon } from "lucide-react";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
 
@@ -186,6 +186,8 @@ export default function ProviderDetailClient({
   const [modelTestResults, setModelTestResults] = useState<Record<string, "ok" | "error">>({});
   const [modelsTestError, setModelsTestError] = useState<string>("");
   const [testingModelIds, setTestingModelIds] = useState<Set<string>>(() => new Set());
+  interface ModelDiagnostic { modelId: string; ok: boolean; error?: string; attempts: number; latencyMs?: number }
+  const [testAllModels, setTestAllModels] = useState<{ running: boolean; results: ModelDiagnostic[] } | null>(null);
   const [showAddCustomModel, setShowAddCustomModel] = useState<boolean>(false);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
   const [bulkProxyPoolId, setBulkProxyPoolId] = useState<string>("__none__");
@@ -274,7 +276,7 @@ export default function ProviderDetailClient({
       }
     : (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId] || WEB_COOKIE_PROVIDERS[providerId]) as ProviderInfo | undefined;
   const authModes: string[] = (providerInfo?.authModes as string[] | undefined) || [];
-  const isOAuth = !!OAUTH_PROVIDERS[providerId] || !!FREE_PROVIDERS[providerId] || authModes.includes("oauth");
+  const isOAuth = !!OAUTH_PROVIDERS[providerId] || !!providerInfo?.hasOAuth || authModes.includes("oauth");
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
   const isFreeNoAuth = !!(FREE_PROVIDERS[providerId] as Record<string, unknown>)?.noAuth;
   const staticModels = getModelsByProviderId(providerId) as Array<{ id: string; name?: string; isFree?: boolean }>;
@@ -613,11 +615,19 @@ export default function ProviderDetailClient({
     return () => { cancelled = true; };
   }, [providerId, connections]);
 
-  // Fetch suggested models from provider's public API (if configured)
+  // Fetch suggested models from provider's public API (if configured).
+  // Providers with no static catalog (models: [] in the registry) rely entirely
+  // on this live fetch, so also populate the main `models` list (via
+  // liveModels) here — otherwise the page would show nothing until the user
+  // manually clicks "Refresh Models".
   useEffect(() => {
     const fetcher = (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId])?.modelsFetcher as ModelsFetcher | undefined;
     if (!fetcher) return;
-    fetchSuggestedModels(fetcher).then(setSuggestedModels);
+    const hasNoStaticCatalog = staticModels.length === 0;
+    fetchSuggestedModels(fetcher).then((result) => {
+      setSuggestedModels(result);
+      if (hasNoStaticCatalog) setLiveModels(result as typeof liveModels);
+    });
   }, [providerId]);
 
   const handleSetAlias = async (modelId: string, alias: string, providerAliasOverride: string = providerAlias) => {
@@ -769,11 +779,16 @@ export default function ProviderDetailClient({
       } else {
         // No connection and not a custom compatible node — try the provider's public models API (free/no-auth providers)
         const fetcher = (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId])?.modelsFetcher as { url: string; type: string } | undefined;
-        if (!fetcher) {
-          notify.error(translate("No active connection available") || "");
-          return;
+        if (fetcher) {
+          fetched = await fetchSuggestedModels(fetcher);
+        } else {
+          // No live discovery endpoint for this provider — re-sync to the curated static catalog.
+          fetched = getModelsByProviderId(providerId);
+          if (fetched.length === 0) {
+            notify.error(translate("No active connection available") || "");
+            return;
+          }
         }
-        fetched = await fetchSuggestedModels(fetcher);
       }
 
       if (fetched.length === 0) {
@@ -782,6 +797,31 @@ export default function ProviderDetailClient({
       }
 
       const fetchedIds = new Set(fetched.map((m) => m.id || m.name));
+
+      // Live refresh is authoritative: any previously-visible, non-custom model
+      // that the live fetch no longer returns is stale/deprecated upstream —
+      // persist it into the existing disabledModelIds mechanism (same one
+      // handleDisableModel writes to) so it stays hidden across navigation
+      // instead of only disappearing from the in-memory liveModels state for
+      // this render.
+      const customIds = new Set(
+        customModels.filter((entry) => entry.providerAlias === providerStorageAlias).map((entry) => entry.id)
+      );
+      const staleIds = models
+        .map((m) => m.id)
+        .filter((id) => !fetchedIds.has(id) && !customIds.has(id) && !disabledModelIds.includes(id));
+      if (staleIds.length > 0) {
+        try {
+          const res = await fetch("/api/models/disabled", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ providerAlias: providerStorageAlias, ids: staleIds }),
+          });
+          if (res.ok) await fetchDisabledModels();
+        } catch (error) {
+          console.error("Error disabling stale models:", error);
+        }
+      }
 
       // For compatible providers: sync custom models (add new, remove stale)
       if (isCompatible) {
@@ -1261,6 +1301,53 @@ export default function ProviderDetailClient({
     </Modal>
   );
 
+  // Increasing timeout per retry attempt (ms) — 3 attempts total.
+  const TEST_TIMEOUT_SCHEDULE = [15000, 25000, 40000];
+
+  // Ping one model, retrying only on timeout (not on definitive errors like 401/404),
+  // with an increasing timeout per attempt.
+  const pingModelWithRetry = async (modelId: string): Promise<ModelDiagnostic> => {
+    let lastError = translate("Model is not reachable") || "Model is not reachable";
+    let attemptsMade = 0;
+    for (let attempt = 0; attempt < TEST_TIMEOUT_SCHEDULE.length; attempt++) {
+      attemptsMade = attempt + 1;
+      try {
+        const res = await fetch("/api/models/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}`, timeoutMs: TEST_TIMEOUT_SCHEDULE[attempt] }),
+        });
+        const data = await res.json();
+        if (data.ok) return { modelId, ok: true, attempts: attemptsMade, latencyMs: data.latencyMs };
+        lastError = data.error || lastError;
+        if (!data.isTimeout) break; // definitive failure — no point retrying
+      } catch {
+        lastError = translate("Network error") || "Network error";
+      }
+    }
+    return { modelId, ok: false, error: lastError, attempts: attemptsMade };
+  };
+
+  // Test every currently-displayed model concurrently, each with its own retry
+  // schedule, and stream results into the diagnostics modal as they land.
+  const handleTestAllModels = async () => {
+    const allModels = [
+      ...models,
+      ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
+    ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; });
+    const disabledSet = new Set(disabledModelIds);
+    const modelIds = allModels.filter((m) => !disabledSet.has(m.id)).map((m) => m.id);
+    if (modelIds.length === 0) return;
+
+    setTestAllModels({ running: true, results: [] });
+    await Promise.all(modelIds.map(async (modelId) => {
+      const result = await pingModelWithRetry(modelId);
+      setModelTestResults((prev) => ({ ...prev, [modelId]: result.ok ? "ok" : "error" }));
+      setTestAllModels((prev) => prev ? { ...prev, results: [...prev.results, result] } : prev);
+    }));
+    setTestAllModels((prev) => prev ? { ...prev, running: false } : prev);
+  };
+
   const handleTestModel = async (modelId: string) => {
     if (testingModelIds.has(modelId)) return;
     setTestingModelIds((prev) => new Set(prev).add(modelId));
@@ -1377,7 +1464,7 @@ export default function ProviderDetailClient({
           className="w-full border-dashed border-primary/40 text-xs sm:w-auto"
         >
           <Plus className="size-4" />
-          Add Model
+          {translate("Add Model")}
         </Button>
 
         {/* Import Qoder models button — only show for qoder provider */}
@@ -1465,9 +1552,9 @@ export default function ProviderDetailClient({
   if (!providerInfo) {
     return (
       <div className="text-center py-20">
-        <p className="text-text-muted">Provider not found</p>
+        <p className="text-text-muted">{translate("Provider not found")}</p>
         <Link href="/dashboard/providers" className="text-primary mt-4 inline-block">
-          Back to Providers
+          {translate("Back to Providers")}
         </Link>
       </div>
     );
@@ -1493,7 +1580,7 @@ export default function ProviderDetailClient({
           className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
         >
           <ArrowLeft className="size-4" />
-          Back to Providers
+          {translate("Back to Providers")}
         </Link>
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div
@@ -1586,7 +1673,7 @@ export default function ProviderDetailClient({
                 }}
                 className="w-full sm:w-auto"
               >
-                Add API Key
+                {translate("Add API Key")}
               </Button>
               <Button
                 variant="secondary"
@@ -1594,7 +1681,7 @@ export default function ProviderDetailClient({
                 onClick={() => setShowEditNodeModal(true)}
                 className="w-full sm:w-auto"
               >
-                Edit
+                {translate("Edit")}
               </Button>
               <Button
                 variant="secondary"
@@ -1618,7 +1705,7 @@ export default function ProviderDetailClient({
                 }}
                 className="w-full sm:w-auto"
               >
-                Delete
+                {translate("Delete")}
               </Button>
             </div>
           </div>
@@ -1626,9 +1713,8 @@ export default function ProviderDetailClient({
       )}
 
       {/* Connections */}
-      {isFreeNoAuth ? (
-        <NoAuthProxyCard providerId={providerId} />
-      ) : (
+      {isFreeNoAuth && <NoAuthProxyCard providerId={providerId} />}
+      {(!isFreeNoAuth || providerInfo?.authType === "apikey") && (
         <Card>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">Connections</h2>
@@ -1639,7 +1725,7 @@ export default function ProviderDetailClient({
                   icon={<Network className="size-4" />}
                   onClick={() => setShowBulkProxyModal(true)}
                 >
-                  Apply Proxy
+                  {translate("Apply Proxy")}
                 </Button>
               )}
               {connections.length > 0 && (
@@ -1738,7 +1824,7 @@ export default function ProviderDetailClient({
                       icon={<Plus className="size-4" />}
                       onClick={triggerAddConnection}
                     >
-                      {isCompatible ? "Add API Key" : (providerId === "iflow" ? "OAuth" : "Add Connection")}
+                      {isCompatible ? translate("Add API Key") : (providerId === "iflow" ? "OAuth" : translate("Add Connection"))}
                     </Button>
                   </>
                 )}
@@ -1775,7 +1861,7 @@ export default function ProviderDetailClient({
                         }
                       }}
                     />
-                    Select All
+                    {translate("Select All")}
                   </Label>
                 </div>
               )}
@@ -1866,10 +1952,20 @@ export default function ProviderDetailClient({
               variant="secondary"
               size="sm"
               onClick={handleRefreshModels}
-              disabled={refreshingModels}
+              disabled={refreshingModels || !!providerInfo?.noModelDiscovery}
+              title={providerInfo?.noModelDiscovery ? translate("This provider has no models-list endpoint — the catalog above is fixed.") ?? undefined : undefined}
             >
               <RefreshCw className={`size-4 mr-1.5 ${refreshingModels ? "animate-spin" : ""}`} />
               {refreshingModels ? translate("Refreshing...") : translate("Refresh Models")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleTestAllModels}
+              disabled={!!testAllModels?.running}
+            >
+              <Beaker className={`size-4 mr-1.5 ${testAllModels?.running ? "animate-pulse" : ""}`} />
+              {testAllModels?.running ? translate("Testing...") : translate("Test All Models")}
             </Button>
             {!isCompatible && (() => {
               const allIds = [
@@ -1881,12 +1977,12 @@ export default function ProviderDetailClient({
                 <div className="flex gap-2">
                   {disabledModelIds.length > 0 && (
                     <Button variant="secondary" icon={<RotateCcw className="size-4" />} onClick={handleEnableAll}>
-                      Active All
+                      {translate("Active All")}
                     </Button>
                   )}
                   {activeIds.length > 0 && (
                     <Button variant="secondary" icon={<Ban className="size-4" />} onClick={() => handleDisableAll(activeIds)}>
-                      Disable All
+                      {translate("Disable All")}
                     </Button>
                   )}
                 </div>
@@ -2016,6 +2112,57 @@ export default function ProviderDetailClient({
         message={confirmState?.message}
         variant="danger"
       />
+
+      {/* Test All Models diagnostics */}
+      <Modal
+        isOpen={!!testAllModels}
+        title={translate("Model Test Diagnostics") || "Model Test Diagnostics"}
+        onClose={() => setTestAllModels(null)}
+      >
+        {testAllModels && (() => {
+          const passed = testAllModels.results.filter((r) => r.ok);
+          const failed = testAllModels.results.filter((r) => !r.ok);
+          return (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                {testAllModels.running && (
+                  <span className="flex items-center gap-1.5 text-text-muted">
+                    <Loader2 className="size-4 animate-spin" />
+                    {translate("Testing...")} ({testAllModels.results.length})
+                  </span>
+                )}
+                <span className="text-green-500">{translate("Passed") || "Passed"}: {passed.length}</span>
+                <span className="text-red-500">{translate("Failed") || "Failed"}: {failed.length}</span>
+              </div>
+              <div className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+                {failed.map((r) => (
+                  <div key={r.modelId} className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <XIcon className="size-4 shrink-0 text-red-500" />
+                      <code className="truncate text-xs font-mono">{r.modelId}</code>
+                      {r.attempts > 1 && (
+                        <span className="ml-auto shrink-0 text-[10px] text-text-muted">
+                          {r.attempts}x {translate("attempts") || "attempts"}
+                        </span>
+                      )}
+                    </div>
+                    {r.error && <p className="mt-1 text-xs text-text-muted break-words">{r.error}</p>}
+                  </div>
+                ))}
+                {passed.map((r) => (
+                  <div key={r.modelId} className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2">
+                    <Check className="size-4 shrink-0 text-green-500" />
+                    <code className="truncate text-xs font-mono">{r.modelId}</code>
+                    {typeof r.latencyMs === "number" && (
+                      <span className="ml-auto shrink-0 text-[10px] text-text-muted">{r.latencyMs}ms</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

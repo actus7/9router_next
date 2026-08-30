@@ -2,7 +2,7 @@ import { getProviderConnectionById, updateProviderConnection } from "@/lib/local
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { testProxyUrl } from "@/lib/network/proxyTest";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
-import { getDefaultModel, resolveOllamaLocalHost, PROVIDERS } from "@/server/llm-gateway/catalog";
+import { getDefaultModel, PROVIDERS } from "@/server/llm-gateway/catalog";
 import {
   refreshProviderCredentials,
   shouldRefreshCredentials,
@@ -713,11 +713,6 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
         const res = await fetch("https://ollama.com/api/tags", { headers: { Authorization: `Bearer ${connection.apiKey}` } });
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" , refreshed: false };
       }
-      case "ollama-local": {
-        const host = resolveOllamaLocalHost(connection);
-        const res = await fetch(`${host}/api/tags`);
-        return { valid: res.ok, error: res.ok ? null : `Ollama not reachable at ${host}` };
-      }
       case "deepgram": {
         const res = await fetchWithConnectionProxy("https://api.deepgram.com/v1/projects", { headers: { Authorization: `Token ${connection.apiKey}` } }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" , refreshed: false };
@@ -840,6 +835,41 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
   } catch (err) {
     return { valid: false, error: (err as Error).message , refreshed: false };
   }
+}
+
+/**
+ * Test a noAuth provider directly by probing its HTTP endpoint.
+ * Used by batch-test "free" mode to cover providers that have no connection record.
+ */
+export async function testNoAuthProvider(providerId: string): Promise<{ valid: boolean; error: string | null; latencyMs: number }> {
+  const config = PROVIDERS[providerId];
+  if (!config) return { valid: false, error: "Provider not configured in gateway", latencyMs: 0 };
+
+  const validateUrl = config.validateUrl as string | undefined;
+  const baseUrl = config.baseUrl as string | undefined;
+  const candidates = [validateUrl, baseUrl].filter(Boolean) as string[];
+
+  for (const testUrl of candidates) {
+    if (!testUrl.startsWith("http://") && !testUrl.startsWith("https://")) continue;
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(testUrl, {
+        method: "GET",
+        signal: controller.signal,
+        headers: { "User-Agent": "9Router-BatchTest/1.0" },
+      });
+      clearTimeout(timer);
+      const latencyMs = Date.now() - start;
+      // Any HTTP response means the endpoint is reachable
+      return { valid: true, error: null, latencyMs };
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return { valid: false, error: "No testable HTTP endpoint", latencyMs: 0 };
 }
 
 /**

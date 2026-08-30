@@ -10,26 +10,33 @@ export default {
     notice: "Public free API — no API key required. Subject to rate limits.",
   },
   category: "free",
+  authType: "apikey",
   noAuth: true,
   transport: {
-    baseUrl: "https://text.pollinations.ai/openai/chat/completions",
+    baseUrl: "https://gen.pollinations.ai/v1/chat/completions",
     retry: {
       402: { attempts: 1, delayMs: 8000 },
       429: { attempts: 1, delayMs: 5000 },
     },
   },
+  // No models-list endpoint — Pollinations has no /v1/models. Curated from the
+  // upstream reference (diegosouzapw/OmniRoute); free keyless models only
+  // (claude/gemini/midijourney premium tiers need a key, omitted since this
+  // provider is registered noAuth).
   models: [
-    { id: "openai", name: "GPT-OSS 20B" },
-    { id: "openai-fast", name: "GPT-OSS Fast" },
-    { id: "openai-large", name: "OpenAI Large" },
-    { id: "mistral", name: "Mistral" },
-    { id: "mistral-large", name: "Mistral Large" },
-    { id: "searchgpt", name: "SearchGPT" },
-    { id: "qwen", name: "Qwen" },
-    { id: "deepseek", name: "DeepSeek" },
-    { id: "deepseek-r1", name: "DeepSeek R1" },
-    { id: "llama", name: "Llama" },
-    { id: "llama-33", name: "Llama 3.3" },
-    { id: "gemini", name: "Gemini" },
+    { id: "openai", name: "OpenAI (Pollinations)" },
+    { id: "openai-fast", name: "OpenAI Fast (Pollinations)" },
+    { id: "openai-large", name: "OpenAI Large (Pollinations)" },
+    { id: "qwen-coder", name: "Qwen Coder (Pollinations)" },
+    { id: "qwen-coder-large", name: "Qwen Coder Large (Pollinations)" },
+    { id: "qwen-large", name: "Qwen Large (Pollinations)" },
+    { id: "mistral", name: "Mistral (Pollinations)" },
+    { id: "mistral-large", name: "Mistral Large (Pollinations)" },
+    { id: "deepseek", name: "DeepSeek (Pollinations)" },
+    { id: "grok", name: "Grok (Pollinations)" },
+    { id: "gemini-flash-lite-3.1", name: "Gemini Flash Lite 3.1 (Pollinations)" },
+    { id: "perplexity-fast", name: "Perplexity Fast (Pollinations)" },
+    { id: "perplexity-reasoning", name: "Perplexity Reasoning (Pollinations)" },
   ],
+  noModelDiscovery: true,
 };

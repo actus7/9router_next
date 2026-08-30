@@ -37,4 +37,8 @@ export default {
       name: "GPT-OSS 120B (Duck.ai)",
     },
   ],
+  // No models-list endpoint — duck.ai is a scraped anonymous web session, not a
+  // public API. Model ids above are the site's known offering; keep in sync
+  // manually when DuckDuckGo changes its lineup.
+  noModelDiscovery: true,
 };

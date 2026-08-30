@@ -14,10 +14,6 @@ export default {
     baseUrl: "https://api.llm.kiwi/v1/chat/completions",
     format: "openai",
     validateUrl: "https://api.llm.kiwi/v1/models",
-    modelsFetcher: { url: "https://api.llm.kiwi/v1/models", type: "openai" },
   },
-  models: [
-    { id: "auto", name: "Auto" },
-    { id: "hrLLM", name: "hrLLM" },
-  ],
+  modelsFetcher: { url: "https://api.llm.kiwi/v1/models", type: "openai" },
 };

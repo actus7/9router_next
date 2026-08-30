@@ -18,9 +18,5 @@ export default {
     baseUrl: "https://apihub.agnes-ai.com/v1/chat/completions",
     validateUrl: "https://apihub.agnes-ai.com/v1/models",
   },
-  models: [
-    { id: "agnes-2.0-flash", name: "Agnes 2.0 Flash" },
-    { id: "agnes-2.0-pro", name: "Agnes 2.0 Pro" },
-  ],
   modelsFetcher: { url: "https://apihub.agnes-ai.com/v1/models", type: "openai" },
 };

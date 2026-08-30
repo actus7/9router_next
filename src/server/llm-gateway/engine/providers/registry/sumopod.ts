@@ -17,7 +17,6 @@ export default {
     baseUrl: "https://ai.sumopod.com/v1/chat/completions",
     format: "openai",
     validateUrl: "https://ai.sumopod.com/v1/models",
-    modelsFetcher: { url: "https://ai.sumopod.com/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://ai.sumopod.com/v1/models", type: "openai" },
 };

@@ -15,14 +15,17 @@ export default {
   authType: "apikey",
   noAuth: true,
   transport: {
-    baseUrl: "https://api.anysearch.ai/v1/chat/completions",
+    baseUrl: "https://api.anysearch.com/v1/search",
+    noAuth: true,
   },
   models: [
     { id: "anysearch", name: "AnySearch" },
   ],
+  // No models-list endpoint — single search-tool entry, nothing to discover.
+  noModelDiscovery: true,
   serviceKinds: ["webSearch"],
   searchViaChat: {
     defaultModel: "anysearch",
-    endpoint: "https://api.anysearch.ai/v1/chat/completions",
+    endpoint: "https://api.anysearch.com/v1/search",
   },
 };

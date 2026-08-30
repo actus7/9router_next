@@ -15,14 +15,16 @@ export default {
   authType: "apikey",
   noAuth: true,
   transport: {
-    baseUrl: "https://api.context7.com/v1/search",
+    baseUrl: "https://context7.com/api/v1",
   },
   models: [
     { id: "context7", name: "Context7" },
   ],
+  // No models-list endpoint — single search-tool entry, nothing to discover.
+  noModelDiscovery: true,
   serviceKinds: ["webSearch"],
   searchViaChat: {
     defaultModel: "context7",
-    endpoint: "https://api.context7.com/v1/search",
+    endpoint: "https://context7.com/api/v1",
   },
 };

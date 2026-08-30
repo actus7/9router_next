@@ -17,7 +17,6 @@ export default {
     baseUrl: "https://www.dxnt.com/v1/chat/completions",
     format: "openai",
     validateUrl: "https://www.dxnt.com/v1/models",
-    modelsFetcher: { url: "https://www.dxnt.com/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://www.dxnt.com/v1/models", type: "openai" },
 };

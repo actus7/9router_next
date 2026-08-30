@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProviderNodeById } from "@/models";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider, AI_PROVIDERS } from "@/shared/constants/providers";
-import { getDefaultModel, resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS, resolveQoderCredentials, resolveQoderModels } from "@/server/llm-gateway/catalog";
+import { getDefaultModel, resolveXiaomiTokenplanBaseUrl, PROVIDERS, resolveQoderCredentials, resolveQoderModels } from "@/server/llm-gateway/catalog";
 import { openaiToCommandCodeRequest } from "@/server/llm-gateway/translator";
 import { normalizeProviderId } from "@/lib/providerNormalization";
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { apiKey, providerSpecificData } = body;
 
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
-    if (!provider || (!apiKey && provider !== "ollama-local" && !isNoAuth)) {
+    if (!provider || (!apiKey && !isNoAuth)) {
       return NextResponse.json({ error: "Provider and API key required" }, { status: 400 });
     }
 
@@ -368,7 +368,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         case "siliconflow":
         case "hyperbolic":
         case "ollama":
-        case "ollama-local":
         case "assemblyai":
         case "nanobanana":
         case "chutes":
@@ -380,7 +379,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               Object.entries(PROVIDERS).filter(([, t]) => t.validateUrl).map(([id, t]) => [id, t.validateUrl])
             ),
             // dynamic URLs (depend on providerSpecificData) — kept inline
-            "ollama-local": `${resolveOllamaLocalHost({ providerSpecificData })}/api/tags`,
             "xiaomi-tokenplan": `${resolveXiaomiTokenplanBaseUrl({ providerSpecificData })}/models`,
           };
           const headers: Record<string, string> = {};

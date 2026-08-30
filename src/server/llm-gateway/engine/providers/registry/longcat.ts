@@ -18,9 +18,5 @@ export default {
     baseUrl: "https://api.longcat.chat/openai/v1/chat/completions",
     validateUrl: "https://api.longcat.chat/openai/v1/models",
   },
-  models: [
-    { id: "longcat-chat", name: "LongCat Chat" },
-    { id: "longcat-code", name: "LongCat Code" },
-  ],
   modelsFetcher: { url: "https://api.longcat.chat/openai/v1/models", type: "openai" },
 };

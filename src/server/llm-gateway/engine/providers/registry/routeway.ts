@@ -22,11 +22,5 @@ export default {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     },
   },
-  models: [
-    { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B (free)" },
-    { id: "qwen/qwen3-coder:free", name: "Qwen3 Coder (free)" },
-    { id: "deepseek/deepseek-v4-flash:free", name: "DeepSeek V4 Flash (free)" },
-    { id: "google/gemma-4-26b-a4b-it:free", name: "Gemma 4 26B (free)" },
-  ],
   modelsFetcher: { url: "https://api.routeway.ai/v1/models", type: "openai" },
 };

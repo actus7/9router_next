@@ -314,8 +314,8 @@ function inspectSSEChunk(chunk: Uint8Array, state: InspectState): void {
  * Uses AWS CodeWhisperer streaming API with AWS EventStream binary format
  */
 export class KiroExecutor extends BaseExecutor {
-  constructor() {
-    super("kiro", PROVIDERS.kiro);
+  constructor(providerId = "kiro") {
+    super(providerId, PROVIDERS[providerId]);
   }
 
   buildHeaders(credentials: Credentials, stream = true, url = ""): Record<string, string> {

@@ -37,9 +37,6 @@ export default {
       baseUrl: "https://agentrouter.org/v1/responses",
     },
   ],
-  models: [
-    { id: "agentrouter-default", name: "AgentRouter Default" },
-  ],
   modelsFetcher: { url: "https://agentrouter.org/v1/models", type: "openai" },
   passthroughModels: true,
 };

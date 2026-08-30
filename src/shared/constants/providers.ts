@@ -31,6 +31,7 @@ function buildProviderEntry(r: Record<string, unknown>): Record<string, unknown>
     ...(r.hasProviderSpecificData ? { hasProviderSpecificData: true } : {}),
     ...(r.noAuth ? { noAuth: true } : {}),
     ...(r.passthroughModels ? { passthroughModels: true } : {}),
+    ...(r.noModelDiscovery ? { noModelDiscovery: true } : {}),
     ...(r.hasOAuth ? { hasOAuth: true } : {}),
     ...(r.authModes ? { authModes: r.authModes } : {}),
     ...(r.authType ? { authType: r.authType } : {}),
@@ -122,8 +123,12 @@ type AuthMethodKey = keyof typeof AUTH_METHODS;
 
 // Helper: Get provider by alias
 export function getProviderByAlias(alias: string): Record<string, unknown> | null {
+  const needle = typeof alias === "string" ? alias.toLowerCase() : alias;
   for (const provider of Object.values(AI_PROVIDERS)) {
-    if (provider.alias === alias || provider.id === alias) {
+    if (
+      (typeof provider.alias === "string" && provider.alias.toLowerCase() === needle) ||
+      (typeof provider.id === "string" && provider.id.toLowerCase() === needle)
+    ) {
       return provider;
     }
   }

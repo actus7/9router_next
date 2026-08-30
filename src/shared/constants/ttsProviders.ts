@@ -100,18 +100,6 @@ export const TTS_PROVIDER_CONFIG = {
     hasVoiceIdInput: true,
     voiceSource: "config",
   },
-  "coqui": {
-    hasModelSelector: true,
-    hasBrowseButton: false,
-    hasVoiceIdInput: true,
-    voiceSource: "config",
-  },
-  "tortoise": {
-    hasModelSelector: true,
-    hasBrowseButton: false,
-    hasVoiceIdInput: true,
-    voiceSource: "config",
-  },
   "inworld": {
     hasModelSelector: true,
     hasBrowseButton: true,

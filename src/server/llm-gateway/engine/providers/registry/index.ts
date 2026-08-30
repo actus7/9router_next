@@ -20,9 +20,7 @@ import p17 from "./cloudflare-ai";
 import p18 from "./codebuddy-cn";
 import p19 from "./codex";
 import p20 from "./cohere";
-import p21 from "./comfyui";
 import p22 from "./commandcode";
-import p23 from "./coqui";
 import p24 from "./cursor";
 import p25 from "./deepgram";
 import p26 from "./deepseek";
@@ -64,7 +62,6 @@ import p61 from "./mmf";
 import p62 from "./nanobanana";
 import p63 from "./nebius";
 import p64 from "./nvidia";
-import p65 from "./ollama-local";
 import p66 from "./ollama";
 import p67 from "./openai";
 import p68 from "./opencode-go";
@@ -77,7 +74,6 @@ import p74 from "./playht";
 import p75 from "./qoder";
 import p77 from "./recraft";
 import p78 from "./runwayml";
-import p79 from "./sdwebui";
 import p80 from "./searchapi";
 import p81 from "./searxng";
 import p82 from "./serper";
@@ -86,7 +82,6 @@ import p84 from "./stability-ai";
 import p85 from "./tavily";
 import p86 from "./together";
 import p87 from "./topaz";
-import p88 from "./tortoise";
 import p89 from "./venice";
 import p90 from "./vercel-ai-gateway";
 import p91 from "./vertex-partner";
@@ -116,9 +111,6 @@ import p113 from "./morph";
 // import p104 from "./windsurf";
 import p115 from "./poolside";
 import p116 from "./tokenrouter";
-import p117 from "./selfhosted-stt";
-import p118 from "./selfhosted-tts";
-import p119 from "./selfhosted-embedding";
 import p120 from "./fish-audio";
 import p121 from "./alitp-intl";
 import p122 from "./pollinations";
@@ -228,17 +220,6 @@ import p225 from "./kimi-coding-apikey";
 import p226 from "./volcengine-agent-plan";
 import p227 from "./volcengine-coding-plan";
 import p228 from "./360ai";
-import p229 from "./lm-studio";
-import p230 from "./vllm";
-import p231 from "./llama-cpp";
-import p232 from "./llamafile";
-import p233 from "./oobabooga";
-import p234 from "./xinference";
-import p235 from "./triton";
-import p236 from "./docker-model-runner";
-import p237 from "./lemonade";
-import p238 from "./mlx-gemma";
-import p239 from "./mlx-qwen";
 import p240 from "./soniox";
 import p241 from "./gladia";
 import p242 from "./rev-ai";
@@ -334,9 +315,7 @@ export default [
   p18,
   p19,
   p20,
-  p21,
   p22,
-  p23,
   p24,
   p25,
   p26,
@@ -378,7 +357,6 @@ export default [
   p62,
   p63,
   p64,
-  p65,
   p66,
   p67,
   p68,
@@ -391,7 +369,6 @@ export default [
   p75,
   p77,
   p78,
-  p79,
   p80,
   p81,
   p82,
@@ -400,7 +377,6 @@ export default [
   p85,
   p86,
   p87,
-  p88,
   p89,
   p90,
   p91,
@@ -428,9 +404,6 @@ export default [
   // p104, // windsurf — hidden, no tool calling
   p115,
   p116,
-  p117,
-  p118,
-  p119,
   p120,
   p121,
   p122,
@@ -540,17 +513,6 @@ export default [
   p226,
   p227,
   p228,
-  p229,
-  p230,
-  p231,
-  p232,
-  p233,
-  p234,
-  p235,
-  p236,
-  p237,
-  p238,
-  p239,
   p240,
   p241,
   p242,

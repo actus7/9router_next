@@ -17,7 +17,6 @@ export default {
     baseUrl: "https://speka.me/v1/chat/completions",
     format: "openai",
     validateUrl: "https://speka.me/v1/models",
-    modelsFetcher: { url: "https://speka.me/v1/models", type: "openai" },
   },
-  models: [],
+  modelsFetcher: { url: "https://speka.me/v1/models", type: "openai" },
 };

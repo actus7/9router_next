@@ -18,10 +18,5 @@ export default {
     baseUrl: "https://api.orcarouter.ai/v1/chat/completions",
     validateUrl: "https://api.orcarouter.ai/v1/models",
   },
-  models: [
-    { id: "orcarouter/free", name: "OrcaRouter Free (auto)" },
-    { id: "gpt-4o-mini-free", name: "GPT-4o Mini (free)" },
-    { id: "claude-3.5-sonnet-free", name: "Claude 3.5 Sonnet (free)" },
-  ],
   modelsFetcher: { url: "https://api.orcarouter.ai/v1/models", type: "openai" },
 };

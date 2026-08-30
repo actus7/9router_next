@@ -18,10 +18,5 @@ export default {
     baseUrl: "https://api.b.ai/v1/chat/completions",
     validateUrl: "https://api.b.ai/v1/models",
   },
-  models: [
-    { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-    { id: "gpt-4o", name: "GPT-4o" },
-    { id: "claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
-  ],
   modelsFetcher: { url: "https://api.b.ai/v1/models", type: "openai" },
 };
