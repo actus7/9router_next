@@ -1,4 +1,4 @@
-import { getApiKeys } from "@/lib/localDb";
+import { getApiKeys } from "@/lib/db/repos/apiKeysRepo";
 import { UPDATER_CONFIG } from "@/shared/constants/config";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 

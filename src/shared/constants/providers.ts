@@ -9,8 +9,36 @@ const MEDIA_ENTRY_KEYS = [
   "modelsFetcher", "mediaPriority", "hiddenKinds",
 ] as const;
 
+export const PROVIDER_CATEGORIES = ["free", "freeTier", "oauth", "apikey", "webCookie"] as const;
+export type ProviderCategory = typeof PROVIDER_CATEGORIES[number];
+export type ProviderAuthMode = "oauth" | "apikey" | "api_key" | "cookie" | "none";
+export type ProviderAvailability = "free" | "freeTier" | "paid";
+
+export interface ProviderCatalogEntry extends Record<string, unknown> {
+  id: string;
+  alias: string;
+  category: ProviderCategory;
+  name: string;
+  color?: string;
+  textIcon?: string;
+  icon?: string;
+  priority?: number;
+  apiType?: string;
+  authModes?: ProviderAuthMode[];
+  noAuth?: boolean;
+  hasFree?: boolean;
+  hidden?: boolean;
+  serviceKinds?: string[];
+}
+
+type RegistryEntry = Record<string, unknown>;
+
+function isProviderCategory(value: unknown): value is ProviderCategory {
+  return typeof value === "string" && (PROVIDER_CATEGORIES as readonly string[]).includes(value);
+}
+
 // Build provider UI object from registry entry
-function buildProviderEntry(r: Record<string, unknown>): Record<string, unknown> {
+function buildProviderEntry(r: RegistryEntry): ProviderCatalogEntry {
   const mediaFields: Record<string, unknown> = {};
   if (r.media) Object.assign(mediaFields, r.media as Record<string, unknown>);
   for (const k of MEDIA_ENTRY_KEYS) {
@@ -22,6 +50,7 @@ function buildProviderEntry(r: Record<string, unknown>): Record<string, unknown>
     ...display,
     id: r.id,
     alias: r.uiAlias || r.alias,
+    category: isProviderCategory(r.category) ? r.category : "apikey",
     ...(r.hidden ? { hidden: true } : {}),
     ...mediaFields,
     ...(r.priority !== undefined ? { priority: r.priority } : {}),
@@ -36,11 +65,11 @@ function buildProviderEntry(r: Record<string, unknown>): Record<string, unknown>
     ...(r.authModes ? { authModes: r.authModes } : {}),
     ...(r.authType ? { authType: r.authType } : {}),
     ...(r.authHint ? { authHint: r.authHint } : {}),
-  };
+  } as ProviderCatalogEntry;
 }
 
-const byCategory = (cat: string): Record<string, Record<string, unknown>> => Object.fromEntries(
-  REGISTRY.filter((r: Record<string, unknown>) => r.category === cat).map((r: Record<string, unknown>) => [r.id, buildProviderEntry(r)])
+const byCategory = (cat: ProviderCategory): Record<string, ProviderCatalogEntry> => Object.fromEntries(
+  REGISTRY.filter((r: RegistryEntry) => r.category === cat).map((r: RegistryEntry) => [r.id, buildProviderEntry(r)])
 );
 
 export const FREE_PROVIDERS = byCategory("free");
@@ -110,7 +139,46 @@ export function isCustomEmbeddingProvider(providerId: string): boolean {
 }
 
 // All providers (combined)
-export const AI_PROVIDERS: Record<string, Record<string, unknown>> = { ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...OAUTH_PROVIDERS, ...APIKEY_PROVIDERS, ...WEB_COOKIE_PROVIDERS };
+export const AI_PROVIDERS: Record<string, ProviderCatalogEntry> = { ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...OAUTH_PROVIDERS, ...APIKEY_PROVIDERS, ...WEB_COOKIE_PROVIDERS };
+
+/** Single source of truth for dashboard grouping and connection matching. */
+export function getProviderConnectionAuthTypes(provider: ProviderCatalogEntry): ProviderAuthMode[] {
+  const configured = Array.isArray(provider.authModes)
+    ? provider.authModes.filter((mode): mode is ProviderAuthMode => ["oauth", "apikey", "api_key", "cookie", "none"].includes(mode))
+    : [];
+  if (configured.length > 0) return configured.flatMap((mode) => mode === "apikey" ? ["apikey", "api_key"] : [mode]);
+  if (provider.noAuth) return ["none"];
+  if (provider.category === "webCookie") return ["cookie"];
+  if (provider.category === "oauth") return ["oauth"];
+  if (provider.category === "free" || provider.category === "freeTier") return ["oauth", "apikey", "api_key"];
+  return ["apikey", "api_key"];
+}
+
+export function getProviderAvailability(provider: ProviderCatalogEntry): ProviderAvailability {
+  if (provider.noAuth) return "free";
+  if (provider.hasFree || provider.category === "free" || provider.category === "freeTier") return "freeTier";
+  return "paid";
+}
+
+export function validateProviderCatalog(entries: readonly RegistryEntry[] = REGISTRY as RegistryEntry[]): string[] {
+  const errors: string[] = [];
+  const ids = new Set<string>();
+  const aliases = new Set<string>();
+  for (const entry of entries) {
+    const id = typeof entry.id === "string" ? entry.id : "";
+    const alias = typeof (entry.uiAlias || entry.alias) === "string" ? String(entry.uiAlias || entry.alias) : "";
+    if (!id) errors.push("Provider registry entry has no id");
+    else if (ids.has(id)) errors.push(`Duplicate provider id: ${id}`);
+    else ids.add(id);
+    if (!alias) errors.push(`Provider ${id || "<unknown>"} has no alias`);
+    else if (aliases.has(alias)) errors.push(`Duplicate provider alias: ${alias}`);
+    else aliases.add(alias);
+    if (!isProviderCategory(entry.category)) errors.push(`Provider ${id || alias} has invalid category`);
+    if (Array.isArray(entry.authModes) && entry.authModes.some((mode) => !["oauth", "apikey", "api_key", "cookie", "none"].includes(String(mode)))) errors.push(`Provider ${id || alias} has invalid auth mode`);
+    if (entry.noAuth === true && Array.isArray(entry.authModes) && entry.authModes.some((mode) => mode !== "none")) errors.push(`Provider ${id || alias} mixes noAuth with credential auth`);
+  }
+  return errors;
+}
 
 // Auth methods
 const AUTH_METHODS = {
@@ -122,7 +190,7 @@ const AUTH_METHODS = {
 type AuthMethodKey = keyof typeof AUTH_METHODS;
 
 // Helper: Get provider by alias
-export function getProviderByAlias(alias: string): Record<string, unknown> | null {
+export function getProviderByAlias(alias: string): ProviderCatalogEntry | null {
   const needle = typeof alias === "string" ? alias.toLowerCase() : alias;
   for (const provider of Object.values(AI_PROVIDERS)) {
     const legacyAliases = Array.isArray(provider.aliases)
@@ -165,7 +233,7 @@ const ID_TO_ALIAS: Record<string, string> = Object.values(AI_PROVIDERS).reduce((
 
 // Helper: Get providers by service kind (e.g. "tts", "embedding", "image")
 // Providers without serviceKinds default to ["llm"]
-export function getProvidersByKind(kind: string): Record<string, unknown>[] {
+export function getProvidersByKind(kind: string): ProviderCatalogEntry[] {
   return Object.values(AI_PROVIDERS)
     .filter((p) => {
       const kinds = (p.serviceKinds as string[] | undefined) ?? ["llm"];

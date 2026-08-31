@@ -6,7 +6,7 @@ import {
   isValidApiKey,
   markAccountUnavailable,
 } from "@/server/llm-gateway/auth";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { PROVIDER_MODELS } from "@/shared/constants/models";
 import { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "@/server/llm-gateway";
 import { initTranslators } from "@/server/llm-gateway/translator";

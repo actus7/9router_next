@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { generateSamlMetadata } from "@/lib/auth/saml";
 
 export async function GET(request: NextRequest): Promise<Response> {

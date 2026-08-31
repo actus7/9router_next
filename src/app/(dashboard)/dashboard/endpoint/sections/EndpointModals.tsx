@@ -145,7 +145,7 @@ export default function EndpointModals({
                   Cloudflare Tunnel
                 </p>
                 <p className="text-sm text-text-muted">
-                  {translate("Expose your local 9Router to the internet. No port forwarding, no static IP required. Share the endpoint URL with your team or use in Cursor, Cline and other AI tools from anywhere.") || "Expose your local 9Router to the internet. No port forwarding, no static IP required. Share the endpoint URL with your team or use in Cursor, Cline and other AI tools from anywhere."}
+                  {translate("Expose your local ModelHub to the internet. No port forwarding, no static IP required. Share the endpoint URL with your team or use in Cursor, Cline and other AI tools from anywhere.") || "Expose your local ModelHub to the internet. No port forwarding, no static IP required. Share the endpoint URL with your team or use in Cursor, Cline and other AI tools from anywhere."}
                 </p>
               </div>
             </div>

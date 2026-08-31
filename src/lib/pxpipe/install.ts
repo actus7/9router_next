@@ -88,14 +88,15 @@ async function runInstall(): Promise<InstallInfo> {
   ensureDir();
   const pkgJson: string = path.join(PXPIPE_DIR, "package.json");
   if (!fs.existsSync(pkgJson)) {
-    fs.writeFileSync(pkgJson, JSON.stringify({ name: "9router-pxpipe-host", private: true }, null, 2));
+    fs.writeFileSync(pkgJson, JSON.stringify({ name: "modelhub-pxpipe-host", private: true }, null, 2));
   }
 
   const outFd: number = fs.openSync(INSTALL_LOG, "a");
   fs.writeSync(outFd, `\n[${new Date().toISOString()}] npm install ${PXPIPE_PACKAGE}@latest\n`);
 
   await new Promise<void>((resolve: () => void, reject: (reason: Error) => void) => {
-    const child: ChildProcess = spawn(npm, ["install", `${PXPIPE_PACKAGE}@latest`, "--no-audit", "--no-fund", "--omit=dev"], {
+    // The package manager is resolved locally, not included in the server bundle.
+    const child: ChildProcess = spawn(/*turbopackIgnore: true*/ npm, ["install", `${PXPIPE_PACKAGE}@latest`, "--no-audit", "--no-fund", "--omit=dev"], {
       cwd: PXPIPE_DIR,
       stdio: ["ignore", outFd, outFd],
       windowsHide: true,

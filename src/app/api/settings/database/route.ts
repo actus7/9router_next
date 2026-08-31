@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { exportDb, getSettings, importDb } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { exportDb, importDb } from "@/lib/db/index";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Combos | 9Router",
+  title: "Combos | ModelHub",
   description: "Manage model combos with fallback support",
 };
 

@@ -7,7 +7,7 @@ import { UPDATER_CONFIG } from "@/shared/constants/config";
 const KILL_TIMEOUT_MS: number = 5000;
 const PROCESS_WAIT_MS: number = 1500;
 
-// Collect PIDs of all 9router-related processes (excluding current)
+// Collect PIDs of all modelhub-related processes (excluding current)
 function collectAppPids(): string[] {
   const pids: string[] = [];
   const platform: string = process.platform;
@@ -19,8 +19,8 @@ function collectAppPids(): string[] {
       const lines: string[] = output.split("\n").slice(1).filter((l: string) => l.trim());
       lines.forEach((line: string) => {
         const lower: string = line.toLowerCase();
-        // Match anything running from 9router install dir or wrapper cli.js
-        const isAppProcess: boolean = lower.includes("9router") ||
+        // Match anything running from modelhub install dir or wrapper cli.js
+        const isAppProcess: boolean = lower.includes("modelhub") ||
           lower.includes("next-server") ||
           lower.includes("\\bin\\app\\") ||
           lower.includes("/bin/app/") ||
@@ -47,7 +47,7 @@ function collectAppPids(): string[] {
     try {
       const output: string = execSync("ps aux 2>/dev/null", { encoding: "utf8", timeout: KILL_TIMEOUT_MS });
       output.split("\n").forEach((line: string) => {
-        const isAppProcess: boolean = line.includes("9router") ||
+        const isAppProcess: boolean = line.includes("modelhub") ||
           line.includes("next-server") ||
           line.includes("cloudflared") ||
           line.includes("/bin/app/") ||
@@ -69,9 +69,9 @@ function collectAppPids(): string[] {
 function getDataDir(): string {
   if (process.env.DATA_DIR) return process.env.DATA_DIR;
   if (process.platform === "win32") {
-    return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "9router");
+    return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "modelhub");
   }
-  return path.join(os.homedir(), ".9router");
+  return path.join(os.homedir(), ".modelhub");
 }
 
 function resolveBundledUpdaterPath(): string {
@@ -125,10 +125,10 @@ export async function killAppProcesses(): Promise<void> {
   }
 }
 
-// Resolve npx/9router binary to relaunch after update (cross-platform)
+// Resolve npx/modelhub binary to relaunch after update (cross-platform)
 function resolveRelaunchCommand(): { cmd: string; args: string[] } {
   const isWin: boolean = process.platform === "win32";
-  // Prefer `npx 9router` — works regardless of global bin path changes after npm i -g
+  // Prefer `npx modelhub` — works regardless of global bin path changes after npm i -g
   const npx: string = isWin ? "npx.cmd" : "npx";
   return { cmd: npx, args: [UPDATER_CONFIG.npmPackageName] };
 }

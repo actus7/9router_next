@@ -386,6 +386,67 @@ function errorResponse(status: number, message: string) {
   return new Response(JSON.stringify({ error: { message, type: "upstream_error", code: `HTTP_${status}` } }), { status, headers: { "Content-Type": "application/json" } });
 }
 
+type ExecuteReturn = { response: Response; url: string; headers: Record<string, string>; transformedBody: Record<string, unknown> };
+
+function handleChatError(res: Response, errText: string, url: string, body: Record<string, unknown>): ExecuteReturn {
+  return { response: errorResponse(res.status >= 400 && res.status < 600 ? res.status : 502, `HyperAgent chat HTTP ${res.status}: ${errText.slice(0, 300)}`), url, headers: {} as Record<string, string>, transformedBody: body };
+}
+
+async function sendChatRequest(
+  cookie: string,
+  threadId: string,
+  userText: string,
+  sessionId: string | null,
+  signal?: AbortSignal,
+): Promise<Response> {
+  const chatUrl = `${ORIGIN}/api/threads/${encodeURIComponent(threadId)}/chat`;
+  return fetch(chatUrl, {
+    method: "POST",
+    headers: browserHeaders(cookie, { "content-type": "application/json", referer: `${ORIGIN}/thread/${threadId}`, "x-request-id": randomUUID() }),
+    body: JSON.stringify(buildChatBody(userText, sessionId)),
+    signal,
+  });
+}
+
+async function retryAfterStaleThread(
+  cookie: string,
+  wireModel: string,
+  subagentModel: string,
+  runtimeId: string,
+  userText: string,
+  signal?: AbortSignal,
+): Promise<{ threadId: string; response: Response }> {
+  const newThreadId = await createThread(cookie, signal);
+  await configureThread(cookie, newThreadId, { modelId: wireModel, subagentModelId: subagentModel, runtimeId }, signal);
+  const retryUrl = `${ORIGIN}/api/threads/${encodeURIComponent(newThreadId)}/chat`;
+  const response = await fetch(retryUrl, {
+    method: "POST",
+    headers: browserHeaders(cookie, { "content-type": "application/json", referer: `${ORIGIN}/thread/${newThreadId}`, "x-request-id": randomUUID() }),
+    body: JSON.stringify(buildChatBody(userText, null)),
+    signal,
+  });
+  return { threadId: newThreadId, response };
+}
+
+function buildExecuteResult(
+  parsed: { text: string; sessionId: string; modelId: string; events: number },
+  messages: ChatMessage[],
+  cookieKey: string,
+  threadId: string,
+  clientFacing: string,
+  stream: boolean,
+  body: Record<string, unknown>,
+): ExecuteReturn {
+  const text = (parsed.text || "").trim();
+  if (!text) {
+    return { response: errorResponse(502, `HyperAgent returned empty content (events=${parsed.events})`), url: `${ORIGIN}/api/threads`, headers: {} as Record<string, string>, transformedBody: body };
+  }
+  storeThreadAfterTurn(cookieKey, messages, text, threadId, parsed.sessionId || "");
+  const modelOut = parsed.modelId || clientFacing;
+  const response = stream ? pseudoStreamResponse(text, modelOut, threadId, parsed.sessionId) : chatCompletionResponse(text, modelOut, messages, threadId, parsed.sessionId);
+  return { response, url: `${ORIGIN}/api/threads/${threadId}/chat`, headers: { Cookie: "***" }, transformedBody: { threadId, sessionId: parsed.sessionId || null, model: modelOut } };
+}
+
 export class HyperAgentExecutor extends BaseExecutor {
   constructor() {
     super("hyperagent", PROVIDERS["hyperagent"]);
@@ -414,17 +475,6 @@ export class HyperAgentExecutor extends BaseExecutor {
     let threadId = binding.threadId;
     let sessionId: string | null = binding.sessionId || null;
 
-    const finalize = (parsed: { text: string; sessionId: string; modelId: string; events: number }) => {
-      const text = (parsed.text || "").trim();
-      if (!text) {
-        return { response: errorResponse(502, `HyperAgent returned empty content (events=${parsed.events})`), url: `${ORIGIN}/api/threads`, headers: {} as Record<string, string>, transformedBody: body };
-      }
-      storeThreadAfterTurn(cookieKey, messages, text, threadId, parsed.sessionId || "");
-      const modelOut = parsed.modelId || clientFacing;
-      const response = stream ? pseudoStreamResponse(text, modelOut, threadId, parsed.sessionId) : chatCompletionResponse(text, modelOut, messages, threadId, parsed.sessionId);
-      return { response, url: `${ORIGIN}/api/threads/${threadId}/chat`, headers: { Cookie: "***" }, transformedBody: { threadId, sessionId: parsed.sessionId || null, model: modelOut } };
-    };
-
     log?.info?.("HYPERAGENT", `Query to ${wireModel}, followUp=${binding.isFollowUp}`);
 
     try {
@@ -435,40 +485,25 @@ export class HyperAgentExecutor extends BaseExecutor {
 
       await configureThread(cookie, threadId, { modelId: wireModel, subagentModelId: subagentModel, runtimeId }, signal);
 
-      const chatUrl = `${ORIGIN}/api/threads/${encodeURIComponent(threadId)}/chat`;
-      const res = await fetch(chatUrl, {
-        method: "POST",
-        headers: browserHeaders(cookie, { "content-type": "application/json", referer: `${ORIGIN}/thread/${threadId}`, "x-request-id": randomUUID() }),
-        body: JSON.stringify(buildChatBody(userText, sessionId)),
-        signal,
-      });
+      const res = await sendChatRequest(cookie, threadId, userText, sessionId, signal);
 
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
-        // Stale thread → create once, reconfigure, retry.
         if (res.status === 404 || /not found|unknown thread/i.test(errText)) {
-          threadId = await createThread(cookie, signal);
-          sessionId = null;
-          await configureThread(cookie, threadId, { modelId: wireModel, subagentModelId: subagentModel, runtimeId }, signal);
-          const retryUrl = `${ORIGIN}/api/threads/${encodeURIComponent(threadId)}/chat`;
-          const res2 = await fetch(retryUrl, {
-            method: "POST",
-            headers: browserHeaders(cookie, { "content-type": "application/json", referer: `${ORIGIN}/thread/${threadId}`, "x-request-id": randomUUID() }),
-            body: JSON.stringify(buildChatBody(userText, null)),
-            signal,
-          });
-          if (!res2.ok) {
-            const t2 = await res2.text().catch(() => "");
-            return { response: errorResponse(res2.status >= 400 && res2.status < 600 ? res2.status : 502, `HyperAgent chat HTTP ${res2.status}: ${t2.slice(0, 300)}`), url: retryUrl, headers: {} as Record<string, string>, transformedBody: body };
+          const retry = await retryAfterStaleThread(cookie, wireModel, subagentModel, runtimeId, userText, signal);
+          threadId = retry.threadId;
+          if (!retry.response.ok) {
+            const t2 = await retry.response.text().catch(() => "");
+            return handleChatError(retry.response, t2, `${ORIGIN}/api/threads/${encodeURIComponent(threadId)}/chat`, body);
           }
-          return finalize(await parseSseStream(res2));
+          return buildExecuteResult(await parseSseStream(retry.response), messages, cookieKey, threadId, clientFacing, stream, body);
         }
-        return { response: errorResponse(res.status >= 400 && res.status < 600 ? res.status : 502, `HyperAgent chat HTTP ${res.status}: ${errText.slice(0, 300)}`), url: chatUrl, headers: {} as Record<string, string>, transformedBody: body };
+        return handleChatError(res, errText, `${ORIGIN}/api/threads/${encodeURIComponent(threadId)}/chat`, body);
       }
 
       const parsed = await parseSseStream(res);
       if (!parsed.sessionId && sessionId) parsed.sessionId = sessionId;
-      return finalize(parsed);
+      return buildExecuteResult(parsed, messages, cookieKey, threadId, clientFacing, stream, body);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const status = /cookie|401|unauthor/i.test(msg) ? 401 : /timeout/i.test(msg) ? 504 : 502;

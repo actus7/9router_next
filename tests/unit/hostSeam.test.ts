@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 /**
- * FASE 4 architecture contract (PLANOMIGRACAOOPENSSE.md):
+ * Gateway architecture contract:
  * the engine consumes host capabilities ONLY through engine/host/* adapters.
  * Host modules (@/lib, @/shared, @/app, gateway barrels) are forbidden
  * elsewhere under engine/. This is the testable version of the ESLint rule

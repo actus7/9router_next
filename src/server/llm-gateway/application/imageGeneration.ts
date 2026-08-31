@@ -5,7 +5,7 @@ import {
   extractApiKey,
   isValidApiKey,
 } from "../auth/accountSelection";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getModelInfo, getComboModels } from "./modelResolution";
 import { handleImageGenerationCore } from "@/server/llm-gateway/engine/handlers/imageGenerationCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";

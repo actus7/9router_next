@@ -1,4 +1,4 @@
-# Next.js API adoption decisions (FASE 5 — PLANOMIGRACAOOPENSSE.md)
+# Next.js API adoption decisions
 
 Policy: adopt selectively, each adoption carries a test and a justification.
 There is **no coverage goal** for native APIs; behavior preservation rules.

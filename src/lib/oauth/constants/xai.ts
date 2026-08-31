@@ -33,7 +33,7 @@ export const XAI_PKCE_VERIFIER_BYTES: number = 96;
 const XAI_REFRESH_LEAD_SECONDS: number = 5 * 60;
 
 // User-Agent â€” mirror Go grok-cli UA. Version is best-effort; xAI does not pin a specific version.
-const XAI_USER_AGENT: string = "grok-cli/9router";
+const XAI_USER_AGENT: string = "grok-cli/modelhub";
 
 /**
  * Aggregated config object â€” mirrors the shape of CLAUDE_CONFIG/CODEX_CONFIG in oauth.js.

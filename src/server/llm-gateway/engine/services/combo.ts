@@ -284,14 +284,64 @@ interface HandleComboChatOptions {
   autoSwitch?: boolean;
 }
 
+/** Extract error text + retryAfter from a non-ok response. */
+async function extractResponseError(result: Response): Promise<{ errorText: string; retryAfter: string | null }> {
+  let errorText: string = result.statusText || "";
+  let retryAfter: string | null = null;
+  try {
+    const errorBody = await result.clone().json();
+    errorText = errorBody?.error?.message || errorBody?.error || errorBody?.message || errorText;
+    retryAfter = errorBody?.retryAfter || null;
+  } catch {
+    // Ignore JSON parse errors
+  }
+  if (typeof errorText !== "string") {
+    try { errorText = JSON.stringify(errorText); } catch { errorText = String(errorText); }
+  }
+  return { errorText, retryAfter };
+}
+
+/** Update earliestRetryAfter if the new value is earlier. */
+function trackEarliestRetryAfter(current: string | null, candidate: string | null): string | null {
+  if (!candidate) return current;
+  if (!current || new Date(candidate) < new Date(current)) return candidate;
+  return current;
+}
+
+/** Wait a short cooldown for transient 5xx errors before falling through. */
+async function waitTransientCooldown(status: number, cooldownMs: number, modelStr: string, log: Logger): Promise<void> {
+  if (cooldownMs > 0 && cooldownMs <= 5000 &&
+      (status === 503 || status === 502 || status === 504)) {
+    log.info?.("COMBO", `Model ${modelStr} transient ${status}, waiting ${cooldownMs}ms before next`);
+    await new Promise(r => setTimeout(r, cooldownMs));
+  }
+}
+
+/** Build the final "all models failed" response. */
+function buildAllFailedResponse(lastError: string | null, lastStatus: number | null, earliestRetryAfter: string | null, log: Logger): Response {
+  const allDisabled = lastError && lastError.toLowerCase().includes("no credentials");
+  const status = allDisabled ? 503 : (lastStatus || 503);
+  const msg = lastError || "All combo models unavailable";
+
+  if (earliestRetryAfter) {
+    const retryHuman = formatRetryAfter(earliestRetryAfter);
+    log.warn?.("COMBO", `All models failed | ${msg} (${retryHuman})`);
+    return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
+  }
+
+  log.warn?.("COMBO", `All models failed | ${msg}`);
+  return new Response(
+    JSON.stringify({ error: { message: msg } }),
+    { status, headers: { "Content-Type": "application/json" } }
+  );
+}
+
 /**
  * Handle combo chat with fallback
  */
 export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }: HandleComboChatOptions): Promise<Response> {
-  // Apply rotation strategy if enabled
   let rotatedModels = getRotatedModels(models, comboName || "", comboStrategy || "fallback", comboStickyLimit);
 
-  // Auto-switch: float models that satisfy the request's required capabilities to the front.
   if (autoSwitch) {
     const required = detectRequiredCapabilities(body);
     if (required.size > 0) {
@@ -302,7 +352,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       rotatedModels = reordered;
     }
   }
-  
+
   let lastError: string | null = null;
   let earliestRetryAfter: string | null = null;
   let lastStatus: number | null = null;
@@ -319,57 +369,26 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
 
     try {
       const result = await handleSingleModel(body, modelStr);
-      
-      // Success (2xx) - return response
       if (result.ok) {
         log.info?.("COMBO", `Model ${modelStr} succeeded`);
         return result;
       }
 
-      // Extract error info from response
-      let errorText: string = result.statusText || "";
-      let retryAfter: string | null = null;
-      try {
-        const errorBody = await result.clone().json();
-        errorText = errorBody?.error?.message || errorBody?.error || errorBody?.message || errorText;
-        retryAfter = errorBody?.retryAfter || null;
-      } catch {
-        // Ignore JSON parse errors
-      }
+      const { errorText, retryAfter } = await extractResponseError(result);
+      earliestRetryAfter = trackEarliestRetryAfter(earliestRetryAfter, retryAfter);
 
-      // Track earliest retryAfter across all combo models
-      if (retryAfter && (!earliestRetryAfter || new Date(retryAfter) < new Date(earliestRetryAfter))) {
-        earliestRetryAfter = retryAfter;
-      }
-
-      // Normalize error text to string (Worker-safe)
-      if (typeof errorText !== "string") {
-        try { errorText = JSON.stringify(errorText); } catch { errorText = String(errorText); }
-      }
-
-      // Check if should fallback to next model
       const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
-
       if (!shouldFallback) {
         log.warn?.("COMBO", `Model ${modelStr} failed (no fallback)`, { status: result.status });
         return result;
       }
 
-      // For transient errors (503/502/504), wait for cooldown before falling through
-      // so a briefly-overloaded provider gets a chance to recover rather than being
-      // skipped immediately (fixes: combo falls through on transient 503)
-      if (cooldownMs && cooldownMs > 0 && cooldownMs <= 5000 &&
-          (result.status === 503 || result.status === 502 || result.status === 504)) {
-        log.info?.("COMBO", `Model ${modelStr} transient ${result.status}, waiting ${cooldownMs}ms before next`);
-        await new Promise(r => setTimeout(r, cooldownMs));
-      }
+      await waitTransientCooldown(result.status, cooldownMs || 0, modelStr, log);
 
-      // Fallback to next model
       lastError = errorText || String(result.status);
       if (!lastStatus) lastStatus = result.status;
       log.warn?.("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
     } catch (error: unknown) {
-      // Catch unexpected exceptions to ensure fallback continues
       const errMsg = error instanceof Error ? error.message : String(error);
       lastError = errMsg;
       if (!lastStatus) lastStatus = 500;
@@ -377,25 +396,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     }
   }
 
-  // All models failed
-  // Use 503 (Service Unavailable) rather than 406 (Not Acceptable) — 406 implies
-  // the request itself is invalid, but here the providers are simply unavailable
-  // or have no active credentials. 503 is more accurate and retryable by clients.
-  const allDisabled = lastError && lastError.toLowerCase().includes("no credentials");
-  const status = allDisabled ? 503 : (lastStatus || 503);
-  const msg = lastError || "All combo models unavailable";
-
-  if (earliestRetryAfter) {
-    const retryHuman = formatRetryAfter(earliestRetryAfter);
-    log.warn?.("COMBO", `All models failed | ${msg} (${retryHuman})`);
-    return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
-  }
-
-  log.warn?.("COMBO", `All models failed | ${msg}`);
-  return new Response(
-    JSON.stringify({ error: { message: msg } }),
-    { status, headers: { "Content-Type": "application/json" } }
-  );
+  return buildAllFailedResponse(lastError, lastStatus, earliestRetryAfter, log);
 }
 
 /**
@@ -557,58 +558,24 @@ interface HandleFusionChatOptions {
   tuning?: FusionTuning;
 }
 
-/**
- * Handle a fusion combo: fan the prompt out to every panel model in parallel,
- * then a judge model synthesizes one final answer from all panel responses.
- *
- * Panel calls are forced non-streaming with tools stripped (the judge needs
- * complete prose to synthesize). The judge call keeps the client's original
- * stream flag + tools, so streaming and downstream tool use still work.
- *
- * Speed: quorum-grace collection caps the straggler penalty. Quality: the judge
- * runs the consensus/contradiction/blind-spot analysis before writing.
- *
- * Degrades gracefully: 0 panel answers -> 503, exactly 1 -> return it directly.
- */
-export async function handleFusionChat({ body, models, handleSingleModel, log, comboName, judgeModel, tuning }: HandleFusionChatOptions): Promise<Response> {
-  const panel = Array.isArray(models) ? models.filter(Boolean) : [];
-  if (panel.length === 0) {
-    return new Response(
-      JSON.stringify({ error: { message: "Fusion combo has no models" } }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // A single-model fusion has nothing to fuse — just answer directly.
-  if (panel.length === 1) {
-    return handleSingleModel(body, panel[0]);
-  }
-
-  const cfg = { ...FUSION_DEFAULTS, ...(tuning || {}) };
-  const minPanel = Math.min(Math.max(2, cfg.minPanel), panel.length);
-  const judge = judgeModel && judgeModel.trim() ? judgeModel.trim() : panel[0];
-  log.info?.("FUSION", `Combo "${comboName}" | panel=${panel.length} [${panel.join(", ")}] | judge=${judge} | quorum=${minPanel}`);
-
-  // 1. Fan out to the panel in parallel: non-streaming, tools stripped (we want prose).
+/** Prepare the panel body: strip tools, flatten tool history, force non-streaming. */
+function preparePanelBody(body: Record<string, unknown>): Record<string, unknown> {
   const { tools, tool_choice, stream_options, ...rest } = body as Record<string, unknown>;
-  // Fusion runs panel models non-streaming; drop stream_options too, or providers
-  // like DeepSeek reject it with "stream_options should be set along with stream = true".
-  // See issue #3024.
   const panelBody: Record<string, unknown> = { ...rest, stream: false };
-
-  // Flatten tool turns to prose so panel models keep context without emitting tool_calls.
   if (Array.isArray(panelBody.messages)) {
     panelBody.messages = flattenToolHistory(panelBody.messages as Record<string, unknown>[]);
   } else if (Array.isArray(panelBody.input)) {
     panelBody.input = flattenToolHistory(panelBody.input as Record<string, unknown>[]);
   }
+  return panelBody;
+}
 
-  const t0 = Date.now();
-  const calls = panel.map((m: string) => withTimeout(handleSingleModel(panelBody, m, true), cfg.panelHardTimeoutMs));
-  const settled = await collectPanel(calls, { ...cfg, minPanel });
-  log.info?.("FUSION", `fan-out collected in ${Date.now() - t0}ms`);
-
-  // 2. Collect successful answers.
+/** Extract successful answers from settled panel results. */
+async function collectFusionAnswers(
+  settled: (Response | { __timeout: true } | { __error: unknown } | undefined)[],
+  panel: string[],
+  log: Logger,
+): Promise<{ model: string; text: string }[]> {
   const answers: { model: string; text: string }[] = [];
   for (let i = 0; i < settled.length; i++) {
     const res = settled[i];
@@ -630,8 +597,48 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
       log.warn?.("FUSION", `Panel ${model} unparseable`, { error: e instanceof Error ? e.message : String(e) });
     }
   }
+  return answers;
+}
 
-  // 3. Degrade gracefully when the panel is too thin to fuse.
+/**
+ * Handle a fusion combo: fan the prompt out to every panel model in parallel,
+ * then a judge model synthesizes one final answer from all panel responses.
+ *
+ * Panel calls are forced non-streaming with tools stripped (the judge needs
+ * complete prose to synthesize). The judge call keeps the client's original
+ * stream flag + tools, so streaming and downstream tool use still work.
+ *
+ * Speed: quorum-grace collection caps the straggler penalty. Quality: the judge
+ * runs the consensus/contradiction/blind-spot analysis before writing.
+ *
+ * Degrades gracefully: 0 panel answers -> 503, exactly 1 -> return it directly.
+ */
+export async function handleFusionChat({ body, models, handleSingleModel, log, comboName, judgeModel, tuning }: HandleFusionChatOptions): Promise<Response> {
+  const panel = Array.isArray(models) ? models.filter(Boolean) : [];
+  if (panel.length === 0) {
+    return new Response(
+      JSON.stringify({ error: { message: "Fusion combo has no models" } }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  if (panel.length === 1) {
+    return handleSingleModel(body, panel[0]);
+  }
+
+  const cfg = { ...FUSION_DEFAULTS, ...(tuning || {}) };
+  const minPanel = Math.min(Math.max(2, cfg.minPanel), panel.length);
+  const judge = judgeModel && judgeModel.trim() ? judgeModel.trim() : panel[0];
+  log.info?.("FUSION", `Combo "${comboName}" | panel=${panel.length} [${panel.join(", ")}] | judge=${judge} | quorum=${minPanel}`);
+
+  const panelBody = preparePanelBody(body);
+
+  const t0 = Date.now();
+  const calls = panel.map((m: string) => withTimeout(handleSingleModel(panelBody, m, true), cfg.panelHardTimeoutMs));
+  const settled = await collectPanel(calls, { ...cfg, minPanel });
+  log.info?.("FUSION", `fan-out collected in ${Date.now() - t0}ms`);
+
+  const answers = await collectFusionAnswers(settled, panel, log);
+
   if (answers.length === 0) {
     log.warn?.("FUSION", "All panel models failed");
     return new Response(
@@ -644,7 +651,6 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
     return handleSingleModel(body, answers[0].model);
   }
 
-  // 4. Judge analyzes + writes one final answer (streams to client if requested).
   const judgeBody = appendUserTurn(body, buildJudgePrompt(answers));
   log.info?.("FUSION", `Judging ${answers.length} answers with ${judge}`);
   return handleSingleModel(judgeBody, judge);

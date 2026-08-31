@@ -1,5 +1,6 @@
 import os from "os";
-import { cleanupProviderConnections, getSettings, updateSettings } from "@/lib/localDb";
+import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
+import { cleanupProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import {
   enableTunnel, enableTailscale,
   isTunnelManuallyDisabled, isTunnelReconnecting, isTailscaleReconnecting,

@@ -5,7 +5,8 @@ import {
   extractApiKey,
   isValidApiKey,
 } from "../auth/accountSelection";
-import { getSettings, getCombos } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { getCombos } from "@/lib/db/repos/combosRepo";
 import { AI_PROVIDERS, resolveProviderId } from "@/shared/constants/providers";
 import { handleSearchCore } from "@/server/llm-gateway/engine/handlers/search/index";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";

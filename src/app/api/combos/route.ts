@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCombos, createCombo, getComboByName } from "@/lib/localDb";
+import { getCombos, createCombo, getComboByName } from "@/lib/db/repos/combosRepo";
 import { DEFAULT_SMART_ROUTING_CONFIG, validateSmartRoutingConfig } from "@/server/llm-gateway/smart-routing";
 
 export const dynamic = "force-dynamic";

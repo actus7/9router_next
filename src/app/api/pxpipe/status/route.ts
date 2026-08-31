@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getPxpipeStatus } from "@/lib/pxpipe/service";
 
 export const dynamic = "force-dynamic";

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getInstallInfo, installPxpipe } from "@/lib/pxpipe/install";
 import { loadPxpipe } from "@/lib/pxpipe/loader";
 import { getPxpipeStatus } from "@/lib/pxpipe/service";

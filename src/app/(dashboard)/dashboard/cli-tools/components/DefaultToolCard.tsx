@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { Card, ModelSelectModal, ActiveProvider } from "@/shared/components";
-import { Input } from "@/components/ui/input";
 import Button from "@/shared/components/Button";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Image from "next/image";
-import ApiKeySelect from "./ApiKeySelect";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { GuideSteps } from "./GuideSteps";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo {
@@ -23,7 +22,7 @@ interface ToolInfo {
   guideSteps?: Array<{ step: number; title: string; desc?: string; type?: string; value?: string; copyable?: boolean }>;
   codeBlock?: { language: string; code: string };
 }
-interface StatusData { installed?: boolean; has9Router?: boolean; }
+interface StatusData { installed?: boolean; hasModelHub?: boolean; }
 
 interface DefaultToolCardProps {
   toolId: string;
@@ -49,7 +48,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
   const replaceVars = (text: string): string => {
     const keyToUse = (selectedApiKey && selectedApiKey.trim())
       ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "your-api-key");
+      : (!cloudEnabled ? "sk_modelhub" : "your-api-key");
 
     const normalizedBaseUrl = baseUrl || "http://localhost:20128";
     const baseUrlWithV1 = normalizedBaseUrl.endsWith("/v1")
@@ -75,170 +74,6 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
   };
 
   const hasActiveProviders = activeProviders.length > 0;
-
-  const renderApiKeySelector = () => (
-    <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
-      <ApiKeySelect value={selectedApiKey} onChange={setSelectedApiKey} apiKeys={apiKeys} cloudEnabled={cloudEnabled} className="flex-1" />
-    </div>
-  );
-
-  const renderModelSelector = () => {
-    return (
-      <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
-        <Input
-          type="text"
-          value={modelValue}
-          onChange={(e) => setModelValue(e.target.value)}
-          placeholder="provider/model-id"
-          className="w-full sm:w-auto flex-1 px-3 py-2 text-sm"
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowModelModal(true)}
-          disabled={!hasActiveProviders}
-          className="shrink-0"
-        >
-          Select Model
-        </Button>
-        {modelValue && (
-          <>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={() => handleCopy(modelValue, "model")}
-              className="shrink-0"
-            >
-              <span className="text-lg">
-                {copiedField === "model" ? "check" : "content_copy"}
-              </span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setModelValue("")}
-              className="text-text-muted hover:text-red-500"
-              title="Clear"
-            >
-              <X className="size-4" />
-            </Button>
-          </>
-        )}
-      </div>
-    );
-  };
-
-  const renderNotes = () => {
-    if (!tool.notes || tool.notes.length === 0) return null;
-
-    return (
-      <div className="flex flex-col gap-2 mb-4">
-        {tool.notes.map((note, index) => {
-          if (note.type === "cloudCheck" && (cloudEnabled || tunnelEnabled)) return null;
-
-          const isWarning = note.type === "warning";
-          const isError = note.type === "cloudCheck" && !cloudEnabled && !tunnelEnabled;
-
-          let bgClass = "bg-blue-500/10 border-blue-500/30";
-          let textClass = "text-blue-600 dark:text-blue-400";
-          let iconClass = "text-blue-500";
-          let icon = "info";
-
-          if (isWarning) {
-            bgClass = "bg-yellow-500/10 border-yellow-500/30";
-            textClass = "text-yellow-600 dark:text-yellow-400";
-            iconClass = "text-yellow-500";
-            icon = "warning";
-          } else if (isError) {
-            bgClass = "bg-red-500/10 border-red-500/30";
-            textClass = "text-red-600 dark:text-red-400";
-            iconClass = "text-red-500";
-            icon = "error";
-          }
-
-          return (
-            <div key={index} className={`flex items-start gap-3 p-3 rounded-lg border ${bgClass}`}>
-              <span className={`text-lg ${iconClass}`}>{icon}</span>
-              <p className={`text-sm ${textClass}`}>{note.text}</p>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const canShowGuide = () => {
-    if (tool.requiresExternalUrl && !cloudEnabled && !tunnelEnabled) return false;
-    if (tool.requiresCloud && !cloudEnabled) return false;
-    return true;
-  };
-
-  const renderGuideSteps = () => {
-    if (!tool.guideSteps) return <p className="text-text-muted text-sm">Coming soon...</p>;
-
-    return (
-      <div className="flex flex-col gap-4">
-        {renderNotes()}
-        {canShowGuide() && tool.guideSteps.map((item) => (
-          <div key={item.step} className="flex items-start gap-4">
-            <div
-              className="size-8 rounded-full flex items-center justify-center shrink-0 text-sm font-semibold text-white"
-              style={{ backgroundColor: tool.color }}
-            >
-              {item.step}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-text">{item.title}</p>
-              {item.desc && <p className="text-sm text-text-muted mt-0.5">{item.desc}</p>}
-              {item.type === "apiKeySelector" && renderApiKeySelector()}
-              {item.type === "modelSelector" && renderModelSelector()}
-              {item.value && (
-                <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-2">
-                  <code className="w-full sm:w-auto flex-1 px-3 py-2 bg-bg-secondary rounded-lg text-sm font-mono border border-border truncate">
-                    {replaceVars(item.value)}
-                  </code>
-                  {item.copyable && (
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      onClick={() => handleCopy(item.value!, `${item.step}-${item.title}`)}
-                      className="shrink-0"
-                    >
-                      <span className="text-lg">
-                        {copiedField === `${item.step}-${item.title}` ? "check" : "content_copy"}
-                      </span>
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {canShowGuide() && tool.codeBlock && (
-          <div className="mt-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-text-muted uppercase tracking-wide">{tool.codeBlock.language}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleCopy(tool.codeBlock!.code, "codeblock")}
-                className="flex items-center gap-1"
-              >
-                <span className="text-sm">
-                  {copiedField === "codeblock" ? "check" : "content_copy"}
-                </span>
-                {copiedField === "codeblock" ? "Copied!" : "Copy"}
-              </Button>
-            </div>
-            <pre className="p-4 bg-bg-secondary rounded-lg border border-border overflow-x-auto">
-              <code className="text-sm font-mono whitespace-pre">{replaceVars(tool.codeBlock.code)}</code>
-            </pre>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const renderIcon = () => {
     if (tool.image) {
@@ -298,7 +133,26 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
 
       {isExpanded && (
         <div className="mt-6 pt-6 border-t border-border">
-          {renderGuideSteps()}
+          <GuideSteps
+            guideSteps={tool.guideSteps || []}
+            notes={tool.notes}
+            codeBlock={tool.codeBlock}
+            color={tool.color}
+            cloudEnabled={cloudEnabled}
+            tunnelEnabled={tunnelEnabled}
+            requiresExternalUrl={tool.requiresExternalUrl}
+            requiresCloud={tool.requiresCloud}
+            apiKeys={apiKeys}
+            selectedApiKey={selectedApiKey}
+            onApiKeyChange={setSelectedApiKey}
+            modelValue={modelValue}
+            onModelChange={setModelValue}
+            onOpenModelModal={() => setShowModelModal(true)}
+            hasActiveProviders={hasActiveProviders}
+            copiedField={copiedField}
+            onCopy={handleCopy}
+            replaceVars={replaceVars}
+          />
         </div>
       )}
 

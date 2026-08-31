@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/localDb";
+import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/db/repos/combosRepo";
 import { resetComboRotation } from "@/server/llm-gateway/catalog";
 import { DEFAULT_SMART_ROUTING_CONFIG, validateSmartRoutingConfig } from "@/server/llm-gateway/smart-routing";
 

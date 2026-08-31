@@ -11,9 +11,9 @@ interface ToolDetailPageProps {
 export async function generateMetadata({ params }: ToolDetailPageProps): Promise<Metadata> {
   const { toolId } = await params;
   const tool = (CLI_TOOLS as Record<string, { name: string }>)[toolId];
-  if (!tool) return { title: "Tool Not Found | 9Router" };
+  if (!tool) return { title: "Tool Not Found | ModelHub" };
   return {
-    title: `${tool.name} | 9Router`,
+    title: `${tool.name} | ModelHub`,
     description: `Configure ${tool.name} CLI tool`,
   };
 }

@@ -107,7 +107,7 @@ function ProviderNode({ data }: { data: ProviderNodeData }) {
   );
 }
 
-// Center 9Router node — pulse/glow on card only (no expanding rings)
+// Center ModelHub node — pulse/glow on card only (no expanding rings)
 function RouterNode({ data }: { data: RouterNodeData }) {
   const powering = (data.activeCount || 0) > 0;
   return (
@@ -125,13 +125,13 @@ function RouterNode({ data }: { data: RouterNodeData }) {
 
       <img
         src="/favicon.svg"
-        alt="9Router"
+        alt="ModelHub"
         className={`w-6 h-6 mr-2 ${powering ? "topology-router-icon" : ""}`}
         loading="lazy"
         decoding="async"
       />
       <span className={`text-sm font-bold ${powering ? "topology-router-label text-yellow-300" : "text-primary"}`}>
-        9Router
+        ModelHub
       </span>
       {data.activeCount !== undefined && data.activeCount > 0 && (
         <span className="ml-2 px-1.5 py-0.5 rounded-full bg-yellow-400 text-black text-xs font-bold topology-router-badge">

@@ -84,7 +84,7 @@ function pythonCandidates(): string[] {
   if (bin) {
     const dir: string = path.dirname(bin);
     const names: string[] = IS_WIN ? ["python.exe", "python3.exe"] : ["python3", "python3.13", "python"];
-    for (const n of names) list.push(path.join(dir, n));
+    for (const n of names) list.push(path.join(/*turbopackIgnore: true*/ dir, n));
   }
   for (const dir of EXTRA_BINS) {
     if (!dir) continue;
@@ -174,7 +174,8 @@ export function getInstalledHeadroomExtras(python?: string | null): ExtrasStatus
   const py: string | null = python || findPython310();
   if (!py) return { installed: false, version: null, extras: { code: false, ml: false } };
   try {
-    const out: string = execFileSync(py, ["-m", "pip", "list", "--format=json", "--disable-pip-version-check"], {
+    // Python is resolved from the local machine's PATH at runtime.
+    const out: string = execFileSync(/*turbopackIgnore: true*/ py, ["-m", "pip", "list", "--format=json", "--disable-pip-version-check"], {
       stdio: ["ignore", "pipe", "ignore"],
       windowsHide: true,
       timeout: HEADROOM_PIP_TIMEOUT_MS,

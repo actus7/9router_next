@@ -16,6 +16,9 @@
   "rules": {
     "unused-dependencies": "warn"
   },
+  "health": {
+    "coverage": "coverage/coverage-final.json"
+  },
   "ignoreExports": [
     {
       "file": "src/components/ui/button.tsx",

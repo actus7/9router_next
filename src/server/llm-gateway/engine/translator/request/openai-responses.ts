@@ -1,6 +1,6 @@
 /**
- * Translator: OpenAI Responses API → OpenAI Chat Completions
- * 
+ * Translator: OpenAI Responses API ↔ OpenAI Chat Completions
+ *
  * Responses API uses: { input: [...], instructions: "..." }
  * Chat API uses: { messages: [...] }
  */
@@ -14,20 +14,82 @@ const MAX_CALL_ID_LEN = 64;
 const clampCallId = (id: unknown): unknown => (typeof id === "string" && id.length > MAX_CALL_ID_LEN ? id.substring(0, MAX_CALL_ID_LEN) : id);
 
 /**
- * Convert OpenAI Responses API request to OpenAI Chat Completions format
+ * Ensure object schema always has properties field (required by Codex Responses API)
  */
-export function openaiResponsesToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
-  if (!body.input) return body;
+function normalizeToolParameters(params: unknown): unknown {
+  if (!params) return { type: "object", properties: {} };
+  const p = params as Record<string, unknown>;
+  if (p.type === "object" && !p.properties) return { ...p, properties: {} };
+  return params;
+}
 
-  const result = { ...body } as { messages: Record<string, unknown>[]; [key: string]: unknown };
-  result.messages = [];
+// ── Responses→Chat helpers ──────────────────────────────────────────────────
 
-  // Convert instructions to system message
-  if (body.instructions) {
-    result.messages.push({ role: ROLE.SYSTEM, content: body.instructions });
+/** Extract reasoning text from summary[].text or content[].text */
+function extractResponsesReasoningText(item: Record<string, unknown>): string {
+  if (Array.isArray(item.summary)) {
+    const txt = (item.summary as Record<string, unknown>[]).map((s: Record<string, unknown>) => (s?.text as string) || "").filter(Boolean).join("\n");
+    if (txt) return txt;
   }
+  if (Array.isArray(item.content)) {
+    const txt = (item.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => (c?.text as string) || "").filter(Boolean).join("\n");
+    if (txt) return txt;
+  }
+  return "";
+}
 
-  // Group items by conversation turn
+/** Attach buffered reasoning to a message and reset buffers */
+function attachResponsesReasoning(
+  msg: Record<string, unknown>,
+  pendingReasoning: string,
+  pendingReasoningEncrypted: string,
+): { pendingReasoning: string; pendingReasoningEncrypted: string } {
+  if (pendingReasoning) msg.reasoning_content = pendingReasoning;
+  if (pendingReasoningEncrypted) msg.encrypted_content = pendingReasoningEncrypted;
+  return { pendingReasoning: "", pendingReasoningEncrypted: "" };
+}
+
+/** Convert a Responses API message item to Chat Completions content parts */
+function convertResponsesMessageContent(item: Record<string, unknown>): unknown {
+  if (!Array.isArray(item.content)) return item.content;
+  return (item.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => {
+    if (c.type === RESPONSES_ITEM.INPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
+    if (c.type === RESPONSES_ITEM.OUTPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
+    if (c.type === RESPONSES_ITEM.INPUT_IMAGE) {
+      const url = c.image_url || c.file_id || "";
+      return { type: OPENAI_BLOCK.IMAGE_URL, image_url: { url, detail: c.detail || "auto" } };
+    }
+    return c;
+  });
+}
+
+/** Process a function_call or custom_tool_call item → push to assistant tool_calls */
+function processFunctionCallItem(
+  item: Record<string, unknown>,
+  itemType: string,
+  currentAssistantMsg: Record<string, unknown>,
+  customToolNames: Set<string>,
+) {
+  if (!item.name || typeof item.name !== "string" || (item.name as string).trim() === "") return;
+  if (itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) customToolNames.add(item.name as string);
+  const toolInput = itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL
+    ? { input: typeof item.input === "string" ? item.input : JSON.stringify(item.input ?? "") }
+    : item.arguments;
+  (currentAssistantMsg.tool_calls as Record<string, unknown>[]).push({
+    id: item.call_id,
+    type: OPENAI_BLOCK.FUNCTION,
+    function: {
+      name: item.name,
+      arguments: typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput ?? {})
+    }
+  });
+}
+
+/** Convert Responses API input items to Chat Completions messages */
+function convertResponsesInputItems(
+  inputItems: Record<string, unknown>[],
+  result: { messages: Record<string, unknown>[]; [key: string]: unknown },
+): { additionalTools: Record<string, unknown>[]; customToolNames: Set<string> } {
   let currentAssistantMsg: Record<string, unknown> | null = null;
   let pendingToolResults: Record<string, unknown>[] = [];
   let pendingReasoning = "";
@@ -35,108 +97,45 @@ export function openaiResponsesToOpenAIRequest(model: string, body: Record<strin
   const additionalTools: Record<string, unknown>[] = [];
   const customToolNames = new Set<string>();
 
-  const inputItems = normalizeResponsesInput(body.input as string | Record<string, unknown>[]);
-  if (!inputItems) return body;
-
-  // Extract reasoning text from summary[].text (encrypted_content is continuity-only)
-  const extractReasoningText = (item: Record<string, unknown>): string => {
-    if (Array.isArray(item.summary)) {
-      const txt = (item.summary as Record<string, unknown>[]).map((s: Record<string, unknown>) => (s?.text as string) || "").filter(Boolean).join("\n");
-      if (txt) return txt;
+  const flushPending = () => {
+    if (currentAssistantMsg) {
+      result.messages.push(currentAssistantMsg);
+      currentAssistantMsg = null;
     }
-    if (Array.isArray(item.content)) {
-      const txt = (item.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => (c?.text as string) || "").filter(Boolean).join("\n");
-      if (txt) return txt;
+    if (pendingToolResults.length > 0) {
+      for (const tr of pendingToolResults) result.messages.push(tr);
+      pendingToolResults = [];
     }
-    return "";
   };
 
-  const attachPendingReasoning = (msg: Record<string, unknown>): void => {
-    if (pendingReasoning) msg.reasoning_content = pendingReasoning;
-    if (pendingReasoningEncrypted) msg.encrypted_content = pendingReasoningEncrypted;
-    pendingReasoning = "";
-    pendingReasoningEncrypted = "";
-  };
-
-  for (const item of inputItems as Record<string, unknown>[]) {
-    // Determine item type - Droid CLI sends role-based items without 'type' field
-    // Fallback: if no type but has role property, treat as message
+  for (const item of inputItems) {
     const itemType = item.type || (item.role ? RESPONSES_ITEM.MESSAGE : null);
 
     if (itemType === RESPONSES_ITEM.MESSAGE) {
-      // Flush any pending assistant message with tool calls
-      if (currentAssistantMsg) {
-        result.messages.push(currentAssistantMsg);
-        currentAssistantMsg = null;
-      }
-      // Flush pending tool results
-      if (pendingToolResults.length > 0) {
-        for (const tr of pendingToolResults) {
-          result.messages.push(tr);
-        }
-        pendingToolResults = [];
-      }
-
-      // Convert content: input_text → text, output_text → text, input_image → image_url
-      const content = Array.isArray(item.content)
-        ? (item.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => {
-          if (c.type === RESPONSES_ITEM.INPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
-          if (c.type === RESPONSES_ITEM.OUTPUT_TEXT) return { type: OPENAI_BLOCK.TEXT, text: c.text };
-          if (c.type === RESPONSES_ITEM.INPUT_IMAGE) {
-            const url = c.image_url || c.file_id || "";
-            return { type: OPENAI_BLOCK.IMAGE_URL, image_url: { url, detail: c.detail || "auto" } };
-          }
-          return c;
-        })
-        : item.content;
+      flushPending();
+      const content = convertResponsesMessageContent(item);
       const msg: Record<string, unknown> = { role: item.role, content };
-      // Attach buffered reasoning to assistant turn (required by xiaomi-mimo + store=false continuity)
-      if (item.role === ROLE.ASSISTANT) attachPendingReasoning(msg);
-      else {
+      if (item.role === ROLE.ASSISTANT) {
+        const reset = attachResponsesReasoning(msg, pendingReasoning, pendingReasoningEncrypted);
+        pendingReasoning = reset.pendingReasoning;
+        pendingReasoningEncrypted = reset.pendingReasoningEncrypted;
+      } else {
         pendingReasoning = "";
         pendingReasoningEncrypted = "";
       }
       result.messages.push(msg);
     }
     else if (itemType === RESPONSES_ITEM.FUNCTION_CALL || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
-      // Start or append to assistant message with tool_calls
       if (!currentAssistantMsg) {
-        currentAssistantMsg = {
-          role: ROLE.ASSISTANT,
-          content: null,
-          tool_calls: [] as Record<string, unknown>[]
-        };
-        attachPendingReasoning(currentAssistantMsg);
+        currentAssistantMsg = { role: ROLE.ASSISTANT, content: null, tool_calls: [] as Record<string, unknown>[] };
+        const reset = attachResponsesReasoning(currentAssistantMsg, pendingReasoning, pendingReasoningEncrypted);
+        pendingReasoning = reset.pendingReasoning;
+        pendingReasoningEncrypted = reset.pendingReasoningEncrypted;
       }
-      // Skip items with empty/missing name — Codex/OpenAI reject nameless tool calls (#444)
-      if (!item.name || typeof item.name !== "string" || (item.name as string).trim() === "") continue;
-      if (itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) customToolNames.add(item.name as string);
-      const toolInput = itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL
-        ? { input: typeof item.input === "string" ? item.input : JSON.stringify(item.input ?? "") }
-        : item.arguments;
-      (currentAssistantMsg!.tool_calls as Record<string, unknown>[]).push({
-        id: item.call_id,
-        type: OPENAI_BLOCK.FUNCTION,
-        function: {
-          name: item.name,
-          arguments: typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput ?? {})
-        }
-      });
+      processFunctionCallItem(item, itemType, currentAssistantMsg, customToolNames);
     }
     else if (itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL_OUTPUT) {
-      // Flush assistant message first if exists
-      if (currentAssistantMsg) {
-        result.messages.push(currentAssistantMsg);
-        currentAssistantMsg = null;
-      }
-      // Flush any pending tool results first
-      if (pendingToolResults.length > 0) {
-        for (const tr of pendingToolResults) {
-          result.messages.push(tr);
-        }
-        pendingToolResults = [];
-      }
-      // Add tool result immediately
+      flushPending();
       result.messages.push({
         role: ROLE.TOOL,
         tool_call_id: item.call_id,
@@ -147,34 +146,25 @@ export function openaiResponsesToOpenAIRequest(model: string, body: Record<strin
       if (Array.isArray(item.tools)) additionalTools.push(...(item.tools as Record<string, unknown>[]));
     }
     else if (itemType === RESPONSES_ITEM.REASONING) {
-      // Buffer reasoning text; attached to next assistant message/function_call.
-      // Also stash encrypted_content so a later openai→responses hop can restore
-      // the store=false continuity blob (Grok CLI / Codex multi-turn).
-      const txt = extractReasoningText(item);
+      const txt = extractResponsesReasoningText(item);
       if (txt) pendingReasoning = pendingReasoning ? `${pendingReasoning}\n${txt}` : txt;
       if (typeof item.encrypted_content === "string" && item.encrypted_content) {
-        // Prefer attaching to the next assistant message we create
         pendingReasoningEncrypted = item.encrypted_content as string;
       }
-      continue;
     }
   }
 
-  // Flush remaining
-  if (currentAssistantMsg) {
-    result.messages.push(currentAssistantMsg);
-  }
-  if (pendingToolResults.length > 0) {
-    for (const tr of pendingToolResults) {
-      result.messages.push(tr);
-    }
-  }
+  flushPending();
+  return { additionalTools, customToolNames };
+}
 
-  // Convert tools format.
-  // Responses API supports "hosted" tools (e.g. { type: "request_user_input" }) that carry no
-  // explicit `name` field and cannot be represented as Chat Completions function declarations.
-  // Filter them out to avoid sending nameless functionDeclarations to downstream providers
-  // such as Gemini, which strictly validates function names.
+/** Convert Responses API tools to Chat Completions function declarations */
+function convertResponsesTools(
+  body: Record<string, unknown>,
+  additionalTools: Record<string, unknown>[],
+  customToolNames: Set<string>,
+  result: Record<string, unknown>,
+) {
   const responseTools = [
     ...(Array.isArray(body.tools) ? body.tools as Record<string, unknown>[] : []),
     ...additionalTools,
@@ -182,12 +172,7 @@ export function openaiResponsesToOpenAIRequest(model: string, body: Record<strin
   if (responseTools.length > 0) {
     result.tools = responseTools
       .map((tool: Record<string, unknown>) => {
-        // Already in Chat Completions format: { type: "function", function: { name, ... } }
         if (tool.function) return tool;
-        // Responses API function/custom tool: { type, name, description, parameters|format }.
-        // Chat Completions has no freeform custom-tool declaration, so expose custom
-        // tools as functions with one raw `input` string while retaining their names
-        // in translator-only metadata for the response conversion.
         const name = tool.name;
         if (!name || typeof name !== "string" || (name as string).trim() === "") return null;
         if (tool.type === "custom") {
@@ -201,20 +186,13 @@ export function openaiResponsesToOpenAIRequest(model: string, body: Record<strin
               description: [String(tool.description || ""), formatHint].filter(Boolean).join("\n\n"),
               parameters: {
                 type: "object",
-                properties: {
-                  input: {
-                    type: "string",
-                    description: "Raw freeform input for this custom tool"
-                  }
-                },
+                properties: { input: { type: "string", description: "Raw freeform input for this custom tool" } },
                 required: ["input"],
                 additionalProperties: false
               }
             }
           };
         }
-        // Responses API function tool: { type: "function", name, description, parameters }
-        // Only convert when a non-empty name is present; skip hosted tools without one.
         return {
           type: OPENAI_BLOCK.FUNCTION,
           function: {
@@ -228,14 +206,14 @@ export function openaiResponsesToOpenAIRequest(model: string, body: Record<strin
       .filter(Boolean);
   }
   if (customToolNames.size > 0) result._customToolNames = [...customToolNames];
+}
 
-  // Cleanup Responses API specific fields
-  // Map Responses-only max_output_tokens to Chat max_tokens (avoid leaking unknown field upstream)
+/** Clean up Responses API specific fields from the result */
+function cleanupResponsesFields(result: Record<string, unknown>) {
   if (result.max_output_tokens !== undefined) {
     if (result.max_tokens === undefined) result.max_tokens = result.max_output_tokens;
     delete result.max_output_tokens;
   }
-
   delete result.input;
   delete result.instructions;
   delete result.include;
@@ -246,19 +224,32 @@ export function openaiResponsesToOpenAIRequest(model: string, body: Record<strin
   }
   delete result.reasoning;
   delete result.client_metadata;
+}
+
+/**
+ * Convert OpenAI Responses API request to OpenAI Chat Completions format
+ */
+export function openaiResponsesToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
+  if (!body.input) return body;
+
+  const result = { ...body } as { messages: Record<string, unknown>[]; [key: string]: unknown };
+  result.messages = [];
+
+  if (body.instructions) {
+    result.messages.push({ role: ROLE.SYSTEM, content: body.instructions });
+  }
+
+  const inputItems = normalizeResponsesInput(body.input as string | Record<string, unknown>[]);
+  if (!inputItems) return body;
+
+  const { additionalTools, customToolNames } = convertResponsesInputItems(inputItems as Record<string, unknown>[], result);
+  convertResponsesTools(body, additionalTools, customToolNames, result);
+  cleanupResponsesFields(result);
 
   return result;
 }
 
-/**
- * Ensure object schema always has properties field (required by Codex Responses API)
- */
-function normalizeToolParameters(params: unknown): unknown {
-  if (!params) return { type: "object", properties: {} };
-  const p = params as Record<string, unknown>;
-  if (p.type === "object" && !p.properties) return { ...p, properties: {} };
-  return params;
-}
+// ── Chat→Responses helpers ──────────────────────────────────────────────────
 
 /**
  * Build a Responses `reasoning` input item from Chat Completions assistant fields.
@@ -292,84 +283,72 @@ function buildReasoningInputItem(msg: Record<string, unknown>): Record<string, u
   if (summaryText) {
     item.summary = [{ type: RESPONSES_ITEM.SUMMARY_TEXT, text: summaryText }];
   }
-  // encrypted_content is the continuity token for store=false backends
   if (encrypted) item.encrypted_content = encrypted;
   return item;
 }
 
-/**
- * Convert OpenAI Chat Completions to OpenAI Responses API format
- */
-export function openaiToOpenAIResponsesRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
-  // Body already in Responses API format (e.g. Cursor CLI calling /chat/completions with input[])
-  if (body.input) return { ...body, model, stream: true };
+/** Convert a single Chat Completions message's content to Responses API content parts */
+function convertChatMessageContent(msg: Record<string, unknown>, contentType: string): Record<string, unknown>[] {
+  if (typeof msg.content === "string") {
+    return [{ type: contentType, text: msg.content }];
+  }
+  if (!Array.isArray(msg.content)) return [];
+  return (msg.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => {
+    if (c.type === OPENAI_BLOCK.TEXT) return { type: contentType, text: c.text };
+    if (c.type === OPENAI_BLOCK.IMAGE_URL) {
+      const imgObj = c.image_url as Record<string, unknown> | string | undefined;
+      const url = typeof imgObj === "string" ? imgObj : imgObj?.url;
+      return { type: RESPONSES_ITEM.INPUT_IMAGE, image_url: url, detail: (imgObj as Record<string, unknown>)?.detail || "auto" };
+    }
+    if (c.type === RESPONSES_ITEM.INPUT_IMAGE) return c;
+    const text = c.text || c.content || JSON.stringify(c);
+    return { type: contentType, text: typeof text === "string" ? text : JSON.stringify(text) };
+  });
+}
 
-  const result: { input: Record<string, unknown>[]; [key: string]: unknown } = {
-    model,
-    input: [],
-    stream: true,
-    store: false
+/** Convert tool result message to Responses API function_call_output */
+function convertToolResultMessage(msg: Record<string, unknown>): Record<string, unknown> {
+  const output = typeof msg.content === "string"
+    ? msg.content
+    : Array.isArray(msg.content)
+      ? (msg.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => c.text || JSON.stringify(c)).join("")
+      : JSON.stringify(msg.content);
+  return {
+    type: RESPONSES_ITEM.FUNCTION_CALL_OUTPUT,
+    call_id: clampCallId(msg.tool_call_id),
+    output
   };
+}
 
-  // Extract system message as instructions
+/** Convert Chat Completions messages to Responses API input items */
+function convertMessagesToResponsesInput(
+  messages: Record<string, unknown>[],
+  result: { input: Record<string, unknown>[]; instructions?: string; [key: string]: unknown },
+): boolean {
   let hasSystemMessage = false;
-  const messages = (body.messages || []) as Record<string, unknown>[];
 
   for (const msg of messages) {
     if (msg.role === ROLE.SYSTEM || msg.role === ROLE.DEVELOPER) {
-      // Use the first instruction-bearing message as instructions.
-      // OpenAI recommends role="developer" for GPT-5/Codex as the system-level prompt.
       if (!hasSystemMessage) {
         result.instructions = typeof msg.content === "string" ? msg.content : "";
         hasSystemMessage = true;
       }
-      continue; // Skip instruction messages in input
+      continue;
     }
 
-    // Convert user/assistant messages to input items
     if (msg.role === ROLE.USER || msg.role === ROLE.ASSISTANT) {
-      // Multi-turn continuity for store=false Responses backends (Codex / Grok CLI):
-      // re-emit a reasoning item before the assistant message when the chat-format
-      // history carried reasoning text and/or encrypted_content from a prior turn.
       if (msg.role === ROLE.ASSISTANT) {
         const reasoningItem = buildReasoningInputItem(msg);
         if (reasoningItem) result.input.push(reasoningItem);
       }
 
       const contentType = msg.role === ROLE.USER ? RESPONSES_ITEM.INPUT_TEXT : RESPONSES_ITEM.OUTPUT_TEXT;
-      const content = typeof msg.content === "string"
-        ? [{ type: contentType, text: msg.content }]
-        : Array.isArray(msg.content)
-          ? (msg.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => {
-            if (c.type === OPENAI_BLOCK.TEXT) return { type: contentType, text: c.text };
-            // Convert Chat Completions image_url → Responses API input_image
-            // Responses API expects: { type: "input_image", image_url: "<url string>" }
-            // Chat Completions sends: { type: "image_url", image_url: { url: "...", detail: "..." } }
-            if (c.type === OPENAI_BLOCK.IMAGE_URL) {
-              const imgObj = c.image_url as Record<string, unknown> | string | undefined;
-              const url = typeof imgObj === "string" ? imgObj : imgObj?.url;
-              return { type: RESPONSES_ITEM.INPUT_IMAGE, image_url: url, detail: (imgObj as Record<string, unknown>)?.detail || "auto" };
-            }
-            if (c.type === RESPONSES_ITEM.INPUT_IMAGE) return c;
-            // Serialize any unknown type (tool_use, tool_result, thinking, etc.) as text
-            const text = c.text || c.content || JSON.stringify(c);
-            return { type: contentType, text: typeof text === "string" ? text : JSON.stringify(text) };
-          })
-          : [];
-
-      // Only push a message block if content is non-empty.
-      // Assistant messages with only tool_calls have content: null — skip the
-      // message block in that case; the tool_calls are pushed separately below.
+      const content = convertChatMessageContent(msg, contentType);
       if (content.length > 0) {
-        result.input.push({
-          type: RESPONSES_ITEM.MESSAGE,
-          role: msg.role,
-          content
-        });
+        result.input.push({ type: RESPONSES_ITEM.MESSAGE, role: msg.role, content });
       }
     }
 
-    // Convert tool calls
     if (msg.role === ROLE.ASSISTANT && msg.tool_calls) {
       for (const tc of msg.tool_calls as Record<string, unknown>[]) {
         const fn = tc.function as Record<string, unknown> | undefined;
@@ -382,44 +361,34 @@ export function openaiToOpenAIResponsesRequest(model: string, body: Record<strin
       }
     }
 
-    // Convert tool results - output must be a string for Responses API
     if (msg.role === ROLE.TOOL) {
-      const output = typeof msg.content === "string"
-        ? msg.content
-        : Array.isArray(msg.content)
-          ? (msg.content as Record<string, unknown>[]).map((c: Record<string, unknown>) => c.text || JSON.stringify(c)).join("")
-          : JSON.stringify(msg.content);
-      result.input.push({
-        type: RESPONSES_ITEM.FUNCTION_CALL_OUTPUT,
-        call_id: clampCallId(msg.tool_call_id),
-        output
-      });
+      result.input.push(convertToolResultMessage(msg));
     }
   }
 
-  // If no system message, leave instructions empty (will be filled by executor)
-  if (!hasSystemMessage) {
-    result.instructions = "";
-  }
+  return hasSystemMessage;
+}
 
-  // Convert tools format
-  if (body.tools && Array.isArray(body.tools)) {
-    result.tools = (body.tools as Record<string, unknown>[]).map((tool: Record<string, unknown>) => {
-      if (tool.type === OPENAI_BLOCK.FUNCTION) {
-        const fn = tool.function as Record<string, unknown>;
-        return {
-          type: OPENAI_BLOCK.FUNCTION,
-          name: fn.name,
-          description: String(fn.description || ""),
-          parameters: normalizeToolParameters(fn.parameters),
-          strict: fn.strict
-        };
-      }
-      return tool;
-    });
-  }
+/** Convert Chat Completions tools to Responses API format */
+function convertToolsToResponsesFormat(body: Record<string, unknown>, result: Record<string, unknown>) {
+  if (!body.tools || !Array.isArray(body.tools)) return;
+  result.tools = (body.tools as Record<string, unknown>[]).map((tool: Record<string, unknown>) => {
+    if (tool.type === OPENAI_BLOCK.FUNCTION) {
+      const fn = tool.function as Record<string, unknown>;
+      return {
+        type: OPENAI_BLOCK.FUNCTION,
+        name: fn.name,
+        description: String(fn.description || ""),
+        parameters: normalizeToolParameters(fn.parameters),
+        strict: fn.strict
+      };
+    }
+    return tool;
+  });
+}
 
-  // Pass through other relevant fields
+/** Pass through relevant Chat Completions fields to Responses API */
+function passthroughResponseFields(body: Record<string, unknown>, result: Record<string, unknown>) {
   if (body.temperature !== undefined) result.temperature = body.temperature;
   if (body.max_tokens !== undefined) result.max_tokens = body.max_tokens;
   if (body.top_p !== undefined) result.top_p = body.top_p;
@@ -427,6 +396,27 @@ export function openaiToOpenAIResponsesRequest(model: string, body: Record<strin
   if (body.reasoning_effort !== undefined) result.reasoning = { effort: body.reasoning_effort, summary: "auto" };
   if (body.service_tier !== undefined) result.service_tier = body.service_tier;
   if (body.prompt_cache_key !== undefined) result.prompt_cache_key = body.prompt_cache_key;
+}
+
+/**
+ * Convert OpenAI Chat Completions to OpenAI Responses API format
+ */
+export function openaiToOpenAIResponsesRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
+  if (body.input) return { ...body, model, stream: true };
+
+  const result: { input: Record<string, unknown>[]; [key: string]: unknown } = {
+    model,
+    input: [],
+    stream: true,
+    store: false
+  };
+
+  const messages = (body.messages || []) as Record<string, unknown>[];
+  const hasSystem = convertMessagesToResponsesInput(messages, result);
+  if (!hasSystem) result.instructions = "";
+
+  convertToolsToResponsesFormat(body, result);
+  passthroughResponseFields(body, result);
 
   return result;
 }

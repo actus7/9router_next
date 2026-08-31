@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Settings | 9Router",
+  title: "Settings | ModelHub",
   description: "Manage application settings and security",
 };
 

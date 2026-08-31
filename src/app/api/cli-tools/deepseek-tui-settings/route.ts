@@ -7,7 +7,7 @@ import os from "os";
 
 const execAsync = promisify(exec);
 
-const PROVIDER_NAME = "9router";
+const PROVIDER_NAME = "modelhub";
 
 const getDeepSeekDir = () => path.join(os.homedir(), ".deepseek");
 const getDeepSeekConfigPath = () => path.join(getDeepSeekDir(), "config.toml");
@@ -49,8 +49,8 @@ const parseToml = (content: string): Record<string, unknown> => {
     return result;
 };
 
-// Build TOML config for 9Router (openai provider mode)
-const build9RouterConfig = (baseUrl: string, apiKey: string, model: string) => {
+// Build TOML config for ModelHub (openai provider mode)
+const buildModelHubConfig = (baseUrl: string, apiKey: string, model: string) => {
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     return `provider = "openai"
 
@@ -90,8 +90,8 @@ const readConfigToml = async () => {
     }
 };
 
-// Detect 9Router by checking if provider is "openai" and base_url points to localhost/127.0.0.1
-const has9RouterConfig = (config: Record<string, unknown>) => {
+// Detect ModelHub by checking if provider is "openai" and base_url points to localhost/127.0.0.1
+const hasModelHubConfig = (config: Record<string, unknown>) => {
     if (!config) return false;
     const provider = config.provider;
     if (provider !== "openai") return false;
@@ -111,7 +111,7 @@ export async function GET() {
         return NextResponse.json({
             installed: true,
             settings: config,
-            has9Router: has9RouterConfig(config),
+            hasModelHub: hasModelHubConfig(config),
             configPath: getDeepSeekConfigPath(),
         });
     } catch (error) {
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         const dir = getDeepSeekDir();
         await fs.mkdir(dir, { recursive: true });
 
-        const newConfig = build9RouterConfig(baseUrl, apiKey || "sk_9router", model);
+        const newConfig = buildModelHubConfig(baseUrl, apiKey || "sk_modelhub", model);
         await fs.writeFile(getDeepSeekConfigPath(), newConfig);
 
         return NextResponse.json({

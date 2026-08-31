@@ -1,4 +1,4 @@
-// Next.js instrumentation hook (FASE 5 of PLANOMIGRACAOOPENSSE.md).
+// Next.js instrumentation hook. See docs/ARCHITECTURE.md for host boundaries.
 //
 // Scope decision (documented in src/server/llm-gateway/NEXTJS_ADOPTION.md):
 // this file stays observability-focused. The token-refresh scheduler is NOT

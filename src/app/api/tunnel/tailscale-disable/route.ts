@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { disableTailscale } from "@/lib/tunnel";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { configureTunnelMonitoring } from "@/shared/services/initializeApp";
 
 export async function POST() {

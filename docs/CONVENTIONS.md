@@ -19,7 +19,7 @@ Para telas com muito estado interativo (`providers/[id]`, `basic-chat`, `usage/*
 ## Organização de pastas
 
 - `components/` e páginas do dashboard: feature-based (uma pasta por área: `providers/`, `basic-chat/`, `usage/`), não por tipo genérico (`containers/`, `presentational/`).
-- Backend do gateway LLM: bounded context único em `src/server/llm-gateway/` (ver `PLANOMIGRACAOOPENSSE.md` para as regras de dependência entre `app/`, `server/llm-gateway` e `shared/llm-catalog`). Não espalhar lógica do gateway em `src/lib/utils`, `src/lib/services` etc.
+- Backend do gateway LLM: bounded context único em `src/server/llm-gateway/` (ver `ARCHITECTURE.md` para as regras de dependência entre `app/`, `server/llm-gateway` e `shared/llm-catalog`). Não espalhar lógica do gateway em `src/lib/utils`, `src/lib/services` etc.
 
 ## Testes
 
@@ -33,4 +33,4 @@ Para telas com muito estado interativo (`providers/[id]`, `basic-chat`, `usage/*
 
 ## Dead code
 
-- `no-unused-vars`/`noUnusedLocals` não estão ligados globalmente hoje (decisão da migração `PLANOMIGRACAOOPENSSE.md`, ver comentário em `eslint.config.mjs`). Isso significa que o TypeScript/IDE não bloqueia código morto automaticamente — ao tocar um arquivo, remover imports/variáveis/funções não usadas que você encontrar nele, mesmo que não sejam o foco da mudança.
+- `no-unused-vars`/`noUnusedLocals` não estão ligados globalmente hoje (ver comentário em `eslint.config.mjs`). Isso significa que o TypeScript/IDE não bloqueia código morto automaticamente — ao tocar um arquivo, remover imports/variáveis/funções não usadas que você encontrar nele, mesmo que não sejam o foco da mudança.

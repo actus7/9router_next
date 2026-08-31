@@ -121,6 +121,24 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_smp_updated ON smartModelProfiles(updatedAt DESC)",
     ],
   },
+  modelAvailability: {
+    columns: {
+      connectionId: "TEXT NOT NULL",
+      modelId: "TEXT NOT NULL",
+      status: "TEXT NOT NULL",
+      reason: "TEXT NOT NULL",
+      errorCode: "INTEGER",
+      lastError: "TEXT",
+      until: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (connectionId, modelId)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_ma_connection_until ON modelAvailability(connectionId, until)",
+      "CREATE INDEX IF NOT EXISTS idx_ma_until ON modelAvailability(until)",
+    ],
+  },
   kv: {
     columns: {
       scope: "TEXT NOT NULL",

@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { translate } from "@/i18n/runtime";
 import { getProviderAlias, isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
-import { getModelsByProviderId } from "@/shared/constants/models";
 import { textValue } from "../chatFormatUtils";
 import {
   dedupeModels, getProviderLabel, isConfiguredChatModel, isConnectionSelectable,
   isExplicitlyEnabledModel, isModelEnabledForChat, normalizeConfiguredModel, normalizeLiveModel,
-  normalizeStaticModel, parseProviderModelsPayload, selectableConfiguredModelIds,
+  parseProviderModelsPayload, selectableConfiguredModelIds,
 } from "../chatModelUtils";
 import type { NormalizedModel, ProviderGroup } from "../types";
 
@@ -23,8 +22,8 @@ export interface UseChatModelsReturn {
 
 // Owns discovery and normalization of the chat-eligible model catalogue:
 // fetches active provider connections, per-connection configured models,
-// live /models discovery, and each provider's static catalogue fallback,
-// then merges and dedupes them into `providerGroups`.
+// live /models discovery, then merges and dedupes only models that are
+// actually enabled for an active connection into `providerGroups`.
 export function useChatModels(): UseChatModelsReturn {
   const [providerGroups, setProviderGroups] = useState<ProviderGroup[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -142,20 +141,6 @@ export function useChatModels(): UseChatModelsReturn {
           const group = providerMap.get(providerId);
           if (!group) continue;
           group.models.push(...result.models);
-        }
-
-        // A provider with an active, working connection but no configured
-        // models and no successful live discovery (unsupported endpoint,
-        // transient error, etc.) still has its static catalog available —
-        // use it instead of silently dropping the provider from the picker.
-        for (const group of providerMap.values()) {
-          if (group.models.length > 0) continue;
-          const representativeConnection = group.connections[0];
-          if (!representativeConnection) continue;
-          group.models.push(...getModelsByProviderId(group.providerId)
-            .map((model) => normalizeStaticModel(model as Record<string, unknown>, representativeConnection))
-            .filter((model): model is NormalizedModel => model !== null)
-            .filter((model) => isModelEnabledForChat(model, representativeConnection, disabledByProvider)));
         }
 
         const normalized = Array.from(providerMap.values())

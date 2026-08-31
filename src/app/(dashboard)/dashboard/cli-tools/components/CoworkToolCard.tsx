@@ -2,17 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal, ComboFormModal, McpMarketplaceModal } from "@/shared/components";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, History, Loader2, Save, TriangleAlert, X } from "lucide-react";
+import { McpPluginsSection, ToolsSection, LocalPluginsSection, AddMcpModal } from "./CoworkSections";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; image?: string; requiresExternalUrl?: boolean; }
-interface StatusData { installed?: boolean; has9Router?: boolean; cowork?: { models?: string[]; baseUrl?: string; plugins?: Plugin[]; localPlugins?: string[]; customPlugins?: CustomPlugin[]; }; defaultPlugins?: Plugin[]; localStdioPlugins?: Array<{ name: string; title?: string; description?: string; extensionUrl?: string }>; }
+interface StatusData { installed?: boolean; hasModelHub?: boolean; cowork?: { models?: string[]; baseUrl?: string; plugins?: Plugin[]; localPlugins?: string[]; customPlugins?: CustomPlugin[]; }; defaultPlugins?: Plugin[]; localStdioPlugins?: Array<{ name: string; title?: string; description?: string; extensionUrl?: string }>; }
 interface Plugin { name: string; title?: string; oauth?: boolean; toolNames?: string[]; }
 interface CustomPlugin { name: string; url: string; transport?: string; custom?: boolean; }
 interface Message { type: "success" | "error"; text: string; }
@@ -64,7 +62,6 @@ export default function CoworkToolCard({
   const [modelSelectOpen, setModelSelectOpen] = useState<boolean>(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState<boolean>(false);
   const [addMcpOpen, setAddMcpOpen] = useState<boolean>(false);
-  const [addMcpForm, setAddMcpForm] = useState<{ name: string; url: string }>({ name: "", url: "" });
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) setSelectedApiKey(apiKeys[0].key);
@@ -119,7 +116,7 @@ export default function CoworkToolCard({
     if (!status?.installed) return null;
     const url = status?.cowork?.baseUrl;
     if (!url) return "not_configured";
-    return status.has9Router ? "configured" : "other";
+    return status.hasModelHub ? "configured" : "other";
   };
 
   const configStatus = getConfigStatus();
@@ -137,7 +134,7 @@ export default function CoworkToolCard({
     try {
       const keyToUse = selectedApiKey?.trim()
         || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+        || (!cloudEnabled ? "sk_modelhub" : null);
 
       const res = await fetch(ENDPOINT, {
         method: "POST",
@@ -226,7 +223,7 @@ export default function CoworkToolCard({
   const getManualConfigs = () => {
     const keyToUse = (selectedApiKey && selectedApiKey.trim())
       ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+      : (!cloudEnabled ? "sk_modelhub" : "<API_KEY_FROM_DASHBOARD>");
 
     const modelsToShow = selectedModels.length > 0 ? selectedModels : ["provider/model-id"];
     const cfg = {
@@ -334,135 +331,29 @@ export default function CoworkToolCard({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-start sm:gap-2">
-                  <span className="w-32 shrink-0 text-sm font-semibold text-text-main text-right pt-2">MCP</span>
-                  <ArrowRight className="size-4" />
-                  <div className="flex-1 flex flex-col gap-1">
-                    {plugins.filter((p) => p.name !== "exa").map((p) => (
-                      <div key={p.name} className="flex items-center gap-2 px-2 py-1 bg-surface rounded border border-border">
-                        <span className="text-xs font-medium min-w-0 truncate flex-shrink-0">{p.title || p.name}</span>
-                        {p.oauth && <span className="text-[8px] text-amber-600 shrink-0">OAuth</span>}
-                        <div className="flex-1 flex flex-wrap gap-1 overflow-hidden" style={{ maxHeight: "1.5rem" }}>
-                          {Array.isArray(p.toolNames) && p.toolNames.slice(0, 6).map((t) => (
-                            <span key={t} className="text-[9px] px-1 py-0.5 rounded bg-black/5 dark:bg-white/5 text-text-muted whitespace-nowrap">{t}</span>
-                          ))}
-                          {Array.isArray(p.toolNames) && p.toolNames.length > 6 && (
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-black/5 dark:bg-white/5 text-text-muted whitespace-nowrap">+{p.toolNames.length - 6}</span>
-                          )}
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => removePlugin(p.name)} className="shrink-0 hover:text-red-500 ml-auto p-0 h-auto">
-                          <X className="size-3" />
-                        </Button>
-                      </div>
-                    ))}
-                    {customPlugins.map((p) => (
-                      <div key={p.name} className="flex items-center gap-2 px-2 py-1 bg-surface rounded border border-border">
-                        <span className="text-xs font-medium min-w-0 truncate flex-shrink-0">{p.name}</span>
-                        <span className="text-[8px] px-1 py-0.5 rounded bg-blue-500/10 text-blue-500 shrink-0">custom</span>
-                        <span className="flex-1 text-[9px] text-text-muted truncate">{p.url}</span>
-                        <Button variant="ghost" size="sm" onClick={() => setCustomPlugins(customPlugins.filter((x) => x.name !== p.name))} className="shrink-0 hover:text-red-500 ml-auto p-0 h-auto">
-                          <X className="size-3" />
-                        </Button>
-                      </div>
-                    ))}
-                    {plugins.filter((p) => p.name !== "exa").length === 0 && customPlugins.length === 0 && (
-                      <div className="px-2 py-1.5 bg-surface rounded border border-border text-xs text-text-muted">No MCPs added</div>
-                    )}
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Button variant="outline" size="sm" onClick={() => setMarketplaceOpen(true)}>
-                        + Browse
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => { setAddMcpForm({ name: "", url: "" }); setAddMcpOpen(true); }}>
-                        + Custom
-                      </Button>
-                      <a href="https://mcp.so" target="_blank" rel="noopener noreferrer" className="text-[10px] text-text-muted hover:text-primary underline ml-auto">Find MCPs →</a>
-                    </div>
-                  </div>
-                </div>
+                <McpPluginsSection
+                  plugins={plugins}
+                  customPlugins={customPlugins}
+                  onRemovePlugin={removePlugin}
+                  onRemoveCustomPlugin={(name) => setCustomPlugins(customPlugins.filter((x) => x.name !== name))}
+                  onOpenMarketplace={() => setMarketplaceOpen(true)}
+                  onOpenAddMcp={() => setAddMcpOpen(true)}
+                />
 
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-start sm:gap-2">
-                  <span className="w-32 shrink-0 text-sm font-semibold text-text-main text-right pt-1">Tools</span>
-                  <ArrowRight className="size-4" />
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    {(() => {
-                      const exaEnabled = plugins.some((p) => p.name === "exa");
-                      const exaDef = (status?.defaultPlugins || []).find((d) => d.name === "exa");
-                      return (
-                        <Label className="flex items-start gap-2 cursor-pointer px-2 py-1.5 bg-surface rounded border border-border">
-                          <Checkbox
-                            checked={exaEnabled}
-                            onCheckedChange={(checked) => {
-                              if (checked && exaDef) setPlugins([...plugins.filter((p) => p.name !== "exa"), exaDef]);
-                              else setPlugins(plugins.filter((p) => p.name !== "exa"));
-                            }}
-                            className="mt-0.5"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium">Web Search & Fetch (Exa)</div>
-                            <p className="text-[10px] text-text-muted leading-snug">Replaces built-in WebSearch/WebFetch. Auto-strips duplicates from tool list.</p>
-                          </div>
-                        </Label>
-                      );
-                    })()}
-                    {(() => {
-                      const browserDef = (status?.localStdioPlugins || []).find((p) => p.name === "browsermcp");
-                      if (!browserDef) return null;
-                      const browserEnabled = localPlugins.includes("browsermcp");
-                      return (
-                        <Label className="flex items-start gap-2 cursor-pointer px-2 py-1.5 bg-surface rounded border border-border">
-                          <Checkbox
-                            checked={browserEnabled}
-                            onCheckedChange={(checked) => setLocalPlugins(checked ? [...localPlugins, "browsermcp"] : localPlugins.filter((n) => n !== "browsermcp"))}
-                            className="mt-0.5"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium">Browser Control (Browser MCP)</div>
-                            <p className="text-[10px] text-text-muted leading-snug">
-                              Controls your running Chrome. Auto-strips Cowork&apos;s built-in browser tools.{" "}
-                              <a href={browserDef.extensionUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Install Chrome extension</a>
-                            </p>
-                          </div>
-                        </Label>
-                      );
-                    })()}
-                  </div>
-                </div>
+                <ToolsSection
+                  plugins={plugins}
+                  localPlugins={localPlugins}
+                  defaultPlugins={status?.defaultPlugins || []}
+                  localStdioPlugins={status?.localStdioPlugins || []}
+                  onPluginsChange={setPlugins}
+                  onLocalPluginsChange={setLocalPlugins}
+                />
 
-                {Array.isArray(status?.localStdioPlugins) && status.localStdioPlugins.filter((p) => p.name !== "browsermcp").length > 0 && (
-                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-start sm:gap-2">
-                    <span className="w-32 shrink-0 text-sm font-semibold text-text-main text-right pt-1">Local Plugins</span>
-                    <ArrowRight className="size-4" />
-                    <div className="flex-1 flex flex-col gap-2">
-                      <div className="flex flex-col gap-1.5 px-2 py-1.5 bg-surface rounded border border-border">
-                        {status.localStdioPlugins.filter((p) => p.name !== "browsermcp").map((p) => {
-                          const enabled = localPlugins.includes(p.name);
-                          return (
-                            <Label key={p.name} className="flex items-start gap-2 cursor-pointer">
-                              <Checkbox
-                                checked={enabled}
-                                onCheckedChange={(checked) => setLocalPlugins(checked ? [...localPlugins, p.name] : localPlugins.filter((n) => n !== p.name))}
-                                className="mt-0.5"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="text-xs font-medium">{p.title}</span>
-                                  <span className="text-[8px] text-amber-600">stdio</span>
-                                </div>
-                                <p className="text-[10px] text-text-muted leading-snug">{p.description}</p>
-                                {p.extensionUrl && (
-                                  <a href={p.extensionUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary underline">Install Chrome extension</a>
-                                )}
-                              </div>
-                            </Label>
-                          );
-                        })}
-                      </div>
-                      <p className="text-[10px] text-text-muted leading-snug">
-                        ⚠️ Local plugins run as subprocess via <code className="px-1 py-0.5 rounded bg-black/5 dark:bg-white/5">npx</code>. Requires Node.js installed.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <LocalPluginsSection
+                  localStdioPlugins={status?.localStdioPlugins || []}
+                  localPlugins={localPlugins}
+                  onLocalPluginsChange={setLocalPlugins}
+                />
               </div>
 
               {message && (
@@ -476,7 +367,7 @@ export default function CoworkToolCard({
                 <Button variant="primary" size="sm" onClick={handleApply} disabled={selectedModels.length === 0} loading={applying} className="w-full sm:w-auto">
                   <Save className="size-4" />Apply
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={!status.has9Router} loading={restoring} className="w-full sm:w-auto">
+                <Button variant="outline" size="sm" onClick={handleReset} disabled={!status.hasModelHub} loading={restoring} className="w-full sm:w-auto">
                   <History className="size-4" />Reset
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)} className="w-full sm:w-auto">
@@ -500,54 +391,13 @@ export default function CoworkToolCard({
 
       <McpMarketplaceModal isOpen={marketplaceOpen} onClose={() => setMarketplaceOpen(false)} onAdd={addPlugin} addedNames={plugins.map((p) => p.name)} />
 
-      {addMcpOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setAddMcpOpen(false)}>
-          <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-sm mx-4 p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm">Add Custom MCP</h3>
-              <Button variant="ghost" size="icon-sm" onClick={() => setAddMcpOpen(false)} className="text-text-muted hover:text-text-main">
-                <X className="size-5" />
-              </Button>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-col gap-1">
-                <Label className="text-[11px] text-text-muted">Name</Label>
-                <Input
-                  type="text"
-                  placeholder="my-mcp"
-                  value={addMcpForm.name}
-                  onChange={(e) => setAddMcpForm((f) => ({ ...f, name: e.target.value.replace(/\s+/g, "-").toLowerCase() }))}
-                  className="px-2 py-1.5 text-xs"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-[11px] text-text-muted">SSE URL</Label>
-                <Input
-                  type="text"
-                  placeholder="https://your-mcp-server.com/sse"
-                  value={addMcpForm.url}
-                  onChange={(e) => setAddMcpForm((f) => ({ ...f, url: e.target.value }))}
-                  className="px-2 py-1.5 text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" size="sm" onClick={() => setAddMcpOpen(false)}>Cancel</Button>
-              <Button
-                onClick={() => {
-                  const name = addMcpForm.name.trim();
-                  if (!name || !addMcpForm.url.trim()) return;
-                  setCustomPlugins((prev) => [...prev.filter((x) => x.name !== name), { name, url: addMcpForm.url.trim(), transport: "sse", custom: true }]);
-                  setAddMcpOpen(false);
-                }}
-                size="sm"
-              >Add</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddMcpModal
+        isOpen={addMcpOpen}
+        onClose={() => setAddMcpOpen(false)}
+        onAdd={(plugin) => {
+          setCustomPlugins((prev) => [...prev.filter((x) => x.name !== plugin.name), plugin]);
+        }}
+      />
     </Card>
   );
 }

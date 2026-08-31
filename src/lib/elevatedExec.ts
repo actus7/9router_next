@@ -45,7 +45,7 @@ export function execWithPassword(command: string, password: string | null): Prom
 // ─── Password cache & encryption (shared by Tailscale and other elevated ops) ─
 
 const ENCRYPT_ALGO = "aes-256-gcm" as const;
-const ENCRYPT_SALT: string = "9router-elevated-pwd";
+const ENCRYPT_SALT: string = "modelhub-elevated-pwd";
 
 export function getCachedPassword(): string | null {
   return (globalThis as unknown as Record<string, unknown>).__elevatedSudoPassword as string || null;

@@ -200,7 +200,7 @@ interface SpawnResult {
 async function spawnCloudflared(tunnelToken: string): Promise<ChildProcess> {
   const binaryPath: string = await ensureCloudflared();
 
-  const child: ChildProcess = spawn(binaryPath, ["tunnel", "run", "--dns-resolver-addrs", "1.1.1.1:53", "--token", tunnelToken], {
+  const child: ChildProcess = spawn(/*turbopackIgnore: true*/ binaryPath, ["tunnel", "run", "--dns-resolver-addrs", "1.1.1.1:53", "--token", tunnelToken], {
     detached: false,
     windowsHide: true,
     cwd: os.tmpdir(),
@@ -286,7 +286,7 @@ export async function spawnQuickTunnel(localPort: number, onUrlUpdate?: (url: st
 
   const requestedProtocol: string = String(process.env.TUNNEL_TRANSPORT_PROTOCOL || process.env.CLOUDFLARED_PROTOCOL || DEFAULT_QUICK_TUNNEL_PROTOCOL).trim().toLowerCase();
   const tunnelProtocol: string = QUICK_TUNNEL_PROTOCOLS.has(requestedProtocol) ? requestedProtocol : DEFAULT_QUICK_TUNNEL_PROTOCOL;
-  const child: ChildProcess = spawn(binaryPath, ["tunnel", "--url", `http://127.0.0.1:${localPort}`, "--config", configPath, "--no-autoupdate", "--retries", "99"], {
+  const child: ChildProcess = spawn(/*turbopackIgnore: true*/ binaryPath, ["tunnel", "--url", `http://127.0.0.1:${localPort}`, "--config", configPath, "--no-autoupdate", "--retries", "99"], {
     detached: false,
     windowsHide: true,
     cwd: os.tmpdir(),

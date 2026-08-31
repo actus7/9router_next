@@ -46,12 +46,7 @@ interface Provider {
 const COMBO_KINDS = new Set<string>([]);
 const COMBO_BASE_NAMES: Record<string, string> = { image: "image-combo", tts: "tts-combo" };
 
-function getEffectiveStatus(conn: Connection) {
-  const isCooldown = Object.entries(conn).some(
-    ([k, v]) => k.startsWith("modelLock_") && v && new Date(v as string).getTime() > Date.now()
-  );
-  return conn.testStatus === "unavailable" && !isCooldown ? "active" : conn.testStatus;
-}
+function getEffectiveStatus(conn: Connection) { return conn.testStatus; }
 
 function MediaProviderCard({ provider, kind, connections, isCustom, onToggle }: {
   provider: Provider;

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse  } from "next/server";
 const REGISTRY_URL = "https://api.anthropic.com/mcp-registry/v0/servers";
 const VISIBILITY = "commercial,gsuite,gsuite-google";
 const CACHE_TTL_MS = 60 * 60 * 1000;
-const G_KEY = "__9routerCoworkMcpRegistryCache";
+const G_KEY = "__modelhubCoworkMcpRegistryCache";
 
 const globalCache = globalThis as unknown as Record<string, { ts: number; data: unknown }>;
 

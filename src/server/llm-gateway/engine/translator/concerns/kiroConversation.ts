@@ -148,6 +148,30 @@ function mergeAssistant(target: KiroAssistantResponseMessage, source: KiroAssist
   }
 }
 
+function ensureAlternatingBoundaries(turns: KiroTurn[], modelId: string): void {
+  if (turns[0]?.assistantResponseMessage) {
+    turns.unshift({ userInputMessage: { content: "continue", modelId } });
+  }
+  if (turns.length === 0 || turns[turns.length - 1]?.assistantResponseMessage) {
+    turns.push({ userInputMessage: { content: "continue", modelId } });
+  }
+}
+
+function cleanupTurns(turns: KiroTurn[], modelId: string): void {
+  for (const turn of turns) {
+    if (turn.userInputMessage) {
+      turn.userInputMessage.content = text(turn.userInputMessage.content).trim() || "continue";
+      turn.userInputMessage.modelId ||= modelId;
+      if (turn.userInputMessage.userInputMessageContext?.tools) {
+        delete turn.userInputMessage.userInputMessageContext.tools;
+      }
+    } else {
+      turn.assistantResponseMessage!.content =
+        text(turn.assistantResponseMessage!.content).trim() || "...";
+    }
+  }
+}
+
 function normalizeTurns(history: unknown, currentMessage: unknown, modelId: string): KiroTurn[] {
   const rawTurns = [...(Array.isArray(history) ? history : [])];
   if (currentMessage) rawTurns.push(currentMessage);
@@ -172,25 +196,8 @@ function normalizeTurns(history: unknown, currentMessage: unknown, modelId: stri
     }
   }
 
-  if (turns[0]?.assistantResponseMessage) {
-    turns.unshift({ userInputMessage: { content: "continue", modelId } });
-  }
-  if (turns.length === 0 || turns[turns.length - 1]?.assistantResponseMessage) {
-    turns.push({ userInputMessage: { content: "continue", modelId } });
-  }
-
-  for (const turn of turns) {
-    if (turn.userInputMessage) {
-      turn.userInputMessage.content = text(turn.userInputMessage.content).trim() || "continue";
-      turn.userInputMessage.modelId ||= modelId;
-      if (turn.userInputMessage.userInputMessageContext?.tools) {
-        delete turn.userInputMessage.userInputMessageContext.tools;
-      }
-    } else {
-      turn.assistantResponseMessage!.content =
-        text(turn.assistantResponseMessage!.content).trim() || "...";
-    }
-  }
+  ensureAlternatingBoundaries(turns, modelId);
+  cleanupTurns(turns, modelId);
   return turns;
 }
 
@@ -260,21 +267,10 @@ interface CallRecord {
   result: KiroToolResult | null;
 }
 
-function reconcileToolPair(assistant: KiroAssistantResponseMessage, user: KiroUserInputMessage, turnIndex: number, nameMap: Map<string, string>, specNames: Set<string>, usedIds: Set<string>, repairs: KiroRepairs): void {
-  const calls = Array.isArray(assistant.toolUses) ? assistant.toolUses : [];
-  const results = Array.isArray(user.userInputMessageContext?.toolResults)
-    ? user.userInputMessageContext.toolResults.map(normalizeToolResult)
-    : [];
-  if (calls.length === 0) {
-    if (results.length > 0) {
-      flattenResults(user, results);
-      repairs.orphanResults += results.length;
-    }
-    if (user.userInputMessageContext) delete user.userInputMessageContext.toolResults;
-    cleanUserContext(user);
-    return;
-  }
-
+function buildCallRecords(
+  calls: KiroToolUse[],
+  nameMap: Map<string, string>,
+): { callRecords: CallRecord[]; callQueues: Map<string, CallRecord[]> } {
   const callQueues = new Map<string, CallRecord[]>();
   const callRecords: CallRecord[] = calls.map((call, callIndex) => {
     const key = rawId(call?.toolUseId);
@@ -286,7 +282,13 @@ function reconcileToolPair(assistant: KiroAssistantResponseMessage, user: KiroUs
     callQueues.set(key, queue);
     return record;
   });
+  return { callRecords, callQueues };
+}
 
+function matchResultsToCalls(
+  results: KiroToolResult[],
+  callQueues: Map<string, CallRecord[]>,
+): KiroToolResult[] {
   const orphanResults: KiroToolResult[] = [];
   for (const result of results) {
     const queue = callQueues.get(rawId(result.toolUseId));
@@ -294,7 +296,18 @@ function reconcileToolPair(assistant: KiroAssistantResponseMessage, user: KiroUs
     if (record) record.result = result;
     else orphanResults.push(result);
   }
+  return orphanResults;
+}
 
+function collectKeptPairs(
+  callRecords: CallRecord[],
+  turnIndex: number,
+  specNames: Set<string>,
+  usedIds: Set<string>,
+  assistant: KiroAssistantResponseMessage,
+  user: KiroUserInputMessage,
+  repairs: KiroRepairs,
+): { keptCalls: KiroToolUse[]; keptResults: KiroToolResult[] } {
   const keptCalls: KiroToolUse[] = [];
   const keptResults: KiroToolResult[] = [];
   for (const record of callRecords) {
@@ -325,6 +338,27 @@ function reconcileToolPair(assistant: KiroAssistantResponseMessage, user: KiroUs
     });
     keptResults.push({ ...record.result!, toolUseId });
   }
+  return { keptCalls, keptResults };
+}
+
+function reconcileToolPair(assistant: KiroAssistantResponseMessage, user: KiroUserInputMessage, turnIndex: number, nameMap: Map<string, string>, specNames: Set<string>, usedIds: Set<string>, repairs: KiroRepairs): void {
+  const calls = Array.isArray(assistant.toolUses) ? assistant.toolUses : [];
+  const results = Array.isArray(user.userInputMessageContext?.toolResults)
+    ? user.userInputMessageContext.toolResults.map(normalizeToolResult)
+    : [];
+  if (calls.length === 0) {
+    if (results.length > 0) {
+      flattenResults(user, results);
+      repairs.orphanResults += results.length;
+    }
+    if (user.userInputMessageContext) delete user.userInputMessageContext.toolResults;
+    cleanUserContext(user);
+    return;
+  }
+
+  const { callRecords, callQueues } = buildCallRecords(calls, nameMap);
+  const orphanResults = matchResultsToCalls(results, callQueues);
+  const { keptCalls, keptResults } = collectKeptPairs(callRecords, turnIndex, specNames, usedIds, assistant, user, repairs);
 
   if (orphanResults.length > 0) {
     flattenResults(user, orphanResults);
@@ -409,22 +443,7 @@ interface CanonicalizeResult {
   errors: string[];
 }
 
-/**
- * Produce a strict Kiro conversation: alternating turns, current user message,
- * adjacent one-to-one tool use/result pairs, and tool specs only on currentMessage.
- */
-export function canonicalizeKiroConversation({
-  history,
-  currentMessage,
-  modelId,
-  toolSpecs = [],
-  nameMap = new Map(),
-}: CanonicalizeInput = {}): CanonicalizeResult {
-  const turns = normalizeTurns(history, currentMessage, modelId ?? "");
-  const repairs: KiroRepairs = { missingResults: 0, orphanResults: 0, invalidToolUses: 0 };
-  const specNames = new Set(toolSpecs.map((spec) => spec?.toolSpecification?.name).filter((n): n is string => typeof n === "string"));
-  const usedIds = new Set<string>();
-
+function reconcileAllTurns(turns: KiroTurn[], nameMap: Map<string, string>, specNames: Set<string>, usedIds: Set<string>, repairs: KiroRepairs): void {
   for (let index = 0; index < turns.length; index += 2) {
     const user = turns[index].userInputMessage!;
     if (index === 0) {
@@ -442,13 +461,37 @@ export function canonicalizeKiroConversation({
       reconcileToolPair(assistant, nextUser, index + 1, nameMap, specNames, usedIds, repairs);
     }
   }
+}
 
+function finalizeCurrentMessage(turns: KiroTurn[], toolSpecs: KiroToolSpec[]): KiroTurn {
   const finalCurrent = turns[turns.length - 1];
   finalCurrent.userInputMessage!.userInputMessageContext ||= {};
   if (toolSpecs.length > 0) {
     finalCurrent.userInputMessage!.userInputMessageContext.tools = clone(toolSpecs) as unknown[];
   }
   cleanUserContext(finalCurrent.userInputMessage!);
+  return finalCurrent;
+}
+
+/**
+ * Produce a strict Kiro conversation: alternating turns, current user message,
+ * adjacent one-to-one tool use/result pairs, and tool specs only on currentMessage.
+ */
+export function canonicalizeKiroConversation({
+  history,
+  currentMessage,
+  modelId,
+  toolSpecs = [],
+  nameMap = new Map(),
+}: CanonicalizeInput = {}): CanonicalizeResult {
+  const turns = normalizeTurns(history, currentMessage, modelId ?? "");
+  const repairs: KiroRepairs = { missingResults: 0, orphanResults: 0, invalidToolUses: 0 };
+  const specNames = new Set(toolSpecs.map((spec) => spec?.toolSpecification?.name).filter((n): n is string => typeof n === "string"));
+  const usedIds = new Set<string>();
+
+  reconcileAllTurns(turns, nameMap, specNames, usedIds, repairs);
+
+  const finalCurrent = finalizeCurrentMessage(turns, toolSpecs);
 
   let finalHistory = turns.slice(0, -1);
   let validation = validateKiroConversation(finalHistory, finalCurrent, toolSpecs);

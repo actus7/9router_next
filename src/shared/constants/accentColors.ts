@@ -1,7 +1,7 @@
 /**
  * Accent color presets, shared between server (validation) and client (UI).
  *
- * "default" = current 9Router brand orange; no `data-accent` attribute is
+ * "default" = current ModelHub brand orange; no `data-accent` attribute is
  * applied and globals.css stays exactly as it is today for that case.
  */
 

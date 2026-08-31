@@ -1,6 +1,10 @@
-import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { getProviderConnections, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
+import { getProxyPools } from "@/lib/db/repos/proxyPoolsRepo";
+import { validateApiKey } from "@/lib/db/repos/apiKeysRepo";
+import { getActiveModelAvailability, setModelAvailability, clearModelAvailability } from "@/lib/db/repos/modelAvailabilityRepo";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
-import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "@/server/llm-gateway/engine/services/accountFallback";
+import { formatRetryAfter, checkFallbackError } from "@/server/llm-gateway/engine/services/accountFallback";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/server/llm-gateway/engine/config/errorConfig";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
@@ -147,25 +151,28 @@ export async function getProviderCredentials(
       return null;
     }
 
+    const activeAvailability = await getActiveModelAvailability(connections.map((connection) => connection.id), model);
+    const availabilityByConnection = new Map(activeAvailability.map((availability) => [availability.connectionId, availability]));
     const availableConnections = connections.filter((connection) => {
       if (excludeSet.has(connection.id)) return false;
-      if (isModelLockActive(connection as unknown as Parameters<typeof isModelLockActive>[0], model)) return false;
+      if (availabilityByConnection.has(connection.id)) return false;
       return true;
     });
 
     log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
     connections.forEach((connection) => {
       const excluded: boolean = excludeSet.has(connection.id);
-      const locked: boolean = isModelLockActive(connection as unknown as Parameters<typeof isModelLockActive>[0], model);
+      const availability = availabilityByConnection.get(connection.id);
+      const locked: boolean = Boolean(availability);
       if (excluded || locked) {
-        const lockUntil = getEarliestModelLockUntil(connection as unknown as Parameters<typeof getEarliestModelLockUntil>[0]);
+        const lockUntil = availability?.until;
         log.debug("AUTH", `  → ${connection.id.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
       }
     });
 
     if (availableConnections.length === 0) {
-      const lockedConns = connections.filter((connection) => isModelLockActive(connection as unknown as Parameters<typeof isModelLockActive>[0], model));
-      const expiries = lockedConns.map((connection) => getEarliestModelLockUntil(connection as unknown as Parameters<typeof getEarliestModelLockUntil>[0])).filter((expiry): expiry is string => Boolean(expiry));
+      const lockedConns = connections.filter((connection) => availabilityByConnection.has(connection.id));
+      const expiries = lockedConns.map((connection) => availabilityByConnection.get(connection.id)?.until).filter((expiry): expiry is string => Boolean(expiry));
       const earliest: string | null = expiries.sort()[0] || null;
       if (earliest) {
         const earliestConn = lockedConns[0];
@@ -271,7 +278,7 @@ interface MarkUnavailableResult {
 }
 
 /**
- * Mark account+model as unavailable — locks modelLock_${model} in DB.
+ * Mark an account's model availability without changing connection health.
  */
 export async function markAccountUnavailable(
   connectionId: string,
@@ -302,24 +309,41 @@ export async function markAccountUnavailable(
   }
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 
-  const reason: string = typeof errorText === "string" ? errorText.slice(0, 100) : "Provider error";
-  const lockUpdate: Record<string, string | null> = buildModelLockUpdate(githubResetAtMs ? null : model, cooldownMs);
+  const lastError: string = typeof errorText === "string" ? errorText.replace(/[\r\n\t]+/g, " ").slice(0, 300) : "Provider error";
+  const reason = status === 402 ? "billing"
+    : status === 429 ? "rate_limit"
+    : status === 404 ? "model"
+    : status === 502 || status === 503 ? "transient"
+    : "quota";
+  const until = new Date(Date.now() + Math.max(cooldownMs, 0)).toISOString();
+  const modelId = githubResetAtMs ? "__all" : (model || "__all");
+
+  await setModelAvailability({
+    connectionId,
+    modelId,
+    status: "cooldown",
+    reason,
+    errorCode: status || null,
+    lastError,
+    until,
+  });
 
   await updateProviderConnection(connectionId, {
-    ...lockUpdate,
-    testStatus: "unavailable",
-    lastError: reason,
+    // A fallback failure is scoped to this model and cooldown. It is not a
+    // failed connection test: persisting `unavailable` here makes an expired
+    // model lock look like every model in the provider is broken.
+    ...(conn?.testStatus === "unavailable" ? { testStatus: "active" } : {}),
+    lastError,
     errorCode: status,
     lastErrorAt: new Date().toISOString(),
     backoffLevel: newBackoffLevel ?? backoffLevel
   });
 
-  const lockKey: string = Object.keys(lockUpdate)[0];
   const connName: string = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
-  log.warn("AUTH", `${connName} locked ${lockKey} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
+  log.warn("AUTH", `${connName} locked ${modelId} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
 
-  if (provider && status && reason) {
-    console.error(`❌ ${provider} [${status}]: ${reason}`);
+  if (provider && status && lastError) {
+    console.error(`❌ ${provider} [${status}]: ${lastError}`);
   }
 
   return { shouldFallback: true, cooldownMs };
@@ -331,39 +355,19 @@ export async function markAccountUnavailable(
 export async function clearAccountError(connectionId: string, currentConnection: CredentialsResult | Record<string, unknown>, model: string | null = null): Promise<void> {
   if (!connectionId || connectionId === "noauth") return;
   const conn = (currentConnection._connection || currentConnection) as Record<string, unknown>;
-  const now: number = Date.now();
-  const allLockKeys: string[] = Object.keys(conn).filter((k: string) => k.startsWith("modelLock_"));
+  await clearModelAvailability(connectionId, model);
 
-  if (!conn.testStatus && !conn.lastError && allLockKeys.length === 0) return;
-
-  const keysToClear: string[] = allLockKeys.filter((k: string) => {
-    if (model && k === `modelLock_${model}`) return true;
-    if (model && k === "modelLock___all") return true;
-    const expiry = conn[k];
-    return typeof expiry === "string" && new Date(expiry).getTime() <= now;
-  });
-
-  if (keysToClear.length === 0 && conn.testStatus !== "unavailable" && !conn.lastError) return;
-
-  const remainingActiveLocks: string[] = allLockKeys.filter((k: string) => {
-    if (keysToClear.includes(k)) return false;
-    const expiry = conn[k];
-    return typeof expiry === "string" && new Date(expiry).getTime() > now;
-  });
-
-  const clearObj: Record<string, unknown> = Object.fromEntries(keysToClear.map((key) => [key, null]));
-
-  if (remainingActiveLocks.length === 0) {
-    Object.assign(clearObj, {
+  // Old fallback versions persisted model failures as connection failures.
+  // Keep genuine connection-test results intact; only recover that legacy state.
+  if (conn.testStatus === "unavailable") {
+    await updateProviderConnection(connectionId, {
       testStatus: "active",
       lastError: null,
       errorCode: null,
       lastErrorAt: null,
-      backoffLevel: 0
+      backoffLevel: 0,
     });
   }
-
-  await updateProviderConnection(connectionId, clearObj);
 }
 
 /**

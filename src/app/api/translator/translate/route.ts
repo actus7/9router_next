@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse  } from "next/server";
 import { detectFormat, getTargetFormat, translateRequest, FORMATS, getModelInfo } from "@/server/llm-gateway/translator";
-import { getProviderConnections } from "@/lib/localDb";
+import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { getExecutor } from "@/server/llm-gateway/usage";
 
 export async function POST(request: NextRequest) {

@@ -6,6 +6,7 @@ import Button from "@/shared/components/Button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { translate } from "@/i18n/runtime";
+import { getPageNumbers } from "./getPageNumbers";
 
 interface PaginationProps {
   currentPage: number;
@@ -27,25 +28,7 @@ export default function Pagination({
   const totalPages = Math.ceil(totalItems / pageSize);
   const startItem = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
   const endItem = Math.min(currentPage * pageSize, totalItems);
-
-  const getPageNumbers = (): number[] => {
-    const pages: number[] = [];
-    const showMax = 5;
-
-    let start = Math.max(1, currentPage - 2);
-    const end = Math.min(totalPages, start + showMax - 1);
-
-    if (end - start + 1 < showMax) {
-      start = Math.max(1, end - showMax + 1);
-    }
-
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  };
-
-  const pageNumbers = getPageNumbers();
+  const pageNumbers = getPageNumbers(currentPage, totalPages);
 
   return (
     <div

@@ -26,7 +26,7 @@ const eslintConfig = defineConfig([
       "@next/next/no-img-element": "off",
     },
   },
-  // FASE 1 (PLANOMIGRACAOOPENSSE.md): app/shared code must consume the LLM
+  // Gateway boundary: app/shared code must consume the LLM
   // engine only through the public barrels — @/server/llm-gateway/* (server)
   // and @/shared/llm-catalog (client-safe). Direct deep imports of the legacy
   // @/lib/open-sse and @/sse namespaces are forbidden here. The llm-catalog
@@ -49,7 +49,7 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // FASE 4 (PLANOMIGRACAOOPENSSE.md): the engine (server/llm-gateway/engine)
+  // Gateway boundary: the engine (server/llm-gateway/engine)
   // must not import host modules directly — host integration goes through
   // the documented adapters in engine/host/. Enforced both here and by
   // tests/unit/hostSeam.test.ts.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSettings, validateApiKey } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { validateApiKey } from "@/lib/db/repos/apiKeysRepo";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
 import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse  } from "next/server";
-import { getProviderConnections } from "@/lib/localDb";
+import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { fetchElevenLabsVoices } from "@/server/llm-gateway/media";
 
 const langNames = new Intl.DisplayNames(["en"], { type: "language" });

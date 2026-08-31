@@ -9,7 +9,7 @@ import {
   isValidApiKey,
   type CredentialsResult,
 } from "../auth/accountSelection";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getModelInfo, getComboModels } from "./modelResolution";
 import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
@@ -36,7 +36,6 @@ import type { ClientRawRequest as CoreClientRawRequest, ProviderThinkingConfig }
 import type { RequestBody } from "@/server/llm-gateway/engine/services/types";
 
 // Server-side cooldown for noAuth providers to prevent rapid-fire retries
-// Keyed by provider only (not model) because rate limits are per-IP, not per-model
 const noAuthCooldowns = new Map<string, number>();
 
 function isNoAuthOnCooldown(provider: string): number {
@@ -109,6 +108,350 @@ function parseRoutingClassification(payload: unknown): LlmRoutingClassification 
   }
 }
 
+// ── Validation helpers ──────────────────────────────────────────────────────
+
+/** Validate API key if required by settings. Returns error Response or null. */
+async function validateApiKey(
+  request: Request,
+  apiKey: string | null,
+): Promise<Response | null> {
+  const settings = await getSettings();
+  if (!settings.requireApiKey) return null;
+  if (!apiKey) {
+    log.warn("AUTH", "Missing API key (requireApiKey=true)");
+    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
+  }
+  const valid = await isValidApiKey(apiKey);
+  if (!valid) {
+    log.warn("AUTH", "Invalid API key (requireApiKey=true)");
+    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+  }
+  return null;
+}
+
+// ── Routing helpers ─────────────────────────────────────────────────────────
+
+/** Build classifyWithModel callback for smart routing */
+function buildClassifierCallback(
+  request: Request,
+  apiKey: string | null,
+  clientRawRequest: ClientRawRequest,
+) {
+  return async (classifierModel: string, prompt: string, timeoutMs: number) => {
+    const classifierBody: ChatBody = {
+      model: classifierModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0,
+      max_tokens: 120,
+      stream: false,
+    };
+    const classifierRaw: ClientRawRequest = {
+      endpoint: "/v1/chat/completions",
+      body: classifierBody,
+      headers: { accept: "application/json", "x-router-internal": "classifier" },
+    };
+    const responsePromise = handleSingleModelChat(classifierBody, classifierModel, classifierRaw, request, apiKey);
+    const response = await Promise.race([
+      responsePromise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+    ]);
+    if (!response || !response.ok) return null;
+    return parseRoutingClassification(await response.json());
+  };
+}
+
+/** Try smart combo routing. Returns Response if matched, null otherwise. */
+async function trySmartComboRouting(
+  modelStr: string,
+  body: ChatBody,
+  request: Request,
+  apiKey: string | null,
+  clientRawRequest: ClientRawRequest,
+): Promise<Response | null> {
+  const smartCombo = await getSmartCombo(modelStr);
+  if (!smartCombo) return null;
+
+  let routing;
+  try {
+    routing = await resolveSmartRouting({
+      combo: smartCombo,
+      body,
+      headers: request.headers,
+      endpointNeed: "general",
+      sessionKey: deriveRoutingSessionKey(request.headers, body),
+      classifyWithModel: buildClassifierCallback(request, apiKey, clientRawRequest),
+    });
+  } catch (error) {
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, error instanceof Error ? error.message : "Invalid smart routing configuration");
+  }
+  if (routing.models.length === 0) {
+    return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `No compatible active model found for smart combo: ${modelStr}`);
+  }
+  attachRoutingDecision(body, routing.meta);
+  log.info("ROUTING", `Smart combo "${modelStr}" → ${routing.meta.need}/${routing.meta.tier} → ${routing.models[0]}`);
+  return handleComboChat({
+    body,
+    models: routing.models,
+    handleSingleModel: (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+    log,
+    comboName: modelStr,
+    comboStrategy: "fallback",
+    autoSwitch: false,
+  });
+}
+
+/** Build fusion handleSingleModel wrapper */
+function buildFusionHandler(
+  clientRawRequest: ClientRawRequest,
+  request: Request,
+  apiKey: string | null,
+) {
+  return (b: ChatBody, m: string, isPanel?: boolean) => {
+    let cleanRawReq: ClientRawRequest | null = clientRawRequest;
+    if (isPanel && clientRawRequest) {
+      const cleanBody = Object.fromEntries(
+        Object.entries(clientRawRequest.body || {}).filter(([key]) => key !== "tools" && key !== "tool_choice")
+      );
+      cleanRawReq = { ...clientRawRequest, body: cleanBody };
+    }
+    return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
+  };
+}
+
+/** Try combo models routing. Returns Response if matched, null otherwise. */
+async function tryComboRouting(
+  modelStr: string,
+  body: ChatBody,
+  settings: Record<string, unknown>,
+  request: Request,
+  apiKey: string | null,
+  clientRawRequest: ClientRawRequest,
+  requiredCapabilities: Set<string>,
+): Promise<Response | null> {
+  const comboModels = await getComboModels(modelStr);
+  if (!comboModels) return null;
+
+  const comboStrategies = settings.comboStrategies as Record<string, ComboStrategyConfig>;
+  const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
+  const comboStrategy: string = comboSpecificStrategy || (settings.comboStrategy as string) || "fallback";
+  const augmentedModels = augmentModelsWithCapacityAdapter(comboModels, requiredCapabilities, settings);
+  const adapterAdded = augmentedModels.filter((m: string) => !comboModels.includes(m));
+
+  if (comboStrategy === "fusion") {
+    log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
+    return handleFusionChat({
+      body,
+      models: comboModels,
+      handleSingleModel: buildFusionHandler(clientRawRequest, request, apiKey),
+      log,
+      comboName: modelStr,
+      judgeModel: comboStrategies[modelStr]?.judgeModel,
+      tuning: comboStrategies[modelStr]?.fusionTuning,
+    });
+  }
+
+  const comboStickyLimit: number = settings.comboStickyRoundRobinLimit as number;
+  log.info("CHAT", `Combo "${modelStr}" with ${augmentedModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+  return handleComboChat({
+    body,
+    models: augmentedModels,
+    handleSingleModel: withCapacityAdapterStripping(
+      (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+      adapterAdded
+    ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
+    log,
+    comboName: modelStr,
+    comboStrategy,
+    comboStickyLimit
+  });
+}
+
+/** Try capacity adapter routing for solo models. Returns Response if matched, null otherwise. */
+async function tryCapacityAdapterRouting(
+  modelStr: string,
+  body: ChatBody,
+  settings: Record<string, unknown>,
+  request: Request,
+  apiKey: string | null,
+  clientRawRequest: ClientRawRequest,
+  requiredCapabilities: Set<string>,
+): Promise<Response | null> {
+  const soloAugmented = augmentModelsWithCapacityAdapter([modelStr], requiredCapabilities, settings);
+  if (soloAugmented.length <= 1) return null;
+
+  const adapterAdded = soloAugmented.filter((m: string) => m !== modelStr);
+  log.info("CHAT", `Capacity adapter for [${[...requiredCapabilities].join(",")}] on "${modelStr}" → trying ${soloAugmented.join(", ")}`);
+  return handleComboChat({
+    body,
+    models: soloAugmented,
+    handleSingleModel: withCapacityAdapterStripping(
+      (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+      adapterAdded
+    ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
+    log,
+    comboName: modelStr,
+    comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings)
+  });
+}
+
+// ── Single model helpers ────────────────────────────────────────────────────
+
+/** Resolve combo when modelInfo has no provider. Returns Response or throws. */
+async function resolveComboForModel(
+  modelStr: string,
+  body: ChatBody,
+  clientRawRequest: ClientRawRequest | null,
+  request: Request | null,
+  apiKey: string | null,
+): Promise<Response> {
+  const comboModels = await getComboModels(modelStr);
+  if (!comboModels) {
+    log.warn("CHAT", "Invalid model format", { model: modelStr });
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
+  }
+
+  const chatSettings = await getSettings();
+  const comboStrategies = chatSettings.comboStrategies as Record<string, ComboStrategyConfig>;
+  const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
+  const comboStrategy: string = comboSpecificStrategy || (chatSettings.comboStrategy as string) || "fallback";
+  const requiredCapabilities = detectRequiredCapabilities(body) as Set<string>;
+  const augmentedModels = augmentModelsWithCapacityAdapter(comboModels, requiredCapabilities, chatSettings);
+  const adapterAdded = augmentedModels.filter((m: string) => !comboModels.includes(m));
+
+  if (comboStrategy === "fusion") {
+    log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
+    return handleFusionChat({
+      body,
+      models: comboModels,
+      handleSingleModel: (b: ChatBody, m: string, isPanel?: boolean) => {
+        let cleanRawReq: ClientRawRequest | null = clientRawRequest;
+        if (isPanel && clientRawRequest) {
+          const cleanBody = Object.fromEntries(
+            Object.entries(clientRawRequest.body || {}).filter(([key]) => key !== "tools" && key !== "tool_choice")
+          );
+          cleanRawReq = { ...clientRawRequest, body: cleanBody };
+        }
+        return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
+      },
+      log,
+      comboName: modelStr,
+      judgeModel: comboStrategies[modelStr]?.judgeModel,
+      tuning: comboStrategies[modelStr]?.fusionTuning,
+    });
+  }
+
+  const comboStickyLimit: number = chatSettings.comboStickyRoundRobinLimit;
+  log.info("CHAT", `Combo "${modelStr}" with ${augmentedModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+  return handleComboChat({
+    body,
+    models: augmentedModels,
+    handleSingleModel: withCapacityAdapterStripping(
+      (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+      adapterAdded
+    ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
+    log,
+    comboName: modelStr,
+    comboStrategy,
+    comboStickyLimit
+  });
+}
+
+/** Check noAuth cooldown. Returns error Response or null. */
+function checkNoAuthCooldownResponse(provider: string, model: string): Response | null {
+  const cooldownRemaining = isNoAuthOnCooldown(provider);
+  if (cooldownRemaining <= 0) return null;
+  const retryAfterSec = Math.ceil(cooldownRemaining / 1000);
+  log.warn("CHAT", `[${provider}/${model}] Server-side cooldown active (${retryAfterSec}s remaining)`);
+  return new Response(
+    JSON.stringify({ error: { message: `[${provider}/${model}] Rate limited. Retry after ${retryAfterSec}s`, type: "rate_limit_error", code: "rate_limit_exceeded" } }),
+    {
+      status: HTTP_STATUS.RATE_LIMITED,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(retryAfterSec),
+        "Access-Control-Allow-Origin": "*",
+      }
+    }
+  );
+}
+
+/** Build the full options object for handleChatCore */
+async function buildChatCoreOptions(
+  body: ChatBody,
+  provider: string,
+  model: string,
+  refreshedCredentials: CredentialsResult,
+  connectionId: string,
+  credentials: CredentialsResult,
+  clientRawRequest: ClientRawRequest | null,
+  request: Request | null,
+  apiKey: string | null,
+) {
+  const chatSettings = await getSettings();
+  const providerThinkingById = chatSettings.providerThinking as Record<string, ProviderThinkingConfig> | undefined;
+  const providerThinking = providerThinkingById?.[provider] ?? null;
+  return {
+    body: { ...body, model: `${provider}/${model}` },
+    modelInfo: { provider, model },
+    credentials: refreshedCredentials,
+    log: log as unknown as Parameters<typeof handleChatCore>[0]["log"],
+    clientRawRequest: clientRawRequest ?? undefined,
+    connectionId,
+    userAgent: request?.headers?.get("user-agent") || "",
+    apiKey: apiKey ?? undefined,
+    ccFilterNaming: !!chatSettings.ccFilterNaming,
+    rtkEnabled: !!chatSettings.rtkEnabled,
+    headroomEnabled: !!chatSettings.headroomEnabled,
+    headroomUrl: chatSettings.headroomUrl || DEFAULT_HEADROOM_URL,
+    headroomCompressUserMessages: !!chatSettings.headroomCompressUserMessages,
+    cavemanEnabled: !!chatSettings.cavemanEnabled,
+    cavemanLevel: chatSettings.cavemanLevel || "full",
+    ponytailEnabled: !!chatSettings.ponytailEnabled,
+    ponytailLevel: chatSettings.ponytailLevel || "full",
+    pxpipeEnabled: !!chatSettings.pxpipeEnabled,
+    pxpipeMinChars: chatSettings.pxpipeMinChars,
+    pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
+    pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
+    onPxpipeEvent: appendPxpipeEvent,
+    providerThinking,
+    sourceFormatOverride: request?.url ? (detectFormatByEndpoint(new URL(request.url).pathname, body) ?? undefined) : undefined,
+    onCredentialsRefreshed: async (newCreds: Record<string, unknown>) => {
+      await updateProviderCredentials(connectionId, {
+        ...newCreds,
+        existingProviderSpecificData: credentials.providerSpecificData,
+        testStatus: "active"
+      });
+    },
+    onRequestSuccess: async () => {
+      await clearAccountError(connectionId, credentials, model);
+    }
+  } as Parameters<typeof handleChatCore>[0];
+}
+
+/** Handle noAuth cooldown on rate-limit/billing errors. Returns Response or null. */
+function handleNoAuthCooldownResult(
+  result: ChatResult,
+  provider: string,
+  model: string,
+): Response | null {
+  if (!("status" in result) || (result.status !== 429 && result.status !== 402)) return null;
+  const cooldownMs = result.status === 429 ? 15000 : 30000;
+  setNoAuthCooldown(provider, cooldownMs);
+  const retryAfterSec = Math.ceil(cooldownMs / 1000);
+  log.warn("CHAT", `[${provider}/${model}] noAuth cooldown set (${retryAfterSec}s) after ${result.status}`);
+  return new Response(
+    JSON.stringify({ error: { message: `[${provider}/${model}] ${result.error}. Retry after ${retryAfterSec}s`, type: result.status === 429 ? "rate_limit_error" : "billing_error", code: result.status === 429 ? "rate_limit_exceeded" : "payment_required" } }),
+    {
+      status: result.status,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(retryAfterSec),
+        "Access-Control-Allow-Origin": "*",
+      }
+    }
+  );
+}
+
 /**
  * Handle chat completion request
  */
@@ -134,24 +477,13 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
   const authHeader: string | null = request.headers.get("Authorization");
   const apiKey: string | null = extractApiKey(request);
   if (authHeader && apiKey) {
-    const masked: string = log.maskKey(apiKey);
-    log.debug("AUTH", `API Key: ${masked}`);
+    log.debug("AUTH", `API Key: ${log.maskKey(apiKey)}`);
   } else {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    }
-    const valid: boolean = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-    }
-  }
+  const authError = await validateApiKey(request, apiKey);
+  if (authError) return authError;
 
   if (!modelStr) {
     log.warn("CHAT", "Missing model");
@@ -159,124 +491,20 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
   }
 
   const userAgent: string = request?.headers?.get("user-agent") || "";
-  const bypassResponse = handleBypassRequest(body, modelStr, userAgent, Boolean(settings.ccFilterNaming));
+  const bypassResponse = handleBypassRequest(body, modelStr, userAgent, Boolean((await getSettings()).ccFilterNaming));
   if (bypassResponse) return bypassResponse.response || bypassResponse;
 
   const requiredCapabilities = detectRequiredCapabilities(body) as Set<string>;
 
-  const smartCombo = await getSmartCombo(modelStr);
-  if (smartCombo) {
-    let routing;
-    try {
-      routing = await resolveSmartRouting({
-        combo: smartCombo,
-        body,
-        headers: request.headers,
-        endpointNeed: "general",
-        sessionKey: deriveRoutingSessionKey(request.headers, body),
-        classifyWithModel: async (classifierModel, prompt, timeoutMs) => {
-          const classifierBody: ChatBody = {
-            model: classifierModel,
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0,
-            max_tokens: 120,
-            stream: false,
-          };
-          const classifierRaw: ClientRawRequest = {
-            endpoint: "/v1/chat/completions",
-            body: classifierBody,
-            headers: { accept: "application/json", "x-router-internal": "classifier" },
-          };
-          const responsePromise = handleSingleModelChat(classifierBody, classifierModel, classifierRaw, request, apiKey);
-          const response = await Promise.race([
-            responsePromise,
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-          ]);
-          if (!response || !response.ok) return null;
-          return parseRoutingClassification(await response.json());
-        },
-      });
-    } catch (error) {
-      return errorResponse(HTTP_STATUS.BAD_REQUEST, error instanceof Error ? error.message : "Invalid smart routing configuration");
-    }
-    if (routing.models.length === 0) {
-      return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `No compatible active model found for smart combo: ${modelStr}`);
-    }
-    attachRoutingDecision(body, routing.meta);
-    log.info("ROUTING", `Smart combo "${modelStr}" → ${routing.meta.need}/${routing.meta.tier} → ${routing.models[0]}`);
-    return handleComboChat({
-      body,
-      models: routing.models,
-      handleSingleModel: (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
-      log,
-      comboName: modelStr,
-      comboStrategy: "fallback",
-      autoSwitch: false,
-    });
-  }
+  const smartComboResponse = await trySmartComboRouting(modelStr, body, request, apiKey, clientRawRequest);
+  if (smartComboResponse) return smartComboResponse;
 
-  const comboModels: string[] | null = await getComboModels(modelStr);
-  if (comboModels) {
-    const comboStrategies = settings.comboStrategies as Record<string, ComboStrategyConfig>;
-    const comboSpecificStrategy: string | undefined = comboStrategies[modelStr]?.fallbackStrategy;
-    const comboStrategy: string = comboSpecificStrategy || settings.comboStrategy || "fallback";
-    const augmentedModels: string[] = augmentModelsWithCapacityAdapter(comboModels, requiredCapabilities, settings);
-    const adapterAdded: string[] = augmentedModels.filter((m: string) => !comboModels.includes(m));
+  const settings = await getSettings();
+  const comboResponse = await tryComboRouting(modelStr, body, settings, request, apiKey, clientRawRequest, requiredCapabilities);
+  if (comboResponse) return comboResponse;
 
-    if (comboStrategy === "fusion") {
-      log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
-      return handleFusionChat({
-        body,
-        models: comboModels,
-        handleSingleModel: (b: ChatBody, m: string, isPanel?: boolean) => {
-          let cleanRawReq: ClientRawRequest | null = clientRawRequest;
-          if (isPanel && clientRawRequest) {
-            const cleanBody = Object.fromEntries(
-              Object.entries(clientRawRequest.body || {}).filter(([key]) => key !== "tools" && key !== "tool_choice")
-            );
-            cleanRawReq = { ...clientRawRequest, body: cleanBody };
-          }
-          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
-        },
-        log,
-        comboName: modelStr,
-        judgeModel: comboStrategies[modelStr]?.judgeModel,
-        tuning: comboStrategies[modelStr]?.fusionTuning,
-      });
-    }
-
-    const comboStickyLimit: number = settings.comboStickyRoundRobinLimit;
-    log.info("CHAT", `Combo "${modelStr}" with ${augmentedModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
-    return handleComboChat({
-      body,
-      models: augmentedModels,
-      handleSingleModel: withCapacityAdapterStripping(
-        (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
-        adapterAdded
-      ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
-      log,
-      comboName: modelStr,
-      comboStrategy,
-      comboStickyLimit
-    });
-  }
-
-  const soloAugmented: string[] = augmentModelsWithCapacityAdapter([modelStr], requiredCapabilities, settings);
-  if (soloAugmented.length > 1) {
-    const adapterAdded: string[] = soloAugmented.filter((m: string) => m !== modelStr);
-    log.info("CHAT", `Capacity adapter for [${[...requiredCapabilities].join(",")}] on "${modelStr}" → trying ${soloAugmented.join(", ")}`);
-    return handleComboChat({
-      body,
-      models: soloAugmented,
-      handleSingleModel: withCapacityAdapterStripping(
-        (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
-        adapterAdded
-      ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
-      log,
-      comboName: modelStr,
-      comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings)
-    });
-  }
+  const capacityResponse = await tryCapacityAdapterRouting(modelStr, body, settings, request, apiKey, clientRawRequest, requiredCapabilities);
+  if (capacityResponse) return capacityResponse;
 
   return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey);
 }
@@ -294,82 +522,15 @@ export async function handleSingleModelChat(
   const modelInfo: { provider: string | null; model: string } = await getModelInfo(modelStr);
 
   if (!modelInfo.provider) {
-    const comboModels: string[] | null = await getComboModels(modelStr);
-    if (comboModels) {
-      const chatSettings = await getSettings();
-      const comboStrategies = chatSettings.comboStrategies as Record<string, ComboStrategyConfig>;
-      const comboSpecificStrategy: string | undefined = comboStrategies[modelStr]?.fallbackStrategy;
-      const comboStrategy: string = comboSpecificStrategy || chatSettings.comboStrategy || "fallback";
-      const requiredCapabilities = detectRequiredCapabilities(body) as Set<string>;
-      const augmentedModels: string[] = augmentModelsWithCapacityAdapter(comboModels, requiredCapabilities, chatSettings);
-      const adapterAdded: string[] = augmentedModels.filter((m: string) => !comboModels.includes(m));
-
-      if (comboStrategy === "fusion") {
-        log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
-        return handleFusionChat({
-          body,
-          models: comboModels,
-          handleSingleModel: (b: ChatBody, m: string, isPanel?: boolean) => {
-            let cleanRawReq: ClientRawRequest | null = clientRawRequest;
-            if (isPanel && clientRawRequest) {
-              const cleanBody = Object.fromEntries(
-                Object.entries(clientRawRequest.body || {}).filter(([key]) => key !== "tools" && key !== "tool_choice")
-              );
-              cleanRawReq = { ...clientRawRequest, body: cleanBody };
-            }
-            return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
-          },
-          log,
-          comboName: modelStr,
-          judgeModel: comboStrategies[modelStr]?.judgeModel,
-          tuning: comboStrategies[modelStr]?.fusionTuning,
-        });
-      }
-
-      const comboStickyLimit: number = chatSettings.comboStickyRoundRobinLimit;
-      log.info("CHAT", `Combo "${modelStr}" with ${augmentedModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
-      return handleComboChat({
-        body,
-        models: augmentedModels,
-      handleSingleModel: withCapacityAdapterStripping(
-        (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
-        adapterAdded
-      ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
-        log,
-        comboName: modelStr,
-        comboStrategy,
-        comboStickyLimit
-      });
-    }
-    log.warn("CHAT", "Invalid model format", { model: modelStr });
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
+    return resolveComboForModel(modelStr, body, clientRawRequest, request, apiKey);
   }
 
   const { provider, model } = modelInfo;
 
-  // Check server-side cooldown for noAuth providers (prevents rapid-fire retries)
+  const cooldownResponse = checkNoAuthCooldownResponse(provider, model);
+  if (cooldownResponse) return cooldownResponse;
+
   const isNoAuth = FREE_PROVIDERS[provider]?.noAuth;
-  if (isNoAuth) {
-    const cooldownRemaining = isNoAuthOnCooldown(provider);
-    if (cooldownRemaining > 0) {
-      const retryAfterSec = Math.ceil(cooldownRemaining / 1000);
-      log.warn("CHAT", `[${provider}/${model}] Server-side cooldown active (${retryAfterSec}s remaining)`);
-      return new Response(
-        JSON.stringify({ error: { message: `[${provider}/${model}] Rate limited. Retry after ${retryAfterSec}s`, type: "rate_limit_error", code: "rate_limit_exceeded" } }),
-        {
-          status: HTTP_STATUS.RATE_LIMITED,
-          headers: {
-            "Content-Type": "application/json",
-            "Retry-After": String(retryAfterSec),
-            "Access-Control-Allow-Origin": "*",
-          }
-        }
-      );
-    }
-  }
-
-  const userAgent: string = request?.headers?.get("user-agent") || "";
-
   const excludeConnectionIds: Set<string> = new Set();
   let lastError: string | null = null;
   let lastStatus: number | null = null;
@@ -403,66 +564,15 @@ export async function handleSingleModelChat(
       }
     }
 
-    const chatSettings = await getSettings();
-    const providerThinkingById = chatSettings.providerThinking as Record<string, ProviderThinkingConfig> | undefined;
-    const providerThinking = providerThinkingById?.[provider] ?? null;
-    const result = await handleChatCore({
-      body: { ...body, model: `${provider}/${model}` },
-      modelInfo: { provider, model },
-      credentials: refreshedCredentials,
-      log: log as unknown as Parameters<typeof handleChatCore>[0]["log"],
-      clientRawRequest: clientRawRequest ?? undefined,
-      connectionId,
-      userAgent,
-      apiKey: apiKey ?? undefined,
-      ccFilterNaming: !!chatSettings.ccFilterNaming,
-      rtkEnabled: !!chatSettings.rtkEnabled,
-      headroomEnabled: !!chatSettings.headroomEnabled,
-      headroomUrl: chatSettings.headroomUrl || DEFAULT_HEADROOM_URL,
-      headroomCompressUserMessages: !!chatSettings.headroomCompressUserMessages,
-      cavemanEnabled: !!chatSettings.cavemanEnabled,
-      cavemanLevel: chatSettings.cavemanLevel || "full",
-      ponytailEnabled: !!chatSettings.ponytailEnabled,
-      ponytailLevel: chatSettings.ponytailLevel || "full",
-      pxpipeEnabled: !!chatSettings.pxpipeEnabled,
-      pxpipeMinChars: chatSettings.pxpipeMinChars,
-      pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
-      pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
-      onPxpipeEvent: appendPxpipeEvent,
-      providerThinking,
-      sourceFormatOverride: request?.url ? (detectFormatByEndpoint(new URL(request.url).pathname, body) ?? undefined) : undefined,
-      onCredentialsRefreshed: async (newCreds: Record<string, unknown>) => {
-        await updateProviderCredentials(connectionId, {
-          ...newCreds,
-          existingProviderSpecificData: credentials.providerSpecificData,
-          testStatus: "active"
-        });
-      },
-      onRequestSuccess: async () => {
-        await clearAccountError(connectionId, credentials, model);
-      }
-    } as Parameters<typeof handleChatCore>[0]) as ChatResult;
+    const coreOptions = await buildChatCoreOptions(
+      body, provider, model, refreshedCredentials, connectionId, credentials, clientRawRequest, request, apiKey,
+    );
+    const result = await handleChatCore(coreOptions) as ChatResult;
 
     if (result.success) return result.response;
 
-    // For noAuth providers, apply server-side cooldown on rate-limit/billing errors
-    if (isNoAuth && (result.status === 429 || result.status === 402)) {
-      const cooldownMs = result.status === 429 ? 15000 : 30000; //15s for rate limit,30s for billing
-      setNoAuthCooldown(provider, cooldownMs);
-      const retryAfterSec = Math.ceil(cooldownMs / 1000);
-      log.warn("CHAT", `[${provider}/${model}] noAuth cooldown set (${retryAfterSec}s) after ${result.status}`);
-      return new Response(
-        JSON.stringify({ error: { message: `[${provider}/${model}] ${result.error}. Retry after ${retryAfterSec}s`, type: result.status === 429 ? "rate_limit_error" : "billing_error", code: result.status === 429 ? "rate_limit_exceeded" : "payment_required" } }),
-        {
-          status: result.status,
-          headers: {
-            "Content-Type": "application/json",
-            "Retry-After": String(retryAfterSec),
-            "Access-Control-Allow-Origin": "*",
-          }
-        }
-      );
-    }
+    const noAuthResponse = handleNoAuthCooldownResult(result, provider, model);
+    if (noAuthResponse) return noAuthResponse;
 
     const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null);
 

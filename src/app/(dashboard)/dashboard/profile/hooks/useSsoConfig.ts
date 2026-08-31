@@ -34,7 +34,7 @@ export function useSsoConfig(initialSettings: Settings, settings: Settings, setS
   const [ssoTypeTab, setSsoTypeTab] = useState(initialSettings?.ssoType || "saml");
   const [samlForm, setSamlForm] = useState({
     samlEntryPoint: (initialSettings?.samlEntryPoint as string) || "",
-    samlIssuer: (initialSettings?.samlIssuer as string) || "urn:9router:sp",
+    samlIssuer: (initialSettings?.samlIssuer as string) || "urn:modelhub:sp",
     samlCert: (initialSettings?.samlCert as string) || "",
     samlLoginLabel: (initialSettings?.samlLoginLabel as string) || "Entrar com SAML SSO",
     samlAttributeEmail: (initialSettings?.samlAttributeEmail as string) || "email",
@@ -230,7 +230,7 @@ export function useSsoConfig(initialSettings: Settings, settings: Settings, setS
         setSamlForm((prev) => ({
           ...prev,
           samlEntryPoint: ssoUrl || prev.samlEntryPoint,
-          samlIssuer: prev.samlIssuer || "urn:9router:sp",
+          samlIssuer: prev.samlIssuer || "urn:modelhub:sp",
           samlCert: certStr || prev.samlCert,
         }));
 
@@ -269,7 +269,7 @@ export function useSsoConfig(initialSettings: Settings, settings: Settings, setS
         authMode: targetAuthMode,
         ssoType: "saml",
         samlEntryPoint: samlForm.samlEntryPoint.trim(),
-        samlIssuer: samlForm.samlIssuer.trim() || "urn:9router:sp",
+        samlIssuer: samlForm.samlIssuer.trim() || "urn:modelhub:sp",
         samlCert: samlForm.samlCert.trim(),
         samlLoginLabel: samlForm.samlLoginLabel.trim() || "Entrar com SAML SSO",
         samlAttributeEmail: samlForm.samlAttributeEmail.trim() || "email",

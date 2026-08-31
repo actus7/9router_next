@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getProviderConnections, updateProviderConnection } from "@/lib/localDb";
+import { getProviderConnections, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import { getExecutor } from "@/server/llm-gateway/usage";
 
 async function persistRefreshedCredentials(connection: Record<string, unknown>, newCredentials: Record<string, unknown>) {

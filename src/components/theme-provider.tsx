@@ -9,7 +9,7 @@ type ThemeProviderProps = Omit<NextThemesThemeProviderProps, "storageKey"> & {
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   return (
-    <NextThemesProvider storageKey="9router-theme" {...props}>
+    <NextThemesProvider storageKey="modelhub-theme" {...props}>
       {children}
     </NextThemesProvider>
   )

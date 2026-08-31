@@ -1,5 +1,7 @@
 // Re-export from open-sse with localDb integration
-import { getModelAliases, getComboByName, getProviderNodes } from "@/lib/localDb";
+import { getProviderNodes } from "@/lib/db/repos/nodesRepo";
+import { getComboByName } from "@/lib/db/repos/combosRepo";
+import { getModelAliases } from "@/lib/db/repos/aliasRepo";
 import { parseModel as parseModelCore, resolveModelAliasFromMap, getModelInfoCore } from "@/server/llm-gateway/engine/services/model";
 import REGISTRY from "@/server/llm-gateway/engine/providers/registry/index";
 

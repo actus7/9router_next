@@ -251,7 +251,7 @@ class ZedExecutor extends BaseExecutor {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/x-ndjson, text/event-stream, */*",
-          "User-Agent": "9router/zed",
+          "User-Agent": "modelhub/zed",
           "x-zed-version": (this.config?.appVersion?.toString() as string) || "0.200.0",
           [ZED_HEADERS.clientSupportsStatus]: "true",
           [ZED_HEADERS.clientSupportsStreamEnded]: "true",

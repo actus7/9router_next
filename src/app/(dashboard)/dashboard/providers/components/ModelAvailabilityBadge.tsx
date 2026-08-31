@@ -31,6 +31,9 @@ interface ModelStatus {
   provider?: string;
   model: string;
   status: string;
+  until?: string;
+  connectionName?: string;
+  lastError?: string | null;
 }
 
 interface AvailabilityData {
@@ -90,6 +93,7 @@ export default function ModelAvailabilityBadge() {
   const models = data?.models || [];
   const unavailableCount = data?.unavailableCount || models.filter((m) => m.status !== "available").length;
   const isHealthy = unavailableCount === 0;
+  const hasUnavailableConnection = models.some((model) => model.status === "unavailable");
 
   // Group unhealthy models by provider
   const byProvider: Record<string, ModelStatus[]> = {};
@@ -107,7 +111,9 @@ export default function ModelAvailabilityBadge() {
           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
           isHealthy
             ? "bg-green-500/10 text-green-600 hover:bg-green-500/20"
-            : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+            : hasUnavailableConnection
+              ? "bg-red-500/10 text-red-600 hover:bg-red-500/20"
+              : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
         )}
       >
         {isHealthy ? (
@@ -115,7 +121,7 @@ export default function ModelAvailabilityBadge() {
         ) : (
           <TriangleAlert className="size-3.5" />
         )}
-        <span>{isHealthy ? "All OK" : `${unavailableCount} issue${unavailableCount > 1 ? "s" : ""}`}</span>
+        <span>{isHealthy ? "All OK" : `${unavailableCount} need${unavailableCount === 1 ? "s" : ""} attention`}</span>
       </PopoverTrigger>
 
       <PopoverContent
@@ -132,7 +138,7 @@ export default function ModelAvailabilityBadge() {
             >
               {isHealthy ? <CheckCircle2 className="size-4" /> : <TriangleAlert className="size-4" />}
             </span>
-            <span className="text-sm font-semibold text-text-main">Model Status</span>
+            <span className="text-sm font-semibold text-text-main">Availability status</span>
           </div>
           <Button
             variant="ghost"
@@ -151,7 +157,10 @@ export default function ModelAvailabilityBadge() {
               All models are responding normally.
             </p>
           ) : (
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
+              <p className="text-xs leading-relaxed text-text-muted">
+                These signals may apply to an individual model or to the whole provider connection.
+              </p>
               {Object.entries(byProvider).map(([provider, provModels]) => (
                 <div key={provider}>
                   <p className="text-xs font-semibold text-text-main mb-1.5 capitalize">{provider}</p>
@@ -159,19 +168,35 @@ export default function ModelAvailabilityBadge() {
                     {provModels.map((m) => {
                       const status = STATUS_CONFIG[m.status] || STATUS_CONFIG.unknown;
                       const isClearing = clearing === `${m.provider}:${m.model}`;
+                      const affectsAllModels = m.model === "__all";
+                      const statusLabel = affectsAllModels
+                        ? "Connection unavailable"
+                        : status.label;
                       return (
                         <div
                           key={`${m.provider}-${m.model}`}
                           className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-surface/30"
                         >
-                          <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
                             <span
                               className="text-[14px] shrink-0"
                               style={{ color: status.color }}
                             >
                               {(() => { const StatusIcon = status.icon; return <StatusIcon className="size-3.5" />; })()}
                             </span>
-                            <span className="font-mono text-xs text-text-main truncate">{m.model}</span>
+                              <span className="truncate text-xs font-medium text-text-main">{statusLabel}</span>
+                            </div>
+                            <p className="mt-0.5 truncate text-[11px] text-text-muted">
+                              {affectsAllModels
+                                ? `${m.connectionName || provider}: all models are affected`
+                                : m.model}
+                            </p>
+                            {m.lastError && (
+                              <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-red-500/90 dark:text-red-300/90">
+                                Last error: {m.lastError}
+                              </p>
+                            )}
                           </div>
                           {m.status === "cooldown" && (
                             <Button

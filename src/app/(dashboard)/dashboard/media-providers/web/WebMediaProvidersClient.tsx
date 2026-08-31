@@ -32,12 +32,7 @@ interface Combo {
   models: string[];
 }
 
-function getEffectiveStatus(conn: Connection) {
-  const isCooldown = Object.entries(conn).some(
-    ([k, v]) => k.startsWith("modelLock_") && v && new Date(v as string).getTime() > Date.now()
-  );
-  return conn.testStatus === "unavailable" && !isCooldown ? "active" : conn.testStatus;
-}
+function getEffectiveStatus(conn: Connection) { return conn.testStatus; }
 
 function ProviderCard({ provider, kind, connections }: { provider: Provider; kind: string; connections: Connection[] }) {
   const providerInfo = AI_PROVIDERS[provider.id];

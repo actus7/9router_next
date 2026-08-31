@@ -2,7 +2,7 @@ import {
   extractApiKey, isValidApiKey,
   getProviderCredentials, markAccountUnavailable,
 } from "../auth/accountSelection";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getModelInfo, getComboModels } from "./modelResolution";
 import { handleTtsCore } from "@/server/llm-gateway/engine/handlers/ttsCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";

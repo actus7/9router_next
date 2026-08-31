@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPricing, updatePricing, resetPricing, resetAllPricing } from "@/lib/localDb";
+import { getPricing, updatePricing, resetPricing, resetAllPricing } from "@/lib/db/repos/pricingRepo";
 import { getDefaultPricing } from "@/server/llm-gateway/catalog";
 
 interface PricingEntry {

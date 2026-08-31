@@ -164,7 +164,7 @@ export default function LoginPage() {
       <div className="landing-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">9Router</h1>
+          <h1 className="text-3xl font-bold text-primary mb-2">ModelHub</h1>
           <p className="text-text-muted">
             {samlAvailable
               ? translate("Sign in with SAML 2.0 Single Sign-On")
@@ -244,7 +244,7 @@ export default function LoginPage() {
                   )}
                   {resetHint && (
                     <p className="text-xs text-text-muted">
-                      {translate("Forgot your password? Open the CLI")} <code className="bg-sidebar px-1 rounded">9router</code> {translate("on the host →")} <b>{translate("Settings")}</b> → <b>{translate("Reset Password to Default")}</b>.
+                      {translate("Forgot your password? Open the CLI")} <code className="bg-sidebar px-1 rounded">modelhub</code> {translate("on the host →")} <b>{translate("Settings")}</b> → <b>{translate("Reset Password to Default")}</b>.
                     </p>
                   )}
                 </div>

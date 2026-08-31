@@ -74,7 +74,7 @@ export default function PxpipeModal({
             </Button>
             <p className="text-xs text-text-muted">
               Installs the npm package <code className="font-mono">pxpipe-proxy</code> into
-              the 9Router data directory. May take a few minutes.
+              the ModelHub data directory. May take a few minutes.
             </p>
           </div>
         ) : (

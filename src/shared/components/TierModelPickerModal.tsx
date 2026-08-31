@@ -5,12 +5,12 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import Button from "@/shared/components/Button";
 import ProviderIcon from "./ProviderIcon";
-import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, getProviderAlias } from "@/shared/constants/providers";
+import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, getProviderAlias } from "@/shared/constants/providers";
 import { cn } from "@/lib/utils";
 import { Search, SearchX, X } from "lucide-react";
 import type { ActiveProvider } from "./ModelSelectModal";
 import { translate } from "@/i18n/runtime";
+import { buildProviderGroups, type PickerGroup } from "./buildProviderGroups";
 
 type RawModel = { id: string; name: string; [key: string]: unknown };
 
@@ -99,77 +99,19 @@ export default function TierModelPickerModal({
 
   const allProviders = useMemo(() => ({ ...OAUTH_PROVIDERS, ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...APIKEY_PROVIDERS }), []);
 
-  const groups = useMemo(() => {
-    const result: Record<string, PickerGroup> = {};
+  const sortedProviderIds = useMemo(() => {
     const activeIds = activeProviders.map((p) => p.provider);
     const providerIds = new Set([...activeIds, ...NO_AUTH_PROVIDER_IDS]);
-    const sortedIds = [...providerIds].sort((a, b) => {
+    return [...providerIds].sort((a, b) => {
       const indexA = PROVIDER_ORDER.indexOf(a);
       const indexB = PROVIDER_ORDER.indexOf(b);
       return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
     });
+  }, [activeProviders]);
 
-    sortedIds.forEach((providerId) => {
-      const alias = getProviderAlias(providerId);
-      const providerInfo = (allProviders as Record<string, Record<string, unknown>>)[providerId] || { name: providerId, color: "#666" };
-      const isCustomProvider = isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
-
-      if (providerInfo.passthroughModels) {
-        const aliasModels = Object.entries(modelAliases)
-          .filter(([, fullModel]) => fullModel.startsWith(`${alias}/`))
-          .map(([aliasName, fullModel]) => ({ id: fullModel.replace(`${alias}/`, ""), name: aliasName, value: fullModel }));
-        const customRegistered = customModels
-          .filter((m) => m.providerAlias === alias)
-          .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}` }));
-        const registeredLlms = customRegistered.filter((m) => !getModelKind(m as unknown as Record<string, unknown>) || getModelKind(m as unknown as Record<string, unknown>) === "llm");
-        const seen = new Set([...aliasModels, ...registeredLlms].map((m) => m.value));
-        const hardcoded = (getModelsByProviderId(providerId) as RawModel[])
-          .filter((m: RawModel) => !getModelKind(m) || getModelKind(m) === "llm")
-          .map((m: RawModel) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}` }))
-          .filter((m) => !seen.has(m.value));
-        const models = [...registeredLlms, ...aliasModels.filter((m) => !registeredLlms.some((r) => r.value === m.value)), ...hardcoded];
-        if (models.length > 0) {
-          const matchedNode = providerNodes.find((node) => node.id === providerId);
-          result[providerId] = { name: matchedNode?.name || (providerInfo.name as string), color: providerInfo.color as string, models };
-        }
-      } else if (isCustomProvider) {
-        const connection = activeProviders.find((p) => p.provider === providerId);
-        const matchedNode = providerNodes.find((node) => node.id === providerId);
-        const displayName = matchedNode?.name || connection?.name || (providerInfo.name as string);
-        const nodePrefix = (connection?.providerSpecificData?.prefix as string) || matchedNode?.prefix || providerId;
-        const nodeModels = Object.entries(modelAliases)
-          .filter(([, fullModel]) => fullModel.startsWith(`${providerId}/`))
-          .map(([aliasName, fullModel]) => ({ id: fullModel.replace(`${providerId}/`, ""), name: aliasName, value: `${nodePrefix}/${fullModel.replace(`${providerId}/`, "")}` }));
-        const registeredCustom = customModels
-          .filter((m) => m.providerAlias === providerId)
-          .map((m) => ({ id: m.id, name: m.name || m.id, value: `${nodePrefix}/${m.id}` }));
-        const seen = new Set(nodeModels.map((m) => m.value));
-        const models = [...nodeModels, ...registeredCustom.filter((m) => !seen.has(m.value))];
-        if (models.length > 0) result[providerId] = { name: displayName, color: providerInfo.color as string, models };
-      } else {
-        const hardcodedModels = getModelsByProviderId(providerId) as RawModel[];
-        const hardcodedIds = new Set(hardcodedModels.map((m) => m.id));
-        const hasHardcoded = hardcodedModels.length > 0;
-        const customAliasModels = Object.entries(modelAliases)
-          .filter(([aliasName, fullModel]) => fullModel.startsWith(`${alias}/`) && (hasHardcoded ? aliasName === fullModel.replace(`${alias}/`, "") : true) && !hardcodedIds.has(fullModel.replace(`${alias}/`, "")))
-          .map(([aliasName, fullModel]) => ({ id: fullModel.replace(`${alias}/`, ""), name: aliasName, value: fullModel }));
-        const customAliasIds = new Set(customAliasModels.map((m) => m.id));
-        const customRegistered = customModels
-          .filter((m) => m.providerAlias === alias && !hardcodedIds.has(m.id) && !customAliasIds.has(m.id))
-          .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}` }));
-        const merged: PickerModel[] = [
-          ...hardcodedModels.filter((m) => !getModelKind(m) || getModelKind(m) === "llm").map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}` })),
-          ...customAliasModels,
-          ...customRegistered,
-        ];
-        const seen = new Set<string>();
-        const models = merged.filter((m) => { if (seen.has(m.value)) return false; seen.add(m.value); return true; });
-        if (models.length > 0) result[providerId] = { name: providerInfo.name as string, color: providerInfo.color as string, models };
-      }
-    });
-
-    return result;
-  }, [activeProviders, modelAliases, allProviders, providerNodes, customModels]);
+  const groups = useMemo(() => buildProviderGroups({
+    sortedProviderIds, allProviders, activeProviders, modelAliases, providerNodes, customModels,
+  }), [activeProviders, modelAliases, allProviders, providerNodes, customModels, sortedProviderIds]);
 
   const totalCount = useMemo(() => Object.values(groups).reduce((sum, group) => sum + group.models.length, 0), [groups]);
 

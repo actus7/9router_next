@@ -1,6 +1,5 @@
 "use client";
 
-import ModelPickerModal from "@/shared/components/ModelPickerModal";
 import { AlertCircle } from "lucide-react";
 import { useChatModels } from "./hooks/useChatModels";
 import { useChatSessions, type UseChatSessionsReturn } from "./hooks/useChatSessions";
@@ -40,7 +39,6 @@ export default function BasicChatPageClient() {
     apiKey: sessionsHook.apiKey,
     recordHarnessEvent: harnessHook.recordHarnessEvent,
     setBlockedModelIds: modelsHook.setBlockedModelIds,
-    setModelMenuOpen: sessionsHook.setModelMenuOpen,
   });
 
   // Starting a new chat must also clear any in-flight streaming UI state,
@@ -63,17 +61,7 @@ export default function BasicChatPageClient() {
         <ChatRunJournal harnessHook={harnessHook} />
         <ChatMobileHistoryMenu sessionsHook={chatSessions} />
 
-        <ModelPickerModal
-          open={sessionsHook.modelMenuOpen}
-          onOpenChange={sessionsHook.setModelMenuOpen}
-          providerGroups={modelsHook.providerGroups}
-          activeModelId={sessionsHook.activeModelId}
-          onSelect={sessionsHook.handleSelectModel}
-          loading={modelsHook.loadingData}
-          error={modelsHook.providerLoadError}
-        />
-
-        {sendHook.chatError && !sessionsHook.modelMenuOpen ? (
+        {sendHook.chatError ? (
           <div className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive">
             <div className="flex items-start gap-2">
               <AlertCircle className="size-4 shrink-0 mt-0.5" />

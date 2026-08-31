@@ -1,9 +1,10 @@
 "use client";
 
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { translate } from "@/i18n/runtime";
 import {
-  Check, Copy, Hash, MessageSquare, RefreshCw, ThumbsDown, ThumbsUp, Wrench,
+  ArrowDown, Check, Copy, Hash, MessageSquare, RefreshCw, ThumbsDown, ThumbsUp, Wrench,
 } from "lucide-react";
 import { renderMarkdown, textValue } from "../chatFormatUtils";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
@@ -17,13 +18,60 @@ interface ChatMessageListProps {
 }
 
 export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageListProps) {
-  const { currentMessages, activeModel, setDraft } = sessionsHook;
+  const { currentMessages, activeModel, activeSessionId, setDraft } = sessionsHook;
   const {
     streamingMessageId, streamingText, copiedMessageId, handleCopyMessage, handleFeedback, handleRetryMessage,
   } = sendHook;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+  const previousLastMessageIdRef = useRef("");
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+
+  const isNearBottom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return true;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < 72;
+  }, []);
+
+  const scrollToLatest = useCallback((behavior: ScrollBehavior = "auto") => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
+    stickToBottomRef.current = true;
+    setShowJumpToLatest(false);
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const nearBottom = isNearBottom();
+    stickToBottomRef.current = nearBottom;
+    setShowJumpToLatest(!nearBottom);
+  }, [isNearBottom]);
+
+  // A conversation is always opened at its latest message. This is a layout
+  // effect so the composer and message list settle before the user sees it.
+  useLayoutEffect(() => {
+    stickToBottomRef.current = true;
+    previousLastMessageIdRef.current = currentMessages.at(-1)?.id || "";
+    const frame = requestAnimationFrame(() => scrollToLatest());
+    return () => cancelAnimationFrame(frame);
+  }, [activeSessionId, scrollToLatest]);
+
+  // New turns are an intentional navigation to the latest content. Streaming
+  // follows only while the user remains at the bottom; reading older messages
+  // must never be interrupted by incoming tokens.
+  useEffect(() => {
+    const lastMessageId = currentMessages.at(-1)?.id || "";
+    const isNewTurn = Boolean(lastMessageId && lastMessageId !== previousLastMessageIdRef.current);
+    previousLastMessageIdRef.current = lastMessageId;
+    if (isNewTurn) stickToBottomRef.current = true;
+    if (!stickToBottomRef.current) return;
+    const frame = requestAnimationFrame(() => scrollToLatest());
+    return () => cancelAnimationFrame(frame);
+  }, [currentMessages, streamingMessageId, streamingText, scrollToLatest]);
 
   return (
-    <div className="flex-1 overflow-y-auto py-6 custom-scrollbar">
+    <div className="relative flex-1 min-h-0">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="h-full overflow-y-auto py-6 custom-scrollbar">
       {currentMessages.length === 0 ? (
         <div className="flex min-h-[50vh] items-center justify-center px-4 text-center">
           <div className="w-full max-w-xl space-y-6">
@@ -186,6 +234,17 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
           );
         })}
       </div>
+      </div>
+      {showJumpToLatest && currentMessages.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => scrollToLatest("smooth")}
+          className="absolute bottom-3 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ArrowDown className="size-3.5" />
+          {translate("Latest messages") || "Latest messages"}
+        </button>
+      ) : null}
     </div>
   );
 }

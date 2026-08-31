@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 // Ensure proxyFetch is loaded to patch globalThis.fetch
 import { getUsageForProvider, getExecutor } from "@/server/llm-gateway/usage";
 
-import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
+import { getProviderConnectionById, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
 

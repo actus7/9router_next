@@ -28,26 +28,26 @@ const readConfig = async () => {
   }
 };
 
-const has9RouterConfig = (config: unknown) => {
+const hasModelHubConfig = (config: unknown) => {
   if (!Array.isArray(config)) return false;
-  return config.some((entry: Record<string, unknown>) => entry.name === "9Router");
+  return config.some((entry: Record<string, unknown>) => entry.name === "ModelHub");
 };
 
-const get9RouterEntry = (config: unknown) => {
+const getModelHubEntry = (config: unknown) => {
   if (!Array.isArray(config)) return null;
-  return (config as Record<string, unknown>[]).find((entry) => entry.name === "9Router") || null;
+  return (config as Record<string, unknown>[]).find((entry) => entry.name === "ModelHub") || null;
 };
 
 // GET - Read current copilot config
 export async function GET() {
   try {
     const config = await readConfig();
-    const entry = get9RouterEntry(config);
+    const entry = getModelHubEntry(config);
 
     return NextResponse.json({
       installed: true,
       config,
-      has9Router: has9RouterConfig(config),
+      hasModelHub: hasModelHubConfig(config),
       configPath: getConfigPath(),
       currentModel: (entry?.models as Record<string, unknown>[])?.[0]?.id || null,
       currentUrl: (entry?.models as Record<string, unknown>[])?.[0]?.url || null,
@@ -58,7 +58,7 @@ export async function GET() {
   }
 }
 
-// POST - Apply 9Router config to chatLanguageModels.json
+// POST - Apply ModelHub config to chatLanguageModels.json
 export async function POST(request: NextRequest) {
   try {
     const { baseUrl, apiKey, models } = await request.json();
@@ -79,10 +79,10 @@ export async function POST(request: NextRequest) {
     } catch { /* No existing config */ }
 
     const endpointUrl = `${baseUrl}/chat/completions#models.ai.azure.com`;
-    const keyToUse = apiKey || "sk_9router";
+    const keyToUse = apiKey || "sk_modelhub";
 
     const newEntry = {
-      name: "9Router",
+      name: "ModelHub",
       vendor: "azure",
       apiKey: keyToUse,
       models: models.map((id: string) => ({
@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
       })),
     };
 
-    // Replace existing 9Router entry or append
-    const idx = config.findIndex((e) => e.name === "9Router");
+    // Replace existing ModelHub entry or append
+    const idx = config.findIndex((e) => e.name === "ModelHub");
     if (idx >= 0) {
       config[idx] = newEntry;
     } else {
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Remove 9Router entry from chatLanguageModels.json
+// DELETE - Remove ModelHub entry from chatLanguageModels.json
 export async function DELETE() {
   try {
     const configPath = getConfigPath();
@@ -134,12 +134,12 @@ export async function DELETE() {
       throw error;
     }
 
-    config = config.filter((e) => e.name !== "9Router");
+    config = config.filter((e) => e.name !== "ModelHub");
     await fs.writeFile(configPath, JSON.stringify(config, null, 2));
 
     return NextResponse.json({
       success: true,
-      message: "9Router removed from Copilot config",
+      message: "ModelHub removed from Copilot config",
     });
   } catch (error) {
     console.error("Error resetting copilot settings:", error);

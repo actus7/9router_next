@@ -1,4 +1,5 @@
-import { getCloudUrl, getApiKeys } from "@/lib/db";
+import { getCloudUrl } from "@/lib/db/repos/settingsRepo";
+import { getApiKeys } from "@/lib/db/repos/apiKeysRepo";
 
 export type GatewayApiKey = { id: string; key: string; name?: string };
 

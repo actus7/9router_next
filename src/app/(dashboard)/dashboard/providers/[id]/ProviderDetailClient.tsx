@@ -3,10 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { CardSkeleton } from "@/shared/components";
-import { Alert } from "@/components/ui/alert";
 import {
   OAUTH_PROVIDERS,
   APIKEY_PROVIDERS,
@@ -23,13 +20,14 @@ import { useProviderConnections } from "./hooks/useProviderConnections";
 import { useProviderModels } from "./hooks/useProviderModels";
 import ConnectionsSection from "./sections/ConnectionsSection";
 import ModelsSection from "./sections/ModelsSection";
-import { ArrowLeft, ExternalLink, Info, TriangleAlert } from "lucide-react";
+import ProviderHeader from "./components/ProviderHeader";
+import ProviderAlerts from "./components/ProviderAlerts";
 import type {
-  Connection,
   CustomModelEntry,
   ProviderInfo,
   ProviderNode,
   ProxyPool,
+  Connection,
 } from "./types";
 
 interface ProviderDetailClientProps {
@@ -58,8 +56,6 @@ export default function ProviderDetailClient({
 }: ProviderDetailClientProps) {
   const router = useRouter();
   const providerAlias = getProviderAlias(providerId);
-  // Persisted connections may predate canonical IDs (`naga` instead of
-  // `naga-ac`). Keep them visible and usable on their canonical provider page.
   const filteredConnections = initialProviders.filter((connection) => normalizeProviderId(connection.provider || "") === providerId);
   const [headerImgError, setHeaderImgError] = useState<boolean>(false);
 
@@ -140,99 +136,18 @@ export default function ProviderDetailClient({
     );
   }
 
-  // Determine icon path: OpenAI Compatible providers use specialized icons
-  const getHeaderIconPath = () => {
-    if (isOpenAICompatible && providerInfo.apiType) {
-      return providerInfo.apiType === "responses" ? "/providers/oai-r.png" : "/providers/oai-cc.png";
-    }
-    if (isAnthropicCompatible) {
-      return "/providers/anthropic-m.png";
-    }
-    return getProviderIconSrc(providerInfo.id);
-  };
-
   return (
     <div className="flex min-w-0 flex-col gap-4 px-1 pb-6 sm:gap-5 sm:px-0">
-      {/* Header */}
-      <div className="min-w-0 px-1 py-1 sm:px-0">
-        <Link
-          href="/dashboard/providers"
-          className="mb-3 inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-primary"
-        >
-          <ArrowLeft className="size-4" />
-          {translate("Back to Providers")}
-        </Link>
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <div
-            className="flex size-11 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-white/10"
-            style={{ backgroundColor: `${providerInfo.color}15` }}
-          >
-            {headerImgError || !getHeaderIconPath() ? (
-              <span className="text-sm font-bold" style={{ color: providerInfo.color }}>
-                {providerInfo.textIcon || providerInfo.id.slice(0, 2).toUpperCase()}
-              </span>
-            ) : (
-              <Image
-                src={getHeaderIconPath() || ""}
-                alt={providerInfo.name}
-                width={44}
-                height={44}
-                className="max-h-11 max-w-11 rounded-lg object-contain"
-                sizes="44px"
-                onError={() => {
-                  markProviderIconMissing(providerInfo.id);
-                  setHeaderImgError(true);
-                }}
-              loading="lazy"
-              decoding="async"
-              />
-            )}
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{providerInfo.name}</h1>
-              {(providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website) && (
-                <a
-                  href={providerInfo.notice?.apiKeyUrl || providerInfo.notice?.signupUrl || providerInfo.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  <ExternalLink className="size-4" />
-                  {providerInfo.notice?.apiKeyUrl ? "Get API Key" : "Sign up / Learn more"}
-                </a>
-              )}
-            </div>
-            <p className="mt-1 text-sm text-text-muted">
-              {connectionsHook.connections.length} connection{connectionsHook.connections.length === 1 ? "" : "s"}
-            </p>
-          </div>
-        </div>
-      </div>
+      <ProviderHeader
+        providerInfo={providerInfo}
+        connectionCount={connectionsHook.connections.length}
+        isOpenAICompatible={isOpenAICompatible}
+        isAnthropicCompatible={isAnthropicCompatible}
+        headerImgError={headerImgError}
+        setHeaderImgError={setHeaderImgError}
+      />
 
-      {providerInfo.deprecated && (
-        <div className="flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-          <p className="text-xs text-red-600 dark:text-yellow-400 leading-relaxed">{providerInfo.deprecationNotice}</p>
-        </div>
-      )}
-
-      {providerInfo.notice?.text && !providerInfo.deprecated && (
-        <Alert className="border-blue-500/25 bg-blue-500/[0.08] px-4 py-3 text-blue-700 dark:text-blue-300">
-          <Info className="mt-0.5 size-4 shrink-0 text-blue-600 dark:text-blue-400 sm:mt-0" />
-          <p className="min-w-0 flex-1 text-sm leading-relaxed text-blue-700 dark:text-blue-300">{providerInfo.notice.text}</p>
-          {providerInfo.notice.apiKeyUrl && (
-            <a
-              href={providerInfo.notice.apiKeyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex shrink-0 justify-center rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-600"
-            >
-              Get API Key →
-            </a>
-          )}
-        </Alert>
-      )}
+      <ProviderAlerts providerInfo={providerInfo} />
 
       <ConnectionsSection
         providerId={providerId}

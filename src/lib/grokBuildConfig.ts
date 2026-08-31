@@ -1,8 +1,8 @@
-const GROK_MAIN_MODEL_SLOT: string = "9router";
+const GROK_MAIN_MODEL_SLOT: string = "modelhub";
 const GROK_BUILTIN_DEFAULT: string = "grok-build";
 export const GROK_SUBAGENT_TYPES: readonly string[] = ["general-purpose", "explore", "plan"];
 
-const UNSET_SENTINEL: string = "__9router_unset__";
+const UNSET_SENTINEL: string = "__modelhub_unset__";
 const MODELS_SECTION: string = "models";
 const SUBAGENT_MODELS_SECTION: string = "subagents.models";
 
@@ -17,10 +17,10 @@ const sectionRegExp = (section: string): RegExp =>
 
 const modelSlot = (type: string): string => `${GROK_MAIN_MODEL_SLOT}-${type}`;
 
-const previousDefaultRegExp: RegExp = /^# 9router-prev-default = "([^"]*)"[ \t]*\r?\n?/m;
+const previousDefaultRegExp: RegExp = /^# modelhub-prev-default = "([^"]*)"[ \t]*\r?\n?/m;
 const previousSubagentRegExp = (type: string): RegExp =>
   new RegExp(
-    `^# 9router-prev-subagent-${escapeRegExp(type)} = "([^"]*)"[ \\t]*\\r?\\n?`,
+    `^# modelhub-prev-subagent-${escapeRegExp(type)} = "([^"]*)"[ \\t]*\\r?\\n?`,
     "m",
   );
 
@@ -136,7 +136,7 @@ function buildModelSection({ slot, model, baseUrl, apiKey, contextWindow, name }
     `model = ${tomlString(model)}`,
     `base_url = ${tomlString(baseUrl)}`,
     `name = ${tomlString(name)}`,
-    `description = ${tomlString("Routed via 9Router gateway")}`,
+    `description = ${tomlString("Routed via ModelHub gateway")}`,
     `api_backend = "chat_completions"`,
   ];
   if (apiKey) lines.push(`api_key = ${tomlString(apiKey)}`);
@@ -171,7 +171,7 @@ function rememberPreviousDefault(toml: string): string {
   if (previousDefaultRegExp.test(toml)) return toml;
   const current: string | null = getSectionField(toml, MODELS_SECTION, "default");
   if (!current || current === GROK_MAIN_MODEL_SLOT) return toml;
-  return insertMarker(toml, `# 9router-prev-default = ${tomlString(current)}\n`);
+  return insertMarker(toml, `# modelhub-prev-default = ${tomlString(current)}\n`);
 }
 
 function restorePreviousDefault(toml: string): string {
@@ -190,7 +190,7 @@ function rememberPreviousSubagent(toml: string, type: string): string {
   const previous: string = current == null ? UNSET_SENTINEL : current;
   return insertMarker(
     toml,
-    `# 9router-prev-subagent-${type} = ${tomlString(previous)}\n`,
+    `# modelhub-prev-subagent-${type} = ${tomlString(previous)}\n`,
   );
 }
 
@@ -241,7 +241,7 @@ export function applyGrokBuildConfig(
     baseUrl,
     apiKey,
     contextWindow,
-    name: "9Router",
+    name: "ModelHub",
   });
   next = setSectionField(next, MODELS_SECTION, "default", GROK_MAIN_MODEL_SLOT);
 
@@ -257,7 +257,7 @@ export function applyGrokBuildConfig(
           baseUrl,
           apiKey,
           contextWindow: selected.contextWindow,
-          name: `9Router ${type}`,
+          name: `ModelHub ${type}`,
         });
         next = setSectionField(next, SUBAGENT_MODELS_SECTION, type, slot);
       } else {

@@ -8,11 +8,13 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, GitBranch, History, Info, Loader2, Save, TriangleAlert, X } from "lucide-react";
+import { useModelAliases } from "./useCliToolCommon";
+import { StatusMessage, ActionButtons } from "./CliToolShared";
+import { ArrowRight, ChevronDown, Copy, GitBranch, Info, Loader2, TriangleAlert, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; image?: string; notes?: Array<{ type: string; text: string }>; }
-interface StatusData { installed?: boolean; has9Router?: boolean; settings?: { model?: { base_url?: string; model?: string; context_window?: number; }; subagentModels?: Record<string, { model?: string }>; }; }
+interface StatusData { installed?: boolean; hasModelHub?: boolean; settings?: { model?: { base_url?: string; model?: string; context_window?: number; }; subagentModels?: Record<string, { model?: string }>; }; }
 interface Message { type: "success" | "error"; text: string; }
 
 interface GrokBuildToolCardProps {
@@ -31,7 +33,7 @@ interface GrokBuildToolCardProps {
 }
 
 const ENDPOINT = "/api/cli-tools/grok-build-settings";
-const MODEL_SLOT = "9router";
+const MODEL_SLOT = "modelhub";
 const SUBAGENT_TYPES = [
   { id: "general-purpose", label: "General-purpose", help: "Implementation, testing, and full-capability delegated tasks" },
   { id: "explore", label: "Explore", help: "Read-only codebase research and investigation" },
@@ -92,10 +94,10 @@ export default function GrokBuildToolCard({
   const [selectedModel, setSelectedModel] = useState<string>(initialModel);
   const [subagentModels, setSubagentModels] = useState<Record<string, string>>(initialSubagents);
   const [modelTarget, setModelTarget] = useState<string | null>(null);
-  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
   const hasFetchedStatus = useRef(Boolean(initialStatus));
+  const { modelAliases, fetchModelAliases } = useModelAliases();
 
   const configuredModel = grokStatus?.settings?.model;
   const configStatus = !grokStatus?.installed
@@ -115,16 +117,6 @@ export default function GrokBuildToolCard({
     );
     setSelectedModel(mainModel);
     setSubagentModels(configuredSubagents);
-  }, []);
-
-  const fetchModelAliases = useCallback(async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.error("Error fetching model aliases:", error);
-    }
   }, []);
 
   const checkStatus = useCallback(async ({ hydrate = false } = {}) => {
@@ -166,7 +158,7 @@ export default function GrokBuildToolCard({
     try {
       const keyToUse = selectedApiKey?.trim()
         || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+        || (!cloudEnabled ? "sk_modelhub" : null);
       const mappedSubagents: Record<string, { model: string; contextWindow: number | null }> = {};
       for (const type of SUBAGENT_TYPES) {
         const model = subagentModels[type.id]?.trim();
@@ -230,12 +222,12 @@ export default function GrokBuildToolCard({
 
   const getManualConfigs = () => {
     const keyToUse = selectedApiKey?.trim()
-      || (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+      || (!cloudEnabled ? "sk_modelhub" : "<API_KEY_FROM_DASHBOARD>");
     const baseUrl = getEffectiveBaseUrl();
     const mainModel = selectedModel || "provider/model-id";
     const blocks = [
       `[models]\ndefault = "${MODEL_SLOT}"`,
-      `[model.${MODEL_SLOT}]\nmodel = "${mainModel}"\nbase_url = "${baseUrl}"\nname = "9Router"\ndescription = "Routed via 9Router gateway"\napi_backend = "chat_completions"\napi_key = "${keyToUse}"\ncontext_window = ${getContextWindow(mainModel) || 200000}`,
+      `[model.${MODEL_SLOT}]\nmodel = "${mainModel}"\nbase_url = "${baseUrl}"\nname = "ModelHub"\ndescription = "Routed via ModelHub gateway"\napi_backend = "chat_completions"\napi_key = "${keyToUse}"\ncontext_window = ${getContextWindow(mainModel) || 200000}`,
     ];
     const mappings: string[] = [];
     for (const type of SUBAGENT_TYPES) {
@@ -243,7 +235,7 @@ export default function GrokBuildToolCard({
       if (!model) continue;
       const slot = `${MODEL_SLOT}-${type.id}`;
       mappings.push(`${type.id} = "${slot}"`);
-      blocks.push(`[model.${slot}]\nmodel = "${model}"\nbase_url = "${baseUrl}"\nname = "9Router ${type.id}"\ndescription = "Routed via 9Router gateway"\napi_backend = "chat_completions"\napi_key = "${keyToUse}"\ncontext_window = ${getContextWindow(model) || 200000}`);
+      blocks.push(`[model.${slot}]\nmodel = "${model}"\nbase_url = "${baseUrl}"\nname = "ModelHub ${type.id}"\ndescription = "Routed via ModelHub gateway"\napi_backend = "chat_completions"\napi_key = "${keyToUse}"\ncontext_window = ${getContextWindow(model) || 200000}`);
     }
     if (mappings.length) blocks.splice(1, 0, `[subagents.models]\n${mappings.join("\n")}`);
     return [{ filename: "~/.grok/config.toml", content: `${blocks.join("\n\n")}\n` }];
@@ -345,13 +337,18 @@ export default function GrokBuildToolCard({
                 ))}
               </div>
 
-              {message && <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}>{message.type === "success" ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}<span>{message.text}</span></div>}
+              <StatusMessage message={message} />
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <Button variant="primary" size="sm" onClick={handleApply} disabled={!selectedModel} loading={applying} className="w-full sm:w-auto"><Save className="size-4" />Apply</Button>
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={!grokStatus?.has9Router} loading={restoring} className="w-full sm:w-auto"><History className="size-4" />Reset</Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)} className="w-full sm:w-auto"><Copy className="size-4" />Manual Config</Button>
-              </div>
+              <ActionButtons
+                onApply={handleApply}
+                applyDisabled={!selectedModel}
+                applyLoading={applying}
+                onReset={handleReset}
+                resetDisabled={!grokStatus?.hasModelHub}
+                resetLoading={restoring}
+                onManualConfig={() => setShowManualConfigModal(true)}
+                className="flex flex-col sm:flex-row sm:items-center gap-2"
+              />
             </>
           )}
         </div>

@@ -3,8 +3,7 @@ import { spawnQuickTunnel, killCloudflared, isCloudflaredRunning, setUnexpectedE
 import { clearPid } from "./pid";
 import { waitForHealth, probeUrlAlive } from "./healthCheck";
 import { WORKER_URL } from "./config";
-import { getSettings, updateSettings } from "@/lib/localDb";
-
+import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
 interface CancelToken {
   cancelled: boolean;
 }

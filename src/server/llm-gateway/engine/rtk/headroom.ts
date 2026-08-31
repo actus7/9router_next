@@ -279,9 +279,105 @@ async function callCompress(url: string, messages: unknown[], model: string, tim
   return data;
 }
 
+/** Compress Claude-format body: translate → OpenAI → compress → translate back. */
+async function compressClaudeFormat(
+  body: Record<string, unknown>,
+  model: string,
+  url: string,
+  timeoutMs: number,
+  compressUserMessages: boolean | undefined,
+  diagnostics: HeadroomDiagnostics | null,
+): Promise<Record<string, unknown> | null> {
+  const oai = claudeToOpenAIRequest(model, body, false) as Record<string, unknown>;
+  if (!Array.isArray(oai?.messages)) {
+    setDiagnostic(diagnostics, "Claude request did not translate to messages[]");
+    return null;
+  }
+  const data = await callCompress(url, oai.messages as unknown[], model, timeoutMs, compressUserMessages, diagnostics || {});
+  if (!data) return null;
+  const claudeBody = openaiToClaudeRequest(model, { ...oai, messages: data.messages }, false) as Record<string, unknown>;
+  if (Array.isArray(claudeBody?.messages)) body.messages = claudeBody.messages;
+  if (claudeBody?.system !== undefined) body.system = claudeBody.system;
+  if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
+  return data;
+}
+
+/** Compress OpenAI Responses (Codex) format: input → OpenAI → compress → translate back. */
+async function compressOpenAIResponsesFormat(
+  body: Record<string, unknown>,
+  model: string,
+  url: string,
+  timeoutMs: number,
+  compressUserMessages: boolean | undefined,
+  diagnostics: HeadroomDiagnostics | null,
+): Promise<Record<string, unknown> | null> {
+  if (hasUnsafeResponsesInputForCompression(body)) {
+    setDiagnostic(diagnostics, "skipped: openai-responses tool/reasoning input is not safe to compress");
+    return null;
+  }
+  const oai = openaiResponsesToOpenAIRequest(model, body, false, undefined as unknown as Record<string, unknown>) as Record<string, unknown>;
+  if (!Array.isArray(oai?.messages)) return null;
+  const data = await callCompress(url, oai.messages as unknown[], model, timeoutMs, compressUserMessages, diagnostics || {});
+  if (!data) return null;
+  const responsesBody = openaiToOpenAIResponsesRequest(
+    model,
+    { ...oai, input: undefined, messages: data.messages },
+    false,
+    undefined as unknown as Record<string, unknown>
+  ) as Record<string, unknown>;
+  if (Array.isArray(responsesBody?.input)) body.input = responsesBody.input;
+  if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
+  return data;
+}
+
+/** Compress Kiro format: project conversationState → OpenAI → compress → apply back. */
+async function compressKiroFormat(
+  body: Record<string, unknown>,
+  model: string,
+  url: string,
+  timeoutMs: number,
+  compressUserMessages: boolean | undefined,
+  diagnostics: HeadroomDiagnostics | null,
+): Promise<Record<string, unknown> | null> {
+  const projection = collectKiroHeadroomMessages(body);
+  if (!projection) {
+    setDiagnostic(diagnostics, "Kiro request did not project to messages[]");
+    return null;
+  }
+  const data = await callCompress(url, projection.messages, model, timeoutMs, compressUserMessages, diagnostics || {});
+  if (!data) return null;
+  if (!applyKiroHeadroomMessages(projection, data.messages as unknown[], diagnostics)) return null;
+  if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
+  return data;
+}
+
+/** Compress plain OpenAI format: messages/input go straight to the proxy. */
+async function compressOpenAIFormat(
+  body: Record<string, unknown>,
+  model: string,
+  url: string,
+  timeoutMs: number,
+  compressUserMessages: boolean | undefined,
+  diagnostics: HeadroomDiagnostics | null,
+  format?: string,
+): Promise<Record<string, unknown> | null> {
+  const key = Array.isArray(body.messages) ? "messages"
+    : Array.isArray(body.input) ? "input"
+    : null;
+  if (!key) {
+    setDiagnostic(diagnostics, `unsupported ${format || "unknown"} request shape`);
+    return null;
+  }
+  const data = await callCompress(url, body[key] as unknown[], model, timeoutMs, compressUserMessages, diagnostics || {});
+  if (!data) return null;
+  body[key] = data.messages;
+  if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
+  return data;
+}
+
 // Compress request body via Headroom proxy. Fail-open: returns null on any error.
 // /v1/compress only understands OpenAI shape, so Claude bodies are translated
-// to OpenAI, compressed, then translated back using 9Router's own translators.
+// to OpenAI, compressed, then translated back using ModelHub's own translators.
 export async function compressWithHeadroom(body: Record<string, unknown>, { enabled, url, model, format, compressUserMessages, timeoutMs = DEFAULT_TIMEOUT_MS, diagnostics = null }: { enabled?: boolean; url?: string; model?: string; format?: string; compressUserMessages?: boolean; timeoutMs?: number; diagnostics?: HeadroomDiagnostics | null } = {}) {
   if (!enabled) {
     setDiagnostic(diagnostics, "disabled");
@@ -299,76 +395,16 @@ export async function compressWithHeadroom(body: Record<string, unknown>, { enab
   try {
     if (diagnostics) diagnostics.before = captureSizeSnapshot(body);
 
-    // Claude shape: translate → OpenAI → compress → translate back.
     if (format === "claude") {
-      const oai = claudeToOpenAIRequest(model!, body, false) as Record<string, unknown>;
-      if (!Array.isArray(oai?.messages)) {
-        setDiagnostic(diagnostics, "Claude request did not translate to messages[]");
-        return null;
-      }
-      const data = await callCompress(url, oai.messages as unknown[], model!, timeoutMs, compressUserMessages, diagnostics || {});
-      if (!data) return null;
-      const claudeBody = openaiToClaudeRequest(model!, { ...oai, messages: data.messages }, false) as Record<string, unknown>;
-      if (Array.isArray(claudeBody?.messages)) body.messages = claudeBody.messages;
-      if (claudeBody?.system !== undefined) body.system = claudeBody.system;
-      if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
-      return data;
+      return compressClaudeFormat(body, model!, url, timeoutMs, compressUserMessages, diagnostics);
     }
-
-    // OpenAI Responses shape (Codex): body.input holds Responses items, NOT OpenAI
-    // messages. Translate input -> OpenAI -> compress -> translate back to input so
-    // body.input keeps the Responses contract (the proxy only understands OpenAI). (#1998)
     if (format === "openai-responses") {
-      if (hasUnsafeResponsesInputForCompression(body)) {
-        setDiagnostic(diagnostics, "skipped: openai-responses tool/reasoning input is not safe to compress");
-        return null;
-      }
-      const oai = openaiResponsesToOpenAIRequest(model!, body, false, undefined as unknown as Record<string, unknown>) as Record<string, unknown>;
-      if (!Array.isArray(oai?.messages)) return null;
-      const data = await callCompress(url, oai.messages as unknown[], model!, timeoutMs, compressUserMessages, diagnostics || {});
-      if (!data) return null;
-      // input: undefined so the translator rebuilds input from the compressed
-      // messages instead of returning the original input unchanged.
-      const responsesBody = openaiToOpenAIResponsesRequest(
-        model!,
-        { ...oai, input: undefined, messages: data.messages },
-        false,
-        undefined as unknown as Record<string, unknown>
-      ) as Record<string, unknown>;
-      if (Array.isArray(responsesBody?.input)) body.input = responsesBody.input;
-      if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
-      return data;
+      return compressOpenAIResponsesFormat(body, model!, url, timeoutMs, compressUserMessages, diagnostics);
     }
-
-    // Kiro shape: conversationState.history/currentMessage are projected to
-    // OpenAI messages for the proxy, then copied back into the original Kiro
-    // fields. Keep the provider payload shape intact for Kiro's executor.
     if (format === "kiro") {
-      const projection = collectKiroHeadroomMessages(body);
-      if (!projection) {
-        setDiagnostic(diagnostics, "Kiro request did not project to messages[]");
-        return null;
-      }
-      const data = await callCompress(url, projection.messages, model!, timeoutMs, compressUserMessages, diagnostics || {});
-      if (!data) return null;
-      if (!applyKiroHeadroomMessages(projection, data.messages as unknown[], diagnostics)) return null;
-      if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
-      return data;
+      return compressKiroFormat(body, model!, url, timeoutMs, compressUserMessages, diagnostics);
     }
-
-    // OpenAI shape: messages/input go straight to the proxy.
-    const key = Array.isArray(body.messages) ? "messages"
-      : Array.isArray(body.input) ? "input"
-      : null;
-    if (!key) {
-      setDiagnostic(diagnostics, `unsupported ${format || "unknown"} request shape`);
-      return null;
-    }
-    const data = await callCompress(url, body[key] as unknown[], model!, timeoutMs, compressUserMessages, diagnostics || {});
-    if (!data) return null;
-    body[key] = data.messages;
-    if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
-    return data;
+    return compressOpenAIFormat(body, model!, url, timeoutMs, compressUserMessages, diagnostics, format);
   } catch (error: unknown) {
     setDiagnostic(diagnostics, `unexpected error: ${error instanceof Error ? error.message : String(error)}`);
     return null;

@@ -44,10 +44,10 @@ const readSettings = async () => {
   }
 };
 
-// Check if settings has 9Router customModels
-const has9RouterConfig = (settings: Record<string, unknown>) => {
+// Check if settings has ModelHub customModels
+const hasModelHubConfig = (settings: Record<string, unknown>) => {
   if (!settings || !settings.customModels) return false;
-  return (settings.customModels as Array<Record<string, unknown>>).some((m: Record<string, unknown>) => (m.id as string)?.startsWith("custom:9Router"));
+  return (settings.customModels as Array<Record<string, unknown>>).some((m: Record<string, unknown>) => (m.id as string)?.startsWith("custom:ModelHub"));
 };
 
 // GET - Check droid CLI and read current settings
@@ -68,7 +68,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings,
-      has9Router: has9RouterConfig(settings),
+      hasModelHub: hasModelHubConfig(settings),
       settingsPath: getDroidSettingsPath(),
     });
   } catch (error) {
@@ -77,7 +77,7 @@ export async function GET() {
   }
 }
 
-// POST - Update 9Router customModels (merge with existing settings)
+// POST - Update ModelHub customModels (merge with existing settings)
 // Accepts either `model` (string, legacy single-model) or `models` (array of strings, multi-model)
 // Also accepts `activeModel` to set which model is active/primary
 export async function POST(request: NextRequest) {
@@ -109,8 +109,8 @@ export async function POST(request: NextRequest) {
       settings.customModels = [];
     }
 
-    // Remove all existing 9Router configs
-    settings.customModels = (settings.customModels as Array<Record<string, unknown>>).filter((m: Record<string, unknown>) => !(m.id as string)?.startsWith("custom:9Router"));
+    // Remove all existing ModelHub configs
+    settings.customModels = (settings.customModels as Array<Record<string, unknown>>).filter((m: Record<string, unknown>) => !(m.id as string)?.startsWith("custom:ModelHub"));
 
     // Normalize baseUrl to ensure /v1 suffix
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       if (!m || typeof m !== "string") continue;
       customModels.push({
         model: m,
-        id: `custom:9Router-${i}`,
+        id: `custom:ModelHub-${i}`,
         index: i,
         baseUrl: normalizedBaseUrl,
         apiKey: keyToUse,
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Remove 9Router customModels only (keep other settings)
+// DELETE - Remove ModelHub customModels only (keep other settings)
 export async function DELETE() {
   try {
     const settingsPath = getDroidSettingsPath();
@@ -190,9 +190,9 @@ export async function DELETE() {
       throw error;
     }
 
-    // Remove 9Router customModels
+    // Remove ModelHub customModels
     if (settings.customModels) {
-      settings.customModels = (settings.customModels as Array<Record<string, unknown>>).filter((m: Record<string, unknown>) => !(m.id as string)?.startsWith("custom:9Router"));
+      settings.customModels = (settings.customModels as Array<Record<string, unknown>>).filter((m: Record<string, unknown>) => !(m.id as string)?.startsWith("custom:ModelHub"));
       
       // Remove customModels array if empty
       if ((settings.customModels as Array<unknown>).length === 0) {
@@ -205,7 +205,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "9Router settings removed successfully",
+      message: "ModelHub settings removed successfully",
     });
   } catch (error) {
     console.error("Error resetting droid settings:", error);

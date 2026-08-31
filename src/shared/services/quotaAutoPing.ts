@@ -1,5 +1,6 @@
 // Quota auto-ping scheduler: warms 5h windows by sending tiny opt-in requests right after reset.
-import { getSettings, getProviderConnections, updateProviderConnection } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { getProviderConnections, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import { getClaudeUsage, getCodexUsage, getExecutor, CLAUDE_CLI_SPOOF_HEADERS, proxyAwareFetch } from "@/server/llm-gateway/usage";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "@/app/api/usage/[connectionId]/route";

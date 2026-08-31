@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/shared/components";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { translate } from "@/i18n/runtime";
 import {
   DndContext, closestCenter,
@@ -11,10 +13,10 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  CheckCircle2, Download, FolderKanban, GripVertical, PanelRightClose, Pencil, Plus, Search, Trash2,
+  CheckCircle2, Download, FolderKanban, GripVertical, Pencil, Plus, Search, Trash2,
 } from "lucide-react";
 import { formatRelativeTime } from "../chatFormatUtils";
-import type { ChatSession } from "../types";
+import type { ChatProject, ChatSession } from "../types";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 
 interface SortableSessionItemProps {
@@ -99,15 +101,31 @@ interface ChatSidebarProps {
 export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps) {
   const {
     sidebarOpen, projects, activeProjectId, sessions, projectSessionCounts, isCreatingProject, newProjectName,
-    setNewProjectName, handleCreateProject, setIsCreatingProject, handleSelectProject, handleNewChat, activeModel,
-    setSidebarOpen, historySearch, setHistorySearch, selectedSessionCount, allVisibleSessionsSelected,
+    setNewProjectName, handleCreateProject, setIsCreatingProject, handleSelectProject, handleRenameProject,
+    handleDeleteProject, handleNewChat, activeModel,
+    historySearch, setHistorySearch, selectedSessionCount, allVisibleSessionsSelected,
     toggleAllVisibleSessions, handleBulkDeleteSessions, groupedSessionItems, dndSensors, handleDragEnd,
     filteredSessionItems, activeSessionId, selectedSessionIds, renamingSessionId, setRenamingSessionId, renameValue,
     handleSelectSession, toggleSessionSelected, startRenameSession, commitRenameSession, handleDeleteSession,
     setRenameValue, renameInputRef,
   } = sessionsHook;
+  const [renamingProjectId, setRenamingProjectId] = useState("");
+  const [projectTitle, setProjectTitle] = useState("");
+  const [projectPendingDeletion, setProjectPendingDeletion] = useState<ChatProject | null>(null);
 
   const onDragEnd = (event: DragEndEvent) => handleDragEnd(event);
+  const startRenameProject = (event: React.MouseEvent, project: ChatProject) => {
+    event.stopPropagation();
+    setRenamingProjectId(project.id);
+    setProjectTitle(project.title);
+  };
+  const commitRenameProject = (projectId: string) => {
+    handleRenameProject(projectId, projectTitle);
+    setRenamingProjectId("");
+  };
+  const projectSessionCount = projectPendingDeletion
+    ? projectSessionCounts.get(projectPendingDeletion.id) || 0
+    : 0;
 
   return (
     <aside className={`order-2 w-72 shrink-0 flex-col border-l border-border bg-card/50 min-h-0 xl:w-80 ${sidebarOpen ? "hidden md:flex" : "hidden"}`}>
@@ -130,15 +148,69 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
             <span className="min-w-0 flex-1 truncate">{translate("All conversations") || "All conversations"}</span>
             <span className="text-[10px] tabular-nums text-muted-foreground">{sessions.length}</span>
           </button>
-          {projects.map((project) => (
-            <button key={project.id} type="button" onClick={() => handleSelectProject(project.id)} aria-pressed={activeProjectId === project.id} className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${activeProjectId === project.id ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
-              <FolderKanban className="size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{project.title}</span>
-              <span className="text-[10px] tabular-nums text-muted-foreground">{projectSessionCounts.get(project.id) || 0}</span>
-            </button>
-          ))}
+          {projects.map((project) => {
+            const isRenaming = renamingProjectId === project.id;
+            const sessionCount = projectSessionCounts.get(project.id) || 0;
+            return (
+              <div key={project.id} className={`group flex min-w-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-colors ${activeProjectId === project.id ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
+                {isRenaming ? (
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <FolderKanban className="size-3.5 shrink-0" />
+                    <Input
+                      autoFocus
+                      value={projectTitle}
+                      onChange={(event) => setProjectTitle(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") commitRenameProject(project.id);
+                        if (event.key === "Escape") setRenamingProjectId("");
+                      }}
+                      onBlur={() => commitRenameProject(project.id)}
+                      maxLength={80}
+                      className="h-6 min-w-0 px-1 text-xs"
+                    />
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => handleSelectProject(project.id)} aria-pressed={activeProjectId === project.id} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                    <FolderKanban className="size-3.5 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{project.title}</span>
+                  </button>
+                )}
+                {!isRenaming ? (
+                  <>
+                    <span className="text-[10px] tabular-nums text-muted-foreground">{sessionCount}</span>
+                    <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <Button variant="ghost" size="icon-sm" type="button" onClick={(event) => startRenameProject(event, project)} aria-label={`${translate("Rename project") || "Rename project"}: ${project.title}`} className="size-5">
+                        <Pencil className="size-2.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" type="button" onClick={(event) => { event.stopPropagation(); setProjectPendingDeletion(project); }} aria-label={`${translate("Delete project") || "Delete project"}: ${project.title}`} className="size-5 text-destructive hover:text-destructive">
+                        <Trash2 className="size-2.5" />
+                      </Button>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       </div>
+      <Dialog open={Boolean(projectPendingDeletion)} onOpenChange={(open) => { if (!open) setProjectPendingDeletion(null); }}>
+        <DialogContent showCloseButton={false} className="gap-4 p-0">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle>{translate("Delete project?") || "Delete project?"}</DialogTitle>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {(translate("Deleting this project permanently removes all of its conversations and messages.") || "Deleting this project permanently removes all of its conversations and messages.")}
+              {projectPendingDeletion ? ` ${projectSessionCount} ${translate("conversation(s) will be removed.") || "conversation(s) will be removed."}` : ""}
+            </p>
+          </DialogHeader>
+          <DialogFooter className="mx-0 mb-0">
+            <Button variant="outline" type="button" onClick={() => setProjectPendingDeletion(null)}>{translate("Cancel") || "Cancel"}</Button>
+            <Button variant="destructive" type="button" onClick={() => {
+              if (projectPendingDeletion) handleDeleteProject(projectPendingDeletion.id);
+              setProjectPendingDeletion(null);
+            }}>{translate("Delete project") || "Delete project"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-3">
         <h2 className="text-sm font-semibold text-foreground">{translate("History") || "History"}</h2>
         <div className="flex items-center gap-0.5">
@@ -147,9 +219,6 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
           </Button>
           <Button variant="ghost" size="icon-sm" type="button" aria-label={translate("New chat") || "New chat"} onClick={handleNewChat} disabled={!activeModel} className="size-7">
             <Plus className="size-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" type="button" aria-label={translate("Hide sidebar") || "Hide sidebar"} onClick={() => setSidebarOpen(false)} className="size-7">
-            <PanelRightClose className="size-3.5" />
           </Button>
         </div>
       </div>

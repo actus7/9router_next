@@ -3,8 +3,7 @@ import os from "os";
 import { execSync } from "child_process";
 import { installTailscale, loadState, generateShortId } from "@/lib/tunnel";
 import { getCachedPassword, loadEncryptedPassword, initDbHooks } from "@/lib/elevatedExec";
-import { getSettings, updateSettings } from "@/lib/localDb";
-
+import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
 initDbHooks(getSettings, updateSettings);
 
 const EXTENDED_PATH = `/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:${process.env.PATH || ""}`;

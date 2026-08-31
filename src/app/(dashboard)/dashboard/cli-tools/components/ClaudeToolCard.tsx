@@ -8,10 +8,12 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+import { useModelAliases } from "./useCliToolCommon";
+import { StatusMessage, ActionButtons } from "./CliToolShared";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Copy, History, Info, Loader2, Save, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, Copy, Info, Loader2, TriangleAlert, X } from "lucide-react";
 
 const CLOUD_URL = process.env.NEXT_PUBLIC_CLOUD_URL;
 
@@ -25,7 +27,7 @@ const CONTEXT_OPTIONS = [
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; defaultModels: Array<{ alias: string; name: string; envKey?: string; defaultValue?: string }>; requiresExternalUrl?: boolean; }
-interface StatusData { installed?: boolean; has9Router?: boolean; hasBackup?: boolean; exaMcpEnabled?: boolean; settings?: { env?: Record<string, string> }; }
+interface StatusData { installed?: boolean; hasModelHub?: boolean; hasBackup?: boolean; exaMcpEnabled?: boolean; settings?: { env?: Record<string, string> }; }
 interface Message { type: "success" | "error"; text: string; }
 
 interface ClaudeToolCardProps {
@@ -60,13 +62,13 @@ export default function ClaudeToolCard({
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [currentEditingAlias, setCurrentEditingAlias] = useState<string | null>(null);
   const [selectedApiKey, setSelectedApiKey] = useState<string>("");
-  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
   const [ccFilterNaming, setCcFilterNaming] = useState<boolean>(false);
   const [exaMcpEnabled, setExaMcpEnabled] = useState<boolean>(false);
   const [maxContextTokens, setMaxContextTokens] = useState<string>("");
   const hasInitializedModels = useRef(false);
+  const { modelAliases, fetchModelAliases } = useModelAliases();
 
   const getConfigStatus = () => {
     if (!claudeStatus?.installed) return null;
@@ -119,16 +121,6 @@ export default function ClaudeToolCard({
     }).catch(() => {});
   };
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.error("Error fetching model aliases:", error);
-    }
-  };
-
   useEffect(() => {
     if (claudeStatus?.installed && !hasInitializedModels.current) {
       hasInitializedModels.current = true;
@@ -177,7 +169,7 @@ export default function ClaudeToolCard({
       const env: Record<string, string> = { ANTHROPIC_BASE_URL: getEffectiveBaseUrl() };
       const keyToUse = selectedApiKey?.trim()
         || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+        || (!cloudEnabled ? "sk_modelhub" : null);
       if (keyToUse) env.ANTHROPIC_AUTH_TOKEN = keyToUse;
       tool.defaultModels.forEach((model) => {
         const targetModel = modelMappings[model.alias];
@@ -237,7 +229,7 @@ export default function ClaudeToolCard({
   const getManualConfigs = () => {
     const keyToUse = (selectedApiKey && selectedApiKey.trim())
       ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+      : (!cloudEnabled ? "sk_modelhub" : "<API_KEY_FROM_DASHBOARD>");
     const env: Record<string, string> = { ANTHROPIC_BASE_URL: getEffectiveBaseUrl(), ANTHROPIC_AUTH_TOKEN: keyToUse };
     tool.defaultModels.forEach((model) => {
       const targetModel = modelMappings[model.alias];
@@ -283,7 +275,7 @@ export default function ClaudeToolCard({
                   <TriangleAlert className="size-4" />
                   <div className="flex-1">
                     <p className="font-medium text-yellow-600 dark:text-yellow-400">Claude CLI not detected locally</p>
-                    <p className="text-sm text-text-muted">Manual configuration is still available if 9router is deployed on a remote server.</p>
+                    <p className="text-sm text-text-muted">Manual configuration is still available if modelhub is deployed on a remote server.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pl-9">
@@ -397,24 +389,17 @@ export default function ClaudeToolCard({
                 </div>
               </div>
 
-              {message && (
-                <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}>
-                  {message.type === "success" ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
-                  <span>{message.text}</span>
-                </div>
-              )}
+              <StatusMessage message={message} />
 
-              <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
-                <Button variant="primary" size="sm" onClick={handleApplySettings} disabled={!hasActiveProviders} loading={applying}>
-                  <Save className="size-4" />Apply
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleResetSettings} disabled={!claudeStatus?.has9Router} loading={restoring}>
-                  <History className="size-4" />Reset
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)}>
-                  <Copy className="size-4" />Manual Config
-                </Button>
-              </div>
+              <ActionButtons
+                onApply={handleApplySettings}
+                applyDisabled={!hasActiveProviders}
+                applyLoading={applying}
+                onReset={handleResetSettings}
+                resetDisabled={!claudeStatus?.hasModelHub}
+                resetLoading={restoring}
+                onManualConfig={() => setShowManualConfigModal(true)}
+              />
             </>
           )}
         </div>

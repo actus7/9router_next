@@ -5,7 +5,7 @@ import { spawn, ChildProcess } from "child_process";
 import crypto from "crypto";
 import { LOCAL_STDIO_PLUGINS } from "@/shared/constants/coworkPlugins";
 
-const G_KEY: string = "__9routerMcpBridges";
+const G_KEY: string = "__modelhubMcpBridges";
 const MAX_TEXT_CHARS: number = 50000;
 const COLLAPSE_THRESHOLD: number = 30;
 const COLLAPSE_KEEP_HEAD: number = 10;
@@ -32,7 +32,7 @@ function smartFilterText(text: string): string {
   out = collapseRepeated(out);
   if (out.length > MAX_TEXT_CHARS) {
     const head: string = out.slice(0, MAX_TEXT_CHARS - 300);
-    out = `${head}\n\n... [truncated ${text.length - head.length} chars by 9router bridge. Page is large; ask user to scroll/navigate to a specific section, or click an element with the refs shown above]`;
+    out = `${head}\n\n... [truncated ${text.length - head.length} chars by modelhub bridge. Page is large; ask user to scroll/navigate to a specific section, or click an element with the refs shown above]`;
   }
   return out;
 }
@@ -61,7 +61,7 @@ function collapseRepeated(text: string): string {
       const headEnd: number = findNthSiblingEnd(lines, i, indent, role, COLLAPSE_KEEP_HEAD);
       const tailStart: number = findLastNSiblingStart(lines, j, indent, role, COLLAPSE_KEEP_TAIL);
       for (let k = i; k < headEnd; k++) out.push(lines[k]);
-      out.push(`${indent}... [${groupLen - COLLAPSE_KEEP_HEAD - COLLAPSE_KEEP_TAIL} similar "${role}" items omitted by 9router bridge]`);
+      out.push(`${indent}... [${groupLen - COLLAPSE_KEEP_HEAD - COLLAPSE_KEEP_TAIL} similar "${role}" items omitted by modelhub bridge]`);
       for (let k = tailStart; k < j; k++) out.push(lines[k]);
     } else {
       for (let k = i; k < j; k++) out.push(lines[k]);

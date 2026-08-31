@@ -100,7 +100,7 @@ function createSamlInstance(settings: SamlSettings, origin: string): SAML {
   const callbackUrl: string = `${origin}/api/auth/saml/acs`;
   return new SAML({
     entryPoint: settings?.samlEntryPoint || "https://example.com/sso",
-    issuer: settings?.samlIssuer || "urn:9router:sp",
+    issuer: settings?.samlIssuer || "urn:modelhub:sp",
     idpCert: cert,
     callbackUrl: callbackUrl,
     acceptedClockSkewMs: 60000,

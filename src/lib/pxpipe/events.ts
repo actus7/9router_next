@@ -44,8 +44,9 @@ export function readPxpipeEvents({ sinceMs = null, limit = null }: ReadEventsOpt
   const events: PxpipeEvent[] = [];
   for (const file of [ROTATED_FILE, EVENTS_FILE]) {
     try {
-      if (!fs.existsSync(file)) continue;
-      for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+      // PXPipe logs are runtime files under the user's data directory.
+      if (!fs.existsSync(/*turbopackIgnore: true*/ file)) continue;
+      for (const line of fs.readFileSync(/*turbopackIgnore: true*/ file, "utf8").split("\n")) {
         if (!line) continue;
         try {
           const ev: PxpipeEvent = JSON.parse(line);

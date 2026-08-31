@@ -1,6 +1,6 @@
 // Re-export from open-sse with local logger
 import * as log from "../utils/logger";
-import { updateProviderConnection } from "@/lib/localDb";
+import { updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import {
   getProjectIdForConnection,
   invalidateProjectId,

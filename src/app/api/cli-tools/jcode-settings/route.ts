@@ -13,7 +13,7 @@ const getConfigPath = () => path.join(getJcodeConfigDir(), "config.toml");
 
 const getProviderEnvPath = () => {
   const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-  return path.join(configDir, "jcode", "provider-9router.env");
+  return path.join(configDir, "jcode", "provider-modelhub.env");
 };
 
 const checkJcodeInstalled = async () => {
@@ -42,12 +42,12 @@ const readConfig = async (): Promise<Record<string, unknown>> => {
   }
 };
 
-const has9RouterConfig = (config: Record<string, unknown>) => {
+const hasModelHubConfig = (config: Record<string, unknown>) => {
   if (!config || !config.providers) return false;
 
   const providers = config.providers as Record<string, Record<string, unknown>>;
 
-  if (providers["9router"]) return true;
+  if (providers["modelhub"]) return true;
 
   for (const [, provider] of Object.entries(providers)) {
     if ((provider as Record<string, unknown>).base_url && ((provider as Record<string, unknown>).base_url as string).includes("localhost:20128")) {
@@ -116,12 +116,12 @@ export async function GET() {
   }
 
   const config = await readConfig();
-  const has9Router = has9RouterConfig(config);
+  const hasModelHub = hasModelHubConfig(config);
 
   return NextResponse.json({
     installed: true,
     config,
-    has9Router,
+    hasModelHub,
     configPath: getConfigPath(),
   });
 }
@@ -147,12 +147,12 @@ export async function POST(request: NextRequest) {
       config.providers = {} as Record<string, Record<string, unknown>>;
     }
 
-    (config.providers as Record<string, Record<string, unknown>>)["9router"] = {
+    (config.providers as Record<string, Record<string, unknown>>)["modelhub"] = {
       type: "openai-compatible",
       base_url: normalizedBaseUrl,
       auth: "bearer",
-      api_key_env: "JCODE_9ROUTER_API_KEY",
-      env_file: "provider-9router.env",
+      api_key_env: "JCODE_MODELHUB_API_KEY",
+      env_file: "provider-modelhub.env",
       default_model: models && models.length > 0 ? models[0] : "cc/claude-opus-4-7",
       requires_api_key: true,
     };
@@ -167,12 +167,12 @@ export async function POST(request: NextRequest) {
     await fs.mkdir(jcodeConfigDir, { recursive: true });
 
     const env = await readProviderEnv();
-    env.JCODE_9ROUTER_API_KEY = apiKey;
+    env.JCODE_MODELHUB_API_KEY = apiKey;
     await writeProviderEnv(env);
 
     return NextResponse.json({
       success: true,
-      message: "jcode configured successfully. Use: jcode --provider-profile 9router",
+      message: "jcode configured successfully. Use: jcode --provider-profile modelhub",
       configPath: getConfigPath(),
     });
   } catch (error: unknown) {
@@ -192,17 +192,17 @@ export async function DELETE() {
       return NextResponse.json({ success: true, message: "No configuration to remove" });
     }
 
-    delete (config.providers as Record<string, unknown>)["9router"];
+    delete (config.providers as Record<string, unknown>)["modelhub"];
 
     await writeConfig(config);
 
     const env = await readProviderEnv();
-    delete env.JCODE_9ROUTER_API_KEY;
+    delete env.JCODE_MODELHUB_API_KEY;
     await writeProviderEnv(env);
 
     return NextResponse.json({
       success: true,
-      message: "9router configuration removed from jcode",
+      message: "modelhub configuration removed from jcode",
     });
   } catch (error: unknown) {
     console.error("Error removing jcode configuration:", error);

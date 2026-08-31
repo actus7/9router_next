@@ -5,7 +5,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * FASE 6 (PLANOMIGRACAOOPENSSE.md) — security controls pinned by tests:
+ * Gateway security controls pinned by tests:
  * SSRF guard behavior, secret masking, and client-safe catalog purity.
  */
 

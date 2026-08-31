@@ -207,7 +207,7 @@ export async function isTailscaleRunningStrict(): Promise<boolean> {
   }
 }
 
-// Check if a system-level tailscaled is running (uses system socket, not 9Router's custom one).
+// Check if a system-level tailscaled is running (uses system socket, not ModelHub's custom one).
 export function isSystemDaemonRunning(): boolean {
   if (IS_WINDOWS || !SYSTEM_TAILSCALE_SOCKET || !fs.existsSync(SYSTEM_TAILSCALE_SOCKET)) return false;
   const bin: string | null = getTailscaleBin();
@@ -522,7 +522,7 @@ export function isDaemonAlive(): boolean {
  * Start tailscaled.
  * - With sudoPassword: TUN mode (root) → Funnel TLS works
  * - Without: userspace-networking fallback (no sudo, but Funnel TLS unstable)
- * State always lives in ~/.9router/tailscale/ via --statedir.
+ * State always lives in ~/.modelhub/tailscale/ via --statedir.
  */
 export async function startDaemonWithPassword(sudoPassword: string): Promise<void> {
   if (IS_WINDOWS) {
@@ -644,7 +644,7 @@ export function startLogin(hostname: string): Promise<LoginResult> {
 
     const args: string[] = tsArgs("up", "--accept-routes");
     if (hostname) args.push(`--hostname=${hostname}`);
-    const child: ChildProcess = spawn(bin, args, {
+    const child: ChildProcess = spawn(/*turbopackIgnore: true*/ bin, args, {
       stdio: ["ignore", "pipe", "pipe"],
       detached: true,
       windowsHide: true
@@ -735,7 +735,7 @@ export async function startFunnel(port: number): Promise<FunnelResult> {
   try { execSync(`"${bin}" ${SOCKET_FLAG.join(" ")} funnel --bg reset`, { stdio: "ignore", windowsHide: true }); } catch (e: unknown) { /* ignore */ }
 
   return new Promise<FunnelResult>((resolve: (value: FunnelResult) => void, reject: (reason: Error) => void) => {
-    const child: ChildProcess = spawn(bin, tsArgs("funnel", "--bg", `${port}`), {
+    const child: ChildProcess = spawn(/*turbopackIgnore: true*/ bin, tsArgs("funnel", "--bg", `${port}`), {
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true
     });

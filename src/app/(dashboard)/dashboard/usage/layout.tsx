@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Usage & Analytics | 9Router",
+  title: "Usage & Analytics | ModelHub",
   description: "View API usage statistics and analytics",
 };
 

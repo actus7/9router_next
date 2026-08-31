@@ -1,68 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getProviderConnections,
-  updateProviderConnection,
-} from "@/lib/localDb";
-
-const MODEL_LOCK_PREFIX = "modelLock_";
-
-interface ModelLock {
-  key: string;
-  model: string;
-  until: string;
-  active: boolean;
-}
-
-function getActiveModelLocks(connection: Record<string, unknown>): ModelLock[] {
-  const now = Date.now();
-  return Object.entries(connection)
-    .filter(([key, value]) => key.startsWith(MODEL_LOCK_PREFIX) && value)
-    .map(([key, value]) => ({
-      key,
-      model: key.slice(MODEL_LOCK_PREFIX.length) || "__all",
-      until: value as string,
-      active: new Date(value as string).getTime() > now,
-    }))
-    .filter((lock) => lock.active);
-}
-
+import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
+import { cleanupExpiredModelAvailability, clearProviderModelAvailability, getActiveModelAvailability } from "@/lib/db/repos/modelAvailabilityRepo";
 export async function GET(): Promise<NextResponse> {
   try {
-    const connections = await getProviderConnections();
+    await cleanupExpiredModelAvailability();
+    const [connections, availability] = await Promise.all([
+      getProviderConnections(),
+      getActiveModelAvailability(),
+    ]);
+    const connectionById = new Map(connections.map((connection) => [connection.id as string, connection]));
     const models: Array<{
       provider: string;
       model: string;
-      status: string;
+      status: "cooldown" | "unavailable";
       until?: string;
       connectionId: string;
       connectionName: string;
       lastError: string | null;
+      reason: string;
+      errorCode: number | null;
     }> = [];
 
-    for (const connection of connections) {
-      const locks = getActiveModelLocks(connection);
-      for (const lock of locks) {
-        models.push({
-          provider: connection.provider as string,
-          model: lock.model,
-          status: "cooldown",
-          until: lock.until,
-          connectionId: connection.id as string,
-          connectionName: (connection.name || connection.email || connection.id) as string,
-          lastError: connection.lastError ? String(connection.lastError) : null,
-        });
-      }
-
-      if (locks.length === 0 && connection.testStatus === "unavailable") {
-        models.push({
-          provider: connection.provider as string,
-          model: "__all",
-          status: "unavailable",
-          connectionId: connection.id as string,
-          connectionName: (connection.name || connection.email || connection.id) as string,
-          lastError: connection.lastError ? String(connection.lastError) : null,
-        });
-      }
+    for (const record of availability) {
+      const connection = connectionById.get(record.connectionId);
+      if (!connection) continue;
+      models.push({
+        provider: connection.provider as string,
+        model: record.modelId,
+        status: record.status,
+        until: record.until || undefined,
+        connectionId: record.connectionId,
+        connectionName: (connection.name || connection.email || connection.id) as string,
+        lastError: record.lastError,
+        reason: record.reason,
+        errorCode: record.errorCode,
+      });
     }
 
     return NextResponse.json({
@@ -87,27 +59,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const connections = await getProviderConnections({ provider });
-    const lockKey = `${MODEL_LOCK_PREFIX}${model}`;
-
-    await Promise.all(
-      connections
-        .filter((connection: Record<string, unknown>) => connection[lockKey])
-        .map((connection: Record<string, unknown>) =>
-          updateProviderConnection(connection.id as string, {
-            [lockKey]: null,
-            ...(connection.testStatus === "unavailable"
-              ? {
-                  testStatus: "active",
-                  lastError: null,
-                  lastErrorAt: null,
-                  backoffLevel: 0,
-                }
-              : {}),
-          }),
-        ),
+    const cleared = await clearProviderModelAvailability(
+      connections.map((connection) => connection.id as string),
+      model,
     );
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, cleared });
   } catch (error) {
     console.error("[API] Failed to clear model cooldown:", error);
     return NextResponse.json(

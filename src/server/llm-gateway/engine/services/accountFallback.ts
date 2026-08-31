@@ -103,64 +103,6 @@ export function formatRetryAfter(rateLimitedUntil: string) {
   return `reset after ${parts.join(" ")}`;
 }
 
-/** Prefix for model lock flat fields on connection record */
-const MODEL_LOCK_PREFIX = "modelLock_";
-
-/** Special key used when no model is known (account-level lock) */
-const MODEL_LOCK_ALL = `${MODEL_LOCK_PREFIX}__all`;
-
-/** Build the flat field key for a model lock */
-function getModelLockKey(model: string | null) {
-  return model ? `${MODEL_LOCK_PREFIX}${model}` : MODEL_LOCK_ALL;
-}
-
-/**
- * Check if a model lock on a connection is still active.
- * Reads flat field `modelLock_${model}` (or `modelLock___all` when model=null).
- */
-export function isModelLockActive(connection: Account, model: string | null) {
-  const key = getModelLockKey(model);
-  const expiry = connection[key] || connection[MODEL_LOCK_ALL];
-  if (!expiry) return false;
-  return new Date(String(expiry)).getTime() > Date.now();
-}
-
-/**
- * Get earliest active model lock expiry across all modelLock_* fields.
- * Used for UI cooldown display.
- */
-export function getEarliestModelLockUntil(connection: Account) {
-  if (!connection) return null;
-  let earliest: number | null = null;
-  const now = Date.now();
-  for (const [key, val] of Object.entries(connection)) {
-    if (!key.startsWith(MODEL_LOCK_PREFIX) || !val) continue;
-    const t = new Date(String(val)).getTime();
-    if (t <= now) continue;
-    if (!earliest || t < earliest) earliest = t;
-  }
-  return earliest ? new Date(earliest).toISOString() : null;
-}
-
-/**
- * Build update object to set a model lock on a connection.
- */
-export function buildModelLockUpdate(model: string | null, cooldownMs: number) {
-  const key = getModelLockKey(model);
-  return { [key]: new Date(Date.now() + cooldownMs).toISOString() };
-}
-
-/**
- * Build update object to clear all model locks on a connection.
- */
-function buildClearModelLocksUpdate(connection: Account) {
-  const cleared: Record<string, null> = {};
-  for (const key of Object.keys(connection)) {
-    if (key.startsWith(MODEL_LOCK_PREFIX)) cleared[key] = null;
-  }
-  return cleared;
-}
-
 /**
  * Filter available accounts (not in cooldown)
  */

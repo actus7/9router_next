@@ -1,5 +1,6 @@
 export default {
   id: "gitlab",
+  alias: "gitlab",
   hidden: true,
   priority: 100,
   display: {

@@ -6,7 +6,7 @@ import {
   isValidApiKey,
   type CredentialsResult,
 } from "../auth/accountSelection";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getModelInfo } from "./modelResolution";
 import { handleVideoProxyCore, getVideoConfig, sanitizeSecrets } from "@/server/llm-gateway/engine/handlers/videoCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
@@ -93,7 +93,7 @@ async function resolveVideoProvider(parsedBody: Record<string, unknown> | null |
 function withConnectionHeader(response: Response, connectionId: string | null): Response {
   if (!connectionId) return response;
   const headers: Headers = new Headers(response.headers);
-  headers.set("x-9router-connection-id", String(connectionId));
+  headers.set("x-modelhub-connection-id", String(connectionId));
   return new Response(response.body, { status: response.status, headers });
 }
 

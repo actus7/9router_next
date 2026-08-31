@@ -5,7 +5,7 @@ import ProvidersClient from "./ProvidersClient";
 import { Spinner } from "@/shared/components/Loading";
 
 export const metadata: Metadata = {
-  title: "Providers | 9Router",
+  title: "Providers | ModelHub",
   description: "Manage AI provider connections",
 };
 

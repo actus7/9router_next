@@ -21,12 +21,23 @@ export function RuntimeI18nProvider({
   const pathname: string | null = usePathname();
   const isInitialPathname = useRef(true);
 
-  // Client components are pre-rendered on the server, where the runtime
-  // translation singleton starts in English. Applying a locale here (before
-  // hydration) makes the client render differ from that server HTML. Start
-  // translation only after hydration, then keep the DOM observer active.
+  // `initRuntimeI18n` mutates text nodes to translate the already rendered
+  // document. A parent effect can run while streamed client boundaries are
+  // still hydrating, which lets that mutation race React and produces a
+  // hydration mismatch (for example, "Select model" -> "Selecionar modelo").
+  // Wait for two frames so the initial server HTML is fully claimed first.
   useEffect(() => {
-    void initRuntimeI18n();
+    let secondFrame: number | undefined;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        void initRuntimeI18n();
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame !== undefined) cancelAnimationFrame(secondFrame);
+    };
   }, [locale, translations]);
 
   // Re-process DOM when route changes (skip initial render to preserve SSR translations)

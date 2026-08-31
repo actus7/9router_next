@@ -53,6 +53,11 @@ export {
   upsertSmartModelProfiles, deleteSmartModelProfiles,
 } from "./repos/smartModelProfilesRepo";
 
+export {
+  getActiveModelAvailability, setModelAvailability, clearModelAvailability,
+  clearProviderModelAvailability, cleanupExpiredModelAvailability,
+} from "./repos/modelAvailabilityRepo";
+
 // Aliases (model + custom)
 export {
   getModelAliases, setModelAlias, deleteModelAlias,
@@ -104,6 +109,7 @@ export async function exportDb(): Promise<Record<string, unknown>> {
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     })),
+    modelAvailability: db.all(`SELECT * FROM modelAvailability`) as Array<Record<string, unknown>>,
     modelAliases: {} as Record<string, unknown>,
     customModels: [] as unknown[],
     pricing: {} as Record<string, unknown>,
@@ -131,6 +137,7 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
     db.run(`DELETE FROM apiKeys`);
     db.run(`DELETE FROM combos`);
     db.run(`DELETE FROM smartModelProfiles`);
+    db.run(`DELETE FROM modelAvailability`);
     db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'pricing')`);
 
     // Settings
@@ -175,6 +182,24 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
       db.run(
         `INSERT OR REPLACE INTO smartModelProfiles(modelKey, inventoryFingerprint, source, profile, classifierModel, sources, researchedAt, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [p.modelKey, p.inventoryFingerprint, p.source || "deterministic", stringifyJson(p.profile || {}), p.classifierModel || null, stringifyJson(p.sources || []), p.researchedAt || null, p.createdAt || new Date().toISOString(), p.updatedAt || new Date().toISOString()]
+      );
+    }
+    for (const availability of (payload.modelAvailability || []) as Array<Record<string, unknown>>) {
+      if (!availability.connectionId || !availability.modelId) continue;
+      db.run(
+        `INSERT OR REPLACE INTO modelAvailability(connectionId, modelId, status, reason, errorCode, lastError, until, createdAt, updatedAt)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          availability.connectionId,
+          availability.modelId,
+          availability.status || "cooldown",
+          availability.reason || "legacy",
+          availability.errorCode || null,
+          availability.lastError || null,
+          availability.until || null,
+          availability.createdAt || new Date().toISOString(),
+          availability.updatedAt || new Date().toISOString(),
+        ],
       );
     }
     for (const [a, m] of Object.entries((payload.modelAliases || {}) as Record<string, unknown>)) {

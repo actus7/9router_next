@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getComboById } from "@/lib/localDb";
+import { getComboById } from "@/lib/db/repos/combosRepo";
 import { getProviders, getModelAliases } from "@/lib/data-access";
 import SmartComboClient from "./SmartComboClient";
 import { refreshDeterministicSmartProfiles } from "@/server/llm-gateway/smart-routing";

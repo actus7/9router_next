@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse  } from "next/server";
-import { getProviderConnections } from "@/lib/localDb";
-
+import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 const langNames = new Intl.DisplayNames(["en"], { type: "language" });
 
 /**

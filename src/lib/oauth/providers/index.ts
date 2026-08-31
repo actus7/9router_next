@@ -246,7 +246,7 @@ export async function backfillCodexEmails(): Promise<void> {
   if (codexBackfillDone) return;
   codexBackfillDone = true;
   try {
-    const { getProviderConnections, updateProviderConnection } = await import("@/lib/localDb");
+    const { getProviderConnections, updateProviderConnection } = await import("@/lib/db/repos/connectionsRepo");
     const connections: CodexConnection[] = await getProviderConnections() as CodexConnection[];
     const targets: CodexConnection[] = connections.filter((c: CodexConnection) => {
       if (c.provider !== "codex" || c.authType !== "oauth" || !c.idToken) return false;

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "path";
 import os from "os";
 
-const APP_NAME: string = "9router";
+const APP_NAME: string = "modelhub";
 
 function defaultDir(): string {
   if (process.platform === "win32") {

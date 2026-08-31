@@ -1,5 +1,6 @@
 export default {
   id: "mmf",
+  alias: "mmf-legacy",
   hidden: true,
   priority: 200,
   display: {

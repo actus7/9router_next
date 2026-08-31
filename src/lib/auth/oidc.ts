@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from "jose";
-import { getSettings } from "@/lib/localDb";
-
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 const OIDC_COOKIE_NAMES: Record<string, string> = {
   state: "oidc_state",
   nonce: "oidc_nonce",

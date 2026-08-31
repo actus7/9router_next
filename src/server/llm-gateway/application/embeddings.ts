@@ -5,7 +5,7 @@ import {
   extractApiKey,
   isValidApiKey,
 } from "../auth/accountSelection";
-import { getSettings } from "@/lib/localDb";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getModelInfo } from "./modelResolution";
 import { handleEmbeddingsCore } from "@/server/llm-gateway/engine/handlers/embeddingsCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";

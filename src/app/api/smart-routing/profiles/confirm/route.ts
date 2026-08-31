@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { upsertSmartModelProfiles } from "@/lib/localDb";
+import { upsertSmartModelProfiles } from "@/lib/db/repos/smartModelProfilesRepo";
 import { refreshDeterministicSmartProfiles, invalidateSmartProfileCache, ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTier, type SmartModelProfile } from "@/server/llm-gateway/smart-routing";
 
 function clamp(value: unknown, fallback: number): number {

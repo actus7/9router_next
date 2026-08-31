@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteApiKey, getApiKeyById, updateApiKey } from "@/lib/localDb";
-
+import { deleteApiKey, getApiKeyById, updateApiKey } from "@/lib/db/repos/apiKeysRepo";
 interface RouteContext {
   params: Promise<{ id: string }>;
 }

@@ -277,101 +277,116 @@ async function resolveKiroProfileArnPatch(providerSpecificData: ProviderSpecific
   return profileArn ? { providerSpecificData: { profileArn } as ProviderSpecificData } : {};
 }
 
-export async function refreshKiroToken(refreshToken: string, providerSpecificData: ProviderSpecificData | undefined, log?: Logger, proxyOptions: null = null): Promise<RefreshResult | null> {
-  if (!refreshToken) return null;
-  return dedupRefresh<RefreshResult | null>("kiro", refreshToken, async () => {
-  const authMethod = providerSpecificData?.authMethod as string;
-  const clientId = providerSpecificData?.clientId as string;
-  const clientSecret = providerSpecificData?.clientSecret as string;
-  const region = providerSpecificData?.region as string;
-
-  if (authMethod === "external_idp") {
-    let refreshRequest;
-    try {
-      refreshRequest = buildExternalIdpRefreshParams(refreshToken, providerSpecificData);
-    } catch (error: unknown) {
-      log?.warn?.("TOKEN_REFRESH", `Invalid Kiro external_idp refresh config: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
-    }
-
-    const response = (await proxyAwareFetch(refreshRequest.tokenEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: refreshRequest.body,
-    }, proxyOptions)) as Response;
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      log?.error?.("TOKEN_REFRESH", "Failed to refresh Kiro external_idp token", {
-        status: response.status,
-        error: errorText,
-      });
-      return null;
-    }
-
-    const tokens = (await response.json()) as Record<string, unknown>;
-
-    log?.info?.("TOKEN_REFRESH", "Successfully refreshed Kiro external_idp token", {
-      hasNewAccessToken: !!tokens.access_token,
-      hasNewRefreshToken: !!tokens.refresh_token,
-      expiresIn: tokens.expires_in,
-    });
-
-    return {
-      accessToken: tokens.access_token as string,
-      refreshToken: (tokens.refresh_token as string) || refreshToken,
-      expiresIn: tokens.expires_in as number,
-      providerSpecificData: refreshRequest.providerSpecificData,
-    };
+/** Kiro external_idp refresh: buildExternalIdpRefreshParams → proxyAwareFetch. */
+async function refreshKiroExternalIdp(
+  refreshToken: string,
+  providerSpecificData: ProviderSpecificData,
+  log?: Logger,
+  proxyOptions: null = null,
+): Promise<RefreshResult | null> {
+  let refreshRequest;
+  try {
+    refreshRequest = buildExternalIdpRefreshParams(refreshToken, providerSpecificData);
+  } catch (error: unknown) {
+    log?.warn?.("TOKEN_REFRESH", `Invalid Kiro external_idp refresh config: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
   }
 
-  if (clientId && clientSecret) {
-    const isIDC = authMethod === "idc";
-    const endpoint = isIDC && region
-      ? `https://oidc.${region}.amazonaws.com/token`
-      : "https://oidc.us-east-1.amazonaws.com/token";
+  const response = (await proxyAwareFetch(refreshRequest.tokenEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: refreshRequest.body,
+  }, proxyOptions)) as Response;
 
-    const response = (await proxyAwareFetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        clientId: clientId,
-        clientSecret: clientSecret,
-        refreshToken: refreshToken,
-        grantType: "refresh_token",
-      }),
-    }, proxyOptions)) as Response;
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      log?.error?.("TOKEN_REFRESH", "Failed to refresh Kiro AWS token", {
-        status: response.status,
-        error: errorText,
-      });
-      return null;
-    }
-
-    const tokens = (await response.json()) as Record<string, unknown>;
-
-    log?.info?.("TOKEN_REFRESH", "Successfully refreshed Kiro AWS token", {
-      hasNewAccessToken: !!tokens.accessToken,
-      expiresIn: tokens.expiresIn,
+  if (!response.ok) {
+    const errorText = await response.text();
+    log?.error?.("TOKEN_REFRESH", "Failed to refresh Kiro external_idp token", {
+      status: response.status,
+      error: errorText,
     });
-
-    return {
-      accessToken: tokens.accessToken as string,
-      refreshToken: (tokens.refreshToken as string) || refreshToken,
-      expiresIn: tokens.expiresIn as number,
-      ...(await resolveKiroProfileArnPatch(providerSpecificData, tokens.accessToken as string, tokens.profileArn as string)),
-    };
+    return null;
   }
 
+  const tokens = (await response.json()) as Record<string, unknown>;
+
+  log?.info?.("TOKEN_REFRESH", "Successfully refreshed Kiro external_idp token", {
+    hasNewAccessToken: !!tokens.access_token,
+    hasNewRefreshToken: !!tokens.refresh_token,
+    expiresIn: tokens.expires_in,
+  });
+
+  return {
+    accessToken: tokens.access_token as string,
+    refreshToken: (tokens.refresh_token as string) || refreshToken,
+    expiresIn: tokens.expires_in as number,
+    providerSpecificData: refreshRequest.providerSpecificData,
+  };
+}
+
+/** Kiro AWS (IDC/SSO) refresh: clientId+clientSecret → OIDC token endpoint. */
+async function refreshKiroAws(
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string,
+  authMethod: string,
+  region: string,
+  providerSpecificData: ProviderSpecificData | undefined,
+  log?: Logger,
+  proxyOptions: null = null,
+): Promise<RefreshResult | null> {
+  const isIDC = authMethod === "idc";
+  const endpoint = isIDC && region
+    ? `https://oidc.${region}.amazonaws.com/token`
+    : "https://oidc.us-east-1.amazonaws.com/token";
+
+  const response = (await proxyAwareFetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      clientId: clientId,
+      clientSecret: clientSecret,
+      refreshToken: refreshToken,
+      grantType: "refresh_token",
+    }),
+  }, proxyOptions)) as Response;
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    log?.error?.("TOKEN_REFRESH", "Failed to refresh Kiro AWS token", {
+      status: response.status,
+      error: errorText,
+    });
+    return null;
+  }
+
+  const tokens = (await response.json()) as Record<string, unknown>;
+
+  log?.info?.("TOKEN_REFRESH", "Successfully refreshed Kiro AWS token", {
+    hasNewAccessToken: !!tokens.accessToken,
+    expiresIn: tokens.expiresIn,
+  });
+
+  return {
+    accessToken: tokens.accessToken as string,
+    refreshToken: (tokens.refreshToken as string) || refreshToken,
+    expiresIn: tokens.expiresIn as number,
+    ...(await resolveKiroProfileArnPatch(providerSpecificData, tokens.accessToken as string, tokens.profileArn as string)),
+  };
+}
+
+/** Kiro social (default) refresh: refreshToken → kiroCfg.tokenUrl. */
+async function refreshKiroSocial(
+  refreshToken: string,
+  providerSpecificData: ProviderSpecificData | undefined,
+  log?: Logger,
+  proxyOptions: null = null,
+): Promise<RefreshResult | null> {
   const kiroCfg = PROVIDERS.kiro as ProviderConfig | undefined;
   const response = (await proxyAwareFetch(kiroCfg?.tokenUrl as string, {
     method: "POST",
@@ -407,6 +422,25 @@ export async function refreshKiroToken(refreshToken: string, providerSpecificDat
     expiresIn: tokens.expiresIn as number,
     ...(await resolveKiroProfileArnPatch(providerSpecificData, tokens.accessToken as string, tokens.profileArn as string)),
   };
+}
+
+export async function refreshKiroToken(refreshToken: string, providerSpecificData: ProviderSpecificData | undefined, log?: Logger, proxyOptions: null = null): Promise<RefreshResult | null> {
+  if (!refreshToken) return null;
+  return dedupRefresh<RefreshResult | null>("kiro", refreshToken, async () => {
+  const authMethod = providerSpecificData?.authMethod as string;
+  const clientId = providerSpecificData?.clientId as string;
+  const clientSecret = providerSpecificData?.clientSecret as string;
+  const region = providerSpecificData?.region as string;
+
+  if (authMethod === "external_idp") {
+    return refreshKiroExternalIdp(refreshToken, providerSpecificData!, log, proxyOptions);
+  }
+
+  if (clientId && clientSecret) {
+    return refreshKiroAws(refreshToken, clientId, clientSecret, authMethod, region, providerSpecificData, log, proxyOptions);
+  }
+
+  return refreshKiroSocial(refreshToken, providerSpecificData, log, proxyOptions);
   }, log);
 }
 

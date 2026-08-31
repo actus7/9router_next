@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 // Ensure proxyFetch is loaded to patch globalThis.fetch
 import { consumeCodexRateLimitResetCredit, getCodexRateLimitResetCredits } from "@/server/llm-gateway/usage";
 
-import { getProviderConnectionById } from "@/lib/localDb";
+import { getProviderConnectionById } from "@/lib/db/repos/connectionsRepo";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "../route";
 

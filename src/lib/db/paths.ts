@@ -13,6 +13,7 @@ export const LEGACY_FILES: Record<string, string> = {
 };
 export function ensureDirs(): void {
   for (const dir of [DATA_DIR, DB_DIR, BACKUPS_DIR]) {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    // Per-user application data is created at runtime, never bundled.
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) fs.mkdirSync(dir, { recursive: true });
   }
 }

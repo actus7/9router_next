@@ -1,14 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { autoDetectKiroToken, importKiroToken, importKiroCliProxyJson, importKiroApiKey, type IdcCredentials } from "./kiroAuthHelpers";
 
-interface IdcCredentials {
-  clientId: string;
-  clientSecret: string;
-  region: string;
-  authMethod: string;
-  profileArn: string;
-}
+export type { IdcCredentials };
 
 export interface UseKiroAuthFlowProps {
   isOpen: boolean;
@@ -42,28 +37,21 @@ export function useKiroAuthFlow({ isOpen, onMethodSelect }: UseKiroAuthFlowProps
       setError(null);
       setAutoDetected(false);
       setIdcCredentials(null);
-
       try {
-        const res = await fetch("/api/oauth/kiro/auto-import");
-        const data = await res.json();
-
+        const data = await autoDetectKiroToken();
         if (data.found) {
-          setRefreshToken(data.refreshToken);
+          setRefreshToken(data.refreshToken!);
           setAutoDetected(true);
-          // Store IDC/organization credentials if present
           if (data.clientId && data.clientSecret) {
             setIdcCredentials({
-              clientId: data.clientId,
-              clientSecret: data.clientSecret,
-              region: data.region,
-              authMethod: data.authMethod,
-              profileArn: data.profileArn,
+              clientId: data.clientId, clientSecret: data.clientSecret,
+              region: data.region!, authMethod: data.authMethod!, profileArn: data.profileArn!,
             });
           }
         } else {
           setError(data.error || "Could not auto-detect token");
         }
-      } catch (err) {
+      } catch {
         setError("Failed to auto-detect token");
       } finally {
         setAutoDetecting(false);
@@ -84,67 +72,23 @@ export function useKiroAuthFlow({ isOpen, onMethodSelect }: UseKiroAuthFlowProps
   };
 
   const handleImportToken = async () => {
-    if (!refreshToken.trim()) {
-      setError("Please enter a refresh token");
-      return;
-    }
-
-    setImporting(true);
-    setError(null);
-
+    if (!refreshToken.trim()) { setError("Please enter a refresh token"); return; }
+    setImporting(true); setError(null);
     try {
-      const res = await fetch("/api/oauth/kiro/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          refreshToken: refreshToken.trim(),
-          ...(idcCredentials || {}),
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Import failed");
-      }
-
-      // Success - notify parent to refresh connections
+      await importKiroToken(refreshToken, idcCredentials);
       onMethodSelect("import");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setImporting(false);
-    }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err));
+    } finally { setImporting(false); }
   };
 
   const handleImportCliProxyJson = async () => {
-    if (!cliProxyJson.trim()) {
-      setError("Please paste CLIProxyAPI auth JSON");
-      return;
-    }
-
-    setImporting(true);
-    setError(null);
-
+    if (!cliProxyJson.trim()) { setError("Please paste CLIProxyAPI auth JSON"); return; }
+    setImporting(true); setError(null);
     try {
-      const res = await fetch("/api/oauth/kiro/import-cli-proxy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ json: cliProxyJson.trim() }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "CLIProxyAPI import failed");
-      }
-
+      await importKiroCliProxyJson(cliProxyJson);
       onMethodSelect("import-cli-proxy");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setImporting(false);
-    }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err));
+    } finally { setImporting(false); }
   };
 
   const handleIdcContinue = () => {
@@ -156,37 +100,13 @@ export function useKiroAuthFlow({ isOpen, onMethodSelect }: UseKiroAuthFlowProps
   };
 
   const handleApiKeyImport = async () => {
-    if (!apiKey.trim()) {
-      setError("Please enter an API key");
-      return;
-    }
-
-    setImporting(true);
-    setError(null);
-
+    if (!apiKey.trim()) { setError("Please enter an API key"); return; }
+    setImporting(true); setError(null);
     try {
-      const res = await fetch("/api/oauth/kiro/api-key", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          apiKey: apiKey.trim(),
-          region: apiKeyRegion.trim() || "us-east-1",
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Import failed");
-      }
-
-      // Success - notify parent to refresh connections
+      await importKiroApiKey(apiKey, apiKeyRegion);
       onMethodSelect("api-key");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setImporting(false);
-    }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err));
+    } finally { setImporting(false); }
   };
 
   const handleSocialLogin = (provider: string) => {

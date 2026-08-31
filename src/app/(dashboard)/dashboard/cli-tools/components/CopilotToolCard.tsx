@@ -6,11 +6,13 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+import { useModelAliases } from "./useCliToolCommon";
+import { StatusMessage, ActionButtons } from "./CliToolShared";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, History, Info, Loader2, Save, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; }
-interface StatusData { installed?: boolean; has9Router?: boolean; currentUrl?: string; config?: Array<{ name: string; models?: Array<{ id: string }> }>; error?: string; settings?: { model?: { base_url?: string; default?: string; }; }; }
+interface StatusData { installed?: boolean; hasModelHub?: boolean; currentUrl?: string; config?: Array<{ name: string; models?: Array<{ id: string }> }>; error?: string; settings?: { model?: { base_url?: string; default?: string; }; }; }
 interface Message { type: "success" | "error"; text: string; }
 
 interface CopilotToolCardProps {
@@ -36,11 +38,11 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
   const [message, setMessage] = useState<Message | null>(null);
   const [selectedApiKey, setSelectedApiKey] = useState<string>("");
   const [customBaseUrl, setCustomBaseUrl] = useState<string>("");
-  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [showManualConfigModal, setShowManualConfigModal] = useState<boolean>(false);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const selectedModelsRef = useRef<string[]>([]);
+  const { modelAliases, fetchModelAliases } = useModelAliases();
 
   useEffect(() => {
     selectedModelsRef.current = selectedModels;
@@ -63,28 +65,18 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
 
   useEffect(() => {
     if (status?.config && Array.isArray(status.config) && selectedModels.length === 0) {
-      const entry = status.config.find((e: { name: string }) => e.name === "9Router");
+      const entry = status.config.find((e: { name: string }) => e.name === "ModelHub");
       if (entry?.models && entry.models.length > 0) {
         setSelectedModels(entry.models.map((m: { id: string }) => m.id));
       }
     }
   }, [status]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.error("Error fetching model aliases:", error);
-    }
-  };
-
   const saveModels = async (models: string[]) => {
     try {
       const keyToUse = (selectedApiKey && selectedApiKey.trim())
         ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
+        : (!cloudEnabled ? "sk_modelhub" : selectedApiKey);
       await fetch("/api/cli-tools/copilot-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,7 +89,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
 
   const getConfigStatus = () => {
     if (!status) return null;
-    if (!status.has9Router) return "not_configured";
+    if (!status.hasModelHub) return "not_configured";
     const url = status.currentUrl || "";
     return matchKnownEndpoint(url, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
   };
@@ -132,7 +124,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
     try {
       const keyToUse = (selectedApiKey && selectedApiKey.trim())
         ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
+        : (!cloudEnabled ? "sk_modelhub" : selectedApiKey);
 
       const res = await fetch("/api/cli-tools/copilot-settings", {
         method: "POST",
@@ -176,14 +168,14 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
   const getManualConfigs = () => {
     const keyToUse = (selectedApiKey && selectedApiKey.trim())
       ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+      : (!cloudEnabled ? "sk_modelhub" : "<API_KEY_FROM_DASHBOARD>");
     const effectiveBaseUrl = getEffectiveBaseUrl();
     const modelsToShow = selectedModels.length > 0 ? selectedModels : ["provider/model-id"];
 
     return [{
       filename: "~/Library/Application Support/Code/User/chatLanguageModels.json",
       content: JSON.stringify([{
-        name: "9Router",
+        name: "ModelHub",
         vendor: "azure",
         apiKey: keyToUse,
         models: modelsToShow.map((id) => ({
@@ -273,24 +265,17 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
                 </div>
               </div>
 
-              {message && (
-                <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}>
-                  {message.type === "success" ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
-                  <span>{message.text}</span>
-                </div>
-              )}
+              <StatusMessage message={message} />
 
-              <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
-                <Button variant="primary" size="sm" onClick={handleApply} disabled={selectedModels.length === 0} loading={applying}>
-                  <Save className="size-4" />Apply
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={!status?.has9Router} loading={restoring}>
-                  <History className="size-4" />Reset
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)} disabled={selectedModels.length === 0}>
-                  <Copy className="size-4" />Manual Config
-                </Button>
-              </div>
+              <ActionButtons
+                onApply={handleApply}
+                applyDisabled={selectedModels.length === 0}
+                applyLoading={applying}
+                onReset={handleReset}
+                resetDisabled={!status?.hasModelHub}
+                resetLoading={restoring}
+                onManualConfig={() => setShowManualConfigModal(true)}
+              />
             </>
           )}
         </div>

@@ -165,11 +165,7 @@ export function createZedNativeAuthData(config: ZedConfig = {}, options: ZedOpti
   };
 }
 
-/** Parse the pasted native-app callback URL/JSON/query into userId + encrypted token. */
-export function parseZedCallbackPayload(input: string) {
-  const raw = String(input || "").trim();
-  if (!raw) throw new Error("Missing Zed callback URL");
-
+function parseRawCallbackInput(raw: string): Record<string, string> {
   let data: Record<string, string> = {};
   try {
     data = JSON.parse(raw);
@@ -188,6 +184,15 @@ export function parseZedCallbackPayload(input: string) {
       data[key] = value;
     });
   }
+  return data;
+}
+
+/** Parse the pasted native-app callback URL/JSON/query into userId + encrypted token. */
+export function parseZedCallbackPayload(input: string) {
+  const raw = String(input || "").trim();
+  if (!raw) throw new Error("Missing Zed callback URL");
+
+  const data = parseRawCallbackInput(raw);
 
   const userId = data.user_id || data.userId;
   const encryptedAccessToken = data.access_token || data.accessToken || data.token;
@@ -319,14 +324,29 @@ function zedModelCacheKey(credentials: ZedCredentials) {
   return `${(psd.userId as string) || "unknown"}:${org}:${token.slice(-16)}`;
 }
 
-async function fetchZedLlmToken(credentials: ZedCredentials, options: ZedOptions = {}) {
-  const config = options.config || {};
+async function resolveOrgIdForToken(credentials: ZedCredentials, options: ZedOptions): Promise<string> {
   let organizationId = options.organizationId || resolveZedOrganizationId(credentials);
   if (!organizationId) {
     const userInfo = await fetchZedAuthenticatedUser(credentials, options);
     organizationId = resolveZedOrganizationId(credentials, userInfo as Record<string, unknown>);
   }
   if (!organizationId) throw new Error("No Zed organization selected");
+  return organizationId;
+}
+
+function extractTokenFromResponse(data: Record<string, unknown> | null): string {
+  const tokenVal = data?.token;
+  const token =
+    typeof tokenVal === "string" ? tokenVal :
+    Array.isArray(tokenVal) ? (tokenVal[0] as string) :
+    (tokenVal as Record<string, unknown> | undefined)?.value as string | undefined;
+  if (!token) throw new Error("Zed did not return an LLM token");
+  return token;
+}
+
+async function fetchZedLlmToken(credentials: ZedCredentials, options: ZedOptions = {}) {
+  const config = options.config || {};
+  const organizationId = await resolveOrgIdForToken(credentials, options);
 
   const cacheKey = zedUserCacheKey(credentials, organizationId);
   const cached = llmTokenCache.get(cacheKey);
@@ -349,13 +369,7 @@ async function fetchZedLlmToken(credentials: ZedCredentials, options: ZedOptions
       signal: options.signal ?? undefined,
     },
   );
-  const d = data as Record<string, unknown> | null;
-  const tokenVal = d?.token;
-  const token =
-    typeof tokenVal === "string" ? tokenVal :
-    Array.isArray(tokenVal) ? (tokenVal[0] as string) :
-    (tokenVal as Record<string, unknown> | undefined)?.value as string | undefined;
-  if (!token) throw new Error("Zed did not return an LLM token");
+  const token = extractTokenFromResponse(data as Record<string, unknown> | null);
   llmTokenCache.set(cacheKey, { token, expiresAt: Date.now() + LLM_TOKEN_TTL_MS });
   return token;
 }
@@ -426,6 +440,51 @@ function mapZedModel(model: Record<string, unknown>) {
   };
 }
 
+async function fetchAndCacheZedModels(
+  credentials: ZedCredentials,
+  options: ZedOptions,
+  key: string,
+): Promise<ZedModelCacheEntry | null> {
+  const response = await zedLlmFetch(credentials, "/models", {
+    ...options,
+    fetchOptions: {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        [ZED_HEADERS.clientSupportsXai]: "true",
+      },
+    },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Zed models failed: ${response.status} ${text}`);
+  }
+  const data = await response.json() as Record<string, unknown>;
+  const rawModels = (Array.isArray(data?.models) ? data.models : []) as Record<string, unknown>[];
+  const models = rawModels
+    .map(mapZedModel)
+    .filter((m): m is NonNullable<ReturnType<typeof mapZedModel>> => m !== null)
+    .filter((model) => !model.isDisabled);
+  const rawById = new Map<string, Record<string, unknown>>();
+  for (const raw of rawModels) {
+    const id = normalizeZedModelId(raw?.id);
+    if (id) rawById.set(id, raw);
+  }
+  const entry: ZedModelCacheEntry = {
+    expiresAt: Date.now() + MODEL_CACHE_TTL_MS,
+    models,
+    rawModels,
+    rawById,
+    defaultModel: normalizeZedModelId(data?.default_model ?? data?.defaultModel),
+    defaultFastModel: normalizeZedModelId(data?.default_fast_model ?? data?.defaultFastModel),
+    recommendedModels: ((data?.recommended_models || data?.recommendedModels || []) as unknown[])
+      .map(normalizeZedModelId)
+      .filter(Boolean),
+  };
+  modelCache.set(key, entry);
+  return entry;
+}
+
 /** Resolve (and cache) the live Zed model catalog. Never hardcoded — always a live fetch. */
 export async function resolveZedModels(credentials: ZedCredentials, options: ZedOptions = {}) {
   if (!credentials?.accessToken) return null;
@@ -436,46 +495,7 @@ export async function resolveZedModels(credentials: ZedCredentials, options: Zed
   const existing = modelInflight.get(key);
   if (existing && !options.forceRefresh) return existing;
 
-  const promise = (async (): Promise<ZedModelCacheEntry | null> => {
-    const response = await zedLlmFetch(credentials, "/models", {
-      ...options,
-      fetchOptions: {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          [ZED_HEADERS.clientSupportsXai]: "true",
-        },
-      },
-    });
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      throw new Error(`Zed models failed: ${response.status} ${text}`);
-    }
-    const data = await response.json() as Record<string, unknown>;
-    const rawModels = (Array.isArray(data?.models) ? data.models : []) as Record<string, unknown>[];
-    const models = rawModels
-      .map(mapZedModel)
-      .filter((m): m is NonNullable<ReturnType<typeof mapZedModel>> => m !== null)
-      .filter((model) => !model.isDisabled);
-    const rawById = new Map<string, Record<string, unknown>>();
-    for (const raw of rawModels) {
-      const id = normalizeZedModelId(raw?.id);
-      if (id) rawById.set(id, raw);
-    }
-    const entry: ZedModelCacheEntry = {
-      expiresAt: Date.now() + MODEL_CACHE_TTL_MS,
-      models,
-      rawModels,
-      rawById,
-      defaultModel: normalizeZedModelId(data?.default_model ?? data?.defaultModel),
-      defaultFastModel: normalizeZedModelId(data?.default_fast_model ?? data?.defaultFastModel),
-      recommendedModels: ((data?.recommended_models || data?.recommendedModels || []) as unknown[])
-        .map(normalizeZedModelId)
-        .filter(Boolean),
-    };
-    modelCache.set(key, entry);
-    return entry;
-  })();
+  const promise = fetchAndCacheZedModels(credentials, options, key);
 
   modelInflight.set(key, promise);
   try {

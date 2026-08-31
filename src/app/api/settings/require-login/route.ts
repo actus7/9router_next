@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSettings } from "@/lib/localDb";
-
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 export async function GET(): Promise<NextResponse> {
   try {
     const settings = await getSettings();

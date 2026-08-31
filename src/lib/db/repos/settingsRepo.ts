@@ -86,7 +86,7 @@ const DEFAULT_SETTINGS: Settings = {
   oidcScopes: "openid profile email",
   oidcLoginLabel: "Sign in with OIDC",
   samlEntryPoint: "",
-  samlIssuer: "urn:9router:sp",
+  samlIssuer: "urn:modelhub:sp",
   samlCert: "",
   samlLoginLabel: "Sign in with SAML SSO",
   samlAttributeEmail: "email",

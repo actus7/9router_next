@@ -4,7 +4,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================
-   9Router theme
+   ModelHub theme
    Canonical shadcn tokens are the source of truth — this is exactly
    what `pnpm dlx shadcn@latest add <tweakcn-theme-url>` overwrites.
    The --color-* aliases below reference them via var()/color-mix(),
@@ -66,7 +66,7 @@
   --shadow-xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.10), 0px 8px 10px -1px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.25);
 
-  /* ---- 9Router app-layer aliases — derived, not hardcoded ----
+  /* ---- ModelHub app-layer aliases — derived, not hardcoded ----
      These only reference the tokens above via var()/color-mix(), so a
      future `shadcn add <tweakcn-url>` re-tints them automatically.
      Declared once here; .dark only overrides the canonical tokens, and

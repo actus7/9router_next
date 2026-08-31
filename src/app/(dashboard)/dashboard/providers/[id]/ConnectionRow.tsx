@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { getStatusVariant as getConnectionStatusVariant, getStatusClassName } from "@/shared/utils/connectionStatus";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import Button from "@/shared/components/Button";
-import CooldownTimer from "./CooldownTimer";
-import { ChevronDown, ChevronUp, Key, Loader2, Lock, MoreHorizontal, Network, Pencil, Trash2, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Key, Lock, Zap } from "lucide-react";
+import ConnectionBadges from "./components/ConnectionBadges";
+import ProxyDropdown from "./components/ProxyDropdown";
+import ConnectionActions from "./components/ConnectionActions";
 
 interface Connection {
   id: string;
@@ -67,10 +67,6 @@ interface ConnectionRowProps {
 }
 
 export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null }: ConnectionRowProps) {
-  const [showProxyDropdown, setShowProxyDropdown] = useState<boolean>(false);
-  const [updatingProxy, setUpdatingProxy] = useState<boolean>(false);
-  const proxyDropdownRef = useRef<HTMLDivElement>(null);
-
   const proxyPoolMap = new Map((proxyPools || []).map((pool) => [pool.id, pool]));
   const boundProxyPoolId = connection.providerSpecificData?.proxyPoolId || null;
   const boundProxyPool = boundProxyPoolId ? proxyPoolMap.get(boundProxyPoolId) : undefined;
@@ -109,33 +105,9 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     proxyBadgeVariant = "destructive";
   }
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    if (!showProxyDropdown) return;
-    const handler = (e: MouseEvent) => {
-      if (proxyDropdownRef.current && !proxyDropdownRef.current.contains(e.target as Node)) {
-        setShowProxyDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showProxyDropdown]);
-
-  const handleSelectProxy = async (poolId: string) => {
-    setUpdatingProxy(true);
-    try {
-      await onUpdateProxy?.(poolId === "__none__" ? null : poolId);
-    } finally {
-      setUpdatingProxy(false);
-      setShowProxyDropdown(false);
-    }
-  };
-
   const rowAuthType = connection.authType || (isOAuth ? "oauth" : "apikey");
   const isOAuthConnection = rowAuthType === "oauth";
   const isCookieConnection = rowAuthType === "cookie";
-  const authIcon = isCookieConnection ? "cookie" : isOAuthConnection ? "lock" : "key";
-  const authLabel = isOAuthConnection ? "OAuth" : isCookieConnection ? "Cookie" : "API Key";
   const displayName = connection.name?.trim()
     || connection.email?.trim()
     || connection.displayName?.trim()
@@ -145,64 +117,6 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     : connection.name?.trim() && connection.displayName?.trim() && connection.name.trim() !== connection.displayName.trim()
       ? connection.displayName.trim()
       : null;
-
-  // Use useState + useEffect for impure Date.now() to avoid calling during render
-  const [isCooldown, setIsCooldown] = useState<boolean>(false);
-
-  // Get earliest model lock timestamp (useEffect handles the Date.now() comparison)
-  const modelLockUntil = Object.entries(connection)
-    .filter(([k]) => k.startsWith("modelLock_"))
-    .map(([, v]) => v)
-    .filter((v): v is string => !!v)
-    .sort()[0] || null;
-
-  useEffect(() => {
-    const checkCooldown = () => {
-      const until = Object.entries(connection)
-        .filter(([k]) => k.startsWith("modelLock_"))
-        .map(([, v]) => v)
-        .filter((v): v is string => typeof v === 'string' && new Date(v).getTime() > Date.now())
-        .sort()[0] || null;
-      setIsCooldown(!!until);
-    };
-
-    checkCooldown();
-    const interval = modelLockUntil ? setInterval(checkCooldown, 1000) : null;
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [modelLockUntil, connection]);
-
-  // Determine effective status (override unavailable if cooldown expired)
-  const effectiveStatus = (connection.testStatus === "unavailable" && !isCooldown)
-    ? "active"  // Cooldown expired → treat as active
-    : connection.testStatus;
-
-  const getStatusVariant = () => getConnectionStatusVariant(connection.isActive, effectiveStatus ?? "");
-
-  const getOneByOneVariant = (): "secondary" | "default" | "destructive" => {
-    if (!oneByOneStatus) return "secondary";
-    if (oneByOneStatus.state === "success") return "default";
-    if (oneByOneStatus.state === "failed") return "destructive";
-    if (oneByOneStatus.state === "testing") return "default";
-    return "secondary";
-  };
-
-  const getOneByOneClassName = (): string | undefined => {
-    if (!oneByOneStatus) return undefined;
-    if (oneByOneStatus.state === "success") return "bg-green-500/10 text-green-600 dark:text-green-400";
-    if (oneByOneStatus.state === "testing") return undefined;
-    return undefined;
-  };
-
-  const getOneByOneLabel = (): string | null => {
-    if (!oneByOneStatus) return null;
-    if (oneByOneStatus.state === "queued") return "queued";
-    if (oneByOneStatus.state === "testing") return "testing";
-    if (oneByOneStatus.state === "success") return "success";
-    if (oneByOneStatus.state === "failed") return oneByOneStatus.error ? `failed: ${oneByOneStatus.error}` : "failed";
-    return null;
-  };
 
   return (
     <div className={`group flex min-w-0 flex-col gap-3 rounded-xl border border-transparent px-2 py-2.5 transition-colors hover:border-border-subtle hover:bg-black/[0.02] dark:hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between ${connection.isActive === false ? "opacity-60" : ""}`}>
@@ -236,39 +150,14 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
           {secondaryDisplayName && (
             <p className="text-xs text-text-muted truncate">{secondaryDisplayName}</p>
           )}
-          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
-            <Badge variant={getStatusVariant()} className={getStatusClassName(connection.isActive, effectiveStatus ?? "")}>
-              {connection.isActive === false ? "disabled" : (effectiveStatus || "Unknown")}
-            </Badge>
-            <Badge variant="secondary">
-              {authLabel}
-            </Badge>
-            {hasAnyProxy && (
-              <Badge variant={proxyBadgeVariant} className={proxyBadgeClassName}>
-                Proxy
-              </Badge>
-            )}
-            {isCooldown && connection.isActive !== false && <CooldownTimer until={modelLockUntil!} />}
-            {connection.lastError && connection.isActive !== false && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger render={<span className="inline-flex" />}>
-                    <Badge variant="destructive">Last test failed</Badge>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-sm break-words">{connection.lastError}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <span className="text-xs text-text-muted">#{connection.priority}</span>
-            {connection.globalPriority && (
-              <span className="text-xs text-text-muted">Auto: {connection.globalPriority}</span>
-            )}
-            {getOneByOneLabel() && (
-              <Badge variant={getOneByOneVariant()} className={getOneByOneClassName()}>
-                {getOneByOneLabel()}
-              </Badge>
-            )}
-          </div>
+          <ConnectionBadges
+            connection={connection}
+            isOAuth={isOAuth}
+            oneByOneStatus={oneByOneStatus}
+            hasAnyProxy={hasAnyProxy}
+            proxyBadgeVariant={proxyBadgeVariant}
+            proxyBadgeClassName={proxyBadgeClassName}
+          />
           {hasAnyProxy && (
             <div className="mt-1 flex items-center gap-2 flex-wrap">
               <span className="max-w-full truncate text-[11px] text-text-muted sm:max-w-[420px]" title={proxyDisplayText}>
@@ -290,43 +179,12 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
       </div>
       <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
         <div className="grid flex-1 grid-cols-3 gap-1 sm:flex sm:flex-none">
-          {/* Proxy button with inline dropdown */}
-          {(proxyPools || []).length > 0 && (
-            <div className="relative" ref={proxyDropdownRef}>
-              <Button
-                variant="ghost"
-                onClick={() => setShowProxyDropdown((v) => !v)}
-                className={`w-full flex-col ${hasAnyProxy ? "text-primary" : ""}`}
-                disabled={updatingProxy}
-              >
-                <span className="text-[18px]">
-                  {updatingProxy ? <Loader2 className="size-[18px] animate-spin" /> : <Network className="size-[18px]" />}
-                </span>
-                <span className="text-[10px] leading-tight">Proxy</span>
-              </Button>
-              {showProxyDropdown && (
-                <div className="absolute right-0 top-full z-50 mt-1 max-w-[78vw] min-w-[160px] rounded-lg border border-border bg-bg py-1 shadow-lg">
-                  <Button
-                    variant="ghost"
-                    onClick={() => handleSelectProxy("__none__")}
-                    className={`w-full justify-start ${!boundProxyPoolId ? "text-primary font-medium" : ""}`}
-                  >
-                    None
-                  </Button>
-                  {(proxyPools || []).map((pool) => (
-                    <Button
-                      key={pool.id}
-                      variant="ghost"
-                      onClick={() => handleSelectProxy(pool.id)}
-                      className={`w-full justify-start ${boundProxyPoolId === pool.id ? "text-primary font-medium" : ""}`}
-                    >
-                      {pool.name}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <ProxyDropdown
+            proxyPools={proxyPools || []}
+            boundProxyPoolId={boundProxyPoolId}
+            hasAnyProxy={hasAnyProxy}
+            onUpdateProxy={onUpdateProxy}
+          />
           {autoPing && (
             <TooltipProvider>
               <Tooltip>
@@ -344,18 +202,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
               </Tooltip>
             </TooltipProvider>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" title="Connection actions" aria-label="Connection actions"><MoreHorizontal /></Button>} />
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={onEdit}>
-                <Pencil /> Edit connection
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                <Trash2 /> Delete connection
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ConnectionActions onEdit={onEdit} onDelete={onDelete} />
         </div>
         <Switch
           checked={connection.isActive ?? true}

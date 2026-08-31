@@ -69,7 +69,7 @@ const normalizeSubagentModels = (value: unknown) => {
   return result;
 };
 
-const has9RouterConfig = (settings: Record<string, unknown> | null | undefined) => Boolean((settings?.model as Record<string, unknown>)?.base_url);
+const hasModelHubConfig = (settings: Record<string, unknown> | null | undefined) => Boolean((settings?.model as Record<string, unknown>)?.base_url);
 
 export async function GET() {
   try {
@@ -86,7 +86,7 @@ export async function GET() {
     return NextResponse.json({
       installed: true,
       settings,
-      has9Router: has9RouterConfig(settings as unknown as Record<string, unknown>),
+      hasModelHub: hasModelHubConfig(settings as unknown as Record<string, unknown>),
       configPath: getGrokConfigPath(),
     });
   } catch (error) {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     const toml = applyGrokBuildConfig(await readConfigToml(), {
       baseUrl: normalizedBaseUrl,
-      apiKey: apiKey || "sk_9router",
+      apiKey: apiKey || "sk_modelhub",
       model: selectedModel,
       contextWindow: normalizeContextWindow(contextWindow, selectedModel),
       subagentModels: normalizeSubagentModels(subagentModels),
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "Grok Build settings applied successfully!",
       configPath: getGrokConfigPath(),
-      modelSlot: "9router",
+      modelSlot: "modelhub",
     });
   } catch (error) {
     console.error("Error updating grok-build settings:", error);
@@ -142,7 +142,7 @@ export async function DELETE() {
     await fs.writeFile(configPath, resetGrokBuildConfig(toml));
     return NextResponse.json({
       success: true,
-      message: "9router model slots removed from Grok Build",
+      message: "modelhub model slots removed from Grok Build",
     });
   } catch (error) {
     console.error("Error resetting grok-build settings:", error);

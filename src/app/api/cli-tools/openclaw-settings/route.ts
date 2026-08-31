@@ -54,21 +54,21 @@ const readSettings = async () => {
   }
 };
 
-// Check if settings has 9Router config
-const has9RouterConfig = (settings: Record<string, unknown> | null) => {
+// Check if settings has ModelHub config
+const hasModelHubConfig = (settings: Record<string, unknown> | null) => {
   if (!settings || !settings.models) return false;
   const models = settings.models as Record<string, unknown>;
   if (!models.providers) return false;
-  return !!(models.providers as Record<string, unknown>)["9router"];
+  return !!(models.providers as Record<string, unknown>)["modelhub"];
 };
 
-// Read per-agent models.json and return current model id (without "9router/" prefix)
+// Read per-agent models.json and return current model id (without "modelhub/" prefix)
 const readAgentModel = async (agentDir: string) => {
   try {
     const modelsPath = path.join(agentDir, "models.json");
     const content = await fs.readFile(modelsPath, "utf-8");
     const data = JSON.parse(content);
-    const models = data?.providers?.["9router"]?.models;
+    const models = data?.providers?.["modelhub"]?.models;
     return models?.[0]?.id || null;
   } catch {
     return null;
@@ -105,7 +105,7 @@ export async function GET() {
       installed: true,
       settings,
       agents: enrichedAgents,
-      has9Router: has9RouterConfig(settings),
+      hasModelHub: hasModelHubConfig(settings),
       settingsPath: getOpenClawSettingsPath(),
     });
   } catch (error) {
@@ -125,7 +125,7 @@ const writeAgentModels = async (agentDir: string, model: string, baseUrl: string
   } catch { /* No existing */ }
 
   if (!existing.providers) existing.providers = {};
-  (existing.providers as Record<string, unknown>)["9router"] = {
+  (existing.providers as Record<string, unknown>)["modelhub"] = {
     baseUrl,
     apiKey: apiKey || "your_api_key",
     api: "openai-completions",
@@ -134,7 +134,7 @@ const writeAgentModels = async (agentDir: string, model: string, baseUrl: string
   await fs.writeFile(modelsPath, JSON.stringify(existing, null, 2));
 };
 
-// POST - Update 9Router settings (merge with existing settings)
+// POST - Update ModelHub settings (merge with existing settings)
 export async function POST(request: NextRequest) {
   try {
     // agentModels: { [agentId]: modelId } for per-agent override
@@ -166,11 +166,11 @@ export async function POST(request: NextRequest) {
     if (!models.providers) models.providers = {} as Record<string, unknown>;
 
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
-    const fullModelId = `9router/${model}`;
+    const fullModelId = `modelhub/${model}`;
 
-    // Remove all old 9router/* entries from agents.defaults.models
+    // Remove all old modelhub/* entries from agents.defaults.models
     Object.keys(defaults.models as Record<string, unknown>)
-      .filter((k) => k.startsWith("9router/"))
+      .filter((k) => k.startsWith("modelhub/"))
       .forEach((k) => { delete (defaults.models as Record<string, unknown>)[k]; });
 
     // Update default model
@@ -180,16 +180,16 @@ export async function POST(request: NextRequest) {
     const allModelIds = new Set([model]);
     Object.values(agentModels as Record<string, unknown>).forEach((m) => { if (m) allModelIds.add(m as string); });
 
-    // Add fresh 9router models to allowlist
+    // Add fresh modelhub models to allowlist
     allModelIds.forEach((m) => {
-      (defaults.models as Record<string, unknown>)[`9router/${m}`] = {};
+      (defaults.models as Record<string, unknown>)[`modelhub/${m}`] = {};
     });
 
-    // Remove old 9router model from each agent in agents.list. The
+    // Remove old modelhub model from each agent in agents.list. The
     // model field may be a plain string or `{ primary, fallbacks }`.
     if (agents.list) {
       agents.list = (agents.list as Record<string, unknown>[]).map((agent: Record<string, unknown>) => {
-        if (resolveAgentModel(agent.model).startsWith("9router/")) {
+        if (resolveAgentModel(agent.model).startsWith("modelhub/")) {
           const { model: _, ...rest } = agent;
           return rest;
         }
@@ -197,8 +197,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Update models.providers.9router with all models
-    (models.providers as Record<string, unknown>)["9router"] = {
+    // Update models.providers.modelhub with all models
+    (models.providers as Record<string, unknown>)["modelhub"] = {
       baseUrl: normalizedBaseUrl,
       apiKey: apiKey || "your_api_key",
       api: "openai-completions",
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
     if (agents.list) {
       agents.list = (agents.list as Record<string, unknown>[]).map((agent: Record<string, unknown>) => {
         const agentModel = (agentModels as Record<string, unknown>)[agent.id as string];
-        if (agentModel) return { ...agent, model: `9router/${agentModel}` };
+        if (agentModel) return { ...agent, model: `modelhub/${agentModel}` };
         return agent;
       });
 
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Remove 9Router settings only (keep other settings)
+// DELETE - Remove ModelHub settings only (keep other settings)
 export async function DELETE() {
   try {
     const settingsPath = getOpenClawSettingsPath();
@@ -257,10 +257,10 @@ export async function DELETE() {
       throw error;
     }
 
-    // Remove 9Router from models.providers
+    // Remove ModelHub from models.providers
     const delModels = settings.models as Record<string, unknown> | undefined;
     if (delModels && delModels.providers) {
-      delete (delModels.providers as Record<string, unknown>)["9router"];
+      delete (delModels.providers as Record<string, unknown>)["modelhub"];
       
       // Remove providers object if empty
       if (Object.keys(delModels.providers as Record<string, unknown>).length === 0) {
@@ -268,12 +268,12 @@ export async function DELETE() {
       }
     }
 
-    // Remove 9router models from agents.defaults.models allowlist
+    // Remove modelhub models from agents.defaults.models allowlist
     const delAgents = settings.agents as Record<string, unknown> | undefined;
     const delDefaults = delAgents?.defaults as Record<string, unknown> | undefined;
     const delDefModels = delDefaults?.models as Record<string, unknown> | undefined;
     if (delDefModels) {
-      const keysToRemove = Object.keys(delDefModels).filter((k) => k.startsWith("9router/"));
+      const keysToRemove = Object.keys(delDefModels).filter((k) => k.startsWith("modelhub/"));
       for (const key of keysToRemove) {
         delete delDefModels[key];
       }
@@ -282,9 +282,9 @@ export async function DELETE() {
       }
     }
 
-    // Reset agents.defaults.model.primary if it uses 9router
+    // Reset agents.defaults.model.primary if it uses modelhub
     const delDefModel = delDefaults?.model as Record<string, unknown> | undefined;
-    if (typeof delDefModel?.primary === "string" && delDefModel.primary.startsWith("9router/")) {
+    if (typeof delDefModel?.primary === "string" && delDefModel.primary.startsWith("modelhub/")) {
       delete delDefModel.primary;
     }
 
@@ -293,7 +293,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "9Router settings removed successfully",
+      message: "ModelHub settings removed successfully",
     });
   } catch (error) {
     console.error("Error resetting openclaw settings:", error);

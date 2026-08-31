@@ -7,7 +7,7 @@ import type { Credentials } from "../services/types";
  * CodeBuddy is OpenAI-compatible but rejects non-stream chat requests
  * (HTTP 400, code 11101 "Non-stream chat request is currently not supported").
  * The same-format (openai→openai) translator path leaves body.stream as the
- * client sent it, so we force it true here — 9router still re-aggregates the
+ * client sent it, so we force it true here — modelhub still re-aggregates the
  * SSE into a JSON response for non-streaming clients.
  */
 export class CodeBuddyExecutor extends DefaultExecutor {
@@ -49,7 +49,7 @@ export class CodeBuddyExecutor extends DefaultExecutor {
     }
 
     // CodeBuddy only surfaces model reasoning when the request carries the CLI's
-    // OpenAI-style params: reasoning_effort + reasoning_summary:"auto". 9router's
+    // OpenAI-style params: reasoning_effort + reasoning_summary:"auto". modelhub's
     // thinking pipeline sets reasoning_effort only when the client asks, and never
     // sets reasoning_summary — so reasoning never shows. Mirror the CLI here.
     const eff = transformed.reasoning_effort;
