@@ -423,7 +423,7 @@ export default function ConnectionsCard({ providerId, isOAuth }: ConnectionsCard
 
   const handleSaveApiKey = async (formData: Record<string, unknown>) => {
     try {
-      const res = await fetch("/api/providers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: providerId, ...formData }) });
+      const res = await fetch("/api/providers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: providerId, providerId, ...formData }) });
       if (res.ok) { await fetch_(); setShowAddModal(false); }
     } catch (e) { console.error("save apikey error:", e); }
   };

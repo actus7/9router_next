@@ -188,7 +188,7 @@ const KNOWN_RESPONSE_FIELDS = new Set([
 
 // ==================== PRIMITIVE ENCODING ====================
 
-export function encodeVarint(value: number) {
+function encodeVarint(value: number) {
   const bytes = [];
   while (value >= 0x80) {
     bytes.push((value & 0x7F) | 0x80);
@@ -345,7 +345,7 @@ function encodeClientSideToolV2Call(toolCallId: string, toolName: string, select
  * Encode ConversationMessage.ToolResult with full structure
  * Matches Cursor proto: tool_call_id, tool_name, tool_index, raw_args, result, tool_call
  */
-export function encodeToolResult(toolResult: Record<string, unknown>) {
+function encodeToolResult(toolResult: Record<string, unknown>) {
   const originalName = (toolResult.tool_name as string) || (toolResult.name as string) || "";
   const toolName = formatToolName(originalName);
   const rawArgs = (toolResult.raw_args as string) || "{}";
@@ -371,7 +371,7 @@ export function encodeToolResult(toolResult: Record<string, unknown>) {
   );
 }
 
-export function encodeMessage(content: string, role: number, messageId: string, chatModeEnum: number | null = null, isLast = false, hasTools = false, toolResults: Record<string, unknown>[] = [], serverBubbleId: string | null = null) {
+function encodeMessage(content: string, role: number, messageId: string, chatModeEnum: number | null = null, isLast = false, hasTools = false, toolResults: Record<string, unknown>[] = [], serverBubbleId: string | null = null) {
   const hasToolResults = toolResults.length > 0;
   return concatArrays(
     encodeField(FIELD.MSG_CONTENT, WIRE_TYPE.LEN, content),
@@ -388,18 +388,18 @@ export function encodeMessage(content: string, role: number, messageId: string, 
   );
 }
 
-export function encodeInstruction(text: string) {
+function encodeInstruction(text: string) {
   return text ? encodeField(FIELD.INSTRUCTION_TEXT, WIRE_TYPE.LEN, text) : new Uint8Array(0);
 }
 
-export function encodeModel(modelName: string) {
+function encodeModel(modelName: string) {
   return concatArrays(
     encodeField(FIELD.MODEL_NAME, WIRE_TYPE.LEN, modelName),
     encodeField(FIELD.MODEL_EMPTY, WIRE_TYPE.LEN, new Uint8Array(0))
   );
 }
 
-export function encodeCursorSetting() {
+function encodeCursorSetting() {
   const unknown6 = concatArrays(
     encodeField(FIELD.SETTING6_FIELD_1, WIRE_TYPE.LEN, new Uint8Array(0)),
     encodeField(FIELD.SETTING6_FIELD_2, WIRE_TYPE.LEN, new Uint8Array(0))
@@ -414,7 +414,7 @@ export function encodeCursorSetting() {
   );
 }
 
-export function encodeMetadata() {
+function encodeMetadata() {
   return concatArrays(
     encodeField(FIELD.META_PLATFORM, WIRE_TYPE.LEN, process.platform || "linux"),
     encodeField(FIELD.META_ARCH, WIRE_TYPE.LEN, process.arch || "x64"),
@@ -424,7 +424,7 @@ export function encodeMetadata() {
   );
 }
 
-export function encodeMessageId(messageId: string, role: number, summaryId: string | null = null) {
+function encodeMessageId(messageId: string, role: number, summaryId: string | null = null) {
   return concatArrays(
     encodeField(FIELD.MSGID_ID, WIRE_TYPE.LEN, messageId),
     ...(summaryId ? [encodeField(FIELD.MSGID_SUMMARY, WIRE_TYPE.LEN, summaryId)] : []),
@@ -432,7 +432,7 @@ export function encodeMessageId(messageId: string, role: number, summaryId: stri
   );
 }
 
-export function encodeMcpTool(tool: Record<string, unknown>) {
+function encodeMcpTool(tool: Record<string, unknown>) {
   const fn = tool.function as Record<string, unknown> | undefined;
   const toolName = (fn?.name as string) || (tool.name as string) || "";
   const toolDesc = (fn?.description as string) || (tool.description as string) || "";
@@ -448,7 +448,7 @@ export function encodeMcpTool(tool: Record<string, unknown>) {
 
 // ==================== REQUEST BUILDING ====================
 
-export function encodeRequest(messages: Record<string, unknown>[], modelName: string, tools: Record<string, unknown>[] = [], reasoningEffort: string | null = null, forceAgentMode = false) {
+function encodeRequest(messages: Record<string, unknown>[], modelName: string, tools: Record<string, unknown>[] = [], reasoningEffort: string | null = null, forceAgentMode = false) {
   const hasTools = tools?.length > 0;
   const isAgentic = hasTools || forceAgentMode;
   const formattedMessages = [];
@@ -587,7 +587,7 @@ export function encodeRequest(messages: Record<string, unknown>[], modelName: st
   );
 }
 
-export function buildChatRequest(messages: Record<string, unknown>[], modelName: string, tools: Record<string, unknown>[] = [], reasoningEffort: string | null = null, forceAgentMode = false) {
+function buildChatRequest(messages: Record<string, unknown>[], modelName: string, tools: Record<string, unknown>[] = [], reasoningEffort: string | null = null, forceAgentMode = false) {
   return encodeField(FIELD.REQUEST, WIRE_TYPE.LEN, encodeRequest(messages, modelName, tools, reasoningEffort, forceAgentMode));
 }
 
@@ -596,7 +596,7 @@ export function buildChatRequest(messages: Record<string, unknown>[], modelName:
  * This is sent as a SEPARATE request frame, not inside conversation messages.
  * Proto: StreamUnifiedChatRequestWithTools.client_side_tool_v2_result = 2
  */
-export function buildToolResultRequest(toolResult: Record<string, unknown>) {
+function buildToolResultRequest(toolResult: Record<string, unknown>) {
   const { toolCallId, modelCallId } = parseToolId((toolResult.tool_call_id as string) || "");
   const rawName = (toolResult.tool_name as string) || "";
   const resultContent = (toolResult.result_content as string) || "";
@@ -664,14 +664,14 @@ export function generateCursorBody(messages: Record<string, unknown>[], modelNam
  * Generate a framed tool result body to send as a separate request frame.
  * Uses field 2 (client_side_tool_v2_result) of StreamUnifiedChatRequestWithTools.
  */
-export function generateToolResultBody(toolResult: Record<string, unknown>) {
+function generateToolResultBody(toolResult: Record<string, unknown>) {
   const protobuf = buildToolResultRequest(toolResult);
   return wrapConnectRPCFrame(protobuf, false);
 }
 
 // ==================== PRIMITIVE DECODING ====================
 
-export function decodeVarint(buffer: Uint8Array, offset: number) {
+function decodeVarint(buffer: Uint8Array, offset: number) {
   let result = 0;
   let shift = 0;
   let pos = offset;
@@ -687,7 +687,7 @@ export function decodeVarint(buffer: Uint8Array, offset: number) {
   return [result, pos];
 }
 
-export function decodeField(buffer: Uint8Array, offset: number) {
+function decodeField(buffer: Uint8Array, offset: number) {
   if (offset >= buffer.length) return [null, null, null, offset];
 
   const [tag, pos1] = decodeVarint(buffer, offset);

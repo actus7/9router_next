@@ -12,9 +12,9 @@
 import crypto from "node:crypto";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 
-export const ZED_WEB_BASE_URL = "https://zed.dev";
-export const ZED_CLOUD_BASE_URL = "https://cloud.zed.dev";
-export const ZED_LLM_BASE_URL = "https://cloud.zed.dev";
+const ZED_WEB_BASE_URL = "https://zed.dev";
+const ZED_CLOUD_BASE_URL = "https://cloud.zed.dev";
+const ZED_LLM_BASE_URL = "https://cloud.zed.dev";
 
 export const ZED_HEADERS = {
   expiredToken: "x-zed-expired-token",
@@ -124,11 +124,11 @@ function zedUrl(config: ZedConfig, key: keyof ZedConfig, path: string, fallbackB
 }
 
 /** Encode a PEM private key as an opaque verifier (flows through the OAuth codeVerifier slot). */
-export function encodeZedPrivateKeyVerifier(privateKeyPem: string) {
+function encodeZedPrivateKeyVerifier(privateKeyPem: string) {
   return `${PRIVATE_KEY_PREFIX}${b64url(privateKeyPem)}`;
 }
 
-export function decodeZedPrivateKeyVerifier(verifier: string) {
+function decodeZedPrivateKeyVerifier(verifier: string) {
   const value = String(verifier || "");
   if (!value.startsWith(PRIVATE_KEY_PREFIX)) {
     throw new Error("Missing Zed private key verifier; restart the login flow");
@@ -223,7 +223,7 @@ export function decryptZedAccessToken(encryptedAccessToken: string, privateKeyVe
   }
 }
 
-export function buildZedUserAuthHeader(credentials: ZedCredentials) {
+function buildZedUserAuthHeader(credentials: ZedCredentials) {
   const psd = credentials?.providerSpecificData || {};
   const userId = (psd.userId as string) || credentials?.userId;
   const accessToken = credentials?.accessToken || credentials?.apiKey;
@@ -319,7 +319,7 @@ function zedModelCacheKey(credentials: ZedCredentials) {
   return `${(psd.userId as string) || "unknown"}:${org}:${token.slice(-16)}`;
 }
 
-export async function fetchZedLlmToken(credentials: ZedCredentials, options: ZedOptions = {}) {
+async function fetchZedLlmToken(credentials: ZedCredentials, options: ZedOptions = {}) {
   const config = options.config || {};
   let organizationId = options.organizationId || resolveZedOrganizationId(credentials);
   if (!organizationId) {
@@ -360,7 +360,7 @@ export async function fetchZedLlmToken(credentials: ZedCredentials, options: Zed
   return token;
 }
 
-export function shouldRefreshZedLlmToken(response: { status?: number; headers?: { has?(name: string): boolean } }) {
+function shouldRefreshZedLlmToken(response: { status?: number; headers?: { has?(name: string): boolean } }) {
   return (
     response?.status === 401 ||
     !!response?.headers?.has?.(ZED_HEADERS.expiredToken) ||
@@ -401,7 +401,7 @@ function normalizeZedModelId(id: unknown): string {
   return String(id);
 }
 
-export function mapZedModel(model: Record<string, unknown>) {
+function mapZedModel(model: Record<string, unknown>) {
   const id = normalizeZedModelId(model?.id);
   if (!id) return null;
   return {
@@ -485,7 +485,7 @@ export async function resolveZedModels(credentials: ZedCredentials, options: Zed
   }
 }
 
-export function clearZedCaches() {
+function clearZedCaches() {
   llmTokenCache.clear();
   modelCache.clear();
   modelInflight.clear();

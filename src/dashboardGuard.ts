@@ -101,7 +101,7 @@ export function isLocalRequest(request: Request): boolean {
  * Disabling dashboard login is intended for a local, single-user instance.
  * Remote administrative routes must still require an authenticated session.
  */
-export function canUseUnauthenticatedLocalMode(request: NextRequest): boolean {
+function canUseUnauthenticatedLocalMode(request: NextRequest): boolean {
   return isLocalRequest(request);
 }
 

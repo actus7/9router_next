@@ -1,3 +1,5 @@
+// fallow-ignore-file unused-file
+// Intentionally dormant — re-enable by uncommenting in registry/index.ts
 // Windsurf provider registry — Firebase+Codeium+Devin auth chain.
 // Chat = Codeium gRPC-web protobuf:
 //   POST {base}  Content-Type: application/grpc-web+proto

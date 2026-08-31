@@ -14,7 +14,7 @@ export default {
   authHint: "Paste your p-b cookie from poe.com",
   notice: "Poe Web session.",
   transport: {
-    baseUrl: "https://poe.com/api/gql_POST",
+    baseUrl: "https://www.poe.com/api/gql_POST",
     format: "openai",
     authType: "cookie",
   },

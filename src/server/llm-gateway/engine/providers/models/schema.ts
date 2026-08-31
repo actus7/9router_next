@@ -10,7 +10,7 @@ export function normalizeModelId(modelId: string) {
 }
 
 // Model defaults centralized (was scattered as `m.kind || "llm"`, `quotaFamily || "normal"`, etc.)
-export const MODEL_DEFAULTS = {
+const MODEL_DEFAULTS = {
   kind: "llm",
   quotaFamily: "normal",
   strip: [],
@@ -26,7 +26,7 @@ export function normalizeModel(raw: string | Record<string, unknown>) {
 }
 
 // Resolve model kind with default (accepts legacy `type` field)
-export function modelKind(model: Record<string, unknown> | undefined) {
+function modelKind(model: Record<string, unknown> | undefined) {
   return (model?.kind as string) || (model?.type as string) || MODEL_DEFAULTS.kind;
 }
 export function modelQuotaFamily(model: Record<string, unknown> | undefined) {

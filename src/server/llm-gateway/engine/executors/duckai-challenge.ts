@@ -86,7 +86,6 @@ const BROWSER_IDLE_MS = 5 * 60 * 1000; // close after 5 min idle
 let optionalDepRequire: ((s: string) => unknown) | null = null;
 async function dynamicImport(specifier: string): Promise<unknown> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     return await new Function("s", "return import(s)")(specifier);
   } catch {
     // fall through to the require-based strategy
@@ -171,7 +170,7 @@ async function getWarmBrowser(): Promise<PuppeteerBrowser> {
   return warmBrowser;
 }
 
-export async function solveVqdChallengeWithBrowser(
+async function solveVqdChallengeWithBrowser(
   challengeB64: string,
   cookies?: string
 ): Promise<VqdChallengeResult> {
@@ -241,7 +240,7 @@ export async function solveVqdChallengeWithBrowser(
  * script before executing in jsdom.  This is a best-effort heuristic that
  * catches null-access patterns the obfuscated code uses.
  */
-export function deobfuscateChallenge(script: string): string {
+function deobfuscateChallenge(script: string): string {
   const helpers = `
     ;(function(){
       var createSafeDocument = function() {

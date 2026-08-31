@@ -1,3 +1,5 @@
+// fallow-ignore-file unused-file
+// Template for adding new providers (documented in AGENTS.md)
 /**
  * REGISTRY ENTRY TEMPLATE — copy into registry/{id}.js when adding a new provider.
  *

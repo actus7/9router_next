@@ -2,7 +2,7 @@ import type { CloudProvider, CloudProviderDriver } from "./driver";
 import { renderDriver } from "./render";
 import { railwayDriver } from "./railway";
 
-export const CLOUD_PROVIDERS: Record<CloudProvider, CloudProviderDriver> = {
+const CLOUD_PROVIDERS: Record<CloudProvider, CloudProviderDriver> = {
   render: renderDriver,
   railway: railwayDriver,
 };

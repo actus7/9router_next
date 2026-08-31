@@ -3,7 +3,7 @@ import { PROVIDERS, PROVIDER_OAUTH } from "./providers";
 import { ANTIGRAVITY_IDE_USER_AGENT } from "../providers/shared";
 
 // === Gemini CLI === derive từ registry gemini-cli.transport
-export const GEMINI_CLI_VERSION = PROVIDERS["gemini-cli"]?.cliVersion as string | undefined;
+const GEMINI_CLI_VERSION = PROVIDERS["gemini-cli"]?.cliVersion as string | undefined;
 export const GEMINI_CLI_API_CLIENT = PROVIDERS["gemini-cli"]?.apiClient as string | undefined;
 
 // Map Node arch to Gemini CLI arch string (x64/x86/arm64/...)
@@ -28,14 +28,14 @@ export const GITHUB_COPILOT = {
 };
 
 // === Antigravity enums ===
-export const IDE_TYPE = {
+const IDE_TYPE = {
   UNSPECIFIED: 0,
   JETSKI: 10,
   ANTIGRAVITY: 9,
   PLUGINS: 7
 };
 
-export const PLATFORM = {
+const PLATFORM = {
   UNSPECIFIED: 0,
   DARWIN_AMD64: 1,
   DARWIN_ARM64: 2,
@@ -44,13 +44,13 @@ export const PLATFORM = {
   WINDOWS_AMD64: 5
 };
 
-export const PLUGIN_TYPE = {
+const PLUGIN_TYPE = {
   UNSPECIFIED: 0,
   CLOUD_CODE: 1,
   GEMINI: 2
 };
 
-export function getPlatformEnum() {
+function getPlatformEnum() {
   const os = platform();
   const architecture = arch();
   if (os === "darwin") return architecture === "arm64" ? PLATFORM.DARWIN_ARM64 : PLATFORM.DARWIN_AMD64;
@@ -59,7 +59,7 @@ export function getPlatformEnum() {
   return PLATFORM.UNSPECIFIED;
 }
 
-export function getPlatformUserAgent() {
+function getPlatformUserAgent() {
   return ANTIGRAVITY_IDE_USER_AGENT;
 }
 
@@ -70,7 +70,7 @@ export const CLIENT_METADATA = {
 };
 
 // Internal anti-loop header
-export const INTERNAL_REQUEST_HEADER = { name: "x-request-source", value: "local" };
+const INTERNAL_REQUEST_HEADER = { name: "x-request-source", value: "local" };
 
 // Suffix added to client tools when forwarding to Antigravity provider (anti-ban cloaking)
 export const AG_TOOL_SUFFIX = "_ide";
@@ -170,7 +170,7 @@ export const LOAD_CODE_ASSIST_METADATA = {
 
 // System prompts
 export const CLAUDE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude.";
-export const ANTIGRAVITY_DEFAULT_SYSTEM = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**";
+const ANTIGRAVITY_DEFAULT_SYSTEM = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**";
 
 // Derive từ registry oauth.refreshLeadMs
 export const REFRESH_LEAD_MS: Record<string, unknown> = Object.fromEntries(

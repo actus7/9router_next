@@ -71,14 +71,14 @@ export function deriveSessionId(connectionId: string) {
  *
  * @returns {string} A session ID in binary format
  */
-export function generateBinaryStyleId() {
+function generateBinaryStyleId() {
     return crypto.randomUUID() + Date.now().toString();
 }
 
 /**
  * Clears all session IDs (e.g. useful for testing or explicit reset)
  */
-export function clearSessionStore() {
+function clearSessionStore() {
     runtimeSessionStore.clear();
     assistantSessionStore.clear();
     continuationStore.clear();

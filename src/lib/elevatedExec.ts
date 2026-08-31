@@ -51,7 +51,7 @@ export function getCachedPassword(): string | null {
   return (globalThis as unknown as Record<string, unknown>).__elevatedSudoPassword as string || null;
 }
 
-export function setCachedPassword(pwd: string | null): void {
+function setCachedPassword(pwd: string | null): void {
   (globalThis as unknown as Record<string, unknown>).__elevatedSudoPassword = pwd;
 }
 

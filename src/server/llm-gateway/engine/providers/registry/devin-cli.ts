@@ -1,3 +1,5 @@
+// fallow-ignore-file unused-file
+// Intentionally dormant — re-enable by uncommenting in registry/index.ts
 export default {
   id: "devin-cli",
   alias: "dv",

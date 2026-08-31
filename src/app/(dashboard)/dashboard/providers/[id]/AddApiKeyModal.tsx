@@ -38,7 +38,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const isXaiApiKey = provider === "xai" && !isCookie;
   const credentialLabel = isCookie ? "Cookie Value" : provider === "qoder" ? "Personal Access Token (PAT)" : "API Key";
   const credentialPlaceholder = isCookie
-    ? (provider === "grok-web" ? "sso=xxxxx... or just the raw value" : "eyJhbGciOi...")
+    ? "eyJhbGciOi..."
     : (isXaiApiKey ? "xai-..." : provider === "qoder" ? "pt-..." : "");
 
   const isAzure = provider === "azure";
@@ -61,6 +61,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     organization: "",
   });
   const [cloudflareData, setCloudflareData] = useState({ accountId: "" });
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState("https://ollama.com");
   const [region, setRegion] = useState<string>(defaultRegion);
   const [validating, setValidating] = useState<boolean>(false);
   const [validationResult, setValidationResult] = useState<"success" | "failed" | null>(null);
@@ -86,6 +87,9 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
     }
     if (isCloudflareAi) {
       return { accountId: cloudflareData.accountId };
+    }
+    if (provider === "ollama") {
+      return { baseUrl: ollamaBaseUrl.trim().replace(/\/$/, "") || "https://ollama.com" };
     }
     if (providerRegions && region) {
       return { region };
@@ -317,6 +321,20 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
             />
             <p className="text-xs text-text-muted mt-2">
               Find your Account ID in the right sidebar of <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">dash.cloudflare.com</a>
+            </p>
+          </div>
+        )}
+        {provider === "ollama" && (
+          <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
+            <h3 className="font-semibold mb-3 text-sm">Ollama endpoint</h3>
+            <Input
+              label="Base URL"
+              value={ollamaBaseUrl}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOllamaBaseUrl(e.target.value)}
+              placeholder="https://ollama.com or http://127.0.0.1:11434"
+            />
+            <p className="text-xs text-text-muted mt-2">
+              Use https://ollama.com for Cloud, or the URL reachable by this server for a self-hosted Ollama daemon.
             </p>
           </div>
         )}

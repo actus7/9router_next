@@ -40,7 +40,7 @@ interface FrameHeader {
  * Validate a gRPC-web frame header at `offset`.
  * @returns {{ flag: number, payloadStart: number, payloadLength: number } | null}
  */
-export function probeFrameHeader(buffer: Buffer, offset = 0): FrameHeader | null {
+function probeFrameHeader(buffer: Buffer, offset = 0): FrameHeader | null {
   if (!Buffer.isBuffer(buffer) || offset < 0 || buffer.length - offset < 5) return null;
   const flag = buffer[offset];
   if (flag !== 0x00 && flag !== 0x01 && flag !== 0x80 && flag !== 0x81) return null;

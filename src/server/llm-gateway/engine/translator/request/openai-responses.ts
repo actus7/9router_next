@@ -4,7 +4,7 @@
  * Responses API uses: { input: [...], instructions: "..." }
  * Chat API uses: { messages: [...] }
  */
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { normalizeResponsesInput } from "../formats/responsesApi";
 import { ROLE, OPENAI_BLOCK, RESPONSES_ITEM } from "../schema/index";

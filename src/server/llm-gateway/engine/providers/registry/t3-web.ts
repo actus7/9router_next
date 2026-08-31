@@ -11,8 +11,8 @@ export default {
   },
   category: "webCookie",
   authType: "cookie",
-  authHint: "Paste your convex-session-id cookie from t3.chat",
-  notice: "t3.chat — free with limits. Emulated tool calling.",
+  authHint: "Paste your full Cookie header from t3.chat (must include convex-session-id)",
+  notice: "t3.chat — free with limits. Uses TanStack Start's TSS protocol under the hood.",
   transport: {
     baseUrl: "https://t3.chat/api/chat",
     format: "openai",

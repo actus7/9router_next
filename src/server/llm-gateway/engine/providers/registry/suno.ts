@@ -16,8 +16,12 @@ export default {
     authType: "cookie",
   },
   models: [
-    { id: "chirp-v5", name: "Chirp V5", kind: "music" },
-    { id: "chirp-v5.5", name: "Chirp V5.5", kind: "music" },
+    // Suno renamed its internal model ids to codenames circa 2026-06-19 —
+    // the old "chirp-v5"/"chirp-v5.5" ids are rejected by the upstream API.
+    { id: "chirp-fenix", name: "Chirp V5.5", kind: "music" },
+    { id: "chirp-crow", name: "Chirp V5", kind: "music" },
+    { id: "chirp-v4", name: "Chirp V4", kind: "music" },
+    { id: "chirp-v3-5", name: "Chirp V3.5", kind: "music" },
   ],
   serviceKinds: ["music"],
 };

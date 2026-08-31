@@ -104,7 +104,7 @@ export function createStreamController({ onDisconnect, onError, log, provider = 
  * for long periods while raw bytes still flow (e.g. Kiro EventStream
  * binary frames buffering, Claude reasoning streams).
  */
-export function createDisconnectAwareStream(transformStream: TransformStream<Uint8Array, Uint8Array>, streamController: ReturnType<typeof createStreamController>, onAbortTerminal: (() => Uint8Array | null | undefined) | null = null) {
+function createDisconnectAwareStream(transformStream: TransformStream<Uint8Array, Uint8Array>, streamController: ReturnType<typeof createStreamController>, onAbortTerminal: (() => Uint8Array | null | undefined) | null = null) {
   const reader = transformStream.readable.getReader();
   const writer = transformStream.writable.getWriter();
   let terminalEmitted = false;

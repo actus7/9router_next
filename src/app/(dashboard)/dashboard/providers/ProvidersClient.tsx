@@ -14,6 +14,7 @@ import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import {
   FREE_PROVIDERS,
   FREE_TIER_PROVIDERS,
+  WEB_COOKIE_PROVIDERS,
   OPENAI_COMPATIBLE_PREFIX,
   ANTHROPIC_COMPATIBLE_PREFIX,
 } from "@/shared/constants/providers";
@@ -362,11 +363,21 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
       : apikeyEntries.slice(0, APIKEY_INITIAL_VISIBLE);
   const hiddenApikeyCount = apikeyEntries.length - APIKEY_INITIAL_VISIBLE;
 
+  const webCookieEntries = (Object.entries(WEB_COOKIE_PROVIDERS) as unknown as [string, ProviderInfo][])
+    .filter(([, info]) => !info.hidden && matchSearch(info.name))
+    .sort(([ka, a], [kb, b]) => {
+      const ca = getProviderStats(ka, "cookie").total > 0 ? 0 : 1;
+      const cb = getProviderStats(kb, "cookie").total > 0 ? 0 : 1;
+      if (ca !== cb) return ca - cb;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
   const hasAnyResult =
     oauthEntries.length > 0 ||
     freeEntries.length > 0 ||
     freeTierEntries.length > 0 ||
     apikeyEntries.length > 0 ||
+    webCookieEntries.length > 0 ||
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
 
@@ -418,7 +429,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                   providerId={info.id}
                   provider={info}
                   stats={getProviderStats(info.id, "apikey")}
-                  authType="compatible"
                   onToggle={(active) =>
                     handleToggleProvider(info.id, "apikey", active)
                   }
@@ -464,7 +474,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                 providerId={key}
                 provider={info}
                 stats={getProviderStats(key, authTypes)}
-                authType="oauth"
                 onToggle={(active) => handleToggleProvider(key, authTypes, active)}
               />
             );
@@ -505,7 +514,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                 providerId={key}
                 provider={info}
                 stats={getProviderStats(key, freeAuthTypes)}
-                authType="free"
                 onToggle={(active) =>
                   handleToggleProvider(key, freeAuthTypes, active)
                 }
@@ -520,7 +528,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                 providerId={key}
                 provider={info}
                 stats={getProviderStats(key, freeAuthTypes)}
-                authType={Array.isArray(freeAuthTypes) ? (freeAuthTypes[0] ?? "apikey") : freeAuthTypes}
                 onToggle={(active) => handleToggleProvider(key, freeAuthTypes, active)}
               />
             );
@@ -559,7 +566,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
               providerId={key}
               provider={info}
               stats={getProviderStats(key, "apikey")}
-              authType="apikey"
               onToggle={(active) => handleToggleProvider(key, "apikey", active)}
             />
           ))}
@@ -574,6 +580,43 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
             {translate("Show all")} {apikeyEntries.length} {translate("providers")}
           </Button>
         )}
+      </div>
+      )}
+
+      {/* Web Session Providers (cookie-based auth) */}
+      {webCookieEntries.length > 0 && (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
+            {translate("Web Session Providers")}
+          </h2>
+          <Button
+            variant="outline"
+            onClick={() => handleBatchTest("cookie")}
+            disabled={!!testingMode}
+            className={testingMode === "cookie" ? "animate-pulse" : ""}
+            title={translate("Test all Web Session connections") || "Test all Web Session connections"}
+            aria-label={translate("Test all Web Session connections") || "Test all Web Session connections"}
+          >
+            <span
+              className={`text-[14px]${testingMode === "cookie" ? " animate-spin" : ""}`}
+            >
+              <Play className="size-3.5" />
+            </span>
+            {testingMode === "cookie" ? translate("Testing...") : translate("Test All")}
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {webCookieEntries.map(([key, info]) => (
+            <ApiKeyProviderCard
+              key={key}
+              providerId={key}
+              provider={info}
+              stats={getProviderStats(key, "cookie")}
+              onToggle={(active) => handleToggleProvider(key, "cookie", active)}
+            />
+          ))}
+        </div>
       </div>
       )}
 
@@ -609,11 +652,10 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
   );
 }
 
-function ProviderCard({ providerId, provider, stats, authType, onToggle }: {
+function ProviderCard({ providerId, provider, stats, onToggle }: {
   providerId: string;
   provider: ProviderInfo;
   stats: ProviderStats;
-  authType: string;
   onToggle: (active: boolean) => void;
 }) {
   const { connected, error, errorCode, errorTime, allDisabled } = stats;
@@ -695,13 +737,11 @@ function ApiKeyProviderCard({
   providerId,
   provider,
   stats,
-  authType,
   onToggle,
 }: {
   providerId: string;
   provider: ProviderInfo & { apiType?: string };
   stats: ProviderStats;
-  authType: string;
   onToggle: (active: boolean) => void;
 }) {
   const { connected, error, errorCode, errorTime, allDisabled } = stats;
@@ -818,6 +858,7 @@ function ProviderTestResultsView({ results }: { results: TestResults }) {
       oauth: "OAuth",
       free: "Free",
       apikey: "API Key",
+      cookie: "Web Session",
       provider: "Provider",
       all: "All",
     } as Record<string, string>)[mode || ""] || mode;

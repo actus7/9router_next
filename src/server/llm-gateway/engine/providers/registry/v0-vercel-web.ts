@@ -18,7 +18,7 @@ export default {
   authType: "cookie",
   authHint: "Paste your session cookie from v0.dev",
   transport: {
-    baseUrl: "https://v0.dev/api/chat/completions",
+    baseUrl: "https://v0.dev/api/chat",
     format: "openai",
     authType: "cookie",
   },

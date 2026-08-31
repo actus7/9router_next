@@ -11,10 +11,10 @@ export default {
   },
   category: "webCookie",
   authType: "cookie",
-  authHint: "Paste your __Secure-authjs.session-token from blackbox.ai",
-  notice: "Blackbox Web session. Emulated tool calling.",
+  authHint: "Paste your next-auth.session-token from app.blackbox.ai",
+  notice: "Blackbox Web session.",
   transport: {
-    baseUrl: "https://www.blackbox.ai/api/chat",
+    baseUrl: "https://app.blackbox.ai/api/chat",
     format: "openai",
     authType: "cookie",
   },

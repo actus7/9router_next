@@ -340,7 +340,7 @@ function reconcileToolPair(assistant: KiroAssistantResponseMessage, user: KiroUs
 }
 
 /** Validate the final Kiro wire conversation without mutating it. */
-export function validateKiroConversation(history: unknown, currentMessage: unknown, toolSpecs: KiroToolSpec[] = []): { valid: boolean; errors: string[] } {
+function validateKiroConversation(history: unknown, currentMessage: unknown, toolSpecs: KiroToolSpec[] = []): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   const turns = [...(Array.isArray(history) ? history : []), currentMessage].filter(Boolean) as KiroTurn[];
   const specNames = new Set(toolSpecs.map((spec) => spec?.toolSpecification?.name).filter((n): n is string => typeof n === "string"));

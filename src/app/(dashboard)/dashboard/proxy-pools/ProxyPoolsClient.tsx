@@ -1,618 +1,50 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { Textarea } from "@/components/ui/textarea";
-import { Button, Card, CardSkeleton, Input, Modal, ConfirmModal } from "@/shared/components";
+import { Button, Card } from "@/shared/components";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useNotificationStore } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { ChevronDown, ChevronUp, Cloud, CloudUpload, FlaskConical, ListChecks, Loader2, Pencil, Plus, Rocket, Terminal, ToggleLeft, ToggleRight, Trash2, Upload } from "lucide-react";
-
-export interface ProxyPool {
-  id: string;
-  name: string;
-  proxyUrl: string;
-  noProxy?: string;
-  isActive?: boolean;
-  strictProxy?: boolean;
-  testStatus?: string;
-  lastTestedAt?: string;
-  lastError?: string;
-  boundConnectionCount?: number;
-  type?: string;
-}
-
-interface ConfirmState {
-  title: string;
-  message: string;
-  onConfirm: () => Promise<void>;
-}
-
-function getStatusVariant(status?: string): "secondary" | "default" | "destructive" {
-  if (status === "active") return "default";
-  if (status === "error") return "destructive";
-  return "secondary";
-}
-
-function getStatusClassName(status?: string): string | undefined {
-  if (status === "active") return "bg-green-500/10 text-green-600 dark:text-green-400";
-  return undefined;
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return translate("Never") || "Never";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return translate("Never") || "Never";
-  return date.toLocaleString();
-}
-
-function normalizeFormData(data: Partial<ProxyPool> = {}) {
-  return {
-    name: data.name || "",
-    proxyUrl: data.proxyUrl || "",
-    noProxy: data.noProxy || "",
-    isActive: data.isActive !== false,
-    strictProxy: data.strictProxy === true,
-  };
-}
+import { useProxyPools } from "./hooks/useProxyPools";
+import { useProxyDeploy } from "./hooks/useProxyDeploy";
+import { useProxyImport } from "./hooks/useProxyImport";
+import ProxyPoolModals from "./sections/ProxyPoolModals";
+import { getStatusVariant, getStatusClassName, formatDateTime } from "./types";
+export type { ProxyPool } from "./types";
+import type { ProxyPool } from "./types";
 
 interface ProxyPoolsClientProps {
   initialProxyPools: ProxyPool[];
 }
 
 export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClientProps) {
-  const [proxyPools, setProxyPools] = useState<ProxyPool[]>(initialProxyPools);
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showBatchImportModal, setShowBatchImportModal] = useState(false);
-  const [showVercelModal, setShowVercelModal] = useState(false);
-  const [showCloudflareModal, setShowCloudflareModal] = useState(false);
-  const [showDenoModal, setShowDenoModal] = useState(false);
-  const [showRelayMenu, setShowRelayMenu] = useState(false);
-  const [editingProxyPool, setEditingProxyPool] = useState<ProxyPool | null>(null);
-  const [formData, setFormData] = useState(normalizeFormData());
-  const [batchImportText, setBatchImportText] = useState("");
-  const [vercelForm, setVercelForm] = useState({ vercelToken: "", projectName: "vercel-relay" });
-  const [cloudflareForm, setCloudflareForm] = useState({ accountId: "", apiToken: "", projectName: "cloudflare-relay" });
-  const [denoForm, setDenoForm] = useState({ denoToken: "", orgDomain: "", projectName: "" });
-  const [saving, setSaving] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [deploying, setDeploying] = useState(false);
-  const [testingId, setTestingId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [healthChecking, setHealthChecking] = useState(false);
-  const [healthProgress, setHealthProgress] = useState({ current: 0, total: 0 });
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
-  const relayMenuRef = useRef<HTMLDivElement>(null);
-  const notify = useNotificationStore();
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (relayMenuRef.current && !relayMenuRef.current.contains(e.target as Node)) {
-        setShowRelayMenu(false);
-      }
-    };
-    if (showRelayMenu) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showRelayMenu]);
-
-  const fetchProxyPools = useCallback(async () => {
-    try {
-      const res = await fetch("/api/proxy-pools?includeUsage=true", { cache: "no-store" });
-      const data = await res.json();
-      if (res.ok) {
-        setProxyPools(data.proxyPools || []);
-      }
-    } catch (error) {
-      console.error("Error fetching proxy pools:", error);
-    }
-  }, []);
-
-  const resetForm = () => {
-    setEditingProxyPool(null);
-    setFormData(normalizeFormData());
-  };
-
-  const openCreateModal = () => {
-    resetForm();
-    setShowFormModal(true);
-  };
-
-  const openEditModal = (proxyPool: ProxyPool) => {
-    setEditingProxyPool(proxyPool);
-    setFormData(normalizeFormData(proxyPool));
-    setShowFormModal(true);
-  };
-
-  const closeFormModal = () => {
-    setShowFormModal(false);
-    resetForm();
-  };
-
-  const handleSave = async () => {
-    const payload = {
-      name: formData.name.trim(),
-      proxyUrl: formData.proxyUrl.trim(),
-      noProxy: formData.noProxy.trim(),
-      isActive: formData.isActive === true,
-      strictProxy: formData.strictProxy === true,
-    };
-
-    if (!payload.name || !payload.proxyUrl) return;
-
-    setSaving(true);
-    try {
-      const isEdit = !!editingProxyPool;
-      const res = await fetch(isEdit ? `/api/proxy-pools/${editingProxyPool!.id}` : "/api/proxy-pools", {
-        method: isEdit ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        await fetchProxyPools();
-        closeFormModal();
-        notify.success(editingProxyPool ? (translate("Proxy pool updated") || "Proxy pool updated") : (translate("Proxy pool created") || "Proxy pool created"));
-      } else {
-        const data = await res.json();
-        notify.error(data.error || "Failed to save proxy pool");
-      }
-    } catch (error) {
-      console.error("Error saving proxy pool:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (proxyPool: ProxyPool) => {
-    setConfirmState({
-      title: translate("Delete Proxy Pool") || "Delete Proxy Pool",
-      message: `${translate("Delete proxy pool") || "Delete proxy pool"} "${proxyPool.name}"?`,
-      onConfirm: async () => {
-        setConfirmState(null);
-        try {
-          const res = await fetch(`/api/proxy-pools/${proxyPool.id}`, { method: "DELETE" });
-          if (res.ok) {
-            setProxyPools((prev) => prev.filter((item) => item.id !== proxyPool.id));
-            notify.success(translate("Proxy pool deleted") || "Proxy pool deleted");
-            return;
-          }
-
-          const data = await res.json();
-          if (res.status === 409) {
-            notify.warning(`${translate("Cannot delete:") || "Cannot delete:"} ${data.boundConnectionCount || 0} ${translate("connection(s) still using this pool.") || "connection(s) still using this pool."}`);
-          } else {
-            notify.error(data.error || (translate("Failed to delete proxy pool") || "Failed to delete proxy pool"));
-          }
-        } catch (error) {
-          console.error("Error deleting proxy pool:", error);
-          notify.error(translate("Failed to delete proxy pool") || "Failed to delete proxy pool");
-        }
-      }
-    });
-  };
-
-  const handleTest = async (proxyPoolId: string) => {
-    setTestingId(proxyPoolId);
-    try {
-      const res = await fetch(`/api/proxy-pools/${proxyPoolId}/test`, { method: "POST" });
-      const data = await res.json();
-
-      if (!res.ok) {
-        notify.error(data.error || (translate("Failed to test proxy") || "Failed to test proxy"));
-        return;
-      }
-
-      await fetchProxyPools();
-      notify.success(data.ok ? (translate("Proxy test passed") || "Proxy test passed") : (translate("Proxy test failed") || "Proxy test failed"));
-    } catch (error) {
-      console.error("Error testing proxy pool:", error);
-      notify.error(translate("Failed to test proxy") || "Failed to test proxy");
-    } finally {
-      setTestingId(null);
-    }
-  };
-
-  const handleToggleActive = async (pool: ProxyPool) => {
-    const next = !pool.isActive;
-    setProxyPools((prev) => prev.map((p) => p.id === pool.id ? { ...p, isActive: next } : p));
-    try {
-      const res = await fetch(`/api/proxy-pools/${pool.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: next }),
-      });
-      if (!res.ok) {
-        setProxyPools((prev) => prev.map((p) => p.id === pool.id ? { ...p, isActive: pool.isActive } : p));
-        notify.error(translate("Failed to update active state") || "Failed to update active state");
-      }
-    } catch (error) {
-      console.error("Error toggling active:", error);
-      setProxyPools((prev) => prev.map((p) => p.id === pool.id ? { ...p, isActive: pool.isActive } : p));
-    }
-  };
-
-  const allSelected = proxyPools.length > 0 && selectedIds.length === proxyPools.length;
-  const toggleSelect = (id: string) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  const toggleSelectAll = () => setSelectedIds(allSelected ? [] : proxyPools.map((p) => p.id));
-  const clearSelection = () => setSelectedIds([]);
-
-  const bulkSetActive = async (isActive: boolean) => {
-    const targets = selectedIds.length > 0 ? selectedIds : proxyPools.map((p) => p.id);
-    if (targets.length === 0) return;
-    setBulkBusy(true);
-    try {
-      let ok = 0; let failed = 0;
-      for (const id of targets) {
-        try {
-          const res = await fetch(`/api/proxy-pools/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ isActive }),
-          });
-          if (res.ok) ok += 1; else failed += 1;
-        } catch { failed += 1; }
-      }
-      await fetchProxyPools();
-      notify.success(`${isActive ? "Activated" : "Deactivated"} ${ok}${failed ? `, failed ${failed}` : ""}`);
-    } finally {
-      setBulkBusy(false);
-    }
-  };
-
-  const bulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    setConfirmState({
-      title: translate("Delete Proxy Pools") || "Delete Proxy Pools",
-      message: `${translate("Delete") || "Delete"} ${selectedIds.length} ${translate("proxy pool(s)?") || "proxy pool(s)?"}`,
-      onConfirm: async () => {
-        setConfirmState(null);
-        setBulkBusy(true);
-        try {
-          let ok = 0; let blocked = 0; let failed = 0;
-          for (const id of selectedIds) {
-            try {
-              const res = await fetch(`/api/proxy-pools/${id}`, { method: "DELETE" });
-              if (res.ok) ok += 1;
-              else if (res.status === 409) blocked += 1;
-              else failed += 1;
-            } catch { failed += 1; }
-          }
-          await fetchProxyPools();
-          clearSelection();
-          notify.success(`${translate("Deleted") || "Deleted"} ${ok}${blocked ? `, ${blocked} ${translate("bound") || "bound"}` : ""}${failed ? `, ${failed} ${translate("failed") || "failed"}` : ""}`);
-        } finally {
-          setBulkBusy(false);
-        }
-      }
-    });
-  };
-
-  const handleHealthCheck = async () => {
-    const targets = selectedIds.length > 0
-      ? proxyPools.filter((p) => selectedIds.includes(p.id))
-      : proxyPools;
-    if (targets.length === 0) return;
-    setHealthChecking(true);
-    setHealthProgress({ current: 0, total: targets.length });
-    let alive = 0; const deadIds: string[] = [];
-    let done = 0;
-    const CONCURRENCY = 10;
-    const queue = [...targets];
-
-    const worker = async () => {
-      while (queue.length > 0) {
-        const pool = queue.shift();
-        if (!pool) break;
-        try {
-          const res = await fetch(`/api/proxy-pools/${pool.id}/test`, { method: "POST" });
-          const data = await res.json();
-          if (res.ok && data.ok) alive += 1; else deadIds.push(pool.id);
-        } catch {
-          deadIds.push(pool.id);
-        } finally {
-          done += 1;
-          setHealthProgress({ current: done, total: targets.length });
-        }
-      }
-    };
-
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker));
-    await fetchProxyPools();
-    setHealthChecking(false);
-    setHealthProgress({ current: 0, total: 0 });
-
-    if (deadIds.length > 0) {
-      setConfirmState({
-        title: translate("Deactivate Dead Proxies") || "Deactivate Dead Proxies",
-        message: `${translate("Active:") || "Active:"} ${alive}, ${translate("Dead:") || "Dead:"} ${deadIds.length}.\n\n${translate("Deactivate") || "Deactivate"} ${deadIds.length} ${translate("dead proxies?") || "dead proxies?"}`,
-        onConfirm: async () => {
-          setConfirmState(null);
-          setBulkBusy(true);
-          try {
-            for (const id of deadIds) {
-              try {
-                await fetch(`/api/proxy-pools/${id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ isActive: false }),
-                });
-              } catch {}
-            }
-            await fetchProxyPools();
-            notify.success(`${translate("Deactivated") || "Deactivated"} ${deadIds.length} ${translate("dead proxies") || "dead proxies"}`);
-          } finally {
-            setBulkBusy(false);
-          }
-        }
-      });
-    } else {
-      notify.success(`${translate("Health check completed.") || "Health check completed."} ${translate("Active:") || "Active:"} ${alive}, ${translate("Dead:") || "Dead:"} ${deadIds.length}`);
-    }
-  };
-
-  // Cleanup selectedIds when pools change
-  useEffect(() => {
-    setSelectedIds((prev) => prev.filter((id) => proxyPools.some((p) => p.id === id)));
-  }, [proxyPools]);
-
-  const openBatchImportModal = () => {
-    setBatchImportText("");
-    setShowBatchImportModal(true);
-  };
-
-  const closeBatchImportModal = () => {
-    if (importing) return;
-    setShowBatchImportModal(false);
-  };
-
-  const openVercelModal = () => {
-    setVercelForm({ vercelToken: "", projectName: "vercel-relay" });
-    setShowVercelModal(true);
-  };
-
-  const closeVercelModal = () => {
-    if (deploying) return;
-    setShowVercelModal(false);
-  };
-
-  const openCloudflareModal = () => {
-    setCloudflareForm({ accountId: "", apiToken: "", projectName: "cloudflare-relay" });
-    setShowCloudflareModal(true);
-  };
-
-  const closeCloudflareModal = () => {
-    if (deploying) return;
-    setShowCloudflareModal(false);
-  };
-
-  const openDenoModal = () => {
-    setDenoForm({ denoToken: "", orgDomain: "", projectName: "" });
-    setShowDenoModal(true);
-  };
-
-  const closeDenoModal = () => {
-    if (deploying) return;
-    setShowDenoModal(false);
-  };
-
-  const handleVercelDeploy = async () => {
-    if (!vercelForm.vercelToken.trim()) return;
-    setDeploying(true);
-    try {
-      const res = await fetch("/api/proxy-pools/vercel-deploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(vercelForm),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        await fetchProxyPools();
-        closeVercelModal();
-        notify.success(`Deployed: ${data.deployUrl}`);
-      } else {
-        notify.error(data.error || "Deploy failed");
-      }
-    } catch (error) {
-      console.error("Error deploying Vercel relay:", error);
-      notify.error("Deploy failed");
-    } finally {
-      setDeploying(false);
-    }
-  };
-
-  const handleCloudflareDeploy = async () => {
-    if (!cloudflareForm.accountId.trim() || !cloudflareForm.apiToken.trim()) return;
-    setDeploying(true);
-    try {
-      const res = await fetch("/api/proxy-pools/cloudflare-deploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cloudflareForm),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        await fetchProxyPools();
-        closeCloudflareModal();
-        notify.success(`Deployed: ${data.deployUrl}`);
-      } else {
-        notify.error(data.error || "Deploy failed");
-      }
-    } catch (error) {
-      console.error("Error deploying Cloudflare relay:", error);
-      notify.error("Deploy failed");
-    } finally {
-      setDeploying(false);
-    }
-  };
-
-  const handleDenoDeploy = async () => {
-    if (!denoForm.denoToken.trim()) return;
-    setDeploying(true);
-    try {
-      const res = await fetch("/api/proxy-pools/deno-deploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(denoForm),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        await fetchProxyPools();
-        closeDenoModal();
-        notify.success(`Deployed: ${data.deployUrl}`);
-      } else {
-        notify.error(data.error || "Deploy failed");
-      }
-    } catch (error) {
-      console.error("Error deploying Deno relay:", error);
-      notify.error("Deploy failed");
-    } finally {
-      setDeploying(false);
-    }
-  };
-
-  const parseProxyLine = (line: string) => {
-    const trimmed = line.trim();
-    if (!trimmed) return null;
-
-    if (trimmed.includes("://")) {
-      const parsed = new URL(trimmed);
-      const hostLabel = parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname;
-      return {
-        proxyUrl: parsed.toString(),
-        name: `Imported ${hostLabel}`,
-      };
-    }
-
-    const parts = trimmed.split(":");
-    if (parts.length === 4) {
-      const [host, port, username, password] = parts;
-      if (!host || !port || !username || !password) {
-        throw new Error("Invalid host:port:user:pass format");
-      }
-
-      const proxyUrl = `http://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
-      const parsed = new URL(proxyUrl);
-      return {
-        proxyUrl: parsed.toString(),
-        name: `Imported ${host}:${port}`,
-      };
-    }
-
-    throw new Error("Unsupported format");
-  };
-
-  const handleBatchImport = async () => {
-    const lines = batchImportText
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    if (lines.length === 0) {
-      notify.warning(translate("Please paste at least one proxy line.") || "Please paste at least one proxy line.");
-      return;
-    }
-
-    const parsedEntries: { proxyUrl: string; name: string; lineNumber: number }[] = [];
-    const invalidLines: string[] = [];
-
-    lines.forEach((line, index) => {
-      try {
-        const parsed = parseProxyLine(line);
-        if (parsed) {
-          parsedEntries.push({
-            ...parsed,
-            lineNumber: index + 1,
-          });
-        }
-      } catch (error: unknown) {
-        invalidLines.push(`Line ${index + 1}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    });
-
-    if (invalidLines.length > 0) {
-      notify.error(`${translate("Invalid proxy format:") || "Invalid proxy format:"}\n${invalidLines.join("\n")}`);
-      return;
-    }
-
-    setImporting(true);
-    try {
-      const existingKeys = new Set(
-        proxyPools.map((pool) => `${(pool.proxyUrl || "").trim()}|||${(pool.noProxy || "").trim()}`)
-      );
-
-      let created = 0;
-      let skipped = 0;
-      let failed = 0;
-
-      for (const entry of parsedEntries) {
-        const dedupeKey = `${entry.proxyUrl}|||`;
-        if (existingKeys.has(dedupeKey)) {
-          skipped += 1;
-          continue;
-        }
-
-        const res = await fetch("/api/proxy-pools", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: entry.name,
-            proxyUrl: entry.proxyUrl,
-            noProxy: "",
-            isActive: true,
-          }),
-        });
-
-        if (res.ok) {
-          created += 1;
-          existingKeys.add(dedupeKey);
-        } else {
-          failed += 1;
-        }
-      }
-
-      await fetchProxyPools();
-      setShowBatchImportModal(false);
-      notify.success(`${translate("Batch import completed:") || "Batch import completed:"} ${translate("Created") || "Created"} ${created}, ${translate("Skipped") || "Skipped"} ${skipped}, ${translate("Failed") || "Failed"} ${failed}`);
-    } catch (error) {
-      console.error("Error batch importing proxies:", error);
-      notify.error(translate("Batch import failed") || "Batch import failed");
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const activeCount = useMemo(
-    () => proxyPools.filter((pool) => pool.isActive === true).length,
-    [proxyPools]
-  );
+  const pools = useProxyPools(initialProxyPools);
+  const deploy = useProxyDeploy(pools.fetchProxyPools);
+  const imp = useProxyImport(pools.proxyPools, pools.fetchProxyPools);
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       <div className="flex justify-end">
         <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
-          <div className="relative" ref={relayMenuRef}>
+          <div className="relative" ref={deploy.relayMenuRef}>
             <Button
               variant="secondary"
               icon={<Rocket className="size-4" />}
-              onClick={() => setShowRelayMenu(!showRelayMenu)}
+              onClick={() => deploy.setShowRelayMenu(!deploy.showRelayMenu)}
             >
               {translate("Deploy Relay") || "Deploy Relay"}
-              {showRelayMenu ? <ChevronUp className="size-4 ml-1" /> : <ChevronDown className="size-4 ml-1" />}
+              {deploy.showRelayMenu ? <ChevronUp className="size-4 ml-1" /> : <ChevronDown className="size-4 ml-1" />}
             </Button>
 
-            {showRelayMenu && (
+            {deploy.showRelayMenu && (
               <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-xl border border-black/10 bg-white p-1 shadow-xl dark:border-white/10 dark:bg-zinc-900 sm:left-auto sm:right-0">
                 <Button
                   variant="ghost"
                   onClick={() => {
-                    openCloudflareModal();
-                    setShowRelayMenu(false);
+                    deploy.openCloudflareModal();
+                    deploy.setShowRelayMenu(false);
                   }}
                   className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
@@ -622,8 +54,8 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                 <Button
                   variant="ghost"
                   onClick={() => {
-                    openVercelModal();
-                    setShowRelayMenu(false);
+                    deploy.openVercelModal();
+                    deploy.setShowRelayMenu(false);
                   }}
                   className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
@@ -633,8 +65,8 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                 <Button
                   variant="ghost"
                   onClick={() => {
-                    openDenoModal();
-                    setShowRelayMenu(false);
+                    deploy.openDenoModal();
+                    deploy.setShowRelayMenu(false);
                   }}
                   className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-sm"
                 >
@@ -645,60 +77,60 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
             )}
           </div>
 
-          <Button variant="secondary" icon={<Upload className="size-4" />} onClick={openBatchImportModal}>
+          <Button variant="secondary" icon={<Upload className="size-4" />} onClick={imp.openBatchImportModal}>
             {translate("Batch Import") || "Batch Import"}
           </Button>
-          <Button icon={<Plus className="size-4" />} onClick={openCreateModal}>{translate("Add Proxy Pool") || "Add Proxy Pool"}</Button>
+          <Button icon={<Plus className="size-4" />} onClick={pools.openCreateModal}>{translate("Add Proxy Pool") || "Add Proxy Pool"}</Button>
         </div>
       </div>
 
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          {proxyPools.length > 0 && (
+          {pools.proxyPools.length > 0 && (
             <Label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
               <Checkbox
-                checked={allSelected}
+                checked={pools.allSelected}
                 onCheckedChange={(checked) => {
                   if (checked === true) {
-                    setSelectedIds(proxyPools.map((p) => p.id));
+                    pools.setSelectedIds(pools.proxyPools.map((p) => p.id));
                   } else {
-                    setSelectedIds([]);
+                    pools.setSelectedIds([]);
                   }
                 }}
               />
-              {allSelected ? (translate("Deselect all") || "Deselect all") : (translate("Select all") || "Select all")}
+              {pools.allSelected ? (translate("Deselect all") || "Deselect all") : (translate("Select all") || "Select all")}
             </Label>
           )}
-          <Badge variant="secondary">{translate("Total:") || "Total:"} {proxyPools.length}</Badge>
-          <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">{translate("Active:") || "Active:"} {activeCount}</Badge>
+          <Badge variant="secondary">{translate("Total:") || "Total:"} {pools.proxyPools.length}</Badge>
+          <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">{translate("Active:") || "Active:"} {pools.activeCount}</Badge>
         </div>
 
-        {(selectedIds.length > 0 || healthChecking) && (
+        {(pools.selectedIds.length > 0 || pools.healthChecking) && (
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
             <ListChecks className="size-5" />
             <span className="text-xs font-medium text-primary">
-              {selectedIds.length > 0 ? `${selectedIds.length} ${translate("selected") || "selected"}` : (translate("All pools") || "All pools")}
+              {pools.selectedIds.length > 0 ? `${pools.selectedIds.length} ${translate("selected") || "selected"}` : (translate("All pools") || "All pools")}
             </span>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <Button
-                icon={healthChecking ? "progress_activity" : "health_and_safety"}
-                onClick={handleHealthCheck}
-                disabled={healthChecking || bulkBusy || proxyPools.length === 0}
+                icon={pools.healthChecking ? "progress_activity" : "health_and_safety"}
+                onClick={pools.handleHealthCheck}
+                disabled={pools.healthChecking || pools.bulkBusy || pools.proxyPools.length === 0}
               >
-                {healthChecking ? `${translate("Checking") || "Checking"} ${healthProgress.current}/${healthProgress.total}` : (translate("Health Check") || "Health Check")}
+                {pools.healthChecking ? `${translate("Checking") || "Checking"} ${pools.healthProgress.current}/${pools.healthProgress.total}` : (translate("Health Check") || "Health Check")}
               </Button>
-              {selectedIds.length > 0 && (
+              {pools.selectedIds.length > 0 && (
                 <>
-                  <Button variant="secondary" icon={<ToggleRight className="size-4" />} onClick={() => bulkSetActive(true)} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon={<ToggleRight className="size-4" />} onClick={() => pools.bulkSetActive(true)} disabled={pools.bulkBusy || pools.healthChecking}>
                     {translate("Activate") || "Activate"}
                   </Button>
-                  <Button variant="secondary" icon={<ToggleLeft className="size-4" />} onClick={() => bulkSetActive(false)} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon={<ToggleLeft className="size-4" />} onClick={() => pools.bulkSetActive(false)} disabled={pools.bulkBusy || pools.healthChecking}>
                     {translate("Deactivate") || "Deactivate"}
                   </Button>
-                  <Button variant="secondary" icon={<Trash2 className="size-4" />} onClick={bulkDelete} disabled={bulkBusy || healthChecking}>
+                  <Button variant="secondary" icon={<Trash2 className="size-4" />} onClick={pools.bulkDelete} disabled={pools.bulkBusy || pools.healthChecking}>
                     {translate("Delete") || "Delete"}
                   </Button>
-                  <Button variant="ghost" onClick={clearSelection} disabled={bulkBusy || healthChecking}>
+                  <Button variant="ghost" onClick={pools.clearSelection} disabled={pools.bulkBusy || pools.healthChecking}>
                     {translate("Clear") || "Clear"}
                   </Button>
                 </>
@@ -707,26 +139,26 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
           </div>
         )}
 
-        {proxyPools.length === 0 ? (
+        {pools.proxyPools.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-text-main font-medium mb-1">{translate("No proxy pool entries yet") || "No proxy pool entries yet"}</p>
             <p className="text-sm text-text-muted mb-4">
               {translate("Create a proxy pool entry, then assign it to connections.") || "Create a proxy pool entry, then assign it to connections."}
             </p>
-            <Button icon={<Plus className="size-4" />} onClick={openCreateModal}>{translate("Add Proxy Pool") || "Add Proxy Pool"}</Button>
+            <Button icon={<Plus className="size-4" />} onClick={pools.openCreateModal}>{translate("Add Proxy Pool") || "Add Proxy Pool"}</Button>
           </div>
         ) : (
           <div className="flex flex-col divide-y divide-black/[0.04] dark:divide-white/[0.05]">
-            {proxyPools.map((pool) => (
+            {pools.proxyPools.map((pool) => (
               <div key={pool.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   <Checkbox
-                    checked={selectedIds.includes(pool.id)}
+                    checked={pools.selectedIds.includes(pool.id)}
                     onCheckedChange={(checked) => {
                       if (checked === true) {
-                        setSelectedIds((prev) => [...prev, pool.id]);
+                        pools.setSelectedIds((prev) => [...prev, pool.id]);
                       } else {
-                        setSelectedIds((prev) => prev.filter((x) => x !== pool.id));
+                        pools.setSelectedIds((prev) => prev.filter((x) => x !== pool.id));
                       }
                     }}
                     className="mt-1 shrink-0"
@@ -764,22 +196,22 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                 <div className="flex items-center justify-end gap-1">
                   <Switch
                     checked={pool.isActive === true}
-                    onCheckedChange={() => handleToggleActive(pool)}
+                    onCheckedChange={() => pools.handleToggleActive(pool)}
                     title={pool.isActive ? (translate("Disable") || "Disable") : (translate("Enable") || "Enable")}
                   />
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    onClick={() => handleTest(pool.id)}
+                    onClick={() => pools.handleTest(pool.id)}
                     title="Test proxy"
-                    disabled={testingId === pool.id}
+                    disabled={pools.testingId === pool.id}
                   >
-                    {testingId === pool.id ? <Loader2 className="size-4 animate-spin" /> : <FlaskConical className="size-4" />}
+                    {pools.testingId === pool.id ? <Loader2 className="size-4 animate-spin" /> : <FlaskConical className="size-4" />}
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    onClick={() => openEditModal(pool)}
+                    onClick={() => pools.openEditModal(pool)}
                     title="Edit"
                   >
                     <Pencil className="size-5" />
@@ -787,7 +219,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    onClick={() => handleDelete(pool)}
+                    onClick={() => pools.handleDelete(pool)}
                     className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
                     title={translate("Delete") ?? undefined}
                   >
@@ -800,285 +232,38 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
         )}
       </Card>
 
-      <Modal
-        isOpen={showBatchImportModal}
-        title={translate("Batch Import Proxies") || "Batch Import Proxies"}
-        onClose={closeBatchImportModal}
-      >
-        <div className="flex flex-col gap-4">
-          <div>
-            <Label className="text-text-main mb-1 block">{translate("Paste Proxy List (One per line)") || "Paste Proxy List (One per line)"}</Label>
-            <Textarea
-              value={batchImportText}
-              onChange={(e) => setBatchImportText(e.target.value)}
-              placeholder={"http://user:pass@127.0.0.1:7897\n127.0.0.1:7897:user:pass"}
-              className="min-h-[180px]"
-            />
-            <p className="text-xs text-text-muted mt-1">
-              {translate("Supported formats:") || "Supported formats:"} protocol://user:pass@host:port, host:port:user:pass
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button fullWidth onClick={handleBatchImport} disabled={!batchImportText.trim() || importing}>
-              {importing ? (translate("Importing...") || "Importing...") : (translate("Import") || "Import")}
-            </Button>
-            <Button fullWidth variant="ghost" onClick={closeBatchImportModal} disabled={importing}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={showVercelModal}
-        title={translate("Deploy Vercel Relay") || "Deploy Vercel Relay"}
-        onClose={closeVercelModal}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="rounded-lg bg-blue-500/5 border border-blue-500/10 p-3 flex flex-col gap-1.5">
-            <p className="text-sm text-text-main font-medium">{translate("What is Vercel Relay?") || "What is Vercel Relay?"}</p>
-            <p className="text-xs text-text-muted">
-              Deploys an edge relay function to Vercel. All AI provider requests will be forwarded through Vercel&apos;s edge network, masking your real IP from providers.
-            </p>
-            <ul className="text-xs text-text-muted list-disc pl-4 space-y-0.5">
-              <li>Your IP is replaced by Vercel&apos;s dynamic edge IPs (hundreds of IPs across 20+ global regions)</li>
-              <li>Vercel serves millions of apps — providers can&apos;t block Vercel IPs without affecting legitimate traffic</li>
-              <li>Free tier: 100GB bandwidth/month, 500K edge invocations</li>
-              <li>Deploy multiple relays on different accounts for more IP diversity</li>
-            </ul>
-          </div>
-          <Input
-            label="Vercel API Token"
-            value={vercelForm.vercelToken}
-            onChange={(e) => setVercelForm((prev) => ({ ...prev, vercelToken: e.target.value }))}
-            placeholder="your-vercel-api-token"
-            hint={"Token is used once for deployment and not stored. Get token →"}
-            type="password"
-          />
-          <Input
-            label="Project Name"
-            value={vercelForm.projectName}
-            onChange={(e) => setVercelForm((prev) => ({ ...prev, projectName: e.target.value }))}
-            placeholder="my-relay"
-            hint="Unique name for your Vercel project. Leave empty for auto-generated name."
-          />
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleVercelDeploy}
-              disabled={!vercelForm.vercelToken.trim() || deploying}
-            >
-              {deploying ? (translate("Deploying...") || "Deploying...") : (translate("Deploy") || "Deploy")}
-            </Button>
-            <Button fullWidth variant="ghost" onClick={closeVercelModal} disabled={deploying}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={showCloudflareModal}
-        title={translate("Deploy Cloudflare Relay") || "Deploy Cloudflare Relay"}
-        onClose={closeCloudflareModal}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="rounded-lg bg-orange-500/5 border border-orange-500/10 p-3 flex flex-col gap-1.5">
-            <p className="text-sm text-text-main font-medium">{translate("What is Cloudflare Relay?") || "What is Cloudflare Relay?"}</p>
-            <p className="text-xs text-text-muted">
-              Deploys a Cloudflare Worker as a proxy relay. All AI provider requests will be forwarded through Cloudflare&apos;s global edge network.
-            </p>
-            <ul className="text-xs text-text-muted list-disc pl-4 space-y-0.5">
-              <li>High performance global routing and IP masking via Cloudflare Workers</li>
-              <li>Free tier: 100,000 requests per day</li>
-              <li>Requires Cloudflare Account ID and a Workers API Token (Edit Workers permission)</li>
-            </ul>
-            <div className="mt-2 pt-2 border-t border-orange-500/10 text-xs text-text-muted">
-              <p className="font-medium text-text-main mb-1">How to generate your API Token:</p>
-              <ol className="list-decimal pl-4 space-y-0.5">
-                <li>Go to <b>My Profile</b> → <b>API Tokens</b> → <b>Create Token</b></li>
-                <li>Scroll down to <b>Custom Token</b> and click <b>Get started</b></li>
-                <li>Under <b>Permissions</b>: Account | Workers Scripts | Edit</li>
-                <li>Under <b>Account Resources</b>: Include | Account | <i>Your Account Name</i></li>
-                <li>Click <b>Continue to summary</b> → <b>Create Token</b></li>
-              </ol>
-            </div>
-          </div>
-          <Input
-            label="Account ID"
-            value={cloudflareForm.accountId}
-            onChange={(e) => setCloudflareForm((prev) => ({ ...prev, accountId: e.target.value }))}
-            placeholder="your-cloudflare-account-id"
-            hint={"Found on the right side of the Cloudflare dashboard overview page."}
-          />
-          <Input
-            label="API Token"
-            value={cloudflareForm.apiToken}
-            onChange={(e) => setCloudflareForm((prev) => ({ ...prev, apiToken: e.target.value }))}
-            placeholder="your-cloudflare-api-token"
-            hint={"Requires \"Workers Scripts: Edit\" permission. Get token →"}
-            type="password"
-          />
-          <Input
-            label="Worker Name"
-            value={cloudflareForm.projectName}
-            onChange={(e) => setCloudflareForm((prev) => ({ ...prev, projectName: e.target.value }))}
-            placeholder="my-relay"
-            hint="Unique name for your Cloudflare Worker. Leave empty for auto-generated name."
-          />
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleCloudflareDeploy}
-              disabled={!cloudflareForm.accountId.trim() || !cloudflareForm.apiToken.trim() || deploying}
-            >
-              {deploying ? (translate("Deploying...") || "Deploying...") : (translate("Deploy Worker") || "Deploy Worker")}
-            </Button>
-            <Button fullWidth variant="ghost" onClick={closeCloudflareModal} disabled={deploying}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={showDenoModal}
-        title={translate("Deploy Deno Relay") || "Deploy Deno Relay"}
-        onClose={closeDenoModal}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 p-3 flex flex-col gap-1.5">
-            <p className="text-sm text-text-main font-medium">{translate("What is Deno Relay?") || "What is Deno Relay?"}</p>
-            <p className="text-xs text-text-muted">
-              Deploys a relay worker to Deno Deploy&apos;s global edge network. All AI provider requests are forwarded through Deno&apos;s edge, masking your real IP.
-            </p>
-            <ul className="text-xs text-text-muted list-disc pl-4 space-y-0.5">
-              <li>Deno Deploy v2 runs on a high-performance global edge network</li>
-              <li>Free tier: 1M requests & 100GiB outbound traffic per month</li>
-              <li>No per-request CPU time limits (unlike Vercel/Cloudflare)</li>
-              <li>Support up to 20 active apps & 50 custom domains</li>
-              <li>Deploy multiple relays for maximum IP diversity</li>
-            </ul>
-            <div className="mt-2 pt-2 border-t border-black/10 dark:border-white/10 text-xs text-text-muted">
-              <p className="font-medium text-text-main mb-1">How to generate API token:</p>
-              <ol className="list-decimal pl-4 space-y-0.5">
-                <li>Go to <b>console.deno.com</b></li>
-                <li>Select your <b>Organization</b> → <b>Settings</b> → <b>Organization Tokens</b></li>
-                <li>Create a <b>Organization Token</b> (prefix <b>ddo_</b>)</li>
-              </ol>
-            </div>
-          </div>
-          <Input
-            label="Deno Deploy API Token"
-            value={denoForm.denoToken}
-            onChange={(e) => setDenoForm((prev) => ({ ...prev, denoToken: e.target.value }))}
-            placeholder="ddo_xxxxxxxxxxxxxxxx"
-            hint={"Token is used once for deployment, not stored. Found in Organization Settings."}
-            type="password"
-          />
-          <Input
-            label="Organization Domain"
-            value={denoForm.orgDomain}
-            onChange={(e) => setDenoForm((prev) => ({ ...prev, orgDomain: e.target.value }))}
-            placeholder="your-org.deno.net"
-            hint="Organization's default domain. Your relay URL will be in the format: https://my-relay.your-org.deno.net"
-          />
-          <Input
-            label="App Name"
-            value={denoForm.projectName}
-            onChange={(e) => setDenoForm((prev) => ({ ...prev, projectName: e.target.value }))}
-            placeholder="deno-relay"
-            hint="Unique app name. Leave empty for auto-generated name."
-          />
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleDenoDeploy}
-              disabled={!denoForm.denoToken.trim() || !denoForm.orgDomain.trim() || deploying}
-            >
-              {deploying ? (translate("Deploying...") || "Deploying...") : (translate("Deploy Relay") || "Deploy Relay")}
-            </Button>
-            <Button fullWidth variant="ghost" onClick={closeDenoModal} disabled={deploying}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        isOpen={showFormModal}
-        title={editingProxyPool ? (translate("Edit Proxy Pool") || "Edit Proxy Pool") : (translate("Add Proxy Pool") || "Add Proxy Pool")}
-        onClose={closeFormModal}
-      >
-        <div className="flex flex-col gap-4">
-          <Input
-            label="Name"
-            value={formData.name}
-            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-            placeholder="Office Proxy"
-          />
-          <Input
-            label="Proxy URL"
-            value={formData.proxyUrl}
-            onChange={(e) => setFormData((prev) => ({ ...prev, proxyUrl: e.target.value }))}
-            placeholder="http://127.0.0.1:7897"
-          />
-          <Input
-            label="No Proxy"
-            value={formData.noProxy}
-            onChange={(e) => setFormData((prev) => ({ ...prev, noProxy: e.target.value }))}
-            placeholder="localhost,127.0.0.1,.internal"
-            hint="Comma-separated hosts/domains to bypass proxy"
-          />
-
-          <div className="flex flex-col gap-3 rounded-lg border border-border/50 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-medium text-sm">Active</p>
-              <p className="text-xs text-text-muted">{translate("Inactive pools are ignored by runtime resolution.") || "Inactive pools are ignored by runtime resolution."}</p>
-            </div>
-            <Switch
-              checked={formData.isActive === true}
-              onCheckedChange={() => setFormData((prev) => ({ ...prev, isActive: !prev.isActive }))}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="flex flex-col gap-3 rounded-lg border border-border/50 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-medium text-sm">Strict Proxy</p>
-              <p className="text-xs text-text-muted">{translate("Fail request if proxy is unreachable instead of falling back to direct.") || "Fail request if proxy is unreachable instead of falling back to direct."}</p>
-            </div>
-            <Switch
-              checked={formData.strictProxy === true}
-              onCheckedChange={() => setFormData((prev) => ({ ...prev, strictProxy: !prev.strictProxy }))}
-              disabled={saving}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleSave}
-              disabled={!formData.name.trim() || !formData.proxyUrl.trim() || saving}
-            >
-              {saving ? (translate("Saving...") || "Saving...") : (translate("Save") || "Save")}
-            </Button>
-            <Button fullWidth variant="ghost" onClick={closeFormModal} disabled={saving}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Confirm Modal */}
-      <ConfirmModal
-        isOpen={!!confirmState}
-        onClose={() => setConfirmState(null)}
-        onConfirm={confirmState?.onConfirm ?? (() => {})}
-        title={confirmState?.title || "Confirm"}
-        message={confirmState?.message}
-        variant="danger"
+      <ProxyPoolModals
+        showFormModal={pools.showFormModal}
+        editingProxyPool={pools.editingProxyPool}
+        formData={pools.formData}
+        setFormData={pools.setFormData}
+        saving={pools.saving}
+        closeFormModal={pools.closeFormModal}
+        handleSave={pools.handleSave}
+        showBatchImportModal={imp.showBatchImportModal}
+        batchImportText={imp.batchImportText}
+        setBatchImportText={imp.setBatchImportText}
+        importing={imp.importing}
+        closeBatchImportModal={imp.closeBatchImportModal}
+        handleBatchImport={imp.handleBatchImport}
+        showVercelModal={deploy.showVercelModal}
+        vercelForm={deploy.vercelForm}
+        setVercelForm={deploy.setVercelForm}
+        deploying={deploy.deploying}
+        closeVercelModal={deploy.closeVercelModal}
+        handleVercelDeploy={deploy.handleVercelDeploy}
+        showCloudflareModal={deploy.showCloudflareModal}
+        cloudflareForm={deploy.cloudflareForm}
+        setCloudflareForm={deploy.setCloudflareForm}
+        closeCloudflareModal={deploy.closeCloudflareModal}
+        handleCloudflareDeploy={deploy.handleCloudflareDeploy}
+        showDenoModal={deploy.showDenoModal}
+        denoForm={deploy.denoForm}
+        setDenoForm={deploy.setDenoForm}
+        closeDenoModal={deploy.closeDenoModal}
+        handleDenoDeploy={deploy.handleDenoDeploy}
+        confirmState={pools.confirmState}
+        setConfirmState={pools.setConfirmState}
       />
     </div>
   );

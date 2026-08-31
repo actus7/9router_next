@@ -146,7 +146,7 @@ function makeQuota({ used, total, resetAt, unlimited = false }: { used: number; 
  * Map billing JSON → normalized quotas object for the dashboard.
  * Returns { quotas, periodEnd, exhaustedHint } or empty quotas when nothing usable.
  */
-export function parseGrokCliBilling(billing: unknown, user: Record<string, unknown> | null = null): { plan: string; quotas: Record<string, QuotaEntry>; periodEnd: string | null; exhausted: boolean; subscriptionAccess: boolean; rawConfig: Record<string, unknown> } {
+function parseGrokCliBilling(billing: unknown, user: Record<string, unknown> | null = null): { plan: string; quotas: Record<string, QuotaEntry>; periodEnd: string | null; exhausted: boolean; subscriptionAccess: boolean; rawConfig: Record<string, unknown> } {
   const root = billing && typeof billing === "object" ? billing as Record<string, unknown> : {};
   const config =
     root.config && typeof root.config === "object" && !Array.isArray(root.config)
@@ -310,7 +310,7 @@ export function parseGrokCliBilling(billing: unknown, user: Record<string, unkno
  * Fail-open: any network/auth/parse failure returns null.
  * @returns {{ percentUsed: number, resetAt: string|null } | null}
  */
-export async function fetchGrokCliCreditsConfig(accessToken: string, proxyOptions: unknown = null): Promise<{ percentUsed: number; resetAt: string | null } | null> {
+async function fetchGrokCliCreditsConfig(accessToken: string, proxyOptions: unknown = null): Promise<{ percentUsed: number; resetAt: string | null } | null> {
   if (!accessToken) return null;
   try {
     const res = await proxyAwareFetch(

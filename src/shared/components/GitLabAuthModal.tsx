@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button, Input, OAuthModal } from "@/shared/components";
+import Button from "@/shared/components/Button";
+import Input from "@/shared/components/Input";
+import OAuthModal from "@/shared/components/OAuthModal";
 import { cn } from "@/lib/utils";
 import { Key, Unlock, X } from "lucide-react";
 import { translate } from "@/i18n/runtime";

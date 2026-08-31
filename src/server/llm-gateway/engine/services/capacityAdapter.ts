@@ -40,7 +40,7 @@ function normalizeCapEntry(entry: CapacityAdapterEntry | CapacityAdapterLegacyEn
 
 // Resolve one capability's full config. Enabled pools with no models fall back
 // to DEFAULT_FALLBACK_MODEL so the toggle is never a no-op.
-export function getCapacityAdapterConfig(cap: string, settings: Settings): NormalizedCapEntry {
+function getCapacityAdapterConfig(cap: string, settings: Settings): NormalizedCapEntry {
   const entry = normalizeCapEntry(settings?.capacityAdapter?.[cap]);
   if (entry.enabled && entry.models.length === 0) {
     return { ...entry, models: [DEFAULT_FALLBACK_MODEL] };
@@ -49,7 +49,7 @@ export function getCapacityAdapterConfig(cap: string, settings: Settings): Norma
 }
 
 // Flatten enabled models across all capability pools, in priority order, deduped.
-export function getCapacityAdapterModels(settings: Settings): string[] {
+function getCapacityAdapterModels(settings: Settings): string[] {
   const seen = new Set<string>();
   const models: string[] = [];
   for (const cap of CAPABILITY_KEYS) {
@@ -66,7 +66,7 @@ export function getCapacityAdapterModels(settings: Settings): string[] {
 }
 
 // Strategy for a capability: "round-robin" when enabled+roundRobin, else "fallback".
-export function getCapacityAdapterStrategy(cap: string, settings: Settings): string {
+function getCapacityAdapterStrategy(cap: string, settings: Settings): string {
   const { enabled, roundRobin } = getCapacityAdapterConfig(cap, settings);
   return enabled && roundRobin ? "round-robin" : "fallback";
 }
@@ -122,7 +122,7 @@ function blockLength(content: unknown): number {
 // Preserves: all system/instruction messages (head), and the trailing user run
 // carrying the media the switch happened for (tail). Older middle turns between
 // the head instructions and the current turn are dropped first.
-export function stripHistoryForContext(body: Record<string, unknown>, contextWindow: number): Record<string, unknown> {
+function stripHistoryForContext(body: Record<string, unknown>, contextWindow: number): Record<string, unknown> {
   const key = Array.isArray(body.messages) ? "messages"
     : Array.isArray(body.input) ? "input"
     : Array.isArray(body.contents) ? "contents"

@@ -49,7 +49,7 @@ const MIMO_VOICES = [
 ].map((v) => ({ type: "tts", ...v }));
 
 // ── TTS Config (config-driven, single source of truth) ─────────────────────
-export const TTS_MODELS_CONFIG = {
+const TTS_MODELS_CONFIG = {
   openai: {
     models: [
       { id: "gpt-4o-mini-tts", name: "GPT-4o Mini TTS", type: "tts" },

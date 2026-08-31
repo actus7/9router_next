@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { adjustMaxTokens } from "../formats/maxTokens";
 import { encodeDataUri } from "../concerns/image";

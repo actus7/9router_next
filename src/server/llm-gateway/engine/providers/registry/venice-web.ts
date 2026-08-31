@@ -15,7 +15,7 @@ export default {
   authType: "cookie",
   authHint: "Paste your session cookie from venice.ai",
   transport: {
-    baseUrl: "https://venice.ai/api/v1/chat/completions",
+    baseUrl: "https://venice.ai/api/chat",
     format: "openai",
     authType: "cookie",
   },

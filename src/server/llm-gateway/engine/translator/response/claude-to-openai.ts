@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK, OPENAI_FINISH } from "../schema/index";
 import { buildChunk } from "../concerns/chunk";

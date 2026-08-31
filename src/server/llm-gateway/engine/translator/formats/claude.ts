@@ -13,7 +13,7 @@ const CACHE_CONTROL_5M = { type: "ephemeral" };
 const CACHE_CONTROL_1H = { type: "ephemeral", ttl: "1h" };
 
 // Check if message has valid non-empty content
-export function hasValidContent(msg: Record<string, unknown>) {
+function hasValidContent(msg: Record<string, unknown>) {
   if (typeof msg.content === "string" && msg.content.trim()) return true;
   if (Array.isArray(msg.content)) {
     return (msg.content as Record<string, unknown>[]).some((block: Record<string, unknown>) =>
@@ -30,7 +30,7 @@ export function hasValidContent(msg: Record<string, unknown>) {
 // Fix tool_use/tool_result ordering for Claude API
 // 1. Assistant message with tool_use: remove text AFTER tool_use (Claude doesn't allow)
 // 2. Merge consecutive same-role messages
-export function fixToolUseOrdering(messages: Record<string, unknown>[]) {
+function fixToolUseOrdering(messages: Record<string, unknown>[]) {
   if (messages.length <= 1) return messages;
 
   // Pass 1: Fix assistant messages with tool_use - remove text after tool_use

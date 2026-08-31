@@ -1,13 +1,13 @@
 const APP_VERSION = process.env.npm_package_version || "0.0.0";
 
-export function getClineAccessToken(token: string | undefined | null) {
+function getClineAccessToken(token: string | undefined | null) {
   if (typeof token !== "string") return "";
   const trimmed = token.trim();
   if (!trimmed) return "";
   return trimmed.startsWith("workos:") ? trimmed : `workos:${trimmed}`;
 }
 
-export function getClineAuthorizationHeader(token: string | undefined | null) {
+function getClineAuthorizationHeader(token: string | undefined | null) {
   const accessToken = getClineAccessToken(token);
   return accessToken ? `Bearer ${accessToken}` : "";
 }

@@ -347,7 +347,7 @@ function createDefaultDeps(): Deps {
   };
 }
 
-export async function runQuotaAutoPingTick(deps: Deps = createDefaultDeps(), state: AutoPingState = g): Promise<void> {
+async function runQuotaAutoPingTick(deps: Deps = createDefaultDeps(), state: AutoPingState = g): Promise<void> {
   if (state.running) return;
   state.running = true;
   try {
@@ -386,7 +386,7 @@ export function startQuotaAutoPing(): void {
   if (g.interval.unref) g.interval.unref();
 }
 
-export function stopQuotaAutoPing(): void {
+function stopQuotaAutoPing(): void {
   if (!g.interval) return;
   clearInterval(g.interval);
   g.interval = null;

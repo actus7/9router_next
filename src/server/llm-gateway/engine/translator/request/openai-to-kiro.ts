@@ -2,7 +2,7 @@
  * OpenAI to Kiro Request Translator
  * Converts OpenAI Chat Completions format to Kiro/AWS CodeWhisperer format
  */
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { v4 as uuidv4 } from "uuid";
 import { applyKiroSessionReplay } from "../../utils/kiroSessionReplay";
@@ -307,7 +307,7 @@ function convertMessages(messages: Record<string, unknown>[], model: string): { 
  *    name hints. Supported models receive Kiro's schema-specific effort fields;
  *    legacy prompt tags remain only for models that need them.
  */
-export function openaiToKiroRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: Record<string, unknown>) {
+function openaiToKiroRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: Record<string, unknown>) {
   const messages = (body.messages as Record<string, unknown>[]) || [];
   const tools = body.tools || [];
   const maxTokens = 32000;

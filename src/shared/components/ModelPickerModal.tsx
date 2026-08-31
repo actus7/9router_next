@@ -243,10 +243,10 @@ export default function ModelPickerModal({
                     aria-selected={isActive}
                     onClick={() => setActiveTab(tab.key)}
                     className={cn(
-                      "flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition-colors border-b-2 -mb-px",
+                      "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
                       isActive
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     )}
                   >
                     {tab.icon}
@@ -337,7 +337,7 @@ export default function ModelPickerModal({
               <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <span className="flex-1 min-w-0">Model</span>
                 <span className="shrink-0 w-20 text-center">Capabilities</span>
-                <span className="shrink-0 w-16 text-right">Kind</span>
+                <span className="shrink-0 w-20 text-right">Status</span>
               </div>
 
               {filteredGroups.map((group) => (
@@ -349,8 +349,9 @@ export default function ModelPickerModal({
                       size={18}
                       fallbackText={group.providerName.charAt(0)}
                     />
-                    <span className="text-xs font-semibold text-foreground">
-                      {group.providerName}
+                    <span className="text-xs font-semibold text-foreground">{group.providerName}</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                      <Check className="size-3" /> Connected
                     </span>
                     <span className="text-[10px] text-muted-foreground ml-auto">
                       {group.models.length} model{group.models.length !== 1 ? "s" : ""}
@@ -397,13 +398,16 @@ export default function ModelPickerModal({
                             )}
                           </div>
 
-                          {/* Kind badge */}
-                          <div className="shrink-0 w-16 flex items-center justify-end">
-                            {model.kind ? (
-                              <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                {model.kind}
-                              </span>
-                            ) : null}
+                          {/* Availability comes from a configured fallback or live discovery. */}
+                          <div className="shrink-0 w-20 flex items-center justify-end">
+                            <span className={cn(
+                              "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+                              model.source === "configured"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                : "bg-muted text-muted-foreground"
+                            )}>
+                              {model.source === "configured" ? "Configured" : "Available"}
+                            </span>
                           </div>
 
                           {/* Active indicator */}

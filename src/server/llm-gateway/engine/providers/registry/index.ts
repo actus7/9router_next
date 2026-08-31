@@ -40,7 +40,6 @@ import p39 from "./glm";
 import p40 from "./google-pse";
 import p41 from "./google-tts";
 import p42 from "./grok-cli";
-import p43 from "./grok-web";
 import p44 from "./groq";
 import p45 from "./huggingface";
 import p46 from "./hyperbolic";
@@ -67,7 +66,6 @@ import p67 from "./openai";
 import p68 from "./opencode-go";
 import p69 from "./opencode";
 import p70 from "./openrouter";
-import p71 from "./perplexity-web";
 import p72 from "./perplexity";
 import p73 from "./perplexity-agent";
 import p74 from "./playht";
@@ -263,9 +261,6 @@ import p279 from "./amazon-q";
 import p280 from "./agy";
 import p281 from "./openference";
 import p282 from "./devin-desktop";
-import p283 from "./chatgpt-web-codex";
-import p284 from "./claude-web";
-import p285 from "./gemini-web";
 import p286 from "./deepseek-web";
 import p287 from "./copilot-web";
 import p288 from "./huggingchat";
@@ -274,18 +269,15 @@ import p290 from "./t3-web";
 import p291 from "./blackbox-web";
 import p292 from "./muse-spark-web";
 import p293 from "./kimi-web";
-import p294 from "./lmarena";
 import p295 from "./venice-web";
 import p296 from "./yuanbao-web";
 import p297 from "./tencent-aistudio-web";
 import p298 from "./copilot-m365-web";
-import p299 from "./notion-web";
 import p300 from "./adapta-web";
 import p301 from "./inner-ai";
 import p302 from "./hyperagent";
 import p303 from "./conol-web";
 import p304 from "./promptql";
-import p305 from "./tinycms";
 import p306 from "./zai-web";
 import p307 from "./gemini-business";
 import p308 from "./v0-vercel-web";
@@ -335,7 +327,6 @@ export default [
   p40,
   p41,
   p42,
-  p43,
   p44,
   p45,
   p46,
@@ -362,7 +353,6 @@ export default [
   p68,
   p69,
   p70,
-  p71,
   p72,
   p73,
   p74,
@@ -556,9 +546,6 @@ export default [
   p280,
   p281,
   p282,
-  p283,
-  p284,
-  p285,
   p286,
   p287,
   p288,
@@ -567,18 +554,15 @@ export default [
   p291,
   p292,
   p293,
-  p294,
   p295,
   p296,
   p297,
   p298,
-  p299,
   p300,
   p301,
   p302,
   p303,
   p304,
-  p305,
   p306,
   p307,
   p308,

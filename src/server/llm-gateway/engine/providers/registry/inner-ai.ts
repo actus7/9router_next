@@ -8,18 +8,18 @@ export default {
     icon: "psychology",
     color: "#6366F1",
     textIcon: "IA",
-    website: "https://inner.ai",
-    notice: "Inner.ai session.",
+    website: "https://app.innerai.com",
+    notice: "Inner.ai session. Model list resolved dynamically from your plan.",
   },
   category: "webCookie",
   authType: "cookie",
-  authHint: "Paste your token cookie from inner.ai",
+  authHint: "Paste your token cookie from DevTools → Application → Cookies → .innerai.com (optionally followed by a space and your account email)",
   transport: {
-    baseUrl: "https://inner.ai/api/chat/completions",
+    baseUrl: "https://chatapi.innerai.com/chat",
     format: "openai",
     authType: "cookie",
   },
   models: [
-    { id: "inner-default", name: "Inner Default" },
+    { id: "gpt-4o", name: "GPT-4o (via Inner.ai)" },
   ],
 };

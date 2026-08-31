@@ -19,7 +19,12 @@ export default {
   },
   category: "freeTier",
   transport: {
-    baseUrl: "https://ark.ap-southeast.bytepluses.com/api/coding/v3/chat/completions",
+    // Standard ModelArk endpoint (pay-as-you-go / free credits) — NOT the Coding Plan
+    // endpoint (api/coding/v3), which requires a CodingPlan subscription and returns
+    // InvalidSubscription for regular API keys. Coding-plan users should use the
+    // dedicated `volcengine-coding-plan` (vcp) provider instead.
+    baseUrl: "https://ark.ap-southeast.bytepluses.com/api/v3/chat/completions",
+    validateUrl: "https://ark.ap-southeast.bytepluses.com/api/v3/models",
     headers: {},
   },
   models: [

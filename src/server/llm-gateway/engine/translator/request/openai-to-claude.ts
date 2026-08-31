@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { CLAUDE_SYSTEM_PROMPT } from "../../config/appConstants";
 import { adjustMaxTokens } from "../formats/maxTokens";

@@ -1,3 +1,5 @@
+// fallow-ignore-file unused-file
+// Intentionally dormant — re-enable by uncommenting in registry/index.ts
 // Trae (ByteDance marscode) provider registry entry.
 // Chat = SOLO remote agent API:
 //   POST {base}/chat_sessions → {data:{chat_session_id, message_id}}

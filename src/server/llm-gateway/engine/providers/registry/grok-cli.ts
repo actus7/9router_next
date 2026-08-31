@@ -5,8 +5,7 @@
  * talking to https://cli-chat-proxy.grok.com (OpenAI Responses API).
  *
  * Distinct from:
- *  - `xai`      → api.x.ai (API key / xAI API OAuth PKCE)
- *  - `grok-web` → grok.com web SSO cookie
+ *  - `xai` → api.x.ai (API key / xAI API OAuth PKCE)
  */
 import {
   GROK_CLI_BASE_URL,

@@ -15,12 +15,19 @@ export default {
   authType: "cookie",
   authHint: "Paste your hy_user and hy_token cookies from yuanbao.tencent.com",
   transport: {
-    baseUrl: "https://yuanbao.tencent.com/api/chat/completions",
+    baseUrl: "https://yuanbao.tencent.com",
     format: "openai",
     authType: "cookie",
   },
   models: [
-    { id: "yuanbao-default", name: "Yuanbao Default" },
+    { id: "deepseek-v3", name: "DeepSeek V3" },
+    { id: "deepseek-r1", name: "DeepSeek R1" },
+    { id: "deepseek-v3-search", name: "DeepSeek V3 (Search)" },
+    { id: "deepseek-r1-search", name: "DeepSeek R1 (Search)" },
+    { id: "hunyuan", name: "Hunyuan" },
+    { id: "hunyuan-t1", name: "Hunyuan T1" },
+    { id: "hunyuan-search", name: "Hunyuan (Search)" },
+    { id: "hunyuan-t1-search", name: "Hunyuan T1 (Search)" },
   ],
   passthroughModels: true,
 };

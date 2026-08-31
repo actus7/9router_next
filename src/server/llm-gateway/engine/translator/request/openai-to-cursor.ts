@@ -6,7 +6,7 @@
  * with partial schema mismatches. For stability, tool outputs are represented as
  * structured text blocks in user messages.
  */
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index";
 import { DEFAULT_MIN_TOKENS } from "../../config/runtimeConfig";
@@ -186,7 +186,7 @@ function convertMessages(messages: OpenAIMessage[]): CursorMessage[] {
   return result;
 }
 
-export function openaiToCursorRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: unknown) {
+function openaiToCursorRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: unknown) {
   const messages = convertMessages((body.messages as OpenAIMessage[]) || []);
 
   // Strip fields irrelevant to Cursor (OpenAI/Anthropic-specific)

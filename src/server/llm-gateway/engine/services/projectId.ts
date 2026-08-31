@@ -30,7 +30,7 @@ const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 let _cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Run one sweep immediately: evict stale cache entries and abort orphaned pending fetches. */
-export function cleanupNow(): void {
+function cleanupNow(): void {
     const now = Date.now();
 
     for (const [id, entry] of projectIdCache) {
@@ -52,7 +52,7 @@ export function cleanupNow(): void {
 }
 
 /** Start the periodic background cleanup (idempotent). Called automatically on module load. */
-export function startCacheCleanup(): void {
+function startCacheCleanup(): void {
     if (_cleanupTimer) return;
     _cleanupTimer = setInterval(() => {
         try { cleanupNow(); } catch (e: unknown) {
@@ -64,7 +64,7 @@ export function startCacheCleanup(): void {
 }
 
 /** Stop the periodic background cleanup (e.g. during graceful shutdown). */
-export function stopCacheCleanup(): void {
+function stopCacheCleanup(): void {
     if (!_cleanupTimer) return;
     clearInterval(_cleanupTimer);
     _cleanupTimer = null;
@@ -140,7 +140,7 @@ export function invalidateProjectId(connectionId: string): void {
  *
  * @param {string} connectionId
  */
-export function removeConnection(connectionId: string): void {
+function removeConnection(connectionId: string): void {
     if (!connectionId) return;
     projectIdCache.delete(connectionId);
     const pending = pendingFetches.get(connectionId);

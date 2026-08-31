@@ -66,7 +66,7 @@ function firstString(fields: ProtoMessage, fieldNumber: number): string {
  * Decode Cursor's `agent.v1.GetUsableModelsResponse` protobuf payload.
  * The response contains repeated `agent.v1.ModelDetails` messages in field 1.
  */
-export function parseCursorUsableModels(payload: Uint8Array): { id: string; name: string }[] {
+function parseCursorUsableModels(payload: Uint8Array): { id: string; name: string }[] {
   const response = decodeMessage(payload) as ProtoMessage;
   const seen = new Set<string>();
   const models: { id: string; name: string }[] = [];
@@ -210,6 +210,6 @@ export async function resolveCursorModels(credentials: Credentials, options: Cur
   }
 }
 
-export function clearCursorModelCache(): void {
+function clearCursorModelCache(): void {
   catalogCache.clear();
 }

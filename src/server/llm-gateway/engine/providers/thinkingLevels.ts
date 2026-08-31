@@ -2,7 +2,7 @@
 // Reuses capabilities.js (thinkingFormat/canDisable) so this file only maps format→levels (DRY).
 import { getCapabilitiesForModel } from "./capabilities";
 import { matchPattern } from "./pricing";
-import { resolveKiroEffortPath } from "../config/kiroConstants";
+import { resolveKiroEffortPath } from "../config/kiroEffortPath";
 
 // Shared level sets (deduped) — verified against provider docs + wire in thinkingUnified.applyFormat.
 const L = {

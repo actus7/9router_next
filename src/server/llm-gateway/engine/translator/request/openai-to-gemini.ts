@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { DEFAULT_THINKING_AG_SIGNATURE, DEFAULT_THINKING_GEMINI_CLI_SIGNATURE } from "../../config/defaultThinkingSignature";
 import { openaiToClaudeRequestForAntigravity } from "./openai-to-claude";
@@ -242,7 +242,7 @@ export function openaiToGeminiRequest(model: string, body: Record<string, unknow
 }
 
 // OpenAI -> Gemini CLI (Cloud Code Assist)
-export function openaiToGeminiCLIRequest(model: string, body: Record<string, unknown>, stream: boolean): Record<string, unknown> {
+function openaiToGeminiCLIRequest(model: string, body: Record<string, unknown>, stream: boolean): Record<string, unknown> {
   const gemini = openaiToGeminiBase(model, body, stream, DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
   // Thinking is normalized centrally by applyThinking (thinkingUnified.js) after translation.
 
@@ -428,7 +428,7 @@ function isClaudeModel(model: string): boolean {
 }
 
 // OpenAI -> Antigravity (Sandbox Cloud Code with wrapper)
-export function openaiToAntigravityRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown> | null = null): Record<string, unknown> {
+function openaiToAntigravityRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown> | null = null): Record<string, unknown> {
   if (isClaudeModel(model)) {
     const claudeRequest = openaiToClaudeRequestForAntigravity(model, body, stream) as Record<string, unknown>;
     return wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials);

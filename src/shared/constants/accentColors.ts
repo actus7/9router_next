@@ -18,7 +18,7 @@ export const ACCENT_COLOR_OPTIONS = [
 
 export type AccentColorId = (typeof ACCENT_COLOR_OPTIONS)[number]["id"];
 
-export const ACCENT_COLOR_IDS: readonly string[] = ACCENT_COLOR_OPTIONS.map((o) => o.id);
+const ACCENT_COLOR_IDS: readonly string[] = ACCENT_COLOR_OPTIONS.map((o) => o.id);
 
 export function isValidAccentColor(value: unknown): value is AccentColorId {
   return typeof value === "string" && ACCENT_COLOR_IDS.includes(value);

@@ -187,7 +187,7 @@ export const PROVIDER_CAPABILITIES = {
  * vision/specific variants first, text-only/generic families last, to avoid
  * a broad family pattern swallowing an exception (e.g. glm-4.6v vs glm-5).
  */
-export const PATTERN_CAPABILITIES = [
+const PATTERN_CAPABILITIES = [
   // ── Claude (4.6+ = adaptive thinking; older/haiku = budget) ──────
   { pattern: "*claude*opus-5*",     caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 } },
   { pattern: "*claude*opus-4.6*",   caps: { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive" } },

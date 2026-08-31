@@ -1,7 +1,7 @@
 import { platform, arch } from "os";
 
 // === OS/Arch helpers (Stainless fingerprint) ===
-export function mapStainlessOs() {
+function mapStainlessOs() {
   switch (platform()) {
     case "darwin": return "MacOS";
     case "win32": return "Windows";
@@ -11,7 +11,7 @@ export function mapStainlessOs() {
   }
 }
 
-export function mapStainlessArch() {
+function mapStainlessArch() {
   switch (arch()) {
     case "x64": return "x64";
     case "arm64": return "arm64";
@@ -68,7 +68,7 @@ export function selectAnthropicBeta(model = "") {
 }
 
 // Shared baseUrls
-export const KIMI_CODING_BASE_URL = "https://api.kimi.com/coding/v1/messages";
+const KIMI_CODING_BASE_URL = "https://api.kimi.com/coding/v1/messages";
 
 // Default base for dynamic compat providers (openai-compatible-* / anthropic-compatible-*) when user gives no baseUrl
 export const OPENAI_COMPAT_BASE = "https://api.openai.com/v1";

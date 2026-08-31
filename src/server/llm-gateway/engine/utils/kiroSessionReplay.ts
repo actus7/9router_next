@@ -151,7 +151,7 @@ export function applyKiroSessionReplay({
   };
 }
 
-export function clearKiroSessionReplayStore() {
+function clearKiroSessionReplayStore() {
   sessionStartStore.clear();
 }
 

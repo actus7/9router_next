@@ -1,4 +1,4 @@
-import { AI_PROVIDERS } from "../shared/constants/providers";
+import { AI_PROVIDERS, resolveProviderId } from "../shared/constants/providers";
 
 interface ProviderEntry {
   id: string;
@@ -19,13 +19,19 @@ export function normalizeProviderId(provider: string): string {
   const trimmed: string = provider.trim();
   if ((AI_PROVIDERS as Record<string, ProviderEntry>)[trimmed]) return trimmed;
 
-  const slug: string = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  if ((AI_PROVIDERS as Record<string, ProviderEntry>)[slug]) return slug;
+  // Provider forms use the public routing alias (for example `naga`), while
+  // persisted connections must use the registry ID (`naga-ac`). Resolve that
+  // alias before applying the legacy slug/name fallbacks.
+  const aliasId = resolveProviderId(trimmed);
+  if ((AI_PROVIDERS as Record<string, ProviderEntry>)[aliasId]) return aliasId;
 
-  const providerByName: ProviderEntry | undefined = Object.values(AI_PROVIDERS as Record<string, ProviderEntry>).find(
+  // Display names are accepted only when unique. Some providers intentionally
+  // share a name (such as two GitHub Copilot integrations), so silently
+  // choosing the first entry would persist credentials for the wrong service.
+  const nameMatches = Object.values(AI_PROVIDERS as Record<string, ProviderEntry>).filter(
     (entry: ProviderEntry) => entry.name?.toLowerCase() === trimmed.toLowerCase()
   );
-  return providerByName?.id || trimmed;
+  return nameMatches.length === 1 ? nameMatches[0].id : trimmed;
 }
 
 export function normalizeProviderSpecificData(

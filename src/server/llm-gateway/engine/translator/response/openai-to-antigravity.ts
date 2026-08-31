@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { GEMINI_ROLE, OPENAI_FINISH, GEMINI_FINISH } from "../schema/index";
 
@@ -6,7 +6,7 @@ import { GEMINI_ROLE, OPENAI_FINISH, GEMINI_FINISH } from "../schema/index";
 // Real Antigravity format:
 //   data: {"response":{"candidates":[{"content":{"role":"model","parts":[...]}, "finishReason":"STOP"}], "usageMetadata":{...}, "modelVersion":"...", "responseId":"..."}}
 // Tool calls: OpenAI sends incremental args across chunks → accumulate and emit ONCE at finish
-export function openaiToAntigravityResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
+function openaiToAntigravityResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
   if (!chunk) return null;
 
   const choices = chunk.choices as Record<string, unknown>[] | undefined;

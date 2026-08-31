@@ -6,7 +6,7 @@ import { ERROR_TYPES, DEFAULT_ERROR_MESSAGES } from "../config/errorConfig";
  * @param {string} message - Error message
  * @returns {object} Error response object
  */
-export function buildErrorBody(statusCode: number, message: string) {
+function buildErrorBody(statusCode: number, message: string) {
   const errorInfo = ERROR_TYPES[statusCode as keyof typeof ERROR_TYPES] || 
     (statusCode >= 500 
       ? { type: "server_error", code: "internal_server_error" }
@@ -43,7 +43,7 @@ export function errorResponse(statusCode: number, message: string) {
  * @param {number} statusCode - HTTP status code
  * @param {string} message - Error message
  */
-export async function writeStreamError(writer: WritableStreamDefaultWriter, statusCode: number, message: string) {
+async function writeStreamError(writer: WritableStreamDefaultWriter, statusCode: number, message: string) {
   const errorBody = buildErrorBody(statusCode, message);
   const encoder = new TextEncoder();
   await writer.write(encoder.encode(`data: ${JSON.stringify(errorBody)}\n\n`));

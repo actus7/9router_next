@@ -35,7 +35,7 @@ interface SearchRequestParams {
 /**
  * Split domain filter into includes / excludes (excludes prefixed with "-").
  */
-export function parseDomainFilter(domainFilter: string[] | undefined): { includes: string[]; excludes: string[] } {
+function parseDomainFilter(domainFilter: string[] | undefined): { includes: string[]; excludes: string[] } {
   if (!domainFilter?.length) return { includes: [], excludes: [] };
   const includes = domainFilter.filter((d: string) => !d.startsWith("-"));
   const excludes = domainFilter.filter((d: string) => d.startsWith("-")).map((d: string) => d.slice(1));
@@ -45,7 +45,7 @@ export function parseDomainFilter(domainFilter: string[] | undefined): { include
 /**
  * Read string setting from providerOptions first, then providerSpecificData.
  */
-export function getProviderSetting(params: SearchRequestParams, key: string): string | undefined {
+function getProviderSetting(params: SearchRequestParams, key: string): string | undefined {
   const fromOptions = params.providerOptions?.[key];
   if (typeof fromOptions === "string" && fromOptions.trim().length > 0) {
     return fromOptions.trim();
@@ -60,7 +60,7 @@ export function getProviderSetting(params: SearchRequestParams, key: string): st
 /**
  * Resolve base URL with optional override from providerOptions.baseUrl.
  */
-export function resolveBaseUrl(config: SearchProviderConfig, params: SearchRequestParams): string {
+function resolveBaseUrl(config: SearchProviderConfig, params: SearchRequestParams): string {
   const override = getProviderSetting(params, "baseUrl");
   if (override) {
     let parsed: URL;
@@ -80,7 +80,7 @@ export function resolveBaseUrl(config: SearchProviderConfig, params: SearchReque
 /**
  * Convert offset+maxResults to 1-indexed page number.
  */
-export function toPageNumber(offset: number | undefined, maxResults: number): number | undefined {
+function toPageNumber(offset: number | undefined, maxResults: number): number | undefined {
   if (typeof offset !== "number" || offset <= 0 || maxResults <= 0) return undefined;
   return Math.floor(offset / maxResults) + 1;
 }

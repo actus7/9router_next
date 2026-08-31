@@ -55,4 +55,4 @@ export const VOICE_FETCHERS: Record<string, (...args: any[]) => Promise<unknown[
 };
 
 // Re-export for backward compat
-export { fetchEdgeTtsVoices, fetchLocalDeviceVoices, fetchElevenLabsVoices, fetchGeminiVoices };
+export { fetchElevenLabsVoices, fetchEdgeTtsVoices, fetchLocalDeviceVoices };

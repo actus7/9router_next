@@ -146,7 +146,7 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
 /**
  * Translate non-streaming response body from provider format â†’ OpenAI format.
  */
-export function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: string, sourceFormat: string, customToolNames: Set<string> | null = null): JsonObject {
+function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: string, sourceFormat: string, customToolNames: Set<string> | null = null): JsonObject {
   if (targetFormat === sourceFormat) return responseBody;
   // Provider responded in OpenAI Chat Completions shape but the client speaks
   // Responses API â€” convert so tool_calls/text surface as Responses `output`.

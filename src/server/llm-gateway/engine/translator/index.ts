@@ -8,6 +8,10 @@ import { applyThinking, captureThinking } from "./concerns/thinkingUnified";
 import { captureSessionId } from "../utils/sessionManager";
 import { AntigravityExecutor } from "../executors/antigravity";
 import { PROVIDERS } from "../providers/index";
+import { requestRegistry, responseRegistry } from "./registry";
+
+export { register } from "./registry";
+export type { RequestTranslatorFn, ResponseTranslatorFn } from "./registry";
 
 interface Credentials {
   accessToken?: string;
@@ -20,33 +24,6 @@ interface Credentials {
 interface RequestLogger {
   logOpenAIRequest?: (result: Record<string, unknown>) => void;
 }
-
-type RequestTranslatorFn = (model: string, body: Record<string, unknown>, stream: boolean, credentials?: unknown) => Record<string, unknown>;
-type ResponseTranslatorFn = (chunk: unknown, state: unknown) => unknown;
-
-// Registry for translators. Lazy-init guards against circular-import order:
-// translator modules call register() (side-effect) before this module's body runs.
-// var (not let): hoisted as undefined so register() can run during circular import (no TDZ).
-// eslint-disable-next-line no-var -- required: let/const cause TDZ errors during circular import side-effects
-var requestRegistry: Map<string, RequestTranslatorFn> | undefined;
-// eslint-disable-next-line no-var -- required: let/const cause TDZ errors during circular import side-effects
-var responseRegistry: Map<string, ResponseTranslatorFn> | undefined;
-
-// Register translator
-export function register(from: string, to: string, requestFn: RequestTranslatorFn | null | undefined, responseFn: ResponseTranslatorFn | null | undefined) {
-  requestRegistry ??= new Map();
-  responseRegistry ??= new Map();
-  const key = `${from}:${to}`;
-  if (requestFn) {
-    requestRegistry.set(key, requestFn);
-  }
-  if (responseFn) {
-    responseRegistry.set(key, responseFn);
-  }
-}
-
-// No-op: translators self-register via the static imports at the bottom of this file.
-function ensureInitialized() {}
 
 // Strip specific content types from messages (explicit opt-in via strip[] in PROVIDER_MODELS)
 function stripContentTypes(body: Record<string, unknown>, stripList: string[] = []) {
@@ -67,7 +44,6 @@ function stripContentTypes(body: Record<string, unknown>, stripList: string[] = 
 
 // Translate request: source -> openai -> target
 export function translateRequest(sourceFormat: string, targetFormat: string, model: string, body: Record<string, unknown>, stream = true, credentials: Credentials | null = null, provider: string | null = null, reqLogger: RequestLogger | null = null, stripList: string[] = [], connectionId: string | null = null, clientTool: string | null = null) {
-  ensureInitialized();
   let result = body;
 
   // Strip explicit content types (opt-in via strip[] in PROVIDER_MODELS entry)
@@ -177,7 +153,6 @@ export function translateRequest(sourceFormat: string, targetFormat: string, mod
 
 // Translate response chunk: target -> openai -> source
 export function translateResponse(targetFormat: string, sourceFormat: string, chunk: unknown, state: unknown) {
-  ensureInitialized();
   // If same format, return as-is
   if (sourceFormat === targetFormat) {
     return [chunk];
@@ -287,9 +262,7 @@ export function initState(sourceFormat: string) {
 }
 
 // Kept for backward compatibility; translators are already registered at import time.
-export function initTranslators() {
-  ensureInitialized();
-}
+export function initTranslators() {}
 
 // Static side-effect imports: each module calls register() at load (works in ESM + bundler).
 import "./request/claude-to-openai";

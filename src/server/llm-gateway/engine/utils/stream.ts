@@ -9,7 +9,6 @@ import { dbg, isDebugEnabled } from "./debugLog";
 import { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER } from "./sseConstants";
 
 export { COLORS, formatSSE };
-export { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER };
 
 // sharedEncoder is stateless â€” safe to share across streams
 const sharedEncoder = new TextEncoder();
@@ -56,7 +55,7 @@ interface SSEStreamOptions {
  * @param {function} options.onStreamComplete - Callback when stream completes (content, usage)
  * @param {string} options.apiKey - API key for usage tracking
  */
-export function createSSEStream(options: SSEStreamOptions = {}) {
+function createSSEStream(options: SSEStreamOptions = {}) {
   const {
     mode = STREAM_MODE.TRANSLATE,
     targetFormat,

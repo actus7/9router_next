@@ -114,7 +114,7 @@ export function filterUsageForFormat(usage: Record<string, unknown>, targetForma
 /**
  * Normalize usage object - ensure all values are valid numbers
  */
-export function normalizeUsage(usage: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+function normalizeUsage(usage: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
   if (!usage || typeof usage !== "object" || Array.isArray(usage)) return null;
 
   const normalized: Record<string, unknown> = {};
@@ -350,7 +350,7 @@ export function mergeUsage(prev: Record<string, unknown> | null | undefined, nex
  * Estimate input tokens from request body
  * Calculate total body size for more accurate estimation
  */
-export function estimateInputTokens(body: Record<string, unknown> | null | undefined): number {
+function estimateInputTokens(body: Record<string, unknown> | null | undefined): number {
   if (!body || typeof body !== "object") return 0;
 
   try {
@@ -369,7 +369,7 @@ export function estimateInputTokens(body: Record<string, unknown> | null | undef
 /**
  * Estimate output tokens from content length
  */
-export function estimateOutputTokens(contentLength: number): number {
+function estimateOutputTokens(contentLength: number): number {
   if (!contentLength || contentLength <= 0) return 0;
   return Math.max(1, Math.floor(contentLength / 4));
 }
@@ -380,7 +380,7 @@ export function estimateOutputTokens(contentLength: number): number {
  * @param {number} outputTokens - Output/completion tokens
  * @param {string} targetFormat - Target format from FORMATS
  */
-export function formatUsage(inputTokens: number, outputTokens: number, targetFormat: string) {
+function formatUsage(inputTokens: number, outputTokens: number, targetFormat: string) {
   // Claude format uses input_tokens/output_tokens
   if (targetFormat === FORMATS.CLAUDE) {
     return addBufferToUsage({ 

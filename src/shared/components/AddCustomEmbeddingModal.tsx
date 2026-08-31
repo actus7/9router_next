@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Input, Button } from "@/shared/components";
+import Input from "@/shared/components/Input";
+import Button from "@/shared/components/Button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";

@@ -120,7 +120,7 @@ const MODEL_ALIAS_MAP = {
   "glm-5.1": "glm-5-1",
 };
 
-export function resolveWsModelId(model: string) {
+function resolveWsModelId(model: string) {
   return (MODEL_ALIAS_MAP as Record<string, string>)[model] ?? model;
 }
 
@@ -189,7 +189,7 @@ function buildChatMessage(msg: { role: string; content: string; toolCallId?: str
   return concatBytes(parts);
 }
 
-export function buildGetChatMessageRequest(apiKey: string, model: string, messages: { role: string; content: string; toolCallId?: string }[]) {
+function buildGetChatMessageRequest(apiKey: string, model: string, messages: { role: string; content: string; toolCallId?: string }[]) {
   const sessionId = randomUUID();
   const cascadeId = randomUUID();
 
@@ -208,7 +208,7 @@ export function buildGetChatMessageRequest(apiKey: string, model: string, messag
 
 // ─── gRPC-web framing ────────────────────────────────────────────────────────
 
-export function grpcWebFrame(payload: Uint8Array) {
+function grpcWebFrame(payload: Uint8Array) {
   const frame = new Uint8Array(5 + payload.length);
   frame[0] = 0x00; // no compression
   const view = new DataView(frame.buffer);
@@ -310,7 +310,7 @@ function decodeDoneChunk(buf: Uint8Array) {
   return [promptTokens, completionTokens];
 }
 
-export function decodeCompletionChunk(buf: Uint8Array) {
+function decodeCompletionChunk(buf: Uint8Array) {
   let offset = 0;
   while (offset < buf.length) {
     let tag;
@@ -373,7 +373,7 @@ function openAIMessagesToWs(messages: Record<string, unknown>[]): { role: string
 
 // ─── WindsurfExecutor ────────────────────────────────────────────────────────
 
-export class WindsurfExecutor extends BaseExecutor {
+class WindsurfExecutor extends BaseExecutor {
   constructor() {
     super("windsurf", PROVIDERS.windsurf || { id: "windsurf", baseUrl: WS_CHAT_URL });
   }

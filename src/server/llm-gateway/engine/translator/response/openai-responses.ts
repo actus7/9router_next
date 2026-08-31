@@ -2,7 +2,7 @@
  * Translator: OpenAI Chat Completions → OpenAI Responses API (response)
  * Converts streaming chunks from Chat Completions to Responses API events
  */
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { buildChunk } from "../concerns/chunk";
 import { buildUsage } from "../concerns/usage";
@@ -16,7 +16,7 @@ type EmitFn = (eventType: string, data: Record<string, unknown>) => void;
  * Translate OpenAI chunk to Responses API events
  * @returns {Array} Array of events with { event, data } structure
  */
-export function openaiToOpenAIResponsesResponse(chunk: unknown, state: unknown) {
+function openaiToOpenAIResponsesResponse(chunk: unknown, state: unknown) {
   if (!chunk) {
     return flushEvents(state as Record<string, unknown>);
   }

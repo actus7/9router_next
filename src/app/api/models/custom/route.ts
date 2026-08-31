@@ -3,6 +3,18 @@ import { getCustomModels, addCustomModel, deleteCustomModel } from "@/models";
 
 export const dynamic = "force-dynamic";
 
+const DISCOVERED_MODEL_METADATA_KEYS = new Set([
+  "description", "context_length", "contextLength", "contextWindow", "max_output_tokens", "maxOutputTokens",
+  "capabilities", "modalities", "input_modalities", "output_modalities", "owned_by", "provider",
+  "upstreamModelId", "quotaFamily", "version",
+]);
+
+function pickDiscoveredMetadata(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => DISCOVERED_MODEL_METADATA_KEYS.has(key)));
+}
+
 // GET /api/models/custom - List all custom models
 export async function GET(): Promise<NextResponse> {
   try {
@@ -17,11 +29,18 @@ export async function GET(): Promise<NextResponse> {
 // POST /api/models/custom - Add custom model
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { providerAlias, id, type, name } = await request.json();
+    const { providerAlias, id, type, name, source, metadata } = await request.json();
     if (!providerAlias || !id) {
       return NextResponse.json({ error: "providerAlias and id required" }, { status: 400 });
     }
-    const added = await addCustomModel({ providerAlias, id, type: type || "llm", name });
+    const added = await addCustomModel({
+      providerAlias,
+      id,
+      type: type || "llm",
+      name,
+      source: source === "discovered" ? "discovered" : "manual",
+      metadata: source === "discovered" ? pickDiscoveredMetadata(metadata) : {},
+    });
     return NextResponse.json({ success: true, added });
   } catch (error) {
     console.error("Error adding custom model:", error);

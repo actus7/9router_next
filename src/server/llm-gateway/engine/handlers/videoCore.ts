@@ -11,7 +11,7 @@ const VIDEO_FETCH_TIMEOUT_MS = Number(process.env.VIDEO_FETCH_TIMEOUT_MS || 1200
 // request left the socket may still have created the job, so creation is NEVER
 // auto-retried (the only re-send is the auth retry after a 401/403 refresh,
 // which upstream rejects before job creation).
-export const VIDEO_ACTIONS = new Set(["generations", "edits", "extensions"]);
+const VIDEO_ACTIONS = new Set(["generations", "edits", "extensions"]);
 
 export function getVideoConfig(provider: string): Record<string, unknown> | null {
   return (PROVIDER_MEDIA[provider]?.videoConfig as Record<string, unknown>) || null;

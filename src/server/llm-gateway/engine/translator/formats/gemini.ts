@@ -4,7 +4,7 @@ import { safeParseJSON } from "../concerns/json";
 import { OPENAI_BLOCK } from "../schema/index";
 
 // Unsupported JSON Schema constraints that should be removed for Antigravity
-export const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
+const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
   // Basic constraints (not supported by Gemini API)
   "minLength", "maxLength", "exclusiveMinimum", "exclusiveMaximum",
   "minItems", "maxItems", "format", "multipleOf",

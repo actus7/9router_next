@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { adjustMaxTokens } from "../formats/maxTokens";
 import { encodeDataUri } from "../concerns/image";
@@ -6,7 +6,7 @@ import { collapseTextParts } from "../concerns/message";
 import { ROLE, GEMINI_ROLE, OPENAI_BLOCK } from "../schema/index";
 
 // Convert Gemini request to OpenAI format
-export function geminiToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean) {
+function geminiToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean) {
   const result: { messages: Record<string, unknown>[]; [key: string]: unknown } = {
     model: model,
     messages: [],

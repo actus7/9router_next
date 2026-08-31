@@ -268,7 +268,7 @@ export const PROVIDER_PRICING = {
  * Patterns use simple glob: "*" matches any substring.
  * First match wins — order matters.
  */
-export const PATTERN_PRICING = [
+const PATTERN_PRICING = [
   // --- Codex variants ---
   { pattern: "*-codex-xhigh",   pricing: { input: 10.00, output: 40.00, cached: 5.00,  reasoning: 60.00,  cache_creation: 10.00 } },
   { pattern: "*-codex-high",    pricing: { input: 8.00,  output: 32.00, cached: 4.00,  reasoning: 48.00,  cache_creation: 8.00  } },
@@ -399,7 +399,7 @@ export function getDefaultPricing() {
  * @param {number} cost
  * @returns {string}
  */
-export function formatCost(cost: number | null | undefined) {
+function formatCost(cost: number | null | undefined) {
   if (cost === null || cost === undefined || isNaN(cost)) return "$0.00";
   return `$${cost.toFixed(2)}`;
 }

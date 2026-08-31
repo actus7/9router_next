@@ -9,7 +9,7 @@
  *  - tool_result blocks (role=user): {type:"tool-result", toolCallId, toolName, output}
  *  - tools[*]: Anthropic plain {name, description, input_schema}
  */
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { randomUUID } from "crypto";
 import { ROLE, OPENAI_BLOCK } from "../schema/index";

@@ -11,8 +11,8 @@ export default {
   },
   category: "webCookie",
   authType: "cookie",
-  authHint: "Paste your ecto_1_sess cookie from meta.ai",
-  notice: "Free Meta AI (Muse Spark). Emulated tool calling.",
+  authHint: "Paste your ecto_1_sess cookie AND the ecto1:... WS auth token from meta.ai DevTools (Network → WS → clippy request → Authorization param), separated by a space or semicolon",
+  notice: "Free Meta AI (Muse Spark). Requires both the ecto_1_sess cookie and a live WS auth token — see auth hint.",
   transport: {
     baseUrl: "https://www.meta.ai/api/graphql",
     format: "openai",
@@ -20,6 +20,8 @@ export default {
   },
   models: [
     { id: "muse-spark-1.2", name: "Muse Spark 1.2" },
+    { id: "muse-spark-thinking", name: "Muse Spark Thinking" },
+    { id: "muse-spark-contemplating", name: "Muse Spark Contemplating" },
   ],
   passthroughModels: true,
 };

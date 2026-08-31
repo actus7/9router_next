@@ -12,16 +12,14 @@ export default {
   category: "webCookie",
   authType: "cookie",
   authHint: "Paste your access_token from Local Storage of www.kimi.ai",
-  notice: "Kimi Web session.",
+  notice: "Kimi Web session. Uses Connect-RPC binary framing, not plain SSE.",
   transport: {
-    baseUrl: "https://www.kimi.ai/api/chat/completions",
+    baseUrl: "https://www.kimi.ai/apiv2/kimi.gateway.chat.v1.ChatService/Chat",
     format: "openai",
     authType: "cookie",
   },
   models: [
-    { id: "kimi-k3", name: "Kimi K3" },
-    { id: "kimi-k2.7-code", name: "Kimi K2.7 Code" },
-    { id: "kimi-latest", name: "Kimi Latest" },
+    { id: "k3", name: "K3" },
+    { id: "k2d6", name: "K2.6" },
   ],
-  passthroughModels: true,
 };

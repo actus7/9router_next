@@ -5,6 +5,7 @@ import { GEMINI_CONFIG } from "@/lib/oauth/constants/oauth";
 import { refreshGoogleToken, refreshCodexToken, updateProviderCredentials } from "@/server/llm-gateway/auth";
 import { getModelsByProviderId, resolveKiroModels, resolveKimchiModels, resolveQoderModels, resolveGrokCliModels, resolveCursorModels } from "@/server/llm-gateway/catalog";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
+import { normalizeProviderId } from "@/lib/providerNormalization";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -19,10 +20,44 @@ const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fe
 const CODEX_CLIENT_VERSION = "0.144.6";
 const CODEX_MODELS_URL = `https://chatgpt.com/backend-api/codex/models?client_version=${CODEX_CLIENT_VERSION}`;
 
-const parseOpenAIStyleModels = (data: unknown): unknown[] => {
-  if (Array.isArray(data)) return data;
-  const d = data as Record<string, unknown>;
-  return (d?.data || d?.models || d?.results || []) as unknown[];
+const parseOpenAIStyleModels = (data: unknown): Record<string, unknown>[] => {
+  const models = Array.isArray(data)
+    ? data
+    : ((data as Record<string, unknown>)?.data || (data as Record<string, unknown>)?.models || (data as Record<string, unknown>)?.results || []) as unknown[];
+  if (!Array.isArray(models)) return [];
+  return models.flatMap((model) => {
+    if (typeof model === "string" && model.trim()) return [{ id: model, name: model }];
+    if (!model || typeof model !== "object" || Array.isArray(model)) return [];
+    const record = model as Record<string, unknown>;
+    const id = [record.id, record.model, record.name, record.slug].find(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    );
+    return id ? [{ ...record, id, name: typeof record.name === "string" ? record.name : id }] : [];
+  });
+};
+
+// Google returns model resources as `models/{id}` while the rest of the
+// gateway (catalogue, routing, and chat) uses the canonical bare `{id}`.
+// Normalize at the API boundary so a catalogue refresh cannot mistake every
+// configured Gemini model for a removed one.
+const parseGeminiModels = (data: Record<string, unknown>): Record<string, unknown>[] => {
+  const models = Array.isArray(data?.models) ? data.models as Record<string, unknown>[] : [];
+  return models.map((model) => {
+    const rawId = typeof model?.id === "string"
+      ? model.id
+      : typeof model?.name === "string"
+        ? model.name
+        : typeof model?.model === "string"
+          ? model.model
+          : "";
+    const id = rawId.replace(/^models\//, "");
+    if (!id) return model;
+    return {
+      ...model,
+      id,
+      name: (typeof model.displayName === "string" && model.displayName) || id,
+    };
+  });
 };
 
 const parseGeminiCliModels = (data: Record<string, unknown>): Array<{ id: string; name: string }> => {
@@ -76,6 +111,61 @@ const createOpenAIModelsConfig = (url: string) => ({
   authHeader: "Authorization",
   authPrefix: "Bearer ",
   parseResponse: parseOpenAIStyleModels
+});
+
+async function fetchWithConnectionProxy(
+  url: string,
+  options: RequestInit,
+  providerSpecificData: Record<string, unknown> | null | undefined,
+): Promise<Response> {
+  const proxy = (await resolveConnectionProxyConfig(providerSpecificData || {})) || {};
+  if (proxy.vercelRelayUrl) {
+    const { proxyAwareFetch } = await import("@/server/llm-gateway/usage");
+    return proxyAwareFetch(url, options, { vercelRelayUrl: proxy.vercelRelayUrl });
+  }
+  if (proxy.connectionProxyEnabled && proxy.connectionProxyUrl) {
+    const { proxyAwareFetch } = await import("@/server/llm-gateway/usage");
+    return proxyAwareFetch(url, options, {
+      connectionProxyEnabled: true,
+      connectionProxyUrl: proxy.connectionProxyUrl,
+      connectionNoProxy: proxy.connectionNoProxy || "",
+    });
+  }
+  return fetch(url, options);
+}
+
+// Volcengine Ark / BytePlus ModelArk catalog entries carry task_type + domain
+// metadata that distinguishes chat (TextGeneration) from embedding/image/video
+// models. Map to the gateway's kind vocabulary so consumers (Test All Models,
+// custom-model persistence) treat each model with the right endpoint instead of
+// pinging image/video models through chat/completions. Entries without metadata
+// default to "llm" (previous behavior).
+const ARK_KIND_BY_TASK: Array<[RegExp, string]> = [
+  [/embedding/i, "embedding"],
+  [/texttoimage|imagetoimage|imageedit/i, "image"],
+  [/video/i, "video"],
+  [/textgeneration|chat/i, "llm"],
+];
+const arkKindOf = (m: Record<string, unknown>): string => {
+  const tasks = Array.isArray(m.task_type) ? m.task_type.map(String) : [];
+  const domain = String(m.domain || "");
+  for (const [pattern, kind] of ARK_KIND_BY_TASK) {
+    if (tasks.some((t) => pattern.test(t)) || (domain && pattern.test(domain))) return kind;
+  }
+  return "llm";
+};
+const parseArkModels = (data: unknown): Record<string, unknown>[] =>
+  (parseOpenAIStyleModels(data) as Record<string, unknown>[]).map((m) => {
+    const id = (m.id || m.name) as string;
+    return { ...m, id, name: (m.name || id) as string, kind: arkKindOf(m) };
+  });
+const createArkModelsConfig = (url: string) => ({
+  url,
+  method: "GET",
+  headers: { "Content-Type": "application/json" },
+  authHeader: "Authorization",
+  authPrefix: "Bearer ",
+  parseResponse: parseArkModels
 });
 
 const getStaticProviderModels = (providerId: string) =>
@@ -146,7 +236,7 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     authQuery: "key",
-    parseResponse: (data: Record<string, unknown>) => data.models || []
+    parseResponse: parseGeminiModels
   },
   codex: {
     customResolver: buildOAuthResolver({
@@ -201,6 +291,13 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
   },
   openai: createOpenAIModelsConfig("https://api.openai.com/v1/models"),
   openrouter: createOpenAIModelsConfig("https://openrouter.ai/api/v1/models"),
+  "api-airforce": createOpenAIModelsConfig("https://api.airforce/v1/models"),
+  "kilo-gateway": createOpenAIModelsConfig("https://api.kilo.ai/api/gateway/models"),
+  poolside: createOpenAIModelsConfig("https://inference.poolside.ai/v1/models"),
+  // Naga exposes an authenticated, OpenAI-compatible /v1/models endpoint.
+  // Keep this explicit entry in sync with its registry modelsFetcher so the
+  // provider detail screen can refresh the live catalog.
+  "naga-ac": createOpenAIModelsConfig("https://api.naga.ac/v1/models"),
   aihorde: createOpenAIModelsConfig("https://oai.aihorde.net/v1/models"),
   anthropic: {
     url: "https://api.anthropic.com/v1/models",
@@ -236,8 +333,8 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
     authPrefix: "Bearer ",
     parseResponse: (data: Record<string, unknown>) => data.data || []
   },
-  "volcengine-ark": createOpenAIModelsConfig("https://ark.cn-beijing.volces.com/api/coding/v3/models"),
-  byteplus: createOpenAIModelsConfig("https://ark.ap-southeast.bytepluses.com/api/coding/v3/models"),
+  "volcengine-ark": createArkModelsConfig("https://ark.cn-beijing.volces.com/api/coding/v3/models"),
+  byteplus: createArkModelsConfig("https://ark.ap-southeast.bytepluses.com/api/v3/models"),
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
   groq: createOpenAIModelsConfig("https://api.groq.com/openai/v1/models"),
   xai: createOpenAIModelsConfig("https://api.x.ai/v1/models"),
@@ -251,7 +348,13 @@ const PROVIDER_MODELS_CONFIG: Record<string, Record<string, unknown>> = {
   nebius: createOpenAIModelsConfig("https://api.studio.nebius.ai/v1/models"),
   siliconflow: createOpenAIModelsConfig("https://api.siliconflow.com/v1/models"),
   hyperbolic: createOpenAIModelsConfig("https://api.hyperbolic.xyz/v1/models"),
-  ollama: createOpenAIModelsConfig("https://ollama.com/api/tags"),
+  ollama: {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    parseResponse: parseOpenAIStyleModels,
+  },
   nanobanana: createOpenAIModelsConfig("https://api.nanobananaapi.ai/v1/models"),
   chutes: createOpenAIModelsConfig("https://llm.chutes.ai/v1/models"),
   nvidia: createOpenAIModelsConfig("https://integrate.api.nvidia.com/v1/models"),
@@ -443,13 +546,13 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
         return NextResponse.json({ error: "No base URL configured for OpenAI compatible provider" }, { status: 400 });
       }
       const url = `${baseUrl.replace(/\/$/, "")}/models`;
-      const response = await fetch(url, {
+      const response = await fetchWithConnectionProxy(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${connection.apiKey}`,
         },
-      });
+      }, connection.providerSpecificData as Record<string, unknown> | undefined);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -482,7 +585,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
       }
 
       const url = `${baseUrl}/models`;
-      const response = await fetch(url, {
+      const response = await fetchWithConnectionProxy(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -490,7 +593,7 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
           "anthropic-version": "2023-06-01",
           "Authorization": `Bearer ${connection.apiKey}`
         },
-      });
+      }, connection.providerSpecificData as Record<string, unknown> | undefined);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -511,10 +614,14 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
       });
     }
 
-    const config = PROVIDER_MODELS_CONFIG[connection.provider];
+    // Connections created before canonical provider IDs were enforced can
+    // still contain a UI alias (for example `naga`). Resolve it here at the
+    // boundary so model discovery always uses the registry's canonical entry.
+    const canonicalProviderId = normalizeProviderId(connection.provider as string);
+    const config = PROVIDER_MODELS_CONFIG[canonicalProviderId];
     if (!config) {
       return NextResponse.json(
-        { error: `Provider ${connection.provider} does not support models listing` },
+        { error: `Provider ${canonicalProviderId} does not support models listing` },
         { status: 400 }
       );
     }
@@ -541,6 +648,13 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
 
     // Build request URL
     let url = config.url as string;
+    if (canonicalProviderId === "ollama") {
+      const configuredBaseUrl = connection.providerSpecificData?.baseUrl;
+      const baseUrl = typeof configuredBaseUrl === "string" && configuredBaseUrl.trim()
+        ? configuredBaseUrl.trim().replace(/\/$/, "")
+        : "https://ollama.com";
+      url = baseUrl.endsWith("/api/tags") ? baseUrl : `${baseUrl}/api/tags`;
+    }
     if (config.authQuery) {
       url += `?${config.authQuery}=${token}`;
     }
@@ -561,7 +675,11 @@ export async function GET(request: NextRequest, { params }: RouteContext): Promi
       fetchOptions.body = JSON.stringify(config.body);
     }
 
-    const response = await fetch(url, fetchOptions);
+    const response = await fetchWithConnectionProxy(
+      url,
+      fetchOptions,
+      connection.providerSpecificData as Record<string, unknown> | undefined,
+    );
 
     if (!response.ok) {
       const errorText = await response.text();

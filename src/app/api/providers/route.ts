@@ -7,7 +7,7 @@ import {
   getProxyPoolById,
 } from "@/models";
 import { APIKEY_PROVIDERS } from "@/shared/constants/config";
-import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider } from "@/shared/constants/providers";
+import { AI_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/providerNormalization";
 
 export const dynamic = "force-dynamic";
@@ -94,7 +94,9 @@ export async function GET(): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const provider = normalizeProviderId(body.provider);
+    // Dashboard forms send the canonical ID explicitly. Keep `provider` as a
+    // backwards-compatible alias input for older clients and integrations.
+    const provider = normalizeProviderId(typeof body.providerId === "string" ? body.providerId : body.provider);
     const { apiKey, name, displayName, priority, globalPriority, defaultModel, testStatus } = body;
     const proxyConfig = normalizeProxyConfig(body);
     if (proxyConfig.error) {
@@ -114,6 +116,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const supportsApiKeyMode = !!(AI_PROVIDERS[provider]?.authModes as string[] | undefined)?.includes("apikey")
       || AI_PROVIDERS[provider]?.authType === "apikey";
     const isValidProvider = APIKEY_PROVIDERS[provider] ||
+      // Some providers, such as Naga, are free-tier services that still use
+      // an optional API key. They are stored in the `free` catalog group.
+      FREE_PROVIDERS[provider] ||
       FREE_TIER_PROVIDERS[provider] ||
       supportsApiKeyMode ||
       isWebCookieProvider ||

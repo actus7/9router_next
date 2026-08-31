@@ -154,7 +154,7 @@ export function resolveTransport(provider: string, sourceFormat: string) {
 }
 
 // Check if last message is from user
-export function isLastMessageFromUser(body: RequestBody) {
+function isLastMessageFromUser(body: RequestBody) {
   const messages = body.messages || body.contents;
   if (!messages?.length) return true;
   const lastMsg = messages[messages.length - 1];
@@ -162,7 +162,7 @@ export function isLastMessageFromUser(body: RequestBody) {
 }
 
 // Check if request has thinking config
-export function hasThinkingConfig(body: RequestBody) {
+function hasThinkingConfig(body: RequestBody) {
   return !!(body.reasoning_effort || body.thinking?.type === "enabled");
 }
 

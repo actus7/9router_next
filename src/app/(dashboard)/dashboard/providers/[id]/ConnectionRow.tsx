@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { getStatusVariant as getConnectionStatusVariant, getStatusClassName } from "@/shared/utils/connectionStatus";
-import {  } from "@/shared/components";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import Button from "@/shared/components/Button";
 import CooldownTimer from "./CooldownTimer";
-import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network, Pencil, Trash2, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Key, Loader2, Lock, MoreHorizontal, Network, Pencil, Trash2, Zap } from "lucide-react";
 
 interface Connection {
   id: string;
@@ -205,13 +205,13 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
   };
 
   return (
-    <div className={`group flex min-w-0 flex-col gap-3 rounded-lg p-2 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between ${connection.isActive === false ? "opacity-60" : ""}`}>
+    <div className={`group flex min-w-0 flex-col gap-3 rounded-xl border border-transparent px-2 py-2.5 transition-colors hover:border-border-subtle hover:bg-black/[0.02] dark:hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between ${connection.isActive === false ? "opacity-60" : ""}`}>
       <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
         {/* Priority arrows */}
-        <div className="flex shrink-0 flex-col">
+        <div className="flex shrink-0 items-center">
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon-xs"
             onClick={onMoveUp}
             disabled={isFirst}
             className={isFirst ? "text-text-muted/30" : ""}
@@ -220,7 +220,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
           </Button>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon-xs"
             onClick={onMoveDown}
             disabled={isLast}
             className={isLast ? "text-text-muted/30" : ""}
@@ -250,9 +250,14 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             )}
             {isCooldown && connection.isActive !== false && <CooldownTimer until={modelLockUntil!} />}
             {connection.lastError && connection.isActive !== false && (
-              <span className="max-w-full truncate text-xs text-red-500 sm:max-w-[300px]" title={connection.lastError}>
-                {connection.lastError}
-              </span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger render={<span className="inline-flex" />}>
+                    <Badge variant="destructive">Last test failed</Badge>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm break-words">{connection.lastError}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
             <span className="text-xs text-text-muted">#{connection.priority}</span>
             {connection.globalPriority && (
@@ -339,14 +344,18 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
               </Tooltip>
             </TooltipProvider>
           )}
-          <Button variant="ghost" onClick={onEdit} className="flex-col">
-            <Pencil className="size-5" />
-            <span className="text-[10px] leading-tight">Edit</span>
-          </Button>
-          <Button variant="destructive" onClick={onDelete} className="flex-col">
-            <Trash2 className="size-5" />
-            <span className="text-[10px] leading-tight">Delete</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" title="Connection actions" aria-label="Connection actions"><MoreHorizontal /></Button>} />
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil /> Edit connection
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                <Trash2 /> Delete connection
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <Switch
           checked={connection.isActive ?? true}

@@ -11,7 +11,7 @@ function titleCase(s: string) {
 }
 
 // Ordered: first match wins. Keep specific patterns above generic ones.
-export const NAME_PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
+const NAME_PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^kimi-k(\d+(?:\.\d+)?)(-thinking)?$/i, (m) => `Kimi K${m[1]}${m[2] ? " Thinking" : ""}`],
   [/^glm-(\d+(?:\.\d+)?)(v)?$/i, (m) => `GLM ${m[1]}${m[2] ? "V (Vision)" : ""}`],
   [/^minimax-m(\d+(?:\.\d+)?)$/i, (m) => `MiniMax M${m[1]}`],

@@ -62,7 +62,7 @@ function flattenToolHistory(messages: Record<string, unknown>[]): Record<string,
 
 // Reorder combo models by capability fit. Stable; never drops a model (fallback intact).
 // Tier 0: satisfies all hard + all soft. Tier 1: all hard only. Tier 2: rest.
-export function reorderByCapabilities(models: string[], required: Set<string> | null | undefined): string[] {
+function reorderByCapabilities(models: string[], required: Set<string> | null | undefined): string[] {
   if (!required || required.size === 0 || !Array.isArray(models) || models.length <= 1) return models;
   const hard = [...required].filter((c: string) => HARD_CAPS.has(c));
   const soft = [...required].filter((c: string) => !HARD_CAPS.has(c));
@@ -213,7 +213,7 @@ function rotateModelsFromIndex(models: string[], currentIndex: number): string[]
  * @param {number|string} [stickyLimit=1] - Requests per combo model before switching
  * @returns {string[]} Rotated models array
  */
-export function getRotatedModels(models: string[], comboName: string, strategy: string, stickyLimit: number | string = 1): string[] {
+function getRotatedModels(models: string[], comboName: string, strategy: string, stickyLimit: number | string = 1): string[] {
   if (!models || models.length <= 1 || strategy !== "round-robin") {
     return models;
   }

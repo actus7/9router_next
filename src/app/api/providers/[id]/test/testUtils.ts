@@ -66,6 +66,9 @@ interface ConnectionProxyConfig {
   strictProxy?: boolean;
 }
 
+const KILO_GATEWAY_MODELS_URL = "https://api.kilo.ai/api/gateway/models";
+const API_AIRFORCE_MODELS_URL = "https://api.airforce/v1/models";
+
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG: Record<string, OAuthTestConfig> = {
   claude: { checkExpiry: true, refreshable: true },
@@ -495,6 +498,55 @@ async function fetchWithConnectionProxy(url: string, options: RequestInit = {}, 
   });
 }
 
+// Kilo documents its models endpoint as public. Probe it with the configured
+// key so this connection has a real gateway reachability check without making
+// a billable completion; key authorization is enforced on completion requests.
+export async function testKiloGatewayConnection(apiKey: unknown, effectiveProxy: ConnectionProxyConfig | null = null): Promise<TestResult> {
+  if (typeof apiKey !== "string" || apiKey.trim() === "") {
+    return { valid: false, error: "Missing API key", refreshed: false };
+  }
+
+  try {
+    const res = await fetchWithConnectionProxy(KILO_GATEWAY_MODELS_URL, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+    }, effectiveProxy);
+    return {
+      valid: res.ok,
+      error: res.ok ? null : `Kilo Gateway models request failed (${res.status})`,
+      refreshed: false,
+    };
+  } catch (err) {
+    return { valid: false, error: (err as Error).message, refreshed: false };
+  }
+}
+
+export async function testApiAirforceConnection(apiKey: unknown, effectiveProxy: ConnectionProxyConfig | null = null): Promise<TestResult> {
+  if (typeof apiKey !== "string" || apiKey.trim() === "") {
+    return { valid: false, error: "Missing API key", refreshed: false };
+  }
+
+  try {
+    const res = await fetchWithConnectionProxy(API_AIRFORCE_MODELS_URL, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://endpoint-proxy.local",
+        "X-Title": "Endpoint Proxy",
+      },
+    }, effectiveProxy);
+    return {
+      valid: res.ok,
+      error: res.ok ? null : `Api Airforce models request failed (${res.status})`,
+      refreshed: false,
+    };
+  } catch (err) {
+    return { valid: false, error: (err as Error).message, refreshed: false };
+  }
+}
+
 async function testApiKeyConnection(connection: Record<string, unknown>, effectiveProxy: ConnectionProxyConfig | null = null): Promise<TestResult> {
   if (isOpenAICompatibleProvider(connection.provider as string)) {
     const modelsBase = (connection.providerSpecificData as Record<string, unknown>)?.baseUrl as string;
@@ -540,6 +592,10 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
 
   try {
     switch (connection.provider) {
+      case "kilo-gateway":
+        return testKiloGatewayConnection(connection.apiKey, effectiveProxy);
+      case "api-airforce":
+        return testApiAirforceConnection(connection.apiKey, effectiveProxy);
       case "cloudflare-ai": {
         const psd = (connection.providerSpecificData || {}) as Record<string, unknown>;
         const accountId = psd.accountId as string;
@@ -734,39 +790,6 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
         const res = await fetchWithConnectionProxy("https://llm.chutes.ai/v1/models", { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" , refreshed: false };
       }
-      case "grok-web": {
-        const token = (connection.apiKey as string).startsWith("sso=") ? (connection.apiKey as string).slice(4) : connection.apiKey as string;
-        const randomHex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, "0")).join("");
-        const statsigId = Buffer.from("e:TypeError: Cannot read properties of null (reading 'children')").toString("base64");
-        const res = await fetchWithConnectionProxy("https://grok.com/rest/app-chat/conversations/new", {
-          method: "POST",
-          headers: {
-            Accept: "*/*", "Content-Type": "application/json",
-            Cookie: `sso=${token}`, Origin: "https://grok.com", Referer: "https://grok.com/",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
-            "x-statsig-id": statsigId, "x-xai-request-id": crypto.randomUUID(),
-            traceparent: `00-${randomHex(16)}-${randomHex(8)}-00`,
-          },
-          body: JSON.stringify({ temporary: true, modelName: "grok-4", message: "ping", fileAttachments: [], imageAttachments: [], disableSearch: false, enableImageGeneration: false, sendFinalMetadata: true }),
-        }, effectiveProxy);
-        const valid = res.status !== 401 && res.status !== 403;
-        return { valid, error: valid ? null : "Invalid SSO cookie" };
-      }
-      case "perplexity-web": {
-        let sessionToken = connection.apiKey as string;
-        if (sessionToken.startsWith("__Secure-next-auth.session-token=")) sessionToken = sessionToken.slice("__Secure-next-auth.session-token=".length);
-        const res = await fetchWithConnectionProxy("https://www.perplexity.ai/api/auth/session", {
-          method: "GET",
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
-            Cookie: `__Secure-next-auth.session-token=${sessionToken}`,
-          },
-        }, effectiveProxy);
-        if (!res.ok) return { valid: false, error: "Invalid session cookie" , refreshed: false };
-        const data = await res.json().catch(() => null);
-        const valid = !!(data && data.user);
-        return { valid, error: valid ? null : "Session expired — re-paste cookie" };
-      }
       case "opencode-go": {
         const res = await fetchWithConnectionProxy("https://opencode.ai/zen/go/v1/chat/completions", {
           method: "POST",
@@ -829,12 +852,83 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key", refreshed: false };
       }
+      case "naga-ac":
+      case "naga": {
+        // Naga is OpenAI-compatible with optional auth (free tier works without a key).
+        // Registry validateUrl is canonical: https://api.naga.ac/v1/models
+        const nagaUrl = (PROVIDERS["naga-ac"]?.validateUrl as string) || "https://api.naga.ac/v1/models";
+        const nagaHeaders: Record<string, string> = {};
+        if (connection.apiKey) nagaHeaders["Authorization"] = `Bearer ${connection.apiKey}`;
+        const res = await fetchWithConnectionProxy(nagaUrl, { headers: nagaHeaders }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key or base URL", refreshed: false };
+      }
+      case "kilocode":
+      case "kc": {
+        // API-key connections authenticate against the same gateway endpoint the
+        // executor uses (api/openrouter/chat/completions). Any non-401/403 response
+        // (including model-not-found 4xx) proves the key is accepted.
+        const kiloBase = ((PROVIDERS["kilocode"]?.baseUrl as string) || "https://api.kilo.ai/api/openrouter/chat/completions").replace(/\/chat\/completions$/, "");
+        const res = await fetchWithConnectionProxy(`${kiloBase}/chat/completions`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${connection.apiKey}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            model: (connection.defaultModel as string) || "openrouter/auto",
+            max_tokens: 1,
+            messages: [{ role: "user", content: "test" }],
+          }),
+        }, effectiveProxy);
+        const valid = res.status !== 401 && res.status !== 403;
+        return { valid, error: valid ? null : "Invalid API key" };
+      }
       default:
-        return { valid: false, error: "Provider test not supported", refreshed: false };
+        return await testGenericOpenAiCompatibleConnection(connection, effectiveProxy);
     }
   } catch (err) {
     return { valid: false, error: (err as Error).message , refreshed: false };
   }
+}
+
+/**
+ * Generic fallback for apikey/freeTier providers with no dedicated case above
+ * (config-driven from PROVIDERS, mirroring validateGenericOpenAiCompatible in
+ * /api/providers/validate — that route already covers new-key validation, but
+ * the "Test Connection" button on an existing connection routes through this
+ * switch's default, which previously just hardcoded failure for every
+ * provider not individually listed).
+ */
+async function testGenericOpenAiCompatibleConnection(connection: Record<string, unknown>, effectiveProxy: ConnectionProxyConfig | null = null): Promise<TestResult> {
+  const provider = connection.provider as string;
+  const cfg = PROVIDERS[provider] as Record<string, unknown> | undefined;
+  if (!cfg || cfg.format !== "openai" || !cfg.baseUrl) {
+    return { valid: false, error: "Provider test not supported", refreshed: false };
+  }
+  if (cfg.noAuth) {
+    return { valid: true, error: null, refreshed: false };
+  }
+
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...((cfg.headers as Record<string, string>) || {}) };
+  if (cfg.authHeader === "x-api-key") headers["X-API-Key"] = connection.apiKey as string;
+  else headers["Authorization"] = `Bearer ${connection.apiKey}`;
+
+  // Try /models first (fast GET), fallback to a minimal chat probe on ambiguous response.
+  const modelsUrl = (cfg.validateUrl as string) || (cfg.baseUrl as string).replace(/\/chat\/completions$/, "/models").replace(/\/chatbot$/, "/models");
+  try {
+    const probeRes = await fetchWithConnectionProxy(modelsUrl, { headers, signal: AbortSignal.timeout(8000) }, effectiveProxy);
+    if (probeRes.status === 401 || probeRes.status === 403) {
+      return { valid: false, error: "Invalid API key", refreshed: false };
+    }
+    if (probeRes.ok) return { valid: true, error: null, refreshed: false };
+  } catch { /* fall through to chat probe */ }
+
+  const defaultModel = (connection.defaultModel as string) || getDefaultModel(provider) || "test";
+  const chatRes = await fetchWithConnectionProxy(cfg.baseUrl as string, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ model: defaultModel, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
+    signal: AbortSignal.timeout(10000),
+  }, effectiveProxy);
+  const valid = chatRes.status !== 401 && chatRes.status !== 403;
+  return { valid, error: valid ? null : "Invalid API key", refreshed: false };
 }
 
 /**

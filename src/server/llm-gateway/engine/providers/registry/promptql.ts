@@ -13,9 +13,9 @@ export default {
   },
   category: "webCookie",
   authType: "cookie",
-  authHint: "Paste your Bearer JWT from promptql.com graphql endpoint",
+  authHint: "Paste your Bearer JWT from prompt.ql.app (DevTools → Network → graphql on data.prompt.ql.app, iss=enrich-token — not the DDN/project token)",
   transport: {
-    baseUrl: "https://promptql.com/api/graphql",
+    baseUrl: "https://data.prompt.ql.app/promptql/playground-v2-hge/v1/graphql",
     format: "openai",
     authType: "cookie",
   },

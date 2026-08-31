@@ -7,7 +7,7 @@ import { PROVIDER_OAUTH } from "../providers/index";
 import type { Credentials, RefreshResult, Logger, OAuthProviderConfig } from "./types";
 
 // Single source: codex.oauth.maxRefreshAgeMs (8 days) — proactive refresh window
-export const CODEX_MAX_REFRESH_AGE_MS = (PROVIDER_OAUTH["codex"] as OAuthProviderConfig | undefined)?.maxRefreshAgeMs;
+const CODEX_MAX_REFRESH_AGE_MS = (PROVIDER_OAUTH["codex"] as OAuthProviderConfig | undefined)?.maxRefreshAgeMs;
 
 const refreshLocks = new Map<string, Promise<RefreshResult | null>>();
 
@@ -29,7 +29,7 @@ export function getCredentialExpiryMs(credentials: Credentials): number | null {
   return parseTimeMs(credentials?.expiresAt ?? credentials?.tokenExpiresAt);
 }
 
-export function getCredentialLastRefreshMs(credentials: Credentials): number | null {
+function getCredentialLastRefreshMs(credentials: Credentials): number | null {
   return parseTimeMs(
     credentials?.lastRefreshAt ??
     credentials?.lastRefresh ??
@@ -37,7 +37,7 @@ export function getCredentialLastRefreshMs(credentials: Credentials): number | n
   );
 }
 
-export function isCodexRefreshStale(credentials: Credentials, nowMs = Date.now(), maxAgeMs?: number): boolean {
+function isCodexRefreshStale(credentials: Credentials, nowMs = Date.now(), maxAgeMs?: number): boolean {
   const lastRefreshMs = getCredentialLastRefreshMs(credentials);
   return !lastRefreshMs || (maxAgeMs != null && nowMs - lastRefreshMs >= maxAgeMs);
 }
@@ -60,7 +60,7 @@ export function shouldRefreshCredentials(provider: string, credentials: Credenti
   return false;
 }
 
-export function mergeProviderSpecificData(existing: Record<string, unknown> | undefined, next: Record<string, unknown>): Record<string, unknown> {
+function mergeProviderSpecificData(existing: Record<string, unknown> | undefined, next: Record<string, unknown>): Record<string, unknown> {
   if (!next || typeof next !== "object") return existing || {};
   return {
     ...(existing || {}),
@@ -68,7 +68,7 @@ export function mergeProviderSpecificData(existing: Record<string, unknown> | un
   };
 }
 
-export function mergeRefreshedCredentials(provider: string, currentCredentials: Credentials | null, refreshedCredentials: RefreshResult | null, nowMs = Date.now()): RefreshResult | null {
+function mergeRefreshedCredentials(provider: string, currentCredentials: Credentials | null, refreshedCredentials: RefreshResult | null, nowMs = Date.now()): RefreshResult | null {
   if (!refreshedCredentials) return null;
   if (isUnrecoverableRefreshError(refreshedCredentials)) return refreshedCredentials;
 
@@ -133,7 +133,7 @@ function getRefreshLockKey(provider: string, credentials: Credentials): string {
   return `${provider}:${stableId}`;
 }
 
-export async function withCredentialRefreshLock(provider: string, credentials: Credentials, refreshFn: () => Promise<RefreshResult | null>): Promise<RefreshResult | null> {
+async function withCredentialRefreshLock(provider: string, credentials: Credentials, refreshFn: () => Promise<RefreshResult | null>): Promise<RefreshResult | null> {
   const key = getRefreshLockKey(provider, credentials);
   const existing = refreshLocks.get(key);
   if (existing) return existing;

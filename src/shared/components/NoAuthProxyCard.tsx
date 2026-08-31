@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Unlock } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ChevronDown, Route, Unlock } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 
 const NONE_PROXY_POOL_VALUE = "__none__";
@@ -87,19 +90,24 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
   const isRotation = rotateStrategy !== "none";
 
   return (
-    <Card>
-      <CardContent>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500/10 text-green-500">
-            <Unlock className="size-5" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium">{translate("No authentication required")}</p>
-            <p className="text-xs text-text-muted">{translate("This provider is ready for use. Optionally, route requests through a proxy pool to bypass IP-based limits.")}</p>
-          </div>
-          {savedFlash && <Badge variant="default" className="h-auto px-2 py-0.5 text-[10px] bg-green-500/10 text-green-600 dark:text-green-400">{translate("Saved")}</Badge>}
-        </div>
+    <Card className="rounded-xl border-border-subtle bg-surface shadow-[var(--shadow-soft)]">
+      <CardContent className="py-3 sm:py-4">
+        <Alert className="mb-3 border-border-subtle bg-transparent px-3 py-2">
+          <Unlock />
+          <AlertTitle className="flex items-center gap-2">
+            {translate("No authentication required")}
+            {savedFlash && <Badge variant="secondary">{translate("Saved")}</Badge>}
+          </AlertTitle>
+          <AlertDescription>{translate("This provider is ready for use. Optionally, route requests through a proxy pool to bypass IP-based limits.")}</AlertDescription>
+        </Alert>
 
+        <Collapsible>
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-sm font-medium text-text-main transition-colors hover:bg-muted/50">
+            <span className="flex items-center gap-2"><Route className="size-4 text-text-muted" />{translate("Routing options")}</span>
+            <ChevronDown className="size-4 text-text-muted" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2 border-t border-border-subtle pt-3">
+        <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label className="text-text-main">{translate("Proxy Pool")}</Label>
           <Select
@@ -121,20 +129,22 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
           {isRotation && <p className="text-xs text-text-muted">{translate("The pool selector is ignored when rotation is active — all active pools are used.")}</p>}
         </div>
 
-        <div className="flex flex-col gap-2 mt-4">
+        <div className="flex flex-col gap-1.5">
           <Label className="text-text-main">{translate("Rotation Strategy")}</Label>
-          <Select value={rotateStrategy} onValueChange={(v) => handleStrategyChange(v ?? "none")} disabled={saving}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={translate("Select strategy") ?? "Select strategy"} />
-            </SelectTrigger>
-            <SelectContent>
-              {STRATEGIES.map((s) => (
-                <SelectItem key={s.value} value={s.value} disabled={s.value !== "none" && !canRotate}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ToggleGroup
+            value={[rotateStrategy]}
+            onValueChange={(values) => values[0] && handleStrategyChange(values[0])}
+            disabled={saving}
+            size="sm"
+            spacing={0}
+            variant="outline"
+          >
+            {STRATEGIES.map((strategy) => (
+              <ToggleGroupItem key={strategy.value} value={strategy.value} disabled={strategy.value !== "none" && !canRotate}>
+                {strategy.value === "none" ? translate("Direct") : strategy.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
           <p className="text-xs text-text-muted">
             {!canRotate
               ? translate("At least 2 active proxy pools required for rotation.")
@@ -145,6 +155,9 @@ export default function NoAuthProxyCard({ providerId }: NoAuthProxyCardProps) {
                 : translate("Uses the selected pool above. Set to Round-robin or Random to rotate among all active pools.")}
           </p>
         </div>
+        </div>
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );

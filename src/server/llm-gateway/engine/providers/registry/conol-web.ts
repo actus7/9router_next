@@ -15,11 +15,14 @@ export default {
   authType: "cookie",
   authHint: "Paste your __Secure-better-auth.session_token from conol.ai",
   transport: {
-    baseUrl: "https://conol.ai/api/chat/completions",
+    baseUrl: "https://conol.ai/api/sessions",
     format: "openai",
     authType: "cookie",
   },
   models: [
-    { id: "conol-default", name: "Conol Default" },
+    { id: "claude-sonnet-5", name: "Claude Sonnet 5 (via Conol)" },
+    { id: "claude-fable-5", name: "Claude Fable 5 (via Conol)" },
+    { id: "gpt-5.5", name: "GPT-5.5 (via Conol)" },
+    { id: "deepseek/deepseek-v4-pro", name: "DeepSeek V4 Pro (via Conol)" },
   ],
 };

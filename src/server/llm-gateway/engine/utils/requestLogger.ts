@@ -227,9 +227,9 @@ export async function createRequestLogger(sourceFormat: string, targetFormat: st
 }
 
 // Legacy functions for backward compatibility
-export function logRequest() {}
-export function logResponse() {}
-export function logError(provider: string, { error, url, model, requestBody }: { error: unknown; url?: string; model?: string; requestBody?: unknown }) {
+function logRequest() {}
+function logResponse() {}
+function logError(provider: string, { error, url, model, requestBody }: { error: unknown; url?: string; model?: string; requestBody?: unknown }) {
   if (!fs || !LOGS_DIR) return;
   
   try {

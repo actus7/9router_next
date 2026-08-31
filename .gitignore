@@ -56,3 +56,8 @@ custom-server.js
 .claude/
 .cursor/
 .devin/
+.opencode/
+
+# tool session artifacts
+.playwright-cli/
+.playwright-mcp/

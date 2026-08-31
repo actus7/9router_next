@@ -23,8 +23,8 @@ import { effortToBudget } from "../translator/concerns/thinking";
 type KiroBody = Record<string, any>;
 type KiroHeaders = Record<string, string> | { get(name: string): string | undefined } | undefined;
 
-export const KIRO_AGENTIC_SUFFIX = "-agentic";
-export const KIRO_THINKING_SUFFIX = "-thinking";
+const KIRO_AGENTIC_SUFFIX = "-agentic";
+const KIRO_THINKING_SUFFIX = "-thinking";
 export const KIRO_TOOL_NAME_MAX_LENGTH = 64;
 export const KIRO_TOOL_DESCRIPTION_MAX_LENGTH = 10237;
 export const KIRO_TOOL_ID_MAX_LENGTH = 64;
@@ -35,13 +35,13 @@ export const KIRO_ENDPOINT_FALLBACK_STATUSES = new Set([401, 403, 404]);
 // Public default CodeWhisperer profile ARNs (us-east-1), keyed by auth method.
 // Used when an account cannot resolve its own profileArn. Builder ID and social
 // (Google/GitHub) sign-ins map to different shared profiles.
-export const KIRO_DEFAULT_PROFILE_ARNS = {
+const KIRO_DEFAULT_PROFILE_ARNS = {
   "builder-id": "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX",
   social: "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA3GRVQMUK",
 };
 
 // Back-compat single default (Builder ID).
-export const KIRO_DEFAULT_PROFILE_ARN = KIRO_DEFAULT_PROFILE_ARNS["builder-id"];
+const KIRO_DEFAULT_PROFILE_ARN = KIRO_DEFAULT_PROFILE_ARNS["builder-id"];
 
 /** Resolve the shared default profileArn for a given auth method. */
 export function resolveDefaultProfileArn(authMethod: string) {
@@ -49,7 +49,7 @@ export function resolveDefaultProfileArn(authMethod: string) {
   return social ? KIRO_DEFAULT_PROFILE_ARNS.social : KIRO_DEFAULT_PROFILE_ARNS["builder-id"];
 }
 
-export const KIRO_THINKING_BUDGET_DEFAULT = 16000;
+const KIRO_THINKING_BUDGET_DEFAULT = 16000;
 
 /**
  * Resolve a Kiro model after consuming the generic model(level) suffix.
@@ -176,7 +176,7 @@ export function resolveKiroThinkingBudget(body: KiroBody, headers?: KiroHeaders,
   return null;
 }
 
-export function extractKiroEffortLevel(body: KiroBody) {
+function extractKiroEffortLevel(body: KiroBody) {
   const effort =
     body?.output_config?.effort ??
     body?.reasoning_effort ??
@@ -204,7 +204,7 @@ function extractKiroGptEffortLevel(body: KiroBody) {
   return null;
 }
 
-export function buildKiroAdditionalModelRequestFields(body: KiroBody, effortPath: string = "output_config") {
+function buildKiroAdditionalModelRequestFields(body: KiroBody, effortPath: string = "output_config") {
   const effort = effortPath === "reasoning"
     ? extractKiroGptEffortLevel(body)
     : extractKiroEffortLevel(body);
@@ -220,28 +220,11 @@ export function buildKiroAdditionalModelRequestFields(body: KiroBody, effortPath
   };
 }
 
-export function resolveKiroEffortPath(model: string) {
-  if (typeof model !== "string") return null;
-  const normalized = model.toLowerCase().replace(/-/g, ".");
-  if (/(?:^|[/.])gpt[/.]5[/.]6(?:[/.]|$)/.test(normalized)) {
-    return "reasoning";
-  }
-  if (!normalized.includes("claude")) return null;
-  const match = normalized.match(/(?:^|[/.])claude(?:[/.][a-z]+)*[/.](\d+)(?:[/.](\d+))?(?:[/.]|$)/);
-  if (!match) return null;
-  const [, majorText, minorText] = match;
-  const major = Number(majorText);
-  const minor = minorText === undefined ? null : Number(minorText);
-  const dateSuffixMinor = minor !== null && minor >= 1000;
-  // Kiro rejected additionalModelRequestFields on legacy 4.5 models in live smoke.
-  // Default future Claude/Kiro models to supported so new model releases do not
-  // need a code allowlist update.
-  return major < 4 || (major === 4 && (minor === null || minor <= 5 || dateSuffixMinor))
-    ? null
-    : "output_config";
-}
+// Import from leaf module (breaks circular dep: kiroConstants→thinkingUnified→thinkingLevels→kiroConstants).
+import { resolveKiroEffortPath } from "./kiroEffortPath";
+export { resolveKiroEffortPath };
 
-export function supportsKiroAdditionalModelRequestFields(model: string) {
+function supportsKiroAdditionalModelRequestFields(model: string) {
   return resolveKiroEffortPath(model) !== null;
 }
 
@@ -265,7 +248,7 @@ export function buildKiroAdditionalModelRequestFieldsForModel(body: KiroBody, mo
  * @param {string} [model] Model id the caller asked for (post-strip ok)
  * @returns {boolean}
  */
-export function isThinkingEnabled(body: KiroBody, headers?: KiroHeaders, model?: string) {
+function isThinkingEnabled(body: KiroBody, headers?: KiroHeaders, model?: string) {
   return resolveKiroThinkingBudget(body, headers, model) !== null;
 }
 
@@ -277,7 +260,7 @@ export function isThinkingEnabled(body: KiroBody, headers?: KiroHeaders, model?:
  * @param {string} model
  * @returns {boolean}
  */
-export function isAgenticModel(model: string) {
+function isAgenticModel(model: string) {
   return typeof model === "string" && model.endsWith(KIRO_AGENTIC_SUFFIX);
 }
 
@@ -287,7 +270,7 @@ export function isAgenticModel(model: string) {
  * @param {string} model
  * @returns {string}
  */
-export function stripAgenticSuffix(model: string) {
+function stripAgenticSuffix(model: string) {
   if (!isAgenticModel(model)) return model;
   return model.slice(0, -KIRO_AGENTIC_SUFFIX.length);
 }
@@ -304,7 +287,7 @@ export function stripAgenticSuffix(model: string) {
  * @param {string} model Model id with `-agentic` already stripped
  * @returns {boolean}
  */
-export function isThinkingModel(model: string) {
+function isThinkingModel(model: string) {
   return typeof model === "string" && model.endsWith(KIRO_THINKING_SUFFIX);
 }
 
@@ -314,7 +297,7 @@ export function isThinkingModel(model: string) {
  * @param {string} model
  * @returns {string}
  */
-export function stripThinkingSuffix(model: string) {
+function stripThinkingSuffix(model: string) {
   if (!isThinkingModel(model)) return model;
   return model.slice(0, -KIRO_THINKING_SUFFIX.length);
 }

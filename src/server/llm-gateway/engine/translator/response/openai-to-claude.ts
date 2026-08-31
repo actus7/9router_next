@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { ROLE, CLAUDE_BLOCK, MODEL_FALLBACK } from "../schema/index";
 import { fromOpenAIFinish } from "../concerns/finishReason";
@@ -70,7 +70,7 @@ function stopTextBlock(state: Record<string, unknown>, results: Record<string, u
 }
 
 // Convert OpenAI stream chunk to Claude format
-export function openaiToClaudeResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
+function openaiToClaudeResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
   if (!chunk || !(chunk.choices as unknown[])?.[0]) return null;
 
   const results: Record<string, unknown>[] = [];

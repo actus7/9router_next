@@ -113,7 +113,7 @@ export async function compressWithPxpipe(body: unknown, { enabled, format, model
   }
 }
 
-export function formatPxpipeLog(summary: PxpipeSummary | null | undefined) {
+function formatPxpipeLog(summary: PxpipeSummary | null | undefined) {
   if (!summary) return null;
   if (!summary.applied) return null;
   return `imaged ${summary.imagedChars}ch → ${summary.imageCount} image(s) | est ${summary.tokensBeforeEst}→${summary.tokensAfterEst} tokens (-${summary.savedPct}%) | ${summary.durationMs}ms`;

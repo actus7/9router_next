@@ -22,7 +22,7 @@ const USER_AGENTS = [
 
 // Anti-abuse gate marker: the free chat endpoint returns 403 "Illegal access"
 // unless a system message contains this exact MiMoCode signature substring.
-export const MIMO_SYSTEM_MARKER =
+const MIMO_SYSTEM_MARKER =
   "You are MiMoCode, an interactive CLI tool that helps users with software engineering tasks.";
 
 // In-memory JWT cache (per-process, survives across requests but not restarts)
@@ -163,7 +163,7 @@ export class MimoFreeExecutor extends BaseExecutor {
   }
 }
 
-export const __test__ = {
+const __test__ = {
   generateFingerprint, generateSessionId, bootstrapJwt, resetJwtCache, parseJwtExp,
   injectSystemMarker, MIMO_SYSTEM_MARKER, BOOTSTRAP_URL, CHAT_URL, SESSION_AFFINITY_PREFIX,
 };

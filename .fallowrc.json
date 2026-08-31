@@ -1,0 +1,121 @@
+{
+  // This file is JSONC: fallow reads these comments; generic JSON tools may not.
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "src/index.{ts,tsx,js,jsx}",
+    "src/main.{ts,tsx,js,jsx}"
+  ],
+  "duplicates": {
+    // Hide pair-only clones; focus on widespread copy-paste
+    // worth refactoring. Lower to 2 to report every duplicate pair.
+    "minOccurrences": 3,
+    "ignore": [
+      "migrations/snapshots/**" // generated Prisma migration snapshots (contract.d.ts copies)
+    ]
+  },
+  "rules": {
+    "unused-dependencies": "warn"
+  },
+  "ignoreExports": [
+    {
+      "file": "src/components/ui/button.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/shared/components/index.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/lib/data-access.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/lib/db/repos/combosRepo.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/components/ui/input.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/proxy-pools/ProxyPoolsClient.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/components/ui/select.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/providers/[id]/types.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/shared/utils/providerModelsFetcher.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/server/llm-gateway/engine/executors/mimo-free.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/server/llm-gateway/engine/executors/qoder.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/lib/oauth/providerHelpers.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/server/llm-gateway/engine/host/oauth.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/lib/db/repos/apiKeysRepo.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/lib/db/repos/aliasRepo.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/lib/db/repos/nodesRepo.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/lib/db/repos/settingsRepo.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/server/llm-gateway/engine/config/kiroConstants.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/server/llm-gateway/engine/translator/concerns/thinkingUnified.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/lib/db/index.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/server/llm-gateway/catalog.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/server/llm-gateway/auth/tokenRefresh.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/shared/llm-catalog/index.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/shared/constants/smart-routing.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "src/components/layout/sidebar.tsx",
+      "exports": ["*"]
+    }
+  ]
+}

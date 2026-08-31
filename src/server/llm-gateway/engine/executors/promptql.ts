@@ -1,228 +1,273 @@
+// PromptQL (prompt.ql.app) executor — unofficial/experimental playground agent.
+//
+// The previous version of this executor pointed at "promptql.com/api/graphql"
+// (a domain that doesn't run this product) calling a `chat(input: ChatInput!)`
+// mutation that doesn't exist. The real API lives at
+// data.prompt.ql.app/promptql/playground-v2-hge/v1/graphql and is
+// fundamentally asynchronous: `start_thread`/`send_thread_message` only
+// acknowledge the user's turn — the assistant's reply arrives later as an
+// AgentMessage row on `thread_events`, discovered by polling. Ported from
+// OmniRoute's promptql.ts (thread-stickiness across separate HTTP requests
+// and the cookie-based token-refresh path were left out — this project has no
+// cross-request thread store; the full message history is folded into the
+// prompt on every call instead, which keeps multi-turn correct without it).
 import { BaseExecutor } from "./base";
-import { PROVIDERS } from "../config/providers";
-import { SSE_DONE, SSE_HEADERS_NO_BUFFER } from "../utils/sseConstants";
-import { sseChunk } from "../utils/sse";
 import type { Credentials, Logger } from "../services/types";
 
-const API_URL = PROVIDERS["promptql"].baseUrl as string;
-const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
+const PLAYGROUND_GQL = "https://data.prompt.ql.app/promptql/playground-v2-hge/v1/graphql";
+const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
+const POLL_INTERVAL_MS = 1200;
+const POLL_TIMEOUT_MS = 180_000;
 
-function buildStreamingResponse(body: ReadableStream, model: string, cid: string, created: number, signal?: AbortSignal) {
-  const encoder = new TextEncoder();
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        controller.enqueue(encoder.encode(sseChunk({
-          id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-          choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null, logprobs: null }],
-        })));
+const START_THREAD_ROOMLESS = `
+mutation StartThreadRoomless($message: String!, $projectId: String!, $timezone: String!, $agentResponseConfig: String) {
+  start_thread(message: $message, projectId: $projectId, timezone: $timezone, roomless: true, uploads: [], agentResponseConfig: $agentResponseConfig) {
+    thread_id
+    thread_events { thread_event_id created_at event_data }
+  }
+}`;
 
-        const reader = body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        try {
-          while (true) {
-            if (signal?.aborted) break;
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-            for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed) continue;
-              // Try SSE format first
-              if (trimmed.startsWith("data: ")) {
-                const payload = trimmed.slice(6);
-                if (payload === "[DONE]") continue;
-                try {
-                  const chunk = JSON.parse(payload);
-                  // GraphQL streaming may wrap in { data: { ... } }
-                  const text = chunk?.data?.chat?.message || chunk?.data?.message || chunk?.choices?.[0]?.delta?.content;
-                  if (text) {
-                    controller.enqueue(encoder.encode(sseChunk({
-                      id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-                      choices: [{ index: 0, delta: { content: text }, finish_reason: null, logprobs: null }],
-                    })));
-                  }
-                } catch { /* skip malformed */ }
-              } else {
-                // Try NDJSON
-                try {
-                  const chunk = JSON.parse(trimmed);
-                  const text = chunk?.data?.chat?.message || chunk?.data?.message || chunk?.choices?.[0]?.delta?.content;
-                  if (text) {
-                    controller.enqueue(encoder.encode(sseChunk({
-                      id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-                      choices: [{ index: 0, delta: { content: text }, finish_reason: null, logprobs: null }],
-                    })));
-                  }
-                } catch { /* skip */ }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock();
-        }
+const QUERY_THREAD_EVENTS = `
+query QueryThreadEvents($thread_id: uuid!, $after_event_id: bigint!) {
+  thread_events(where: { thread_id: {_eq: $thread_id}, thread_event_id: {_gt: $after_event_id} }, order_by: {thread_event_id: asc}) {
+    thread_event_id
+    event_data
+    created_at
+  }
+}`;
 
-        controller.enqueue(encoder.encode(sseChunk({
-          id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-          choices: [{ index: 0, delta: {}, finish_reason: "stop", logprobs: null }],
-        })));
-        controller.enqueue(encoder.encode(SSE_DONE));
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        controller.enqueue(encoder.encode(sseChunk({
-          id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-          choices: [{ index: 0, delta: { content: `[Stream error: ${errorMsg}]` }, finish_reason: "stop", logprobs: null }],
-        })));
-        controller.enqueue(encoder.encode(SSE_DONE));
-      } finally {
-        controller.close();
-      }
-    },
-  });
+interface ThreadEvent {
+  thread_event_id: string | number;
+  event_data?: unknown;
 }
 
-async function buildNonStreamingResponse(body: ReadableStream, model: string, cid: string, created: number) {
-  let fullContent = "";
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          const chunk = JSON.parse(trimmed.startsWith("data: ") ? trimmed.slice(6) : trimmed);
-          const text = chunk?.data?.chat?.message || chunk?.data?.message || chunk?.choices?.[0]?.delta?.content;
-          if (text) fullContent += text;
-        } catch { /* skip */ }
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
+function errorResponse(status: number, message: string) {
+  return new Response(JSON.stringify({ error: { message, type: "upstream_error" } }), { status, headers: { "Content-Type": "application/json" } });
+}
 
-  const promptTokens = Math.ceil(fullContent.length / 4);
-  const completionTokens = Math.ceil(fullContent.length / 4);
-  return new Response(JSON.stringify({
-    id: cid, object: "chat.completion", created, model, system_fingerprint: null,
-    choices: [{ index: 0, message: { role: "assistant", content: fullContent }, finish_reason: "stop", logprobs: null }],
-    usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens },
-  }), { status: 200, headers: { "Content-Type": "application/json" } });
+/** Bare-bones JWT payload decode (base64url, no signature verification —
+ * we're only reading claims, not trusting the token for auth ourselves). */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function isJwtExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  const exp = payload?.exp;
+  if (typeof exp !== "number") return false;
+  return Date.now() >= exp * 1000;
+}
+
+function extractProjectIdFromToken(token: string): string {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return "";
+  const hasura = payload["https://promptql.hasura.io"] as Record<string, unknown> | undefined;
+  const claim = hasura?.["x-hasura-project-id"] ?? payload["x-hasura-project-id"] ?? payload.aud;
+  return typeof claim === "string" ? claim : "";
+}
+
+function extractText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.map((part) => {
+    const p = part as Record<string, unknown>;
+    return typeof p?.text === "string" ? p.text : "";
+  }).filter(Boolean).join("\n");
+}
+
+/** Fold the full OpenAI history into one prompt — PromptQL threads are stateful
+ * server-side, but we start a fresh thread per request (no cross-request store),
+ * so the model needs the whole conversation in the message text itself. */
+function foldHistoryIntoPrompt(messages: Array<{ role: string; content: unknown }>): string {
+  const parts: string[] = [];
+  for (const msg of messages) {
+    const text = extractText(msg.content);
+    if (!text) continue;
+    const role = String(msg.role || "user");
+    parts.push(role === "user" ? text : `${role}: ${text}`);
+  }
+  return parts.join("\n\n");
+}
+
+async function gql<T = unknown>(token: string, query: string, variables: Record<string, unknown>, operationName: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(PLAYGROUND_GQL, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      origin: "https://prompt.ql.app",
+      referer: "https://prompt.ql.app/",
+      "user-agent": USER_AGENT,
+    },
+    body: JSON.stringify({ query, variables, operationName }),
+    signal,
+  });
+  const text = await res.text();
+  let json: { data?: T; errors?: Array<{ message?: string }> };
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Non-JSON GraphQL HTTP ${res.status}: ${text.slice(0, 300)}`);
+  }
+  if (!res.ok) throw new Error(`GraphQL HTTP ${res.status}: ${text.slice(0, 400)}`);
+  if (json.errors?.length) throw new Error(json.errors.map((e) => e.message || "error").join("; "));
+  return json.data as T;
+}
+
+function walkStrings(node: unknown, out: Array<{ path: string; text: string }> = [], path = ""): Array<{ path: string; text: string }> {
+  if (node == null) return out;
+  if (typeof node === "string") {
+    if (node.length >= 1 && !/^[0-9a-f-]{36}$/i.test(node) && !/^\d{4}-\d{2}-\d{2}T/.test(node)) out.push({ path, text: node });
+    return out;
+  }
+  if (Array.isArray(node)) { node.forEach((v, i) => walkStrings(v, out, `${path}[${i}]`)); return out; }
+  if (typeof node === "object") {
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) walkStrings(v, out, path ? `${path}.${k}` : k);
+  }
+  return out;
+}
+
+function extractFinalResponseMessage(eventData: unknown): string | null {
+  const hits = walkStrings(eventData).filter((t) => /final_response\.message$/i.test(t.path));
+  if (hits.length) return hits[hits.length - 1].text;
+  const raw = walkStrings(eventData).find((t) => /response_text$/i.test(t.path));
+  if (raw) {
+    const m = raw.text.match(/<final_response>\s*([\s\S]*?)\s*<\/final_response>/i);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+async function pollAssistantText(token: string, threadId: string, afterEventId: string, signal?: AbortSignal): Promise<string> {
+  const start = Date.now();
+  let cursor = afterEventId;
+  let best = "";
+  let sawFinal = false;
+
+  while (Date.now() - start < POLL_TIMEOUT_MS) {
+    if (signal?.aborted) throw new Error("aborted");
+    const data = await gql<{ thread_events: ThreadEvent[] }>(token, QUERY_THREAD_EVENTS, { thread_id: threadId, after_event_id: cursor }, "QueryThreadEvents", signal);
+    for (const ev of data.thread_events || []) {
+      cursor = String(ev.thread_event_id);
+      const msg = extractFinalResponseMessage(ev.event_data);
+      if (msg) best = msg;
+      if (JSON.stringify(ev.event_data || {}).includes("final_response_sent")) sawFinal = true;
+    }
+    if (sawFinal && best) return best;
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+  if (best) return best;
+  throw new Error(`PromptQL response timeout after ${POLL_TIMEOUT_MS}ms (thread ${threadId})`);
 }
 
 export class PromptQLExecutor extends BaseExecutor {
   constructor() {
-    super("promptql", PROVIDERS["promptql"]);
+    super("promptql", { baseUrl: PLAYGROUND_GQL });
   }
 
-  async execute({ model, body, stream, credentials, signal, log }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Credentials; signal?: AbortSignal; log?: Logger }) {
-    const messages = body?.messages as Record<string, unknown>[] | undefined;
+  async execute({ body, stream: wantStream, credentials, signal, log }: {
+    model: string; body: Record<string, unknown>; stream: boolean; credentials: Credentials; signal?: AbortSignal; log?: Logger;
+  }) {
+    const messages = body?.messages as Array<{ role: string; content: unknown }> | undefined;
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      const errResp = new Response(JSON.stringify({
-        error: { message: "Missing or empty messages array", type: "invalid_request" },
-      }), { status: 400, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: API_URL, headers: {} as Record<string, string>, transformedBody: body };
+      return { response: errorResponse(400, "Missing or empty messages array"), url: PLAYGROUND_GQL, headers: {}, transformedBody: body };
     }
 
-    const headers: Record<string, string> = {
-      Accept: "text/event-stream",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Cache-Control": "no-cache",
-      "Content-Type": "application/json",
-      Origin: "https://promptql.com",
-      Pragma: "no-cache",
-      Referer: "https://promptql.com/",
-      "Sec-Ch-Ua": '"Google Chrome";v="136", "Chromium";v="136", "Not(A:Brand";v="24"',
-      "Sec-Ch-Ua-Mobile": "?0",
-      "Sec-Ch-Ua-Platform": '"macOS"',
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "same-origin",
-      "User-Agent": USER_AGENT,
-    };
-
-    // PromptQL uses Bearer JWT auth
-    if (credentials.apiKey) {
-      headers["Authorization"] = `Bearer ${credentials.apiKey}`;
+    const token = String(credentials.apiKey ?? credentials.accessToken ?? "").trim();
+    if (!token) {
+      return { response: errorResponse(401, "Missing PromptQL Bearer JWT — paste the Authorization token from prompt.ql.app DevTools (Network → graphql on data.prompt.ql.app). Use the enrich-token JWT, not the DDN/project token."), url: PLAYGROUND_GQL, headers: {}, transformedBody: body };
+    }
+    if (isJwtExpired(token)) {
+      return { response: errorResponse(401, "PromptQL JWT expired — re-paste a fresh Authorization Bearer token from prompt.ql.app."), url: PLAYGROUND_GQL, headers: {}, transformedBody: body };
     }
 
-    // Build GraphQL payload
-    const lastUserMsg = messages.filter((m: Record<string, unknown>) => m.role === "user").pop();
-    const userText = typeof lastUserMsg?.content === "string"
-      ? lastUserMsg.content
-      : Array.isArray(lastUserMsg?.content)
-        ? (lastUserMsg.content as Record<string, unknown>[]).filter((c: Record<string, unknown>) => c.type === "text").map((c: Record<string, unknown>) => String(c.text || "")).join(" ")
-        : "";
+    const projectId = (credentials.providerSpecificData?.projectId as string | undefined) || extractProjectIdFromToken(token);
+    if (!projectId) {
+      return { response: errorResponse(400, "Missing PromptQL projectId — could not derive it from the JWT claims."), url: PLAYGROUND_GQL, headers: {}, transformedBody: body };
+    }
 
-    const payload: Record<string, unknown> = {
-      query: `mutation Chat($input: ChatInput!) { chat(input: $input) { message } }`,
-      variables: {
-        input: {
-          message: userText,
-          model: model === "promptql-default" ? "default" : model,
-        },
-      },
-    };
+    const prompt = foldHistoryIntoPrompt(messages);
+    if (!prompt) {
+      return { response: errorResponse(400, "No user message found"), url: PLAYGROUND_GQL, headers: {}, transformedBody: body };
+    }
 
-    log?.info?.("PROMPTQL", `Query to ${model}, stream=${stream}, msgs=${messages.length}`);
+    const timezone = "UTC";
+    log?.info?.("PROMPTQL", `start_thread, project=${projectId}, msgs=${messages.length}`);
 
-    let response: Response;
+    let threadId: string;
+    let afterEventId = "0";
     try {
-      response = await fetch(API_URL, {
-        method: "POST", headers, body: JSON.stringify(payload), signal,
-      });
+      const data = await gql<{ start_thread: { thread_id: string; thread_events?: ThreadEvent[] } }>(
+        token, START_THREAD_ROOMLESS, { message: prompt, projectId, timezone, agentResponseConfig: "force_respond" }, "StartThreadRoomless", signal
+      );
+      threadId = data.start_thread.thread_id;
+      const seed = data.start_thread.thread_events || [];
+      if (seed.length) afterEventId = String(seed[seed.length - 1].thread_event_id);
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      log?.error?.("PROMPTQL", `Fetch failed: ${errMsg}`);
-      const errResp = new Response(JSON.stringify({
-        error: { message: `PromptQL connection failed: ${errMsg}`, type: "upstream_error" },
-      }), { status: 502, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: API_URL, headers, transformedBody: payload };
+      const msg = err instanceof Error ? err.message : String(err);
+      log?.error?.("PROMPTQL", `start_thread failed: ${msg}`);
+      const status = /401|unauthorized|jwt/i.test(msg) ? 401 : 502;
+      return { response: errorResponse(status, `PromptQL: ${msg}`), url: PLAYGROUND_GQL, headers: {}, transformedBody: body };
     }
 
-    if (!response.ok) {
-      const status = response.status;
-      let errMsg = `PromptQL returned HTTP ${status}`;
-      if (status === 401 || status === 403) errMsg = "PromptQL auth failed — JWT may be expired. Re-paste your Bearer JWT from promptql.com.";
-      else if (status === 429) errMsg = "PromptQL rate limited. Wait a moment and retry.";
-      log?.warn?.("PROMPTQL", errMsg);
-      const errResp = new Response(JSON.stringify({
-        error: { message: errMsg, type: "upstream_error", code: `HTTP_${status}` },
-      }), { status, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: API_URL, headers, transformedBody: payload };
+    let text: string;
+    try {
+      text = await pollAssistantText(token, threadId, afterEventId, signal);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log?.error?.("PROMPTQL", `poll failed: ${msg}`);
+      const status = /timeout/i.test(msg) ? 504 : 502;
+      return { response: errorResponse(status, `PromptQL: ${msg}`), url: PLAYGROUND_GQL, headers: {}, transformedBody: body };
     }
 
-    if (!response.body) {
-      const errResp = new Response(JSON.stringify({
-        error: { message: "PromptQL returned empty response body", type: "upstream_error" },
-      }), { status: 502, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: API_URL, headers, transformedBody: payload };
+    if (!text) {
+      return { response: errorResponse(502, "PromptQL returned empty content"), url: PLAYGROUND_GQL, headers: {}, transformedBody: body };
     }
 
-    const cid = `chatcmpl-pql-${crypto.randomUUID().slice(0, 12)}`;
+    const id = `chatcmpl-pql-${threadId}`;
     const created = Math.floor(Date.now() / 1000);
+    const clientModel = "promptql-default";
 
-    let finalResponse: Response;
-    if (stream) {
-      const sseStream = buildStreamingResponse(response.body, model, cid, created, signal);
-      finalResponse = new Response(sseStream, {
-        status: 200,
-        headers: { ...SSE_HEADERS_NO_BUFFER },
-      });
-    } else {
-      finalResponse = await buildNonStreamingResponse(response.body, model, cid, created);
+    if (!wantStream) {
+      const promptTokens = Math.max(1, Math.ceil(prompt.length / 4));
+      const completionTokens = Math.max(1, Math.ceil(text.length / 4));
+      return {
+        response: new Response(JSON.stringify({
+          id, object: "chat.completion", created, model: clientModel,
+          choices: [{ index: 0, message: { role: "assistant", content: text }, finish_reason: "stop" }],
+          usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens },
+        }), { status: 200, headers: { "Content-Type": "application/json", "X-PromptQL-Thread-Id": threadId } }),
+        url: PLAYGROUND_GQL, headers: {}, transformedBody: { threadId, projectId },
+      };
     }
-    return { response: finalResponse, url: API_URL, headers, transformedBody: payload };
+
+    const encoder = new TextEncoder();
+    const outStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          id, object: "chat.completion.chunk", created, model: clientModel,
+          choices: [{ index: 0, delta: { role: "assistant", content: text }, finish_reason: null }],
+        })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          id, object: "chat.completion.chunk", created, model: clientModel,
+          choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        })}\n\n`));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    return {
+      response: new Response(outStream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive", "X-PromptQL-Thread-Id": threadId } }),
+      url: PLAYGROUND_GQL, headers: {}, transformedBody: { threadId, projectId },
+    };
   }
 }
 

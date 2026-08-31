@@ -7,6 +7,13 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     testTimeout: 15000,
     passWithNoTests: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["json", "text-summary"],
+      reportsDirectory: "./coverage",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/prisma/**", "migrations/**", "src/components/ui/**", "**/*.d.ts"],
+    },
   },
   resolve: {
     alias: {

@@ -128,7 +128,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
  * GET /api/pricing/defaults
  * Get default pricing configuration
  */
-export async function GET_DEFAULTS(): Promise<NextResponse> {
+async function GET_DEFAULTS(): Promise<NextResponse> {
   try {
     const defaultPricing = getDefaultPricing();
     return NextResponse.json(defaultPricing);

@@ -47,6 +47,6 @@ export function getImageAdapter(provider: string) {
   return ADAPTERS[provider] || null;
 }
 
-export function isImageProvider(provider: string): boolean {
+function isImageProvider(provider: string): boolean {
   return provider in ADAPTERS;
 }

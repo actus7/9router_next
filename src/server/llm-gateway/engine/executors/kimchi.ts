@@ -77,7 +77,7 @@ function stripToolArtifacts(body: Record<string, unknown>): void {
 // placeholder length with a safety margin.
 const REASONING_PLACEHOLDER_MAX_LEN = 8;
 
-export function stripReasoningContent(body: Record<string, unknown>): void {
+function stripReasoningContent(body: Record<string, unknown>): void {
   if (!Array.isArray(body?.messages)) return;
   for (const msg of body.messages as Record<string, unknown>[]) {
     if (msg && msg.role === "assistant" && typeof msg.reasoning_content === "string"

@@ -159,7 +159,7 @@ const REFRESH_HANDLERS: Record<string, RefreshHandler> = {
   "vertex-partner": vertexRefreshHandler as RefreshHandler,
 };
 
-export async function getAccessToken(provider: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
+async function getAccessToken(provider: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   if (!credentials || !credentials.refreshToken || typeof credentials.refreshToken !== "string") {
     log?.warn?.("TOKEN_REFRESH", `No valid refresh token available for provider: ${provider}`);
     return null;
@@ -185,7 +185,7 @@ export async function refreshTokenByProvider(provider: string, credentials: Cred
   return handler ? handler(credentials, log) : refreshAccessToken(provider, credentials.refreshToken, credentials, log);
 }
 
-export function formatProviderCredentials(provider: string, credentials: Credentials, log?: Logger): Record<string, unknown> | null {
+function formatProviderCredentials(provider: string, credentials: Credentials, log?: Logger): Record<string, unknown> | null {
   const config = PROVIDERS[provider] as ProviderConfig | undefined;
   if (!config) {
     log?.warn?.("TOKEN_REFRESH", `No configuration found for provider: ${provider}`);
@@ -234,7 +234,7 @@ export function formatProviderCredentials(provider: string, credentials: Credent
   }
 }
 
-export async function getAllAccessTokens(userInfo: UserInfo, log?: Logger): Promise<Record<string, RefreshResult>> {
+async function getAllAccessTokens(userInfo: UserInfo, log?: Logger): Promise<Record<string, RefreshResult>> {
   const results: Record<string, RefreshResult> = {};
 
   if (userInfo.connections && Array.isArray(userInfo.connections)) {

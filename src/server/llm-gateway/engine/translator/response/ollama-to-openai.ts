@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { ROLE, OPENAI_BLOCK, OPENAI_FINISH } from "../schema/index";
 import { buildChunk } from "../concerns/chunk";
@@ -17,7 +17,7 @@ import { toOpenAIFinish } from "../concerns/finishReason";
  * {"id": "...", "object": "chat.completion.chunk", "created": 123, "model": "...",
  *  "choices": [{"index": 0, "delta": {"content": "..."}, "finish_reason": null}]}
  */
-export function ollamaToOpenAIResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
+function ollamaToOpenAIResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
   if (!chunk || typeof chunk !== "object") return null;
 
   // Initialize state on first chunk

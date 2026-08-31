@@ -3,8 +3,8 @@ import { PROVIDERS } from "../providers/index";
 export { PROVIDERS, PROVIDER_OAUTH } from "../providers/index";
 
 // Region URLs single-source from registry xiaomi-tokenplan.transport
-export const XIAOMI_TOKENPLAN_REGIONS: Record<string, string> = (PROVIDERS["xiaomi-tokenplan"]?.regions as Record<string, string>) || {};
-export const XIAOMI_TOKENPLAN_DEFAULT_REGION = PROVIDERS["xiaomi-tokenplan"]?.defaultRegion as string | undefined;
+const XIAOMI_TOKENPLAN_REGIONS: Record<string, string> = (PROVIDERS["xiaomi-tokenplan"]?.regions as Record<string, string>) || {};
+const XIAOMI_TOKENPLAN_DEFAULT_REGION = PROVIDERS["xiaomi-tokenplan"]?.defaultRegion as string | undefined;
 
 export function resolveXiaomiTokenplanBaseUrl(credentials: Record<string, unknown> | undefined) {
   const psd = credentials?.providerSpecificData as Record<string, unknown> | undefined;

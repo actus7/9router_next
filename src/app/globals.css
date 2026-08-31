@@ -820,12 +820,12 @@ button:disabled,
   font-size: 0.875em;
 }
 .prose-chat pre {
-  background: var(--muted);
+  background: color-mix(in oklab, var(--muted) 78%, var(--foreground));
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
   overflow-x: auto;
-  margin-bottom: 0.75em;
+  margin: 0.9em 0;
   font-size: 0.85em;
   line-height: 1.5;
 }
@@ -877,6 +877,8 @@ button:disabled,
 .prose-chat em {
   font-style: italic;
 }
+.prose-chat > :first-child { margin-top: 0; }
+.prose-chat > :last-child { margin-bottom: 0; }
 
 /* Range input styling */
 input[type="range"] {

@@ -52,7 +52,7 @@ const CLAUDE_NAMES: Record<string, string> = {
 // These pass through mapModel() UNCHANGED — critical for non-GPT/Claude models
 // (Gemini, o-series, Grok, DeepSeek, Sonar) which would otherwise fall through
 // to the GPT_5_4 default and silently misroute.
-export const CHATGPT_UPSTREAM_MODELS: ReadonlySet<string> = new Set<string>([
+const CHATGPT_UPSTREAM_MODELS: ReadonlySet<string> = new Set<string>([
   "GPT_5_4",
   "GPT_5_3",
   "GPT_5_2",
@@ -80,7 +80,7 @@ export const CHATGPT_UPSTREAM_MODELS: ReadonlySet<string> = new Set<string>([
   "openrouter_web_search",
 ]);
 
-export function mapModel(model: string): string {
+function mapModel(model: string): string {
   const trimmed = model.trim();
   if (CHATGPT_UPSTREAM_MODELS.has(trimmed)) return trimmed;
   const n = model.toLowerCase().trim();
@@ -99,7 +99,7 @@ export function mapModel(model: string): string {
 }
 
 // ── Token generation (mirrors client-side rie() from theoldllm.vercel.app) ──
-export function generateRequestToken(): string {
+function generateRequestToken(): string {
   const n = Date.now();
   const e = `${n}-${TOKEN_SEED}-${UA_PREFIX}`;
   let t = 0;

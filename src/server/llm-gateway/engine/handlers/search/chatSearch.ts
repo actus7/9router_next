@@ -462,4 +462,3 @@ export async function handleChatSearch({
   };
 }
 
-export { CHAT_SEARCH_CONFIG };

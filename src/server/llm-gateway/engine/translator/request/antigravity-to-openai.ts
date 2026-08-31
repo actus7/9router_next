@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { adjustMaxTokens } from "../formats/maxTokens";
 import { encodeDataUri } from "../concerns/image";
@@ -8,7 +8,7 @@ import { collapseTextParts } from "../concerns/message";
 
 // Convert Antigravity request to OpenAI format
 // Antigravity body: { project, model, userAgent, requestType, requestId, request: { contents, systemInstruction, tools, toolConfig, generationConfig, sessionId } }
-export function antigravityToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean) {
+function antigravityToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean) {
   const req = ((body as Record<string, unknown>).request || body) as Record<string, unknown>;
   const result: { messages: Record<string, unknown>[]; [key: string]: unknown } = {
     model: model,

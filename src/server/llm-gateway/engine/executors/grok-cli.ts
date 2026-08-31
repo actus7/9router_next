@@ -71,7 +71,7 @@ let requestTurnStore = new WeakMap();
  * Official CLI sets x-grok-turn-idx to the 1-based conversation turn (≈ user messages).
  * HAR: first chat turn → "1".
  */
-export function countGrokCliUserTurns(input: unknown): number {
+function countGrokCliUserTurns(input: unknown): number {
   if (!Array.isArray(input)) return 1;
   let n = 0;
   for (const item of input) {
@@ -89,7 +89,7 @@ export function countGrokCliUserTurns(input: unknown): number {
  * Prefers user-message count from the payload (full history clients), but never
  * decreases vs the last index observed for the same sessionId in this process.
  */
-export function resolveGrokCliTurnIdx(sessionId: string, input: unknown, requestKey: unknown = null): number {
+function resolveGrokCliTurnIdx(sessionId: string, input: unknown, requestKey: unknown = null): number {
   const fromInput = countGrokCliUserTurns(input);
   if (!sessionId) return fromInput;
 
@@ -115,25 +115,24 @@ export function resolveGrokCliTurnIdx(sessionId: string, input: unknown, request
 }
 
 /** Test helper — clear in-memory turn counters */
-export function _resetGrokCliTurnStore() {
+function _resetGrokCliTurnStore() {
   sessionTurnStore.clear();
   requestTurnStore = new WeakMap();
 }
 
-export function _getGrokCliTurnStoreSize() {
+function _getGrokCliTurnStoreSize() {
   return sessionTurnStore.size;
 }
 
-export function normalizeGrokCliEffort(value: unknown): string {
+function normalizeGrokCliEffort(value: unknown): string {
   const effort = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (effort === "max") return "xhigh";
   if (EFFORT_LEVELS.includes(effort)) return effort;
   return "high";
 }
 
-export { supportsGrokCliReasoningEffort } from "../config/grokCli";
 
-export function resolveGrokCliSessionId(credentials: Credentials, body: Record<string, unknown>): string {
+function resolveGrokCliSessionId(credentials: Credentials, body: Record<string, unknown>): string {
   // ponytail: clients without stable thread metadata share one connection session;
   // split further when their wire format exposes a durable conversation id.
   const explicitSessionBody = {
@@ -210,7 +209,7 @@ function normalizeGrokCliInputItem(item: unknown): unknown {
   return clean;
 }
 
-export function normalizeGrokCliInput(body: Record<string, unknown>): Record<string, unknown> {
+function normalizeGrokCliInput(body: Record<string, unknown>): Record<string, unknown> {
   if (!Array.isArray(body?.input)) return body;
   const inputArr = body.input as unknown[];
   const normalized: unknown[] = inputArr.map(normalizeGrokCliInputItem).filter(Boolean);

@@ -3,8 +3,8 @@ import { createHash } from "crypto";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import type { Credentials } from "./types";
 
-export const KIMCHI_API = "https://llm.kimchi.dev";
-export const KIMCHI_USER_AGENT = "kimchi/0.1.40";
+const KIMCHI_API = "https://llm.kimchi.dev";
+const KIMCHI_USER_AGENT = "kimchi/0.1.40";
 
 const FETCH_TIMEOUT_MS = 20_000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -42,7 +42,7 @@ function normalizeKimchiEndpoint(endpoint: unknown): string {
   return (raw || KIMCHI_API).replace(/\/+$/, "");
 }
 
-export function buildKimchiModelsUrl(endpoint: unknown): string {
+function buildKimchiModelsUrl(endpoint: unknown): string {
   return `${normalizeKimchiEndpoint(endpoint)}/v1/models/metadata?include_in_cli=true`;
 }
 
@@ -64,12 +64,17 @@ function cacheKey(credentials: Credentials, endpoint: unknown): string {
 }
 
 function toModelKind(inputModalities: unknown): string {
-  return Array.isArray(inputModalities) && inputModalities.includes("image")
-    ? "imageToText"
-    : "llm";
+  if (!Array.isArray(inputModalities)) return "llm";
+
+  // Kimchi uses input_modalities to describe what a chat model accepts. A
+  // text-and-image model is still a chat LLM with vision support; labeling it
+  // imageToText makes the provider UI exclude it from the LLM grid and its
+  // "Test All Models" run.
+  if (inputModalities.includes("text")) return "llm";
+  return inputModalities.includes("image") ? "imageToText" : "llm";
 }
 
-export function normalizeKimchiModel(item: unknown): KimchiModel | null {
+function normalizeKimchiModel(item: unknown): KimchiModel | null {
   if (!item || typeof item !== "object") return null;
   const obj = item as Record<string, unknown>;
   const id = (obj.slug || obj.id || obj.model || obj.name) as string | undefined;
@@ -207,7 +212,7 @@ export async function resolveKimchiModels(credentials: Credentials, options: Kim
   return entry;
 }
 
-export function clearKimchiCatalog(): void {
+function clearKimchiCatalog(): void {
   catalogCache.clear();
   metadataByModelId.clear();
 }

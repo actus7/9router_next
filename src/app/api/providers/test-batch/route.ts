@@ -64,13 +64,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       connectionsToTest = allConnections.filter((c: Record<string, unknown>) => getAuthGroup(c.provider as string, c) === "free");
     } else if (mode === "apikey") {
       connectionsToTest = allConnections.filter((c: Record<string, unknown>) => getAuthGroup(c.provider as string, c) === "apikey");
+    } else if (mode === "cookie") {
+      connectionsToTest = allConnections.filter((c: Record<string, unknown>) => getAuthGroup(c.provider as string, c) === "cookie");
     } else if (mode === "compatible") {
       connectionsToTest = allConnections.filter((c: Record<string, unknown>) => isCompatibleProvider(c.provider as string));
     } else if (mode === "all") {
       connectionsToTest = allConnections;
     } else {
       return NextResponse.json(
-        { error: "Invalid mode. Use: provider, oauth, free, apikey, compatible, all" },
+        { error: "Invalid mode. Use: provider, oauth, free, apikey, cookie, compatible, all" },
         { status: 400 }
       );
     }
@@ -86,8 +88,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // In "free" mode, skip noAuth providers here — they are always tested
+    // via testNoAuthProvider below, even if optional stored connections exist.
+    const noAuthProviders = mode === "free"
+      ? new Set(
+          Object.entries({ ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS } as Record<string, Record<string, unknown>>)
+            .filter(([, info]) => info.noAuth)
+            .map(([id]) => id)
+        )
+      : new Set<string>();
+
     const results: Array<Record<string, unknown>> = [];
     for (const conn of connectionsToTest) {
+      if (noAuthProviders.has(conn.provider as string)) continue;
       try {
         const data = await testSingleConnection(conn.id as string);
         results.push({
@@ -118,7 +131,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // For "free" mode: discover and test noAuth providers that have no connection record,
+    // For "free" mode: always test noAuth providers via testNoAuthProvider
+    // (even if optional stored connections exist — no connection is mutated/deleted),
     // and classify auth-required providers that lack a connection as "skipped".
     if (mode === "free") {
       const allFreeProviders: Record<string, Record<string, unknown>> = { ...FREE_PROVIDERS };
@@ -127,10 +141,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const kinds = (info.serviceKinds as string[] | undefined) ?? ["llm"];
         if (kinds.includes("llm")) allFreeProviders[pid] = info;
       }
-      const providersWithConnections = new Set(connectionsToTest.map((c) => c.provider));
+      // Track non-noAuth providers that already have a tested connection
+      const testedProviders = new Set(results.map((r) => r.provider));
 
       for (const [pId, pInfo] of Object.entries(allFreeProviders)) {
-        if (providersWithConnections.has(pId)) continue;
         if (pInfo.hidden) continue;
 
         if (pInfo.noAuth) {
@@ -147,7 +161,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             statusCode: null,
             testedAt: new Date().toISOString(),
           });
-        } else {
+        } else if (!testedProviders.has(pId)) {
           results.push({
             provider: pId,
             connectionId: null,

@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { openaiToGeminiRequest } from "./openai-to-gemini";
 import { DEFAULT_THINKING_VERTEX_SIGNATURE } from "../../config/defaultThinkingSignature";
@@ -34,7 +34,7 @@ function postProcessForVertex(body: Record<string, unknown>) {
   return body;
 }
 
-export function openaiToVertexRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: unknown) {
+function openaiToVertexRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: unknown) {
   const gemini = openaiToGeminiRequest(model, body, stream);
   return postProcessForVertex(gemini);
 }

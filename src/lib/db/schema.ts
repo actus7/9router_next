@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION: number = 3;
+export const SCHEMA_VERSION: number = 4;
 
 export const PRAGMA_SQL: string = `
 PRAGMA journal_mode = WAL;
@@ -206,6 +206,36 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_cd_tool ON cloudDeployments(toolId)",
       "CREATE INDEX IF NOT EXISTS idx_cd_status ON cloudDeployments(status)",
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_cd_tool_provider_active ON cloudDeployments(toolId, provider) WHERE status != 'failed'",
+    ],
+  },
+  harnessConversations: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      title: "TEXT NOT NULL",
+      projectId: "TEXT",
+      providerId: "TEXT",
+      modelId: "TEXT",
+      data: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_hc_updated ON harnessConversations(updatedAt DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_hc_project ON harnessConversations(projectId)",
+    ],
+  },
+  harnessEvents: {
+    columns: {
+      sessionId: "TEXT NOT NULL",
+      seq: "INTEGER NOT NULL",
+      type: "TEXT NOT NULL",
+      data: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (sessionId, seq)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_he_session_seq ON harnessEvents(sessionId, seq)",
+      "CREATE INDEX IF NOT EXISTS idx_he_type ON harnessEvents(type)",
     ],
   },
 };

@@ -1,7 +1,7 @@
 import type { CloudToolManifest } from "./types";
 import { openclawManifest } from "./openclaw";
 
-export const CLOUD_TOOLS: Record<string, CloudToolManifest> = {
+const CLOUD_TOOLS: Record<string, CloudToolManifest> = {
   openclaw: openclawManifest,
 };
 

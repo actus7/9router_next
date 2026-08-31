@@ -60,7 +60,7 @@ function countMessageChars(message: unknown): number {
   return countValueChars(content);
 }
 
-export function estimateAnthropicInputTokens(body: Record<string, unknown> = {}) {
+function estimateAnthropicInputTokens(body: Record<string, unknown> = {}) {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   let totalChars = countValueChars(body.system) + countValueChars(body.tools);
 

@@ -15,7 +15,7 @@
  * the `<thinking_mode>enabled</thinking_mode>` reasoning trigger, matching
  * buildKiroPayload.
  */
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { applyKiroSessionReplay } from "../../utils/kiroSessionReplay";
 import { resolveContinuationId, resolveSessionIdentity } from "../../utils/sessionManager";
@@ -220,7 +220,7 @@ function extractClaudeSystemText(system: unknown): string {
 /**
  * Build a Kiro payload directly from a Claude Messages API request body.
  */
-export function claudeToKiroRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
+function claudeToKiroRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
   const messages = Array.isArray(body.messages) ? body.messages as Record<string, unknown>[] : [];
   const tools = Array.isArray(body.tools) ? body.tools as Record<string, unknown>[] : [];
   const maxTokens = (body.max_tokens as number) || 32000;

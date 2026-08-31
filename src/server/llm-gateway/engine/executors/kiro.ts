@@ -867,6 +867,81 @@ export class KiroExecutor extends BaseExecutor {
         throw new Error("Kiro tool_use stop reason did not include a complete tool call");
       }
     };
+    const handleAssistantResponseEvent = (event: EventFrame, controller: ReadableStreamDefaultController<Uint8Array>): void => {
+      if (typeof event.payload?.content !== "string") return;
+      let content = event.payload.content;
+      if (state.inThinking) {
+        const end = content.indexOf("</thinking>");
+        if (end < 0) content = "";
+        else {
+          state.inThinking = false;
+          content = content.slice(end + 11).replace(/^\n/u, "");
+        }
+      } else {
+        const start = content.indexOf("<thinking>");
+        if (start >= 0) {
+          const end = content.indexOf("</thinking>", start + 10);
+          if (end < 0) {
+            state.inThinking = true;
+            content = content.slice(0, start);
+          } else {
+            content = content.slice(0, start) + content.slice(end + 11).replace(/^\n/u, "");
+          }
+        }
+      }
+      if (content || !state.hasReasoning) {
+        state.hasText ||= content.length > 0;
+        state.totalContentLength += content.length;
+        emitDelta(controller, { content });
+      }
+    };
+
+    const handleToolUseEvent = (event: EventFrame, controller: ReadableStreamDefaultController<Uint8Array>): void => {
+      state.sawToolUse = true;
+      const values = Array.isArray(event.payload) ? event.payload : [event.payload];
+      if (!values[0]) throw new Error("Kiro toolUseEvent is empty");
+      for (const value of values as Record<string, unknown>[]) {
+        const name = typeof value?.name === "string" ? (value.name as string).trim() : "";
+        if (!name) throw new Error("Kiro toolUseEvent is missing a tool name");
+        let id: string;
+        if (value.toolUseId == null) {
+          id = `call_${created}_${state.tools.size + 1}`;
+        } else if (typeof value.toolUseId !== "string" || !(value.toolUseId as string).trim()) {
+          throw new Error("Kiro toolUseEvent has an invalid toolUseId");
+        } else {
+          id = value.toolUseId as string;
+        }
+        let tool = state.tools.get(id);
+        if (!tool) {
+          tool = { id, name };
+          state.tools.set(id, tool);
+          state.bufferedToolBytes += encoder.encode(id).byteLength + encoder.encode(name).byteLength + 32;
+          assertToolBufferBound();
+        } else if (tool.name !== name) {
+          throw new Error("Kiro tool name changed between fragments");
+        }
+        appendToolInput(tool, value.input);
+      }
+    };
+
+    const handleMetricsEvent = (event: EventFrame): void => {
+      const metrics = (event.payload?.metricsEvent || event.payload || {}) as Record<string, unknown>;
+      const prompt = Number(metrics.inputTokens) || 0;
+      const completion = Number(metrics.outputTokens) || 0;
+      if (prompt || completion) {
+        state.usage = {
+          ...(state.usage || {}),
+          prompt_tokens: prompt,
+          completion_tokens: completion,
+          total_tokens: prompt + completion
+        };
+        const cacheRead = Number(metrics.cacheReadInputTokens || metrics.cache_read_input_tokens) || 0;
+        const cacheCreate = Number(metrics.cacheCreationInputTokens || metrics.cache_creation_input_tokens) || 0;
+        if (cacheRead) state.usage.cache_read_input_tokens = cacheRead;
+        if (cacheCreate) state.usage.cache_creation_input_tokens = cacheCreate;
+      }
+    };
+
     const processEvent = (event: EventFrame, controller: ReadableStreamDefaultController<Uint8Array>): boolean => {
       const messageType = event.headers[":message-type"];
       if (messageType === "error" || messageType === "exception") {
@@ -883,32 +958,8 @@ export class KiroExecutor extends BaseExecutor {
       const eventType = (event.headers[":event-type"] as string) || "";
       const eventCountKey = KIRO_EVENT_TYPES.has(eventType) ? eventType : "other";
       eventCounts[eventCountKey] = (eventCounts[eventCountKey] || 0) + 1;
-      if (eventType === "assistantResponseEvent" && typeof event.payload?.content === "string") {
-        let content = event.payload.content;
-        if (state.inThinking) {
-          const end = content.indexOf("</thinking>");
-          if (end < 0) content = "";
-          else {
-            state.inThinking = false;
-            content = content.slice(end + 11).replace(/^\n/u, "");
-          }
-        } else {
-          const start = content.indexOf("<thinking>");
-          if (start >= 0) {
-            const end = content.indexOf("</thinking>", start + 10);
-            if (end < 0) {
-              state.inThinking = true;
-              content = content.slice(0, start);
-            } else {
-              content = content.slice(0, start) + content.slice(end + 11).replace(/^\n/u, "");
-            }
-          }
-        }
-        if (content || !state.hasReasoning) {
-          state.hasText ||= content.length > 0;
-          state.totalContentLength += content.length;
-          emitDelta(controller, { content });
-        }
+      if (eventType === "assistantResponseEvent") {
+        handleAssistantResponseEvent(event, controller);
       } else if (eventType === "reasoningContentEvent") {
         const value = event.payload?.reasoningContentEvent || event.payload || {};
         const content = typeof value === "string" ? value : (value as Record<string, unknown>).text || (value as Record<string, unknown>).content || "";
@@ -922,31 +973,7 @@ export class KiroExecutor extends BaseExecutor {
         state.totalContentLength += event.payload.content.length;
         emitDelta(controller, { content: event.payload.content });
       } else if (eventType === "toolUseEvent") {
-        state.sawToolUse = true;
-        const values = Array.isArray(event.payload) ? event.payload : [event.payload];
-        if (!values[0]) throw new Error("Kiro toolUseEvent is empty");
-        for (const value of values as Record<string, unknown>[]) {
-          const name = typeof value?.name === "string" ? (value.name as string).trim() : "";
-          if (!name) throw new Error("Kiro toolUseEvent is missing a tool name");
-          let id: string;
-          if (value.toolUseId == null) {
-            id = `call_${created}_${state.tools.size + 1}`;
-          } else if (typeof value.toolUseId !== "string" || !(value.toolUseId as string).trim()) {
-            throw new Error("Kiro toolUseEvent has an invalid toolUseId");
-          } else {
-            id = value.toolUseId as string;
-          }
-          let tool = state.tools.get(id);
-          if (!tool) {
-            tool = { id, name };
-            state.tools.set(id, tool);
-            state.bufferedToolBytes += encoder.encode(id).byteLength + encoder.encode(name).byteLength + 32;
-            assertToolBufferBound();
-          } else if (tool.name !== name) {
-            throw new Error("Kiro tool name changed between fragments");
-          }
-          appendToolInput(tool, value.input);
-        }
+        handleToolUseEvent(event, controller);
       } else if (eventType === "messageStopEvent") {
         state.explicitStop = true;
         const reason = normalizeStopReason(
@@ -982,21 +1009,7 @@ export class KiroExecutor extends BaseExecutor {
           };
         }
       } else if (eventType === "metricsEvent") {
-        const metrics = (event.payload?.metricsEvent || event.payload || {}) as Record<string, unknown>;
-        const prompt = Number(metrics.inputTokens) || 0;
-        const completion = Number(metrics.outputTokens) || 0;
-        if (prompt || completion) {
-          state.usage = {
-            ...(state.usage || {}),
-            prompt_tokens: prompt,
-            completion_tokens: completion,
-            total_tokens: prompt + completion
-          };
-          const cacheRead = Number(metrics.cacheReadInputTokens || metrics.cache_read_input_tokens) || 0;
-          const cacheCreate = Number(metrics.cacheCreationInputTokens || metrics.cache_creation_input_tokens) || 0;
-          if (cacheRead) state.usage.cache_read_input_tokens = cacheRead;
-          if (cacheCreate) state.usage.cache_creation_input_tokens = cacheCreate;
-        }
+        handleMetricsEvent(event);
       }
       return true;
     };

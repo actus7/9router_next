@@ -49,7 +49,7 @@ const DUCKAI_CHAT_RETRY_MAX_DELAY_MS = readNumberEnv("DUCKAI_CHAT_RETRY_MAX_DELA
 type DdgMessage = { role: "user" | "assistant"; content: string };
 type DuckAiReasoningEffort = "minimal" | "low";
 type DuckAiRetryClass = "bn_limit" | "challenge" | "empty_stream" | "network" | "timeout";
-type DuckAiRetryPhase = "chat_http" | "chat_stream_prelude" | "vqd";
+type DuckAiRetryPhase = "chat_http" | "chat_stream" | "chat_stream_prelude" | "vqd";
 
 type DuckAiVqdData = {
   browserFallbackUsed: boolean;
@@ -147,6 +147,213 @@ function getCookieHeaderValue(headers: Headers): string | undefined {
 
 function appendResponseCookies(existingCookies: string, headers: Headers): string {
   return mergeCookies(existingCookies, getCookieHeaderValue(headers));
+}
+
+// ---------------------------------------------------------------------------
+// Shared encoding / response helpers
+// ---------------------------------------------------------------------------
+
+/** Encode a single OpenAI chat.completion.chunk SSE frame for Duck.ai. */
+function encodeDuckAiChunk(
+  encoder: TextEncoder,
+  cid: string,
+  created: number,
+  model: string,
+  delta: Record<string, unknown>,
+  finishReason?: string | null
+): Uint8Array {
+  return encoder.encode(
+    sseChunk({
+      id: cid,
+      object: "chat.completion.chunk",
+      created,
+      model,
+      system_fingerprint: null,
+      choices: [
+        {
+          index: 0,
+          delta,
+          finish_reason: finishReason ?? null,
+          logprobs: null,
+        },
+      ],
+    })
+  );
+}
+
+/** Build a JSON error Response with the standard Duck.ai envelope. */
+function buildDuckAiErrorResponse(
+  status: number,
+  error: {
+    message: string;
+    type: string;
+    code?: string;
+    overrideCode?: string;
+    upstreamType?: string;
+  }
+): Response {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/** Build the standard 503 "temporary unavailable" result used across retries. */
+function buildDuckAiTemporaryErrorResponse(body: Record<string, unknown>) {
+  return {
+    response: buildDuckAiErrorResponse(503, {
+      message: DUCKAI_TEMPORARY_ERROR_MESSAGE,
+      type: "upstream_error",
+    }),
+    url: CHAT_URL,
+    headers: {} as Record<string, string>,
+    transformedBody: body,
+  };
+}
+
+/**
+ * Log a retry attempt and decide whether to retry or give up.
+ * Returns the delay, whether to retry, and whether to refresh VQD data.
+ */
+function logAndDecideDuckAiRetry(
+  attempt: number,
+  retryClass: DuckAiRetryClass,
+  phase: DuckAiRetryPhase,
+  info: DuckAiUpstreamErrorInfo,
+  opts: {
+    activeVqdData?: DuckAiVqdData | null;
+    reusedVqd?: boolean;
+    forceRefreshVqd?: boolean;
+  } = {}
+): { delayMs: number; shouldRetry: boolean; refreshVqd: boolean } {
+  const delayMs = getDuckAiRetryDelay(attempt, retryClass);
+  const shouldRetry = attempt < DUCKAI_CHAT_MAX_ATTEMPTS;
+  const finalOutcome = shouldRetry ? "retrying" : "exhausted";
+
+  const logPayload: Record<string, unknown> = {
+    attempt,
+    delayMs: shouldRetry ? delayMs : undefined,
+    finalOutcome,
+    phase,
+    retryClass,
+    status: info.status,
+    type: info.type,
+    overrideCode: info.overrideCode,
+  };
+  if (opts.activeVqdData) {
+    logPayload.browserFallbackUsed = opts.activeVqdData.browserFallbackUsed;
+    logPayload.jsdomAttempts = opts.activeVqdData.jsdomAttempts;
+  }
+  if (opts.reusedVqd !== undefined) {
+    logPayload.reusedVqd = opts.reusedVqd;
+  }
+
+  logDuckAi("chat", shouldRetry ? "warn" : "error", logPayload);
+
+  const refreshVqd =
+    opts.forceRefreshVqd === true || shouldRefreshDuckAiVqd(retryClass);
+
+  return { delayMs, shouldRetry, refreshVqd };
+}
+
+/**
+ * Pump Duck.ai SSE content into a WritableStream writer.
+ *
+ * Emits: role chunk → content chunks → finish chunk → DONE.
+ * On error: emits error chunk → DONE.
+ * Optionally continues reading from an upstream reader after exhausting
+ * the initial `remainingRawChunks`.
+ */
+async function pumpDuckAiStreamToWriter(
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+  encoder: TextEncoder,
+  cid: string,
+  created: number,
+  model: string,
+  signal: AbortSignal | undefined,
+  firstContent: string,
+  remainingRawChunks: string[],
+  upstreamReader?: ReadableStreamDefaultReader<Uint8Array>,
+  upstreamBuffer?: string
+): Promise<void> {
+  try {
+    // Emit role
+    await writer.write(
+      encodeDuckAiChunk(encoder, cid, created, model, { role: "assistant" })
+    );
+
+    // Emit first content
+    await writer.write(
+      encodeDuckAiChunk(encoder, cid, created, model, { content: firstContent })
+    );
+
+    // Emit remaining chunks from the current batch
+    for (const rc of remainingRawChunks) {
+      const ev = createDuckAiStreamEvent(rc);
+      if (!ev || ev.kind === "error") continue;
+      if (ev.content) {
+        await writer.write(
+          encodeDuckAiChunk(encoder, cid, created, model, { content: ev.content })
+        );
+      }
+    }
+
+    // Continue reading from upstream if provided
+    if (upstreamReader) {
+      const upstreamDecoder = new TextDecoder();
+      let buf = upstreamBuffer ?? "";
+      while (true) {
+        if (signal?.aborted) break;
+        const { done: d, value: v } = await upstreamReader.read();
+        if (d) {
+          const fc = extractDuckAiSseChunks(buf, true).chunks;
+          for (const rc of fc) {
+            const ev = createDuckAiStreamEvent(rc);
+            if (!ev || ev.kind === "error") continue;
+            if (ev.content) {
+              await writer.write(
+                encodeDuckAiChunk(encoder, cid, created, model, { content: ev.content })
+              );
+            }
+          }
+          break;
+        }
+        buf += upstreamDecoder.decode(v, { stream: true });
+        const ext = extractDuckAiSseChunks(buf);
+        buf = ext.rest;
+        for (const rc of ext.chunks) {
+          const ev = createDuckAiStreamEvent(rc);
+          if (!ev || ev.kind === "error") continue;
+          if (ev.content) {
+            await writer.write(
+              encodeDuckAiChunk(encoder, cid, created, model, { content: ev.content })
+            );
+          }
+        }
+      }
+    }
+
+    // Emit finish
+    await writer.write(encodeDuckAiChunk(encoder, cid, created, model, {}, "stop"));
+    await writer.write(encoder.encode(SSE_DONE));
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    await writer
+      .write(
+        encodeDuckAiChunk(
+          encoder,
+          cid,
+          created,
+          model,
+          { content: `[Stream error: ${errorMsg}]` },
+          "stop"
+        )
+      )
+      .catch(() => {});
+    await writer.write(encoder.encode(SSE_DONE)).catch(() => {});
+  } finally {
+    await writer.close().catch(() => {});
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -603,6 +810,35 @@ async function sendDuckAiChatRequest(input: {
 // SSE stream conversion: Duck.ai → OpenAI chat.completion.chunk
 // ---------------------------------------------------------------------------
 
+/** Flush remaining SSE buffer when the upstream stream ends. */
+function flushDuckAiSseBuffer(
+  controller: ReadableStreamController<Uint8Array>,
+  encoder: TextEncoder,
+  cid: string,
+  created: number,
+  model: string,
+  buffer: string
+): void {
+  const finalChunks = extractDuckAiSseChunks(buffer, true).chunks;
+  for (const rawChunk of finalChunks) {
+    const event = createDuckAiStreamEvent(rawChunk);
+    if (!event) continue;
+    if (event.kind === "error") {
+      controller.enqueue(
+        encodeDuckAiChunk(encoder, cid, created, model, {
+          content: `[Error: ${event.message}]`,
+        }) as Uint8Array<ArrayBuffer>
+      );
+      break;
+    }
+    if (event.content) {
+      controller.enqueue(
+        encodeDuckAiChunk(encoder, cid, created, model, { content: event.content }) as Uint8Array<ArrayBuffer>
+      );
+    }
+  }
+}
+
 function buildDuckAiStreamingResponse(
   chatBody: ReadableStream<Uint8Array>,
   model: string,
@@ -616,30 +852,12 @@ function buildDuckAiStreamingResponse(
   return new ReadableStream({
     async start(controller) {
       try {
-        // Emit role chunk
         controller.enqueue(
-          encoder.encode(
-            sseChunk({
-              id: cid,
-              object: "chat.completion.chunk",
-              created,
-              model,
-              system_fingerprint: null,
-              choices: [
-                {
-                  index: 0,
-                  delta: { role: "assistant" },
-                  finish_reason: null,
-                  logprobs: null,
-                },
-              ],
-            })
-          )
+          encodeDuckAiChunk(encoder, cid, created, model, { role: "assistant" })
         );
 
         const reader = chatBody.getReader();
         let buffer = "";
-        let hasContent = false;
 
         try {
           while (true) {
@@ -647,57 +865,7 @@ function buildDuckAiStreamingResponse(
 
             const { done, value } = await reader.read();
             if (done) {
-              // Flush remaining buffer
-              const finalChunks = extractDuckAiSseChunks(buffer, true).chunks;
-              for (const rawChunk of finalChunks) {
-                const event = createDuckAiStreamEvent(rawChunk);
-                if (!event) continue;
-                if (event.kind === "error") {
-                  controller.enqueue(
-                    encoder.encode(
-                      sseChunk({
-                        id: cid,
-                        object: "chat.completion.chunk",
-                        created,
-                        model,
-                        system_fingerprint: null,
-                        choices: [
-                          {
-                            index: 0,
-                            delta: { content: `[Error: ${event.message}]` },
-                            finish_reason: null,
-                            logprobs: null,
-                          },
-                        ],
-                      })
-                    )
-                  );
-                  hasContent = true;
-                  break;
-                }
-                if (event.content) {
-                  hasContent = true;
-                  controller.enqueue(
-                    encoder.encode(
-                      sseChunk({
-                        id: cid,
-                        object: "chat.completion.chunk",
-                        created,
-                        model,
-                        system_fingerprint: null,
-                        choices: [
-                          {
-                            index: 0,
-                            delta: { content: event.content },
-                            finish_reason: null,
-                            logprobs: null,
-                          },
-                        ],
-                      })
-                    )
-                  );
-                }
-              }
+              flushDuckAiSseBuffer(controller, encoder, cid, created, model, buffer);
               break;
             }
 
@@ -711,49 +879,19 @@ function buildDuckAiStreamingResponse(
 
               if (event.kind === "error") {
                 controller.enqueue(
-                  encoder.encode(
-                    sseChunk({
-                      id: cid,
-                      object: "chat.completion.chunk",
-                      created,
-                      model,
-                      system_fingerprint: null,
-                      choices: [
-                        {
-                          index: 0,
-                          delta: { content: `[Error: ${event.message}]` },
-                          finish_reason: null,
-                          logprobs: null,
-                        },
-                      ],
-                    })
-                  )
+                  encodeDuckAiChunk(encoder, cid, created, model, {
+                    content: `[Error: ${event.message}]`,
+                  })
                 );
-                hasContent = true;
                 // Don't break — let the stream finish naturally
                 continue;
               }
 
               if (event.content) {
-                hasContent = true;
                 controller.enqueue(
-                  encoder.encode(
-                    sseChunk({
-                      id: cid,
-                      object: "chat.completion.chunk",
-                      created,
-                      model,
-                      system_fingerprint: null,
-                      choices: [
-                        {
-                          index: 0,
-                          delta: { content: event.content },
-                          finish_reason: null,
-                          logprobs: null,
-                        },
-                      ],
-                    })
-                  )
+                  encodeDuckAiChunk(encoder, cid, created, model, {
+                    content: event.content,
+                  })
                 );
               }
             }
@@ -763,45 +901,18 @@ function buildDuckAiStreamingResponse(
         }
 
         // Emit finish chunk
-        controller.enqueue(
-          encoder.encode(
-            sseChunk({
-              id: cid,
-              object: "chat.completion.chunk",
-              created,
-              model,
-              system_fingerprint: null,
-              choices: [
-                {
-                  index: 0,
-                  delta: {},
-                  finish_reason: "stop",
-                  logprobs: null,
-                },
-              ],
-            })
-          )
-        );
+        controller.enqueue(encodeDuckAiChunk(encoder, cid, created, model, {}, "stop"));
         controller.enqueue(encoder.encode(SSE_DONE));
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         controller.enqueue(
-          encoder.encode(
-            sseChunk({
-              id: cid,
-              object: "chat.completion.chunk",
-              created,
-              model,
-              system_fingerprint: null,
-              choices: [
-                {
-                  index: 0,
-                  delta: { content: `[Stream error: ${errorMsg}]` },
-                  finish_reason: "stop",
-                  logprobs: null,
-                },
-              ],
-            })
+          encodeDuckAiChunk(
+            encoder,
+            cid,
+            created,
+            model,
+            { content: `[Stream error: ${errorMsg}]` },
+            "stop"
           )
         );
         controller.enqueue(encoder.encode(SSE_DONE));
@@ -930,18 +1041,13 @@ function classifyDuckAiStreamError(
   }
 
   return {
-    errorResponse: new Response(
-      JSON.stringify({
-        error: {
-          message: event.message,
-          type: "upstream_error",
-          code: "DUCKAI_STREAM_ERROR",
-          overrideCode: event.overrideCode,
-          upstreamType: event.type,
-        },
-      }),
-      { status: 502, headers: { "Content-Type": "application/json" } }
-    ),
+    errorResponse: buildDuckAiErrorResponse(502, {
+      message: event.message,
+      type: "upstream_error",
+      code: "DUCKAI_STREAM_ERROR",
+      overrideCode: event.overrideCode,
+      upstreamType: event.type,
+    }),
   };
 }
 
@@ -954,12 +1060,10 @@ async function primeDuckAiStream(
 ): Promise<PrimedDuckAiStreamResult> {
   if (!chatResponse.body) {
     return {
-      errorResponse: new Response(
-        JSON.stringify({
-          error: { message: "Duck.ai returned no response body", type: "upstream_error" },
-        }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
-      ),
+      errorResponse: buildDuckAiErrorResponse(502, {
+        message: "Duck.ai returned no response body",
+        type: "upstream_error",
+      }),
     };
   }
 
@@ -986,115 +1090,10 @@ async function primeDuckAiStream(
         const { readable, writable } = new TransformStream<Uint8Array>();
         const writer = writable.getWriter();
 
-        // Pump remaining chunks + continue reading
-        void (async () => {
-          try {
-            // Emit role
-            await writer.write(
-              encoder.encode(
-                sseChunk({
-                  id: cid,
-                  object: "chat.completion.chunk",
-                  created,
-                  model,
-                  system_fingerprint: null,
-                  choices: [
-                    { index: 0, delta: { role: "assistant" }, finish_reason: null, logprobs: null },
-                  ],
-                })
-              )
-            );
-
-            // Emit the content we already parsed
-            await writer.write(
-              encoder.encode(
-                sseChunk({
-                  id: cid,
-                  object: "chat.completion.chunk",
-                  created,
-                  model,
-                  system_fingerprint: null,
-                  choices: [
-                    {
-                      index: 0,
-                      delta: { content: event.content },
-                      finish_reason: null,
-                      logprobs: null,
-                    },
-                  ],
-                })
-              )
-            );
-
-            // Emit remaining final chunks
-            for (const rc of finalChunks.slice(finalChunks.indexOf(rawChunk) + 1)) {
-              const ev = createDuckAiStreamEvent(rc);
-              if (!ev || ev.kind === "error") continue;
-              if (ev.content) {
-                await writer.write(
-                  encoder.encode(
-                    sseChunk({
-                      id: cid,
-                      object: "chat.completion.chunk",
-                      created,
-                      model,
-                      system_fingerprint: null,
-                      choices: [
-                        {
-                          index: 0,
-                          delta: { content: ev.content },
-                          finish_reason: null,
-                          logprobs: null,
-                        },
-                      ],
-                    })
-                  )
-                );
-              }
-            }
-
-            // Done
-            await writer.write(
-              encoder.encode(
-                sseChunk({
-                  id: cid,
-                  object: "chat.completion.chunk",
-                  created,
-                  model,
-                  system_fingerprint: null,
-                  choices: [{ index: 0, delta: {}, finish_reason: "stop", logprobs: null }],
-                })
-              )
-            );
-            await writer.write(encoder.encode(SSE_DONE));
-          } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : String(err);
-            await writer
-              .write(
-                encoder.encode(
-                  sseChunk({
-                    id: cid,
-                    object: "chat.completion.chunk",
-                    created,
-                    model,
-                    system_fingerprint: null,
-                    choices: [
-                      {
-                        index: 0,
-                        delta: { content: `[Stream error: ${errorMsg}]` },
-                        finish_reason: "stop",
-                        logprobs: null,
-                      },
-                    ],
-                  })
-                )
-              )
-              .catch(() => {});
-            await writer.write(encoder.encode(SSE_DONE)).catch(() => {});
-          } finally {
-            await writer.close().catch(() => {});
-          }
-        })();
+        void pumpDuckAiStreamToWriter(
+          writer, encoder, cid, created, model, signal,
+          event.content, finalChunks.slice(finalChunks.indexOf(rawChunk) + 1)
+        );
 
         return {
           response: new Response(readable, {
@@ -1136,179 +1135,10 @@ async function primeDuckAiStream(
       const { readable, writable } = new TransformStream<Uint8Array>();
       const writer = writable.getWriter();
 
-      void (async () => {
-        try {
-          // Emit role
-          await writer.write(
-            encoder.encode(
-              sseChunk({
-                id: cid,
-                object: "chat.completion.chunk",
-                created,
-                model,
-                system_fingerprint: null,
-                choices: [
-                  { index: 0, delta: { role: "assistant" }, finish_reason: null, logprobs: null },
-                ],
-              })
-            )
-          );
-
-          // Emit first content
-          await writer.write(
-            encoder.encode(
-              sseChunk({
-                id: cid,
-                object: "chat.completion.chunk",
-                created,
-                model,
-                system_fingerprint: null,
-                choices: [
-                  {
-                    index: 0,
-                    delta: { content: event.content },
-                    finish_reason: null,
-                    logprobs: null,
-                  },
-                ],
-              })
-            )
-          );
-
-          // Emit remaining chunks from the current batch
-          for (const rc of extracted.chunks.slice(index + 1)) {
-            const ev = createDuckAiStreamEvent(rc);
-            if (!ev || ev.kind === "error") continue;
-            if (ev.content) {
-              await writer.write(
-                encoder.encode(
-                  sseChunk({
-                    id: cid,
-                    object: "chat.completion.chunk",
-                    created,
-                    model,
-                    system_fingerprint: null,
-                    choices: [
-                      {
-                        index: 0,
-                        delta: { content: ev.content },
-                        finish_reason: null,
-                        logprobs: null,
-                      },
-                    ],
-                  })
-                )
-              );
-            }
-          }
-
-          // Continue reading from upstream
-          const upstreamDecoder = new TextDecoder();
-          let upstreamBuffer = buffer;
-          while (true) {
-            if (signal?.aborted) break;
-            const { done: d, value: v } = await reader.read();
-            if (d) {
-              const fc = extractDuckAiSseChunks(upstreamBuffer, true).chunks;
-              for (const rc of fc) {
-                const ev = createDuckAiStreamEvent(rc);
-                if (!ev || ev.kind === "error") continue;
-                if (ev.content) {
-                  await writer.write(
-                    encoder.encode(
-                      sseChunk({
-                        id: cid,
-                        object: "chat.completion.chunk",
-                        created,
-                        model,
-                        system_fingerprint: null,
-                        choices: [
-                          {
-                            index: 0,
-                            delta: { content: ev.content },
-                            finish_reason: null,
-                            logprobs: null,
-                          },
-                        ],
-                      })
-                    )
-                  );
-                }
-              }
-              break;
-            }
-            upstreamBuffer += upstreamDecoder.decode(v, { stream: true });
-            const ext = extractDuckAiSseChunks(upstreamBuffer);
-            upstreamBuffer = ext.rest;
-            for (const rc of ext.chunks) {
-              const ev = createDuckAiStreamEvent(rc);
-              if (!ev || ev.kind === "error") continue;
-              if (ev.content) {
-                await writer.write(
-                  encoder.encode(
-                    sseChunk({
-                      id: cid,
-                      object: "chat.completion.chunk",
-                      created,
-                      model,
-                      system_fingerprint: null,
-                      choices: [
-                        {
-                          index: 0,
-                          delta: { content: ev.content },
-                          finish_reason: null,
-                          logprobs: null,
-                        },
-                      ],
-                    })
-                  )
-                );
-              }
-            }
-          }
-
-          // Emit finish
-          await writer.write(
-            encoder.encode(
-              sseChunk({
-                id: cid,
-                object: "chat.completion.chunk",
-                created,
-                model,
-                system_fingerprint: null,
-                choices: [{ index: 0, delta: {}, finish_reason: "stop", logprobs: null }],
-              })
-            )
-          );
-          await writer.write(encoder.encode(SSE_DONE));
-        } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          await writer
-            .write(
-              encoder.encode(
-                sseChunk({
-                  id: cid,
-                  object: "chat.completion.chunk",
-                  created,
-                  model,
-                  system_fingerprint: null,
-                  choices: [
-                    {
-                      index: 0,
-                      delta: { content: `[Stream error: ${errorMsg}]` },
-                      finish_reason: "stop",
-                      logprobs: null,
-                    },
-                  ],
-                })
-              )
-            )
-            .catch(() => {});
-          await writer.write(encoder.encode(SSE_DONE)).catch(() => {});
-        } finally {
-          await writer.close().catch(() => {});
-        }
-      })();
+      void pumpDuckAiStreamToWriter(
+        writer, encoder, cid, created, model, signal,
+        event.content, extracted.chunks.slice(index + 1), reader, buffer
+      );
 
       return {
         response: new Response(readable, {
@@ -1318,6 +1148,91 @@ async function primeDuckAiStream(
       };
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Attempt-level helper (extracted from execute retry loop)
+// ---------------------------------------------------------------------------
+
+type DuckAiAttemptResult =
+  | { action: "success"; response: Response }
+  | { action: "retry"; delayMs: number }
+  | { action: "error"; response: Response };
+
+async function executeDuckAiAttempt(
+  attempt: number,
+  ddgMessages: DdgMessage[],
+  model: string,
+  reasoningEffort: DuckAiReasoningEffort | undefined,
+  state: { cookieJar: string; activeVqdData: DuckAiVqdData | null },
+  reusedVqd: boolean,
+  signal: AbortSignal | undefined,
+  body: Record<string, unknown>,
+  cid: string,
+  created: number
+): Promise<DuckAiAttemptResult> {
+  const durableStream = await buildDuckAiDurableStreamPayload();
+
+  if (!state.activeVqdData) {
+    state.activeVqdData = await getVqdData(state.cookieJar);
+    state.cookieJar = mergeCookies(state.cookieJar, state.activeVqdData.cookies);
+  }
+
+  const { cookies, response: chatResponse } = await sendDuckAiChatRequest({
+    cookies: state.cookieJar,
+    durableStream,
+    messages: ddgMessages,
+    modelId: model,
+    reasoningEffort,
+    vqdData: state.activeVqdData,
+    signal,
+  });
+  state.cookieJar = mergeCookies(state.cookieJar, cookies);
+
+  // Handle HTTP errors
+  if (!chatResponse.ok) {
+    const errorText = await chatResponse.text().catch(() => "");
+    const classification = isRetryableDuckAiHttpFailure(chatResponse.status, errorText);
+
+    if (classification.retryable && classification.retryClass) {
+      const decision = logAndDecideDuckAiRetry(
+        attempt, classification.retryClass, "chat_http",
+        { ...classification.info, status: chatResponse.status },
+        { activeVqdData: state.activeVqdData, reusedVqd }
+      );
+      if (decision.refreshVqd) state.activeVqdData = null;
+      if (decision.shouldRetry) return { action: "retry", delayMs: decision.delayMs };
+      return { action: "error", response: buildDuckAiTemporaryErrorResponse(body).response };
+    }
+
+    return {
+      action: "error",
+      response: buildDuckAiErrorResponse(chatResponse.status, {
+        message: `Duck.ai returned HTTP ${chatResponse.status}: ${errorText}`,
+        type: "upstream_error",
+        code: `HTTP_${chatResponse.status}`,
+      }),
+    };
+  }
+
+  // Prime the stream (detect early errors before committing to SSE)
+  const primed = await primeDuckAiStream(chatResponse, model, cid, created, signal);
+
+  if ("retryableError" in primed) {
+    const decision = logAndDecideDuckAiRetry(
+      attempt, primed.retryableError.info.retryClass, "chat_stream",
+      primed.retryableError.info, { activeVqdData: state.activeVqdData, reusedVqd }
+    );
+    if (decision.refreshVqd) state.activeVqdData = null;
+    if (decision.shouldRetry) return { action: "retry", delayMs: decision.delayMs };
+    return { action: "error", response: buildDuckAiTemporaryErrorResponse(body).response };
+  }
+
+  if ("errorResponse" in primed) {
+    return { action: "error", response: primed.errorResponse };
+  }
+
+  return { action: "success", response: primed.response };
 }
 
 // ---------------------------------------------------------------------------
@@ -1332,240 +1247,61 @@ export class DuckAiExecutor extends BaseExecutor {
   async execute({ model, body, stream, credentials, signal, log }: ExecuteArgs) {
     const messages = body?.messages as Record<string, unknown>[] | undefined;
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      const errResp = new Response(
-        JSON.stringify({
-          error: { message: "Missing or empty messages array", type: "invalid_request" },
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-      return { response: errResp, url: CHAT_URL, headers: {} as Record<string, string>, transformedBody: body };
+      return { response: buildDuckAiErrorResponse(400, { message: "Missing or empty messages array", type: "invalid_request" }), url: CHAT_URL, headers: {} as Record<string, string>, transformedBody: body };
     }
 
     const ddgMessages = toDdgMessages(messages);
     if (ddgMessages.length === 0) {
-      const errResp = new Response(
-        JSON.stringify({
-          error: { message: "Empty query after processing", type: "invalid_request" },
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-      return { response: errResp, url: CHAT_URL, headers: {} as Record<string, string>, transformedBody: body };
+      return { response: buildDuckAiErrorResponse(400, { message: "Empty query after processing", type: "invalid_request" }), url: CHAT_URL, headers: {} as Record<string, string>, transformedBody: body };
     }
 
     const reasoningEffort = getReasoningEffort(model);
     const cid = `chatcmpl-duckai-${randomUUID().slice(0, 12)}`;
     const created = Math.floor(Date.now() / 1000);
-
     log?.info?.("DUCKAI", `Query to ${model}, ${ddgMessages.length} messages, stream=${stream}`);
 
-    let cookieJar = "";
-    let activeVqdData: DuckAiVqdData | null = null;
+    const state = { cookieJar: "", activeVqdData: null as DuckAiVqdData | null };
 
     for (let attempt = 1; attempt <= DUCKAI_CHAT_MAX_ATTEMPTS; attempt++) {
       try {
-        // Build durable stream payload (keypair generation)
-        const durableStream = await buildDuckAiDurableStreamPayload();
-        let reusedVqd = false;
+        const reusedVqd = !!state.activeVqdData;
+        const result = await executeDuckAiAttempt(
+          attempt, ddgMessages, model, reasoningEffort, state, reusedVqd, signal, body, cid, created
+        );
 
-        // Get VQD data (fresh or reuse)
-        if (activeVqdData) {
-          reusedVqd = true;
-        } else {
-          activeVqdData = await getVqdData(cookieJar);
-          cookieJar = mergeCookies(cookieJar, activeVqdData.cookies);
+        if (result.action === "retry") {
+          await sleep(result.delayMs);
+          continue;
         }
 
-        // Send chat request
-        const { cookies, response: chatResponse } = await sendDuckAiChatRequest({
-          cookies: cookieJar,
-          durableStream,
-          messages: ddgMessages,
-          modelId: model,
-          reasoningEffort,
-          vqdData: activeVqdData,
-          signal,
-        });
-        cookieJar = mergeCookies(cookieJar, cookies);
-
-        // Handle HTTP errors
-        if (!chatResponse.ok) {
-          const errorText = await chatResponse.text().catch(() => "");
-          const classification = isRetryableDuckAiHttpFailure(chatResponse.status, errorText);
-
-          if (classification.retryable && classification.retryClass) {
-            const delayMs = getDuckAiRetryDelay(attempt, classification.retryClass);
-            const finalOutcome = attempt < DUCKAI_CHAT_MAX_ATTEMPTS ? "retrying" : "exhausted";
-            logDuckAi("chat", finalOutcome === "retrying" ? "warn" : "error", {
-              attempt,
-              browserFallbackUsed: activeVqdData?.browserFallbackUsed,
-              delayMs: finalOutcome === "retrying" ? delayMs : undefined,
-              finalOutcome,
-              jsdomAttempts: activeVqdData?.jsdomAttempts,
-              phase: "chat_http",
-              retryClass: classification.retryClass,
-              reusedVqd,
-              status: chatResponse.status,
-              type: classification.info.type,
-              overrideCode: classification.info.overrideCode,
-            });
-
-            if (shouldRefreshDuckAiVqd(classification.retryClass)) {
-              activeVqdData = null;
-            }
-
-            if (attempt < DUCKAI_CHAT_MAX_ATTEMPTS) {
-              await sleep(delayMs);
-              continue;
-            }
-
-            return {
-              response: new Response(
-                JSON.stringify({ error: { message: DUCKAI_TEMPORARY_ERROR_MESSAGE, type: "upstream_error" } }),
-                { status: 503, headers: { "Content-Type": "application/json" } }
-              ),
-              url: CHAT_URL,
-              headers: {} as Record<string, string>,
-              transformedBody: body,
-            };
-          }
-
-          return {
-            response: new Response(
-              JSON.stringify({
-                error: {
-                  message: `Duck.ai returned HTTP ${chatResponse.status}: ${errorText}`,
-                  type: "upstream_error",
-                  code: `HTTP_${chatResponse.status}`,
-                },
-              }),
-              { status: chatResponse.status, headers: { "Content-Type": "application/json" } }
-            ),
-            url: CHAT_URL,
-            headers: {} as Record<string, string>,
-            transformedBody: body,
-          };
-        }
-
-        // Prime the stream (detect early errors before committing to SSE)
-        const primed = await primeDuckAiStream(chatResponse, model, cid, created, signal);
-
-        if ("retryableError" in primed) {
-          const delayMs = getDuckAiRetryDelay(attempt, primed.retryableError.info.retryClass);
-          const finalOutcome = attempt < DUCKAI_CHAT_MAX_ATTEMPTS ? "retrying" : "exhausted";
-          logDuckAi("chat", finalOutcome === "retrying" ? "warn" : "error", {
-            attempt,
-            browserFallbackUsed: activeVqdData?.browserFallbackUsed,
-            delayMs: finalOutcome === "retrying" ? delayMs : undefined,
-            finalOutcome,
-            jsdomAttempts: activeVqdData?.jsdomAttempts,
-            phase: "chat_stream",
-            retryClass: primed.retryableError.info.retryClass,
-            reusedVqd,
-            status: primed.retryableError.info.status,
-            type: primed.retryableError.info.type,
-            overrideCode: primed.retryableError.info.overrideCode,
-          });
-
-          if (shouldRefreshDuckAiVqd(primed.retryableError.info.retryClass)) {
-            activeVqdData = null;
-          }
-
-          if (attempt < DUCKAI_CHAT_MAX_ATTEMPTS) {
-            await sleep(delayMs);
-            continue;
-          }
-
-          return {
-            response: new Response(
-              JSON.stringify({ error: { message: DUCKAI_TEMPORARY_ERROR_MESSAGE, type: "upstream_error" } }),
-              { status: 503, headers: { "Content-Type": "application/json" } }
-            ),
-            url: CHAT_URL,
-            headers: {} as Record<string, string>,
-            transformedBody: body,
-          };
-        }
-
-        if ("errorResponse" in primed) {
-          return {
-            response: primed.errorResponse,
-            url: CHAT_URL,
-            headers: {} as Record<string, string>,
-            transformedBody: body,
-          };
-        }
-
-        // Success!
-        if (
-          attempt > 1 ||
-          activeVqdData?.browserFallbackUsed ||
-          (activeVqdData?.jsdomAttempts ?? 0) > 1
-        ) {
+        if (result.action === "success" && (attempt > 1 || state.activeVqdData?.browserFallbackUsed || (state.activeVqdData?.jsdomAttempts ?? 0) > 1)) {
           logDuckAi("chat", "log", {
             attempt,
-            browserFallbackUsed: activeVqdData?.browserFallbackUsed,
+            browserFallbackUsed: state.activeVqdData?.browserFallbackUsed,
             finalOutcome: "success",
-            jsdomAttempts: activeVqdData?.jsdomAttempts,
+            jsdomAttempts: state.activeVqdData?.jsdomAttempts,
             phase: "chat_http",
             reusedVqd,
           });
         }
 
-        return {
-          response: primed.response,
-          url: CHAT_URL,
-          headers: {} as Record<string, string>,
-          transformedBody: body,
-        };
+        return { response: result.response, url: CHAT_URL, headers: {} as Record<string, string>, transformedBody: body };
       } catch (error) {
         const retryable = isRetryableDuckAiThrownError(error);
         if (retryable) {
-          const delayMs = getDuckAiRetryDelay(attempt, retryable.info.retryClass);
-          const finalOutcome = attempt < DUCKAI_CHAT_MAX_ATTEMPTS ? "retrying" : "exhausted";
-          logDuckAi("chat", finalOutcome === "retrying" ? "warn" : "error", {
-            attempt,
-            delayMs: finalOutcome === "retrying" ? delayMs : undefined,
-            finalOutcome,
-            phase: retryable.info.phase,
-            retryClass: retryable.info.retryClass,
-            status: retryable.info.status,
-            type: retryable.info.type,
-            overrideCode: retryable.info.overrideCode,
-          });
-
-          if (
-            retryable.info.phase === "vqd" ||
-            shouldRefreshDuckAiVqd(retryable.info.retryClass)
-          ) {
-            activeVqdData = null;
-          }
-
-          if (attempt < DUCKAI_CHAT_MAX_ATTEMPTS) {
-            await sleep(delayMs);
-            continue;
-          }
-
-          return {
-            response: new Response(
-              JSON.stringify({ error: { message: DUCKAI_TEMPORARY_ERROR_MESSAGE, type: "upstream_error" } }),
-              { status: 503, headers: { "Content-Type": "application/json" } }
-            ),
-            url: CHAT_URL,
-            headers: {} as Record<string, string>,
-            transformedBody: body,
-          };
+          const decision = logAndDecideDuckAiRetry(
+            attempt, retryable.info.retryClass, retryable.info.phase, retryable.info,
+            { forceRefreshVqd: retryable.info.phase === "vqd" }
+          );
+          if (decision.refreshVqd) state.activeVqdData = null;
+          if (decision.shouldRetry) { await sleep(decision.delayMs); continue; }
+          return buildDuckAiTemporaryErrorResponse(body);
         }
 
-        // Non-retryable error
         const errMsg = error instanceof Error ? error.message : String(error);
         log?.error?.("DUCKAI", `Non-retryable error: ${errMsg}`);
         return {
-          response: new Response(
-            JSON.stringify({
-              error: { message: `Duck.ai internal error: ${errMsg}`, type: "upstream_error" },
-            }),
-            { status: 502, headers: { "Content-Type": "application/json" } }
-          ),
+          response: buildDuckAiErrorResponse(502, { message: `Duck.ai internal error: ${errMsg}`, type: "upstream_error" }),
           url: CHAT_URL,
           headers: {} as Record<string, string>,
           transformedBody: body,
@@ -1573,16 +1309,7 @@ export class DuckAiExecutor extends BaseExecutor {
       }
     }
 
-    // All attempts exhausted
-    return {
-      response: new Response(
-        JSON.stringify({ error: { message: DUCKAI_TEMPORARY_ERROR_MESSAGE, type: "upstream_error" } }),
-        { status: 503, headers: { "Content-Type": "application/json" } }
-      ),
-      url: CHAT_URL,
-      headers: {} as Record<string, string>,
-      transformedBody: body,
-    };
+    return buildDuckAiTemporaryErrorResponse(body);
   }
 }
 

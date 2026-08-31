@@ -118,6 +118,16 @@ export class DefaultExecutor extends BaseExecutor {
     if (rt?.baseUrl) {
       return rt.urlSuffix ? `${rt.baseUrl}${rt.urlSuffix}` : rt.baseUrl as string;
     }
+    // Ollama supports both Cloud and a self-hosted daemon. A connection-level
+    // base URL must drive inference and discovery together; otherwise Refresh
+    // Models can show the local catalogue while requests still go to Cloud.
+    if (this.provider === "ollama") {
+      const configuredBaseUrl = credentials?.providerSpecificData?.baseUrl;
+      if (typeof configuredBaseUrl === "string" && configuredBaseUrl.trim()) {
+        const baseUrl = configuredBaseUrl.trim().replace(/\/$/, "");
+        return baseUrl.endsWith("/api/chat") ? baseUrl : `${baseUrl}/api/chat`;
+      }
+    }
     if (this.provider?.startsWith?.("openai-compatible-")) {
       const baseUrl = (credentials?.providerSpecificData?.baseUrl as string | undefined) || OPENAI_COMPAT_BASE;
       const normalized = baseUrl.replace(/\/$/, "");

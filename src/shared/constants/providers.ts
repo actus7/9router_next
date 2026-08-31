@@ -125,8 +125,12 @@ type AuthMethodKey = keyof typeof AUTH_METHODS;
 export function getProviderByAlias(alias: string): Record<string, unknown> | null {
   const needle = typeof alias === "string" ? alias.toLowerCase() : alias;
   for (const provider of Object.values(AI_PROVIDERS)) {
+    const legacyAliases = Array.isArray(provider.aliases)
+      ? provider.aliases.filter((value): value is string => typeof value === "string")
+      : [];
     if (
       (typeof provider.alias === "string" && provider.alias.toLowerCase() === needle) ||
+      legacyAliases.some((value) => value.toLowerCase() === needle) ||
       (typeof provider.id === "string" && provider.id.toLowerCase() === needle)
     ) {
       return provider;

@@ -30,7 +30,7 @@ function getKimiPlanName(level: unknown): string {
 }
 
 /** Best-effort extract human message from Kimi error JSON (403 body is Connect-RPC-ish). */
-export function formatKimiUsageError(status: number, responseText: string): string {
+function formatKimiUsageError(status: number, responseText: string): string {
   let parsed: Record<string, unknown> | null = null;
   try {
     parsed = JSON.parse(responseText || "");

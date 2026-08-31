@@ -22,7 +22,7 @@ export function fallbackToolCallId(index?: number): string {
 }
 
 // Generate deterministic tool call ID from position + tool name (cache-friendly)
-export function generateToolCallId(msgIndex: number = 0, tcIndex: number = 0, toolName: string = ""): string {
+function generateToolCallId(msgIndex: number = 0, tcIndex: number = 0, toolName: string = ""): string {
   const name = toolName ? `_${toolName.replace(/[^a-zA-Z0-9_-]/g, "")}` : "";
   return `call_msg${msgIndex}_tc${tcIndex}${name}`;
 }
@@ -85,7 +85,7 @@ export function ensureToolCallIds(body: BodyWithMessages): BodyWithMessages {
 }
 
 // Get tool_call ids from assistant message (OpenAI format: tool_calls, Claude format: tool_use in content)
-export function getToolCallIds(msg: ToolCallMessage): string[] {
+function getToolCallIds(msg: ToolCallMessage): string[] {
   if (msg.role !== "assistant") return [];
 
   const ids: string[] = [];
@@ -110,7 +110,7 @@ export function getToolCallIds(msg: ToolCallMessage): string[] {
 }
 
 // Check if user message has tool_result for given ids (OpenAI format: role=tool, Claude format: tool_result in content)
-export function hasToolResults(msg: ToolCallMessage, toolCallIds: string[]): boolean {
+function hasToolResults(msg: ToolCallMessage, toolCallIds: string[]): boolean {
   if (!msg || !toolCallIds.length) return false;
 
   // OpenAI format: role = "tool" with tool_call_id

@@ -9,7 +9,7 @@ import {
   getModelAliases,
   getCustomModels,
 } from "@/lib/data-access";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS } from "@/shared/constants/providers";
+import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS } from "@/shared/constants/providers";
 import { Spinner } from "@/shared/components/Loading";
 import ProviderDetailClient from "./ProviderDetailClient";
 import { notFound } from "next/navigation";
@@ -27,6 +27,7 @@ export default async function ProviderDetailPage({
     id in APIKEY_PROVIDERS ||
     id in FREE_PROVIDERS ||
     id in FREE_TIER_PROVIDERS ||
+    id in WEB_COOKIE_PROVIDERS ||
     id.startsWith("oai-cc-") ||
     id.startsWith("ant-cc-");
   if (!providerExists) notFound();

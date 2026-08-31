@@ -1,58 +1,30 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import ProviderIcon from "@/shared/components/ProviderIcon";
-import QuotaTable from "./QuotaTable";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
-import Button from "@/shared/components/Button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useEffect, useMemo } from "react";
+import Card from "@/shared/components/Card";
 import {
-  parseQuotaData,
-  calculatePercentage,
-  filterQuotasByVisibility,
-  getHiddenQuotaRows,
-  getQuotaVisibilityKey,
-  getConnectionLabel,
-  getConnectionQuotaRemaining,
   sortVisibleConnections,
   buildLoadingState,
   filterQuotaStateByConnections,
   getConnectionsEmptyMessage,
-  getPageSizeLabel,
-  getConnectionsPaginationSummary,
-  getSafePagination,
-  getSafeTotals,
-  shouldResetPage,
-  getPaginationPageValue,
-  getProviderOptions,
-  reconcileConnectionsPage,
-  getQuotaCache,
-  setQuotaCache,
-  QUOTA_CACHE_KEY,
-  REFRESH_INTERVAL_MS,
-  CLAUDE_REFRESH_INTERVAL_MS,
+  calculatePercentage,
   DEPLETED_QUOTA_THRESHOLD,
-  AUTO_REFRESH_STORAGE_KEY,
-  CONNECTIONS_PAGE_SIZE,
-  ACCOUNT_PAGE_SIZE_OPTIONS,
-  ACCOUNT_PAGE_SIZE_MAX,
-  ACCOUNT_FILTER_OPTIONS,
-  QUOTA_SORT_OPTIONS,
   type Connection,
-  type QuotaData,
   type QuotaEntry,
-  type Pagination,
-  type Totals,
 } from "./utils";
-import Card from "@/shared/components/Card";
-import { ConfirmModal, EditConnectionModal } from "@/shared/components";
-import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
-import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { AlertCircle, Ban, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CloudOff, Copy, EyeOff, Hourglass, LayoutGrid, Loader2, Pencil, RefreshCw, ToggleLeft, ToggleRight, Trash2, X, Zap } from "lucide-react";
 import { translate } from "@/i18n/runtime";
+import { CloudOff, AlertCircle, LayoutGrid } from "lucide-react";
+
+import { useConnections } from "./hooks/useConnections";
+import { useQuotaData } from "./hooks/useQuotaData";
+import { useConnectionActions } from "./hooks/useConnectionActions";
+import { useCodexReset } from "./hooks/useCodexReset";
+import { useSettings } from "./hooks/useSettings";
+
+import ToolbarSection from "./sections/ToolbarSection";
+import ConnectionCard from "./sections/ConnectionCard";
+import PaginationSection from "./sections/PaginationSection";
+import ModalsSection from "./sections/ModalsSection";
 
 const EMPTY_STATE_ICON_MAP: Record<string, React.ElementType> = {
   cloud_off: CloudOff,
@@ -63,690 +35,64 @@ const EMPTY_STATE_ICON_MAP: Record<string, React.ElementType> = {
   info: AlertCircle,
 };
 
-// Maps the stored providerSpecificData.authMethod to a human label for Kiro.
-// Values come from the Kiro connect flows: builder-id/idc (device code),
-// google/github (social), imported (refresh-token paste), api_key (headless).
-const KIRO_METHOD_LABELS: Record<string, string> = {
-  "builder-id": "AWS Builder ID",
-  idc: "IAM Identity Center",
-  google: "Google",
-  github: "GitHub",
-  imported: "Imported Token",
-  api_key: "API Key",
-};
-
-const AUTO_PING_SETTINGS_KEYS: Record<string, string> = {
-  claude: "claudeAutoPing",
-  codex: "codexAutoPing",
-};
-
-const AUTO_PING_TOOLTIPS: Record<string, string> = {
-  claude: "When your 5h quota runs out, auto-sends a request the moment it resets so a new window starts right away.",
-  codex: "Auto-starts the next 5h Codex window after reset by sending a tiny gpt-5.5 request. Consumes a small amount of quota.",
-};
-
-interface ResetConfirmState {
-  connection: Connection;
-  resetCreditCount: number;
-}
-
-interface CreditEntry {
-  status?: string;
-  grantedAt?: string;
-  expiresAt?: string;
-}
-
-interface ResetCreditsData {
-  credits?: CreditEntry[];
-  availableCount?: number;
-}
-
-interface ResetCreditsState {
-  connection: Connection;
-  loading: boolean;
-  error: string | null;
-  data: ResetCreditsData | null;
-}
-
-function kiroMethodLabel(conn: Connection) {
-  const m = conn.providerSpecificData?.authMethod;
-  if (typeof m === "string" && m in KIRO_METHOD_LABELS) return KIRO_METHOD_LABELS[m];
-  return conn.authType === "api_key" ? "API Key" : "OAuth";
-}
-
-function getConnectionSecondaryLabel(connection: Connection) {
-  if (connection.name?.trim() && connection.email?.trim() && connection.name.trim() !== connection.email.trim()) {
-    return connection.email.trim();
-  }
-
-  if (connection.name?.trim() && connection.displayName?.trim() && connection.name.trim() !== connection.displayName.trim()) {
-    return connection.displayName.trim();
-  }
-
-  return null;
-}
-
-// Region is stored for builder-id/idc/api_key flows; social and imported flows
-// omit it, so fall back to the region segment of the profileArn
-// (arn:aws:codewhisperer:<region>:...).
-function kiroRegion(conn: Connection): string {
-  const r = conn.providerSpecificData?.region;
-  if (typeof r === "string" && r) return r;
-  const arn = conn.providerSpecificData?.profileArn;
-  const seg = typeof arn === "string" ? arn.split(":")[3] : "";
-  return seg || "";
-}
-
-function getCodexResetCreditCount(quota: QuotaData | undefined) {
-  const resetCredits = quota?.raw?.resetCredits as Record<string, unknown> | undefined;
-  const value = resetCredits?.availableCount;
-  const count = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(count) ? Math.max(0, count) : 0;
-}
-
-function formatCreditDate(value: string | Date | null | undefined) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "N/A";
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatTimeRemaining(value: string | Date | null | undefined) {
-  if (!value) return "N/A";
-  const diffMs = new Date(value).getTime() - Date.now();
-  if (!Number.isFinite(diffMs)) return "N/A";
-  if (diffMs <= 0) return "Expired";
-  const totalHours = Math.ceil(diffMs / (60 * 60 * 1000));
-  const days = Math.floor(totalHours / 24);
-  const hours = totalHours % 24;
-  return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
-}
-
 export default function ProviderLimits() {
-  const { copied, copy } = useCopyToClipboard();
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [quotaData, setQuotaData] = useState<Record<string, QuotaData>>({});
-  const [loading, setLoading] = useState<Record<string, boolean>>({});
-  const [errors, setErrors] = useState<Record<string, string | null>>({});
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [autoPingMaps, setAutoPingMaps] = useState<Record<string, Record<string, boolean>>>({ claude: {}, codex: {} });
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [hasHydratedAutoRefresh, setHasHydratedAutoRefresh] = useState(false);
-  const [refreshingAll, setRefreshingAll] = useState(false);
-  const [countdown, setCountdown] = useState(60);
-  const [connectionsLoading, setConnectionsLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [resettingLimitId, setResettingLimitId] = useState<string | null>(null);
-  const [resetConfirmState, setResetConfirmState] = useState<ResetConfirmState | null>(null);
-  const [resetCreditsState, setResetCreditsState] = useState<ResetCreditsState | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [proxyPools, setProxyPools] = useState<Array<{ id: string; name: string }>>([]);
-  const [providerFilter, setProviderFilter] = useState("all");
-  const [providerOptions, setProviderOptions] = useState<string[]>([]);
-  const [accountFilter, setAccountFilter] = useState("all");
-  const [quotaSortMode, setQuotaSortMode] = useState("default");
-  const [quotaVisibility, setQuotaVisibility] = useState<Record<string, { hidden?: string[] }>>({});
-  const [expiringFirst, setExpiringFirst] = useState(false);
-  const [providerMenuOpen, setProviderMenuOpen] = useState(false);
-  const [bulkToggling, setBulkToggling] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(CONNECTIONS_PAGE_SIZE);
-  const [customPageSizeInput, setCustomPageSizeInput] = useState(
-    String(CONNECTIONS_PAGE_SIZE),
+  const connectionsHook = useConnections();
+  const quotaHook = useQuotaData(connectionsHook.fetchConnections, connectionsHook.page);
+  const actionsHook = useConnectionActions(
+    connectionsHook.fetchConnections,
+    quotaHook.fetchQuota,
+    connectionsHook.page,
+    quotaHook.setQuotaData,
+    quotaHook.setLoading,
+    quotaHook.setErrors,
   );
-  const [pagination, setPagination] = useState({
-    page: 1,
-    pageSize: CONNECTIONS_PAGE_SIZE,
-    total: 0,
-    totalPages: 1,
-  });
-  const [totals, setTotals] = useState({
-    eligibleConnections: 0,
-    providerFilteredConnections: 0,
-  });
-
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tickCountRef = useRef(0);
-
-  const fetchConnections = useCallback(
-    async (targetPage = page) => {
-      try {
-        const params = new URLSearchParams({
-          page: String(targetPage),
-          pageSize: String(pageSize),
-          accountStatus: accountFilter,
-          sort: "priority",
-        });
-
-        if (providerFilter !== "all") {
-          params.set("provider", providerFilter);
-        }
-
-        const response = await fetch(
-          `/api/providers/client?${params.toString()}`,
-        );
-        if (!response.ok) throw new Error("Failed to fetch connections");
-
-        const data = await response.json() as Record<string, unknown>;
-        const connectionList = (data.connections as Connection[]) || [];
-        const nextPagination = getSafePagination(data.pagination as Pagination | null, pageSize);
-        const nextTotals = getSafeTotals(data.totals as Totals | null, connectionList.length);
-
-        setConnections(connectionList);
-        setProviderOptions(getProviderOptions(data.providerOptions as string[] | null));
-        setPagination(nextPagination);
-        setTotals(nextTotals);
-        setPage(getPaginationPageValue(data.pagination as Pagination | null, targetPage));
-        return connectionList;
-      } catch (error) {
-        console.error("Error fetching connections:", error);
-        setConnections([]);
-        setProviderOptions([]);
-        setPagination({ page: 1, pageSize, total: 0, totalPages: 1 });
-        setTotals({ eligibleConnections: 0, providerFilteredConnections: 0 });
-        return [];
-      }
-    },
-    [accountFilter, expiringFirst, page, pageSize, providerFilter],
+  const codexHook = useCodexReset(
+    quotaHook.fetchQuota,
+    quotaHook.setErrors,
+    quotaHook.setLastUpdated,
   );
+  const settingsHook = useSettings();
 
-  // Fetch quota for a specific connection
-  const fetchQuota = useCallback(async (connectionId: string, provider: string, { force = false } = {}) => {
-    setLoading((prev) => ({ ...prev, [connectionId]: true }));
-    setErrors((prev) => ({ ...prev, [connectionId]: null }));
-
-    try {
-      const url = `/api/usage/${connectionId}${force ? "?force=1" : ""}`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMsg = errorData.error || response.statusText;
-
-        // Handle different error types gracefully
-        if (response.status === 404) {
-          // Connection not found - skip silently
-          console.warn(
-            `[ProviderLimits] Connection not found for ${provider}, skipping`,
-          );
-          return;
-        }
-
-        if (response.status === 401) {
-          // Auth error - show message instead of throwing
-          console.warn(
-            `[ProviderLimits] Auth error for ${provider}:`,
-            errorMsg,
-          );
-          const quotaEntry = {
-            quotas: [],
-            message: errorMsg,
-          };
-          setQuotaData((prev) => ({
-            ...prev,
-            [connectionId]: quotaEntry,
-          }));
-          setQuotaCache(connectionId, quotaEntry);
-          return;
-        }
-
-        throw new Error(`HTTP ${response.status}: ${errorMsg}`);
-      }
-
-      const data = await response.json();
-
-      // Parse quota data using provider-specific parser
-      const parsedQuotas = parseQuotaData(provider, data);
-
-      const quotaEntry = {
-        quotas: parsedQuotas,
-        plan: data.plan || null,
-        message: data.message || null,
-        raw: data,
-      };
-
-      setQuotaData((prev) => ({
-        ...prev,
-        [connectionId]: quotaEntry,
-      }));
-      setQuotaCache(connectionId, quotaEntry);
-    } catch (error: unknown) {
-      console.error(
-        `[ProviderLimits] Error fetching quota for ${provider} (${connectionId}):`,
-        error,
-      );
-      setErrors((prev) => ({
-        ...prev,
-        [connectionId]: error instanceof Error ? error.message : "Failed to fetch quota",
-      }));
-    } finally {
-      setLoading((prev) => ({ ...prev, [connectionId]: false }));
-    }
-  }, []);
-
-  // Refresh quota for a specific provider
-  const refreshProvider = useCallback(
-    async (connectionId: string, provider: string) => {
-      await fetchQuota(connectionId, provider, { force: true });
-      setLastUpdated(new Date());
-    },
-    [fetchQuota],
-  );
-
-  const handleResetCodexLimit = useCallback(
-    async (connectionId: string, provider: string) => {
-      if (provider !== "codex" || resettingLimitId) return;
-
-      setResettingLimitId(connectionId);
-      setErrors((prev) => ({ ...prev, [connectionId]: null }));
-
-      try {
-        const response = await fetch(`/api/usage/${connectionId}/codex-reset-credits`, { method: "POST" });
-        const result = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(result.message || result.error || result.code || "Failed to reset Codex limit");
-        }
-
-        await fetchQuota(connectionId, provider);
-        setLastUpdated(new Date());
-      } catch (error: unknown) {
-        setErrors((prev) => ({ ...prev, [connectionId]: error instanceof Error ? error.message : "Failed to reset Codex limit" }));
-      } finally {
-        setResettingLimitId(null);
-      }
-    },
-    [fetchQuota, resettingLimitId],
-  );
-
-  const handleViewCodexResetCredits = useCallback(async (connection: Connection) => {
-    setResetCreditsState({ connection, loading: true, error: null, data: null });
-    try {
-      const response = await fetch(`/api/usage/${connection.id}/codex-reset-credits`, { cache: "no-store" });
-      const result = await response.json().catch(() => ({})) as Record<string, unknown>;
-      if (!response.ok) {
-        throw new Error((result.error as string) || (result.message as string) || "Failed to load Codex reset credits");
-      }
-      const rawCredits = Array.isArray(result.credits) ? [...result.credits] : [];
-      const credits: CreditEntry[] = rawCredits.map((c: Record<string, unknown>) => ({
-        status: c.status as string | undefined,
-        grantedAt: c.grantedAt as string | undefined,
-        expiresAt: c.expiresAt as string | undefined,
-      }));
-      credits.sort((a, b) => {
-        const aTime = a.expiresAt ? new Date(a.expiresAt).getTime() : Number.POSITIVE_INFINITY;
-        const bTime = b.expiresAt ? new Date(b.expiresAt).getTime() : Number.POSITIVE_INFINITY;
-        return aTime - bTime;
-      });
-      setResetCreditsState({ connection, loading: false, error: null, data: { credits, availableCount: result.availableCount as number | undefined } });
-    } catch (error: unknown) {
-      setResetCreditsState({ connection, loading: false, error: error instanceof Error ? error.message : "Failed to load Codex reset credits", data: null });
-    }
-  }, []);
-
-  const handleDeleteConnection = useCallback(
-    async (id: string) => {
-      setDeletingId(id);
-      try {
-        const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
-        if (res.ok) {
-          setQuotaData((prev) => {
-            const next = { ...prev };
-            delete next[id];
-            return next;
-          });
-          setLoading((prev) => {
-            const next = { ...prev };
-            delete next[id];
-            return next;
-          });
-          setErrors((prev) => {
-            const next = { ...prev };
-            delete next[id];
-            return next;
-          });
-
-          if (typeof window !== "undefined") {
-            try {
-              const cache = getQuotaCache();
-              if (cache[id]) {
-                delete cache[id];
-                window.localStorage.setItem(
-                  QUOTA_CACHE_KEY,
-                  JSON.stringify(cache),
-                );
-              }
-            } catch (e) {
-              console.error("Error deleting cache entry:", e);
-            }
-          }
-
-          await reconcileConnectionsPage(fetchConnections, page);
-        }
-      } catch (error) {
-        console.error("Error deleting connection:", error);
-      } finally {
-        setDeletingId(null);
-      }
-    },
-    [fetchConnections, page],
-  );
-
-  const handleToggleConnectionActive = useCallback(
-    async (id: string, isActive: boolean) => {
-      setTogglingId(id);
-      try {
-        const res = await fetch(`/api/providers/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ isActive }),
-        });
-        if (res.ok) {
-          setQuotaData((prev) => {
-            const next = { ...prev };
-            return next;
-          });
-          await reconcileConnectionsPage(fetchConnections, page);
-        }
-      } catch (error) {
-        console.error("Error updating connection status:", error);
-      } finally {
-        setTogglingId(null);
-      }
-    },
-    [fetchConnections, page],
-  );
-
-  const handleUpdateConnection = useCallback(
-    async (formData: Record<string, unknown>) => {
-      if (!selectedConnection?.id) return;
-      const connectionId = selectedConnection.id;
-      const provider = selectedConnection.provider;
-      try {
-        const res = await fetch(`/api/providers/${connectionId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
-        if (res.ok) {
-          await fetchConnections();
-          setShowEditModal(false);
-          setSelectedConnection(null);
-          if (USAGE_SUPPORTED_PROVIDERS.includes(provider)) {
-            await fetchQuota(connectionId, provider);
-          }
-        }
-      } catch (error) {
-        console.error("Error saving connection:", error);
-      }
-    },
-    [selectedConnection, fetchConnections, fetchQuota],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/proxy-pools?isActive=true", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data?.proxyPools) {
-          setProxyPools(data.proxyPools as Array<{ id: string; name: string }>);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const refreshAll = useCallback(async (force = false) => {
-    if (refreshingAll) return;
-
-    setRefreshingAll(true);
-    setCountdown(60);
-
-    // Throttle Claude: poll its quota every Nth auto-tick (manual force bypasses)
-    const tick = (tickCountRef.current += 1);
-    const claudeEvery = Math.round(CLAUDE_REFRESH_INTERVAL_MS / REFRESH_INTERVAL_MS);
-    const shouldFetch = (conn: Connection) =>
-      force || conn.provider !== "claude" || tick % claudeEvery === 0;
-
-    try {
-      const visibleConnections = await fetchConnections(page);
-
-      setLoading(buildLoadingState(visibleConnections));
-      setErrors((prev) =>
-        filterQuotaStateByConnections(prev, visibleConnections),
-      );
-      setQuotaData((prev) =>
-        filterQuotaStateByConnections(prev, visibleConnections),
-      );
-
-      await Promise.all(
-        visibleConnections
-          .filter(shouldFetch)
-          .map((conn: Connection) => fetchQuota(conn.id, conn.provider)),
-      );
-
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error("Error refreshing all providers:", error);
-    } finally {
-      setRefreshingAll(false);
-    }
-  }, [refreshingAll, fetchConnections, fetchQuota, page]);
-
+  // Initial data load
   useEffect(() => {
     const initializeData = async () => {
-      setConnectionsLoading(true);
-      const visibleConnections = await fetchConnections(page);
-      setConnectionsLoading(false);
+      connectionsHook.setConnectionsLoading(true);
+      const visibleConnections = await connectionsHook.fetchConnections(connectionsHook.page);
+      connectionsHook.setConnectionsLoading(false);
 
       // Always fetch fresh quota on mount, no cache display
-      setLoading(buildLoadingState(visibleConnections));
-      setErrors((prev) =>
+      quotaHook.setLoading(buildLoadingState(visibleConnections));
+      quotaHook.setErrors((prev) =>
         filterQuotaStateByConnections(prev, visibleConnections),
       );
-      setQuotaData((prev) =>
+      quotaHook.setQuotaData((prev) =>
         filterQuotaStateByConnections(prev, visibleConnections),
       );
 
       await Promise.all(
-        visibleConnections.map((conn) => fetchQuota(conn.id, conn.provider)),
+        visibleConnections.map((conn) => quotaHook.fetchQuota(conn.id, conn.provider)),
       );
-      setLastUpdated(new Date());
+      quotaHook.setLastUpdated(new Date());
     };
 
     initializeData();
-  }, [fetchConnections, fetchQuota, page]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(AUTO_REFRESH_STORAGE_KEY);
-    setAutoRefresh(stored === null ? true : stored === "true");
-    setHasHydratedAutoRefresh(true);
-  }, []);
-
-  // Persist auto-refresh preference
-  useEffect(() => {
-    if (typeof window === "undefined" || !hasHydratedAutoRefresh) return;
-    window.localStorage.setItem(AUTO_REFRESH_STORAGE_KEY, String(autoRefresh));
-  }, [autoRefresh, hasHydratedAutoRefresh]);
-
-  // Load auto-ping per-connection maps
-  useEffect(() => {
-    fetch("/api/settings", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((s: Record<string, unknown>) => {
-        const sClaude = s?.claudeAutoPing as Record<string, unknown> | undefined;
-        const sCodex = s?.codexAutoPing as Record<string, unknown> | undefined;
-        setAutoPingMaps({
-          claude: (sClaude?.connections as Record<string, boolean>) || {},
-          codex: (sCodex?.connections as Record<string, boolean>) || {},
-        });
-        setQuotaVisibility((s?.quotaVisibility as Record<string, { hidden?: string[] }>) || {});
-      })
-      .catch(() => {});
-  }, []);
-
-  const toggleAutoPing = useCallback(async (connectionId: string, provider: string, on: boolean) => {
-    const settingsKey = AUTO_PING_SETTINGS_KEYS[provider];
-    if (!settingsKey) return;
-
-    const previous = autoPingMaps;
-    const nextProviderMap = { ...(autoPingMaps[provider] || {}), [connectionId]: on };
-    const nextMaps = { ...autoPingMaps, [provider]: nextProviderMap };
-    setAutoPingMaps(nextMaps);
-    try {
-      const r = await fetch("/api/settings", { cache: "no-store" });
-      const s = r.ok ? await r.json() : {};
-      const cfg = { ...(s[settingsKey] || {}), connections: nextProviderMap };
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [settingsKey]: cfg }),
-      });
-    } catch {
-      setAutoPingMaps(previous);
-    }
-  }, [autoPingMaps]);
-
-  const updateQuotaVisibility = useCallback(async (nextVisibility: Record<string, { hidden?: string[] }>, previousVisibility: Record<string, { hidden?: string[] }>) => {
-    setQuotaVisibility(nextVisibility);
-    try {
-      const response = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quotaVisibility: nextVisibility }),
-      });
-      if (!response.ok) throw new Error("Failed to update quota visibility");
-    } catch (error) {
-      console.error("Error updating quota visibility:", error);
-      setQuotaVisibility(previousVisibility);
-    }
-  }, []);
-
-  const handleHideQuota = useCallback((provider: string, quota: QuotaEntry) => {
-    const key = getQuotaVisibilityKey(quota);
-    if (!provider || !key) return;
-
-    const previous = quotaVisibility;
-    const providerVisibility = previous[provider] || {};
-    const hidden = new Set(providerVisibility.hidden || []);
-    hidden.add(key);
-    const next = {
-      ...previous,
-      [provider]: {
-        ...providerVisibility,
-        hidden: [...hidden],
-      },
-    };
-    updateQuotaVisibility(next, previous);
-  }, [quotaVisibility, updateQuotaVisibility]);
-
-  const handleShowQuota = useCallback((provider: string, quota: QuotaEntry) => {
-    const key = getQuotaVisibilityKey(quota);
-    if (!provider || !key) return;
-
-    const previous = quotaVisibility;
-    const providerVisibility = previous[provider] || {};
-    const hidden = new Set(providerVisibility.hidden || []);
-    hidden.delete(key);
-    const next = {
-      ...previous,
-      [provider]: {
-        ...providerVisibility,
-        hidden: [...hidden],
-      },
-    };
-    updateQuotaVisibility(next, previous);
-  }, [quotaVisibility, updateQuotaVisibility]);
-
-  // Auto-refresh interval
-  useEffect(() => {
-    if (!hasHydratedAutoRefresh || !autoRefresh) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-      return;
-    }
-
-    // Main refresh interval
-    intervalRef.current = setInterval(() => {
-      refreshAll();
-    }, REFRESH_INTERVAL_MS);
-
-    // Countdown interval
-    countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) return 60;
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, [autoRefresh, refreshAll, hasHydratedAutoRefresh]);
-
-  // Pause auto-refresh when tab is hidden (Page Visibility API)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        if (countdownRef.current) {
-          clearInterval(countdownRef.current);
-          countdownRef.current = null;
-        }
-      } else if (autoRefresh && hasHydratedAutoRefresh) {
-        // Resume auto-refresh when tab becomes visible
-        intervalRef.current = setInterval(() => refreshAll(), REFRESH_INTERVAL_MS);
-        countdownRef.current = setInterval(() => {
-          setCountdown((prev) => (prev <= 1 ? 60 : prev - 1));
-        }, 1000);
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [autoRefresh, refreshAll, hasHydratedAutoRefresh]);
+  }, [connectionsHook.fetchConnections, quotaHook.fetchQuota, connectionsHook.page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortedConnections = useMemo(
     () =>
       sortVisibleConnections(
-        connections,
-        quotaData,
-        expiringFirst,
-        providerFilter,
-        quotaSortMode,
+        connectionsHook.connections,
+        quotaHook.quotaData,
+        quotaHook.expiringFirst,
+        connectionsHook.providerFilter,
+        quotaHook.quotaSortMode,
       ),
-    [connections, quotaData, expiringFirst, providerFilter, quotaSortMode],
+    [connectionsHook.connections, quotaHook.quotaData, quotaHook.expiringFirst, connectionsHook.providerFilter, quotaHook.quotaSortMode],
   );
 
   // Connection is depleted when any quota entry hit the threshold
   const isConnectionDepleted = (conn: Connection) => {
-    const quotas = quotaData[conn.id]?.quotas;
+    const quotas = quotaHook.quotaData[conn.id]?.quotas;
     if (!quotas?.length) return false;
     return quotas.some((q: QuotaEntry) => {
       if (!q.total || q.total <= 0) return false;
@@ -754,58 +100,31 @@ export default function ProviderLimits() {
     });
   };
 
-  const bulkSetActive = useCallback(
-    async (targetIds: string[], isActive: boolean) => {
-      if (!targetIds.length || bulkToggling) return;
-      setBulkToggling(true);
-      try {
-        await Promise.all(
-          targetIds.map((id: string) =>
-            fetch(`/api/providers/${id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ isActive }),
-            }),
-          ),
-        );
-        await reconcileConnectionsPage(fetchConnections, page);
-      } catch (error) {
-        console.error("Error bulk toggling connections:", error);
-      } finally {
-        setBulkToggling(false);
-      }
-    },
-    [bulkToggling, fetchConnections, page],
-  );
-
   const handleDisableDepleted = () => {
     const ids = sortedConnections
       .filter((c) => (c.isActive ?? true) && isConnectionDepleted(c))
       .map((c) => c.id);
-    bulkSetActive(ids, false);
+    actionsHook.bulkSetActive(ids, false);
   };
 
   const handleEnableAvailable = () => {
     const ids = sortedConnections
       .filter((c) => !(c.isActive ?? true) && !isConnectionDepleted(c))
       .map((c) => c.id);
-    bulkSetActive(ids, true);
+    actionsHook.bulkSetActive(ids, true);
   };
 
   const selectedProviderLabel =
-    providerFilter === "all" ? translate("All providers") || "All providers" : providerFilter;
-  const hasEligibleConnections = totals.eligibleConnections > 0;
+    connectionsHook.providerFilter === "all" ? translate("All providers") || "All providers" : connectionsHook.providerFilter;
+  const hasEligibleConnections = connectionsHook.totals.eligibleConnections > 0;
   const hasVisibleConnections = sortedConnections.length > 0;
   const emptyState = getConnectionsEmptyMessage(
-    totals,
-    providerFilter,
-    accountFilter,
+    connectionsHook.totals,
+    connectionsHook.providerFilter,
+    connectionsHook.accountFilter,
   );
-  const connectionsPageSummary = getConnectionsPaginationSummary(pagination);
-  const isCustomPageSize = !ACCOUNT_PAGE_SIZE_OPTIONS.includes(pageSize);
-  const pageSizeLabel = getPageSizeLabel(pageSize, isCustomPageSize);
 
-  if (!connectionsLoading && !hasEligibleConnections) {
+  if (!connectionsHook.connectionsLoading && !hasEligibleConnections) {
     return (
       <Card padding="lg">
         <div className="text-center py-12">
@@ -821,7 +140,7 @@ export default function ProviderLimits() {
     );
   }
 
-  if (!connectionsLoading && !hasVisibleConnections) {
+  if (!connectionsHook.connectionsLoading && !hasVisibleConnections) {
     return (
       <Card padding="lg">
         <div className="text-center py-12">
@@ -843,762 +162,96 @@ export default function ProviderLimits() {
   return (
     <div className="space-y-6">
       {/* Header Controls */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <div className="relative">
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              onClick={() => setProviderMenuOpen((prev) => !prev)}
-              className="gap-1 text-xs"
-              aria-haspopup="menu"
-              aria-expanded={providerMenuOpen}
-              title="Filter quota providers"
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                {providerFilter === "all" ? (
-                  <LayoutGrid className="size-3.5 text-text-muted" />
-                ) : (
-                  <ProviderIcon
-                    src={`/providers/${providerFilter}.png`}
-                    alt={providerFilter}
-                    size={18}
-                    className="size-[18px] rounded object-contain"
-                    fallbackText={providerFilter.slice(0, 2).toUpperCase()}
-                  />
-                )}
-                <span className="truncate capitalize hidden lg:inline">
-                  {selectedProviderLabel}
-                </span>
-              </span>
-              <ChevronDown className="size-4" />
-            </Button>
-
-            {providerMenuOpen && (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="fixed inset-0 z-30 bg-transparent"
-                  aria-label="Close provider filter"
-                  onClick={() => setProviderMenuOpen(false)}
-                />
-                <div className="absolute left-0 z-40 mt-2 w-64 overflow-hidden rounded-2xl border border-black/10 bg-surface/95 p-1.5 shadow-xl shadow-black/10 backdrop-blur dark:border-white/10 dark:bg-surface/95 sm:w-72">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      if (shouldResetPage(providerFilter, "all")) {
-                        setPage(1);
-                      }
-                      setProviderFilter("all");
-                      setProviderMenuOpen(false);
-                    }}
-                    className={`w-full justify-start gap-3 rounded-xl px-3 py-2.5 ${providerFilter === "all" ? "bg-primary/10 text-primary" : ""}`}
-                  >
-                    <LayoutGrid className="size-5" />
-                    <span className="font-medium">{translate("All providers") || "All providers"}</span>
-                    {providerFilter === "all" && (
-                      <Check className="size-5" />
-                    )}
-                  </Button>
-                  <div className="my-1 h-px bg-black/10 dark:bg-white/10" />
-                  <div className="max-h-72 overflow-y-auto pr-1">
-                    {providerOptions.map((provider) => (
-                      <Button
-                        key={provider}
-                        type="button"
-                        variant="ghost"
-                        onClick={() => {
-                          if (shouldResetPage(providerFilter, provider)) {
-                            setPage(1);
-                          }
-                          setProviderFilter(provider);
-                          setProviderMenuOpen(false);
-                        }}
-                        className={`w-full justify-start gap-3 rounded-xl px-3 py-2.5 ${providerFilter === provider ? "bg-primary/10 text-primary" : ""}`}
-                      >
-                        <ProviderIcon
-                          src={`/providers/${provider}.png`}
-                          alt={provider}
-                          size={24}
-                          className="size-6 rounded-md object-contain"
-                          fallbackText={provider.slice(0, 2).toUpperCase()}
-                        />
-                        <span className="font-medium capitalize">
-                          {provider}
-                        </span>
-                        {providerFilter === provider && (
-                          <Check className="size-5" />
-                        )}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          <Select
-            value={accountFilter}
-            onValueChange={(nextValue) => {
-              if (nextValue === null) return;
-              if (shouldResetPage(accountFilter, nextValue)) {
-                setPage(1);
-              }
-              setAccountFilter(nextValue);
-            }}
-          >
-            <SelectTrigger className="h-8 text-xs" aria-label="Filter accounts by status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ACCOUNT_FILTER_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {providerFilter === "codex" && (
-            <Select
-              value={quotaSortMode}
-              onValueChange={(value) => { if (value !== null) setQuotaSortMode(value); }}
-            >
-              <SelectTrigger className="h-8 text-xs" aria-label="Sort Codex quotas by remaining">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {QUOTA_SORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setExpiringFirst((prev) => !prev)}
-            aria-pressed={expiringFirst}
-            className={`gap-1 text-xs ${expiringFirst ? "border-amber-500/40 bg-amber-500/10 text-amber-500" : ""}`}
-            title="Sort accounts by earliest quota reset time"
-          >
-            <Hourglass className="size-3.5" />
-            <span className="hidden sm:inline">{translate("Expiring first") || "Expiring first"}</span>
-          </Button>
-
-          {/* Bulk: disable depleted */}
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleDisableDepleted}
-            disabled={bulkToggling}
-            className="gap-1 text-xs"
-            title="Disable connections with depleted quota on the current page"
-          >
-            <Ban className="size-4" />
-            <span className="hidden sm:inline">{translate("Disable Depleted") || "Disable Depleted"}</span>
-          </Button>
-
-          {/* Bulk: enable available */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleEnableAvailable}
-            disabled={bulkToggling}
-            className="gap-1 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
-            title="Enable connections that still have quota on the current page"
-          >
-            <CheckCircle2 className="size-4" />
-            <span className="hidden sm:inline">{translate("Activate Available") || "Activate Available"}</span>
-          </Button>
-
-          {/* Auto-refresh toggle */}
-          <Button
-            variant="outline"
-            onClick={() => setAutoRefresh((prev) => !prev)}
-            className="gap-1 text-xs"
-            title={autoRefresh ? "Disable auto-refresh" : "Enable auto-refresh"}
-          >
-            {autoRefresh ? (
-              <ToggleRight className="size-3.5 text-primary" />
-            ) : (
-              <ToggleLeft className="size-3.5 text-text-muted" />
-            )}
-            <span className="hidden text-text-primary sm:inline">
-              {translate("Auto-refresh") || "Auto-refresh"}
-            </span>
-            {autoRefresh && (
-              <span className="text-[10px] text-text-muted tabular-nums">
-                ({countdown}s)
-              </span>
-            )}
-          </Button>
-
-
-          {/* Refresh all button */}
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => refreshAll(true)}
-            disabled={refreshingAll}
-            title={translate("Refresh all") || "Refresh all"}
-          >
-            <RefreshCw className={`size-3.5 ${refreshingAll ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
-      </div>
+      <ToolbarSection
+        providerFilter={connectionsHook.providerFilter}
+        setProviderFilter={connectionsHook.setProviderFilter}
+        providerMenuOpen={connectionsHook.providerMenuOpen}
+        setProviderMenuOpen={connectionsHook.setProviderMenuOpen}
+        providerOptions={connectionsHook.providerOptions}
+        selectedProviderLabel={selectedProviderLabel}
+        accountFilter={connectionsHook.accountFilter}
+        setAccountFilter={connectionsHook.setAccountFilter}
+        setPage={connectionsHook.setPage}
+        quotaSortMode={quotaHook.quotaSortMode}
+        setQuotaSortMode={quotaHook.setQuotaSortMode}
+        expiringFirst={quotaHook.expiringFirst}
+        setExpiringFirst={quotaHook.setExpiringFirst}
+        handleDisableDepleted={handleDisableDepleted}
+        handleEnableAvailable={handleEnableAvailable}
+        bulkToggling={actionsHook.bulkToggling}
+        autoRefresh={quotaHook.autoRefresh}
+        setAutoRefresh={quotaHook.setAutoRefresh}
+        countdown={quotaHook.countdown}
+        refreshAll={quotaHook.refreshAll}
+        refreshingAll={quotaHook.refreshingAll}
+      />
 
       {/* Provider cards: 2 columns, compact */}
-      {expiringFirst && (
+      {quotaHook.expiringFirst && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
           {translate("The expiring-first sort reorders accounts within the current page. Sort between pages follows backend pagination.") || "The expiring-first sort reorders accounts within the current page. Sort between pages follows backend pagination."}
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {sortedConnections.map((conn) => {
-          const quota = quotaData[conn.id];
-          const isLoading = loading[conn.id];
-          const error = errors[conn.id];
-
-          // Use table layout for all providers
-          const isInactive = conn.isActive === false;
-          const isCodex = conn.provider === "codex";
-          const resetCreditCount = getCodexResetCreditCount(quota);
-          const isResettingLimit = resettingLimitId === conn.id;
-          const rowBusy = deletingId === conn.id || togglingId === conn.id || isResettingLimit;
-          const rawQuotas = quota?.quotas || [];
-          const visibleQuotas = filterQuotasByVisibility(conn.provider, rawQuotas, quotaVisibility);
-          const hiddenQuotaRows = getHiddenQuotaRows(conn.provider, rawQuotas, quotaVisibility);
-
-          return (
-            <Card
-              key={conn.id}
-              padding="none"
-              className={`min-w-0 ${isInactive ? "opacity-60" : ""}`}
-            >
-              <div className="px-3 py-2 border-b border-black/10 dark:border-white/10">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-8 h-8 shrink-0 rounded-md flex items-center justify-center overflow-hidden">
-                      <ProviderIcon
-                        src={`/providers/${conn.provider}.png`}
-                        alt={conn.provider}
-                        size={32}
-                        className="object-contain"
-                        fallbackText={
-                          conn.provider?.slice(0, 2).toUpperCase() || "PR"
-                        }
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-text-primary capitalize truncate">
-                        {conn.provider}
-                      </h3>
-                      {getConnectionLabel(conn) ? (
-                        <p className="text-xs text-text-muted truncate">
-                          {getConnectionLabel(conn)}
-                        </p>
-                      ) : null}
-                      {getConnectionSecondaryLabel(conn) ? (
-                        <p className="text-[11px] text-text-muted/80 truncate">
-                          {getConnectionSecondaryLabel(conn)}
-                        </p>
-                      ) : null}
-                      {conn.provider === "kiro" && (
-                        <div className="mt-1 flex flex-wrap items-center gap-1">
-                          <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:text-brand-300">
-                            {kiroMethodLabel(conn)}
-                          </span>
-                          {kiroRegion(conn) && (
-                            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                              {kiroRegion(conn)}
-                            </span>
-                          )}
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                              isInactive
-                                ? "bg-surface-2 text-text-muted"
-                                : conn.testStatus === "active" || conn.testStatus === "success"
-                                  ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                                  : conn.testStatus === "error" || conn.testStatus === "expired" || conn.testStatus === "unavailable"
-                                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                                    : "bg-surface-2 text-text-muted"
-                            }`}
-                          >
-                            {isInactive ? "disabled" : conn.testStatus || "unknown"}
-                          </span>
-                          {typeof conn.providerSpecificData?.profileArn === "string" && conn.providerSpecificData.profileArn && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              onClick={() => copy(conn.providerSpecificData!.profileArn as string, conn.id)}
-                              title={conn.providerSpecificData!.profileArn as string}
-                              className="max-w-full gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-[10px] text-text-muted hover:text-primary"
-                            >
-                              {copied === conn.id ? <Check className="size-3" /> : <Copy className="size-3" />}
-                              <code className="truncate font-mono">
-                                {conn.providerSpecificData!.profileArn as string}
-                              </code>
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {isCodex && (
-                      <>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger render={<span className="inline-flex" />}>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setResetConfirmState({ connection: conn, resetCreditCount })}
-                                disabled={resetCreditCount <= 0 || isLoading || rowBusy}
-                                aria-label={
-                                  resetCreditCount > 0
-                                    ? `Use one Codex reset credit. ${resetCreditCount} available.`
-                                    : "No Codex reset credits available"
-                                }
-                                className={`min-w-10 gap-1 text-[11px] font-medium tabular-nums ${
-                                  resetCreditCount > 0
-                                    ? "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
-                                    : ""
-                                }`}
-                              >
-                                {isResettingLimit ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                                <span>{resetCreditCount}</span>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{resetCreditCount > 0 ? `Use one Codex reset credit. Available: ${resetCreditCount}` : "No Codex reset credits available"}</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger render={<span className="inline-flex" />}>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                onClick={() => handleViewCodexResetCredits(conn)}
-                                disabled={isLoading || rowBusy}
-                                aria-label="View Codex reset credit expiry"
-                              >
-                                <Clock className="size-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>View Codex reset credit expiry</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </>
-                    )}
-                    {AUTO_PING_SETTINGS_KEYS[conn.provider] && conn.authType === "oauth" && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger render={<span className="inline-flex" />}>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => toggleAutoPing(conn.id, conn.provider, !(autoPingMaps[conn.provider]?.[conn.id] === true))}
-                              aria-label="Toggle auto-ping"
-                              className={autoPingMaps[conn.provider]?.[conn.id] === true ? "text-primary" : "text-text-muted"}
-                            >
-                              <Zap className="size-5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>{AUTO_PING_TOOLTIPS[conn.provider]}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger render={<span className="inline-flex" />}>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => refreshProvider(conn.id, conn.provider)}
-                            disabled={isLoading || rowBusy}
-                            aria-label="Refresh quota"
-                          >
-                            <RefreshCw className={`size-[18px] text-text-muted ${isLoading ? "animate-spin" : ""}`} />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Refresh quota</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger render={<span className="inline-flex" />}>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setSelectedConnection(conn);
-                              setShowEditModal(true);
-                            }}
-                            disabled={rowBusy}
-                            aria-label="Edit connection"
-                            className="text-text-muted hover:text-primary"
-                          >
-                            <Pencil className="size-5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Edit connection</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger render={<span className="inline-flex" />}>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => {
-                              setPendingDeleteId(conn.id);
-                              setShowDeleteConfirm(true);
-                            }}
-                            disabled={rowBusy}
-                            aria-label="Delete connection"
-                          >
-                            <Trash2 className={`size-[18px] ${deletingId === conn.id ? "animate-pulse" : ""}`} />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete connection</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <div
-                      className="inline-flex items-center pl-0.5"
-                      title={
-                        (conn.isActive ?? true)
-                          ? "Disable connection"
-                          : "Enable connection"
-                      }
-                    >
-                      <Switch
-                        size="sm"
-                        checked={conn.isActive ?? true}
-                        disabled={rowBusy}
-                        onCheckedChange={(nextActive) =>
-                          handleToggleConnectionActive(conn.id, nextActive)
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="px-2 py-1.5">
-                {isLoading ? (
-                  <div className="text-center py-5 text-text-muted">
-                    <Loader2 className="size-7" />
-                  </div>
-                ) : error ? (
-                  <div className="text-center py-5">
-                    <AlertCircle className="size-7" />
-                    <p className="mt-1.5 text-xs text-text-muted">{error}</p>
-                  </div>
-                ) : quota?.message ? (
-                  <div className="text-center py-5">
-                    <p className="text-xs text-text-muted">{quota.message}</p>
-                  </div>
-                ) : (
-                  <QuotaTable
-                    quotas={visibleQuotas}
-                    compact
-                    sortMode="default"
-                    showSortLabel={
-                      conn.provider === "codex" && quotaSortMode !== "default"
-                    }
-                    onHideQuota={(quotaRow) => handleHideQuota(conn.provider, quotaRow)}
-                  />
-                )}
-                {hiddenQuotaRows.length > 0 && (
-                  <div className="mt-2 flex min-w-0 items-center gap-1 border-t border-black/5 pt-2 text-[10px] text-text-muted dark:border-white/5">
-                    <EyeOff className="size-4" />
-                    <span className="shrink-0">{translate("Hidden:") || "Hidden:"}</span>
-                    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap pb-2">
-                      {hiddenQuotaRows.map((quotaRow) => (
-                        <Button
-                          key={getQuotaVisibilityKey(quotaRow)}
-                          type="button"
-                          variant="outline"
-                          size="xs"
-                          onClick={() => handleShowQuota(conn.provider, quotaRow)}
-                          className="shrink-0 rounded-md px-1.5 py-0.5"
-                          title="Show this quota row"
-                        >
-                          {quotaRow.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
-          );
-        })}
+        {sortedConnections.map((conn) => (
+          <ConnectionCard
+            key={conn.id}
+            conn={conn}
+            quota={quotaHook.quotaData[conn.id]}
+            isLoading={quotaHook.loading[conn.id]}
+            error={quotaHook.errors[conn.id]}
+            quotaSortMode={quotaHook.quotaSortMode}
+            quotaVisibility={settingsHook.quotaVisibility}
+            autoPingMaps={settingsHook.autoPingMaps}
+            deletingId={actionsHook.deletingId}
+            togglingId={actionsHook.togglingId}
+            resettingLimitId={codexHook.resettingLimitId}
+            refreshProvider={quotaHook.refreshProvider}
+            toggleAutoPing={settingsHook.toggleAutoPing}
+            handleHideQuota={settingsHook.handleHideQuota}
+            handleShowQuota={settingsHook.handleShowQuota}
+            handleToggleConnectionActive={actionsHook.handleToggleConnectionActive}
+            setSelectedConnection={actionsHook.setSelectedConnection}
+            setShowEditModal={actionsHook.setShowEditModal}
+            setPendingDeleteId={actionsHook.setPendingDeleteId}
+            setShowDeleteConfirm={actionsHook.setShowDeleteConfirm}
+            setResetConfirmState={codexHook.setResetConfirmState}
+            handleViewCodexResetCredits={codexHook.handleViewCodexResetCredits}
+          />
+        ))}
       </div>
 
-      <div className="rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-text-muted">{connectionsPageSummary}</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value={isCustomPageSize ? "custom" : String(pageSize)}
-                onValueChange={(nextValue) => {
-                  if (nextValue === null || nextValue === "custom") return;
-                  const nextPageSize = Number.parseInt(nextValue, 10);
-                  if (Number.isFinite(nextPageSize)) {
-                    setPage(1);
-                    setPageSize(nextPageSize);
-                    setCustomPageSizeInput(String(nextPageSize));
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs" aria-label="Accounts per page">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCOUNT_PAGE_SIZE_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {option} / page
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="custom">Custom</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="number"
-                min="1"
-                max={String(ACCOUNT_PAGE_SIZE_MAX)}
-                inputMode="numeric"
-                value={customPageSizeInput}
-                onChange={(event) => setCustomPageSizeInput(event.target.value)}
-                onBlur={() => {
-                  const parsedValue = Number.parseInt(customPageSizeInput, 10);
-                  if (!Number.isFinite(parsedValue)) {
-                    setCustomPageSizeInput(String(pageSize));
-                    return;
-                  }
-                  const nextPageSize = Math.min(ACCOUNT_PAGE_SIZE_MAX, Math.max(1, parsedValue));
-                  setPage(1);
-                  setPageSize(nextPageSize);
-                  setCustomPageSizeInput(String(nextPageSize));
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  const parsedValue = Number.parseInt(customPageSizeInput, 10);
-                  if (!Number.isFinite(parsedValue)) {
-                    setCustomPageSizeInput(String(pageSize));
-                    return;
-                  }
-                  const nextPageSize = Math.min(ACCOUNT_PAGE_SIZE_MAX, Math.max(1, parsedValue));
-                  setPage(1);
-                  setPageSize(nextPageSize);
-                  setCustomPageSizeInput(String(nextPageSize));
-                }}
-                className="h-8 w-20 px-2 text-xs"
-                aria-label="Custom accounts per page"
-                placeholder="Custom"
-              />
-              <span className="text-xs text-text-muted">Page {pagination.page} / {pagination.totalPages}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setPage(1)}
-                disabled={
-                  pagination.page <= 1 || connectionsLoading || refreshingAll
-                }
-                className="text-xs"
-              >
-                First Page
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() =>
-                  setPage((currentPage) => Math.max(1, currentPage - 1))
-                }
-                disabled={
-                  pagination.page <= 1 || connectionsLoading || refreshingAll
-                }
-                aria-label="Previous accounts page"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() =>
-                  setPage((currentPage) =>
-                    Math.min(pagination.totalPages, currentPage + 1),
-                  )
-                }
-                disabled={
-                  pagination.page >= pagination.totalPages ||
-                  connectionsLoading ||
-                  refreshingAll
-                }
-                aria-label="Next accounts page"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setPage(pagination.totalPages)}
-                disabled={
-                  pagination.page >= pagination.totalPages ||
-                  connectionsLoading ||
-                  refreshingAll
-                }
-                className="text-xs"
-              >
-                Last Page
-              </Button>
-            </div>
-          </div>
-        </div>
-
-      <ConfirmModal
-        isOpen={showDeleteConfirm}
-        onClose={() => {
-          setShowDeleteConfirm(false);
-          setPendingDeleteId(null);
-        }}
-        onConfirm={() => {
-          setShowDeleteConfirm(false);
-          if (pendingDeleteId) {
-            handleDeleteConnection(pendingDeleteId);
-            setPendingDeleteId(null);
-          }
-        }}
-        title={translate("Delete") || "Delete"}
-        message={translate("Delete this connection?") || "Delete this connection?"}
-        confirmText={translate("Delete") || "Delete"}
-        cancelText={translate("Cancel") || "Cancel"}
-        variant="danger"
+      <PaginationSection
+        pagination={connectionsHook.pagination}
+        page={connectionsHook.page}
+        setPage={connectionsHook.setPage}
+        pageSize={connectionsHook.pageSize}
+        setPageSize={connectionsHook.setPageSize}
+        customPageSizeInput={connectionsHook.customPageSizeInput}
+        setCustomPageSizeInput={connectionsHook.setCustomPageSizeInput}
+        connectionsLoading={connectionsHook.connectionsLoading}
+        refreshingAll={quotaHook.refreshingAll}
       />
 
-      <ConfirmModal
-        isOpen={Boolean(resetConfirmState)}
-        onClose={() => {
-          if (!resettingLimitId) setResetConfirmState(null);
-        }}
-        onConfirm={async () => {
-          const connection = resetConfirmState?.connection;
-          if (!connection) return;
-          await handleResetCodexLimit(connection.id, connection.provider);
-          setResetConfirmState(null);
-        }}
-        title={translate("Reset Codex limit?") || "Reset Codex limit?"}
-        message={`Use 1 Codex reset credit for ${(resetConfirmState?.connection ? getConnectionLabel(resetConfirmState.connection) : null) || "this account"}. This cannot be undone. Remaining credits: ${resetConfirmState?.resetCreditCount ?? 0}.`}
-        confirmText={translate("Reset limit") || "Reset limit"}
-        cancelText={translate("Cancel") || "Cancel"}
-        variant="danger"
-        loading={Boolean(resettingLimitId)}
-      />
-
-      {resetCreditsState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-black/15 bg-white shadow-2xl ring-1 ring-black/10 dark:border-white/15 dark:bg-neutral-950 dark:ring-white/10">
-            <div className="flex items-start justify-between gap-3 border-b border-black/10 bg-black/[0.03] px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-              <div className="min-w-0">
-                <h3 className="text-base font-semibold text-text-primary">Codex Reset Credit Expiry</h3>
-                <p className="mt-0.5 truncate text-xs text-text-muted">
-                  {getConnectionLabel(resetCreditsState.connection) || "Codex account"}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setResetCreditsState(null)}
-                className="text-text-muted hover:text-text-primary"
-                aria-label="Close reset credit expiry modal"
-              >
-                <X className="size-5" />
-              </Button>
-            </div>
-
-            <div className="max-h-[70vh] overflow-auto bg-white p-4 dark:bg-neutral-950">
-              {resetCreditsState.loading ? (
-                <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
-                  <Loader2 className="size-5" />
-                  {translate("Loading reset credits...") || "Loading reset credits..."}
-                </div>
-              ) : resetCreditsState.error ? (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300">
-                  {resetCreditsState.error}
-                </div>
-              ) : resetCreditsState.data?.credits?.length ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2 text-xs text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
-                    <span>{resetCreditsState.data.credits.length} reset credit{resetCreditsState.data.credits.length === 1 ? "" : "s"}</span>
-                    <span>{resetCreditsState.data.availableCount ?? 0} available</span>
-                  </div>
-                  <div className="rounded-xl border border-black/10 dark:border-white/10">
-                    <Table className="min-w-[560px] text-left">
-                      <TableHeader className="bg-black/[0.03] text-xs uppercase tracking-wide text-text-muted dark:bg-white/[0.04]">
-                        <TableRow>
-                          <TableHead className="px-3 py-2 font-medium">Status</TableHead>
-                          <TableHead className="px-3 py-2 font-medium">Granted At</TableHead>
-                          <TableHead className="px-3 py-2 font-medium">Expires At</TableHead>
-                          <TableHead className="px-3 py-2 font-medium">Remaining</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {resetCreditsState.data.credits.map((credit, index) => (
-                          <TableRow key={`${credit.status}-${credit.expiresAt || index}`}>
-                            <TableCell className="px-3 py-2">
-                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                                {credit.status || "unknown"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="px-3 py-2 text-text-muted">{formatCreditDate(credit.grantedAt)}</TableCell>
-                            <TableCell className="px-3 py-2 text-text-primary">{formatCreditDate(credit.expiresAt)}</TableCell>
-                            <TableCell className="px-3 py-2 font-medium text-text-primary">{formatTimeRemaining(credit.expiresAt)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-black/10 bg-black/[0.02] px-3 py-8 text-center text-sm text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
-                  {translate("No reset credit details returned for this account.") || "No reset credit details returned for this account."}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <EditConnectionModal
-        isOpen={showEditModal}
-        connection={selectedConnection}
-        proxyPools={proxyPools}
-        onSave={handleUpdateConnection}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedConnection(null);
-        }}
+      <ModalsSection
+        showDeleteConfirm={actionsHook.showDeleteConfirm}
+        setShowDeleteConfirm={actionsHook.setShowDeleteConfirm}
+        pendingDeleteId={actionsHook.pendingDeleteId}
+        setPendingDeleteId={actionsHook.setPendingDeleteId}
+        handleDeleteConnection={actionsHook.handleDeleteConnection}
+        resetConfirmState={codexHook.resetConfirmState}
+        setResetConfirmState={codexHook.setResetConfirmState}
+        resettingLimitId={codexHook.resettingLimitId}
+        handleResetCodexLimit={codexHook.handleResetCodexLimit}
+        resetCreditsState={codexHook.resetCreditsState}
+        setResetCreditsState={codexHook.setResetCreditsState}
+        showEditModal={actionsHook.showEditModal}
+        setShowEditModal={actionsHook.setShowEditModal}
+        selectedConnection={actionsHook.selectedConnection}
+        setSelectedConnection={actionsHook.setSelectedConnection}
+        proxyPools={actionsHook.proxyPools}
+        handleUpdateConnection={actionsHook.handleUpdateConnection}
       />
     </div>
   );

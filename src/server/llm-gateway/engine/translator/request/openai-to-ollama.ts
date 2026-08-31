@@ -1,4 +1,4 @@
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { parseDataUri } from "../concerns/image";
 import { safeParseJSON } from "../concerns/json";
@@ -18,7 +18,7 @@ import { ROLE, OPENAI_BLOCK } from "../schema/index";
  * - Multimodal images should be mapped to `message.images[]` (raw base64, no data: prefix)
  * - tool role maps to tool (Ollama supports tool messages)
  */
-export function openaiToOllamaRequest(model: string, body: Record<string, unknown>, stream: boolean) {
+function openaiToOllamaRequest(model: string, body: Record<string, unknown>, stream: boolean) {
   const result: Record<string, unknown> = {
     model: model,
     messages: normalizeMessages(body.messages),

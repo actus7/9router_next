@@ -18,7 +18,7 @@ function modelEntries(data: unknown): [string | null, unknown][] {
   return [];
 }
 
-export function parseGrokCliModels(data: unknown): Record<string, unknown>[] {
+function parseGrokCliModels(data: unknown): Record<string, unknown>[] {
   const seen = new Set<string>();
   const models: Record<string, unknown>[] = [];
 

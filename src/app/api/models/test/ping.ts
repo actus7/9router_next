@@ -146,13 +146,13 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
     headers,
     body: JSON.stringify({
       model,
-      // 1024 tokens: reasoning models (ClinePass/kimi-k3, deepseek-v4-pro, etc.) spend
-      // their budget on chain-of-thought before emitting an answer. A tiny probe like
-      // max_tokens:16 starves the answer and yields a false "no choices" failure.
-      // See issue #3010.
-      max_tokens: 1024,
+      // This is a reachability probe, not a quality evaluation. 128 tokens is
+      // enough to receive a completion choice (including reasoning-only
+      // length-limited replies) without spending a full 1024-token generation
+      // for every model in a catalogue.
+      max_tokens: 128,
       stream: false,
-      messages: [{ role: "user", content: "hi" }],
+      messages: [{ role: "user", content: "Reply with exactly: OK" }],
     }),
     signal: AbortSignal.timeout(timeoutMs),
   });

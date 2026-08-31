@@ -15,7 +15,7 @@ export default {
   },
 };
 
-export async function synthesizeMiMo(text: string, model: string, apiKey: string, style?: string, language?: string): Promise<{ base64: string; format: string }> {
+async function synthesizeMiMo(text: string, model: string, apiKey: string, style?: string, language?: string): Promise<{ base64: string; format: string }> {
   const { modelId, voiceId } = parseModelVoice(model, DEFAULT_MODEL, DEFAULT_VOICE, [DEFAULT_MODEL]);
 
   // Language and style are soft instructions → prepend as a role:user message.

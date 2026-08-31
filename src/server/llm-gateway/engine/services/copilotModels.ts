@@ -170,6 +170,6 @@ export async function resolveCopilotModels(credentials: Credentials, options: Co
   return { models };
 }
 
-export function clearCopilotModelCache(): void {
+function clearCopilotModelCache(): void {
   catalogCache.clear();
 }

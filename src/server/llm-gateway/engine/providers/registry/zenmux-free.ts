@@ -16,9 +16,9 @@ export default {
   },
   category: "webCookie",
   authType: "cookie",
-  authHint: "Paste your full exported cookie from zenmux.ai",
+  authHint: "Paste your full exported cookie from zenmux.ai (must include ctoken)",
   transport: {
-    baseUrl: "https://zenmux.ai/api/v1/chat/completions",
+    baseUrl: "https://zenmux.ai/api/anthropic/v1/messages",
     format: "openai",
     authType: "cookie",
   },

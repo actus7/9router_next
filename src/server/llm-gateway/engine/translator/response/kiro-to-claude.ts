@@ -13,7 +13,7 @@
  * Registered on the direct route by ../index.js; reached only when source
  * format is Claude and target is Kiro.
  */
-import { register } from "../index";
+import { register } from "../registry";
 import { FORMATS } from "../formats";
 
 function stopThinkingBlock(state: Record<string, unknown>, results: Record<string, unknown>[]) {
@@ -46,7 +46,7 @@ function convertFinishReason(reason: string) {
  * Convert one OpenAI-format chunk (from KiroExecutor) into Claude SSE events.
  * Returns an array of Claude events, or null when the chunk yields nothing.
  */
-export function kiroToClaudeResponse(chunk: Record<string, unknown> | string, state: Record<string, unknown>) {
+function kiroToClaudeResponse(chunk: Record<string, unknown> | string, state: Record<string, unknown>) {
   // KiroExecutor emits chat.completion.chunk objects; tolerate string chunks
   // by attempting a parse (defensive — the direct path is always objects).
   let data: Record<string, unknown> | string = chunk;
@@ -231,7 +231,7 @@ export function kiroToClaudeResponse(chunk: Record<string, unknown> | string, st
  * a defensive helper for any non-streaming caller that hands us an aggregated
  * OpenAI-shaped completion.
  */
-export function kiroToClaudeNonStreaming(data: Record<string, unknown>) {
+function kiroToClaudeNonStreaming(data: Record<string, unknown>) {
   const content: Record<string, unknown>[] = [];
   const choices = data?.choices as Record<string, unknown>[] | undefined;
   const choice = choices?.[0];
