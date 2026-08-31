@@ -56,7 +56,7 @@ export {
 // Aliases (model + custom)
 export {
   getModelAliases, setModelAlias, deleteModelAlias,
-  getCustomModels, addCustomModel, deleteCustomModel,
+  getCustomModels, addCustomModel, deleteCustomModel, syncDiscoveredCustomModels,
 } from "./repos/aliasRepo";
 
 // Pricing

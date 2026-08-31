@@ -288,6 +288,165 @@ function createErrorResponse(jsonError: Record<string, unknown>) {
   });
 }
 
+type CursorToolCall = NonNullable<ReturnType<typeof extractTextFromResponse>["toolCall"]> & {
+  index?: number;
+};
+
+interface SseFrameState {
+  chunks: string[];
+  totalContent: string;
+  totalThinking: string;
+  emittedComposerThinkingContentLength: number;
+  toolCalls: CursorToolCall[];
+  toolCallsMap: Map<string, CursorToolCall>;
+  finalizedIds: Set<string>;
+  emittedToolCallIds: Set<string>;
+  responseId: string;
+  created: number;
+  model: string;
+}
+
+type SseFrameResult =
+  | { action: "continue" }
+  | { action: "break" }
+  | { action: "return"; response: Response };
+
+function emitToolCallChunks(state: SseFrameState, tc: CursorToolCall): void {
+  if (state.chunks.length === 0) {
+    state.chunks.push(chatChunkSse({ id: state.responseId, created: state.created, model: state.model, delta: { role: "assistant", content: "" } }));
+  }
+
+  if (state.toolCallsMap.has(tc.id)) {
+    const existing = state.toolCallsMap.get(tc.id)!;
+    const oldArgsLen = existing.function.arguments.length;
+    existing.function.arguments += tc.function.arguments;
+    existing.isLast = tc.isLast;
+
+    if (tc.function.arguments) {
+      state.emittedToolCallIds.add(tc.id);
+      state.chunks.push(chatChunkSse({
+        id: state.responseId, created: state.created, model: state.model,
+        delta: {
+          tool_calls: [
+            {
+              index: existing.index,
+              id: tc.id,
+              type: "function",
+              function: {
+                name: tc.function.name,
+                arguments: tc.function.arguments
+              }
+            }
+          ]
+        }
+      }));
+    }
+  } else {
+    const toolCallIndex: number = state.toolCalls.length;
+    state.finalizedIds.add(tc.id);
+    state.toolCalls.push({ ...tc, index: toolCallIndex });
+    state.toolCallsMap.set(tc.id, { ...tc, index: toolCallIndex });
+
+    state.emittedToolCallIds.add(tc.id);
+    state.chunks.push(chatChunkSse({
+      id: state.responseId, created: state.created, model: state.model,
+      delta: {
+        tool_calls: [
+          {
+            index: toolCallIndex,
+            id: tc.id,
+            type: "function",
+            function: {
+              name: tc.function.name,
+              arguments: tc.function.arguments
+            }
+          }
+        ]
+      }
+    }));
+  }
+}
+
+function processSseFrame(state: SseFrameState, payload: Buffer<ArrayBufferLike>, frameCount: number): SseFrameResult {
+  // Check for JSON error frames (byte-guard: only decode if starts with '{')
+  if (payload[0] === 0x7b) {
+    try {
+      const text = payload.toString("utf-8");
+      if (text.includes('"error"')) {
+        const hasContent = state.chunks.length > 0 || state.totalContent || state.toolCallsMap.size > 0;
+        debugLog(
+          `[CURSOR BUFFER SSE] Error frame (hasContent=${hasContent}): ${text.slice(0, 500)}`
+        );
+        if (hasContent) {
+          return { action: "break" };
+        }
+        return { action: "return", response: createErrorResponse(JSON.parse(text)) };
+      }
+    } catch {}
+  }
+
+  const result = extractTextFromResponse(new Uint8Array(payload) as Uint8Array<ArrayBuffer>);
+  debugLog(`[CURSOR DECODED SSE] Frame ${frameCount}:`, result);
+
+  if (result.error) {
+    const hasContent = state.chunks.length > 0 || state.totalContent || state.toolCallsMap.size > 0;
+    debugLog(`[CURSOR BUFFER SSE] Decoded error (hasContent=${hasContent}): ${result.error}`);
+    if (hasContent) {
+      return { action: "break" };
+    }
+    return {
+      action: "return",
+      response: new Response(
+        JSON.stringify({
+          error: {
+            message: result.error,
+            type: "rate_limit_error",
+            code: "rate_limited"
+          }
+        }),
+        {
+          status: HTTP_STATUS.RATE_LIMITED,
+          headers: { "Content-Type": "application/json" }
+        }
+      )
+    };
+  }
+
+  if (result.toolCall) {
+    emitToolCallChunks(state, result.toolCall);
+  }
+
+  if (result.text) {
+    state.totalContent += result.text;
+    state.chunks.push(chatChunkSse({
+      id: state.responseId, created: state.created, model: state.model,
+      delta:
+        state.chunks.length === 0 && state.toolCalls.length === 0
+          ? { role: "assistant", content: result.text }
+          : { content: result.text }
+    }));
+  }
+
+  if (isComposerModel(state.model) && result.thinking) {
+    state.totalThinking += result.thinking;
+    const visibleContent = visibleComposerContentFromThinking(state.totalThinking);
+    if (visibleContent.length > state.emittedComposerThinkingContentLength) {
+      const deltaContent = visibleContent.slice(state.emittedComposerThinkingContentLength);
+      state.emittedComposerThinkingContentLength = visibleContent.length;
+      state.totalContent += deltaContent;
+      state.chunks.push(chatChunkSse({
+        id: state.responseId, created: state.created, model: state.model,
+        delta:
+          state.chunks.length === 0 && state.toolCalls.length === 0
+            ? { role: "assistant", content: deltaContent }
+            : { content: deltaContent }
+      }));
+    }
+  }
+
+  return { action: "continue" };
+}
+
 export class CursorExecutor extends BaseExecutor {
   constructor() {
     super("cursor", PROVIDERS.cursor);
@@ -901,15 +1060,21 @@ export class CursorExecutor extends BaseExecutor {
     const responseId = `chatcmpl-cursor-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
 
-    const chunks = [];
+    const state: SseFrameState = {
+      chunks: [],
+      totalContent: "",
+      totalThinking: "",
+      emittedComposerThinkingContentLength: 0,
+      toolCalls: [],
+      toolCallsMap: new Map(),
+      finalizedIds: new Set(),
+      emittedToolCallIds: new Set(),
+      responseId,
+      created,
+      model
+    };
+
     let offset = 0;
-    let totalContent = "";
-    let totalThinking = "";
-    let emittedComposerThinkingContentLength = 0;
-    const toolCalls = [];
-    const toolCallsMap = new Map(); // Track streaming tool calls by ID
-    const finalizedIds = new Set();
-    const emittedToolCallIds = new Set();
     let frameCount = 0;
 
     debugLog(`[CURSOR BUFFER SSE] Total length: ${buffer.length} bytes`);
@@ -922,151 +1087,25 @@ export class CursorExecutor extends BaseExecutor {
       if (frame.status === "skip") continue;
       const payload = frame.payload!;
 
-      // Check for JSON error frames (byte-guard: only decode if starts with '{')
-      if (payload[0] === 0x7b) {
-        try {
-          const text = payload.toString("utf-8");
-          if (text.includes('"error"')) {
-            const hasContent = chunks.length > 0 || totalContent || toolCallsMap.size > 0;
-            debugLog(
-              `[CURSOR BUFFER SSE] Error frame (hasContent=${hasContent}): ${text.slice(0, 500)}`
-            );
-            if (hasContent) {
-              break;
-            }
-            return createErrorResponse(JSON.parse(text));
-          }
-        } catch {}
-      }
-
-      const result = extractTextFromResponse(new Uint8Array(payload) as Uint8Array<ArrayBuffer>);
-      debugLog(`[CURSOR DECODED SSE] Frame ${frameCount}:`, result);
-
-      if (result.error) {
-        const hasContent = chunks.length > 0 || totalContent || toolCallsMap.size > 0;
-        debugLog(`[CURSOR BUFFER SSE] Decoded error (hasContent=${hasContent}): ${result.error}`);
-        if (hasContent) {
-          break;
-        }
-        return new Response(
-          JSON.stringify({
-            error: {
-              message: result.error,
-              type: "rate_limit_error",
-              code: "rate_limited"
-            }
-          }),
-          {
-            status: HTTP_STATUS.RATE_LIMITED,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
-      }
-
-      if (result.toolCall) {
-        const tc = result.toolCall;
-
-        if (chunks.length === 0) {
-          chunks.push(chatChunkSse({ id: responseId, created, model, delta: { role: "assistant", content: "" } }));
-        }
-
-        if (toolCallsMap.has(tc.id)) {
-          // Accumulate arguments for existing tool call
-          const existing = toolCallsMap.get(tc.id);
-          const oldArgsLen = existing.function.arguments.length;
-          existing.function.arguments += tc.function.arguments;
-          existing.isLast = tc.isLast;
-
-          // Stream the delta arguments
-          if (tc.function.arguments) {
-            emittedToolCallIds.add(tc.id);
-            chunks.push(chatChunkSse({
-              id: responseId, created, model,
-              delta: {
-                tool_calls: [
-                  {
-                    index: existing.index,
-                    id: tc.id,
-                    type: "function",
-                    function: {
-                      name: tc.function.name,
-                      arguments: tc.function.arguments
-                    }
-                  }
-                ]
-              }
-            }));
-          }
-        } else {
-          // New tool call - assign index and add to map
-          const toolCallIndex: number = toolCalls.length;
-          finalizedIds.add(tc.id);
-          toolCalls.push({ ...tc, index: toolCallIndex });
-          toolCallsMap.set(tc.id, { ...tc, index: toolCallIndex });
-
-          // Stream initial tool call with name
-          emittedToolCallIds.add(tc.id);
-          chunks.push(chatChunkSse({
-            id: responseId, created, model,
-            delta: {
-              tool_calls: [
-                {
-                  index: toolCallIndex,
-                  id: tc.id,
-                  type: "function",
-                  function: {
-                    name: tc.function.name,
-                    arguments: tc.function.arguments
-                  }
-                }
-              ]
-            }
-          }));
-        }
-      }
-
-      if (result.text) {
-        totalContent += result.text;
-        chunks.push(chatChunkSse({
-          id: responseId, created, model,
-          delta:
-            chunks.length === 0 && toolCalls.length === 0
-              ? { role: "assistant", content: result.text }
-              : { content: result.text }
-        }));
-      }
-
-      if (isComposerModel(model) && result.thinking) {
-        totalThinking += result.thinking;
-        const visibleContent = visibleComposerContentFromThinking(totalThinking);
-        if (visibleContent.length > emittedComposerThinkingContentLength) {
-          const deltaContent = visibleContent.slice(emittedComposerThinkingContentLength);
-          emittedComposerThinkingContentLength = visibleContent.length;
-          totalContent += deltaContent;
-          chunks.push(chatChunkSse({
-            id: responseId, created, model,
-            delta:
-              chunks.length === 0 && toolCalls.length === 0
-                ? { role: "assistant", content: deltaContent }
-                : { content: deltaContent }
-          }));
-        }
-      }
+      const frameResult = processSseFrame(state, payload, frameCount);
+      if (frameResult.action === "return") return frameResult.response;
+      if (frameResult.action === "break") break;
     }
 
     debugLog(
-      `[CURSOR BUFFER SSE] Parsed ${frameCount} frames, toolCallsMap size: ${toolCallsMap.size}, toolCalls array: ${toolCalls.length}`
+      `[CURSOR BUFFER SSE] Parsed ${frameCount} frames, toolCallsMap size: ${state.toolCallsMap.size}, toolCalls array: ${state.toolCalls.length}`
     );
 
     // Finalize all remaining tool calls in map (stream may have ended without isLast=true)
-    for (const [id, tc] of toolCallsMap.entries()) {
-      if (!finalizedIds.has(id)) {
+    for (const [id, tc] of state.toolCallsMap.entries()) {
+      if (!state.finalizedIds.has(id)) {
         debugLog(`[CURSOR BUFFER SSE] Finalizing incomplete tool call: ${id}, isLast=${tc.isLast}`);
-        const toolCallIndex: number = toolCalls.length;
-        toolCalls.push({
+        const toolCallIndex: number = state.toolCalls.length;
+        state.toolCalls.push({
           id: tc.id,
           type: tc.type,
           index: toolCallIndex,
+          isLast: tc.isLast,
           function: {
             name: tc.function.name,
             arguments: tc.function.arguments
@@ -1074,9 +1113,9 @@ export class CursorExecutor extends BaseExecutor {
         });
 
         // Emit SSE chunk for the finalized tool call if not already emitted
-        if (!emittedToolCallIds.has(tc.id)) {
-          chunks.push(chatChunkSse({
-            id: responseId, created, model,
+        if (!state.emittedToolCallIds.has(tc.id)) {
+          state.chunks.push(chatChunkSse({
+            id: state.responseId, created: state.created, model: state.model,
             delta: {
               tool_calls: [
                 {
@@ -1095,31 +1134,31 @@ export class CursorExecutor extends BaseExecutor {
       }
     }
 
-    if (chunks.length === 0 && toolCalls.length === 0) {
-      chunks.push(chatChunkSse({ id: responseId, created, model, delta: { role: "assistant", content: "" } }));
+    if (state.chunks.length === 0 && state.toolCalls.length === 0) {
+      state.chunks.push(chatChunkSse({ id: state.responseId, created: state.created, model: state.model, delta: { role: "assistant", content: "" } }));
     }
 
-    const usage = estimateUsage(body, totalContent.length, FORMATS.OPENAI);
+    const usage = estimateUsage(body, state.totalContent.length, FORMATS.OPENAI);
 
-    chunks.push(
+    state.chunks.push(
       `data: ${JSON.stringify({
-        id: responseId,
+        id: state.responseId,
         object: "chat.completion.chunk",
-        created,
-        model,
+        created: state.created,
+        model: state.model,
         choices: [
           {
             index: 0,
             delta: {},
-            finish_reason: toolCalls.length > 0 ? "tool_calls" : "stop"
+            finish_reason: state.toolCalls.length > 0 ? "tool_calls" : "stop"
           }
         ],
         usage
       })}\n\n`
     );
-    chunks.push(SSE_DONE);
+    state.chunks.push(SSE_DONE);
 
-    return new Response(chunks.join(""), {
+    return new Response(state.chunks.join(""), {
       status: 200,
       headers: { ...SSE_HEADERS }
     });

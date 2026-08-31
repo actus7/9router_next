@@ -44,7 +44,7 @@ export default function TokenSaverClient() {
       } catch {}
     };
     loadSettings();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-6 p-6">

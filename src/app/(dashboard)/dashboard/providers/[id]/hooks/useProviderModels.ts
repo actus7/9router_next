@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getModelKind, getModelsByProviderId } from "@/shared/constants/models";
 import { getThinkingLevels } from "@/shared/llm-catalog";
 import { translate } from "@/i18n/runtime";
@@ -60,6 +60,7 @@ export function useProviderModels({
   const [modelsTestError, setModelsTestError] = useState<string>("");
   const [testingModelIds, setTestingModelIds] = useState<Set<string>>(() => new Set());
   const [testAllModels, setTestAllModels] = useState<{ running: boolean; results: ModelDiagnostic[] } | null>(null);
+  const testAllAbortRef = useRef<AbortController | null>(null);
   const [showAddCustomModel, setShowAddCustomModel] = useState<boolean>(false);
   const [suggestedModels, setSuggestedModels] = useState<SuggestedModel[]>([]);
   const [liveModels, setLiveModels] = useState<LiveModel[]>([]);
@@ -456,51 +457,39 @@ export function useProviderModels({
       // Only LLMs belong in the gateway's chat-model custom catalog. Ark's live
       // list also contains embeddings, image, and video models; persisting them
       // as LLMs makes later chat probes call the wrong endpoint.
-      const fetchedLlmIds = new Set(
-        fetched
-          .filter((model) => (getModelKind(model) || "llm") === "llm")
-          .map((model) => model.id || model.name)
-          .filter((modelId): modelId is string => typeof modelId === "string" && modelId.length > 0),
+      const fetchedLlmModels = fetched.filter((model) =>
+        !!(model.id || model.name) && (getModelKind(model) || "llm") === "llm",
       );
       // Refresh is the explicit rebuild action: models returned by the current
       // upstream catalogue become selectable again after a deliberate clear.
       const restoredIds = [...fetchedIds, CLEAR_ALL_MODELS_SENTINEL];
       if (restoredIds.length > 0) {
-        const params = new URLSearchParams({ providerAlias: providerStorageAlias });
-        restoredIds.forEach((modelId) => params.append("id", modelId));
-        const restoreResponse = await fetch(`/api/models/disabled?${params}`, { method: "DELETE" });
+        const restoreResponse = await fetch("/api/models/disabled", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ providerAlias: providerStorageAlias, ids: restoredIds, action: "enable" }),
+        });
         if (restoreResponse.ok) await fetchDisabledModels();
       }
 
-      // Legacy entries without a source are treated as manual. Only entries
-      // created by Refresh are eligible for automatic removal.
-      const existingCustom = customModels.filter(
-        (entry) => entry.providerAlias === providerStorageAlias && (entry.kind || entry.type || "llm") === "llm",
-      );
-      for (const entry of existingCustom.filter((model) => model.source === "discovered")) {
-        // Also remove legacy discovered media models that older refreshes had
-        // incorrectly persisted as LLMs.
-        if (!fetchedLlmIds.has(entry.id)) {
-          await handleDeleteCustomModel(entry.id, "llm", providerStorageAlias);
-        }
+      // Persist the complete upstream LLM catalogue in one request. The API
+      // transaction removes only stale discovered entries and preserves manual
+      // models, so a large OpenRouter refresh cannot turn into thousands of
+      // browser-to-server requests.
+      const syncResponse = await fetch("/api/models/discovered", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerAlias: providerStorageAlias, models: fetchedLlmModels }),
+      });
+      const syncData = await syncResponse.json();
+      if (!syncResponse.ok) {
+        notify.error(syncData.error || "Failed to synchronize models");
+        return;
       }
-
-      // Persist the complete upstream LLM catalogue, including IDs that happen
-      // to exist in the static registry. This snapshot is the source of truth
-      // after navigation; otherwise a remount would silently resurrect stale
-      // static models that the provider did not return during Refresh.
-      const existingCustomIds = new Set(existingCustom.map((model) => model.id));
-      const discoveredCustomIds = new Set(existingCustom.filter((model) => model.source === "discovered").map((model) => model.id));
-      for (const model of fetched) {
-        const modelId = model.id || model.name;
-        if (
-          modelId &&
-          (getModelKind(model) || "llm") === "llm" &&
-          (!existingCustomIds.has(modelId) || discoveredCustomIds.has(modelId))
-        ) {
-          await handleAddCustomModel(modelId, "llm", providerStorageAlias, "discovered", model);
-        }
+      if (Array.isArray(syncData.models)) {
+        setCustomModels(syncData.models);
       }
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
 
       setLiveModels(fetched as LiveModel[]);
       notify.success(`Atualizado: ${fetched.length} modelos`);
@@ -519,11 +508,13 @@ export function useProviderModels({
     modelId: string,
     onProgress: (diagnostic: ModelDiagnostic) => void,
     timeoutSchedule: readonly number[] = TEST_TIMEOUT_SCHEDULE,
+    signal?: AbortSignal,
   ): Promise<ModelDiagnostic> => {
     let lastError = translate("Model is not reachable") || "Model is not reachable";
     let attemptsMade = 0;
     let lastStatus: number | undefined;
     for (let attempt = 0; attempt < timeoutSchedule.length; attempt++) {
+      if (signal?.aborted) return { modelId, ok: false, state: "cancelled", error: "Test cancelled", attempts: attemptsMade, status: lastStatus };
       attemptsMade = attempt + 1;
       onProgress({ modelId, ok: false, state: attempt === 0 ? "testing" : "retrying", attempts: attemptsMade });
       try {
@@ -531,6 +522,7 @@ export function useProviderModels({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}`, timeoutMs: timeoutSchedule[attempt] }),
+          signal,
         });
         const data = await res.json();
         if (data.ok) return { modelId, ok: true, state: "passed", attempts: attemptsMade, latencyMs: data.latencyMs, status: data.status };
@@ -545,6 +537,7 @@ export function useProviderModels({
         }
         if (!data.isTimeout) break; // definitive failure — no point retrying
       } catch {
+        if (signal?.aborted) return { modelId, ok: false, state: "cancelled", error: "Test cancelled", attempts: attemptsMade, status: lastStatus };
         lastError = translate("Network error") || "Network error";
         onProgress({ modelId, ok: false, state: "retrying", attempts: attemptsMade, error: lastError });
       }
@@ -555,6 +548,7 @@ export function useProviderModels({
   // Test every currently-displayed model concurrently, each with its own retry
   // schedule, and stream results into the diagnostics modal as they land.
   const handleTestAllModels = async () => {
+    if (testAllAbortRef.current) return;
     const allModels = [
       ...models,
       ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
@@ -572,6 +566,8 @@ export function useProviderModels({
       running: true,
       results: modelIds.map((modelId) => ({ modelId, ok: false, state: "queued", attempts: 0 })),
     });
+    const controller = new AbortController();
+    testAllAbortRef.current = controller;
     // Keep provider tests useful instead of turning a large catalogue into a
     // burst that trips rate limits or exhausts every connection at once.
     // Ollama Cloud explicitly permits one cloud model at a time. Parallel
@@ -586,21 +582,22 @@ export function useProviderModels({
     let nextIndex = 0;
     const runNext = async () => {
       while (nextIndex < modelIds.length) {
+        if (controller.signal.aborted) return;
         const modelId = modelIds[nextIndex++];
         const updateProgress = (diagnostic: ModelDiagnostic) => {
           setTestAllModels((current) => current
             ? { ...current, results: current.results.map((item) => item.modelId === modelId ? diagnostic : item) }
             : current);
         };
-      const result = await pingModelWithRetry(modelId, updateProgress, timeoutSchedule);
-      setModelTestResults((prev) => ({ ...prev, [modelId]: result.ok ? "ok" : "error" }));
+      const result = await pingModelWithRetry(modelId, updateProgress, timeoutSchedule, controller.signal);
+      if (result.state !== "cancelled") setModelTestResults((prev) => ({ ...prev, [modelId]: result.ok ? "ok" : "error" }));
       updateProgress(result);
         results.push(result);
       }
     };
     await Promise.all(Array.from({ length: Math.min(maxConcurrentTests, modelIds.length) }, runNext));
 
-    const unavailableIds = results.filter(isDefinitivelyUnavailableModel).map((result) => result.modelId);
+    const unavailableIds = controller.signal.aborted ? [] : results.filter(isDefinitivelyUnavailableModel).map((result) => result.modelId);
     if (unavailableIds.length > 0) {
       try {
         const response = await fetch("/api/models/disabled", {
@@ -617,6 +614,21 @@ export function useProviderModels({
       }
     }
     setTestAllModels((prev) => prev ? { ...prev, running: false } : prev);
+    testAllAbortRef.current = null;
+  };
+
+  const handleCancelTestAllModels = () => {
+    const controller = testAllAbortRef.current;
+    if (!controller) return;
+    controller.abort();
+    setTestAllModels((current) => current ? {
+      running: false,
+      results: current.results.map((result) => (
+        result.state === "queued" || result.state === "testing" || result.state === "retrying"
+          ? { ...result, state: "cancelled", error: "Test cancelled" }
+          : result
+      )),
+    } : current);
   };
 
   const handleTestModel = async (modelId: string) => {
@@ -673,6 +685,7 @@ export function useProviderModels({
     handleImportQoderModels,
     handleRefreshModels,
     handleTestAllModels,
+    handleCancelTestAllModels,
     handleTestModel,
   };
 }

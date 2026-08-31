@@ -391,6 +391,7 @@ export default function ModelsSection({
         {m.testAllModels && (() => {
           const passed = m.testAllModels.results.filter((r) => r.state === "passed");
           const failed = m.testAllModels.results.filter((r) => r.state === "failed");
+          const cancelled = m.testAllModels.results.filter((r) => r.state === "cancelled");
           const pending = m.testAllModels.results.filter((r) => r.state === "queued" || r.state === "testing" || r.state === "retrying");
           return (
             <div className="flex flex-col gap-4">
@@ -398,11 +399,13 @@ export default function ModelsSection({
                 {m.testAllModels.running && (
                   <span className="flex items-center gap-1.5 text-text-muted">
                     <Loader2 className="size-4 animate-spin" />
-                    {translate("Testing...")} ({passed.length + failed.length}/{m.testAllModels.results.length})
+                    {translate("Testing...")} ({passed.length + failed.length + cancelled.length}/{m.testAllModels.results.length})
                   </span>
                 )}
                 <span className="text-green-500">{translate("Passed") || "Passed"}: {passed.length}</span>
                 <span className="text-red-500">{translate("Failed") || "Failed"}: {failed.length}</span>
+                {cancelled.length > 0 && <span className="text-amber-500">Cancelled: {cancelled.length}</span>}
+                {m.testAllModels.running && <Button variant="ghost" size="sm" onClick={m.handleCancelTestAllModels}>Cancel tests</Button>}
               </div>
               <div className="flex flex-col gap-2">
                 {pending.map((r, index) => (
@@ -429,6 +432,13 @@ export default function ModelsSection({
                       )}
                     </div>
                     {r.error && <p className="mt-1 text-xs text-text-muted break-words">{r.error}</p>}
+                  </div>
+                ))}
+                {cancelled.map((r, index) => (
+                  <div key={`cancelled-${r.modelId}-${index}`} className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+                    <Ban className="size-4 shrink-0 text-amber-500" />
+                    <code className="truncate text-xs font-mono">{r.modelId}</code>
+                    <span className="ml-auto text-[10px] text-text-muted">Cancelled</span>
                   </div>
                 ))}
                 {passed.map((r, index) => (

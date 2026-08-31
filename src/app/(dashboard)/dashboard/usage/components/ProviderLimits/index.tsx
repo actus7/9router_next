@@ -76,7 +76,7 @@ export default function ProviderLimits() {
     };
 
     initializeData();
-  }, [connectionsHook.fetchConnections, quotaHook.fetchQuota, connectionsHook.page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [connectionsHook.fetchConnections, quotaHook.fetchQuota, connectionsHook.page]);
 
   const sortedConnections = useMemo(
     () =>

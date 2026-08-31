@@ -17,14 +17,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-// POST /api/models/disabled  body: { providerAlias, ids: [...] }
+// POST /api/models/disabled  body: { providerAlias, ids: [...], action?: "enable" }
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { providerAlias, ids } = await request.json();
+    const { providerAlias, ids, action } = await request.json();
     if (!providerAlias || !Array.isArray(ids)) {
       return NextResponse.json({ error: "providerAlias and ids[] required" }, { status: 400 });
     }
-    await disableModels(providerAlias, ids);
+    if (action === "enable") await enableModels(providerAlias, ids);
+    else await disableModels(providerAlias, ids);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error disabling models:", error);

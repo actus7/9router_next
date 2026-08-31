@@ -32,7 +32,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
     apiKeys.fetchData();
     settings.loadSettings();
     tunnel.loadTunnelStatus();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
@@ -59,7 +59,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tunnel.tunnelEnabled, tailscale.tsEnabled, tunnel.tunnelReachable, tailscale.tsReachable]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tunnel.tunnelEnabled, tailscale.tsEnabled, tunnel.tunnelReachable, tailscale.tsReachable]);
 
   // Browser-side periodic ping: probes tunnel/tailscale URLs directly so UI stays
   // "reachable" even when backend DNS (1.1.1.1) hiccups on *.ts.net or *.trycloudflare.com.
@@ -92,7 +92,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
     if (tunnelHealthy && tsHealthy) return;
     const id = setInterval(probeBoth, CLIENT_PING_FAST_MS);
     return () => clearInterval(id);
-  }, [tunnel.tunnelEnabled, tunnel.tunnelUrl, tunnel.tunnelPublicUrl, tailscale.tsEnabled, tailscale.tsUrl, tunnel.tunnelReachable, tailscale.tsReachable]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tunnel.tunnelEnabled, tunnel.tunnelUrl, tunnel.tunnelPublicUrl, tailscale.tsEnabled, tailscale.tsUrl, tunnel.tunnelReachable, tailscale.tsReachable]);
 
   if (apiKeys.loading) {
     return (

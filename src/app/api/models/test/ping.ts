@@ -58,7 +58,12 @@ async function getInternalHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
-export async function pingModelByKind(model: string, kind: string, baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`, timeoutMs = 25000): Promise<PingResult> {
+function requestSignal(timeoutMs: number, signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
+export async function pingModelByKind(model: string, kind: string, baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`, timeoutMs = 25000, signal?: AbortSignal): Promise<PingResult> {
   const headers = await getInternalHeaders();
   const start = Date.now();
 
@@ -67,7 +72,7 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
       method: "POST",
       headers,
       body: JSON.stringify({ model, input: "test" }),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: requestSignal(timeoutMs, signal),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -91,7 +96,7 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
       method: "POST",
       headers,
       body: JSON.stringify({ model, prompt: "test" }),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: requestSignal(timeoutMs, signal),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -121,7 +126,7 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
       method: "POST",
       headers: Object.fromEntries(Object.entries(headers).filter(([key]) => key.toLowerCase() !== "content-type")),
       body: form,
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: requestSignal(timeoutMs, signal),
     });
     const latencyMs = Date.now() - start;
     const rawText = await res.text().catch(() => "");
@@ -154,7 +159,7 @@ export async function pingModelByKind(model: string, kind: string, baseUrl = `ht
       stream: false,
       messages: [{ role: "user", content: "Reply with exactly: OK" }],
     }),
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: requestSignal(timeoutMs, signal),
   });
   const latencyMs = Date.now() - start;
 

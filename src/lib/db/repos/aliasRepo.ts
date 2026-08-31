@@ -28,13 +28,66 @@ export async function getCustomModels(): Promise<unknown[]> {
   return Object.values(all);
 }
 
-interface CustomModelInput {
+export interface CustomModelInput {
   providerAlias: string;
   id: string;
   type?: string;
   name?: string;
   source?: "manual" | "discovered";
   metadata?: Record<string, unknown>;
+}
+
+// Reconciles a provider's live catalogue in one SQLite transaction. Manual
+// entries are deliberately left alone; a refresh owns only its discovered
+// snapshot. Keeping this in the repository avoids an HTTP request per model
+// when large providers (such as OpenRouter) return hundreds of entries.
+export async function syncDiscoveredCustomModels(providerAlias: string, models: CustomModelInput[]): Promise<void> {
+  const desired = new Map(
+    models
+      .filter((model) => model.id && (model.type || "llm") === "llm")
+      .map((model) => [customKey(providerAlias, model.id, "llm"), {
+        ...model,
+        providerAlias,
+        type: "llm",
+        source: "discovered" as const,
+      }]),
+  );
+  const db = await getAdapter();
+
+  db.transaction(() => {
+    const rows = db.all("SELECT key, value FROM kv WHERE scope = 'customModels'") as Array<{ key: string; value: string }>;
+    const existing = new Map(rows.map((row) => [row.key, parseJson<Record<string, unknown>>(row.value, {}) || {}]));
+
+    for (const [key, value] of existing) {
+      if (
+        value.providerAlias === providerAlias &&
+        (value.kind || value.type || "llm") === "llm" &&
+        value.source === "discovered" &&
+        !desired.has(key)
+      ) {
+        db.run("DELETE FROM kv WHERE scope = 'customModels' AND key = ?", [key]);
+      }
+    }
+
+    for (const [key, model] of desired) {
+      const current = existing.get(key);
+      // A manually curated entry takes precedence over discovery.
+      if (current && current.source !== "discovered") continue;
+      const value = stringifyJson({
+        ...(current || {}),
+        ...(model.metadata || {}),
+        providerAlias,
+        id: model.id,
+        type: "llm",
+        name: model.name || model.id,
+        source: "discovered",
+      });
+      db.run(
+        "INSERT INTO kv(scope, key, value) VALUES('customModels', ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value",
+        [key, value],
+      );
+    }
+  });
 }
 
 // Atomic check-then-insert inside transaction to prevent duplicate races

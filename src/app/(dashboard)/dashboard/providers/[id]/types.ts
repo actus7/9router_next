@@ -102,7 +102,7 @@ export interface ProviderInfo {
 export interface ModelDiagnostic {
   modelId: string;
   ok: boolean;
-  state?: "queued" | "testing" | "retrying" | "passed" | "failed";
+  state?: "queued" | "testing" | "retrying" | "passed" | "failed" | "cancelled";
   error?: string;
   attempts: number;
   latencyMs?: number;

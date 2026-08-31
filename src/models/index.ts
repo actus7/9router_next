@@ -22,6 +22,7 @@ export {
   getCustomModels,
   addCustomModel,
   deleteCustomModel,
+  syncDiscoveredCustomModels,
   getCloudConnections,
   getCloudConnectionByProvider,
   getCloudConnectionById,

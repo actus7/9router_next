@@ -16,7 +16,7 @@ export {
   getSmartModelProfiles, getSmartModelProfile,
   upsertSmartModelProfiles, deleteSmartModelProfiles,
   getModelAliases, setModelAlias, deleteModelAlias,
-  getCustomModels, addCustomModel, deleteCustomModel,
+  getCustomModels, addCustomModel, deleteCustomModel, syncDiscoveredCustomModels,
   getPricing, updatePricing, resetPricing, resetAllPricing,
   getCloudConnections, getCloudConnectionByProvider, getCloudConnectionById,
   createCloudConnection, deleteCloudConnection,

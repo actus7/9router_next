@@ -24,8 +24,9 @@ import { useNotificationStore } from "@/store/notificationStore";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import ModelAvailabilityBadge from "./components/ModelAvailabilityBadge";
 import AddCompatibleModal from "./components/AddCompatibleModal";
-import { AlertCircle, CheckCircle2, ChevronDown, Loader2, PauseCircle, Play, Plus, Puzzle, SearchX } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, KeyRound, Loader2, PauseCircle, Play, Plus, Puzzle, SearchX, Sparkles, UserRound } from "lucide-react";
 import { translate } from "@/i18n/runtime";
+import { normalizeProviderId } from "@/lib/providerNormalization";
 
 interface Connection {
   id: string;
@@ -54,12 +55,16 @@ interface ProviderInfo {
   textIcon?: string;
   icon?: string;
   noAuth?: boolean;
+  hasFree?: boolean;
   hidden?: boolean;
   priority?: number;
   authModes?: string[];
   serviceKinds?: string[];
   apiType?: string;
 }
+
+type AvailabilityFilter = "all" | "free" | "connected";
+type Availability = "free" | "freeTier" | null;
 
 interface ProviderStats {
   connected: number;
@@ -165,6 +170,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
   const [providerNodes, setProviderNodes] = useState<ProviderNode[]>(initialNodes);
   const [loading, setLoading] = useState(false);
   const [showAllApikey, setShowAllApikey] = useState(false);
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
   const [showAddCompatibleModal, setShowAddCompatibleModal] = useState(false);
   const [showAddAnthropicCompatibleModal, setShowAddAnthropicCompatibleModal] =
     useState(false);
@@ -184,6 +190,12 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
     !searchQuery.trim() ||
     name.toLowerCase().includes(searchQuery.trim().toLowerCase());
 
+  const availabilityFor = (provider: ProviderInfo, source: "free" | "freeTier" | "other"): Availability => {
+    if (provider.noAuth) return "free";
+    if (source === "free" || source === "freeTier" || provider.hasFree) return "freeTier";
+    return null;
+  };
+
   const sortByPriority = (entries: [string, ProviderInfo][], authType: string | string[]) =>
     [...entries].sort(([ka, a], [kb, b]) => {
       const pa = a.priority ?? 999;
@@ -200,7 +212,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
   const getProviderStats = (providerId: string, authType: string | string[]): ProviderStats => {
     const authTypes = Array.isArray(authType) ? authType : [authType];
     const providerConnections = connections.filter(
-      (c) => c.provider === providerId && authTypes.includes(c.authType || ""),
+      (c) => normalizeProviderId(c.provider) === providerId && authTypes.includes(c.authType || ""),
     );
 
     const getEffectiveStatus = (conn: Connection) => {
@@ -241,10 +253,24 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
     return { connected, error, total, errorCode, errorTime, allDisabled };
   };
 
+  const matchesAvailability = (provider: ProviderInfo, availability: Availability, stats: ProviderStats) => {
+    if (availabilityFilter === "free") return availability !== null;
+    if (availabilityFilter === "connected") return stats.connected > 0;
+    return true;
+  };
+
+  const filterByAvailability = (
+    entries: [string, ProviderInfo][],
+    source: "free" | "freeTier" | "other",
+    authTypes: string | string[],
+  ) => entries.filter(([key, provider]) =>
+    matchesAvailability(provider, availabilityFor(provider, source), getProviderStats(key, authTypes)),
+  );
+
   const handleToggleProvider = async (providerId: string, authType: string | string[], newActive: boolean) => {
     const authTypes = Array.isArray(authType) ? authType : [authType];
     const matches = (c: Connection) =>
-      c.provider === providerId && authTypes.includes(c.authType || "");
+      normalizeProviderId(c.provider) === providerId && authTypes.includes(c.authType || "");
     const providerConns = connections.filter(matches);
     setConnections((prev) =>
       prev.map((c) => (matches(c) ? { ...c, isActive: newActive } : c)),
@@ -310,7 +336,10 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
     if (key === "kiro") return ["oauth", "apikey", "api_key"];
     const modes = info?.authModes;
     if (!Array.isArray(modes)) {
-      return key in FREE_TIER_PROVIDERS || key in APIKEY_PROVIDERS
+      // Some free providers (for example Naga) accept an optional API key.
+      // Their connections are persisted as `apikey`, even though the provider
+      // itself is shown in the Free Tier section.
+      return key in FREE_PROVIDERS || key in FREE_TIER_PROVIDERS || key in APIKEY_PROVIDERS
         ? ["oauth", "apikey", "api_key"]
         : "oauth";
     }
@@ -383,6 +412,33 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+      <section className="rounded-xl border border-border bg-surface-1 px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-base font-semibold text-text">Browse by access and availability</h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Connection sections show the setup method. Free availability is a label, so it never hides whether you need an account or API key.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2" aria-label="Provider availability filters">
+            <ModelAvailabilityBadge />
+            <Button variant={availabilityFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setAvailabilityFilter("all")}>
+              All providers
+            </Button>
+            <Button variant={availabilityFilter === "free" ? "default" : "outline"} size="sm" onClick={() => setAvailabilityFilter("free")}>
+              <Sparkles className="size-3.5" /> Free available
+            </Button>
+            <Button variant={availabilityFilter === "connected" ? "default" : "outline"} size="sm" onClick={() => setAvailabilityFilter("connected")}>
+              Connected
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-3 text-xs text-text-muted">
+          <span className="inline-flex items-center gap-1.5"><KeyRound className="size-3.5" /> API Key</span>
+          <span className="inline-flex items-center gap-1.5"><UserRound className="size-3.5" /> Account connection</span>
+          <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3.5 text-emerald-500" /> Free access or recurring free tier</span>
+        </div>
+      </section>
       {!hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
           <SearchX className="size-8" />
@@ -447,7 +503,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
             {translate("OAuth Providers")}
           </h2>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <ModelAvailabilityBadge />
             <Button
               variant="outline"
               onClick={() => handleBatchTest("oauth")}
@@ -466,7 +521,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {oauthEntries.map(([key, info]) => {
+          {filterByAvailability(oauthEntries, "other", "oauth").map(([key, info]) => {
             const authTypes = dualAuthTypes(info, key);
             return (
               <ProviderCard
@@ -475,6 +530,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                 provider={info}
                 stats={getProviderStats(key, authTypes)}
                 onToggle={(active) => handleToggleProvider(key, authTypes, active)}
+                availability={availabilityFor(info, "other")}
               />
             );
           })}
@@ -506,7 +562,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {freeEntries.map(([key, info]) => {
+          {filterByAvailability(freeEntries, "free", ["oauth", "apikey", "api_key"]).map(([key, info]) => {
             const freeAuthTypes = dualAuthTypes(info, key);
             return (
               <ProviderCard
@@ -517,10 +573,11 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                 onToggle={(active) =>
                   handleToggleProvider(key, freeAuthTypes, active)
                 }
+                availability={availabilityFor(info, "free")}
               />
             );
           })}
-          {freeTierEntries.map(([key, info]) => {
+          {filterByAvailability(freeTierEntries, "freeTier", ["oauth", "apikey", "api_key"]).map(([key, info]) => {
             const freeAuthTypes = dualAuthTypes(info, key);
             return (
               <ApiKeyProviderCard
@@ -529,6 +586,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
                 provider={info}
                 stats={getProviderStats(key, freeAuthTypes)}
                 onToggle={(active) => handleToggleProvider(key, freeAuthTypes, active)}
+                availability={availabilityFor(info, "freeTier")}
               />
             );
           })}
@@ -560,13 +618,14 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleApikeyEntries.map(([key, info]) => (
+          {filterByAvailability(visibleApikeyEntries, "other", "apikey").map(([key, info]) => (
             <ApiKeyProviderCard
               key={key}
               providerId={key}
               provider={info}
               stats={getProviderStats(key, "apikey")}
               onToggle={(active) => handleToggleProvider(key, "apikey", active)}
+              availability={availabilityFor(info, "other")}
             />
           ))}
         </div>
@@ -607,13 +666,14 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {webCookieEntries.map(([key, info]) => (
+          {filterByAvailability(webCookieEntries, "other", "cookie").map(([key, info]) => (
             <ApiKeyProviderCard
               key={key}
               providerId={key}
               provider={info}
               stats={getProviderStats(key, "cookie")}
               onToggle={(active) => handleToggleProvider(key, "cookie", active)}
+              availability={availabilityFor(info, "other")}
             />
           ))}
         </div>
@@ -652,11 +712,12 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
   );
 }
 
-function ProviderCard({ providerId, provider, stats, onToggle }: {
+function ProviderCard({ providerId, provider, stats, onToggle, availability }: {
   providerId: string;
   provider: ProviderInfo;
   stats: ProviderStats;
   onToggle: (active: boolean) => void;
+  availability?: Availability;
 }) {
   const { connected, error, errorCode, errorTime, allDisabled } = stats;
   const isNoAuth = !!provider.noAuth;
@@ -706,6 +767,7 @@ function ProviderCard({ providerId, provider, stats, onToggle }: {
                     )}
                   </>
                 )}
+                {availability && <AvailabilityBadge availability={availability} />}
               </div>
             </div>
           </div>
@@ -738,11 +800,13 @@ function ApiKeyProviderCard({
   provider,
   stats,
   onToggle,
+  availability,
 }: {
   providerId: string;
   provider: ProviderInfo & { apiType?: string };
   stats: ProviderStats;
   onToggle: (active: boolean) => void;
+  availability?: Availability;
 }) {
   const { connected, error, errorCode, errorTime, allDisabled } = stats;
   const isCompatible = providerId.startsWith(OPENAI_COMPATIBLE_PREFIX);
@@ -814,6 +878,7 @@ function ApiKeyProviderCard({
                     )}
                   </>
                 )}
+                {availability && <AvailabilityBadge availability={availability} />}
               </div>
             </div>
           </div>
@@ -838,6 +903,15 @@ function ApiKeyProviderCard({
         </div>
       </Card>
     </Link>
+  );
+}
+
+function AvailabilityBadge({ availability }: { availability: Availability }) {
+  return (
+    <Badge variant="default" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+      <Sparkles className="mr-1 size-3" />
+      {availability === "free" ? "Free access" : "Free tier"}
+    </Badge>
   );
 }
 
