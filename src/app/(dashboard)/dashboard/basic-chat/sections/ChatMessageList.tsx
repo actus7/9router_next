@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { translate } from "@/i18n/runtime";
+import SafeMarkdown from "@/shared/components/SafeMarkdown";
 import {
   ArrowDown, Check, Copy, Hash, MessageSquare, RefreshCw, ThumbsDown, ThumbsUp, Wrench,
 } from "lucide-react";
-import { renderMarkdown, textValue } from "../chatFormatUtils";
+import { textValue } from "../chatFormatUtils";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import type { UseSendMessageReturn } from "../hooks/useSendMessage";
 
@@ -134,10 +135,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
 
                 {/* Message content */}
                 {isAssistant ? (
-                  <div
-                    className="prose-chat break-words text-[15px] leading-7"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-                  />
+                  <SafeMarkdown source={content} className="prose-chat text-[15px] leading-7" />
                 ) : (
                   <div className="whitespace-pre-wrap break-words text-[15px] leading-7">
                     {content}

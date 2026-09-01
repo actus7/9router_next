@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
   env: {},
   experimental: {
     proxyClientMaxBodySize: proxyClientMaxBodySize,
-    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "marked"],
+    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable"],
   },
   async rewrites() {
     return [

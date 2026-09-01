@@ -6,10 +6,10 @@ import { AlertCircle } from "lucide-react";
 
 export default function DashboardError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error("Dashboard error:", error);
@@ -26,7 +26,7 @@ export default function DashboardError({
           {error.message || "An unexpected error occurred."}
         </p>
         <Button
-          onClick={reset}
+          onClick={retry}
         >
           Try again
         </Button>

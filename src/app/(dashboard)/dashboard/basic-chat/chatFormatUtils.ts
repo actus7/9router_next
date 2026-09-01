@@ -1,23 +1,5 @@
 import { translate } from "@/i18n/runtime";
-import { marked } from "marked";
 import type { ChatMessage, ChatSession } from "./types";
-
-// Keep Markdown rendering lightweight: code blocks remain readable without a
-// browser-only syntax-highlighting dependency in the client bundle.
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
-
-export function renderMarkdown(text: string): string {
-  try {
-    const result = marked.parse(text);
-    if (typeof result === "string") return result;
-    return text;
-  } catch {
-    return text;
-  }
-}
 
 export function createId(): string {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();

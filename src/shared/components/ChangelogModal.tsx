@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { marked } from "marked";
 import { GITHUB_CONFIG } from "@/shared/constants/config";
 import { Loader2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
-
-marked.setOptions({ gfm: true, breaks: true });
+import SafeMarkdown from "@/shared/components/SafeMarkdown";
 
 interface ChangelogModalProps {
   isOpen: boolean;
@@ -15,12 +13,12 @@ interface ChangelogModalProps {
 }
 
 export default function ChangelogModal({ isOpen, onClose }: ChangelogModalProps) {
-  const [html, setHtml] = useState<string>("");
+  const [markdown, setMarkdown] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    if (!isOpen || html) return;
+    if (!isOpen || markdown) return;
     setLoading(true);
     setError("");
     fetch(GITHUB_CONFIG.changelogUrl)
@@ -28,10 +26,10 @@ export default function ChangelogModal({ isOpen, onClose }: ChangelogModalProps)
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.text();
       })
-      .then((md) => setHtml(marked.parse(md) as string))
+      .then(setMarkdown)
       .catch((err: Error) => setError(err.message || (translate("Failed to load") ?? "Failed to load")))
       .finally(() => setLoading(false));
-  }, [isOpen, html]);
+  }, [isOpen, markdown]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -52,11 +50,8 @@ export default function ChangelogModal({ isOpen, onClose }: ChangelogModalProps)
           {error && (
             <div className="text-red-500 py-4">{translate("Failed to load changelog")}: {error}</div>
           )}
-          {!loading && !error && html && (
-            <div
-              className="changelog-body text-text-main"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
+          {!loading && !error && markdown && (
+            <SafeMarkdown source={markdown} className="changelog-body text-text-main" />
           )}
         </div>
       </DialogContent>
