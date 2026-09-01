@@ -142,7 +142,7 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
             <Button type="submit" size="sm" className="h-8 px-2 text-xs" disabled={!newProjectName.trim()}>{translate("Add") || "Add"}</Button>
           </form>
         ) : null}
-        <div className="mt-1 space-y-0.5" role="list" aria-label={translate("Projects") || "Projects"}>
+        <div className="mt-1 flex flex-col gap-0.5" role="list" aria-label={translate("Projects") || "Projects"}>
           <button type="button" onClick={() => handleSelectProject("")} aria-pressed={!activeProjectId} className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${!activeProjectId ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
             <FolderKanban className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate">{translate("All conversations") || "All conversations"}</span>
@@ -285,3 +285,5 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
     </aside>
   );
 }
+
+

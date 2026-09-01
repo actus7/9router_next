@@ -25,7 +25,7 @@ export default function ChatRunJournal({ harnessHook }: ChatRunJournalProps) {
         {harnessEvents.length === 0 ? (
           <p className="py-2 text-xs text-muted-foreground">The next message will open a recorded run.</p>
         ) : (
-          <ol className="max-h-36 space-y-1 overflow-y-auto border-l border-border pl-3 custom-scrollbar">
+          <ol className="max-h-36 flex flex-col gap-1 overflow-y-auto border-l border-border pl-3 custom-scrollbar">
             {harnessEvents.slice(-12).map((event) => (
               <li key={`${event.sessionId}:${event.seq}`} className="flex min-w-0 items-center gap-2 py-0.5 text-xs">
                 <span className="font-mono tabular-nums text-muted-foreground">{event.seq}</span>
@@ -39,3 +39,5 @@ export default function ChatRunJournal({ harnessHook }: ChatRunJournalProps) {
     </section>
   );
 }
+
+

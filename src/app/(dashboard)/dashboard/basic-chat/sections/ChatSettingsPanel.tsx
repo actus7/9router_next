@@ -15,7 +15,7 @@ export default function ChatSettingsPanel({ sessionsHook }: ChatSettingsPanelPro
 
   return (
     <div className="shrink-0 border-b border-border bg-card/50 px-4 py-3">
-      <div className="mx-auto max-w-3xl space-y-3">
+      <div className="mx-auto max-w-3xl flex flex-col gap-3">
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-1 block">
             {translate("System prompt") || "System prompt"}
@@ -47,3 +47,5 @@ export default function ChatSettingsPanel({ sessionsHook }: ChatSettingsPanelPro
     </div>
   );
 }
+
+

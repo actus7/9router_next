@@ -19,7 +19,7 @@ interface MethodSelectionSectionProps {
 
 export function MethodSelectionSection({ onBuilderIdClick, onMethodClick }: MethodSelectionSectionProps) {
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <p className="text-sm text-text-muted mb-4">{translate("Choose your authentication method:")}</p>
       <MethodCard icon={<Shield className="size-4" />} title="AWS Builder ID" description="Recommended for most users. Free AWS account required." onClick={onBuilderIdClick} />
       <MethodCard icon={<Building className="size-4" />} title="AWS IAM Identity Center" description="For enterprise users with custom AWS IAM Identity Center." onClick={() => onMethodClick("idc")} />
@@ -56,7 +56,7 @@ export function IdcConfigSection({
   handleBack,
 }: IdcConfigSectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div>
         <Label className="block mb-2">
           {translate("IDC Start URL")} <span className="text-red-500">*</span>
@@ -129,7 +129,7 @@ export function ApiKeySection({
   handleBack,
 }: ApiKeySectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
         <div className="flex gap-2">
           <Info className="size-4" />
@@ -195,7 +195,7 @@ interface SocialGoogleSectionProps {
 
 export function SocialGoogleSection({ handleSocialLogin, handleBack }: SocialGoogleSectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
         <div className="flex gap-2">
           <Info className="size-4" />
@@ -233,7 +233,7 @@ interface SocialGithubSectionProps {
 
 export function SocialGithubSection({ handleSocialLogin, handleBack }: SocialGithubSectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
         <div className="flex gap-2">
           <Info className="size-4" />
@@ -286,7 +286,7 @@ export function ImportTokenSection({
   handleBack,
 }: ImportTokenSectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Auto-detecting state */}
       {autoDetecting && (
         <div className="text-center py-6">
@@ -381,7 +381,7 @@ export function ImportCliProxySection({
   handleBack,
 }: ImportCliProxySectionProps) {
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
         <div className="flex gap-2">
           <Info className="size-4" />
@@ -420,3 +420,5 @@ export function ImportCliProxySection({
     </div>
   );
 }
+
+

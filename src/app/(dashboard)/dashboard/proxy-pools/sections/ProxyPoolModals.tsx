@@ -100,7 +100,7 @@ export default function ProxyPoolModals({
             <p className="text-xs text-text-muted">
               Deploys an edge relay function to Vercel. All AI provider requests will be forwarded through Vercel&apos;s edge network, masking your real IP from providers.
             </p>
-            <ul className="text-xs text-text-muted list-disc pl-4 space-y-0.5">
+            <ul className="text-xs text-text-muted list-disc pl-4 flex flex-col gap-0.5">
               <li>Your IP is replaced by Vercel&apos;s dynamic edge IPs (hundreds of IPs across 20+ global regions)</li>
               <li>Vercel serves millions of apps — providers can&apos;t block Vercel IPs without affecting legitimate traffic</li>
               <li>Free tier: 100GB bandwidth/month, 500K edge invocations</li>
@@ -148,14 +148,14 @@ export default function ProxyPoolModals({
             <p className="text-xs text-text-muted">
               Deploys a Cloudflare Worker as a proxy relay. All AI provider requests will be forwarded through Cloudflare&apos;s global edge network.
             </p>
-            <ul className="text-xs text-text-muted list-disc pl-4 space-y-0.5">
+            <ul className="text-xs text-text-muted list-disc pl-4 flex flex-col gap-0.5">
               <li>High performance global routing and IP masking via Cloudflare Workers</li>
               <li>Free tier: 100,000 requests per day</li>
               <li>Requires Cloudflare Account ID and a Workers API Token (Edit Workers permission)</li>
             </ul>
             <div className="mt-2 pt-2 border-t border-orange-500/10 text-xs text-text-muted">
               <p className="font-medium text-text-main mb-1">How to generate your API Token:</p>
-              <ol className="list-decimal pl-4 space-y-0.5">
+              <ol className="list-decimal pl-4 flex flex-col gap-0.5">
                 <li>Go to <b>My Profile</b> → <b>API Tokens</b> → <b>Create Token</b></li>
                 <li>Scroll down to <b>Custom Token</b> and click <b>Get started</b></li>
                 <li>Under <b>Permissions</b>: Account | Workers Scripts | Edit</li>
@@ -212,7 +212,7 @@ export default function ProxyPoolModals({
             <p className="text-xs text-text-muted">
               Deploys a relay worker to Deno Deploy&apos;s global edge network. All AI provider requests are forwarded through Deno&apos;s edge, masking your real IP.
             </p>
-            <ul className="text-xs text-text-muted list-disc pl-4 space-y-0.5">
+            <ul className="text-xs text-text-muted list-disc pl-4 flex flex-col gap-0.5">
               <li>Deno Deploy v2 runs on a high-performance global edge network</li>
               <li>Free tier: 1M requests & 100GiB outbound traffic per month</li>
               <li>No per-request CPU time limits (unlike Vercel/Cloudflare)</li>
@@ -221,7 +221,7 @@ export default function ProxyPoolModals({
             </ul>
             <div className="mt-2 pt-2 border-t border-black/10 dark:border-white/10 text-xs text-text-muted">
               <p className="font-medium text-text-main mb-1">How to generate API token:</p>
-              <ol className="list-decimal pl-4 space-y-0.5">
+              <ol className="list-decimal pl-4 flex flex-col gap-0.5">
                 <li>Go to <b>console.deno.com</b></li>
                 <li>Select your <b>Organization</b> → <b>Settings</b> → <b>Organization Tokens</b></li>
                 <li>Create a <b>Organization Token</b> (prefix <b>ddo_</b>)</li>
@@ -342,3 +342,5 @@ export default function ProxyPoolModals({
     </>
   );
 }
+
+

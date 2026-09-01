@@ -49,7 +49,7 @@ interface KiroSocialInputProps {
 export function KiroSocialInput({ authUrl, callbackUrl, setCallbackUrl, copied, copy, onSubmit, onClose }: KiroSocialInputProps) {
   return (
     <>
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div>
           <p className="text-sm font-medium mb-2">{translate("Step 1: Open this URL in your browser")}</p>
           <div className="flex gap-2">
@@ -70,3 +70,5 @@ export function KiroSocialInput({ authUrl, callbackUrl, setCallbackUrl, copied, 
     </>
   );
 }
+
+

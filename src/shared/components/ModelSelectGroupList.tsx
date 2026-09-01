@@ -19,7 +19,7 @@ interface ModelSelectGroupListProps {
 
 export default function ModelSelectGroupList({ filteredGroups, filteredCombos, selectedModel, addedModelValues, onSelect, getCaps }: ModelSelectGroupListProps) {
   return (
-    <div className="max-h-[400px] overflow-y-auto space-y-3">
+    <div className="max-h-[400px] overflow-y-auto flex flex-col gap-3">
       <ComboSection combos={filteredCombos} selectedModel={selectedModel} addedModelValues={addedModelValues} onSelect={onSelect} />
       {Object.entries(filteredGroups).map(([providerId, group]) => (
         <div key={providerId}>
@@ -39,3 +39,5 @@ export default function ModelSelectGroupList({ filteredGroups, filteredCombos, s
     </div>
   );
 }
+
+

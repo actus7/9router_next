@@ -86,7 +86,7 @@ export default function ConsoleLogClient() {
           {logs.length === 0 ? (
             <span className="text-text-muted">{translate("No console logs yet.")}</span>
           ) : (
-            <div className="space-y-0.5">
+            <div className="flex flex-col gap-0.5">
               {logs.map((line, i) => (
                 <div key={i}>{colorLine(line)}</div>
               ))}
@@ -97,3 +97,5 @@ export default function ConsoleLogClient() {
     </div>
   );
 }
+
+

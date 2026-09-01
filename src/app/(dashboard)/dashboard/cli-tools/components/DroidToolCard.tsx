@@ -240,7 +240,7 @@ export default function DroidToolCard({
           installGuide: {
             expanded: showInstallGuide,
             toggle: () => setShowInstallGuide(!showInstallGuide),
-            content: <div className="space-y-3 text-sm">
+            content: <div className="flex flex-col gap-3 text-sm">
             <div>
               <p className="text-text-muted mb-1">macOS / Linux / Windows:</p>
               <code className="block px-3 py-2 bg-black/5 dark:bg-white/5 rounded font-mono text-xs">curl -fsSL https://app.factory.ai/cli | sh</code>
@@ -322,3 +322,5 @@ export default function DroidToolCard({
     </>
   );
 }
+
+

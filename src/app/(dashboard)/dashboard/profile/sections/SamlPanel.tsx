@@ -68,7 +68,7 @@ export default function SamlPanel({
           <div className="p-4 border-t border-border bg-surface/30 text-xs text-text-main flex flex-col gap-3">
             <div className="p-2.5 rounded border border-primary/20 bg-primary/5 text-primary text-xs">
               <p className="font-semibold mb-1">🔑 {translate("Required Service Provider (SP) Values for your IdP Configuration:")}</p>
-              <ul className="list-disc pl-4 space-y-1 font-mono text-[11px]">
+              <ul className="list-disc pl-4 flex flex-col gap-1 font-mono text-[11px]">
                 <li>
                   <b>{translate("Assertion Consumer Service (ACS) URL:")}</b>{" "}
                   <code className="bg-bg px-1 py-0.5 rounded break-all">{samlAcsUrl}</code>
@@ -89,7 +89,7 @@ export default function SamlPanel({
                 <p className="font-semibold text-text-main flex items-center gap-1.5">
                   <span>☁️</span> AWS IAM Identity Center
                 </p>
-                <ol className="list-decimal pl-4 text-text-muted space-y-1">
+                <ol className="list-decimal pl-4 text-text-muted flex flex-col gap-1">
                   <li>Applications → <b>Add application</b> → {translate("Select")} <b>Add custom SAML 2.0 application</b>.</li>
                   <li>{translate("Set")} <b>Application ACS URL</b> {translate("to")} <code className="text-text-main font-mono">{samlAcsUrl}</code>.</li>
                   <li>{translate("Set")} <b>Application SAML audience</b> {translate("to")} <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:modelhub:sp"}</code>.</li>
@@ -102,7 +102,7 @@ export default function SamlPanel({
                 <p className="font-semibold text-text-main flex items-center gap-1.5">
                   <span>🔷</span> Microsoft Entra ID (Azure AD)
                 </p>
-                <ol className="list-decimal pl-4 text-text-muted space-y-1">
+                <ol className="list-decimal pl-4 text-text-muted flex flex-col gap-1">
                   <li>Enterprise Applications → <b>New application</b> → <b>Create your own application</b>.</li>
                   <li>{translate("Select")} <b>Single sign-on</b> → <b>SAML</b>.</li>
                   <li><b>Identifier (Entity ID):</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:modelhub:sp"}</code></li>
@@ -115,7 +115,7 @@ export default function SamlPanel({
                 <p className="font-semibold text-text-main flex items-center gap-1.5">
                   <span>🟢</span> Okta / Auth0
                 </p>
-                <ol className="list-decimal pl-4 text-text-muted space-y-1">
+                <ol className="list-decimal pl-4 text-text-muted flex flex-col gap-1">
                   <li>Applications → <b>Create App Integration</b> → {translate("Select")} <b>SAML 2.0</b>.</li>
                   <li><b>Single Sign-On URL:</b> <code className="text-text-main font-mono">{samlAcsUrl}</code></li>
                   <li><b>Audience URI (SP Entity ID):</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:modelhub:sp"}</code></li>
@@ -128,7 +128,7 @@ export default function SamlPanel({
                 <p className="font-semibold text-text-main flex items-center gap-1.5">
                   <span>🛡️</span> Keycloak / Authentik
                 </p>
-                <ol className="list-decimal pl-4 text-text-muted space-y-1">
+                <ol className="list-decimal pl-4 text-text-muted flex flex-col gap-1">
                   <li>Clients → <b>Create client</b> → {translate("Select")} <b>SAML</b>.</li>
                   <li><b>Client ID:</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:modelhub:sp"}</code></li>
                   <li><b>Master SAML Processing URL:</b> <code className="text-text-main font-mono">{samlAcsUrl}</code></li>
@@ -321,3 +321,5 @@ export default function SamlPanel({
     </div>
   );
 }
+
+

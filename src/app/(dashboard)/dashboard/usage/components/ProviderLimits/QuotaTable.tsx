@@ -161,7 +161,7 @@ export default function QuotaTable({
   const hasHideAction = typeof onHideQuota === "function";
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[10px] text-text-muted">
           {sortedQuotas.length} cota{sortedQuotas.length > 1 ? "s" : ""}
@@ -173,7 +173,7 @@ export default function QuotaTable({
         )}
       </div>
 
-      <div className="space-y-px">
+      <div className="flex flex-col gap-px">
         {currentPageRows.map((quota) => {
           const colors = getColorClasses(quota.remaining ?? 0);
           const countdown = formatResetTime(quota.resetAt);
@@ -198,7 +198,7 @@ export default function QuotaTable({
               </div>
 
               {/* Progress + used/total */}
-              <div className={`min-w-0 flex-1 ${compact ? "space-y-1" : "space-y-1.5"}`}>
+              <div className={`min-w-0 flex-1 ${compact ? "flex flex-col gap-1" : "flex flex-col gap-1.5"}`}>
                 <Progress
                   value={Math.min(quota.remaining ?? 0, 100)}
                   className={cn(
@@ -233,7 +233,7 @@ export default function QuotaTable({
                       {countdown !== "-" ? countdownLabel : resetDisplay}
                     </div>
                   ) : (
-                    <div className="min-w-0 space-y-0.5">
+                    <div className="min-w-0 flex flex-col gap-0.5">
                       {countdown !== "-" && (
                         <div className={`${resetPrimary} text-text-primary font-medium truncate`}>
                           {countdownLabel}
@@ -305,3 +305,5 @@ export default function QuotaTable({
     </div>
   );
 }
+
+

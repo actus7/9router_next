@@ -47,7 +47,7 @@ export default function TokenSaverClient() {
   }, [headroom, pxpipe, settings]);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="flex flex-col gap-6 p-6">
       <Card id="rtk">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -258,3 +258,5 @@ export default function TokenSaverClient() {
     </div>
   );
 }
+
+

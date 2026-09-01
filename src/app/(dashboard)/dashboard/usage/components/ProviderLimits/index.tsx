@@ -160,7 +160,7 @@ export default function ProviderLimits() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Header Controls */}
       <ToolbarSection
         providerFilter={connectionsHook.providerFilter}
@@ -256,3 +256,5 @@ export default function ProviderLimits() {
     </div>
   );
 }
+
+

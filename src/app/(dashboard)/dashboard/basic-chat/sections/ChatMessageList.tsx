@@ -76,11 +76,11 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
       <div ref={scrollContainerRef} onScroll={handleScroll} className="h-full overflow-y-auto py-6 custom-scrollbar">
       {currentMessages.length === 0 ? (
         <div className="flex min-h-[50vh] items-center justify-center px-4 text-center">
-          <div className="w-full max-w-xl space-y-6">
+          <div className="w-full max-w-xl flex flex-col gap-6">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm">
               <MessageSquare className="size-7" />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <h2 className="text-2xl font-semibold tracking-tight text-foreground">{translate("Start a conversation") || "Start a conversation"}</h2>
               <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">
                 {translate("Select a model and start chatting with any AI from your connected providers.") || "Select a model and start chatting with any AI from your connected providers."}
@@ -150,7 +150,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
 
                 {/* Tool calls */}
                 {message.toolCalls && message.toolCalls.length > 0 && (
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-2 flex flex-col gap-1">
                     {message.toolCalls.map((tc) => (
                       <div key={tc.id} className="rounded-lg border border-border bg-muted/40 px-3 py-2">
                         <div className="flex items-center gap-2">
@@ -247,3 +247,5 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
     </div>
   );
 }
+
+

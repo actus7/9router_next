@@ -8,7 +8,7 @@
 
 > **Nota sobre o worktree:** havia alteracoes locais antes da auditoria e uma refatoracao paralela continuou modificando dezenas de arquivos durante a coleta. O primeiro `lint`, `typecheck` e teste completo passaram; na ultima verificacao, quatro executores e um componente compartilhado em edicao tinham erros de parsing. O relatorio separa os problemas persistentes do projeto dos bloqueios do WIP atual. O unico arquivo criado por esta auditoria e este relatorio.
 
-## Reauditoria de remediacao - checkpoint `e17306a`
+## Reauditoria de remediacao - checkpoint de decomposicao
 
 **Veredito atualizado: NO-GO condicionado, sem bloqueador P0 funcional conhecido.** O snapshot original abaixo permanece preservado como evidencia histórica. A remediacao removeu XSS por Markdown, restaurou o contrato Prisma reproduzivel, corrigiu error boundaries, implementou fetch SSRF-safe com DNS/redirect pinning, propagou erros tipados de persistencia, ativou `exhaustive-deps` e `no-unused-vars`, eliminou imports diretos de repositorios nos Route Handlers e consolidou lifecycle/imagens/primitives shadcn.
 
@@ -16,16 +16,17 @@ Gates confirmados no checkpoint acumulado:
 
 - Next.js 16.3.2 build passa; startup do layout foi movido para `instrumentation.register()` com guards de build e HMR.
 - Lint e TypeScript passam com `exhaustive-deps` e unused como erro.
-- 33 suites e 214 testes passam; cobertura subiu para 4,41% statements, 2,55% branches, 3,81% functions e 4,78% lines, sem regressao da baseline e com 80% nos modulos criticos.
+- 33 suites e 214 testes passam; cobertura esta em 4,42% statements, 2,55% branches, 3,82% functions e 4,79% lines, sem regressao da baseline e com 80% nos modulos criticos.
 - `contract:check`, arquitetura dos handlers, build, `git diff --check` e `npm audit --omit=dev` passam; dependencias de producao reportam zero vulnerabilidades conhecidas.
 - O detector Impeccable retornou `[]` nas superficies alteradas; axe cobre associacao de campos e confirmacao destrutiva.
-- Arquivos acima de 600 linhas cairam de 18 para 12 neste checkpoint. O gate impede novos arquivos grandes ou crescimento dos legados restantes.
+- Todos os modulos tecnicos foram decompostos para menos de 600 linhas. O gate agora aceita apenas `globals.css` (fronteira global de tokens) e `components/ui/sidebar.tsx` (primitive oficial shadcn); artefatos Prisma gerados continuam excluidos.
 
 Pendencias que impedem alterar o veredito para GO:
 
-1. Decompor os dez modulos tecnicos ainda acima de 600 linhas; `globals.css` e o primitive oficial `sidebar.tsx` precisam de excecao arquitetural documentada ou divisao segura.
-2. Concluir a migracao sistemica dos usos legados de `space-y-*` e cores funcionais cruas que nao representem marca/dados.
-3. Executar a verificacao autenticada em browser nos fluxos principais, desktop/mobile e light/dark; os gates estaticos nao substituem essa evidencia.
+1. Concluir a consolidacao de cores funcionais cruas que nao representem marca/dados.
+2. Executar a verificacao autenticada em browser nos fluxos principais, desktop/mobile e light/dark; os gates estaticos nao substituem essa evidencia.
+
+O uso de `space-y-*` foi removido de TS/TSX e substituido por `flex flex-col gap-*`, preservando o espacamento com layout explicito. A decomposicao incluiu analytics de uso, testes OAuth de provedores, proxies OAuth locais, instalacao/Funnel Tailscale, codecs Cursor, stream ACP Devin, Duck.ai e Kiro EventStream.
 
 ## Veredito executivo
 

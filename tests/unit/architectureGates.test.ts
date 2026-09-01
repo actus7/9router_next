@@ -19,19 +19,11 @@ function countLines(source: string): number {
   return lines.length;
 }
 
-const legacyLargeFileCeilings: Record<string, number> = {
+const justifiedLargeFileCeilings: Record<string, number> = {
+  // Global CSS tokens and shadcn's registry-owned sidebar are intentional
+  // composition boundaries; Prisma artifacts are excluded below as generated.
   "app/globals.css": 969,
-  "app/api/providers/[id]/test/testUtils.ts": 896,
   "components/ui/sidebar.tsx": 723,
-  "lib/db/repos/usageRepo.ts": 951,
-  "lib/oauth/utils/server.ts": 704,
-  "lib/tunnel/tailscale/tailscale.ts": 830,
-  "server/llm-gateway/engine/executors/cursor.ts": 1185,
-  "server/llm-gateway/engine/executors/devin-cli.ts": 748,
-  "server/llm-gateway/engine/executors/duckai-challenge.ts": 666,
-  "server/llm-gateway/engine/executors/duckai.ts": 1098,
-  "server/llm-gateway/engine/executors/kiro.ts": 1413,
-  "server/llm-gateway/engine/utils/cursorProtobuf.ts": 870,
 };
 
 describe("architecture gates", () => {
@@ -51,13 +43,13 @@ describe("architecture gates", () => {
     expect(violations).toEqual([]);
   });
 
-  it("rejects new large files and growth in ratcheted legacy files", () => {
+  it("rejects new large files and growth beyond documented exceptions", () => {
     const violations = listSourceFiles(sourceRoot).flatMap((path) => {
       const relativePath = relative(sourceRoot, path).replaceAll("\\", "/");
       if (relativePath === "prisma/contract.d.ts" || relativePath === "prisma/contract.json") return [];
       const lineCount = countLines(readFileSync(path, "utf8"));
       if (lineCount <= 600) return [];
-      const ceiling = legacyLargeFileCeilings[relativePath];
+      const ceiling = justifiedLargeFileCeilings[relativePath];
       return ceiling !== undefined && lineCount <= ceiling
         ? []
         : [`${relativePath}: ${lineCount} lines (allowed: ${ceiling ?? 600})`];

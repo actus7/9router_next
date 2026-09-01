@@ -90,7 +90,7 @@ export default function SkillsPage() {
         </div>
       </Card>
 
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {SKILLS.map((skill) => (
           <SkillRow key={skill.id} skill={skill as unknown as Skill} />
         ))}
@@ -118,3 +118,5 @@ export default function SkillsPage() {
     </div>
   );
 }
+
+

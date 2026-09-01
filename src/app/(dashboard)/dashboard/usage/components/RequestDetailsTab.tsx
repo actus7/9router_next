@@ -69,10 +69,10 @@ export default function RequestDetailsTab() {
       <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}
         title={translate("Request Details") || "Request Details"} width="lg">
         {selectedDetail && (
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
             <SummaryInfoGrid detail={selectedDetail} providerName={getProviderName(selectedDetail.provider, providerNameCache)} />
             {selectedDetail.pxpipe && <PxPipePanel pxpipe={selectedDetail.pxpipe} />}
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {selectedDetail.request?.routing && <RoutingPanel routing={selectedDetail.request.routing} />}
               <JsonCollapsiblePanel title={translate("1. Client Request (Input)") || "1. Client Request (Input)"}
                 data={selectedDetail.request} defaultOpen={true} icon="input" />
@@ -88,3 +88,5 @@ export default function RequestDetailsTab() {
     </div>
   );
 }
+
+

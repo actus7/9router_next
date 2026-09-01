@@ -89,7 +89,7 @@ export function ProxyOAuthSection({
             </div>
           )}
           {step === "input" && (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               <p className="text-sm text-text-muted">
                 {translate("Popup was blocked. After authorizing in the browser, paste the complete callback URL here:")}
               </p>
@@ -109,7 +109,7 @@ export function ProxyOAuthSection({
       )}
 
       {authMode === "paste-token" && provider && (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           {ideStatus && !ideStatus.installed && (
             <div className={`px-3 py-2 rounded-lg text-sm ${PASTE_TOKEN_PROVIDERS[provider].ideOptional ? "bg-blue-500/10 text-blue-700 dark:text-blue-300" : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"}`}>
               {PASTE_TOKEN_PROVIDERS[provider].ideName} {translate("IDE not detected.")}
@@ -175,7 +175,7 @@ export function WaitingInputSection({
         <div className="flex-1 h-px bg-border" />
       </div>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <div>
           <p className="text-sm font-medium mb-2">
             {translate("Step 1: Open this URL in your browser")} {isXaiProvider ? (translate("Grok Build OAuth URL") ?? "Grok Build OAuth URL") : ""}
@@ -343,3 +343,5 @@ export function ErrorSection({ error, startOAuthFlow, handleClose }: ErrorSectio
     </div>
   );
 }
+
+

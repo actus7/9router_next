@@ -231,7 +231,7 @@ export default function TranslatorClient() {
   };
 
   return (
-    <div className="p-8 space-y-3">
+    <div className="p-8 flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div>
@@ -256,7 +256,7 @@ export default function TranslatorClient() {
 
         return (
           <Card key={step.id}>
-            <div className="p-4 space-y-3">
+            <div className="p-4 flex flex-col gap-3">
               {/* Step header */}
               <div className="flex items-center justify-between">
                 <Button variant="ghost" onClick={() => toggle(step.id)} className="flex-1 justify-start gap-2">
@@ -319,3 +319,5 @@ function MetaBadge({ label, value, color }: { label: string; value: string; colo
     </span>
   );
 }
+
+

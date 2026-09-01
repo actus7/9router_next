@@ -293,7 +293,7 @@ export default function ClaudeToolCard({
               {showInstallGuide && (
                 <div className="p-4 bg-surface border border-border rounded-lg">
                   <h4 className="font-medium mb-3">Installation Guide</h4>
-                  <div className="space-y-3 text-sm">
+                  <div className="flex flex-col gap-3 text-sm">
                     <div>
                       <p className="text-text-muted mb-1">macOS / Linux / Windows:</p>
                       <code className="block px-3 py-2 bg-black/5 dark:bg-white/5 rounded font-mono text-xs">npm install -g @anthropic-ai/claude-code</code>
@@ -414,3 +414,5 @@ export default function ClaudeToolCard({
     </Card>
   );
 }
+
+

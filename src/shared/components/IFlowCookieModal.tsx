@@ -85,7 +85,7 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
           </Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
         {success ? (
           <div className="text-center py-8">
             <div className="text-6xl mb-4">✅</div>
@@ -94,7 +94,7 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
           </div>
         ) : (
           <>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <p className="text-sm text-text-muted">
                 {translate("To get a fresh API key, paste your browser cookie from")}{" "}
                 <a
@@ -106,9 +106,9 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
                   platform.iflow.cn
                 </a>
               </p>
-              <div className="bg-surface-secondary p-3 rounded-lg text-xs space-y-2">
+              <div className="bg-surface-secondary p-3 rounded-lg text-xs flex flex-col gap-2">
                 <p className="font-medium text-text-primary">{translate("How to get cookie:")}</p>
-                <ol className="list-decimal list-inside space-y-1 text-text-muted">
+                <ol className="list-decimal list-inside flex flex-col gap-1 text-text-muted">
                   <li>{translate("Open platform.iflow.cn in your browser")}</li>
                   <li>{translate("Log in to your account")}</li>
                   <li>{translate("Open DevTools (F12) → Application/Storage → Cookies")}</li>
@@ -118,7 +118,7 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label className="block text-text-primary">
                 {translate("Cookie String")}
               </Label>
@@ -154,3 +154,5 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }: IFlowCo
     </Dialog>
   );
 }
+
+
