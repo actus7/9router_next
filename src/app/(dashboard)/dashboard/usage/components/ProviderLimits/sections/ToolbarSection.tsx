@@ -210,7 +210,7 @@ export default function ToolbarSection({
           variant="outline"
           onClick={() => setExpiringFirst((prev) => !prev)}
           aria-pressed={expiringFirst}
-          className={`gap-1 text-xs ${expiringFirst ? "border-amber-500/40 bg-amber-500/10 text-amber-500" : ""}`}
+          className={`gap-1 text-xs ${expiringFirst ? "border-warning-border bg-warning text-warning-foreground" : ""}`}
           title="Sort accounts by earliest quota reset time"
         >
           <Hourglass className="size-3.5" />

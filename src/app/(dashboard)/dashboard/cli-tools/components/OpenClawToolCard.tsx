@@ -252,7 +252,7 @@ export default function OpenClawToolCard({
             <ArrowRight className="size-4" />
             <div className="relative w-full min-w-0">
               <Input type="text" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} placeholder="provider/model-id" className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
-              {selectedModel && <Button variant="ghost" size="sm" onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500" title="Clear"><X className="size-4" /></Button>}
+              {selectedModel && <Button variant="ghost" size="sm" onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear"><X className="size-4" /></Button>}
             </div>
             <Button variant="outline" size="sm" onClick={() => { setAgentModalFor(null); setModalOpen(true); }} disabled={!hasActiveProviders} className="w-full sm:w-auto">Select</Button>
           </div>
@@ -263,7 +263,7 @@ export default function OpenClawToolCard({
               <ArrowRight className="size-4" />
               <div className="relative w-full min-w-0">
                 <Input type="text" value={agentModels[agent.id] || ""} onChange={(e) => setAgentModels(prev => ({ ...prev, [agent.id]: e.target.value }))} placeholder={`default (${selectedModel || "provider/model-id"})`} className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
-                {agentModels[agent.id] && <Button variant="ghost" size="sm" onClick={() => setAgentModels(prev => ({ ...prev, [agent.id]: "" }))} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500" title="Clear"><X className="size-4" /></Button>}
+                {agentModels[agent.id] && <Button variant="ghost" size="sm" onClick={() => setAgentModels(prev => ({ ...prev, [agent.id]: "" }))} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear"><X className="size-4" /></Button>}
               </div>
               <Button variant="outline" size="sm" onClick={() => { setAgentModalFor(agent.id); setModalOpen(true); }} disabled={!hasActiveProviders} className="w-full sm:w-auto">Select</Button>
             </div>

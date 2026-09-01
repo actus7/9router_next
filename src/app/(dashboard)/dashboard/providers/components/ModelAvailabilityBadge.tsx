@@ -59,9 +59,9 @@ export default function ModelAvailabilityBadge() {
       <PopoverTrigger
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
-          isHealthy ? "bg-green-500/10 text-green-600 hover:bg-green-500/20"
-            : hasUnavailableConnection ? "bg-red-500/10 text-red-600 hover:bg-red-500/20"
-            : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+          isHealthy ? "bg-success text-success-foreground hover:bg-success"
+            : hasUnavailableConnection ? "bg-destructive text-destructive-foreground hover:bg-destructive"
+            : "bg-warning text-warning-foreground hover:bg-warning"
         )}
       >
         {isHealthy ? <CheckCircle2 className="size-3.5" /> : <TriangleAlert className="size-3.5" />}

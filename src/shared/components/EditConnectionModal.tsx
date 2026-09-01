@@ -80,7 +80,7 @@ export default function EditConnectionModal({ isOpen, connection, onSave, onClos
                 <Input label={translate("API Key") || "API Key"} type="password" value={f.formData.apiKey} onChange={(e) => f.setFormData({ ...f.formData, apiKey: e.target.value })} placeholder={translate("Enter new API key") || "Enter new API key"} hint={translate("Leave blank to keep the current API key") || "Leave blank to keep the current API key"} className="flex-1" />
                 <div className="pt-6"><Button onClick={handleValidate} disabled={!f.formData.apiKey || f.validating || f.saving} variant="secondary">{f.validating ? translate("Verifying...") || "Verifying..." : translate("Verify") || "Verify"}</Button></div>
               </div>
-              {f.validationResult && (<Badge variant={f.validationResult === "success" ? "default" : "destructive"} className={f.validationResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>{f.validationResult === "success" ? translate("Valid") || "Valid" : translate("Invalid") || "Invalid"}</Badge>)}
+              {f.validationResult && (<Badge variant={f.validationResult === "success" ? "default" : "destructive"} className={f.validationResult === "success" ? "bg-success text-success-foreground dark:text-success-foreground" : undefined}>{f.validationResult === "success" ? translate("Valid") || "Valid" : translate("Invalid") || "Invalid"}</Badge>)}
             </>)}
             {f.isAzure && (
               <div className="bg-sidebar/50 p-4 rounded-lg border border-accent/20">
@@ -97,7 +97,7 @@ export default function EditConnectionModal({ isOpen, connection, onSave, onClos
             {!f.isCompatible && !f.isAzure && !f.isCloudflareAi && (
               <div className="flex items-center gap-3">
                 <Button onClick={handleTest} variant="secondary" disabled={f.testing}>{f.testing ? translate("Testing...") || "Testing..." : translate("Test connection") || "Test connection"}</Button>
-                {f.testResult && (<Badge variant={f.testResult === "success" ? "default" : "destructive"} className={f.testResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>{f.testResult === "success" ? translate("Valid") || "Valid" : translate("Failed") || "Failed"}</Badge>)}
+                {f.testResult && (<Badge variant={f.testResult === "success" ? "default" : "destructive"} className={f.testResult === "success" ? "bg-success text-success-foreground dark:text-success-foreground" : undefined}>{f.testResult === "success" ? translate("Valid") || "Valid" : translate("Failed") || "Failed"}</Badge>)}
               </div>
             )}
             <div className="flex gap-2">

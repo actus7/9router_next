@@ -72,7 +72,7 @@ export default function AvailabilityContent({ models, isHealthy, clearing, onCle
                       {affectsAllModels ? `${m.connectionName || provider}: all models are affected` : m.model}
                     </p>
                     {m.lastError && (
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-red-500/90 dark:text-red-300/90">
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-destructive-foreground dark:text-destructive-foreground">
                         Last error: {m.lastError}
                       </p>
                     )}

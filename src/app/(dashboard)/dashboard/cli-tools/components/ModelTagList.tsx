@@ -39,7 +39,7 @@ export function ModelTagList({
                 {model}
                 <Button variant="ghost" size="sm"
                   onClick={(e) => { e.stopPropagation(); onRemoveModel(model); }}
-                  className="ml-0.5 hover:text-red-500 p-0 h-auto"
+                  className="ml-0.5 hover:text-destructive-foreground p-0 h-auto"
                 >
                   <X className="size-3" />
                 </Button>
@@ -53,7 +53,7 @@ export function ModelTagList({
             {selectedModels.length > 0 && activeModel ? (
               <>Active: <span className="text-primary">{activeModel}</span></>
             ) : selectedModels.length > 0 ? (
-              <span className="text-yellow-500">Click a model to set/clear active</span>
+              <span className="text-warning-foreground">Click a model to set/clear active</span>
             ) : (
               "Select models to add"
             )}

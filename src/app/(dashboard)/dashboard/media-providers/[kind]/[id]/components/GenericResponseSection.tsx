@@ -73,7 +73,7 @@ export default function GenericResponseSection({ state }: { state: NonNullGeneri
       )}
 
       {/* Error */}
-      {error && <p className="text-xs text-red-500 break-words">{error}</p>}
+      {error && <p className="text-xs text-destructive-foreground break-words">{error}</p>}
 
       {/* Response */}
       <div>

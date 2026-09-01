@@ -42,7 +42,7 @@ export function GitLabOAuthForm({ baseUrl, setBaseUrl, clientId, setClientId, cl
       <Input label={translate("GitLab Base URL") ?? "GitLab Base URL"} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
       <Input label={translate("Client ID") ?? "Client ID"} value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder={translate("Your OAuth application client ID") ?? "Your OAuth application client ID"} />
       <Input label={translate("Client Secret (optional for PKCE)") ?? "Client Secret (optional for PKCE)"} value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder={translate("Leave empty for public PKCE app") ?? "Leave empty for public PKCE app"} />
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-destructive-foreground">{error}</p>}
       <div className="flex gap-2">
         <Button onClick={onStart} fullWidth disabled={!clientId.trim()}>{translate("Authorize")}</Button>
         <Button onClick={onBack} variant="ghost" fullWidth>{translate("Back")}</Button>
@@ -69,7 +69,7 @@ export function GitLabPATForm({ baseUrl, setBaseUrl, pat, setPat, error, loading
       </p>
       <Input label={translate("GitLab Base URL") ?? "GitLab Base URL"} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={GITLAB_COM} />
       <Input label={translate("Personal Access Token") ?? "Personal Access Token"} value={pat} onChange={(e) => setPat(e.target.value)} placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" type="password" />
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-destructive-foreground">{error}</p>}
       <div className="flex gap-2">
         <Button onClick={onSubmit} fullWidth disabled={!pat.trim() || loading} loading={loading}>{translate("Connect")}</Button>
         <Button onClick={onBack} variant="ghost" fullWidth>{translate("Back")}</Button>

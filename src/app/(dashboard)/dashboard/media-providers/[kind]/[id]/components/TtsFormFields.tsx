@@ -153,10 +153,10 @@ export default function TtsFormFields({ state }: { state: TtsFormState }) {
                 {v.language ? ` · ${v.language}` : ""}
                 {v.gender ? ` · ${v.gender[0].toUpperCase()}` : ""}
                 {v.free_users_allowed === true && (
-                  <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-green-500/15 text-green-600 border border-green-500/20">Free</span>
+                  <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-success text-success-foreground border border-success-border">Free</span>
                 )}
                 {v.free_users_allowed === false && (
-                  <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-600 border border-amber-500/20">Paid</span>
+                  <span className="ml-1.5 px-1 py-0.5 text-[9px] font-semibold rounded bg-warning text-warning-foreground border border-warning-border">Paid</span>
                 )}
               </Button>
             ))}

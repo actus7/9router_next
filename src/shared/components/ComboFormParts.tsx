@@ -29,7 +29,7 @@ export function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onM
         <Button onClick={onMoveUp} disabled={isFirst} variant="ghost" size="icon-xs" className={`${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title={translate("Move up") || "Move up"}><ArrowUp className="size-3" /></Button>
         <Button onClick={onMoveDown} disabled={isLast} variant="ghost" size="icon-xs" className={`${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-surface-2/50"}`} title={translate("Move down") || "Move down"}><ArrowDown className="size-3" /></Button>
       </div>
-      <Button onClick={onRemove} variant="ghost" size="icon-xs" className="hover:bg-red-500/10 text-text-muted hover:text-red-500 transition-all" title={translate("Remove") || "Remove"}><X className="size-3" /></Button>
+      <Button onClick={onRemove} variant="ghost" size="icon-xs" className="hover:bg-destructive text-text-muted hover:text-destructive-foreground transition-all" title={translate("Remove") || "Remove"}><X className="size-3" /></Button>
     </div>
   );
 }
@@ -49,7 +49,7 @@ export function ComboNameField({ forcePrefix, name, nameError, handleNameChange 
             <span className="inline-flex items-center px-2 rounded-l border border-r-0 border-black/10 dark:border-white/10 bg-black/[0.04] dark:bg-white/[0.04] text-text-muted font-mono text-sm">{forcePrefix}</span>
             <RawInput value={name} onChange={handleNameChange} placeholder="my-combo" className="flex-1 min-w-0 rounded-l-none px-2 py-1.5 font-mono text-sm" />
           </div>
-          {nameError && <p className="text-[11px] text-red-500 mt-0.5">{nameError}</p>}
+          {nameError && <p className="text-[11px] text-destructive-foreground mt-0.5">{nameError}</p>}
         </>
       ) : (
         <Input label={translate("Combo Name") || "Combo Name"} value={name} onChange={handleNameChange} placeholder="meu-combo" error={nameError} />

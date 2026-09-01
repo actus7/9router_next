@@ -111,7 +111,7 @@ export function ProxyOAuthSection({
       {authMode === "paste-token" && provider && (
         <div className="flex flex-col gap-3">
           {ideStatus && !ideStatus.installed && (
-            <div className={`px-3 py-2 rounded-lg text-sm ${PASTE_TOKEN_PROVIDERS[provider].ideOptional ? "bg-blue-500/10 text-blue-700 dark:text-blue-300" : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"}`}>
+            <div className={`px-3 py-2 rounded-lg text-sm ${PASTE_TOKEN_PROVIDERS[provider].ideOptional ? "bg-info text-info-foreground dark:text-info-foreground" : "bg-warning text-warning-foreground dark:text-warning-foreground"}`}>
               {PASTE_TOKEN_PROVIDERS[provider].ideName} {translate("IDE not detected.")}
               {PASTE_TOKEN_PROVIDERS[provider].ideOptional
                 ? " " + translate("You can still get the token from DevTools.")
@@ -300,7 +300,7 @@ interface SuccessSectionProps {
 export function SuccessSection({ providerInfo, handleClose }: SuccessSectionProps) {
   return (
     <div className="text-center py-6">
-      <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+      <div className="size-16 mx-auto mb-4 rounded-full bg-success dark:bg-success flex items-center justify-center">
         <CheckCircle2 className="size-4" />
       </div>
       <h3 className="text-lg font-semibold mb-2">{translate("Connected Successfully!")}</h3>
@@ -327,11 +327,11 @@ interface ErrorSectionProps {
 export function ErrorSection({ error, startOAuthFlow, handleClose }: ErrorSectionProps) {
   return (
     <div className="text-center py-6">
-      <div className="size-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+      <div className="size-16 mx-auto mb-4 rounded-full bg-destructive dark:bg-destructive flex items-center justify-center">
         <AlertCircle className="size-4" />
       </div>
       <h3 className="text-lg font-semibold mb-2">{translate("Connection Failed")}</h3>
-      <p className="text-sm text-red-600 mb-4">{error}</p>
+      <p className="text-sm text-destructive-foreground mb-4">{error}</p>
       <div className="flex gap-2">
         <Button onClick={startOAuthFlow} variant="secondary" fullWidth>
           {translate("Try Again")}

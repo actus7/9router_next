@@ -54,7 +54,7 @@ export default function ModelsSection({
           kiloFreeModels={m.kiloFreeModels}
         />
         {!!m.modelsTestError && (
-          <p className="text-xs text-red-500 mb-3 break-words">{m.modelsTestError}</p>
+          <p className="text-xs text-destructive-foreground mb-3 break-words">{m.modelsTestError}</p>
         )}
         <ModelsGrid
           providerId={providerId}

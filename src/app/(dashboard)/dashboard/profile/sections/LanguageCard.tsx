@@ -15,7 +15,7 @@ export default function LanguageCard({ locale, setLangOpen }: LanguageCardProps)
   return (
     <Card>
       <div className="flex items-center gap-3 mb-4">
-        <div className="size-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+        <div className="size-10 rounded-lg bg-info text-info-foreground flex items-center justify-center shrink-0">
           <Globe className="size-5" />
         </div>
         <h3 className="text-base sm:text-lg font-semibold">{translate("Language")}</h3>

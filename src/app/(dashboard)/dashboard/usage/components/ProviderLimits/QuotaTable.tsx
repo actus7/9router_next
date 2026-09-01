@@ -50,26 +50,26 @@ function formatResetTimeDisplay(resetTime: string | null | undefined) {
 function getColorClasses(remainingPercentage: number) {
   if (remainingPercentage > 70) {
     return {
-      text: "text-green-600 dark:text-green-400",
-      bg: "bg-green-500",
-      bgLight: "bg-green-500/10",
+      text: "text-success-foreground dark:text-success-foreground",
+      bg: "bg-success",
+      bgLight: "bg-success",
       emoji: "🟢",
     };
   }
 
   if (remainingPercentage >= 30) {
     return {
-      text: "text-yellow-600 dark:text-yellow-400",
-      bg: "bg-yellow-500",
-      bgLight: "bg-yellow-500/10",
+      text: "text-warning-foreground dark:text-warning-foreground",
+      bg: "bg-warning",
+      bgLight: "bg-warning",
       emoji: "🟡",
     };
   }
 
   return {
-    text: "text-red-600 dark:text-red-400",
-    bg: "bg-red-500",
-    bgLight: "bg-red-500/10",
+    text: "text-destructive-foreground dark:text-destructive-foreground",
+    bg: "bg-destructive",
+    bgLight: "bg-destructive",
     emoji: "🔴",
   };
 }

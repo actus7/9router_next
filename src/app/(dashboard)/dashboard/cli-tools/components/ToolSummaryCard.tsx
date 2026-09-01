@@ -28,8 +28,8 @@ interface ToolSummaryCardProps {
 function getStatus(status?: ToolStatus) {
   if (!status) return { label: "Unknown", cls: "bg-gray-500/10 text-gray-500" };
   if (!status.installed) return { label: "Not installed", cls: "bg-gray-500/10 text-gray-500" };
-  if (status.hasModelHub) return { label: "Connected", cls: "bg-green-500/10 text-green-600 dark:text-green-400" };
-  return { label: "Not configured", cls: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" };
+  if (status.hasModelHub) return { label: "Connected", cls: "bg-success text-success-foreground dark:text-success-foreground" };
+  return { label: "Not configured", cls: "bg-warning text-warning-foreground dark:text-warning-foreground" };
 }
 
 export default function ToolSummaryCard({ toolId, tool, status }: ToolSummaryCardProps) {

@@ -142,7 +142,7 @@ export default function ModalsSection({
                   {translate("Loading reset credits...") || "Loading reset credits..."}
                 </div>
               ) : resetCreditsState.error ? (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300">
+                <div className="rounded-xl border border-destructive-border bg-destructive px-3 py-2 text-sm text-destructive-foreground dark:text-destructive-foreground">
                   {resetCreditsState.error}
                 </div>
               ) : resetCreditsState.data?.credits?.length ? (

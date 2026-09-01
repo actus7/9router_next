@@ -45,12 +45,12 @@ function ProviderCard({ provider, kind, connections }: { provider: Provider; kin
   const allDisabled = total > 0 && providerConns.every((c) => c.isActive === false);
 
   const renderStatus = () => {
-    if (isNoAuth) return <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">Ready</Badge>;
+    if (isNoAuth) return <Badge variant="default" className="bg-success text-success-foreground dark:text-success-foreground">Ready</Badge>;
     if (allDisabled) return <Badge variant="secondary" >Disabled</Badge>;
     if (total === 0) return <span className="text-xs text-text-muted">No connections</span>;
     return (
       <>
-        {connected > 0 && <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">{connected} Connected</Badge>}
+        {connected > 0 && <Badge variant="default" className="bg-success text-success-foreground dark:text-success-foreground">{connected} Connected</Badge>}
         {error > 0 && <Badge variant="destructive">{error} Error</Badge>}
         {connected === 0 && error === 0 && <Badge variant="secondary" >{total} Added</Badge>}
       </>

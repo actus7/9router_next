@@ -96,6 +96,8 @@
   --color-brand-800: color-mix(in oklab, var(--primary) 50%, black);
   --color-brand-900: color-mix(in oklab, var(--primary) 30%, black);
   --color-danger: var(--destructive);
+  --color-destructive-foreground: color-mix(in oklab, var(--destructive) 82%, black);
+  --color-destructive-border: var(--destructive);
   --color-success: #10B981;
   --color-success-foreground: #047857;
   --color-success-border: #059669;
@@ -178,6 +180,8 @@
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.25);
 
   --color-success: #22c55e;
+  --color-destructive-foreground: color-mix(in oklab, var(--destructive) 72%, white);
+  --color-destructive-border: var(--destructive);
   --color-success-foreground: #86efac;
   --color-success-border: #22c55e;
   --color-warning: #fbbf24;
@@ -270,6 +274,8 @@ select {
   --color-text-subtle: var(--color-text-subtle);
   --color-accent: var(--color-brand-500);
   --color-danger: var(--color-danger);
+  --color-destructive-foreground: var(--color-destructive-foreground);
+  --color-destructive-border: var(--color-destructive-border);
   --color-success: var(--color-success);
   --color-success-foreground: var(--color-success-foreground);
   --color-success-border: var(--color-success-border);

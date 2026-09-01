@@ -48,7 +48,7 @@ export default function ChangelogModal({ isOpen, onClose }: ChangelogModalProps)
             </div>
           )}
           {error && (
-            <div className="text-red-500 py-4">{translate("Failed to load changelog")}: {error}</div>
+            <div className="text-destructive-foreground py-4">{translate("Failed to load changelog")}: {error}</div>
           )}
           {!loading && !error && markdown && (
             <SafeMarkdown source={markdown} className="changelog-body text-text-main" />

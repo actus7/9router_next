@@ -250,9 +250,9 @@ export default function CoworkToolCard({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h3 className="font-medium text-sm">{tool.name}</h3>
-              {configStatus === "configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">Connected</span>}
-              {configStatus === "not_configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 rounded-full">Not configured</span>}
-              {configStatus === "other" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">Other</span>}
+              {configStatus === "configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-success text-success-foreground dark:text-success-foreground rounded-full">Connected</span>}
+              {configStatus === "not_configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning text-warning-foreground dark:text-warning-foreground rounded-full">Not configured</span>}
+              {configStatus === "other" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info text-info-foreground dark:text-info-foreground rounded-full">Other</span>}
             </div>
             <p className="text-xs text-text-muted truncate">{tool.description}</p>
           </div>
@@ -270,16 +270,16 @@ export default function CoworkToolCard({
           )}
 
           {!checking && status && !status.installed && (
-            <div className="flex flex-col gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <div className="flex flex-col gap-3 p-4 bg-warning border border-warning-border rounded-lg">
               <div className="flex items-start gap-3">
                 <TriangleAlert className="size-4" />
                 <div className="flex-1">
-                  <p className="font-medium text-yellow-600 dark:text-yellow-400">Claude Desktop (Cowork mode) not detected</p>
+                  <p className="font-medium text-warning-foreground dark:text-warning-foreground">Claude Desktop (Cowork mode) not detected</p>
                   <p className="text-sm text-text-muted">Open Claude Desktop → Help → Troubleshooting → Enable Developer mode → Configure third-party inference, then return here.</p>
                 </div>
               </div>
               <div className="pl-9">
-                <Button variant="secondary" size="sm" onClick={() => setShowManualConfigModal(true)} className="!bg-yellow-500/20 !border-yellow-500/40 !text-yellow-700 dark:!text-yellow-300 hover:!bg-yellow-500/30">
+                <Button variant="secondary" size="sm" onClick={() => setShowManualConfigModal(true)} className="!bg-warning !border-warning-border !text-warning-foreground dark:!text-warning-foreground hover:!bg-warning">
                   <Copy className="size-5" />
                   Manual Config
                 </Button>
@@ -321,7 +321,7 @@ export default function CoworkToolCard({
                         selectedModels.map((m) => (
                           <span key={m} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-black/5 dark:bg-white/5 text-text-muted border border-transparent hover:border-border">
                             {m}
-                            <Button variant="ghost" size="sm" onClick={() => handleRemoveModel(m)} className="ml-0.5 hover:text-red-500 p-0 h-auto">
+                            <Button variant="ghost" size="sm" onClick={() => handleRemoveModel(m)} className="ml-0.5 hover:text-destructive-foreground p-0 h-auto">
                               <X className="size-3" />
                             </Button>
                           </span>
@@ -358,7 +358,7 @@ export default function CoworkToolCard({
               </div>
 
               {message && (
-                <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}>
+                <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground"}`}>
                   {message.type === "success" ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
                   <span>{message.text}</span>
                 </div>

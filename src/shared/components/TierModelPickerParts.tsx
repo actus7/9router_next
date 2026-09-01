@@ -39,8 +39,8 @@ export function priceTierBadge(price: ModelPriceInfo | undefined): { label: stri
   const output = price.outputPrice;
   if (output === 0) return { label: translate("Free") || "Free", className: "bg-emerald-500/15 text-emerald-500" };
   if (output <= 0.5) return { label: translate("Cheap") || "Cheap", className: "bg-emerald-500/15 text-emerald-500" };
-  if (output <= 4) return { label: translate("Medium") || "Medium", className: "bg-amber-500/15 text-amber-500" };
-  return { label: translate("Expensive") || "Expensive", className: "bg-red-500/15 text-red-500" };
+  if (output <= 4) return { label: translate("Medium") || "Medium", className: "bg-warning text-warning-foreground" };
+  return { label: translate("Expensive") || "Expensive", className: "bg-destructive text-destructive-foreground" };
 }
 
 export function priceLine(price: ModelPriceInfo | undefined): string {

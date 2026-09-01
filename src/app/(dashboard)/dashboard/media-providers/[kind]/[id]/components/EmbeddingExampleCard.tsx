@@ -236,7 +236,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }: { providerId: 
         </div>
 
         {/* Error */}
-        {error && <p className="text-xs text-red-500 break-words">{error}</p>}
+        {error && <p className="text-xs text-destructive-foreground break-words">{error}</p>}
 
         {/* Response — default example or real result */}
         <div>

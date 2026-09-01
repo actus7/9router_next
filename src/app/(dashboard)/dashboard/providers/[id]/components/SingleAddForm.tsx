@@ -58,8 +58,8 @@ export default function SingleAddForm({
         </p>
       )}
       <ProviderSpecificFields provider={provider} isAzure={isAzure} isCloudflareAi={isCloudflareAi} azureData={azureData} setAzureData={setAzureData} cloudflareData={cloudflareData} setCloudflareData={setCloudflareData} ollamaBaseUrl={ollamaBaseUrl} setOllamaBaseUrl={setOllamaBaseUrl} providerRegions={providerRegions} region={region} setRegion={setRegion} />
-      {validationResult && <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>{validationResult === "success" ? "Valid" : "Invalid"}</Badge>}
-      {error && <p className="text-xs text-red-500 break-words">{error}</p>}
+      {validationResult && <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-success text-success-foreground dark:text-success-foreground" : undefined}>{validationResult === "success" ? "Valid" : "Invalid"}</Badge>}
+      {error && <p className="text-xs text-destructive-foreground break-words">{error}</p>}
       <FormFooter isCompatible={isCompatible} isAzure={isAzure} isCloudflareAi={isCloudflareAi} defaultModel={formData.defaultModel} onDefaultModelChange={(defaultModel) => setFormData({ ...formData, defaultModel })} isAnthropic={isAnthropic} priority={formData.priority} onPriorityChange={(priority) => setFormData({ ...formData, priority })} proxyPoolId={formData.proxyPoolId} onProxyPoolChange={(proxyPoolId) => setFormData({ ...formData, proxyPoolId })} proxyPools={proxyPools} noneProxyPoolValue={noneProxyPoolValue} saving={saving} canSubmit={canSubmit} onSubmit={onSubmit} onClose={onClose} />
     </>
   );

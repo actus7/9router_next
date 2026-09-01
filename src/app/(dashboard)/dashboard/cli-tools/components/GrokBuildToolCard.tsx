@@ -62,7 +62,7 @@ function ModelField({ label, value, placeholder, onChange, onSelect, disabled, h
       <div className="relative w-full min-w-0">
         <Input type="text" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
         {value && (
-          <Button variant="ghost" size="sm" type="button" onClick={() => onChange("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500" title="Clear (inherit main model for subagents)">
+          <Button variant="ghost" size="sm" type="button" onClick={() => onChange("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear (inherit main model for subagents)">
             <X className="size-4" />
           </Button>
         )}
@@ -252,9 +252,9 @@ export default function GrokBuildToolCard({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h3 className="font-medium text-sm">{tool.name}</h3>
-              {configStatus === "configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">Connected</span>}
-              {configStatus === "not_configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 rounded-full">Not configured</span>}
-              {configStatus === "other" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">Other</span>}
+              {configStatus === "configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-success text-success-foreground dark:text-success-foreground rounded-full">Connected</span>}
+              {configStatus === "not_configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning text-warning-foreground dark:text-warning-foreground rounded-full">Not configured</span>}
+              {configStatus === "other" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info text-info-foreground dark:text-info-foreground rounded-full">Other</span>}
             </div>
             <p className="text-xs text-text-muted truncate">{tool.description}</p>
           </div>
@@ -267,11 +267,11 @@ export default function GrokBuildToolCard({
           {checking && <div className="flex items-center gap-2 text-text-muted"><Loader2 className="size-4" /><span>Checking Grok Build...</span></div>}
 
           {!checking && grokStatus && !grokStatus.installed && (
-            <div className="flex flex-col gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <div className="flex flex-col gap-3 p-4 bg-warning border border-warning-border rounded-lg">
               <div className="flex items-start gap-3">
                 <TriangleAlert className="size-4" />
                 <div className="flex-1">
-                  <p className="font-medium text-yellow-600 dark:text-yellow-400">Grok Build not detected locally</p>
+                  <p className="font-medium text-warning-foreground dark:text-warning-foreground">Grok Build not detected locally</p>
                   <code className="block mt-2 p-2 bg-black/20 rounded text-xs font-mono">curl -fsSL https://x.ai/cli/install.sh | bash</code>
                 </div>
               </div>
@@ -285,7 +285,7 @@ export default function GrokBuildToolCard({
                 {tool.notes && tool.notes.length > 0 && (
                   <div className="mb-2 flex flex-col gap-2">
                     {tool.notes.map((note, index) => (
-                      <div key={index} className={`flex items-start gap-2 rounded p-2 text-xs ${note.type === "warning" ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}>
+                      <div key={index} className={`flex items-start gap-2 rounded p-2 text-xs ${note.type === "warning" ? "bg-warning text-warning-foreground dark:text-warning-foreground" : "bg-info text-info-foreground dark:text-info-foreground"}`}>
                         {note.type === "warning" ? <TriangleAlert className="size-4 mt-0.5" /> : <Info className="size-4 mt-0.5" />}
                         <span>{note.text}</span>
                       </div>

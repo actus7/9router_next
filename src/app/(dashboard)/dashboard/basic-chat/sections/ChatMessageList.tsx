@@ -189,7 +189,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
                       type="button"
                       onClick={() => handleFeedback(message.id, "up")}
                       aria-label={translate("Good response") || "Good response"}
-                      className={`flex items-center rounded-md px-1.5 py-1 transition-colors ${message.feedback === "up" ? "text-green-500 bg-green-500/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                      className={`flex items-center rounded-md px-1.5 py-1 transition-colors ${message.feedback === "up" ? "text-success-foreground bg-success" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
                     >
                       <ThumbsUp className="size-3" />
                     </button>
@@ -197,7 +197,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
                       type="button"
                       onClick={() => handleFeedback(message.id, "down")}
                       aria-label={translate("Poor response") || "Poor response"}
-                      className={`flex items-center rounded-md px-1.5 py-1 transition-colors ${message.feedback === "down" ? "text-red-500 bg-red-500/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                      className={`flex items-center rounded-md px-1.5 py-1 transition-colors ${message.feedback === "down" ? "text-destructive-foreground bg-destructive" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
                     >
                       <ThumbsDown className="size-3" />
                     </button>

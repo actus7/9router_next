@@ -188,7 +188,7 @@ export default function ProviderLimits() {
 
       {/* Provider cards: 2 columns, compact */}
       {quotaHook.expiringFirst && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+        <div className="rounded-xl border border-warning-border bg-warning px-3 py-2 text-xs text-warning-foreground dark:text-warning-foreground">
           {translate("The expiring-first sort reorders accounts within the current page. Sort between pages follows backend pagination.") || "The expiring-first sort reorders accounts within the current page. Sort between pages follows backend pagination."}
         </div>
       )}

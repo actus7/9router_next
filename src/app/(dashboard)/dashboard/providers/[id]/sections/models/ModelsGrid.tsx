@@ -104,7 +104,7 @@ export default function ModelsGrid({
         <Plus className="size-4" />{translate("Add Model")}
       </Button>
       {providerId === "qoder" && connections.some((conn) => conn.isActive !== false) && (
-        <Button variant="outline" onClick={m.handleImportQoderModels} disabled={m.importingQoderModels} className="min-h-20 w-full border-dashed border-blue-500/40 text-xs text-blue-600 dark:text-blue-400">
+        <Button variant="outline" onClick={m.handleImportQoderModels} disabled={m.importingQoderModels} className="min-h-20 w-full border-dashed border-info-border text-xs text-info-foreground dark:text-info-foreground">
           <span className="text-sm" style={m.importingQoderModels ? { animation: "spin 1s linear infinite" } : undefined}>
             {m.importingQoderModels ? <Loader2 className="size-4" /> : <Download className="size-4" />}
           </span>

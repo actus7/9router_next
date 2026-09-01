@@ -77,7 +77,7 @@ export default function CardConnectionRow({ connection, proxyPools, isOAuth, isF
 
   const noProxyText = boundProxyPool?.noProxy || connection.providerSpecificData?.connectionNoProxy || "";
   const proxyBadgeVariant: "secondary" | "default" | "destructive" = boundProxyPool?.isActive === true ? "default" : (boundProxyPoolId || hasLegacyProxy) ? "destructive" : "secondary";
-  const proxyBadgeClassName: string | undefined = boundProxyPool?.isActive === true ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined;
+  const proxyBadgeClassName: string | undefined = boundProxyPool?.isActive === true ? "bg-success text-success-foreground dark:text-success-foreground" : undefined;
 
   useEffect(() => {
     if (!showProxyDropdown) return;
@@ -121,7 +121,7 @@ export default function CardConnectionRow({ connection, proxyPools, isOAuth, isF
             </Badge>
             {hasAnyProxy && <Badge variant={proxyBadgeVariant} className={proxyBadgeClassName}>Proxy</Badge>}
             {connection.lastError && connection.isActive !== false && (
-              <span className="text-xs text-red-500 truncate max-w-[300px]" title={connection.lastError}>{connection.lastError}</span>
+              <span className="text-xs text-destructive-foreground truncate max-w-[300px]" title={connection.lastError}>{connection.lastError}</span>
             )}
             <span className="text-xs text-text-muted">#{connection.priority}</span>
           </div>

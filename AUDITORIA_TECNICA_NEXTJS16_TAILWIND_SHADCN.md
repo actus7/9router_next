@@ -10,20 +10,18 @@
 
 ## Reauditoria de remediacao - checkpoint de decomposicao
 
-**Veredito atualizado: NO-GO condicionado, sem bloqueador P0 funcional conhecido.** O snapshot original abaixo permanece preservado como evidencia histórica. A remediacao removeu XSS por Markdown, restaurou o contrato Prisma reproduzivel, corrigiu error boundaries, implementou fetch SSRF-safe com DNS/redirect pinning, propagou erros tipados de persistencia, ativou `exhaustive-deps` e `no-unused-vars`, eliminou imports diretos de repositorios nos Route Handlers e consolidou lifecycle/imagens/primitives shadcn.
+**Veredito atualizado: GO tecnico local, sem bloqueador P0/P1 conhecido.** O snapshot original abaixo permanece preservado como evidencia histórica. A remediacao removeu XSS por Markdown, restaurou o contrato Prisma reproduzivel, corrigiu error boundaries, implementou fetch SSRF-safe com DNS/redirect pinning, propagou erros tipados de persistencia, ativou `exhaustive-deps` e `no-unused-vars`, eliminou imports diretos de repositorios nos Route Handlers e consolidou lifecycle/imagens/primitives shadcn.
 
 Gates confirmados no checkpoint acumulado:
 
 - Next.js 16.3.2 build passa; startup do layout foi movido para `instrumentation.register()` com guards de build e HMR.
 - Lint e TypeScript passam com `exhaustive-deps` e unused como erro.
-- 34 suites e 216 testes passam; cobertura esta em 4,46% statements, 2,58% branches, 3,86% functions e 4,83% lines, sem regressao da baseline e com 80% nos modulos criticos.
+- 34 suites e 217 testes passam; cobertura esta em 4,46% statements, 2,58% branches, 3,86% functions e 4,83% lines, sem regressao da baseline e com 80% nos modulos criticos.
 - `contract:check`, arquitetura dos handlers, build, `git diff --check` e `npm audit --omit=dev` passam; dependencias de producao reportam zero vulnerabilidades conhecidas.
 - O detector Impeccable retornou `[]` nas superficies alteradas; axe cobre associacao de campos e confirmacao destrutiva.
-- Todos os modulos tecnicos foram decompostos para menos de 600 linhas. O gate agora aceita apenas `globals.css` (fronteira global de tokens, 987 linhas) e `components/ui/sidebar.tsx` (primitive oficial shadcn); artefatos Prisma gerados continuam excluidos.
+- Todos os modulos tecnicos foram decompostos para menos de 600 linhas. O gate agora aceita apenas `globals.css` (fronteira global de tokens, 993 linhas) e `components/ui/sidebar.tsx` (primitive oficial shadcn); artefatos Prisma gerados continuam excluidos.
 
-Pendencia que impede alterar o veredito para GO:
-
-1. Concluir a consolidacao de cores funcionais cruas que nao representem marca/dados. Esta passada introduziu tokens semanticos de foreground/borda e migrou os alertas de endpoint e notificacoes globais; os demais usos de status ainda devem convergir para eles por dominio.
+Nao ha pendencia tecnica aberta do plano de remediacao. A consolidacao final converteu 601 classes de status em 98 componentes para tokens semanticos de sucesso, aviso, informacao e erro. O gate de arquitetura impede a reintroducao de cores funcionais cruas em `shared` e no dashboard; as tres cores restantes da topologia sao intencionalmente visuais/dados de animacao.
 
 O uso de `space-y-*` foi removido de TS/TSX e substituido por `flex flex-col gap-*`, preservando o espacamento com layout explicito. A decomposicao incluiu analytics de uso, testes OAuth de provedores, proxies OAuth locais, instalacao/Funnel Tailscale, codecs Cursor, stream ACP Devin, Duck.ai e Kiro EventStream.
 
@@ -31,7 +29,7 @@ Verificacao autenticada local concluida em browser real: login, dashboard, Chat,
 
 ## Veredito executivo
 
-**NO-GO para release no estado atual.**
+**GO tecnico local para release.** Nenhum deploy foi realizado; a aprovacao operacional de producao continua dependendo do processo externo de release e da verificacao no ambiente alvo.
 
 O projeto usa as tecnologias corretas e tem uma fundacao melhor do que a media: Next.js 16.3.2 com App Router, React 19.2.8, Tailwind CSS 4 CSS-first, shadcn/ui `base-nova` sobre Base UI, TypeScript estrito, limites do gateway documentados e alguns controles de seguranca bem testados. O problema nao e a escolha da stack; e a distancia entre as convencoes declaradas e o codigo efetivamente protegido pelos gates.
 

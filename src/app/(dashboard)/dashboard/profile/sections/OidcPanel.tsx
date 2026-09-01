@@ -98,13 +98,13 @@ export default function OidcPanel({
       </div>
 
       {oidcTestStatus.message && (
-        <p className={`text-xs sm:text-sm ${oidcTestStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
+        <p className={`text-xs sm:text-sm ${oidcTestStatus.type === "error" ? "text-destructive-foreground" : "text-success-foreground"}`}>
           {oidcTestStatus.message}
         </p>
       )}
 
       {oidcStatus.message && (
-        <p className={`text-xs sm:text-sm ${oidcStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
+        <p className={`text-xs sm:text-sm ${oidcStatus.type === "error" ? "text-destructive-foreground" : "text-success-foreground"}`}>
           {oidcStatus.message}
         </p>
       )}

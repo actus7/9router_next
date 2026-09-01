@@ -7,7 +7,7 @@ import { TAB_DEFS } from "./useModelPickerFilters";
 
 const TAB_ICONS: Record<string, React.ReactNode> = {
   subscription: <Users className="size-3.5 text-emerald-400" />,
-  apikey: <Key className="size-3.5 text-amber-400" />,
+  apikey: <Key className="size-3.5 text-warning-foreground" />,
   local: <Monitor className="size-3.5 text-pink-400" />,
 };
 

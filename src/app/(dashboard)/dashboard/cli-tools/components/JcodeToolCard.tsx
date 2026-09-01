@@ -237,8 +237,8 @@ id = "${selectedModel || "cc/claude-opus-4-7"}"`;
             <div className="flex flex-col gap-2 mb-2">
               {tool.notes.map((note: { type: string; text: string }, idx: number) => (
                 <div key={idx} className={`flex items-start gap-2 p-2 rounded text-xs ${
-                  note.type === "info" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
-                  note.type === "warning" ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" :
+                  note.type === "info" ? "bg-info text-info-foreground dark:text-info-foreground" :
+                  note.type === "warning" ? "bg-warning text-warning-foreground dark:text-warning-foreground" :
                   "bg-gray-500/10 text-text-muted"
                 }`}>
                   {note.type === "info" ? <Info className="size-4 mt-0.5" /> : note.type === "warning" ? <TriangleAlert className="size-4 mt-0.5" /> : <Info className="size-4 mt-0.5" />}
@@ -273,13 +273,13 @@ id = "${selectedModel || "cc/claude-opus-4-7"}"`;
             <ArrowRight className="size-4" />
             <div className="relative w-full min-w-0">
               <Input type="text" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} placeholder="cc/claude-opus-4-7" className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
-              {selectedModel && <Button variant="ghost" size="sm" onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500" title="Clear"><X className="size-4" /></Button>}
+              {selectedModel && <Button variant="ghost" size="sm" onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear"><X className="size-4" /></Button>}
             </div>
             <Button variant="outline" size="sm" onClick={() => setModalOpen(true)} disabled={!hasActiveProviders} className="w-full sm:w-auto">Select</Button>
           </div>
 
-          <div className="flex flex-col gap-1 p-3 bg-blue-500/5 border border-blue-500/20 rounded-lg">
-            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Usage:</p>
+          <div className="flex flex-col gap-1 p-3 bg-info border border-info-border rounded-lg">
+            <p className="text-xs font-medium text-info-foreground dark:text-info-foreground">Usage:</p>
             <code className="text-xs font-mono text-text-muted">jcode --provider-profile modelhub</code>
             <code className="text-xs font-mono text-text-muted">jcode --provider-profile modelhub --model {selectedModel || "cc/claude-opus-4-7"}</code>
           </div>

@@ -58,15 +58,15 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }: Bul
       <div className="flex flex-col gap-4">
         <p className="text-xs text-text-muted">{translate("Paste an array of codex account JSON objects. Each must include accessToken (and ideally refreshToken, idToken).")}</p>
         <Textarea className="font-mono min-h-[240px]" placeholder={PLACEHOLDER} value={jsonText} onChange={(e) => setJsonText(e.target.value)} disabled={submitting} />
-        {parseError && <p className="text-xs text-red-500 break-words">{parseError}</p>}
+        {parseError && <p className="text-xs text-destructive-foreground break-words">{parseError}</p>}
         {result && (
           <div className="flex flex-col gap-2">
-            <div className={`text-sm font-medium ${result.failed > 0 ? "text-yellow-400" : "text-green-400"}`}>
+            <div className={`text-sm font-medium ${result.failed > 0 ? "text-warning-foreground" : "text-success-foreground"}`}>
               ✓ {result.success} {translate("added")}{result.failed > 0 ? `, ✗ ${result.failed} ${translate("failed")}` : ""}
             </div>
             {failedItems.length > 0 && (
               <ul className="rounded border border-accent/20 bg-sidebar/50 p-2 text-xs font-mono max-h-40 overflow-y-auto">
-                {failedItems.map((item) => <li key={item.index} className="text-red-400">[{item.index}] {item.error}</li>)}
+                {failedItems.map((item) => <li key={item.index} className="text-destructive-foreground">[{item.index}] {item.error}</li>)}
               </ul>
             )}
           </div>

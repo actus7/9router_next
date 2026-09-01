@@ -22,7 +22,7 @@ function countLines(source: string): number {
 const justifiedLargeFileCeilings: Record<string, number> = {
   // Global CSS tokens and shadcn's registry-owned sidebar are intentional
   // composition boundaries; Prisma artifacts are excluded below as generated.
-  "app/globals.css": 987,
+  "app/globals.css": 993,
   "components/ui/sidebar.tsx": 723,
 };
 
@@ -54,6 +54,23 @@ describe("architecture gates", () => {
         ? []
         : [`${relativePath}: ${lineCount} lines (allowed: ${ceiling ?? 600})`];
     });
+
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps application status feedback on semantic color tokens", () => {
+    const roots = [
+      join(sourceRoot, "shared"),
+      join(sourceRoot, "app", "(dashboard)", "dashboard"),
+    ];
+    const intentionalDataColorFiles = new Set([
+      join(sourceRoot, "app", "(dashboard)", "dashboard", "usage", "components", "ProviderTopology.tsx"),
+    ]);
+    const rawStatusColor = /(?:bg|text|border|ring)-(?:red|green|yellow|amber|blue)-\d+(?:\/\d+)?/;
+    const violations = roots.flatMap(listSourceFiles)
+      .filter((path) => /\.tsx$/.test(path) && !intentionalDataColorFiles.has(path))
+      .filter((path) => rawStatusColor.test(readFileSync(path, "utf8")))
+      .map((path) => relative(projectRoot, path));
 
     expect(violations).toEqual([]);
   });

@@ -71,7 +71,7 @@ export default function Select({
             "focus-visible:border-brand-500/40 focus-visible:ring-2 focus-visible:ring-brand-500/30",
             "transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed",
             "text-[16px] sm:text-sm",
-            error && "border-red-500/40 focus-visible:ring-red-500/40 aria-invalid:border-red-500/40 aria-invalid:ring-red-500/20"
+            error && "border-destructive-border focus-visible:ring-destructive aria-invalid:border-destructive-border aria-invalid:ring-destructive"
           )}
         >
           <SelectValue placeholder={translate(placeholder) || placeholder} />

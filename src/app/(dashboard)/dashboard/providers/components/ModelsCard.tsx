@@ -80,7 +80,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">{translate("Models")}{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
         </div>
-        {testError && <p className="text-xs text-red-500 mb-3 break-words">{testError}</p>}
+        {testError && <p className="text-xs text-destructive-foreground mb-3 break-words">{testError}</p>}
         <div className="flex flex-wrap gap-3">
           {builtInModels.map((model) => {
             const fullModel = `${providerAlias}/${model.id}`;

@@ -104,11 +104,11 @@ export default function EndpointModals({
         onClose={() => setCreatedKey(null)}
       >
         <div className="flex flex-col gap-4">
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
+          <div className="bg-warning dark:bg-warning border border-warning-border dark:border-warning-border rounded-lg p-4">
+              <p className="text-sm text-warning-foreground dark:text-warning-foreground mb-2 font-medium">
                 {translate("Save this key now!") || "Save this key now!"}
               </p>
-              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+              <p className="text-sm text-warning-foreground dark:text-warning-foreground">
                 {translate("This is the only time you will see this key. Store it securely.") || "This is the only time you will see this key. Store it securely."}
               </p>
           </div>
@@ -241,7 +241,7 @@ export default function EndpointModals({
           {/* Installed: show Connect button */}
           {tsInstalled === true && !tsInstalling && (
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+              <div className="flex items-center gap-2 text-sm text-success-foreground dark:text-success-foreground">
                 <CheckCircle2 className="size-4" />
                 {translate("Tailscale installed") || "Tailscale installed"}
               </div>

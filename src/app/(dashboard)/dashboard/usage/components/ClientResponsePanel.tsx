@@ -22,7 +22,7 @@ export default function ClientResponsePanel({ thinking, content }: Props) {
             <Brain className="size-4" />
             {translate("Thinking Process")}
           </h4>
-          <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 font-mono text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-4">
+          <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-warning-border bg-warning p-3 font-mono text-xs text-warning-foreground dark:border-warning-border dark:bg-warning dark:text-warning-foreground sm:p-4">
             {thinking}
           </pre>
         </div>

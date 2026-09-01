@@ -36,19 +36,19 @@ export function NotesSection({ notes, cloudEnabled, tunnelEnabled }: NotesSectio
         if (note.type === "cloudCheck" && (cloudEnabled || tunnelEnabled)) return null;
         const isWarning = note.type === "warning";
         const isError = note.type === "cloudCheck" && !cloudEnabled && !tunnelEnabled;
-        let bgClass = "bg-blue-500/10 border-blue-500/30";
-        let textClass = "text-blue-600 dark:text-blue-400";
-        let iconClass = "text-blue-500";
+        let bgClass = "bg-info border-info-border";
+        let textClass = "text-info-foreground dark:text-info-foreground";
+        let iconClass = "text-info-foreground";
         let icon = "info";
         if (isWarning) {
-          bgClass = "bg-yellow-500/10 border-yellow-500/30";
-          textClass = "text-yellow-600 dark:text-yellow-400";
-          iconClass = "text-yellow-500";
+          bgClass = "bg-warning border-warning-border";
+          textClass = "text-warning-foreground dark:text-warning-foreground";
+          iconClass = "text-warning-foreground";
           icon = "warning";
         } else if (isError) {
-          bgClass = "bg-red-500/10 border-red-500/30";
-          textClass = "text-red-600 dark:text-red-400";
-          iconClass = "text-red-500";
+          bgClass = "bg-destructive border-destructive-border";
+          textClass = "text-destructive-foreground dark:text-destructive-foreground";
+          iconClass = "text-destructive-foreground";
           icon = "error";
         }
         return (
@@ -93,7 +93,7 @@ export function GuideModelSelector({
           <Button variant="outline" size="icon-sm" onClick={() => onCopy(modelValue, "model")} className="shrink-0">
             <span className="text-lg">{copiedField === "model" ? "check" : "content_copy"}</span>
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={() => onModelChange("")} className="text-text-muted hover:text-red-500" title="Clear">
+          <Button variant="ghost" size="icon-sm" onClick={() => onModelChange("")} className="text-text-muted hover:text-destructive-foreground" title="Clear">
             <span className="text-lg">close</span>
           </Button>
         </>

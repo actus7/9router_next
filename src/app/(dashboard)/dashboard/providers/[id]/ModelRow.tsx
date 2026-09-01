@@ -23,9 +23,9 @@ interface ModelRowProps {
 export default function ModelRow({ model, fullModel, alias: _alias, copied, onCopy, testStatus, isCustom, isFree: _isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }: ModelRowProps) {
   const displayModel = thinkingSuffix ? `${fullModel}(${thinkingSuffix})` : fullModel;
   const borderColor = testStatus === "ok"
-    ? "border-green-500/40"
+    ? "border-success-border"
     : testStatus === "error"
-    ? "border-red-500/40"
+    ? "border-destructive-border"
     : "border-border";
 
   const iconColor = testStatus === "ok"
@@ -87,7 +87,7 @@ export default function ModelRow({ model, fullModel, alias: _alias, copied, onCo
             variant="ghost"
             size="icon-xs"
             onClick={onDeleteAlias}
-            className="ml-auto text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500"
+            className="ml-auto text-destructive-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
             title="Remove custom model"
           >
             <X className="size-4" />
@@ -97,7 +97,7 @@ export default function ModelRow({ model, fullModel, alias: _alias, copied, onCo
             variant="ghost"
             size="icon-xs"
             onClick={onDisable}
-            className="ml-auto text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500"
+            className="ml-auto text-destructive-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
             title="Disable this model"
           >
             <X className="size-4" />

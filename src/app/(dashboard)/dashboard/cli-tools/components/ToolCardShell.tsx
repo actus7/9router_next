@@ -93,9 +93,9 @@ export default function ToolCardShell({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h3 className="font-medium text-sm">{toolName}</h3>
-              {configStatus === "configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">Connected</span>}
-              {configStatus === "not_configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 rounded-full">Not configured</span>}
-              {configStatus === "other" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">Other</span>}
+              {configStatus === "configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-success text-success-foreground dark:text-success-foreground rounded-full">Connected</span>}
+              {configStatus === "not_configured" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-warning text-warning-foreground dark:text-warning-foreground rounded-full">Not configured</span>}
+              {configStatus === "other" && <span className="px-1.5 py-0.5 text-[10px] font-medium bg-info text-info-foreground dark:text-info-foreground rounded-full">Other</span>}
             </div>
             <p className="text-xs text-text-muted truncate">{toolDescription}</p>
           </div>
@@ -117,11 +117,11 @@ export default function ToolCardShell({
           {/* Not-installed warning */}
           {!checking && installed === false && (
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <div className="flex flex-col gap-3 p-4 bg-warning border border-warning-border rounded-lg">
                 <div className="flex items-start gap-3">
                   <TriangleAlert className="size-4" />
                   <div className="flex-1">
-                    <p className="font-medium text-yellow-600 dark:text-yellow-400">{notInstalledMessage}</p>
+                    <p className="font-medium text-warning-foreground dark:text-warning-foreground">{notInstalledMessage}</p>
                     {notInstalledDetail && <p className="text-sm text-text-muted">{notInstalledDetail}</p>}
                     {notInstalledChildren}
                   </div>
@@ -153,7 +153,7 @@ export default function ToolCardShell({
 
           {/* Message */}
           {message && (
-            <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}>
+            <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground"}`}>
               {message.type === "success" ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
               <span>{message.text}</span>
             </div>

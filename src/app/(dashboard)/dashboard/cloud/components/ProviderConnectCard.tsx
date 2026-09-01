@@ -74,7 +74,7 @@ export default function ProviderConnectCard({ provider, label, hint, connection,
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
               />
-              {error && <p className="text-xs text-red-500">{error}</p>}
+              {error && <p className="text-xs text-destructive-foreground">{error}</p>}
             </div>
             <DialogFooter>
               <Button onClick={handleConnect} disabled={!token.trim() || isSubmitting}>

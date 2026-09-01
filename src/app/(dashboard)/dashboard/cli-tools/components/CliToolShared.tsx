@@ -12,7 +12,7 @@ interface Message {
 export function StatusMessage({ message }: { message: Message | null }) {
   if (!message) return null;
   return (
-    <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}>
+    <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground"}`}>
       {message.type === "success" ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
       <span>{message.text}</span>
     </div>

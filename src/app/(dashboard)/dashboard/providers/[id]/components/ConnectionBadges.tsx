@@ -57,7 +57,7 @@ export default function ConnectionBadges({
 
   const getOneByOneClassName = (): string | undefined => {
     if (!oneByOneStatus) return undefined;
-    if (oneByOneStatus.state === "success") return "bg-green-500/10 text-green-600 dark:text-green-400";
+    if (oneByOneStatus.state === "success") return "bg-success text-success-foreground dark:text-success-foreground";
     return undefined;
   };
 

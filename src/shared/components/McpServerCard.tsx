@@ -24,9 +24,9 @@ export function McpServerCard({ server, added, expanded, onExpand }: McpServerCa
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="font-medium text-xs">{server.title}</span>
           {server.oauth ? (
-            <span className="px-1 py-0.5 text-[9px] rounded bg-amber-500/10 text-amber-600">OAuth</span>
+            <span className="px-1 py-0.5 text-[9px] rounded bg-warning text-warning-foreground">OAuth</span>
           ) : (
-            <span className="px-1 py-0.5 text-[9px] rounded bg-green-500/10 text-green-600">{translate("Authless") || "Authless"}</span>
+            <span className="px-1 py-0.5 text-[9px] rounded bg-success text-success-foreground">{translate("Authless") || "Authless"}</span>
           )}
           {server.toolCount && server.toolCount > 0 && (
             <span className="text-[10px] text-text-muted">{server.toolCount} {translate("Tools") || "Tools"}</span>
@@ -41,7 +41,7 @@ export function McpServerCard({ server, added, expanded, onExpand }: McpServerCa
         disabled={added}
         variant={added ? "ghost" : expanded ? "outline" : "default"}
         size="sm"
-        className={`shrink-0 px-2 py-1 rounded text-[10px] font-medium ${added ? "bg-green-500/10 text-green-600 cursor-default" : ""}`}
+        className={`shrink-0 px-2 py-1 rounded text-[10px] font-medium ${added ? "bg-success text-success-foreground cursor-default" : ""}`}
       >
         {added ? translate("Added") || "Added" : expanded ? translate("Cancel") || "Cancel" : `+ ${translate("Add") || "Add"}`}
       </Button>

@@ -162,7 +162,7 @@ export default function CloudPageClient() {
 
           <div className="flex flex-col gap-3">
             <h2 className="text-sm font-medium">Seus ambientes</h2>
-            {actionError && <p className="text-sm text-red-500">{actionError}</p>}
+            {actionError && <p className="text-sm text-destructive-foreground">{actionError}</p>}
             {deployments.length === 0 ? (
               <p className="text-sm text-text-muted">Nenhum ambiente criado. Conecte um provedor, escolha o modelo e clique em Deploy.</p>
             ) : (

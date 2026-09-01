@@ -18,7 +18,7 @@ interface CardModelRowProps {
 }
 
 export default function CardModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting }: CardModelRowProps) {
-  const borderColor = testStatus === "ok" ? "border-green-500/40" : testStatus === "error" ? "border-red-500/40" : "border-border";
+  const borderColor = testStatus === "ok" ? "border-success-border" : testStatus === "error" ? "border-destructive-border" : "border-border";
   const iconColor = testStatus === "ok" ? "#22c55e" : testStatus === "error" ? "#ef4444" : undefined;
 
   return (
@@ -51,9 +51,9 @@ export default function CardModelRow({ model, fullModel, copied, onCopy, testSta
             {copied === `model-${model.id}` ? "Copied!" : "Copy"}
           </span>
         </div>
-        {isFree && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded">FREE</span>}
+        {isFree && <span className="text-[10px] font-bold text-success-foreground bg-success px-1.5 py-0.5 rounded">FREE</span>}
         {isCustom && (
-          <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-red-500 opacity-0 group-hover:opacity-100 ml-auto" title="Remove custom model">
+          <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-destructive-foreground opacity-0 group-hover:opacity-100 ml-auto" title="Remove custom model">
             <X className="size-4" />
           </Button>
         )}

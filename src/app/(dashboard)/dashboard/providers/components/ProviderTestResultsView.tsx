@@ -9,7 +9,7 @@ export function ProviderTestResultsView({ results }: { results: TestResults }) {
     return (
       <div className="text-center py-6">
         <AlertCircle className="size-8" />
-        <p className="text-sm text-red-400">{results.error}</p>
+        <p className="text-sm text-destructive-foreground">{results.error}</p>
       </div>
     );
   }
@@ -35,7 +35,7 @@ export function ProviderTestResultsView({ results }: { results: TestResults }) {
             {summary.passed} {translate("passed")}
           </span>
           {summary.failed > 0 && (
-            <span className="px-2 py-0.5 rounded bg-red-500/15 text-red-400 font-medium">
+            <span className="px-2 py-0.5 rounded bg-destructive text-destructive-foreground font-medium">
               {summary.failed} {translate("failed")}
             </span>
           )}
@@ -50,7 +50,7 @@ export function ProviderTestResultsView({ results }: { results: TestResults }) {
           className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg bg-black/[0.03] px-3 py-2 text-xs dark:bg-white/[0.03] sm:flex-nowrap"
         >
           <span
-            className={`text-[16px] ${r.valid ? "text-emerald-500" : "text-red-500"}`}
+            className={`text-[16px] ${r.valid ? "text-emerald-500" : "text-destructive-foreground"}`}
           >
             {r.valid ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
           </span>
@@ -71,7 +71,7 @@ export function ProviderTestResultsView({ results }: { results: TestResults }) {
             className={`shrink-0 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
               r.valid
                 ? "bg-emerald-500/15 text-emerald-400"
-                : "bg-red-500/15 text-red-400"
+                : "bg-destructive text-destructive-foreground"
             }`}
           >
             {r.valid ? "OK" : r.diagnosis?.type || "ERROR"}

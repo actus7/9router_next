@@ -87,7 +87,7 @@ export default function CardAddApiKeyModal({ isOpen, provider, providerName, pro
           </div>
         </div>
         {validationResult && (
-          <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
+          <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-success text-success-foreground dark:text-success-foreground" : undefined}>
             {validationResult === "success" ? translate("Valid") : translate("Invalid")}
           </Badge>
         )}

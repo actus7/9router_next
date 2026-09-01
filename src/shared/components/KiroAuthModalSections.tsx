@@ -59,7 +59,7 @@ export function IdcConfigSection({
     <div className="flex flex-col gap-4">
       <div>
         <Label className="block mb-2">
-          {translate("IDC Start URL")} <span className="text-red-500">*</span>
+          {translate("IDC Start URL")} <span className="text-destructive-foreground">*</span>
         </Label>
         <Input
           value={idcStartUrl}
@@ -88,7 +88,7 @@ export function IdcConfigSection({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-destructive-foreground">{error}</p>
       )}
 
       <div className="flex gap-2">
@@ -130,10 +130,10 @@ export function ApiKeySection({
 }: ApiKeySectionProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+      <div className="bg-info dark:bg-info p-3 rounded-lg border border-info-border dark:border-info-border">
         <div className="flex gap-2">
           <Info className="size-4" />
-          <p className="text-sm text-blue-800 dark:text-blue-200">
+          <p className="text-sm text-info-foreground dark:text-info-foreground">
             {translate("Paste a long-lived Kiro/CodeWhisperer API key. It is validated against AWS and stored directly as a bearer credential (no refresh).")}
           </p>
         </div>
@@ -141,7 +141,7 @@ export function ApiKeySection({
 
       <div>
         <Label className="block mb-2">
-          {translate("API Key")} <span className="text-red-500">*</span>
+          {translate("API Key")} <span className="text-destructive-foreground">*</span>
         </Label>
         <Input
           value={apiKey}
@@ -167,8 +167,8 @@ export function ApiKeySection({
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div className="bg-destructive dark:bg-destructive p-3 rounded-lg border border-destructive-border dark:border-destructive-border">
+          <p className="text-sm text-destructive-foreground dark:text-destructive-foreground">{error}</p>
         </div>
       )}
 
@@ -196,14 +196,14 @@ interface SocialGoogleSectionProps {
 export function SocialGoogleSection({ handleSocialLogin, handleBack }: SocialGoogleSectionProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+      <div className="bg-warning dark:bg-warning p-4 rounded-lg border border-warning-border dark:border-warning-border">
         <div className="flex gap-2">
           <Info className="size-4" />
           <div className="flex-1 text-sm">
-            <p className="font-medium text-amber-900 dark:text-amber-100 mb-1">
+            <p className="font-medium text-warning-foreground dark:text-warning-foreground mb-1">
               {translate("Manual Callback Required")}
             </p>
-            <p className="text-amber-800 dark:text-amber-200">
+            <p className="text-warning-foreground dark:text-warning-foreground">
               {translate("After authorization, copy the full URL from your browser address bar.")}
             </p>
           </div>
@@ -234,14 +234,14 @@ interface SocialGithubSectionProps {
 export function SocialGithubSection({ handleSocialLogin, handleBack }: SocialGithubSectionProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+      <div className="bg-warning dark:bg-warning p-4 rounded-lg border border-warning-border dark:border-warning-border">
         <div className="flex gap-2">
           <Info className="size-4" />
           <div className="flex-1 text-sm">
-            <p className="font-medium text-amber-900 dark:text-amber-100 mb-1">
+            <p className="font-medium text-warning-foreground dark:text-warning-foreground mb-1">
               {translate("Manual Callback Required")}
             </p>
-            <p className="text-amber-800 dark:text-amber-200">
+            <p className="text-warning-foreground dark:text-warning-foreground">
               {translate("After authorization, copy the full URL from your browser address bar.")}
             </p>
           </div>
@@ -305,10 +305,10 @@ export function ImportTokenSection({
         <>
           {/* Success message if auto-detected */}
           {autoDetected && (
-            <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
+            <div className="bg-success dark:bg-success p-3 rounded-lg border border-success-border dark:border-success-border">
               <div className="flex gap-2">
                 <CheckCircle2 className="size-4" />
-                <p className="text-sm text-green-800 dark:text-green-200">
+                <p className="text-sm text-success-foreground dark:text-success-foreground">
                   {translate("Token auto-detected from Kiro IDE successfully!")}
                 </p>
               </div>
@@ -317,10 +317,10 @@ export function ImportTokenSection({
 
           {/* Info message if not auto-detected */}
           {!autoDetected && !error && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="bg-info dark:bg-info p-3 rounded-lg border border-info-border dark:border-info-border">
               <div className="flex gap-2">
                 <Info className="size-4" />
-                <p className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="text-sm text-info-foreground dark:text-info-foreground">
                   {translate("Kiro IDE not detected. Please paste your refresh token manually.")}
                 </p>
               </div>
@@ -329,7 +329,7 @@ export function ImportTokenSection({
 
           <div>
             <Label className="block mb-2">
-              Refresh Token <span className="text-red-500">*</span>
+              Refresh Token <span className="text-destructive-foreground">*</span>
             </Label>
             <Input
               value={refreshToken}
@@ -340,8 +340,8 @@ export function ImportTokenSection({
           </div>
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <div className="bg-destructive dark:bg-destructive p-3 rounded-lg border border-destructive-border dark:border-destructive-border">
+              <p className="text-sm text-destructive-foreground dark:text-destructive-foreground">{error}</p>
             </div>
           )}
 
@@ -382,10 +382,10 @@ export function ImportCliProxySection({
 }: ImportCliProxySectionProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+      <div className="bg-info dark:bg-info p-3 rounded-lg border border-info-border dark:border-info-border">
         <div className="flex gap-2">
           <Info className="size-4" />
-          <p className="text-sm text-blue-800 dark:text-blue-200">
+          <p className="text-sm text-info-foreground dark:text-info-foreground">
             {translate("Paste the CLIProxyAPI auth JSON from Kiro containing auth_method=external_idp. Only Microsoft login token endpoints are accepted.")}
           </p>
         </div>
@@ -393,7 +393,7 @@ export function ImportCliProxySection({
 
       <div>
         <Label className="block mb-2">
-          {translate("CLIProxyAPI Auth JSON")} <span className="text-red-500">*</span>
+          {translate("CLIProxyAPI Auth JSON")} <span className="text-destructive-foreground">*</span>
         </Label>
         <Textarea
           value={cliProxyJson}
@@ -404,8 +404,8 @@ export function ImportCliProxySection({
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div className="bg-destructive dark:bg-destructive p-3 rounded-lg border border-destructive-border dark:border-destructive-border">
+          <p className="text-sm text-destructive-foreground dark:text-destructive-foreground">{error}</p>
         </div>
       )}
 

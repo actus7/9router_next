@@ -58,7 +58,7 @@ export default function TtsLanguageModal({
 
         {/* Language list */}
         <div className="overflow-y-auto flex-1 p-2">
-          {modalError && <p className="text-xs text-red-500 px-2 py-1">{modalError}</p>}
+          {modalError && <p className="text-xs text-destructive-foreground px-2 py-1">{modalError}</p>}
           {modalLoading ? (
             <p className="text-xs text-text-muted px-2 py-3">Loading...</p>
           ) : (

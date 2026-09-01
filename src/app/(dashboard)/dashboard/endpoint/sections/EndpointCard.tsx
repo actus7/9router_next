@@ -115,7 +115,7 @@ export default function EndpointCard({
             </>
           ) : tunnelEnabled && !tunnelLoading && !tunnelReachable ? (
             <>
-              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-warning-border dark:border-warning-border bg-warning text-sm text-warning-foreground dark:text-warning-foreground">
                 <Loader2 className="size-4" />
                 {tunnelEverReachable ? (translate("Tunnel reconnecting...") || "Tunnel reconnecting...") : (translate("Tunnel checking...") || "Tunnel checking...")}
               </div>
@@ -145,7 +145,7 @@ export default function EndpointCard({
             </>
           ) : tunnelStatus?.type === "error" ? (
             <>
-              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400">
+              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-destructive-border dark:border-destructive-border bg-destructive text-sm text-destructive-foreground dark:text-destructive-foreground">
                 <AlertCircle className="size-4" />
                 {tunnelStatus.message}
               </div>
@@ -212,7 +212,7 @@ export default function EndpointCard({
             </>
           ) : tsEnabled && !tsLoading && !tsReachable ? (
             <>
-              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-warning-border dark:border-warning-border bg-warning text-sm text-warning-foreground dark:text-warning-foreground">
                 <Loader2 className="size-4" />
                 {tsEverReachable ? (translate("Tailscale reconnecting...") || "Tailscale reconnecting...") : (translate("Tailscale checking...") || "Tailscale checking...")}
               </div>
@@ -251,7 +251,7 @@ export default function EndpointCard({
             </>
           ) : tsStatus?.type === "error" ? (
             <>
-              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400">
+              <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-destructive-border dark:border-destructive-border bg-destructive text-sm text-destructive-foreground dark:text-destructive-foreground">
                 <AlertCircle className="size-4" />
                 {tsStatus.message}
               </div>

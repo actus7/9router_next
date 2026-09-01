@@ -45,7 +45,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                 </SelectContent>
               </Select>
             </div>
-            {m.error && <div className="px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600">{m.error}</div>}
+            {m.error && <div className="px-2 py-1.5 rounded text-xs bg-destructive text-destructive-foreground">{m.error}</div>}
             {m.loading && <div className="flex items-center gap-2 text-text-muted text-xs py-4 justify-center"><Loader2 className="size-5" /><span>{translate("Loading registry...") || "Loading registry..."}</span></div>}
             {!m.loading && (
               <div className="flex flex-col gap-1 max-h-[60vh] overflow-y-auto">

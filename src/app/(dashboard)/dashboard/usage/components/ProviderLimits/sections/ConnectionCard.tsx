@@ -181,7 +181,7 @@ export default function ConnectionCard({
                     {kiroMethodLabel(conn)}
                   </span>
                   {kiroRegion(conn) && (
-                    <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                    <span className="rounded-full bg-info px-2 py-0.5 text-[10px] font-semibold text-info-foreground dark:text-info-foreground">
                       {kiroRegion(conn)}
                     </span>
                   )}
@@ -190,9 +190,9 @@ export default function ConnectionCard({
                       isInactive
                         ? "bg-surface-2 text-text-muted"
                         : conn.testStatus === "active" || conn.testStatus === "success"
-                          ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                          ? "bg-success text-success-foreground dark:text-success-foreground"
                           : conn.testStatus === "error" || conn.testStatus === "expired" || conn.testStatus === "unavailable"
-                            ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                            ? "bg-destructive text-destructive-foreground dark:text-destructive-foreground"
                             : "bg-surface-2 text-text-muted"
                     }`}
                   >

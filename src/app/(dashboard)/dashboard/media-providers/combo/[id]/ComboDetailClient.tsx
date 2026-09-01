@@ -282,7 +282,7 @@ export default function ComboDetailClient({
             <code className="text-lg font-semibold font-mono">{combo.name}</code>
           </div>
         </div>
-        <Button variant="outline" icon={<Trash2 className="size-4" />} onClick={() => setShowDeleteConfirm(true)} className="text-red-500 border-red-200 hover:bg-red-50">
+        <Button variant="outline" icon={<Trash2 className="size-4" />} onClick={() => setShowDeleteConfirm(true)} className="text-destructive-foreground border-destructive-border hover:bg-destructive">
           Delete
         </Button>
       </div>
@@ -345,7 +345,7 @@ export default function ComboDetailClient({
                     <Button variant="ghost" size="icon-sm" onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={idx === providers.length - 1 ? "text-text-muted/20" : ""} title="Move down">
                       <ArrowDown className="size-4" />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveProvider(idx)} className="text-red-500 hover:bg-red-500/10" title="Remove">
+                    <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveProvider(idx)} className="text-destructive-foreground hover:bg-destructive" title="Remove">
                       <X className="size-4" />
                     </Button>
                   </div>
@@ -369,7 +369,7 @@ export default function ComboDetailClient({
             {curlExample}
           </pre>
           {testError && (
-            <p className="mt-3 text-xs text-red-500 break-words">{testError}</p>
+            <p className="mt-3 text-xs text-destructive-foreground break-words">{testError}</p>
           )}
           {testResult && (
             <div className="mt-3 flex flex-col gap-3">

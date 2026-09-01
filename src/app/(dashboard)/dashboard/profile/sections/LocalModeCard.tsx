@@ -31,7 +31,7 @@ export default function LocalModeCard({
     <Card>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className="size-10 sm:size-12 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center shrink-0">
+          <div className="size-10 sm:size-12 rounded-lg bg-success text-success-foreground flex items-center justify-center shrink-0">
             <Monitor className="size-4" />
           </div>
           <div>
@@ -94,7 +94,7 @@ export default function LocalModeCard({
           />
         </div>
         {dbStatus.message && (
-          <p className={`text-sm ${dbStatus.type === "error" ? "text-red-500" : "text-green-600 dark:text-green-400"}`}>
+          <p className={`text-sm ${dbStatus.type === "error" ? "text-destructive-foreground" : "text-success-foreground dark:text-success-foreground"}`}>
             {dbStatus.message}
           </p>
         )}

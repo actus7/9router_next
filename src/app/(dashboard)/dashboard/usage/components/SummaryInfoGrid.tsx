@@ -33,7 +33,7 @@ export default function SummaryInfoGrid({ detail, providerName }: Props) {
         <span className="text-text-muted">{translate("Status:")}</span>{" "}
         <span className={cn(
           "font-medium",
-          detail.status === "success" ? "text-green-600" : "text-red-600"
+          detail.status === "success" ? "text-success-foreground" : "text-destructive-foreground"
         )}>
           {detail.status}
         </span>

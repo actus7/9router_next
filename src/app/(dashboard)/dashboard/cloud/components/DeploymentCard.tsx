@@ -58,7 +58,7 @@ export default function DeploymentCard({ deployment, toolName, onRefresh, onDele
           <ExternalLink className="size-3" />
         </a>
       )}
-      {deployment.error && <p className="text-xs text-red-500">{deployment.error}</p>}
+      {deployment.error && <p className="text-xs text-destructive-foreground">{deployment.error}</p>}
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => onRefresh(deployment.id)}>
           <RefreshCw className="size-3.5" /> Atualizar

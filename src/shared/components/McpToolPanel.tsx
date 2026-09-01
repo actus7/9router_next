@@ -29,12 +29,12 @@ export function McpToolPanel({ server, cache, isLoading, sel, toolKeys, selected
         </div>
       )}
       {!isLoading && cache?.requiresAuth && (
-        <p className="text-[10px] text-amber-600 bg-amber-500/10 px-2 py-1 rounded">
+        <p className="text-[10px] text-warning-foreground bg-warning px-2 py-1 rounded">
           🔐 {translate("OAuth required. Add now and authenticate after Apply; the tool list will be discovered after the first connection.") || "OAuth required. Add now and authenticate after Apply; the tool list will be discovered after the first connection."}
         </p>
       )}
       {!isLoading && cache?.error && !cache?.requiresAuth && (
-        <p className="text-[10px] text-red-600 bg-red-500/10 px-2 py-1 rounded">{translate("Verification failed") || "Verification failed"}: {cache.error}</p>
+        <p className="text-[10px] text-destructive-foreground bg-destructive px-2 py-1 rounded">{translate("Verification failed") || "Verification failed"}: {cache.error}</p>
       )}
       {!isLoading && toolKeys.length === 0 && !cache?.requiresAuth && !cache?.error && (
         <p className="text-[10px] text-text-muted">{translate("No tools advertised by server.") || "No tools advertised by server."}</p>

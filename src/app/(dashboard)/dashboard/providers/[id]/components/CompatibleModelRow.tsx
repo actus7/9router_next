@@ -16,7 +16,7 @@ interface CompatibleModelRowProps {
 }
 
 export default function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, testStatus, isTesting }: CompatibleModelRowProps) {
-  const borderColor = testStatus === "ok" ? "border-green-500/40" : testStatus === "error" ? "border-red-500/40" : "border-border";
+  const borderColor = testStatus === "ok" ? "border-success-border" : testStatus === "error" ? "border-destructive-border" : "border-border";
   const iconColor = testStatus === "ok" ? "#22c55e" : testStatus === "error" ? "#ef4444" : undefined;
 
   return (
@@ -50,7 +50,7 @@ export default function CompatibleModelRow({ modelId, fullModel, copied, onCopy,
           )}
         </div>
       </div>
-      <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-red-500 hover:bg-red-50 hover:text-red-500" title="Remove model">
+      <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-destructive-foreground hover:bg-destructive hover:text-destructive-foreground" title="Remove model">
         <Trash2 className="size-4" />
       </Button>
     </div>

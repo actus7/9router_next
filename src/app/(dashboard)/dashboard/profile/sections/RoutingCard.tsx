@@ -23,7 +23,7 @@ export default function RoutingCard({
   return (
     <Card>
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
+        <div className="p-2 rounded-lg bg-info text-info-foreground shrink-0">
           <Route className="size-5" />
         </div>
         <h3 className="text-base sm:text-lg font-semibold">{translate("Routing Strategy")}</h3>

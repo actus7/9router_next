@@ -17,8 +17,8 @@ export default function PxPipePanel({ pxpipe }: Props) {
         <span className={cn(
           "text-xs px-2 py-0.5 rounded",
           pxpipe.applied
-            ? "bg-green-500/15 text-green-600"
-            : "bg-amber-500/15 text-amber-600"
+            ? "bg-success text-success-foreground"
+            : "bg-warning text-warning-foreground"
         )}>
           {pxpipe.applied ? "Ativado" : "Ignorado"}
         </span>
@@ -35,7 +35,7 @@ export default function PxPipePanel({ pxpipe }: Props) {
           </div>
           <div>
             <span className="text-text-muted block text-xs">Economizado</span>
-            <span className="font-mono text-green-600">{pxpipe.savedPct || 0}%</span>
+            <span className="font-mono text-success-foreground">{pxpipe.savedPct || 0}%</span>
           </div>
           <div>
             <span className="text-text-muted block text-xs">Imagens</span>

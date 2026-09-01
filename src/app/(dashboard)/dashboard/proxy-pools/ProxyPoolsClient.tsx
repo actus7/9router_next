@@ -103,7 +103,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
             </Label>
           )}
           <Badge variant="secondary">{translate("Total:") || "Total:"} {pools.proxyPools.length}</Badge>
-          <Badge variant="default" className="bg-green-500/10 text-green-600 dark:text-green-400">{translate("Active:") || "Active:"} {pools.activeCount}</Badge>
+          <Badge variant="default" className="bg-success text-success-foreground dark:text-success-foreground">{translate("Active:") || "Active:"} {pools.activeCount}</Badge>
         </div>
 
         {(pools.selectedIds.length > 0 || pools.healthChecking) && (
@@ -170,7 +170,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     <Badge variant={getStatusVariant(pool.testStatus)} className={getStatusClassName(pool.testStatus)}>
                       {pool.testStatus || "unknown"}
                     </Badge>
-                    <Badge variant={pool.isActive ? "default" : "secondary"} className={pool.isActive ? "bg-green-500/10 text-green-600 dark:text-green-400" : undefined}>
+                    <Badge variant={pool.isActive ? "default" : "secondary"} className={pool.isActive ? "bg-success text-success-foreground dark:text-success-foreground" : undefined}>
                       {pool.isActive ? (translate("Active") || "active") : (translate("Inactive") || "inactive")}
                     </Badge>
                     {pool.type === "vercel" && (
@@ -221,7 +221,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => pools.handleDelete(pool)}
-                    className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                    className="text-destructive-foreground hover:bg-destructive hover:text-destructive-foreground"
                     title={translate("Delete") ?? undefined}
                   >
                     <Trash2 className="size-5" />

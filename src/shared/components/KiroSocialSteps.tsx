@@ -18,7 +18,7 @@ export function KiroSocialLoading({ providerName }: { providerName: string }) {
 export function KiroSocialSuccess({ providerName, onClose }: { providerName: string; onClose: () => void }) {
   return (
     <div className="text-center py-6">
-      <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center"><CheckCircle2 className="size-4" /></div>
+      <div className="size-16 mx-auto mb-4 rounded-full bg-success dark:bg-success flex items-center justify-center"><CheckCircle2 className="size-4" /></div>
       <h3 className="text-lg font-semibold mb-2">{translate("Connected Successfully!")}</h3>
       <p className="text-sm text-text-muted mb-4">{translate("Your Kiro account via") + " " + providerName + " " + translate("has been connected.")}</p>
       <Button onClick={onClose} fullWidth>{translate("Done")}</Button>
@@ -29,9 +29,9 @@ export function KiroSocialSuccess({ providerName, onClose }: { providerName: str
 export function KiroSocialError({ error, onRetry, onClose }: { error: string | null; onRetry: () => void; onClose: () => void }) {
   return (
     <div className="text-center py-6">
-      <div className="size-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center"><AlertCircle className="size-4" /></div>
+      <div className="size-16 mx-auto mb-4 rounded-full bg-destructive dark:bg-destructive flex items-center justify-center"><AlertCircle className="size-4" /></div>
       <h3 className="text-lg font-semibold mb-2">{translate("Connection Failed")}</h3>
-      <p className="text-sm text-red-600 mb-4">{error}</p>
+      <p className="text-sm text-destructive-foreground mb-4">{error}</p>
       <div className="flex gap-2">
         <Button onClick={onRetry} variant="secondary" fullWidth>{translate("Try Again")}</Button>
         <Button onClick={onClose} variant="ghost" fullWidth>{translate("Cancel")}</Button>

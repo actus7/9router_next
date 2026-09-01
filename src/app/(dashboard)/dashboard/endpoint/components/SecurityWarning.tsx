@@ -15,7 +15,7 @@ interface SecurityWarningProps {
 /** Security warning banner with optional action link */
 export default function SecurityWarning({ message, action }: SecurityWarningProps) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400">
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning border border-warning-border text-warning-foreground dark:text-warning-foreground">
       <TriangleAlert className="size-4" />
       <p className="text-xs flex-1">{message}</p>
       {action && (

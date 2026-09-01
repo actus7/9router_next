@@ -264,7 +264,7 @@ export default function TranslatorClient() {
                   <span className="text-xs font-mono text-text-muted/60 w-4">{step.id}</span>
                   <h3 className="text-sm font-semibold text-text-main">{translate(step.label)}</h3>
                   <span className="text-xs text-text-muted/60 font-mono">{step.file}</span>
-                  {content && <span className="text-xs text-green-500">({content.length} chars)</span>}
+                  {content && <span className="text-xs text-success-foreground">({content.length} chars)</span>}
                 </Button>
                 {!isExpanded && (
                   <div className="flex gap-1 shrink-0">
@@ -308,9 +308,9 @@ export default function TranslatorClient() {
 
 function MetaBadge({ label, value, color }: { label: string; value: string; color: "blue" | "orange" | "green" | "purple" }) {
   const colors: Record<string, string> = {
-    blue: "bg-blue-500/10 text-blue-500",
+    blue: "bg-info text-info-foreground",
     orange: "bg-orange-500/10 text-orange-500",
-    green: "bg-green-500/10 text-green-500",
+    green: "bg-success text-success-foreground",
     purple: "bg-purple-500/10 text-purple-500",
   };
   return (

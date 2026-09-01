@@ -80,7 +80,7 @@ export default function ModelsToolbar({
             size="sm"
             onClick={onShowClearConfirmation}
             disabled={m.clearingModels}
-            className="text-red-600 hover:text-red-700 dark:text-red-400"
+            className="text-destructive-foreground hover:text-destructive-foreground dark:text-destructive-foreground"
           >
             <Trash2 className="size-4 mr-1.5" />
             {m.clearingModels ? translate("Clearing...") : translate("Clear All Models")}

@@ -92,7 +92,7 @@ export default function NetworkCard({
         )}
 
         {proxyStatus.message && (
-          <p className={`text-xs sm:text-sm ${proxyStatus.type === "error" ? "text-red-500" : "text-green-500"} pt-2 border-t border-border/50`}>
+          <p className={`text-xs sm:text-sm ${proxyStatus.type === "error" ? "text-destructive-foreground" : "text-success-foreground"} pt-2 border-t border-border/50`}>
             {proxyStatus.message}
           </p>
         )}
