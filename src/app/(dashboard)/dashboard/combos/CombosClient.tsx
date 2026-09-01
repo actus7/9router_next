@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Card, Button, ConfirmModal } from "@/shared/components";
+import { Card, ConfirmModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { useNotificationStore } from "@/store/notificationStore";

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -218,14 +219,12 @@ export default function OpenClawToolCard({
         installed={openclawStatus?.installed}
         notInstalledMessage="Open Claw CLI not detected locally"
         notInstalledDetail="Manual configuration is still available if modelhub is deployed on a remote server."
-        onManualConfig={() => setShowManualConfigModal(true)}
         message={message}
-        onApply={handleApplySettings}
-        applyDisabled={!selectedModel}
-        applyLoading={applying}
-        onReset={handleResetSettings}
-        resetDisabled={!openclawStatus?.hasModelHub}
-        resetLoading={restoring}
+        capabilities={{
+          manualConfig: { execute: () => setShowManualConfigModal(true) },
+          apply: { execute: handleApplySettings, disabled: !selectedModel, loading: applying },
+          reset: { execute: handleResetSettings, disabled: !openclawStatus?.hasModelHub, loading: restoring },
+        }}
       >
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">

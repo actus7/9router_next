@@ -3,7 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, Button, Input, ModelSelectModal, ConfirmModal } from "@/shared/components";
+import { Card, ModelSelectModal, ConfirmModal } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
+import { DynamicMedia } from "@/components/ui/dynamic-media";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
@@ -381,7 +384,7 @@ export default function ComboDetailClient({
                       Download
                     </a>
                   </div>
-                  <img src={testResult.imageUrl} alt="Generated" className="max-w-full rounded-lg border border-border" loading="lazy" decoding="async" />
+                  <DynamicMedia src={testResult.imageUrl} alt="Generated" className="max-w-full rounded-lg border border-border" />
                 </div>
               )}
               {testResult.audioUrl && (

@@ -1,7 +1,8 @@
 "use client";
 
 import { RefreshCw, Sparkles } from "lucide-react";
-import { Button, Card } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
 import type { RoutingTierOrDefault, SmartModelProfile } from "@/shared/llm-catalog";

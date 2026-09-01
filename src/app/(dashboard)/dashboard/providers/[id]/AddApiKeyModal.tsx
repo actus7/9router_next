@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/shared/components";
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import BulkAddForm from "./components/BulkAddForm";
 import SingleAddForm from "./components/SingleAddForm";

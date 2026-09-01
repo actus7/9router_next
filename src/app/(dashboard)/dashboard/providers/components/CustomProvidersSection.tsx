@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Plus, Puzzle } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { ProviderInfo, ProviderStats } from "../types";

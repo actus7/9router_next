@@ -4,7 +4,7 @@ import { getComboById, getSettings, getProviders, getApiKeys, getModelAliases, g
 import { Spinner } from "@/shared/components/Loading";
 import ComboDetailClient from "./ComboDetailClient";
 
-export default async function ComboDetailPage({ params }: { params: Promise<{ id: string }> }) {
+async function ComboDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [combo, settings, providers, keys, aliases, logs] = await Promise.all([
     getComboById(id),
@@ -20,8 +20,7 @@ export default async function ComboDetailPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}>
-      <ComboDetailClient
+    <ComboDetailClient
         comboId={id}
         initialCombo={combo as unknown as { id: string; name: string; kind?: string; models: string[] }}
         initialSettings={settings as unknown as Record<string, unknown>}
@@ -29,7 +28,10 @@ export default async function ComboDetailPage({ params }: { params: Promise<{ id
         initialKeys={keys as unknown as Record<string, unknown>[]}
         initialAliases={aliases as unknown as Record<string, unknown>}
         initialLogs={logs as unknown[]}
-      />
-    </Suspense>
+    />
   );
+}
+
+export default function ComboDetailPage(props: { params: Promise<{ id: string }> }) {
+  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ComboDetailContent {...props} /></Suspense>;
 }

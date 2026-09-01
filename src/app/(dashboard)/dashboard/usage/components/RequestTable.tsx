@@ -1,7 +1,7 @@
 "use client";
 
 import Card from "@/shared/components/Card";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import Pagination from "@/shared/components/Pagination";
 import { Loader2 } from "lucide-react";

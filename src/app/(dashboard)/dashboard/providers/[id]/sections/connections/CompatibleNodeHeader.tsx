@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, Button } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import type { ProviderNode } from "../../types";

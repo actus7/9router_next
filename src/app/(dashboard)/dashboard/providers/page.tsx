@@ -9,21 +9,15 @@ export const metadata: Metadata = {
   description: "Manage AI provider connections",
 };
 
-export default async function ProvidersPage() {
+async function ProvidersContent() {
   const [providers, nodes] = await Promise.all([
     getProviders(),
     getProviderNodes(),
   ]);
 
-  return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center p-10">
-          <Spinner size="lg" />
-        </div>
-      }
-    >
-      <ProvidersClient initialConnections={providers} initialNodes={nodes as Array<{ id: string; name?: string; type?: string; apiType?: string }>} />
-    </Suspense>
-  );
+  return <ProvidersClient initialConnections={providers} initialNodes={nodes as Array<{ id: string; name?: string; type?: string; apiType?: string }>} />;
+}
+
+export default function ProvidersPage() {
+  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProvidersContent /></Suspense>;
 }

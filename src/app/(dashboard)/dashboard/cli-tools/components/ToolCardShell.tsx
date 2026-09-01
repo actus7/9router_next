@@ -1,8 +1,26 @@
 "use client";
 
-import { Card, Button } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Copy, History, Info, Loader2, Save, TriangleAlert } from "lucide-react";
+
+interface ToolActionCapability {
+  execute: () => void;
+  disabled: boolean;
+  loading: boolean;
+}
+
+export interface ToolCardCapabilities {
+  manualConfig: { execute: () => void };
+  installGuide?: {
+    expanded: boolean;
+    toggle: () => void;
+    content: React.ReactNode;
+  };
+  apply: ToolActionCapability;
+  reset: ToolActionCapability;
+}
 
 interface ToolCardShellProps {
   /** Image src for the tool icon */
@@ -29,32 +47,12 @@ interface ToolCardShellProps {
   notInstalledDetail?: string;
   /** Optional rich content rendered inside the not-installed warning (below detail) */
   notInstalledChildren?: React.ReactNode;
-  /** Callback for the Manual Config button in not-installed state */
-  onManualConfig: () => void;
-  /** Whether the install guide toggle is available */
-  hasInstallGuide?: boolean;
-  /** Whether the install guide is currently shown */
-  showInstallGuide?: boolean;
-  /** Toggle install guide visibility */
-  onToggleInstallGuide?: () => void;
-  /** Content of the install guide */
-  installGuideContent?: React.ReactNode;
   /** Form content rendered when the tool is installed and expanded */
   children?: React.ReactNode;
   /** Current success/error message */
   message: { type: "success" | "error"; text: string } | null;
-  /** Apply button handler */
-  onApply: () => void;
-  /** Whether the Apply button is disabled */
-  applyDisabled: boolean;
-  /** Whether the Apply action is in progress */
-  applyLoading: boolean;
-  /** Reset button handler */
-  onReset: () => void;
-  /** Whether the Reset button is disabled */
-  resetDisabled: boolean;
-  /** Whether the Reset action is in progress */
-  resetLoading: boolean;
+  /** Typed description of the operations supported by this tool card. */
+  capabilities: ToolCardCapabilities;
 }
 
 export default function ToolCardShell({
@@ -70,24 +68,14 @@ export default function ToolCardShell({
   notInstalledMessage,
   notInstalledDetail,
   notInstalledChildren,
-  onManualConfig,
-  hasInstallGuide,
-  showInstallGuide,
-  onToggleInstallGuide,
-  installGuideContent,
   children,
   message,
-  onApply,
-  applyDisabled,
-  applyLoading,
-  onReset,
-  resetDisabled,
-  resetLoading,
+  capabilities,
 }: ToolCardShellProps) {
   return (
     <Card padding="xs" className="overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" onClick={onToggle}>
+      <button type="button" className="flex min-h-11 w-full items-start justify-between gap-3 text-left sm:items-center" onClick={onToggle} aria-expanded={isExpanded}>
         <div className="flex min-w-0 items-center gap-3">
           <div className="size-8 flex items-center justify-center shrink-0">
             <Image
@@ -112,8 +100,8 @@ export default function ToolCardShell({
             <p className="text-xs text-text-muted truncate">{toolDescription}</p>
           </div>
         </div>
-        <ChevronDown className={`size-5 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-      </div>
+        <ChevronDown aria-hidden="true" className={`size-5 text-text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+      </button>
 
       {/* ── Expanded content ── */}
       {isExpanded && (
@@ -139,22 +127,22 @@ export default function ToolCardShell({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pl-9">
-                  <Button variant="secondary" size="sm" onClick={onManualConfig} className="!bg-yellow-500/20 !border-yellow-500/40 !text-yellow-700 dark:!text-yellow-300 hover:!bg-yellow-500/30">
+                  <Button variant="secondary" size="sm" onClick={capabilities.manualConfig.execute}>
                     <Copy className="size-5" />
                     Manual Config
                   </Button>
-                  {hasInstallGuide && onToggleInstallGuide && (
-                    <Button variant="outline" size="sm" onClick={onToggleInstallGuide}>
-                      {showInstallGuide ? <ChevronUp className="size-4 mr-1" /> : <Info className="size-4 mr-1" />}
-                      {showInstallGuide ? "Hide" : "How to Install"}
+                  {capabilities.installGuide && (
+                    <Button variant="outline" size="sm" onClick={capabilities.installGuide.toggle}>
+                      {capabilities.installGuide.expanded ? <ChevronUp className="size-4 mr-1" /> : <Info className="size-4 mr-1" />}
+                      {capabilities.installGuide.expanded ? "Hide" : "How to Install"}
                     </Button>
                   )}
                 </div>
               </div>
-              {showInstallGuide && installGuideContent && (
+              {capabilities.installGuide?.expanded && (
                 <div className="p-4 bg-surface border border-border rounded-lg">
                   <h4 className="font-medium mb-3">Installation Guide</h4>
-                  {installGuideContent}
+                  {capabilities.installGuide.content}
                 </div>
               )}
             </div>
@@ -174,13 +162,13 @@ export default function ToolCardShell({
           {/* Action buttons */}
           {!checking && installed && (
             <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
-              <Button variant="primary" size="sm" onClick={onApply} disabled={applyDisabled} loading={applyLoading}>
+              <Button variant="primary" size="sm" onClick={capabilities.apply.execute} disabled={capabilities.apply.disabled} loading={capabilities.apply.loading}>
                 <Save className="size-4" />Apply
               </Button>
-              <Button variant="outline" size="sm" onClick={onReset} disabled={resetDisabled} loading={resetLoading}>
+              <Button variant="outline" size="sm" onClick={capabilities.reset.execute} disabled={capabilities.reset.disabled} loading={capabilities.reset.loading}>
                 <History className="size-4" />Reset
               </Button>
-              <Button variant="ghost" size="sm" onClick={onManualConfig}>
+              <Button variant="ghost" size="sm" onClick={capabilities.manualConfig.execute}>
                 <Copy className="size-4" />Manual Config
               </Button>
             </div>

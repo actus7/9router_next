@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -233,26 +234,23 @@ export default function DroidToolCard({
         installed={droidStatus?.installed}
         notInstalledMessage="Factory Droid CLI not detected locally"
         notInstalledDetail="Manual configuration is still available if modelhub is deployed on a remote server."
-        onManualConfig={() => setShowManualConfigModal(true)}
-        hasInstallGuide
-        showInstallGuide={showInstallGuide}
-        onToggleInstallGuide={() => setShowInstallGuide(!showInstallGuide)}
-        installGuideContent={
-          <div className="space-y-3 text-sm">
+        message={message}
+        capabilities={{
+          manualConfig: { execute: () => setShowManualConfigModal(true) },
+          installGuide: {
+            expanded: showInstallGuide,
+            toggle: () => setShowInstallGuide(!showInstallGuide),
+            content: <div className="space-y-3 text-sm">
             <div>
               <p className="text-text-muted mb-1">macOS / Linux / Windows:</p>
               <code className="block px-3 py-2 bg-black/5 dark:bg-white/5 rounded font-mono text-xs">curl -fsSL https://app.factory.ai/cli | sh</code>
             </div>
             <p className="text-text-muted">After installation, run <code className="px-1 bg-black/5 dark:bg-white/5 rounded">droid</code> to verify.</p>
-          </div>
-        }
-        message={message}
-        onApply={handleApplySettings}
-        applyDisabled={modelList.length === 0}
-        applyLoading={applying}
-        onReset={handleResetSettings}
-        resetDisabled={!droidStatus?.hasModelHub}
-        resetLoading={restoring}
+          </div>,
+          },
+          apply: { execute: handleApplySettings, disabled: modelList.length === 0, loading: applying },
+          reset: { execute: handleResetSettings, disabled: !droidStatus?.hasModelHub, loading: restoring },
+        }}
       >
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">

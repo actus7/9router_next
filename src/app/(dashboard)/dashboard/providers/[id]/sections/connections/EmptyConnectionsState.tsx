@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 import { Cookie, Key, ListPlus, Lock, Plus } from "lucide-react";
 

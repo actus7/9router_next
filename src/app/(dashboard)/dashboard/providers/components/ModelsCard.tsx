@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Card, Button, Modal } from "@/shared/components";
+import { Card, Modal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";

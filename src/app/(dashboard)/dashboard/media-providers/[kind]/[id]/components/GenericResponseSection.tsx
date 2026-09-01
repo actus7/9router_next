@@ -1,6 +1,7 @@
 "use client";
 
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
+import { DynamicMedia } from "@/components/ui/dynamic-media";
 import { Check, CheckCircle2, Copy, Download, Loader2, Play } from "lucide-react";
 import type { useGenericExampleState } from "./useGenericExampleState";
 
@@ -61,7 +62,7 @@ export default function GenericResponseSection({ state }: { state: NonNullGeneri
       {partialImage?.b64_json && !result && (
         <div>
           <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Partial preview</span>
-          <img
+          <DynamicMedia
             src={`data:image/png;base64,${partialImage.b64_json}`}
             alt="Partial"
             className="max-w-full rounded-lg border border-border mt-1.5 opacity-80"
@@ -107,7 +108,7 @@ export default function GenericResponseSection({ state }: { state: NonNullGeneri
                 Download
               </a>
             </div>
-            <img
+            <DynamicMedia
               src={binaryImageUrl || ((result?.data?.data as Record<string, unknown>[] | undefined)?.[0]?.b64_json ? `data:image/png;base64,${(result!.data.data as Record<string, unknown>[])[0].b64_json}` : ((result?.data?.data as Record<string, unknown>[] | undefined)?.[0]?.url as string))}
               alt="Generated"
               className="max-w-full rounded-lg border border-border"

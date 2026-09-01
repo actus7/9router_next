@@ -2,7 +2,7 @@
 
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Key, Lock, Zap } from "lucide-react";
 import ConnectionBadges from "./components/ConnectionBadges";
 import ProxyDropdown from "./components/ProxyDropdown";

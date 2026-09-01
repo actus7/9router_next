@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { ExternalLink, Menu, Network, X } from "lucide-react";
 
 export default function Navigation() {

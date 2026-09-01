@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";

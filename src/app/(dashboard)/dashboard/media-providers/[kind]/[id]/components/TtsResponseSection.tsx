@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Check, Copy, Download, Play } from "lucide-react";
 import type { useTtsFormState } from "./useTtsFormState";
 

@@ -14,6 +14,7 @@ import "@xyflow/react/dist/style.css";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
+import { DynamicMedia } from "@/components/ui/dynamic-media";
 
 // Force-stop FE animation if a provider stays active longer than this
 const FE_ACTIVE_TIMEOUT_MS = 60000;
@@ -71,7 +72,7 @@ function ProviderNode({ data }: { data: ProviderNodeData }) {
         style={{ backgroundColor: `${color}15` }}
       >
         {imageUrl && !imgError ? (
-          <img
+          <DynamicMedia
             src={imageUrl}
             alt={label}
             className="w-6 h-6 rounded-sm object-contain"
@@ -123,7 +124,7 @@ function RouterNode({ data }: { data: RouterNodeData }) {
       <Handle type="source" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
 
-      <img
+      <DynamicMedia
         src="/favicon.svg"
         alt="ModelHub"
         className={`w-6 h-6 mr-2 ${powering ? "topology-router-icon" : ""}`}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import ProviderIcon from "./ProviderIcon";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS } from "@/shared/constants/providers";
 import { cn } from "@/lib/utils";

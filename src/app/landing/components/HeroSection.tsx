@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Code, Rocket } from "lucide-react";
 
 export default function HeroSection() {

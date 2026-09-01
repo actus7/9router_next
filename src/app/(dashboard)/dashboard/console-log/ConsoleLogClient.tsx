@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 import { Trash2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";

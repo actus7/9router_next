@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Card, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";

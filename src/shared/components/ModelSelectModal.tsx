@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Info, Search, X } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { useModelSelectData, type ActiveProvider } from "./useModelSelectData";

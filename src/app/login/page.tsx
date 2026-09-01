@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Button, Input } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/shared/components/Loading";
 import { translate } from "@/i18n/runtime";
@@ -181,16 +183,19 @@ export default function LoginPage() {
                 {translate("Set a new password before accessing the dashboard remotely.")}
               </p>
               <div className="flex flex-col gap-2">
-                <Label className="text-sm font-medium">{translate("New Password")}</Label>
+                <Label htmlFor="new-password" className="text-sm font-medium">{translate("New Password")}</Label>
                 <Input
+                  id="new-password"
                   type="password"
                   placeholder={translate("Enter new password") || ""}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   autoFocus
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "new-password-error" : undefined}
                 />
-                {error && <p className="text-xs text-red-500">{error}</p>}
+                {error && <p id="new-password-error" role="alert" className="text-xs text-destructive">{error}</p>}
               </div>
               <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={!newPassword}>
                 {translate("Set Password")}
@@ -227,16 +232,19 @@ export default function LoginPage() {
                 )}
 
                 <div className="flex flex-col gap-2">
-                  <Label className="text-sm font-medium">{translate("Password")}</Label>
+                  <Label htmlFor="password" className="text-sm font-medium">{translate("Password")}</Label>
                   <Input
+                    id="password"
                     type="password"
                     placeholder={translate("Enter password") || ""}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     autoFocus={!oidcAvailable}
+                    aria-invalid={!!error}
+                    aria-describedby={error ? "password-error" : undefined}
                   />
-                  {error && <p className="text-xs text-red-500">{error}</p>}
+                  {error && <p id="password-error" role="alert" className="text-xs text-destructive">{error}</p>}
                   {retryAfter > 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
                       {translate("Blocked. Try again in")} <span className="font-mono">{retryAfter}s</span>.

@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { CheckCircle2, Info, Loader2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { ChevronRight, Plus, Trash2 } from "lucide-react";
-import { Button, Card, Select } from "@/shared/components";
+import { Card, Select } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { translate } from "@/i18n/runtime";
 import type { RouteNeed, RoutingTierOrDefault } from "@/shared/llm-catalog";

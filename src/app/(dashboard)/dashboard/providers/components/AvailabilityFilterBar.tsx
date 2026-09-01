@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { KeyRound, Sparkles, UserRound } from "lucide-react";
 import ModelAvailabilityBadge from "./ModelAvailabilityBadge";
 import type { AvailabilityFilter } from "../types";

@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, Button } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Unlock, ChevronDown, ChevronUp } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { Settings, StatusMessage } from "../types";

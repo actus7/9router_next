@@ -2,7 +2,7 @@
 
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { McpServer, ToolCacheEntry } from "./useMcpMarketplace";

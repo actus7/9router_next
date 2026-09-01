@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AlertCircle, CheckCircle, Info, TriangleAlert, X } from "lucide-react";
 import { translate } from "@/i18n/runtime";

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -224,14 +225,12 @@ id = "${selectedModel || "cc/claude-opus-4-7"}"`;
             <p className="text-sm text-text-muted mt-2">Manual configuration is still available if modelhub is deployed on a remote server.</p>
           </>
         }
-        onManualConfig={() => setShowManualConfigModal(true)}
         message={message}
-        onApply={handleApplySettings}
-        applyDisabled={!selectedModel}
-        applyLoading={applying}
-        onReset={handleResetSettings}
-        resetDisabled={!jcodeStatus?.hasModelHub}
-        resetLoading={restoring}
+        capabilities={{
+          manualConfig: { execute: () => setShowManualConfigModal(true) },
+          apply: { execute: handleApplySettings, disabled: !selectedModel, loading: applying },
+          reset: { execute: handleResetSettings, disabled: !jcodeStatus?.hasModelHub, loading: restoring },
+        }}
       >
         <div className="flex flex-col gap-2">
           {tool.notes && tool.notes.length > 0 && (

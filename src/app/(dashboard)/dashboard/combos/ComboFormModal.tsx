@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Modal, Input, ModelSelectModal } from "@/shared/components";
+import { Modal, ModelSelectModal } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import type { Connection } from "@/lib/data-access";

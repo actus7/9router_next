@@ -1,6 +1,8 @@
 "use client";
 
-import { Button, Input, Modal } from "@/shared/components";
+import { Modal } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
 interface HeadroomModalProps {

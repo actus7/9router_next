@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Star, X } from "lucide-react";
 
 interface ModelTagListProps {

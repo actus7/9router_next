@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { APP_CONFIG } from "@/shared/constants/config";

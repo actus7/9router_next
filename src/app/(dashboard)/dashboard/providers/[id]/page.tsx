@@ -14,7 +14,7 @@ import { Spinner } from "@/shared/components/Loading";
 import ProviderDetailClient from "./ProviderDetailClient";
 import { notFound } from "next/navigation";
 
-export default async function ProviderDetailPage({
+async function ProviderDetailContent({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -48,14 +48,7 @@ export default async function ProviderDetailPage({
   const providerNode = nodes.find((n) => n.id === id) || null;
 
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center p-10">
-          <Spinner size="lg" />
-        </div>
-      }
-    >
-      <ProviderDetailClient
+    <ProviderDetailClient
         providerId={id}
         initialProvider={providerNode as unknown as { id: string; name?: string; prefix?: string; apiType?: string; baseUrl?: string; type?: string; [key: string]: unknown } | null}
         initialProviders={providers as unknown as { id: string; name?: string; email?: string; displayName?: string; authType?: string; testStatus?: string; isActive?: boolean; lastError?: string; priority?: number; globalPriority?: number; provider?: string; providerSpecificData?: { proxyPoolId?: string; connectionProxyEnabled?: boolean; connectionProxyUrl?: string; connectionNoProxy?: string; [key: string]: unknown }; [key: string]: unknown }[]}
@@ -66,7 +59,10 @@ export default async function ProviderDetailPage({
         initialDisabledModels={disabledModels}
         initialAliases={aliases}
         initialCustomModels={customModels as unknown as { id: string; providerAlias?: string; kind?: string; type?: string; [key: string]: unknown }[]}
-      />
-    </Suspense>
+    />
   );
+}
+
+export default function ProviderDetailPage(props: { params: Promise<{ id: string }> }) {
+  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProviderDetailContent {...props} /></Suspense>;
 }

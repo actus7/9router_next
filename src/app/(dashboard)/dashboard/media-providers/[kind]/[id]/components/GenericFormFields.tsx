@@ -1,7 +1,8 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
+import { DynamicMedia } from "@/components/ui/dynamic-media";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Row } from "./exampleShared";
 import { Wifi, X } from "lucide-react";
@@ -152,7 +153,7 @@ export default function GenericFormFields({ state }: { state: NonNullGenericStat
               )}
             </div>
             {refImagePreviewSrc && (
-              <img
+              <DynamicMedia
                 src={refImagePreviewSrc}
                 alt="Reference"
                 className="max-h-40 rounded-lg border border-border object-contain bg-sidebar"
@@ -189,7 +190,7 @@ export default function GenericFormFields({ state }: { state: NonNullGenericStat
               )}
             </div>
             {maskImagePreviewSrc && (
-              <img
+              <DynamicMedia
                 src={maskImagePreviewSrc}
                 alt="Mask"
                 className="max-h-40 rounded-lg border border-border object-contain bg-sidebar"

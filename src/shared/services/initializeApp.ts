@@ -15,6 +15,7 @@ import { killAllBridges } from "@/lib/mcp/stdioSseBridge";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface AppSingleton {
+  initialized: boolean;
   signalHandlersRegistered: boolean;
   watchdogInterval: ReturnType<typeof setInterval> | null;
   networkMonitorInterval: ReturnType<typeof setInterval> | null;
@@ -63,6 +64,7 @@ declare global {
 
 // Survive Next.js hot reload
 const g: AppSingleton = global.__appSingleton ??= {
+  initialized: false,
   signalHandlersRegistered: false,
   watchdogInterval: null,
   networkMonitorInterval: null,
@@ -74,6 +76,8 @@ const g: AppSingleton = global.__appSingleton ??= {
 };
 
 export async function initializeApp(): Promise<void> {
+  if (g.initialized) return;
+  g.initialized = true;
   try {
     // Register cleanup + exit-respawn callback immediately so signals and
     // unexpected cloudflared exits are handled even during the deferred window.
@@ -97,6 +101,7 @@ export async function initializeApp(): Promise<void> {
       runHeavyStartup().catch((e: Error) => console.error("[InitApp] deferred startup failed:", e.message));
     }, STARTUP_DEFER_MS);
   } catch (error) {
+    g.initialized = false;
     console.error("[InitApp] Error:", error);
   }
 }

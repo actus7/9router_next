@@ -1,6 +1,8 @@
 "use client";
 
-import { Button, Input, Select } from "@/shared/components";
+import { Select } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 
 interface FormFooterProps {

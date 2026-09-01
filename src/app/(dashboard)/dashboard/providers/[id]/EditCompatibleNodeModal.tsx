@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, Input, Modal, Select } from "@/shared/components";
+import { Modal, Select } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { translate } from "@/i18n/runtime";
 import { validateCompatibleNode, submitCompatibleNode } from "./editCompatibleNodeHelpers";

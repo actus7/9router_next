@@ -1,6 +1,8 @@
 "use client";
 
-import { Card, Button, Input } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import EndpointRow from "../components/EndpointRow";
 import SecurityWarning from "../components/SecurityWarning";

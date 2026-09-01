@@ -9,7 +9,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import Button from "./Button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { translate } from "@/i18n/runtime";
 
 type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
@@ -104,23 +113,19 @@ export function ConfirmModal({
   loading = false,
 }: ConfirmModalProps) {
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={title}
-      size="sm"
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose} disabled={loading}>
-            {translate(cancelText) || cancelText}
-          </Button>
-          <Button variant={variant} onClick={onConfirm} loading={loading}>
+    <AlertDialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{translate(title) || title}</AlertDialogTitle>
+          {message && <AlertDialogDescription>{message}</AlertDialogDescription>}
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={loading}>{translate(cancelText) || cancelText}</AlertDialogCancel>
+          <AlertDialogAction variant={variant} onClick={onConfirm} loading={loading}>
             {translate(confirmText) || confirmText}
-          </Button>
-        </>
-      }
-    >
-      <p className="text-text-muted">{message}</p>
-    </Modal>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

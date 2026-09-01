@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
 interface PxpipeSectionProps {

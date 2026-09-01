@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, Copy, History, Save } from "lucide-react";
 
 interface Message {

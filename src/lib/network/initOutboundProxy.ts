@@ -3,7 +3,7 @@ import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 
 let initialized: boolean = false;
 
-async function ensureOutboundProxyInitialized(): Promise<boolean> {
+export async function ensureOutboundProxyInitialized(): Promise<boolean> {
   if (initialized) return true;
 
   try {
@@ -16,10 +16,5 @@ async function ensureOutboundProxyInitialized(): Promise<boolean> {
 
   return initialized;
 }
-
-// Defer init so HTTP server accepts connections first
-setImmediate(() => {
-  ensureOutboundProxyInitialized().catch(console.log);
-});
 
 

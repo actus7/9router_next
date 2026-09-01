@@ -1,7 +1,7 @@
 "use client";
 
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { ConfirmModal, EditConnectionModal } from "@/shared/components";
 import { getConnectionLabel } from "../utils";
 import { translate } from "@/i18n/runtime";

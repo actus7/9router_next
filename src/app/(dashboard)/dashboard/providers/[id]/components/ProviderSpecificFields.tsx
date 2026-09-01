@@ -1,6 +1,6 @@
 "use client";
 
-import { Input } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
 import { Select } from "@/shared/components";
 
 interface ProviderSpecificFieldsProps {

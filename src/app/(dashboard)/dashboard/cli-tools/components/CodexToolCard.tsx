@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -213,12 +214,13 @@ model = "${effectiveSubagentModel}"
         installed={codexStatus?.installed}
         notInstalledMessage="Codex CLI not detected locally"
         notInstalledDetail="Manual configuration is still available if modelhub is deployed on a remote server."
-        onManualConfig={() => setShowManualConfigModal(true)}
-        hasInstallGuide
-        showInstallGuide={showInstallGuide}
-        onToggleInstallGuide={() => setShowInstallGuide(!showInstallGuide)}
-        installGuideContent={
-          <div className="space-y-3 text-sm">
+        message={message}
+        capabilities={{
+          manualConfig: { execute: () => setShowManualConfigModal(true) },
+          installGuide: {
+            expanded: showInstallGuide,
+            toggle: () => setShowInstallGuide(!showInstallGuide),
+            content: <div className="space-y-3 text-sm">
             <div>
               <p className="text-text-muted mb-1">macOS / Linux / Windows:</p>
               <code className="block px-3 py-2 bg-black/5 dark:bg-white/5 rounded font-mono text-xs">npm install -g @openai/codex</code>
@@ -230,15 +232,11 @@ model = "${effectiveSubagentModel}"
                 Click &quot;Apply&quot; to auto-configure.
               </p>
             </div>
-          </div>
-        }
-        message={message}
-        onApply={handleApplySettings}
-        applyDisabled={(!selectedApiKey && (cloudEnabled && apiKeys.length > 0)) || !selectedModel}
-        applyLoading={applying}
-        onReset={handleResetSettings}
-        resetDisabled={restoring}
-        resetLoading={restoring}
+          </div>,
+          },
+          apply: { execute: handleApplySettings, disabled: (!selectedApiKey && (cloudEnabled && apiKeys.length > 0)) || !selectedModel, loading: applying },
+          reset: { execute: handleResetSettings, disabled: restoring, loading: restoring },
+        }}
       >
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">

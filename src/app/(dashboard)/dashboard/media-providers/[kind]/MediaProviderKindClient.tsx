@@ -3,7 +3,8 @@
 import { useParams, notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { Card, Button, AddCustomEmbeddingModal } from "@/shared/components";
+import { Card, AddCustomEmbeddingModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";

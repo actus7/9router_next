@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input as RawInput } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ArrowDown, ArrowUp, GripVertical, X } from "lucide-react";

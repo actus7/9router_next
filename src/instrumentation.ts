@@ -1,14 +1,31 @@
 // Next.js instrumentation hook. See docs/ARCHITECTURE.md for host boundaries.
 //
-// Scope decision (documented in src/server/llm-gateway/NEXTJS_ADOPTION.md):
-// this file stays observability-focused. The token-refresh scheduler is NOT
-// started here — it keeps running through shared/services/bootstrap with its
-// idempotency guards (global.__appBootstrapped, `started` flag, env kill
-// switch), which is compatible with both long-running and replicated deploys.
+// Node startup belongs here so layouts remain pure and build/prerender workers
+// never start schedulers, tunnel processes or persistent integrations.
+const BUILD_PHASES = new Set(["phase-production-build", "phase-export", "phase-static"]);
+
+declare global {
+  var __modelHubInstrumentationRegistered: boolean | undefined;
+}
+
 export async function register(): Promise<void> {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { initConsoleLogCapture } = await import("@/lib/consoleLogBuffer");
+  if (process.env.NEXT_RUNTIME !== "nodejs" || BUILD_PHASES.has(process.env.NEXT_PHASE ?? "")) return;
+  if (globalThis.__modelHubInstrumentationRegistered) return;
+  globalThis.__modelHubInstrumentationRegistered = true;
+
+  try {
+    const [{ initConsoleLogCapture }, { ensureOutboundProxyInitialized }, { initializeApp }] = await Promise.all([
+      import("@/lib/consoleLogBuffer"),
+      import("@/lib/network/initOutboundProxy"),
+      import("@/shared/services/initializeApp"),
+    ]);
+
     initConsoleLogCapture();
+    await ensureOutboundProxyInitialized();
+    await initializeApp();
+  } catch (error) {
+    globalThis.__modelHubInstrumentationRegistered = false;
+    throw error;
   }
 }
 

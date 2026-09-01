@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, Input } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 
 interface CredentialInputsProps {
   name: string;

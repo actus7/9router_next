@@ -1,7 +1,23 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
+
+const startupMocks = vi.hoisted(() => ({
+  capture: vi.fn(),
+  outboundProxy: vi.fn(async () => true),
+  initializeApp: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/consoleLogBuffer", () => ({ initConsoleLogCapture: startupMocks.capture }));
+vi.mock("@/lib/network/initOutboundProxy", () => ({ ensureOutboundProxyInitialized: startupMocks.outboundProxy }));
+vi.mock("@/shared/services/initializeApp", () => ({ initializeApp: startupMocks.initializeApp }));
+
 import { register, onRequestError } from "@/instrumentation";
 
 describe("instrumentation (FASE 5)", () => {
+  beforeEach(() => {
+    globalThis.__modelHubInstrumentationRegistered = false;
+    vi.clearAllMocks();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
@@ -42,5 +58,29 @@ describe("instrumentation (FASE 5)", () => {
     vi.stubEnv("NEXT_RUNTIME", "edge");
     // Must not import consoleLogBuffer nor throw.
     await expect(register()).resolves.toBeUndefined();
+    expect(startupMocks.capture).not.toHaveBeenCalled();
+  });
+
+  it("register() skips all startup work during build and prerender", async () => {
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+    vi.stubEnv("NEXT_PHASE", "phase-production-build");
+
+    await register();
+
+    expect(startupMocks.capture).not.toHaveBeenCalled();
+    expect(startupMocks.outboundProxy).not.toHaveBeenCalled();
+    expect(startupMocks.initializeApp).not.toHaveBeenCalled();
+  });
+
+  it("register() initializes Node services only once across repeated HMR calls", async () => {
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+    vi.stubEnv("NEXT_PHASE", "phase-development-server");
+
+    await register();
+    await register();
+
+    expect(startupMocks.capture).toHaveBeenCalledOnce();
+    expect(startupMocks.outboundProxy).toHaveBeenCalledOnce();
+    expect(startupMocks.initializeApp).toHaveBeenCalledOnce();
   });
 });

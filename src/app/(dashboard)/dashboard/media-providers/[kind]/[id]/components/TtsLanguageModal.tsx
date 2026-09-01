@@ -1,7 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import type { TtsLanguage } from "./useTtsFormState";
 

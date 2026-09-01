@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import Card from "@/shared/components/Card";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 
 const fmtTokens = (n: number) => {

@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, Modal } from "@/shared/components";
+import { Modal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 import { Ban, Check, Loader2, X as XIcon } from "lucide-react";
 import type { ModelDiagnostic } from "../../types";

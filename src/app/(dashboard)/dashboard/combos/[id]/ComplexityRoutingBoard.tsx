@@ -7,7 +7,8 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { GripVertical, Pencil, Plus, RotateCcw, Sparkles, X } from "lucide-react";
-import { Card, Button } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import TierModelPickerModal, { type ModelPriceInfo } from "@/shared/components/TierModelPickerModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";

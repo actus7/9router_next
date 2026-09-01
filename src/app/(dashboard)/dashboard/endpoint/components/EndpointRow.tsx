@@ -1,8 +1,8 @@
 "use client";
 
 import { ReactNode } from "react";
-import { Input } from "@/shared/components";
-import Button from "@/shared/components/Button";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { Check, Copy } from "lucide-react";
 
 interface EndpointRowProps {

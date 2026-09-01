@@ -4,7 +4,7 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import QuotaTable from "../QuotaTable";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import Card from "@/shared/components/Card";
 import {
   filterQuotasByVisibility,

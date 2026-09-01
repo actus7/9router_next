@@ -34,9 +34,6 @@ const eslintConfig = defineConfig([
       "unused-imports/no-unused-imports": "error",
       "@typescript-eslint/no-unused-expressions": "off",
       "import/no-anonymous-default-export": "off",
-      // Provider media can be blob/data URLs or remote endpoints without
-      // stable dimensions, which Next's optimizer cannot process.
-      "@next/next/no-img-element": "off",
     },
   },
   // Gateway boundary: app/shared code must consume the LLM

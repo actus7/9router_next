@@ -1,6 +1,7 @@
 "use client";
 
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
+import { DynamicMedia } from "@/components/ui/dynamic-media";
 import { translate } from "@/i18n/runtime";
 import type { McpServer } from "./useMcpMarketplace";
 
@@ -15,7 +16,7 @@ export function McpServerCard({ server, added, expanded, onExpand }: McpServerCa
   return (
     <div className="flex items-start gap-2 px-2 py-2 hover:bg-surface-2/50">
       {server.iconUrl ? (
-        <img src={server.iconUrl} alt="" className="size-7 rounded shrink-0 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
+        <DynamicMedia src={server.iconUrl} alt="" className="size-7 rounded shrink-0 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       ) : (
         <div className="size-7 rounded bg-surface shrink-0" />
       )}

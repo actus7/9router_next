@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { LOCALE_FLAGS, type LocaleKey } from "@/shared/constants/locales";
 import LanguageSwitcher from "./LanguageSwitcher";

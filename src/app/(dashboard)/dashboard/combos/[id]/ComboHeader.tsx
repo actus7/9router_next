@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, BrainCircuit, Save } from "lucide-react";
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";

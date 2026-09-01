@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { translate } from "@/i18n/runtime";
 import { cn } from "@/lib/utils";

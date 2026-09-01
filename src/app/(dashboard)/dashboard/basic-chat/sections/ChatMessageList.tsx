@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { DynamicMedia } from "@/components/ui/dynamic-media";
 import { translate } from "@/i18n/runtime";
 import SafeMarkdown from "@/shared/components/SafeMarkdown";
 import {
@@ -127,7 +128,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
                   <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {message.attachments.map((attachment) => (
                       <a key={attachment.id} href={attachment.dataUrl} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg border border-border bg-muted/40">
-                        <img src={attachment.dataUrl} alt={attachment.name} className="h-24 w-full object-cover" loading="lazy" decoding="async" />
+                        <DynamicMedia src={attachment.dataUrl} alt={attachment.name} className="h-24 w-full object-cover" />
                       </a>
                     ))}
                   </div>

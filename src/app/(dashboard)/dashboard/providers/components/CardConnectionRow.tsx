@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { getStatusVariant as getConnectionStatusVariant, getStatusClassName } from "@/shared/utils/connectionStatus";
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network, Pencil, Trash2 } from "lucide-react";

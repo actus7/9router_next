@@ -2,8 +2,8 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import Input from "@/shared/components/Input";
-import Button from "@/shared/components/Button";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Select from "@/shared/components/Select";
 import { X } from "lucide-react";

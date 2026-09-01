@@ -1,7 +1,18 @@
 "use client";
 
-import Button from "@/shared/components/Button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { RefreshCw, Trash2, ExternalLink } from "lucide-react";
 
 interface Deployment {
@@ -52,17 +63,25 @@ export default function DeploymentCard({ deployment, toolName, onRefresh, onDele
         <Button variant="outline" size="sm" onClick={() => onRefresh(deployment.id)}>
           <RefreshCw className="size-3.5" /> Atualizar
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (window.confirm("Apagar este ambiente? Isso remove o serviço na nuvem permanentemente.")) {
-              onDelete(deployment.id);
-            }
-          }}
-        >
-          <Trash2 className="size-3.5" /> Apagar
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
+            <Trash2 data-icon="inline-start" className="size-3.5" /> Apagar
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Apagar este ambiente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação remove permanentemente o serviço na nuvem e não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={() => void onDelete(deployment.id)}>
+                Apagar ambiente
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

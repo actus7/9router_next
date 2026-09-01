@@ -1,7 +1,7 @@
 "use client";
 
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { translate } from "@/i18n/runtime";
 import { ArrowUp, Paperclip, StopCircle, X } from "lucide-react";

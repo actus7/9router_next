@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import Button from "./Button";
+import { Button } from "@/components/ui/button";
 import ModelSelectModal from "./ModelSelectModal";
 import type { ActiveProvider } from "./ModelSelectModal";
 import { X } from "lucide-react";

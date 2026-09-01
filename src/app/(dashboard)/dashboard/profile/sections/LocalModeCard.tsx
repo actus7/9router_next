@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, Button } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input as ShadcnInput } from "@/components/ui/input";
 import { Monitor, Download, Upload, Sun, Moon, Contrast } from "lucide-react";
 import { translate } from "@/i18n/runtime";

@@ -3,7 +3,7 @@ import { getCombos, getProviders, getSettings, getModelAliases } from "@/lib/dat
 import { Spinner } from "@/shared/components/Loading";
 import CombosClient from "./CombosClient";
 
-export default async function CombosPage() {
+async function CombosContent() {
   const [combos, providers, settings, aliases] = await Promise.all([
     getCombos(),
     getProviders(),
@@ -12,13 +12,15 @@ export default async function CombosPage() {
   ]);
 
   return (
-    <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}>
-      <CombosClient
+    <CombosClient
         initialCombos={combos}
         initialProviders={providers}
         initialSettings={settings}
         initialAliases={aliases}
-      />
-    </Suspense>
+    />
   );
+}
+
+export default function CombosPage() {
+  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><CombosContent /></Suspense>;
 }

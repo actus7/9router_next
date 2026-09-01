@@ -7,11 +7,6 @@ import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 import { getI18nProps } from "@/i18n/server";
 import { ACCENT_COLOR_COOKIE, isValidAccentColor } from "@/shared/constants/accentColors";
 import "./globals.css";
-import "@/lib/network/initOutboundProxy";
-import "@/shared/services/bootstrap";
-import { initConsoleLogCapture } from "@/lib/consoleLogBuffer";
-
-initConsoleLogCapture();
 
 const inter = Inter({
   variable: "--font-inter",

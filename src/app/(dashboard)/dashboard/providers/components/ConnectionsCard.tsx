@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, Button, EditConnectionModal, ConfirmModal } from "@/shared/components";
+import { Card, EditConnectionModal, ConfirmModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";

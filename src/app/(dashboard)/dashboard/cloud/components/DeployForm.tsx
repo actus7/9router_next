@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import ApiKeySelect from "../../cli-tools/components/ApiKeySelect";
 

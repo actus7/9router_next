@@ -1,7 +1,7 @@
 "use client";
 
-import Button from "@/shared/components/Button";
-import Input from "@/shared/components/Input";
+import { Button } from "@/components/ui/button";
+import { FormInput as Input } from "@/components/ui/form-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { translate } from "@/i18n/runtime";

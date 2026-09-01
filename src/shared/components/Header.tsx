@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";

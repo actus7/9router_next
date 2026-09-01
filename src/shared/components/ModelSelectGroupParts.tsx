@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import CapacityBadges from "./CapacityBadges";
 import { Check, Layers, Pencil } from "lucide-react";
 import { translate } from "@/i18n/runtime";

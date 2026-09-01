@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import Modal from "@/shared/components/Modal";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { translate } from "@/i18n/runtime";
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import type { ProfileClientProps } from "./types";
 import { useProfileSettings } from "./hooks/useProfileSettings";
 import { usePasswordChange } from "./hooks/usePasswordChange";

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -197,14 +198,12 @@ export default function HermesToolCard({
         installed={hermesStatus?.installed}
         notInstalledMessage="Hermes Agent not detected locally"
         notInstalledDetail="Install: curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash"
-        onManualConfig={() => setShowManualConfigModal(true)}
         message={message}
-        onApply={handleApply}
-        applyDisabled={!selectedModel}
-        applyLoading={applying}
-        onReset={handleReset}
-        resetDisabled={!hermesStatus?.hasModelHub}
-        resetLoading={restoring}
+        capabilities={{
+          manualConfig: { execute: () => setShowManualConfigModal(true) },
+          apply: { execute: handleApply, disabled: !selectedModel, loading: applying },
+          reset: { execute: handleReset, disabled: !hermesStatus?.hasModelHub, loading: restoring },
+        }}
       >
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">

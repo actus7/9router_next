@@ -1,7 +1,7 @@
 "use client";
 
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   shouldResetPage,

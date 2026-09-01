@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { reloadTranslations, translate } from "@/i18n/runtime";

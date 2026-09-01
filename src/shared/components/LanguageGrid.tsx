@@ -1,6 +1,6 @@
 "use client";
 
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { LOCALES } from "@/i18n/config";
 import { Check } from "lucide-react";
 

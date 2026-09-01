@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { ChevronDown, SearchX } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { getProviderConnectionAuthTypes } from "@/shared/constants/providers";

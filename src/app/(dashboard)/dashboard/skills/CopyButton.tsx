@@ -1,7 +1,7 @@
 "use client";
 
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Check, Copy } from "lucide-react";
 
 export function CopyButton({ value, label = "Copy link" }: { value: string; label?: string }) {

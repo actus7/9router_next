@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -173,20 +174,17 @@ export default function KiloToolCard({ tool, isExpanded, onToggle, baseUrl, apiK
         installed={status?.installed}
         notInstalledMessage="Kilo Code not detected locally"
         notInstalledDetail="Manual configuration is still available if modelhub is deployed on a remote server."
-        onManualConfig={() => setShowManualConfigModal(true)}
-        hasInstallGuide
-        showInstallGuide={showInstallGuide}
-        onToggleInstallGuide={() => setShowInstallGuide(!showInstallGuide)}
-        installGuideContent={
-          <p className="text-sm text-text-muted">Install Kilo Code from <a className="text-primary underline" href="https://kilocode.ai" target="_blank" rel="noreferrer">kilocode.ai</a> or VS Code extension marketplace.</p>
-        }
         message={message}
-        onApply={handleApply}
-        applyDisabled={(!selectedApiKey && (cloudEnabled && apiKeys.length > 0)) || !selectedModel}
-        applyLoading={applying}
-        onReset={handleReset}
-        resetDisabled={restoring}
-        resetLoading={restoring}
+        capabilities={{
+          manualConfig: { execute: () => setShowManualConfigModal(true) },
+          installGuide: {
+            expanded: showInstallGuide,
+            toggle: () => setShowInstallGuide(!showInstallGuide),
+            content: <p className="text-sm text-text-muted">Install Kilo Code from <a className="text-primary underline" href="https://kilocode.ai" target="_blank" rel="noreferrer">kilocode.ai</a> or VS Code extension marketplace.</p>,
+          },
+          apply: { execute: handleApply, disabled: (!selectedApiKey && (cloudEnabled && apiKeys.length > 0)) || !selectedModel, loading: applying },
+          reset: { execute: handleReset, disabled: restoring, loading: restoring },
+        }}
       >
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Loader2, Network } from "lucide-react";
 
 interface ProxyPool {

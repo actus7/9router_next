@@ -2,7 +2,7 @@
 
 import { useTheme } from "@/shared/hooks/useTheme";
 import { cn } from "@/lib/utils";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { Sun, Moon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 

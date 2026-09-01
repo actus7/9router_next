@@ -1,7 +1,9 @@
 "use client";
 
 import { Textarea } from "@/components/ui/textarea";
-import { Button, Input, Modal, ConfirmModal } from "@/shared/components";
+import { Modal, ConfirmModal } from "@/shared/components";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { translate } from "@/i18n/runtime";

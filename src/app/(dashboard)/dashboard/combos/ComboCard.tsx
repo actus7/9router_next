@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Card, Button, ModelSelectModal, CapacityBadges, Select } from "@/shared/components";
+import { Card, ModelSelectModal, CapacityBadges, Select } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import type { Connection } from "@/lib/data-access";

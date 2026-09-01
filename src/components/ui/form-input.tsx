@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
 import { cn } from "@/lib/utils";
 import { Input as ShadcnInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "
   inputClassName?: string;
 }
 
-export default function Input({
+function FormInput({
   label,
   type = "text",
   placeholder,
@@ -27,14 +27,24 @@ export default function Input({
   required = false,
   className,
   inputClassName,
+  id,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: InputProps) {
+  const generatedId = useId();
+  const inputId = id ?? `input-${generatedId}`;
+  const errorId = `${inputId}-error`;
+  const hintId = `${inputId}-hint`;
+  const describedBy = [ariaDescribedBy, error ? errorId : undefined, hint && !error ? hintId : undefined]
+    .filter(Boolean)
+    .join(" ") || undefined;
+
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <Label className="text-sm font-medium text-text-main">
+        <Label htmlFor={inputId} className="text-sm font-medium text-text-main">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span aria-hidden="true" className="ml-1 text-destructive">*</span>}
         </Label>
       )}
       <div className="relative">
@@ -44,12 +54,14 @@ export default function Input({
           </div>
         )}
         <ShadcnInput
+          id={inputId}
           type={type}
           placeholder={placeholder}
           value={value}
           onChange={onChange}
           disabled={disabled}
           aria-invalid={!!error}
+          aria-describedby={describedBy}
           className={cn(
             "h-auto w-full py-2.5 px-3 text-sm text-text-main bg-surface-2 rounded-[10px]",
             "border border-transparent placeholder-text-muted/70",
@@ -58,21 +70,23 @@ export default function Input({
             // iOS zoom fix
             "text-[16px] sm:text-sm",
             icon && "pl-10",
-            error && "border-red-500/40 focus-visible:ring-red-500/40 aria-invalid:border-red-500/40 aria-invalid:ring-red-500/20",
+            error && "border-destructive/40 focus-visible:ring-destructive/40 aria-invalid:border-destructive/40 aria-invalid:ring-destructive/20",
             inputClassName
           )}
           {...props}
         />
       </div>
       {error && (
-        <p className="text-xs text-red-500 flex items-center gap-1">
+        <p id={errorId} role="alert" className="flex items-center gap-1 text-xs text-destructive">
           <AlertCircle className="size-3.5" />
           {error}
         </p>
       )}
       {hint && !error && (
-        <p className="text-xs text-text-muted">{hint}</p>
+        <p id={hintId} className="text-xs text-text-muted">{hint}</p>
       )}
     </div>
   );
 }
+
+export { FormInput };

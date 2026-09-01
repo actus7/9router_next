@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, Button } from "@/shared/components";
+import { Card } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import SecurityWarning from "../components/SecurityWarning";
 import { Check, Copy, Eye, EyeOff, KeyRound, Plus, Trash2 } from "lucide-react";

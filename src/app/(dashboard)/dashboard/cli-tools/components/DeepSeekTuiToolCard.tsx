@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -197,14 +198,12 @@ model = "${selectedModel || "provider/model-id"}"
         installed={deepseekStatus?.installed}
         notInstalledMessage="DeepSeek TUI not detected locally"
         notInstalledDetail="Manual configuration is still available if modelhub is deployed on a remote server."
-        onManualConfig={() => setShowManualConfigModal(true)}
         message={message}
-        onApply={handleApply}
-        applyDisabled={!selectedModel}
-        applyLoading={applying}
-        onReset={handleReset}
-        resetDisabled={!deepseekStatus?.hasModelHub}
-        resetLoading={restoring}
+        capabilities={{
+          manualConfig: { execute: () => setShowManualConfigModal(true) },
+          apply: { execute: handleApply, disabled: !selectedModel, loading: applying },
+          reset: { execute: handleReset, disabled: !deepseekStatus?.hasModelHub, loading: restoring },
+        }}
       >
         <div className="flex flex-col gap-2">
           {tool.notes && tool.notes.length > 0 && (

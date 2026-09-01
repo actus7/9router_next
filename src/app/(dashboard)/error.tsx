@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Button from "@/shared/components/Button";
+import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 
 export default function DashboardError({

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input as RawInput } from "@/components/ui/input";
-import Input from "./Input";
-import Button from "./Button";
+import { FormInput as Input } from "@/components/ui/form-input";
+import { Button } from "@/components/ui/button";
 import { ArrowDown, ArrowUp, Layers, Plus, X } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 

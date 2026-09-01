@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { Card, Button, ConfirmModal } from "@/shared/components";
+import { Card, ConfirmModal } from "@/shared/components";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { CAVEMAN_LEVELS, PONYTAIL_LEVELS } from "../endpoint/endpointConstants";
