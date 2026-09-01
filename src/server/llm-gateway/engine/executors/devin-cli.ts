@@ -451,9 +451,7 @@ function handleSessionUpdate(msg: Record<string, unknown>, ctx: AcpStreamCtx) {
   }
 }
 
-/** Process a single NDJSON line from devin stdout */
-function handleAcpLine(msg: Record<string, unknown>, ctx: AcpStreamCtx) {
-  // Initialize response
+function handleDevinInit(msg: Record<string, unknown>, ctx: AcpStreamCtx): boolean {
   if (!ctx.initDone && msg.result !== undefined && !msg.method) {
     ctx.initDone = true;
     ctxSendRpc(ctx, "session/new", {
@@ -461,16 +459,18 @@ function handleAcpLine(msg: Record<string, unknown>, ctx: AcpStreamCtx) {
       mcpServers: [],
       model: ctx.model || undefined,
     });
-    return;
+    return true;
   }
+  return false;
+}
 
-  // session/new response → get sessionId
+function handleDevinSessionNew(msg: Record<string, unknown>, ctx: AcpStreamCtx): boolean {
   if (ctx.initDone && !ctx.sessionCreated && msg.result !== undefined && !msg.method) {
     const res = (msg.result as Record<string, unknown>) || {};
     ctx.sessionId = (res.sessionId as string) || null;
     if (!ctx.sessionId) {
       ctxFinish(ctx, "Devin ACP: session/new returned no sessionId");
-      return;
+      return true;
     }
     ctx.sessionCreated = true;
     ctx.promptSent = true;
@@ -478,10 +478,12 @@ function handleAcpLine(msg: Record<string, unknown>, ctx: AcpStreamCtx) {
       sessionId: ctx.sessionId,
       prompt: [{ type: "text", text: ctx.promptText }],
     });
-    return;
+    return true;
   }
+  return false;
+}
 
-  // session/prompt response (ack / final result)
+function handleDevinPromptResult(msg: Record<string, unknown>, ctx: AcpStreamCtx): boolean {
   if (ctx.sessionCreated && ctx.promptSent && msg.result !== undefined && !msg.method) {
     if (!ctx.roleEmitted) {
       const res = (msg.result as Record<string, unknown>) || undefined;
@@ -491,14 +493,14 @@ function handleAcpLine(msg: Record<string, unknown>, ctx: AcpStreamCtx) {
         ctxEmitDelta(ctx, content);
       }
       const stopReason = (res && res.stopReason as string) || "";
-      if (stopReason && stopReason !== "cancelled") {
-        ctxFinish(ctx);
-      }
+      if (stopReason && stopReason !== "cancelled") ctxFinish(ctx);
     }
-    return;
+    return true;
   }
+  return false;
+}
 
-  // Permission requests → auto-approve
+function handleDevinPermission(msg: Record<string, unknown>, ctx: AcpStreamCtx): boolean {
   if (msg.method === "session/request_permission" && msg.id !== undefined) {
     const options = ((msg.params as Record<string, unknown>)?.options as Record<string, unknown>[]) || [];
     const allow = options.find((o: Record<string, unknown>) => /allow/i.test(String(o.kind || ""))) || options[0];
@@ -510,21 +512,31 @@ function handleAcpLine(msg: Record<string, unknown>, ctx: AcpStreamCtx) {
         }) + "\n"
       );
     }
-    return;
+    return true;
   }
+  return false;
+}
 
-  // Agent stopped notification
+function handleDevinAgentStopped(msg: Record<string, unknown>, ctx: AcpStreamCtx): boolean {
   if (msg.method === "_cognition.ai/agent_stopped" || msg.method === "$/agent_stopped") {
     const params = msg.params as Record<string, unknown>;
-    const cause = params?.cause;
-    if (cause === "error") {
-      const errText = params?.errorMessage || params?.message || params?.error || "Devin agent error";
-      ctxFinish(ctx, String(errText));
+    if (params?.cause === "error") {
+      ctxFinish(ctx, String(params?.errorMessage || params?.message || params?.error || "Devin agent error"));
     } else {
       ctxFinish(ctx);
     }
-    return;
+    return true;
   }
+  return false;
+}
+
+/** Process a single NDJSON line from devin stdout */
+function handleAcpLine(msg: Record<string, unknown>, ctx: AcpStreamCtx) {
+  if (handleDevinInit(msg, ctx)) return;
+  if (handleDevinSessionNew(msg, ctx)) return;
+  if (handleDevinPromptResult(msg, ctx)) return;
+  if (handleDevinPermission(msg, ctx)) return;
+  if (handleDevinAgentStopped(msg, ctx)) return;
 
   // Streaming notifications
   if (msg.method === "session/update" || msg.method === "$/update") {

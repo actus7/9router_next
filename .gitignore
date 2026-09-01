@@ -61,3 +61,7 @@ custom-server.js
 # tool session artifacts
 .playwright-cli/
 .playwright-mcp/
+
+# fallow analysis artifacts
+.fallowrc.json
+loop-history/

@@ -15,6 +15,49 @@ import crypto from "crypto";
 import type { Credentials, Logger, RefreshResult } from "../services/types";
 import type { ExecuteArgs } from "./base";
 
+function createClaudeToOpenAITransformStream(
+  model: string,
+  stream: boolean,
+  state: Record<string, unknown>
+) {
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const emitAll = (controller: TransformStreamDefaultController, chunks: unknown[]) => {
+    for (const c of chunks) {
+      controller.enqueue(new TextEncoder().encode(formatSSE(c, "openai")));
+    }
+  };
+
+  return new TransformStream({
+    async transform(chunk: Uint8Array, controller: TransformStreamDefaultController) {
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const parsed = parseSSELine(trimmed);
+        if (!parsed) continue;
+        if (parsed.done && stream === true) {
+          controller.enqueue(new TextEncoder().encode(SSE_DONE));
+          continue;
+        }
+        emitAll(controller, translateResponse(FORMATS.CLAUDE, FORMATS.OPENAI, parsed, state));
+      }
+    },
+    flush(controller: TransformStreamDefaultController) {
+      if (buffer.trim()) {
+        const parsed = parseSSELine(buffer.trim());
+        if (parsed && !parsed.done) {
+          emitAll(controller, translateResponse(FORMATS.CLAUDE, FORMATS.OPENAI, parsed, state));
+        }
+      }
+    }
+  });
+}
+
 export class GithubExecutor extends BaseExecutor {
   knownCodexModels: Set<string>;
 
@@ -257,15 +300,7 @@ export class GithubExecutor extends BaseExecutor {
     const url = (this.config.messagesUrl as string) || (this.config.baseUrl as string);
     const headers = this.buildHeaders(credentials, stream);
 
-    // Force stream:true upstream regardless of client preference, same as
-    // executeWithResponsesEndpoint below — chatCore.js's non-streaming handler already
-    // knows how to buffer an SSE response into a single JSON reply when the client
-    // asked for stream:false.
     const transformedBody = translateRequest(FORMATS.OPENAI, FORMATS.CLAUDE, model, body, true, credentials, "github");
-    // _toolNameMap is internal bookkeeping (see openai-to-claude.js) — chatCore.js
-    // normally strips it before dispatch and threads it into the response state to
-    // restore original tool names; we must do the same here, or Anthropic's strict
-    // schema rejects the extra field with a 400.
     const toolNameMap = (transformedBody as Record<string, unknown>)._toolNameMap;
     delete (transformedBody as Record<string, unknown>)._toolNameMap;
 
@@ -286,50 +321,11 @@ export class GithubExecutor extends BaseExecutor {
     state.model = model;
     if (toolNameMap) state.toolNameMap = toolNameMap;
 
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    const emitAll = (controller: TransformStreamDefaultController, chunks: unknown[]) => {
-      for (const c of chunks) {
-        controller.enqueue(new TextEncoder().encode(formatSSE(c, "openai")));
-      }
-    };
-
-    const transformStream = new TransformStream({
-      async transform(chunk: Uint8Array, controller: TransformStreamDefaultController) {
-        buffer += decoder.decode(chunk, { stream: true });
-        const lines = buffer.split("\n");
-
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          const parsed = parseSSELine(trimmed);
-          if (!parsed) continue;
-
-          if (parsed.done && stream === true) {
-            controller.enqueue(new TextEncoder().encode(SSE_DONE));
-            continue;
-          }
-
-          emitAll(controller, translateResponse(FORMATS.CLAUDE, FORMATS.OPENAI, parsed, state));
-        }
-      },
-      flush(controller: TransformStreamDefaultController) {
-        if (buffer.trim()) {
-          const parsed = parseSSELine(buffer.trim());
-          if (parsed && !parsed.done) {
-            emitAll(controller, translateResponse(FORMATS.CLAUDE, FORMATS.OPENAI, parsed, state));
-          }
-        }
-      }
-    });
-
     if (!response.body) {
       return { response: new Response("", { status: response.status, headers: response.headers }), url, headers, transformedBody };
     }
+
+    const transformStream = createClaudeToOpenAITransformStream(model, stream, state);
     const convertedStream = response.body.pipeThrough(transformStream);
 
     return {

@@ -43,7 +43,7 @@ function buildPassthroughModels(
     .map(([aliasName, fullModel]) => ({ id: fullModel.replace(`${alias}/`, ""), name: aliasName, value: fullModel }));
   const customRegisteredModels = customModels
     .filter((m) => m.providerAlias === alias)
-    .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}`, kind: getModelKind(m), isCustom: true }));
+    .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}`, kind: getModelKind(m) ?? undefined, isCustom: true }));
 
   let combined: ModelItem[];
   if (kindFilter && TYPED_KINDS.has(kindFilter)) {
@@ -52,7 +52,7 @@ function buildPassthroughModels(
       ...registeredTyped,
       ...(getModelsByProviderId(providerId) as RawModel[])
         .filter((m: RawModel) => getModelKind(m) === kindFilter)
-        .map((m: RawModel) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) }))
+        .map((m: RawModel) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) ?? undefined }))
         .filter((m: { value: string }) => !registeredTyped.some((r) => r.value === m.value)),
     ];
     if (combined.length === 0 && ALLOW_PROVIDER_FALLBACK_KINDS.has(kindFilter)) {
@@ -64,7 +64,7 @@ function buildPassthroughModels(
     const seen = new Set([...aliasModels, ...registeredLlms].map((m) => m.value));
     const hardcoded = (getModelsByProviderId(providerId) as RawModel[])
       .filter((m: RawModel) => !getModelKind(m) || getModelKind(m) === "llm")
-      .map((m: RawModel) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) }))
+      .map((m: RawModel) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) ?? undefined }))
       .filter((m: { value: string }) => !seen.has(m.value));
     combined = [...registeredLlms, ...aliasModels.filter((m) => !registeredLlms.some((r) => r.value === m.value)), ...hardcoded];
   }
@@ -166,7 +166,8 @@ export function buildGroupedModels(params: {
       if (group) groups[providerId] = group;
     } else if (isCustomProvider) {
       if (kindFilter && TYPED_KINDS.has(kindFilter)) return;
-      groups[providerId] = buildCustomProviderModels(providerId, providerInfo, modelAliases, customModels, activeProviders, providerNodes);
+      const group = buildCustomProviderModels(providerId, providerInfo, modelAliases, customModels, activeProviders, providerNodes);
+      if (group) groups[providerId] = group;
     } else {
       const group = buildStandardProviderModels(providerId, alias, providerInfo, modelAliases, customModels, kindFilter, cursorModels);
       if (group) groups[providerId] = group;

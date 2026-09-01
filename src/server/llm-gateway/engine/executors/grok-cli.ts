@@ -242,6 +242,60 @@ function stripStoredItemReferences(body: Record<string, unknown>): void {
   });
 }
 
+function flattenGrokTool(tool: unknown, validNames: Set<string>, hostedTypes: Set<string>): boolean {
+  if (!tool || typeof tool !== "object" || Array.isArray(tool)) return false;
+  const t = tool as Record<string, unknown>;
+  const type = typeof t.type === "string" ? t.type : "";
+
+  if (type !== "function") {
+    if (HOSTED_TOOL_TYPES.has(type)) { hostedTypes.add(type); return true; }
+    if (!type && t.function) { /* fall through */ }
+    else if (!type || typeof t.name === "string") { /* treat as bare function */ }
+    else { return false; }
+  }
+
+  const isFunction = type === "function" || type === "" || t.function || typeof t.name === "string";
+  if (!isFunction || HOSTED_TOOL_TYPES.has(type)) return HOSTED_TOOL_TYPES.has(type);
+
+  const fn = t.function && typeof t.function === "object" && !Array.isArray(t.function)
+    ? t.function as Record<string, unknown> : null;
+  const rawName = typeof t.name === "string" ? t.name : typeof fn?.name === "string" ? fn.name : "";
+  const name = rawName.trim();
+  if (!name) return false;
+
+  const description = typeof t.description === "string" ? t.description
+    : typeof fn?.description === "string" ? fn.description : "";
+  const parameters = type === "custom"
+    ? GROK_CLI_FREEFORM_TOOL_PARAMETERS
+    : t.parameters && typeof t.parameters === "object" && !Array.isArray(t.parameters)
+      ? t.parameters
+      : fn?.parameters && typeof fn.parameters === "object" && !Array.isArray(fn.parameters)
+        ? fn.parameters
+        : { type: "object", properties: {} };
+
+  for (const k of Object.keys(t)) delete t[k];
+  t.type = "function";
+  t.name = name.slice(0, 128);
+  if (description) t.description = description;
+  t.parameters = parameters;
+  validNames.add(name);
+  return true;
+}
+
+function validateGrokToolChoice(body: Record<string, unknown>, validNames: Set<string>, hostedTypes: Set<string>) {
+  if (!body.tool_choice || typeof body.tool_choice !== "object" || Array.isArray(body.tool_choice)) return;
+  const tc = body.tool_choice as Record<string, unknown>;
+  const choiceType = typeof tc.type === "string" ? tc.type : "";
+  if (choiceType === "function" || choiceType === "custom") {
+    const rawName = tc.name ?? (tc.function as Record<string, unknown> | undefined)?.name;
+    const name = typeof rawName === "string" ? rawName.trim().slice(0, 128) : "";
+    if (!name || !validNames.has(name)) delete body.tool_choice;
+    else body.tool_choice = { type: "function", name };
+  } else if (!hostedTypes.has(choiceType)) {
+    delete body.tool_choice;
+  }
+}
+
 /**
  * Flatten Chat Completions tool shape → Responses flat format.
  * Keep hosted tools (web_search / x_search) passthrough.
@@ -254,65 +308,7 @@ function normalizeGrokCliTools(body: Record<string, unknown>): void {
   }
   const validNames = new Set<string>();
   const hostedTypes = new Set<string>();
-  const toolsArr = body.tools as unknown[];
-  body.tools = toolsArr.filter((tool: unknown) => {
-    if (!tool || typeof tool !== "object" || Array.isArray(tool)) return false;
-    const t = tool as Record<string, unknown>;
-    const type = typeof t.type === "string" ? t.type : "";
-
-    if (type !== "function") {
-      // Hosted tools: { type: "web_search" } / { type: "x_search" }
-      if (HOSTED_TOOL_TYPES.has(type)) {
-        hostedTypes.add(type);
-        return true;
-      }
-      // Nested function shape without type
-      if (!type && t.function) {
-        // fall through to function flatten below
-      } else if (!type || typeof t.name === "string") {
-        // treat as bare function if name present
-      } else {
-        return false;
-      }
-    }
-
-    const isFunction =
-      type === "function" || type === "" || t.function || typeof t.name === "string";
-    if (!isFunction || HOSTED_TOOL_TYPES.has(type)) {
-      return HOSTED_TOOL_TYPES.has(type);
-    }
-
-    const fn =
-      t.function && typeof t.function === "object" && !Array.isArray(t.function)
-        ? t.function as Record<string, unknown>
-        : null;
-    const rawName =
-      typeof t.name === "string" ? t.name : typeof fn?.name === "string" ? fn.name : "";
-    const name = rawName.trim();
-    if (!name) return false;
-
-    const description =
-      typeof t.description === "string"
-        ? t.description
-        : typeof fn?.description === "string"
-          ? fn.description
-          : "";
-    const parameters = type === "custom"
-      ? GROK_CLI_FREEFORM_TOOL_PARAMETERS
-      : t.parameters && typeof t.parameters === "object" && !Array.isArray(t.parameters)
-        ? t.parameters
-        : fn?.parameters && typeof fn.parameters === "object" && !Array.isArray(fn.parameters)
-          ? fn.parameters
-          : { type: "object", properties: {} };
-
-    for (const k of Object.keys(t)) delete t[k];
-    t.type = "function";
-    t.name = name.slice(0, 128);
-    if (description) t.description = description;
-    t.parameters = parameters;
-    validNames.add(name);
-    return true;
-  });
+  body.tools = (body.tools as unknown[]).filter((tool) => flattenGrokTool(tool, validNames, hostedTypes));
 
   if ((body.tools as unknown[]).length === 0) {
     delete body.tools;
@@ -320,18 +316,7 @@ function normalizeGrokCliTools(body: Record<string, unknown>): void {
     return;
   }
 
-  if (body.tool_choice && typeof body.tool_choice === "object" && !Array.isArray(body.tool_choice)) {
-    const tc = body.tool_choice as Record<string, unknown>;
-    const choiceType = typeof tc.type === "string" ? tc.type : "";
-    if (choiceType === "function" || choiceType === "custom") {
-      const rawName = tc.name ?? (tc.function as Record<string, unknown> | undefined)?.name;
-      const name = typeof rawName === "string" ? rawName.trim().slice(0, 128) : "";
-      if (!name || !validNames.has(name)) delete body.tool_choice;
-      else body.tool_choice = { type: "function", name };
-    } else if (!hostedTypes.has(choiceType)) {
-      delete body.tool_choice;
-    }
-  }
+  validateGrokToolChoice(body, validNames, hostedTypes);
 }
 
 function resolveEffortFromModel(modelId: unknown): string | null {

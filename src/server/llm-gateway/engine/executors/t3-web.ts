@@ -114,6 +114,31 @@ function extractDelta(parsed: Record<string, unknown>): string | null {
   return extractTextFromTSS(parsed);
 }
 
+function processT3StreamLine(
+  line: string,
+  encoder: TextEncoder,
+  cid: string,
+  created: number,
+  model: string,
+  controller: ReadableStreamDefaultController<Uint8Array>
+): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  const payload = trimmed.startsWith("data:") ? trimmed.slice(5).trim() : trimmed;
+  if (payload === "[DONE]") return false;
+  try {
+    const parsed = JSON.parse(payload) as Record<string, unknown>;
+    const content = extractDelta(parsed);
+    if (content) {
+      controller.enqueue(encoder.encode(sseChunk({
+        id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
+        choices: [{ index: 0, delta: { content }, finish_reason: null, logprobs: null }],
+      })));
+    }
+    return isTSSDone(parsed);
+  } catch { return false; }
+}
+
 function buildStreamingResponse(body: ReadableStream, model: string, cid: string, created: number, signal?: AbortSignal) {
   const encoder = new TextEncoder();
   return new ReadableStream({
@@ -134,30 +159,13 @@ function buildStreamingResponse(body: ReadableStream, model: string, cid: string
             const { value, done } = await reader.read();
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
-
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
-
             for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed) continue;
-              // Accept both NDJSON (bare line) and SSE ("data: " prefix) framing.
-              const payload = trimmed.startsWith("data:") ? trimmed.slice(5).trim() : trimmed;
-              if (payload === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(payload) as Record<string, unknown>;
-                const content = extractDelta(parsed);
-                if (content) {
-                  controller.enqueue(encoder.encode(sseChunk({
-                    id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-                    choices: [{ index: 0, delta: { content }, finish_reason: null, logprobs: null }],
-                  })));
-                }
-                if (isTSSDone(parsed)) {
-                  buffer = "";
-                  break;
-                }
-              } catch { /* skip malformed frame */ }
+              if (processT3StreamLine(line, encoder, cid, created, model, controller)) {
+                buffer = "";
+                break;
+              }
             }
           }
         } finally {

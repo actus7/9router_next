@@ -1309,32 +1309,11 @@ export class KiroExecutor extends BaseExecutor {
   }
 }
 
-/**
- * Parse AWS EventStream frame
- */
-
-function parseEventFrame(data: Uint8Array): EventFrame {
-  if (!(data instanceof Uint8Array) || data.byteLength < 16) {
-    throw new Error("AWS EventStream frame is shorter than 16 bytes");
-  }
+function parseEventStreamHeaders(
+  data: Uint8Array,
+  headersLength: number
+): { headers: Record<string, unknown>; offset: number } {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  const totalLength = view.getUint32(0, false);
-  const headersLength = view.getUint32(4, false);
-  if (totalLength !== data.byteLength) {
-    throw new Error("AWS EventStream frame length does not match its prelude");
-  }
-  if (totalLength > EVENTSTREAM_MAX_MESSAGE_BYTES ||
-      headersLength > EVENTSTREAM_MAX_HEADERS_BYTES ||
-      headersLength > totalLength - 16) {
-    throw new Error("AWS EventStream frame bounds are invalid");
-  }
-  if (view.getUint32(8, false) !== crc32(data.subarray(0, 8))) {
-    throw new Error("AWS EventStream prelude CRC mismatch");
-  }
-  if (view.getUint32(totalLength - 4, false) !== crc32(data.subarray(0, totalLength - 4))) {
-    throw new Error("AWS EventStream message CRC mismatch");
-  }
-
   const headers: Record<string, unknown> = Object.create(null);
   const names = new Set<string>();
   let offset = 12;
@@ -1388,6 +1367,37 @@ function parseEventFrame(data: Uint8Array): EventFrame {
     }
   }
 
+  return { headers, offset };
+}
+
+/**
+ * Parse AWS EventStream frame
+ */
+
+function parseEventFrame(data: Uint8Array): EventFrame {
+  if (!(data instanceof Uint8Array) || data.byteLength < 16) {
+    throw new Error("AWS EventStream frame is shorter than 16 bytes");
+  }
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const totalLength = view.getUint32(0, false);
+  const headersLength = view.getUint32(4, false);
+  if (totalLength !== data.byteLength) {
+    throw new Error("AWS EventStream frame length does not match its prelude");
+  }
+  if (totalLength > EVENTSTREAM_MAX_MESSAGE_BYTES ||
+      headersLength > EVENTSTREAM_MAX_HEADERS_BYTES ||
+      headersLength > totalLength - 16) {
+    throw new Error("AWS EventStream frame bounds are invalid");
+  }
+  if (view.getUint32(8, false) !== crc32(data.subarray(0, 8))) {
+    throw new Error("AWS EventStream prelude CRC mismatch");
+  }
+  if (view.getUint32(totalLength - 4, false) !== crc32(data.subarray(0, totalLength - 4))) {
+    throw new Error("AWS EventStream message CRC mismatch");
+  }
+
+  const { headers } = parseEventStreamHeaders(data, headersLength);
+  const headerEnd = 12 + headersLength;
   const payloadBytes = data.subarray(headerEnd, totalLength - 4);
   if (payloadBytes.byteLength === 0) return { headers, payload: null };
   const payloadText = decoder.decode(payloadBytes);

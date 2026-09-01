@@ -1,0 +1,44 @@
+"use client";
+
+import Button from "@/shared/components/Button";
+import Input from "@/shared/components/Input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { translate } from "@/i18n/runtime";
+
+interface CursorAuthFormProps {
+  accessToken: string;
+  setAccessToken: (v: string) => void;
+  machineId: string;
+  setMachineId: (v: string) => void;
+  error: string | null;
+  importing: boolean;
+  onImport: () => void;
+  onClose: () => void;
+}
+
+export function CursorAuthForm({ accessToken, setAccessToken, machineId, setMachineId, error, importing, onImport, onClose }: CursorAuthFormProps) {
+  return (
+    <>
+      <div>
+        <Label className="block mb-2">{translate("Access Token")} <span className="text-red-500">*</span></Label>
+        <Textarea value={accessToken} onChange={(e) => setAccessToken(e.target.value)} placeholder={translate("Access token will be auto-filled...") ?? "Access token will be auto-filled..."} rows={3} className="font-mono resize-none" />
+      </div>
+      <div>
+        <Label className="block mb-2">{translate("Machine ID")} <span className="text-red-500">*</span></Label>
+        <Input value={machineId} onChange={(e) => setMachineId(e.target.value)} placeholder={translate("Machine ID will be auto-filled...") ?? "Machine ID will be auto-filled..."} className="font-mono text-sm" />
+      </div>
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button onClick={onImport} fullWidth disabled={importing || !accessToken.trim() || !machineId.trim()}>
+          {importing ? (translate("Importing...") ?? "Importing...") : (translate("Import Token") ?? "Import Token")}
+        </Button>
+        <Button onClick={onClose} variant="ghost" fullWidth>{translate("Cancel")}</Button>
+      </div>
+    </>
+  );
+}

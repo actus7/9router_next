@@ -447,6 +447,40 @@ function processSseFrame(state: SseFrameState, payload: Buffer<ArrayBufferLike>,
   return { action: "continue" };
 }
 
+function setupHttp2Request(
+  client: ReturnType<typeof import("http2").connect>,
+  urlObj: URL,
+  headers: Record<string, string>,
+  state: { ended: boolean; streamError: Error | null },
+  wake: (result: { value: Buffer | undefined; done: boolean } | null) => void,
+  chunkQueue: Buffer[]
+) {
+  const req = client.request({
+    ":method": "POST",
+    ":path": urlObj.pathname,
+    ":authority": urlObj.host,
+    ":scheme": "https",
+    ...headers,
+  });
+
+  req.on("error", (error: Error) => {
+    if (state.streamError) return;
+    state.streamError = error;
+    state.ended = true;
+    wake(null);
+  });
+  req.on("data", (chunk) => {
+    if (chunkQueue.length > 0 || state.ended) return;
+    chunkQueue.push(chunk);
+  });
+  req.on("end", () => {
+    state.ended = true;
+    wake({ value: undefined, done: true });
+  });
+
+  return req;
+}
+
 export class CursorExecutor extends BaseExecutor {
   constructor() {
     super("cursor", PROVIDERS.cursor);
@@ -568,9 +602,7 @@ export class CursorExecutor extends BaseExecutor {
     const client = http2.connect(`https://${urlObj.host}`);
     const chunkQueue: Buffer[] = [];
     let waiting: ((value: { value: Buffer | undefined; done: boolean } | null) => void) | null = null;
-    let ended = false;
-    let streamError: Error | null = null;
-    let req: ReturnType<typeof client.request> | null = null;
+    const state = { ended: false, streamError: null as Error | null };
 
     const wake = (result: { value: Buffer | undefined; done: boolean } | null) => {
       if (!waiting) return;
@@ -580,9 +612,9 @@ export class CursorExecutor extends BaseExecutor {
     };
 
     const fail = (error: Error) => {
-      if (streamError) return;
-      streamError = error;
-      ended = true;
+      if (state.streamError) return;
+      state.streamError = error;
+      state.ended = true;
       wake(null);
     };
 
@@ -592,24 +624,7 @@ export class CursorExecutor extends BaseExecutor {
     };
 
     client.on("error", fail);
-
-    req = client.request({
-      ":method": "POST",
-      ":path": urlObj.pathname,
-      ":authority": urlObj.host,
-      ":scheme": "https",
-      ...headers,
-    });
-
-    req.on("error", fail);
-    req.on("data", (chunk) => {
-      if (waiting) wake({ value: chunk, done: false });
-      else chunkQueue.push(chunk);
-    });
-    req.on("end", () => {
-      ended = true;
-      wake({ value: undefined, done: true });
-    });
+    const req = setupHttp2Request(client, urlObj, headers, state, wake, chunkQueue);
 
     if (signal) {
       const onAbort = () => {
@@ -642,12 +657,12 @@ export class CursorExecutor extends BaseExecutor {
       close,
       async read() {
         if (chunkQueue.length) return { value: chunkQueue.shift(), done: false };
-        if (ended) {
-          if (streamError) throw streamError;
+        if (state.ended) {
+          if (state.streamError) throw state.streamError;
           return { value: undefined, done: true };
         }
         const result = await new Promise((resolve) => { waiting = resolve; });
-        if (streamError) throw streamError;
+        if (state.streamError) throw state.streamError;
         return result || { value: undefined, done: true };
       },
     };

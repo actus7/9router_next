@@ -24,14 +24,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           <p className="text-text-muted text-sm">{translate("No providers match your search")}</p>
         </div>
       )}
-      <CustomProvidersSection
-        compatibleProviders={d.compatibleProviders}
-        anthropicCompatibleProviders={d.anthropicCompatibleProviders}
-        getStats={d.getStats}
-        onToggle={d.handleToggleProvider}
-        onAddOpenAI={() => d.setShowAddCompatibleModal(true)}
-        onAddAnthropic={() => d.setShowAddAnthropicCompatibleModal(true)}
-      />
+      <CustomProvidersSection compatibleProviders={d.compatibleProviders} anthropicCompatibleProviders={d.anthropicCompatibleProviders} getStats={d.getStats} onToggle={d.handleToggleProvider} onAddOpenAI={() => d.setShowAddCompatibleModal(true)} onAddAnthropic={() => d.setShowAddAnthropicCompatibleModal(true)} />
       {d.oauthEntries.length > 0 && (
         <ProviderSection title={translate("OAuth Providers")} testMode="oauth" testLabel="Test all OAuth connections" testAriaLabel="Test all OAuth connections" testingMode={d.testingMode} onTest={d.handleBatchTest}>
           {d.filterEntries(d.oauthEntries, "other", "oauth").map(([key, info]) => {
@@ -56,8 +49,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         <ProviderSection title={translate("API Key Providers")} testMode="apikey" testLabel="Test all API Key connections" testAriaLabel="Test all API Key connections" testingMode={d.testingMode} onTest={d.handleBatchTest}
           footer={!d.isApikeySearching && !d.showAllApikey && d.hiddenApikeyCount > 0 ? (
             <Button variant="outline" onClick={() => d.setShowAllApikey(true)} className="w-full border-dashed border-primary/40 text-primary hover:border-primary hover:bg-primary/5">
-              <ChevronDown className="size-4" />
-              {translate("Show all")} {d.apikeyEntries.length} {translate("providers")}
+              <ChevronDown className="size-4" />{translate("Show all")} {d.apikeyEntries.length} {translate("providers")}
             </Button>
           ) : undefined}
         >
@@ -73,15 +65,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           ))}
         </ProviderSection>
       )}
-      <Modals
-        showAddCompatibleModal={d.showAddCompatibleModal}
-        onCloseAddCompatible={() => d.setShowAddCompatibleModal(false)}
-        showAddAnthropicCompatibleModal={d.showAddAnthropicCompatibleModal}
-        onCloseAddAnthropicCompatible={() => d.setShowAddAnthropicCompatibleModal(false)}
-        onNodeCreated={(node: ProviderNode) => { d.setProviderNodes((prev) => [...prev, node]); }}
-        testResults={d.testResults}
-        onCloseTestResults={() => d.setTestResults(null)}
-      />
+      <Modals showAddCompatibleModal={d.showAddCompatibleModal} onCloseAddCompatible={() => d.setShowAddCompatibleModal(false)} showAddAnthropicCompatibleModal={d.showAddAnthropicCompatibleModal} onCloseAddAnthropicCompatible={() => d.setShowAddAnthropicCompatibleModal(false)} onNodeCreated={(node: ProviderNode) => { d.setProviderNodes((prev) => [...prev, node]); }} testResults={d.testResults} onCloseTestResults={() => d.setTestResults(null)} />
     </div>
   );
 }

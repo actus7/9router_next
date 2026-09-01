@@ -6,13 +6,8 @@ import { useNotificationStore } from "@/store/notificationStore";
 import { fetchSuggestedModels, type ModelsFetcher } from "@/shared/utils/providerModelsFetcher";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { refreshModels, clearProviderModels } from "./modelRefreshHelpers";
-import type {
-  Connection,
-  CustomModelEntry,
-  LiveModel,
-  ProviderNode,
-  SuggestedModel,
-} from "../types";
+import { importQoderModels } from "./qoderImportHelper";
+import type { Connection, CustomModelEntry, LiveModel, ProviderNode, SuggestedModel } from "../types";
 
 interface UseModelDiscoveryArgs {
   providerId: string;
@@ -35,23 +30,10 @@ interface UseModelDiscoveryArgs {
 }
 
 export function useModelDiscovery({
-  providerId,
-  providerStorageAlias,
-  isCompatible,
-  isAnthropicCompatible,
-  connections,
-  providerNode,
-  staticModels,
-  catalogCleared,
-  customModels,
-  modelAliases,
-  disabledModelIds,
-  onAddCustomModel,
-  onFetchDisabledModels,
-  onClearTestResults,
-  setCustomModels,
-  setModelAliases,
-  setDisabledModelIds,
+  providerId, providerStorageAlias, isCompatible, isAnthropicCompatible, connections, providerNode,
+  staticModels, catalogCleared, customModels, modelAliases, disabledModelIds,
+  onAddCustomModel, onFetchDisabledModels, onClearTestResults,
+  setCustomModels, setModelAliases, setDisabledModelIds,
 }: UseModelDiscoveryArgs) {
   const notify = useNotificationStore();
   const [suggestedModels, setSuggestedModels] = useState<SuggestedModel[]>([]);
@@ -63,10 +45,7 @@ export function useModelDiscovery({
 
   useEffect(() => {
     if (providerId !== "kilocode") return;
-    fetch("/api/providers/kilo/free-models")
-      .then((res) => res.json())
-      .then((data) => { if (data.models?.length) setKiloFreeModels(data.models); })
-      .catch(() => {});
+    fetch("/api/providers/kilo/free-models").then((res) => res.json()).then((data) => { if (data.models?.length) setKiloFreeModels(data.models); }).catch(() => {});
   }, [providerId]);
 
   useEffect(() => {
@@ -86,61 +65,31 @@ export function useModelDiscovery({
     const fetcher = AI_PROVIDERS[providerId]?.modelsFetcher as ModelsFetcher | undefined;
     if (!fetcher) return;
     const hasNoStaticCatalog = staticModels.length === 0;
-    fetchSuggestedModels(fetcher).then((result) => {
-      setSuggestedModels(result);
-      if (hasNoStaticCatalog) setLiveModels(result as LiveModel[]);
-    });
+    fetchSuggestedModels(fetcher).then((result) => { setSuggestedModels(result); if (hasNoStaticCatalog) setLiveModels(result as LiveModel[]); });
   }, [providerId, catalogCleared, staticModels.length]);
 
   const handleImportQoderModels = async () => {
     if (importingQoderModels) return;
-    const activeConnection = connections.find((conn) => conn.isActive !== false);
-    if (!activeConnection) { notify.error(translate("Please add an active Qoder connection first") || ""); return; }
     setImportingQoderModels(true);
-    try {
-      const res = await fetch(`/api/providers/${activeConnection.id}/models`);
-      const data = await res.json();
-      if (!res.ok) { notify.error(data.error || translate("Failed to fetch models")); return; }
-      const fetchedModels = data.models || [];
-      if (fetchedModels.length === 0) { notify.warning(translate("No models returned") || ""); return; }
-      let importedCount = 0;
-      for (const model of fetchedModels) {
-        const modelId = model.id || model.name;
-        if (!modelId) continue;
-        const cleanModelId = modelId.replace(/^qoder\//, "");
-        const alreadyExists = customModels.some((entry) => entry.providerAlias === providerStorageAlias && entry.id === cleanModelId && (entry.kind || entry.type || "llm") === "llm") || Object.values(modelAliases).includes(`${providerStorageAlias}/${cleanModelId}`);
-        if (alreadyExists) continue;
-        await onAddCustomModel(cleanModelId, "llm", providerStorageAlias);
-        importedCount += 1;
-      }
-      if (importedCount === 0) notify.warning(translate("All models already exist, no new models added") || "");
-      else notify.success(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
-    } catch (error: unknown) {
-      console.error("Error importing Qoder models:", error);
-      notify.error(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error)));
-    } finally { setImportingQoderModels(false); }
+    try { await importQoderModels(connections, providerStorageAlias, customModels, modelAliases, onAddCustomModel, notify); }
+    catch (error: unknown) { console.error("Error importing Qoder models:", error); notify.error(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error))); }
+    finally { setImportingQoderModels(false); }
   };
 
   const handleRefreshModels = async () => {
     if (refreshingModels) return;
     setRefreshingModels(true);
-    try {
-      await refreshModels({ providerId, providerStorageAlias, isCompatible, connections, providerNode, customModels, modelAliases, setLiveModels, setCustomModels, setModelAliases, onFetchDisabledModels, notify });
-    } catch (error: unknown) {
-      console.error("Error refreshing models:", error);
-      notify.error(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error)));
-    } finally { setRefreshingModels(false); }
+    try { await refreshModels({ providerId, providerStorageAlias, isCompatible, connections, providerNode, customModels, modelAliases, setLiveModels, setCustomModels, setModelAliases, onFetchDisabledModels, notify }); }
+    catch (error: unknown) { console.error("Error refreshing models:", error); notify.error(translate("Error fetching models") + ": " + (error instanceof Error ? error.message : String(error))); }
+    finally { setRefreshingModels(false); }
   };
 
   const handleClearProviderModels = async () => {
     if (clearingModels) return;
     setClearingModels(true);
-    try {
-      await clearProviderModels({ providerStorageAlias, customModels, modelAliases, setLiveModels, setSuggestedModels, setCustomModels, setModelAliases, setDisabledModelIds, onClearTestResults, notify });
-    } catch (error) {
-      console.error("Error clearing provider models:", error);
-      notify.error(translate("Failed to clear models") || "Failed to clear models");
-    } finally { setClearingModels(false); }
+    try { await clearProviderModels({ providerStorageAlias, customModels, modelAliases, setLiveModels, setSuggestedModels, setCustomModels, setModelAliases, setDisabledModelIds, onClearTestResults, notify }); }
+    catch (error) { console.error("Error clearing provider models:", error); notify.error(translate("Failed to clear models") || "Failed to clear models"); }
+    finally { setClearingModels(false); }
   };
 
   return {

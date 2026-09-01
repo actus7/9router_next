@@ -371,6 +371,114 @@ function openAIMessagesToWs(messages: Record<string, unknown>[]): { role: string
   return out;
 }
 
+function handleWindsurfFrame(
+  flag: number,
+  payload: Uint8Array,
+  state: { totalText: string; promptTokens: number; completionTokens: number; hadError: string | null; roleEmitted: boolean },
+  emit: (data: string) => void,
+  responseId: string,
+  created: number,
+  model: string
+) {
+  if (flag === 0x80) {
+    const trailer = TEXT_DEC.decode(payload);
+    const statusMatch = /grpc-status:\s*(\d+)/i.exec(trailer);
+    if (statusMatch && statusMatch[1] !== "0") {
+      const msgMatch = /grpc-message:\s*(.+)/i.exec(trailer);
+      state.hadError = msgMatch
+        ? decodeURIComponent(msgMatch[1].trim())
+        : `gRPC status ${statusMatch[1]}`;
+    }
+    return;
+  }
+  if (flag !== 0x00) return;
+
+  const chunk = decodeCompletionChunk(payload);
+  if (chunk.kind === "content" && chunk.text) {
+    state.totalText += chunk.text;
+    if (!state.roleEmitted) {
+      emit(`data: ${JSON.stringify({
+        id: responseId, object: "chat.completion.chunk", created, model,
+        choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }],
+      })}\n\n`);
+      state.roleEmitted = true;
+    }
+    emit(`data: ${JSON.stringify({
+      id: responseId, object: "chat.completion.chunk", created, model,
+      choices: [{ index: 0, delta: { content: chunk.text }, finish_reason: null }],
+    })}\n\n`);
+  } else if (chunk.kind === "done") {
+    state.promptTokens = (chunk as { kind: string; promptTokens: number }).promptTokens;
+    state.completionTokens = (chunk as { kind: string; completionTokens: number }).completionTokens;
+  } else if (chunk.kind === "error") {
+    state.hadError = chunk.message ?? null;
+  }
+}
+
+function drainWindsurfFrames(
+  pending: Uint8Array,
+  state: { totalText: string; promptTokens: number; completionTokens: number; hadError: string | null; roleEmitted: boolean },
+  emit: (data: string) => void,
+  responseId: string,
+  created: number,
+  model: string
+): { pending: Uint8Array<ArrayBufferLike>; offset: number } {
+  let offset = 0;
+  while (offset + 5 <= pending.length) {
+    const flag = pending[offset];
+    const len =
+      (pending[offset + 1] << 24) |
+      (pending[offset + 2] << 16) |
+      (pending[offset + 3] << 8) |
+      pending[offset + 4];
+    if (len < 0 || offset + 5 + len > pending.length) break;
+    handleWindsurfFrame(flag, pending.slice(offset + 5, offset + 5 + len), state, emit, responseId, created, model);
+    offset += 5 + len;
+  }
+  return { pending: offset > 0 ? pending.slice(offset) : pending, offset };
+}
+
+function emitWindsurfFinish(
+  state: { totalText: string; promptTokens: number; completionTokens: number; hadError: string | null; roleEmitted: boolean },
+  emit: (data: string) => void,
+  responseId: string,
+  created: number,
+  model: string
+) {
+  if (state.hadError) {
+    emit(`data: ${JSON.stringify({
+      error: { message: state.hadError, type: "windsurf_error", code: "upstream_error" },
+    })}\n\n`);
+    emit("data: [DONE]\n\n");
+    return;
+  }
+
+  if (!state.roleEmitted && state.totalText) {
+    emit(`data: ${JSON.stringify({
+      id: responseId, object: "chat.completion.chunk", created, model,
+      choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }],
+    })}\n\n`);
+    emit(`data: ${JSON.stringify({
+      id: responseId, object: "chat.completion.chunk", created, model,
+      choices: [{ index: 0, delta: { content: state.totalText }, finish_reason: null }],
+    })}\n\n`);
+  }
+
+  const finishPayload: Record<string, unknown> = {
+    id: responseId, object: "chat.completion.chunk", created, model,
+    choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+  };
+  if (state.promptTokens > 0 || state.completionTokens > 0) {
+    finishPayload.usage = {
+      prompt_tokens: state.promptTokens,
+      completion_tokens: state.completionTokens,
+      total_tokens: state.promptTokens + state.completionTokens,
+    };
+  }
+  emit(`data: ${JSON.stringify(finishPayload)}\n\n`);
+  emit("data: [DONE]\n\n");
+}
+
 // ─── WindsurfExecutor ────────────────────────────────────────────────────────
 
 class WindsurfExecutor extends BaseExecutor {
@@ -442,71 +550,12 @@ class WindsurfExecutor extends BaseExecutor {
     const sseStream = new ReadableStream({
       async start(controller) {
         const enc = new TextEncoder();
-        let roleEmitted = false;
-        let totalText = "";
-        let promptTokens = 0;
-        let completionTokens = 0;
-        let hadError = null;
-
+        const state = { totalText: "", promptTokens: 0, completionTokens: 0, hadError: null as string | null, roleEmitted: false };
         const emit = (data: string) => controller.enqueue(enc.encode(data));
 
         try {
-          let pending = new Uint8Array(0);
+          let pending: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
           const reader = upstream.body?.getReader();
-
-          const handleFrame = (flag: number, payload: Uint8Array) => {
-            if (flag === 0x80) {
-              // Trailer frame — contains grpc-status, grpc-message
-              const trailer = TEXT_DEC.decode(payload);
-              const statusMatch = /grpc-status:\s*(\d+)/i.exec(trailer);
-              if (statusMatch && statusMatch[1] !== "0") {
-                const msgMatch = /grpc-message:\s*(.+)/i.exec(trailer);
-                hadError = msgMatch
-                  ? decodeURIComponent(msgMatch[1].trim())
-                  : `gRPC status ${statusMatch[1]}`;
-              }
-              return;
-            }
-            if (flag !== 0x00) return; // skip unknown flags
-
-            const chunk = decodeCompletionChunk(payload);
-
-            if (chunk.kind === "content" && chunk.text) {
-              totalText += chunk.text;
-              if (!roleEmitted) {
-                emit(`data: ${JSON.stringify({
-                  id: responseId, object: "chat.completion.chunk", created, model,
-                  choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }],
-                })}\n\n`);
-                roleEmitted = true;
-              }
-              emit(`data: ${JSON.stringify({
-                id: responseId, object: "chat.completion.chunk", created, model,
-                choices: [{ index: 0, delta: { content: chunk.text }, finish_reason: null }],
-              })}\n\n`);
-            } else if (chunk.kind === "done") {
-              promptTokens = (chunk as { kind: string; promptTokens: number }).promptTokens;
-              completionTokens = (chunk as { kind: string; completionTokens: number }).completionTokens;
-            } else if (chunk.kind === "error") {
-              hadError = chunk.message;
-            }
-          };
-
-          const drainFrames = () => {
-            let offset = 0;
-            while (offset + 5 <= pending.length) {
-              const flag = pending[offset];
-              const len =
-                (pending[offset + 1] << 24) |
-                (pending[offset + 2] << 16) |
-                (pending[offset + 3] << 8) |
-                pending[offset + 4];
-              if (len < 0 || offset + 5 + len > pending.length) break;
-              handleFrame(flag, pending.slice(offset + 5, offset + 5 + len));
-              offset += 5 + len;
-            }
-            if (offset > 0) pending = pending.slice(offset);
-          };
 
           if (reader) {
             try {
@@ -515,48 +564,16 @@ class WindsurfExecutor extends BaseExecutor {
                 if (done) break;
                 if (!value) continue;
                 pending = pending.length === 0 ? value : concatBytes([pending, value]);
-                drainFrames();
+                const result = drainWindsurfFrames(pending, state, emit, responseId, created, model);
+                pending = result.pending as Uint8Array;
               }
             } finally {
               reader.releaseLock();
             }
           }
-          drainFrames();
+          drainWindsurfFrames(pending, state, emit, responseId, created, model);
 
-          if (hadError) {
-            emit(`data: ${JSON.stringify({
-              error: { message: hadError, type: "windsurf_error", code: "upstream_error" },
-            })}\n\n`);
-            emit("data: [DONE]\n\n");
-            controller.close();
-            return;
-          }
-
-          // Unary fallback: nothing streamed but text decoded → emit as one chunk.
-          if (!roleEmitted && totalText) {
-            emit(`data: ${JSON.stringify({
-              id: responseId, object: "chat.completion.chunk", created, model,
-              choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }],
-            })}\n\n`);
-            emit(`data: ${JSON.stringify({
-              id: responseId, object: "chat.completion.chunk", created, model,
-              choices: [{ index: 0, delta: { content: totalText }, finish_reason: null }],
-            })}\n\n`);
-          }
-
-          const finishPayload: Record<string, unknown> = {
-            id: responseId, object: "chat.completion.chunk", created, model,
-            choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-          };
-          if (promptTokens > 0 || completionTokens > 0) {
-            finishPayload.usage = {
-              prompt_tokens: promptTokens,
-              completion_tokens: completionTokens,
-              total_tokens: promptTokens + completionTokens,
-            };
-          }
-          emit(`data: ${JSON.stringify(finishPayload)}\n\n`);
-          emit("data: [DONE]\n\n");
+          emitWindsurfFinish(state, emit, responseId, created, model);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           emit(`data: ${JSON.stringify({

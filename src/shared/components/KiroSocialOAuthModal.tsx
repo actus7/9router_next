@@ -1,238 +1,37 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import Button from "@/shared/components/Button";
-import Input from "@/shared/components/Input";
 import { cn } from "@/lib/utils";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { AlertCircle, Check, CheckCircle2, Copy, Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { translate } from "@/i18n/runtime";
-
-interface AuthData {
-  authUrl: string;
-  codeVerifier: string;
-}
+import { useKiroSocialAuth } from "./useKiroSocialAuth";
+import { KiroSocialLoading, KiroSocialInput, KiroSocialSuccess, KiroSocialError } from "./KiroSocialSteps";
 
 interface KiroSocialOAuthModalProps {
-  isOpen: boolean;
-  provider: "google" | "github";
-  onSuccess?: () => void;
-  onClose: () => void;
+  isOpen: boolean; provider: "google" | "github"; onSuccess?: () => void; onClose: () => void;
 }
 
-/**
- * Kiro Social OAuth Modal (Google/GitHub)
- * Handles manual callback URL flow for social login
- */
 export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onClose }: KiroSocialOAuthModalProps) {
-  const [step, setStep] = useState<"loading" | "input" | "success" | "error">("loading");
-  const [authUrl, setAuthUrl] = useState<string>("");
-  const [authData, setAuthData] = useState<AuthData | null>(null);
-  const [callbackUrl, setCallbackUrl] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
+  const { step, authUrl, callbackUrl, setCallbackUrl, error, handleManualSubmit } = useKiroSocialAuth(isOpen, provider, onSuccess);
   const { copied, copy } = useCopyToClipboard();
-  const openedRef = useRef<boolean>(false);
-
-  // Reset auto-open guard when modal closes so it can re-open next session.
-  useEffect(() => {
-    if (!isOpen) openedRef.current = false;
-  }, [isOpen]);
-
-  // Initialize auth flow
-  useEffect(() => {
-    if (!isOpen || !provider) return;
-
-    const initAuth = async () => {
-      try {
-        setError(null);
-        setStep("loading");
-
-        const res = await fetch(`/api/oauth/kiro/social-authorize?provider=${provider}`);
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error);
-        }
-
-        setAuthData(data);
-        setAuthUrl(data.authUrl);
-        setStep("input");
-
-        // Auto-open browser once per modal session.
-        if (!openedRef.current) {
-          openedRef.current = true;
-          window.open(data.authUrl, "_blank");
-        }
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : String(err));
-        setStep("error");
-      }
-    };
-
-    initAuth();
-  }, [isOpen, provider]);
-
-  const handleManualSubmit = async () => {
-    try {
-      setError(null);
-      
-      // Parse callback URL - can be either kiro:// or http://localhost format
-      let url: URL;
-      try {
-        url = new URL(callbackUrl);
-      } catch (e) {
-        // If URL parsing fails, might be malformed
-        throw new Error("Invalid callback URL format");
-      }
-
-      const code = url.searchParams.get("code");
-      const state = url.searchParams.get("state");
-      const errorParam = url.searchParams.get("error");
-
-      if (errorParam) {
-        throw new Error(url.searchParams.get("error_description") || errorParam);
-      }
-
-      if (!code) {
-        throw new Error("No authorization code found in URL");
-      }
-
-      // Exchange code for tokens
-      const res = await fetch("/api/oauth/kiro/social-exchange", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code,
-          codeVerifier: authData?.codeVerifier,
-          provider,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      setStep("success");
-      onSuccess?.();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
-      setStep("error");
-    }
-  };
-
   const providerName = provider === "google" ? "Google" : "GitHub";
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        showCloseButton={false}
-        className={cn(
-          "bg-surface border border-border-subtle rounded-[14px]",
-          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
-          "max-w-lg"
-        )}
-      >
+      <DialogContent showCloseButton={false} className={cn("bg-surface border border-border-subtle rounded-[14px]", "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0", "max-w-lg")}>
         <div className="flex items-center justify-between p-2 border-b border-border-subtle">
-          <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            {translate("Connect Kiro via") + " " + providerName}
-          </DialogTitle>
-          <Button onClick={onClose} aria-label={translate("Close") ?? "Close"} variant="ghost" size="sm" className="p-1.5">
-            <X className="size-5" />
-          </Button>
+          <DialogTitle className="text-lg font-semibold text-text-main ml-2">{translate("Connect Kiro via") + " " + providerName}</DialogTitle>
+          <Button onClick={onClose} aria-label={translate("Close") ?? "Close"} variant="ghost" size="sm" className="p-1.5"><X className="size-5" /></Button>
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-4">
-        {/* Loading */}
-        {step === "loading" && (
-          <div className="text-center py-6">
-            <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <Loader2 className="size-4" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">{translate("Initializing...")}</h3>
-            <p className="text-sm text-text-muted">
-              {translate("Setting up authentication") + " " + providerName}
-            </p>
+            {step === "loading" && <KiroSocialLoading providerName={providerName} />}
+            {step === "input" && <KiroSocialInput authUrl={authUrl} callbackUrl={callbackUrl} setCallbackUrl={setCallbackUrl} copied={copied} copy={copy} onSubmit={handleManualSubmit} onClose={onClose} />}
+            {step === "success" && <KiroSocialSuccess providerName={providerName} onClose={onClose} />}
+            {step === "error" && <KiroSocialError error={error} onRetry={() => {}} onClose={onClose} />}
           </div>
-        )}
-
-        {/* Manual Input Step */}
-        {step === "input" && (
-          <>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium mb-2">{translate("Step 1: Open this URL in your browser")}</p>
-                <div className="flex gap-2">
-                  <Input value={authUrl} readOnly className="flex-1 font-mono text-xs" />
-                  <Button 
-                    variant="secondary" 
-                    icon={copied === "auth_url" ? <Check className="size-4" /> : <Copy className="size-4" />} 
-                    onClick={() => copy(authUrl, "auth_url")}
-                  >
-                    {translate("Copy")}
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium mb-2">{translate("Step 2: Paste the callback URL here")}</p>
-                <p className="text-xs text-text-muted mb-2">
-                  {translate("After authorization, copy the full URL from your browser address bar.")}
-                </p>
-                <Input
-                  value={callbackUrl}
-                  onChange={(e) => setCallbackUrl(e.target.value)}
-                  placeholder="kiro://kiro.kiroAgent/authenticate-success?code=..."
-                  className="font-mono text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>
-                {translate("Connect")}
-              </Button>
-              <Button onClick={onClose} variant="ghost" fullWidth>
-                {translate("Cancel")}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* Success */}
-        {step === "success" && (
-          <div className="text-center py-6">
-            <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <CheckCircle2 className="size-4" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">{translate("Connected Successfully!")}</h3>
-            <p className="text-sm text-text-muted mb-4">
-              {translate("Your Kiro account via") + " " + providerName + " " + translate("has been connected.")}
-            </p>
-            <Button onClick={onClose} fullWidth>
-              {translate("Done")}
-            </Button>
-          </div>
-        )}
-
-        {/* Error */}
-        {step === "error" && (
-          <div className="text-center py-6">
-            <div className="size-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <AlertCircle className="size-4" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">{translate("Connection Failed")}</h3>
-            <p className="text-sm text-red-600 mb-4">{error}</p>
-            <div className="flex gap-2">
-              <Button onClick={() => setStep("input")} variant="secondary" fullWidth>
-                {translate("Try Again")}
-              </Button>
-              <Button onClick={onClose} variant="ghost" fullWidth>
-                {translate("Cancel")}
-              </Button>
-            </div>
-          </div>
-        )}
-        </div>
         </div>
       </DialogContent>
     </Dialog>

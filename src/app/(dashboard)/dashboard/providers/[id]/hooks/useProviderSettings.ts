@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { saveProviderStrategy, saveThinkingConfig, saveAutoPingSetting } from "./settingsActions";
 import type { AutoPingConfig } from "../types";
 
 const AUTO_PING_SETTINGS_KEYS: Record<string, string> = {
@@ -13,10 +14,7 @@ interface UseProviderSettingsArgs {
   initialSettings: Record<string, unknown>;
 }
 
-export function useProviderSettings({
-  providerId,
-  initialSettings,
-}: UseProviderSettingsArgs) {
+export function useProviderSettings({ providerId, initialSettings }: UseProviderSettingsArgs) {
   const settingsOverride = ((initialSettings.providerStrategies as Record<string, Record<string, unknown>>) || {})[providerId] || {};
   const thinkingCfg = ((initialSettings.providerThinking as Record<string, Record<string, unknown>>) || {})[providerId] || {};
   const autoPingSettingsKey = AUTO_PING_SETTINGS_KEYS[providerId];
@@ -29,120 +27,47 @@ export function useProviderSettings({
 
   const hasAutoPing = !!AUTO_PING_SETTINGS_KEYS[providerId];
 
-  const saveProviderStrategy = async (strategy: string | null, stickyLimit: string) => {
-    try {
-      const settingsRes = await fetch("/api/settings", { cache: "no-store" });
-      const settingsData = settingsRes.ok ? await settingsRes.json() : {};
-      const current = settingsData.providerStrategies || {};
-
-      const override: Record<string, unknown> = {};
-      if (strategy) override.fallbackStrategy = strategy;
-      if (strategy === "round-robin" && stickyLimit !== "") {
-        override.stickyRoundRobinLimit = Number(stickyLimit) || 3;
-      }
-
-      const updated = { ...current };
-      if (Object.keys(override).length === 0) {
-        delete updated[providerId];
-      } else {
-        updated[providerId] = override;
-      }
-
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerStrategies: updated }),
-      });
-    } catch (error) {
-      console.error("Error saving provider strategy:", error);
-    }
-  };
-
   const handleRoundRobinToggle = (enabled: boolean) => {
     const strategy = enabled ? "round-robin" : null;
     const sticky = enabled ? (providerStickyLimit || "1") : providerStickyLimit;
     if (enabled && !providerStickyLimit) setProviderStickyLimit("1");
     setProviderStrategy(strategy);
-    saveProviderStrategy(strategy, sticky);
+    saveProviderStrategy(providerId, strategy, sticky);
   };
 
   const handleStickyLimitChange = (value: string) => {
     setProviderStickyLimit(value);
-    saveProviderStrategy("round-robin", value);
-  };
-
-  const saveThinkingConfig = async (mode: string) => {
-    try {
-      const settingsRes = await fetch("/api/settings", { cache: "no-store" });
-      const settingsData = settingsRes.ok ? await settingsRes.json() : {};
-      const current = settingsData.providerThinking || {};
-      const updated = { ...current };
-      if (!mode || mode === "auto") {
-        delete updated[providerId];
-      } else {
-        updated[providerId] = { mode };
-      }
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerThinking: updated }),
-      });
-    } catch (error) {
-      console.error("Error saving thinking config:", error);
-    }
+    saveProviderStrategy(providerId, "round-robin", value);
   };
 
   const handleThinkingModeChange = (mode: string) => {
     setThinkingMode(mode);
-    saveThinkingConfig(mode);
-  };
-
-  const saveAutoPing = async (next: AutoPingConfig) => {
-    const apKey = AUTO_PING_SETTINGS_KEYS[providerId];
-    if (!apKey) return;
-
-    setAutoPing(next);
-    try {
-      await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [apKey]: next }),
-      });
-    } catch (error) {
-      console.error("Error saving auto-ping config:", error);
-    }
+    saveThinkingConfig(providerId, mode);
   };
 
   const handleAutoPingConnection = (connectionId: string, on: boolean) => {
-    saveAutoPing({ ...autoPing, connections: { ...autoPing.connections, [connectionId]: on } });
+    const next = { ...autoPing, connections: { ...autoPing.connections, [connectionId]: on } };
+    setAutoPing(next);
+    if (autoPingSettingsKey) saveAutoPingSetting(autoPingSettingsKey, next as unknown as Record<string, unknown>);
   };
 
-  // Called by fetchConnections to hydrate settings from a combined API response.
   const loadSettings = (settingsData: Record<string, unknown>) => {
     const strategies = (settingsData.providerStrategies as Record<string, Record<string, unknown>>) || {};
     const override = strategies[providerId] || {};
     setProviderStrategy((override.fallbackStrategy as string) || null);
     setProviderStickyLimit(override.stickyRoundRobinLimit != null ? String(override.stickyRoundRobinLimit) : "1");
     const thinking = (settingsData.providerThinking as Record<string, Record<string, unknown>>) || {};
-    const thCfg = thinking[providerId] || {};
-    setThinkingMode((thCfg.mode as string) || "auto");
+    setThinkingMode((thinking[providerId]?.mode as string) || "auto");
     const apKey = AUTO_PING_SETTINGS_KEYS[providerId];
     const apData = apKey ? ((settingsData[apKey] as Record<string, unknown>) || {}) : {};
     setAutoPing({ enabled: apData.enabled === true, connections: (apData.connections as Record<string, boolean>) || {} });
   };
 
   return {
-    providerStrategy,
-    providerStickyLimit,
-    thinkingMode,
-    autoPing,
-    hasAutoPing,
+    providerStrategy, providerStickyLimit, thinkingMode, autoPing, hasAutoPing,
     autoPingSettingsKey: AUTO_PING_SETTINGS_KEYS[providerId],
-    loadSettings,
-    handleRoundRobinToggle,
-    handleStickyLimitChange,
-    handleThinkingModeChange,
-    handleAutoPingConnection,
+    loadSettings, handleRoundRobinToggle, handleStickyLimitChange,
+    handleThinkingModeChange, handleAutoPingConnection,
   };
 }
 

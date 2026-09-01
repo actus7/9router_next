@@ -7,11 +7,8 @@ import { useProviderSettings } from "./useProviderSettings";
 import { useOneByOneTest } from "./useOneByOneTest";
 import { useBulkProxy } from "./useBulkProxy";
 import { createConnectionCrud } from "./connectionCrudHelpers";
-import type {
-  Connection,
-  ProviderNode,
-  ProxyPool,
-} from "../types";
+import { fetchAllProviderData } from "./fetchProviderData";
+import type { Connection, ProviderNode, ProxyPool } from "../types";
 
 interface UseProviderConnectionsArgs {
   providerId: string;
@@ -23,12 +20,7 @@ interface UseProviderConnectionsArgs {
 }
 
 export function useProviderConnections({
-  providerId,
-  initialConnections,
-  initialProvider,
-  initialPools,
-  initialSettings,
-  isCompatible,
+  providerId, initialConnections, initialProvider, initialPools, initialSettings, isCompatible,
 }: UseProviderConnectionsArgs) {
   const notify = useNotificationStore();
 
@@ -41,39 +33,8 @@ export function useProviderConnections({
   const settingsHook = useProviderSettings({ providerId, initialSettings });
 
   const fetchConnections = useCallback(async () => {
-    try {
-      const [connectionsRes, nodesRes, proxyPoolsRes, settingsRes] = await Promise.all([
-        fetch("/api/providers", { cache: "no-store" }),
-        fetch("/api/provider-nodes", { cache: "no-store" }),
-        fetch("/api/proxy-pools?isActive=true", { cache: "no-store" }),
-        fetch("/api/settings", { cache: "no-store" }),
-      ]);
-      const connectionsData = await connectionsRes.json();
-      const nodesData = await nodesRes.json();
-      const proxyPoolsData = await proxyPoolsRes.json();
-      const settingsData = settingsRes.ok ? await settingsRes.json() : {};
-      if (connectionsRes.ok) {
-        const filtered = (connectionsData.connections || []).filter((c: Connection) => c.provider === providerId);
-        setConnections(filtered);
-      }
-      if (proxyPoolsRes.ok) setProxyPools(proxyPoolsData.proxyPools || []);
-      settingsHook.loadSettings(settingsData);
-      if (nodesRes.ok) {
-        let node = (nodesData.nodes || []).find((entry: ProviderNode) => entry.id === providerId) || null;
-        if (!node && isCompatible) {
-          for (let attempt = 0; attempt < 3; attempt += 1) {
-            await new Promise((resolve) => setTimeout(resolve, 150));
-            const retryRes = await fetch("/api/provider-nodes", { cache: "no-store" });
-            if (!retryRes.ok) continue;
-            const retryData = await retryRes.json();
-            node = (retryData.nodes || []).find((entry: ProviderNode) => entry.id === providerId) || null;
-            if (node) break;
-          }
-        }
-        setProviderNode(node);
-      }
-    } catch (error) { console.error("Error fetching connections:", error); }
-    finally { setLoading(false); }
+    await fetchAllProviderData(providerId, isCompatible, setConnections, setProxyPools, setProviderNode, settingsHook.loadSettings);
+    setLoading(false);
   }, [providerId, isCompatible]);
 
   const modalsHook = useConnectionModals({ providerId, initialConnections, initialProvider, isCompatible, fetchConnections });

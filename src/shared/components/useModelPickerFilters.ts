@@ -7,6 +7,7 @@ import {
   FREE_PROVIDERS,
   FREE_TIER_PROVIDERS,
 } from "@/shared/constants/providers";
+import { filterModelGroups } from "./filterModelGroups";
 
 interface NormalizedModel {
   id: string;
@@ -27,7 +28,7 @@ interface ProviderGroup {
   models: NormalizedModel[];
 }
 
-type AuthTab = "subscription" | "apikey" | "local";
+export type AuthTab = "subscription" | "apikey" | "local";
 
 const OAUTH_PROVIDER_IDS = new Set(Object.keys(OAUTH_PROVIDERS));
 const FREE_PROVIDER_IDS = new Set([...Object.keys(FREE_PROVIDERS), ...Object.keys(FREE_TIER_PROVIDERS)]);
@@ -101,51 +102,10 @@ export function useModelPickerFilters({
     return Array.from(found);
   }, [providerGroups, getCaps]);
 
-  const filteredGroups = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    const tab = activeTab;
-
-    const groups: { providerId: string; providerName: string; models: NormalizedModel[] }[] = [];
-
-    for (const group of providerGroups) {
-      const groupTab = classifyProvider(group.providerId);
-      if (hasMultipleTabs && groupTab !== tab) continue;
-
-      let models = group.models;
-
-      if (capFilter.size > 0) {
-        models = models.filter((model) => {
-          const caps = (getCaps(model.requestModel) || model.caps) as Record<string, boolean> | undefined;
-          if (!caps) return false;
-          for (const cap of capFilter) {
-            if (!caps[cap]) return false;
-          }
-          return true;
-        });
-      }
-
-      if (q) {
-        const nameMatch = group.providerName.toLowerCase().includes(q);
-        models = nameMatch
-          ? models
-          : models.filter(
-              (m) =>
-                m.name.toLowerCase().includes(q) ||
-                m.requestModel.toLowerCase().includes(q)
-            );
-      }
-
-      if (models.length > 0) {
-        groups.push({
-          providerId: group.providerId,
-          providerName: group.providerName,
-          models: models.sort((a, b) => a.name.localeCompare(b.name)),
-        });
-      }
-    }
-
-    return groups.sort((a, b) => a.providerName.localeCompare(b.providerName));
-  }, [providerGroups, search, activeTab, capFilter, getCaps, hasMultipleTabs]);
+  const filteredGroups = useMemo(() => filterModelGroups({
+    providerGroups, search, activeTab, capFilter, hasMultipleTabs, classifyProvider,
+    getCaps: getCaps as (key: string) => Record<string, boolean> | null,
+  }), [providerGroups, search, activeTab, capFilter, getCaps, hasMultipleTabs]);
 
   const totalModels = useMemo(
     () => filteredGroups.reduce((sum, g) => sum + g.models.length, 0),

@@ -1,13 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { runOneByOneTestLoop } from "./oneByOneTestRunner";
 import type { Connection, OneByOneResult, OneByOneSummary } from "../types";
-
-const ONE_BY_ONE_DELAY_MS = 1000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 interface UseOneByOneTestArgs {
   connections: Connection[];
@@ -24,10 +19,7 @@ export function useOneByOneTest({ connections }: UseOneByOneTestArgs) {
   const handleRunOneByOneTest = async () => {
     if (oneByOneRunning || connections.length === 0) return;
 
-    const queuedState = Object.fromEntries(
-      connections.map((connection) => [connection.id, { state: "queued", error: null }]),
-    );
-
+    const queuedState = Object.fromEntries(connections.map((c) => [c.id, { state: "queued", error: null }]));
     stopOneByOneRef.current = false;
     setOneByOneRunning(true);
     setOneByOneStopping(false);
@@ -35,70 +27,13 @@ export function useOneByOneTest({ connections }: UseOneByOneTestArgs) {
     setOneByOneResults(queuedState);
     setOneByOneSummary({ total: connections.length, completed: 0, passed: 0, failed: 0, stopped: false });
 
-    let passed = 0;
-    let failed = 0;
-
     try {
-      for (let index = 0; index < connections.length; index += 1) {
-        if (stopOneByOneRef.current) {
-          setOneByOneSummary({
-            total: connections.length,
-            completed: index,
-            passed,
-            failed,
-            stopped: true,
-          });
-          break;
-        }
-
-        const connection = connections[index];
-        setOneByOneCurrentConnectionId(connection.id);
-        setOneByOneResults((prev) => ({
-          ...prev,
-          [connection.id]: { state: "testing", error: null },
-        }));
-
-        try {
-          const res = await fetch(`/api/providers/${connection.id}/test`, { method: "POST" });
-          const data = await res.json();
-          const valid = !!data.valid;
-
-          if (valid) {
-            passed += 1;
-          } else {
-            failed += 1;
-          }
-
-          setOneByOneResults((prev) => ({
-            ...prev,
-            [connection.id]: {
-              state: valid ? "success" : "failed",
-              error: valid ? null : (data.error || null),
-            },
-          }));
-        } catch (error: unknown) {
-          failed += 1;
-          setOneByOneResults((prev) => ({
-            ...prev,
-            [connection.id]: {
-              state: "failed",
-              error: error instanceof Error ? error.message : "Test failed",
-            },
-          }));
-        }
-
-        setOneByOneSummary({
-          total: connections.length,
-          completed: index + 1,
-          passed,
-          failed,
-          stopped: false,
-        });
-
-        if (index < connections.length - 1) {
-          await sleep(ONE_BY_ONE_DELAY_MS);
-        }
-      }
+      await runOneByOneTestLoop(
+        connections, stopOneByOneRef,
+        setOneByOneCurrentConnectionId,
+        setOneByOneResults,
+        setOneByOneSummary,
+      );
     } finally {
       setOneByOneCurrentConnectionId(null);
       setOneByOneRunning(false);
@@ -114,13 +49,8 @@ export function useOneByOneTest({ connections }: UseOneByOneTestArgs) {
   };
 
   return {
-    oneByOneRunning,
-    oneByOneStopping,
-    oneByOneCurrentConnectionId,
-    oneByOneResults,
-    oneByOneSummary,
-    handleRunOneByOneTest,
-    handleStopOneByOneTest,
+    oneByOneRunning, oneByOneStopping, oneByOneCurrentConnectionId,
+    oneByOneResults, oneByOneSummary, handleRunOneByOneTest, handleStopOneByOneTest,
   };
 }
 

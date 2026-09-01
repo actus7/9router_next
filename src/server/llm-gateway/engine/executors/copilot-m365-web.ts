@@ -37,6 +37,68 @@ function errorResponse(message: string, status = 502): Response {
   return new Response(JSON.stringify({ error: { message } }), { status, headers: { "Content-Type": "application/json" } });
 }
 
+function handleM365Frame(
+  rawFrame: string,
+  ctx: {
+    handshakeComplete: boolean;
+    previousText: string;
+    finalResultMessage: string;
+    settled: boolean;
+  },
+  opts: { model: string; tier?: string },
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  timeout: ReturnType<typeof setTimeout>,
+  ws: WebSocket | null,
+  cleanup: () => void,
+  finish: () => void,
+  abort: (reason: string) => void
+) {
+  const frame = parseFrame(rawFrame);
+
+  if (!ctx.handshakeComplete) {
+    const err = handshakeError(frame);
+    if (err) {
+      clearTimeout(timeout);
+      abort(`Microsoft 365 Copilot handshake failed: ${err}`);
+      return;
+    }
+    ctx.handshakeComplete = true;
+    const overrides = resolveChatInvocationOverrides(opts.tier);
+    const tone = resolveToneForModel(opts.model) ?? overrides.tone;
+    const invocationFrame = encodeFrame(buildChatInvocation({
+      text: "", traceId: "", sessionId: "", requestId: "", conversationId: "",
+      isStartOfSession: true, ...overrides, tone,
+    }));
+    ws?.send(invocationFrame + metricsFrame());
+    return;
+  }
+
+  if (frame?.type === 6) {
+    try { ws?.send(keepaliveFrame()); } catch { /* socket already closing */ }
+    return;
+  }
+
+  const { delta, next } = accumulateBotContent(ctx.previousText, frame);
+  ctx.previousText = next;
+  if (delta) controller.enqueue(encoder.encode(sseChunk(opts.model, { content: delta })));
+
+  const finalMsg = extractFinalResultMessage(frame);
+  if (finalMsg) ctx.finalResultMessage = finalMsg;
+
+  const completionError = extractCompletionError(frame);
+  if (completionError) {
+    clearTimeout(timeout);
+    abort(`Microsoft 365 Copilot invocation failed: ${completionError}`);
+    return;
+  }
+
+  if (isCompletionFrame(frame)) {
+    clearTimeout(timeout);
+    finish();
+  }
+}
+
 /** Opens the BizChat SignalR WebSocket, runs the handshake + chat invocation,
  * and streams the accumulated answer back as OpenAI SSE chunks. */
 function wsChat(opts: { wsUrl: string; prompt: string; model: string; tier?: string; signal?: AbortSignal; log?: Logger }): ReadableStream<Uint8Array> {
@@ -45,25 +107,19 @@ function wsChat(opts: { wsUrl: string; prompt: string; model: string; tier?: str
     start(controller) {
       const encoder = new TextEncoder();
       let ws: WebSocket | null = null;
-      let settled = false;
-      let buffer = "";
-      let previousText = "";
-      let finalResultMessage = "";
-      let handshakeComplete = false;
+      const settled = false;
+      const ctx = { handshakeComplete: false, previousText: "", finalResultMessage: "", settled: false };
 
       const cleanup = () => {
-        if (ws) {
-          try { ws.close(); } catch { /* ignore */ }
-          ws = null;
-        }
+        if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; }
       };
 
       const finish = () => {
-        if (settled) return;
-        settled = true;
+        if (ctx.settled) return;
+        ctx.settled = true;
         cleanup();
-        if (!previousText && finalResultMessage) previousText = finalResultMessage;
-        if (!previousText) {
+        if (!ctx.previousText && ctx.finalResultMessage) ctx.previousText = ctx.finalResultMessage;
+        if (!ctx.previousText) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             error: { message: `Microsoft 365 Copilot turn completed with no content in any known frame shape (tier: ${opts.tier || "individual"}).` },
           })}\n\n`));
@@ -76,8 +132,8 @@ function wsChat(opts: { wsUrl: string; prompt: string; model: string; tier?: str
       };
 
       const abort = (reason: string) => {
-        if (settled) return;
-        settled = true;
+        if (ctx.settled) return;
+        ctx.settled = true;
         cleanup();
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: { message: reason } })}\n\n`));
         controller.close();
@@ -102,8 +158,6 @@ function wsChat(opts: { wsUrl: string; prompt: string; model: string; tier?: str
           const invocationFrame = encodeFrame(buildChatInvocation({
             text: opts.prompt, traceId, sessionId, requestId, conversationId, isStartOfSession: true, ...overrides, tone,
           }));
-          // The invocation and its Metrics follow-up must land in ONE socket
-          // write — a bare invocation is silently dropped by the server.
           ws?.send(invocationFrame + metricsFrame());
         };
 
@@ -113,54 +167,12 @@ function wsChat(opts: { wsUrl: string; prompt: string; model: string; tier?: str
         });
 
         ws.on("message", (data) => {
-          if (settled) return;
-          buffer += data.toString();
+          if (ctx.settled) return;
+          const buffer = data.toString();
           const split = splitFrames(buffer);
-          buffer = split.rest;
-
           for (const rawFrame of split.frames) {
-            const frame = parseFrame(rawFrame);
-
-            if (!handshakeComplete) {
-              const err = handshakeError(frame);
-              if (err) {
-                clearTimeout(timeout);
-                abort(`Microsoft 365 Copilot handshake failed: ${err}`);
-                return;
-              }
-              handshakeComplete = true;
-              sendChat();
-              continue;
-            }
-
-            // SignalR keepalive: the server pings with type:6 and expects the
-            // exact echo back, or it drops the socket mid-turn.
-            if (frame?.type === 6) {
-              try { ws?.send(keepaliveFrame()); } catch { /* socket already closing */ }
-              continue;
-            }
-
-            const { delta, next } = accumulateBotContent(previousText, frame);
-            previousText = next;
-            if (delta) controller.enqueue(encoder.encode(sseChunk(opts.model, { content: delta })));
-
-            const finalMsg = extractFinalResultMessage(frame);
-            if (finalMsg) finalResultMessage = finalMsg;
-
-            // A type:3 carrying an error is a FAILED turn — without this check
-            // it would finish() into a silent empty stop.
-            const completionError = extractCompletionError(frame);
-            if (completionError) {
-              clearTimeout(timeout);
-              abort(`Microsoft 365 Copilot invocation failed: ${completionError}`);
-              return;
-            }
-
-            if (isCompletionFrame(frame)) {
-              clearTimeout(timeout);
-              finish();
-              return;
-            }
+            handleM365Frame(rawFrame, ctx, opts, controller, encoder, timeout, ws, cleanup, finish, abort);
+            if (ctx.settled) return;
           }
         });
 

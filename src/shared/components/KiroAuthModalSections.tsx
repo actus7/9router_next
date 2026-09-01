@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Braces, Building, CheckCircle2, CircleUser, Code, Info, Key, Loader2, Shield, Upload } from "lucide-react";
 import { translate } from "@/i18n/runtime";
+import { MethodCard } from "./MethodCard";
 
 /* ------------------------------------------------------------------ */
 /*  Method Selection Section                                           */
@@ -19,128 +20,14 @@ interface MethodSelectionSectionProps {
 export function MethodSelectionSection({ onBuilderIdClick, onMethodClick }: MethodSelectionSectionProps) {
   return (
     <div className="space-y-3">
-      <p className="text-sm text-text-muted mb-4">
-        {translate("Choose your authentication method:")}
-      </p>
-
-      {/* AWS Builder ID */}
-      <Button
-        onClick={onBuilderIdClick}
-        variant="outline"
-        className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
-      >
-        <div className="flex items-start gap-3">
-          <Shield className="size-4" />
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1">{translate("AWS Builder ID")}</h3>
-            <p className="text-sm text-text-muted">
-              {translate("Recommended for most users. Free AWS account required.")}
-            </p>
-          </div>
-        </div>
-      </Button>
-
-      {/* AWS IAM Identity Center (IDC) */}
-      <Button
-        onClick={() => onMethodClick("idc")}
-        variant="outline"
-        className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
-      >
-        <div className="flex items-start gap-3">
-          <Building className="size-4" />
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1">{translate("AWS IAM Identity Center")}</h3>
-            <p className="text-sm text-text-muted">
-              {translate("For enterprise users with custom AWS IAM Identity Center.")}
-            </p>
-          </div>
-        </div>
-      </Button>
-
-      {/* AWS API Key */}
-      <Button
-        onClick={() => onMethodClick("api-key")}
-        variant="outline"
-        className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
-      >
-        <div className="flex items-start gap-3">
-          <Key className="size-4" />
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1">{translate("API Key")}</h3>
-            <p className="text-sm text-text-muted">
-              {translate("Use a long-lived Kiro/CodeWhisperer API key (headless authentication).")}
-            </p>
-          </div>
-        </div>
-      </Button>
-
-      {/* Google Social Login - HIDDEN */}
-      <Button
-        onClick={() => onMethodClick("social-google")}
-        variant="outline"
-        className="hidden w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
-      >
-        <div className="flex items-start gap-3">
-          <CircleUser className="size-4" />
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1">{translate("Google Account")}</h3>
-            <p className="text-sm text-text-muted">
-              {translate("Login with your Google account (manual callback).")}
-            </p>
-          </div>
-        </div>
-      </Button>
-
-      {/* GitHub Social Login - HIDDEN */}
-      <Button
-        onClick={() => onMethodClick("social-github")}
-        variant="outline"
-        className="hidden w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
-      >
-        <div className="flex items-start gap-3">
-          <Code className="size-4" />
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1">{translate("GitHub Account")}</h3>
-            <p className="text-sm text-text-muted">
-              {translate("Login with your GitHub account (manual callback).")}
-            </p>
-          </div>
-        </div>
-      </Button>
-
-      {/* Import Token */}
-      <Button
-        onClick={() => onMethodClick("import")}
-        variant="outline"
-        className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
-      >
-        <div className="flex items-start gap-3">
-          <Upload className="size-4" />
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1">{translate("Import Token")}</h3>
-            <p className="text-sm text-text-muted">
-              {translate("Paste refresh token from Kiro IDE.")}
-            </p>
-          </div>
-        </div>
-      </Button>
-
-      {/* Import CLIProxyAPI JSON */}
-      <Button
-        onClick={() => onMethodClick("import-cli-proxy")}
-        variant="outline"
-        className="w-full p-4 text-left rounded-lg hover:bg-sidebar transition-colors h-auto justify-start whitespace-normal"
-      >
-        <div className="flex items-start gap-3">
-          <Braces className="size-4" />
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1">{translate("Import CLIProxyAPI JSON")}</h3>
-            <p className="text-sm text-text-muted">
-              {translate("Paste the external_idp auth JSON from Microsoft CLIProxyAPI/Kiro login.")}
-            </p>
-          </div>
-        </div>
-      </Button>
+      <p className="text-sm text-text-muted mb-4">{translate("Choose your authentication method:")}</p>
+      <MethodCard icon={<Shield className="size-4" />} title="AWS Builder ID" description="Recommended for most users. Free AWS account required." onClick={onBuilderIdClick} />
+      <MethodCard icon={<Building className="size-4" />} title="AWS IAM Identity Center" description="For enterprise users with custom AWS IAM Identity Center." onClick={() => onMethodClick("idc")} />
+      <MethodCard icon={<Key className="size-4" />} title="API Key" description="Use a long-lived Kiro/CodeWhisperer API key (headless authentication)." onClick={() => onMethodClick("api-key")} />
+      <MethodCard icon={<CircleUser className="size-4" />} title="Google Account" description="Login with your Google account (manual callback)." onClick={() => onMethodClick("social-google")} hidden />
+      <MethodCard icon={<Code className="size-4" />} title="GitHub Account" description="Login with your GitHub account (manual callback)." onClick={() => onMethodClick("social-github")} hidden />
+      <MethodCard icon={<Upload className="size-4" />} title="Import Token" description="Paste refresh token from Kiro IDE." onClick={() => onMethodClick("import")} />
+      <MethodCard icon={<Braces className="size-4" />} title="Import CLIProxyAPI JSON" description="Paste the external_idp auth JSON from Microsoft CLIProxyAPI/Kiro login." onClick={() => onMethodClick("import-cli-proxy")} />
     </div>
   );
 }

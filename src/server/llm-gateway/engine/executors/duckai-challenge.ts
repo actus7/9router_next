@@ -240,76 +240,73 @@ async function solveVqdChallengeWithBrowser(
  * script before executing in jsdom.  This is a best-effort heuristic that
  * catches null-access patterns the obfuscated code uses.
  */
+const DEOBFUSCATION_HELPERS = `
+  ;(function(){
+    var createSafeDocument = function() {
+      return document.implementation.createHTMLDocument('');
+    };
+
+    if(!window.__safeCD){
+      window.__safeCD=function(target){
+        try {
+          if(target && target.contentDocument) return target.contentDocument;
+        } catch(e) {}
+        return createSafeDocument();
+      };
+    }
+
+    if(!window.__safeCW){
+      window.__safeCW=function(target){
+        try {
+          if(target && target.contentWindow) return target.contentWindow;
+        } catch(e) {}
+        return window;
+      };
+    }
+
+    var defineAliasGetter = function(name, resolver) {
+      var descriptor = Object.getOwnPropertyDescriptor(Object.prototype, name);
+      if (descriptor && typeof descriptor.get === 'function') return;
+
+      Object.defineProperty(Object.prototype, name, {
+        configurable: true,
+        enumerable: false,
+        get: function() {
+          return resolver(this);
+        }
+      });
+    };
+
+    defineAliasGetter('__duckContentDocument', function(target) {
+      return window.__safeCD(target);
+    });
+
+    defineAliasGetter('__duckContentWindow', function(target) {
+      return window.__safeCW(target);
+    });
+  })();
+`;
+
+function rewriteNullableAccess(
+  source: string,
+  property: "contentDocument" | "contentWindow",
+  helperName: "__safeCD" | "__safeCW"
+) {
+  const dotPattern = new RegExp(
+    `([_$a-zA-Z0-9\\]\\)\\.\\\"\\']+)\\.${property}\\b`, "g"
+  );
+  const bracketPattern = new RegExp(
+    `([_$a-zA-Z0-9\\]\\)\\.\\\"\\']+)\\[(?:'|\")${property}(?:'|\")\\]`, "g"
+  );
+  return source
+    .replace(dotPattern, `window.${helperName}($1)`)
+    .replace(bracketPattern, `window.${helperName}($1)`);
+}
+
 function deobfuscateChallenge(script: string): string {
-  const helpers = `
-    ;(function(){
-      var createSafeDocument = function() {
-        return document.implementation.createHTMLDocument('');
-      };
-
-      if(!window.__safeCD){
-        window.__safeCD=function(target){
-          try {
-            if(target && target.contentDocument) return target.contentDocument;
-          } catch(e) {}
-          return createSafeDocument();
-        };
-      }
-
-      if(!window.__safeCW){
-        window.__safeCW=function(target){
-          try {
-            if(target && target.contentWindow) return target.contentWindow;
-          } catch(e) {}
-          return window;
-        };
-      }
-
-      var defineAliasGetter = function(name, resolver) {
-        var descriptor = Object.getOwnPropertyDescriptor(Object.prototype, name);
-        if (descriptor && typeof descriptor.get === 'function') return;
-
-        Object.defineProperty(Object.prototype, name, {
-          configurable: true,
-          enumerable: false,
-          get: function() {
-            return resolver(this);
-          }
-        });
-      };
-
-      defineAliasGetter('__duckContentDocument', function(target) {
-        return window.__safeCD(target);
-      });
-
-      defineAliasGetter('__duckContentWindow', function(target) {
-        return window.__safeCW(target);
-      });
-    })();
-  `;
-
   if (!script.trim()) {
-    return `(async function(){${helpers}})()`;
+    return `(async function(){${DEOBFUSCATION_HELPERS}})()`;
   }
-
-  const rewriteNullableAccess = (
-    source: string,
-    property: "contentDocument" | "contentWindow",
-    helperName: "__safeCD" | "__safeCW"
-  ) => {
-    const dotAccessPattern = new RegExp(
-      `([_$a-zA-Z0-9\\]\\)\\.\\\"\\']+)\\.${property}\\b`,
-      "g"
-    );
-    const bracketAccessPattern = new RegExp(
-      `([_$a-zA-Z0-9\\]\\)\\.\\\"\\']+)\\[(?:'|\")${property}(?:'|\")\\]`,
-      "g"
-    );
-
-    return source
-      .replace(dotAccessPattern, `window.${helperName}($1)`)
-      .replace(bracketAccessPattern, `window.${helperName}($1)`);
-  };
 
   const patched = rewriteNullableAccess(
     rewriteNullableAccess(script, "contentDocument", "__safeCD"),
@@ -319,7 +316,7 @@ function deobfuscateChallenge(script: string): string {
     .replace(/(['"])contentDocument\1/g, "$1__duckContentDocument$1")
     .replace(/(['"])contentWindow\1/g, "$1__duckContentWindow$1");
 
-  return `(async function(){${helpers}\nreturn await (${patched});})()`;
+  return `(async function(){${DEOBFUSCATION_HELPERS}\nreturn await (${patched});})()`;
 }
 
 // ---------------------------------------------------------------------------
@@ -349,6 +346,84 @@ type JsdomLike = { window: JsdomWindowLike };
  * null for `contentDocument` on un-navigated iframes.  We patch both paths so
  * the challenge always gets usable stub objects instead of crashing.
  */
+function createFrameWindow(win: JsdomWindowLike, frameElement: unknown) {
+  const doc = win.document.implementation.createHTMLDocument("");
+  const frameWin = Object.create(win) as Window & typeof globalThis;
+  Object.defineProperties(frameWin, {
+    contentDocument: { configurable: true, enumerable: true, get: () => doc },
+    document: { configurable: true, enumerable: true, get: () => doc },
+    frameElement: { configurable: true, enumerable: true, get: () => frameElement ?? null },
+    parent: { configurable: true, enumerable: true, get: () => win },
+    self: { configurable: true, enumerable: true, get: () => frameWin },
+    top: { configurable: true, enumerable: true, get: () => win },
+    window: { configurable: true, enumerable: true, get: () => frameWin },
+  });
+  return { doc, win: frameWin };
+}
+
+function installFrameAccessors(
+  target: Record<string, unknown>,
+  getFrameState: (el: unknown) => { doc: Document; win: Window & typeof globalThis }
+) {
+  Object.defineProperty(target, "contentDocument", {
+    configurable: true, enumerable: true,
+    get() { return getFrameState(this).doc; },
+  });
+  Object.defineProperty(target, "contentWindow", {
+    configurable: true, enumerable: true,
+    get() { return getFrameState(this).win; },
+  });
+}
+
+function patchWindowFrames(win: JsdomWindowLike, defaultWin: Window & typeof globalThis) {
+  const framesProxy = new Proxy([] as unknown[], {
+    get(_target, prop) {
+      if (prop === "length") return 1;
+      if (typeof prop === "string" && /^\d+$/.test(prop)) return defaultWin;
+      return undefined;
+    },
+  });
+  try {
+    Object.defineProperty(win, "frames", { configurable: true, enumerable: true, get: () => framesProxy });
+  } catch { /* Some jsdom versions freeze window.frames */ }
+  try {
+    Object.defineProperty(win, "0", { configurable: true, enumerable: false, get: () => defaultWin });
+  } catch { /* ignore */ }
+}
+
+function patchCreateElement(
+  win: JsdomWindowLike,
+  patchIframe: (el: unknown) => void
+) {
+  const orig = win.document.createElement.bind(win.document);
+  (win.document as unknown as Record<string, unknown>).createElement = function (
+    tagName: string, options?: ElementCreationOptions
+  ) {
+    const el = orig(tagName, options);
+    if (tagName.toLowerCase() === "iframe" || tagName.toLowerCase() === "frame") patchIframe(el);
+    return el;
+  } as typeof win.document.createElement;
+}
+
+function observeIframeInsertions(win: JsdomWindowLike, patchIframe: (el: unknown) => void) {
+  const MO = win.MutationObserver;
+  if (!MO) return;
+  const observer = new MO((mutations: MutationRecord[]) => {
+    for (const mutation of mutations) {
+      for (const node of Array.from(mutation.addedNodes)) {
+        const tag = (node as Element).tagName;
+        if (tag === "IFRAME" || tag === "FRAME") patchIframe(node);
+        if (typeof (node as Element).querySelectorAll === "function") {
+          for (const iframe of Array.from((node as Element).querySelectorAll("iframe,frame"))) {
+            patchIframe(iframe);
+          }
+        }
+      }
+    }
+  });
+  observer.observe(win.document, { childList: true, subtree: true });
+}
+
 function patchJsdomForIframes(dom: JsdomLike): void {
   const win = dom.window;
   const frameConstructors = [win.HTMLIFrameElement, win.HTMLFrameElement].filter(Boolean) as Array<{
@@ -357,155 +432,31 @@ function patchJsdomForIframes(dom: JsdomLike): void {
   if (frameConstructors.length === 0) return;
 
   const frameStates = new WeakMap<object, { doc: Document; win: Window & typeof globalThis }>();
-  const createFrameState = (frameElement: unknown) => {
-    const doc = win.document.implementation.createHTMLDocument("");
-    const frameWin = Object.create(win) as Window & typeof globalThis;
+  const defaultFrameState = createFrameWindow(win, null);
 
-    Object.defineProperties(frameWin, {
-      contentDocument: {
-        configurable: true,
-        enumerable: true,
-        get: () => doc,
-      },
-      document: {
-        configurable: true,
-        enumerable: true,
-        get: () => doc,
-      },
-      frameElement: {
-        configurable: true,
-        enumerable: true,
-        get: () => frameElement ?? null,
-      },
-      parent: {
-        configurable: true,
-        enumerable: true,
-        get: () => win,
-      },
-      self: {
-        configurable: true,
-        enumerable: true,
-        get: () => frameWin,
-      },
-      top: {
-        configurable: true,
-        enumerable: true,
-        get: () => win,
-      },
-      window: {
-        configurable: true,
-        enumerable: true,
-        get: () => frameWin,
-      },
-    });
-
-    return { doc, win: frameWin };
-  };
-  const defaultFrameState = createFrameState(null);
   const getFrameState = (frameElement: unknown) => {
-    if (!frameElement || typeof frameElement !== "object") {
-      return defaultFrameState;
-    }
-
+    if (!frameElement || typeof frameElement !== "object") return defaultFrameState;
     let state = frameStates.get(frameElement as object);
     if (!state) {
-      state = createFrameState(frameElement);
+      state = createFrameWindow(win, frameElement);
       frameStates.set(frameElement as object, state);
     }
     return state;
   };
-  const installFrameAccessors = (target: Record<string, unknown>) => {
-    Object.defineProperty(target, "contentDocument", {
-      configurable: true,
-      enumerable: true,
-      get() {
-        return getFrameState(this).doc;
-      },
-    });
 
-    Object.defineProperty(target, "contentWindow", {
-      configurable: true,
-      enumerable: true,
-      get() {
-        return getFrameState(this).win;
-      },
-    });
-  };
-
-  // -- 1. Patch prototype-level contentDocument / contentWindow
   for (const FrameClass of frameConstructors) {
-    installFrameAccessors(FrameClass.prototype as Record<string, unknown>);
+    installFrameAccessors(FrameClass.prototype as Record<string, unknown>, getFrameState);
   }
 
-  // -- 2. Patch window.frames / window[0]
-  const framesProxy = new Proxy([] as unknown[], {
-    get(_target, prop) {
-      if (prop === "length") return 1;
-      if (typeof prop === "string" && /^\d+$/.test(prop)) return defaultFrameState.win;
-      return undefined;
-    },
-  });
+  patchWindowFrames(win, defaultFrameState.win);
 
-  try {
-    Object.defineProperty(win, "frames", {
-      configurable: true,
-      enumerable: true,
-      get: () => framesProxy,
-    });
-  } catch {
-    // Some jsdom versions freeze window.frames — ignore
-  }
-
-  // window[0] access (numeric index on window itself)
-  try {
-    Object.defineProperty(win, "0", {
-      configurable: true,
-      enumerable: false,
-      get: () => defaultFrameState.win,
-    });
-  } catch {
-    // ignore
-  }
-
-  // -- 3. Helper to force-patch a single iframe instance
-  const patchIframeInstance = (el: unknown) => {
+  const patchIframe = (el: unknown) => {
     getFrameState(el);
-    installFrameAccessors(el as Record<string, unknown>);
+    installFrameAccessors(el as Record<string, unknown>, getFrameState);
   };
 
-  // -- 4. Patch document.createElement to set instance properties on iframes
-  const origCreateElement = win.document.createElement.bind(win.document);
-  (win.document as unknown as Record<string, unknown>).createElement = function (
-    tagName: string,
-    options?: ElementCreationOptions
-  ) {
-    const el = origCreateElement(tagName, options);
-    if (tagName.toLowerCase() === "iframe" || tagName.toLowerCase() === "frame") {
-      patchIframeInstance(el);
-    }
-    return el;
-  } as typeof win.document.createElement;
-
-  // -- 5. MutationObserver to re-patch iframes after DOM insertion
-  const MO = win.MutationObserver;
-  if (MO) {
-    const observer = new MO((mutations: MutationRecord[]) => {
-      for (const mutation of mutations) {
-        for (const node of Array.from(mutation.addedNodes)) {
-          const tagName = (node as Element).tagName;
-          if (tagName === "IFRAME" || tagName === "FRAME") patchIframeInstance(node);
-          if (typeof (node as Element).querySelectorAll === "function") {
-            for (const iframe of Array.from(
-              (node as Element).querySelectorAll("iframe,frame")
-            )) {
-              patchIframeInstance(iframe);
-            }
-          }
-        }
-      }
-    });
-    observer.observe(win.document, { childList: true, subtree: true });
-  }
+  patchCreateElement(win, patchIframe);
+  observeIframeInsertions(win, patchIframe);
 }
 
 // ---------------------------------------------------------------------------
@@ -625,6 +576,77 @@ export type VqdSolveOutcome = {
  * - `jsdom-dangerous`: jsdom with deobfuscation, up to JSDOM_MAX_RETRIES attempts
  * - `off`: throws immediately
  */
+async function solveVqdWithBrowser(challengeB64: string, cookies?: string): Promise<VqdSolveOutcome> {
+  try {
+    const result = await solveVqdChallengeWithBrowser(challengeB64, cookies);
+    console.log(
+      `[Duck.ai][challenge] ${JSON.stringify({
+        browserFallbackUsed: true, finalOutcome: "success", jsdomAttempts: 0, phase: "vqd",
+      })}`
+    );
+    return { result, browserFallbackUsed: true, jsdomAttempts: 0 };
+  } catch (browserError) {
+    const err = browserError instanceof Error ? browserError : new Error(String(browserError));
+    console.error("[Duck.ai] Browser challenge failed:", err.message);
+    console.error(
+      `[Duck.ai][challenge] ${JSON.stringify({
+        browserFallbackUsed: true, finalOutcome: "error", jsdomAttempts: 0, phase: "vqd", retryClass: "challenge",
+      })}`
+    );
+    throw new Error(`Duck.ai browser challenge failed: ${err.message}`);
+  }
+}
+
+async function solveVqdWithJsdom(challengeB64: string): Promise<VqdSolveOutcome> {
+  let lastError: Error | null = null;
+  let lastChallengeHash: string | null = null;
+
+  for (let attempt = 1; attempt <= JSDOM_MAX_RETRIES; attempt++) {
+    try {
+      const useDeobfuscation = attempt > 1;
+      const result = await solveVqdChallenge(challengeB64, useDeobfuscation);
+      console.log(
+        `[Duck.ai][challenge] ${JSON.stringify({
+          browserFallbackUsed: false, finalOutcome: "success", jsdomAttempts: attempt, phase: "vqd",
+        })}`
+      );
+      return { result, browserFallbackUsed: false, jsdomAttempts: attempt };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      lastChallengeHash = challengeB64;
+
+      if (isJsdomUnavailableError(lastError)) {
+        console.warn("[Duck.ai] jsdom is unavailable in this runtime.");
+        break;
+      }
+
+      if (!lastError.message.includes("Challenge execution failed")) throw lastError;
+
+      if (attempt < JSDOM_MAX_RETRIES) {
+        const delayMs = 1500 * attempt;
+        console.warn(
+          `[Duck.ai][challenge] ${JSON.stringify({
+            browserFallbackUsed: false, delayMs, finalOutcome: "retrying",
+            jsdomAttempts: attempt, phase: "vqd", retryClass: "challenge",
+          })}`
+        );
+        await sleep(delayMs);
+      }
+    }
+  }
+
+  console.error(
+    `[Duck.ai][challenge] ${JSON.stringify({
+      browserFallbackUsed: false, finalOutcome: "error",
+      jsdomAttempts: JSDOM_MAX_RETRIES, phase: "vqd", retryClass: "challenge",
+    })}`
+  );
+  throw new Error(
+    `VQD challenge failed after ${JSDOM_MAX_RETRIES} explicit jsdom-dangerous attempts. ` +
+      `Last jsdom error: ${lastError?.message}. Last challenge hash present: ${Boolean(lastChallengeHash)}`
+  );
+}
+
 export async function solveVqdChallengeMultiLayer(
   challengeB64: string,
   runtimeOverride?: DuckAiChallengeRuntime,
@@ -639,96 +661,6 @@ export async function solveVqdChallengeMultiLayer(
     );
   }
 
-  if (runtime === "browser") {
-    try {
-      const result = await solveVqdChallengeWithBrowser(challengeB64, cookies);
-      console.log(
-        `[Duck.ai][challenge] ${JSON.stringify({
-          browserFallbackUsed: true,
-          finalOutcome: "success",
-          jsdomAttempts: 0,
-          phase: "vqd",
-        })}`
-      );
-      return { result, browserFallbackUsed: true, jsdomAttempts: 0 };
-    } catch (browserError) {
-      const err = browserError instanceof Error ? browserError : new Error(String(browserError));
-      console.error("[Duck.ai] Browser challenge failed:", err.message);
-      console.error(
-        `[Duck.ai][challenge] ${JSON.stringify({
-          browserFallbackUsed: true,
-          finalOutcome: "error",
-          jsdomAttempts: 0,
-          phase: "vqd",
-          retryClass: "challenge",
-        })}`
-      );
-      throw new Error(`Duck.ai browser challenge failed: ${err.message}`);
-    }
-  }
-
-  // jsdom-dangerous mode: retry loop
-  let lastError: Error | null = null;
-  let lastChallengeHash: string | null = null;
-
-  for (let attempt = 1; attempt <= JSDOM_MAX_RETRIES; attempt++) {
-    try {
-      // The null-contentDocument variant shows up early in production, so
-      // enable the guarded rewrite from the second jsdom attempt onward.
-      const useDeobfuscation = attempt > 1;
-      const result = await solveVqdChallenge(challengeB64, useDeobfuscation);
-
-      console.log(
-        `[Duck.ai][challenge] ${JSON.stringify({
-          browserFallbackUsed: false,
-          finalOutcome: "success",
-          jsdomAttempts: attempt,
-          phase: "vqd",
-        })}`
-      );
-      return { result, browserFallbackUsed: false, jsdomAttempts: attempt };
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      lastChallengeHash = challengeB64;
-
-      if (isJsdomUnavailableError(lastError)) {
-        console.warn("[Duck.ai] jsdom is unavailable in this runtime.");
-        break;
-      }
-
-      const isChallengeFail = lastError.message.includes("Challenge execution failed");
-      if (!isChallengeFail) {
-        throw lastError;
-      }
-
-      if (attempt < JSDOM_MAX_RETRIES) {
-        const delayMs = 1500 * attempt;
-        console.warn(
-          `[Duck.ai][challenge] ${JSON.stringify({
-            browserFallbackUsed: false,
-            delayMs,
-            finalOutcome: "retrying",
-            jsdomAttempts: attempt,
-            phase: "vqd",
-            retryClass: "challenge",
-          })}`
-        );
-        await sleep(delayMs);
-      }
-    }
-  }
-
-  console.error(
-    `[Duck.ai][challenge] ${JSON.stringify({
-      browserFallbackUsed: false,
-      finalOutcome: "error",
-      jsdomAttempts: JSDOM_MAX_RETRIES,
-      phase: "vqd",
-      retryClass: "challenge",
-    })}`
-  );
-  throw new Error(
-    `VQD challenge failed after ${JSDOM_MAX_RETRIES} explicit jsdom-dangerous attempts. ` +
-      `Last jsdom error: ${lastError?.message}. Last challenge hash present: ${Boolean(lastChallengeHash)}`
-  );
+  if (runtime === "browser") return solveVqdWithBrowser(challengeB64, cookies);
+  return solveVqdWithJsdom(challengeB64);
 }

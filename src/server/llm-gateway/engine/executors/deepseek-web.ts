@@ -245,6 +245,80 @@ function wrapStreamWithCleanup(responseStream: ReadableStream, cleanup: () => Pr
 
 interface StreamFragment { type?: string; content?: string }
 
+function processDeepSeekLine(
+  line: string,
+  ctx: {
+    currentPath: "thinking" | "content" | "";
+    searchResults: DeepSeekSearchResult[];
+    sendByPath: (raw: string) => void;
+    handleFragment: (frag: StreamFragment, setPathFromType: boolean) => void;
+  },
+  finishStream: () => void,
+  scheduleFinishAfterDrain: () => void,
+  isDrainPending: () => boolean
+): boolean {
+  if (!line.startsWith("data: ") && !line.startsWith("data:")) return false;
+  const payload = line.replace(/^data:\s*/, "").trim();
+  if (payload === "[DONE]") { finishStream(); return true; }
+
+  let data: Record<string, unknown>;
+  try { data = JSON.parse(payload); } catch { return false; }
+
+  const p = data?.p as string | undefined;
+  const o = data?.o as string | undefined;
+  const v = data?.v as unknown;
+
+  if (v && typeof v === "object" && (v as Record<string, unknown>).response) {
+    const response = (v as Record<string, unknown>).response as Record<string, unknown>;
+    if (response.thinking_enabled === true) ctx.currentPath = "thinking";
+    else if (response.thinking_enabled === false) ctx.currentPath = "content";
+    const fragments = response.fragments;
+    if (Array.isArray(fragments)) for (const frag of fragments) ctx.handleFragment(frag, false);
+  }
+
+  if (p === "response/fragments") {
+    if (Array.isArray(v)) for (const frag of v) ctx.handleFragment(frag, true);
+    else if (v && typeof v === "object") ctx.handleFragment(v as StreamFragment, true);
+  }
+
+  if (p === "response" && Array.isArray(v)) {
+    for (const entry of v) {
+      const e = entry as Record<string, unknown>;
+      if (e?.p === "response" && (e?.v as Record<string, unknown>)?.thinking_enabled === true) ctx.currentPath = "thinking";
+    }
+  }
+
+  if (p === "response/search_status") return false;
+
+  if (p === "response/search_results" && Array.isArray(v)) {
+    if (o !== "BATCH") { ctx.searchResults.length = 0; ctx.searchResults.push(...(v as DeepSeekSearchResult[])); }
+    else {
+      for (const op of v) {
+        const opRec = op as Record<string, unknown>;
+        const match = String(opRec?.p || "").match(/^(\d+)\/cite_index$/);
+        if (match) { const index = parseInt(match[1], 10); if (ctx.searchResults[index]) ctx.searchResults[index].cite_index = opRec.v as number; }
+      }
+    }
+    return false;
+  }
+
+  if (typeof v === "string") {
+    ctx.sendByPath(v);
+  } else if (Array.isArray(v) && p === "response") {
+    for (const entry of v) {
+      const e = entry as Record<string, unknown>;
+      if (Array.isArray(e?.v)) {
+        const joined = (e.v as Array<Record<string, unknown>>).map((item) => (item?.content as string) || "").join("");
+        if (joined) ctx.sendByPath(joined);
+      }
+    }
+  }
+
+  if (p === "response/status" && v === "FINISHED") { scheduleFinishAfterDrain(); return false; }
+  if (isDrainPending()) scheduleFinishAfterDrain();
+  return false;
+}
+
 function transformSSE(deepseekStream: ReadableStream, model: string): ReadableStream {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
@@ -294,6 +368,8 @@ function transformSSE(deepseekStream: ReadableStream, model: string): ReadableSt
         sendByPath(frag.content);
       };
 
+      const ctx = { currentPath, searchResults, sendByPath, handleFragment };
+
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -303,65 +379,7 @@ function transformSSE(deepseekStream: ReadableStream, model: string): ReadableSt
           buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (!line.startsWith("data: ") && !line.startsWith("data:")) continue;
-            const payload = line.replace(/^data:\s*/, "").trim();
-            if (payload === "[DONE]") { finishStream(); return; }
-
-            let data: Record<string, unknown>;
-            try { data = JSON.parse(payload); } catch { continue; }
-
-            const p = data?.p as string | undefined;
-            const o = data?.o as string | undefined;
-            const v = data?.v as unknown;
-
-            if (v && typeof v === "object" && (v as Record<string, unknown>).response) {
-              const response = (v as Record<string, unknown>).response as Record<string, unknown>;
-              if (response.thinking_enabled === true) currentPath = "thinking";
-              else if (response.thinking_enabled === false) currentPath = "content";
-              const fragments = response.fragments;
-              if (Array.isArray(fragments)) for (const frag of fragments) handleFragment(frag, false);
-            }
-
-            if (p === "response/fragments") {
-              if (Array.isArray(v)) for (const frag of v) handleFragment(frag, true);
-              else if (v && typeof v === "object") handleFragment(v as StreamFragment, true);
-            }
-
-            if (p === "response" && Array.isArray(v)) {
-              for (const entry of v) {
-                const e = entry as Record<string, unknown>;
-                if (e?.p === "response" && (e?.v as Record<string, unknown>)?.thinking_enabled === true) currentPath = "thinking";
-              }
-            }
-
-            if (p === "response/search_status") continue;
-
-            if (p === "response/search_results" && Array.isArray(v)) {
-              if (o !== "BATCH") { searchResults.length = 0; searchResults.push(...(v as DeepSeekSearchResult[])); }
-              else {
-                for (const op of v) {
-                  const opRec = op as Record<string, unknown>;
-                  const match = String(opRec?.p || "").match(/^(\d+)\/cite_index$/);
-                  if (match) { const index = parseInt(match[1], 10); if (searchResults[index]) searchResults[index].cite_index = opRec.v as number; }
-                }
-              }
-              continue;
-            }
-
-            if (typeof v === "string") {
-              sendByPath(v);
-            } else if (Array.isArray(v) && p === "response") {
-              for (const entry of v) {
-                const e = entry as Record<string, unknown>;
-                if (Array.isArray(e?.v)) {
-                  const joined = (e.v as Array<Record<string, unknown>>).map((item) => (item?.content as string) || "").join("");
-                  if (joined) sendByPath(joined);
-                }
-              }
-            }
-
-            if (p === "response/status" && v === "FINISHED") { scheduleFinishAfterDrain(); continue; }
-            if (isDrainPending()) scheduleFinishAfterDrain();
+            if (processDeepSeekLine(line, ctx, finishStream, scheduleFinishAfterDrain, isDrainPending)) return;
           }
         }
       } catch (err) {

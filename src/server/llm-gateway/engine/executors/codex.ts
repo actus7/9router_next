@@ -196,6 +196,63 @@ function codexSseErrorResponse(status: number, message: string) {
   });
 }
 
+function normalizeCodexInput(body: Record<string, unknown>): void {
+  const normalized = normalizeResponsesInput(body.input as string | Record<string, unknown>[]);
+  if (normalized) body.input = normalized;
+  if (!body.input || (Array.isArray(body.input) && body.input.length === 0)) {
+    body.input = [{ type: "message", role: "user", content: [{ type: "input_text", text: "..." }] }];
+  }
+  convertSystemToDeveloperRole(body);
+  stripStoredItemReferences(body);
+  normalizeCodexTools(body);
+}
+
+function configureCodexReasoning(body: Record<string, unknown>, model: string): void {
+  body.model = getModelUpstreamId("cx", (body.model as string) || model);
+
+  const effortLevels = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+  let modelEffort = null;
+  for (const level of effortLevels) {
+    if ((body.model as string).endsWith(`-${level}`)) {
+      modelEffort = level;
+      body.model = (body.model as string).replace(`-${level}`, '');
+      break;
+    }
+  }
+
+  if (!body.reasoning) {
+    const effort = normalizeReasoningEffort(body.model as string, (body.reasoning_effort as string) || modelEffort || 'low');
+    body.reasoning = { effort, summary: "auto" };
+  } else {
+    const reasoning = body.reasoning as Record<string, unknown>;
+    reasoning.effort = normalizeReasoningEffort(body.model as string, reasoning.effort as string);
+    if (!reasoning.summary) reasoning.summary = "auto";
+  }
+  delete body.reasoning_effort;
+
+  if (body.reasoning && (body.reasoning as Record<string, unknown>).effort && (body.reasoning as Record<string, unknown>).effort !== 'none') {
+    body.include = ["reasoning.encrypted_content"];
+  }
+}
+
+function stripUnsupportedCodexParams(body: Record<string, unknown>): void {
+  const unsupported = [
+    'temperature', 'top_p', 'frequency_penalty', 'presence_penalty',
+    'logprobs', 'top_logprobs', 'n', 'seed', 'max_tokens',
+    'max_completion_tokens', 'max_output_tokens', 'user',
+    'prompt_cache_retention', 'metadata', 'stream_options',
+    'safety_identifier', 'previous_response_id',
+  ];
+  for (const key of unsupported) delete body[key];
+
+  if (body.service_tier === "fast") body.service_tier = "priority";
+  if (body.service_tier && body.service_tier !== "priority") delete body.service_tier;
+
+  for (const k of Object.keys(body)) {
+    if (!RESPONSES_API_ALLOWLIST.has(k)) delete body[k];
+  }
+}
+
 /**
  * Codex Executor - handles OpenAI Codex API (Responses API format)
  * Automatically injects default instructions if missing
@@ -410,98 +467,22 @@ export class CodexExecutor extends BaseExecutor {
   transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials) {
     this._isCompact = !!body._compact;
     delete body._compact;
-    // Resolve conversation-stable session_id (priority: body → assistant-text → workspace → machine)
     this._currentSessionId = resolveCacheSessionId(body, credentials);
-    // Convert string input to array format (Codex API requires input as array)
-    const normalized = normalizeResponsesInput(body.input as string | Record<string, unknown>[]);
-    if (normalized) body.input = normalized;
 
-    // Ensure input is present and non-empty (Codex API rejects empty input)
-    if (!body.input || (Array.isArray(body.input) && body.input.length === 0)) {
-      body.input = [{ type: "message", role: "user", content: [{ type: "input_text", text: "..." }] }];
-    }
-
-    // Keep system prompts in body.input as role=developer so they stay in the cacheable prefix
-    convertSystemToDeveloperRole(body);
-    // Strip server-generated item IDs (rs_/fc_/resp_/msg_) — Codex /responses can't resolve when store=false
-    stripStoredItemReferences(body);
-    // Flatten function tools + drop unsupported types
-    normalizeCodexTools(body);
-
-    // Ensure streaming is enabled (Codex API requires it)
+    normalizeCodexInput(body);
     body.stream = true;
 
-    // If no instructions provided, inject default Codex instructions
     if (!body.instructions || (body.instructions as string).trim() === "") {
       body.instructions = CODEX_DEFAULT_INSTRUCTIONS;
     }
-
-    // Ensure store is false (Codex requirement)
     body.store = false;
 
-    // Inject prompt_cache_key for stable Codex prompt caching
     if (!body.prompt_cache_key && this._currentSessionId) {
       body.prompt_cache_key = this._currentSessionId;
     }
 
-    // Map virtual Codex review models to the upstream Codex model before suffix parsing.
-    body.model = getModelUpstreamId("cx", (body.model as string) || model);
-
-    // Extract thinking level from model name suffix
-    // e.g., gpt-5.3-codex-high → high, gpt-5.3-codex → medium (default)
-    const effortLevels = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
-    let modelEffort = null;
-    for (const level of effortLevels) {
-      if ((body.model as string).endsWith(`-${level}`)) {
-        modelEffort = level;
-        // Strip suffix from model name for actual API call
-        body.model = (body.model as string).replace(`-${level}`, '');
-        break;
-      }
-    }
-
-    // Priority: explicit reasoning.effort > reasoning_effort param > model suffix > default (medium)
-    if (!body.reasoning) {
-      const effort = normalizeReasoningEffort(body.model as string, (body.reasoning_effort as string) || modelEffort || 'low');
-      body.reasoning = { effort, summary: "auto" };
-    } else {
-      const reasoning = body.reasoning as Record<string, unknown>;
-      reasoning.effort = normalizeReasoningEffort(body.model as string, reasoning.effort as string);
-      if (!reasoning.summary) reasoning.summary = "auto";
-    }
-    delete body.reasoning_effort;
-
-    // Include reasoning encrypted content (required by Codex backend for reasoning models)
-    if (body.reasoning && (body.reasoning as Record<string, unknown>).effort && (body.reasoning as Record<string, unknown>).effort !== 'none') {
-      body.include = ["reasoning.encrypted_content"];
-    }
-
-    // Remove unsupported parameters for Codex API
-    delete body.temperature;
-    delete body.top_p;
-    delete body.frequency_penalty;
-    delete body.presence_penalty;
-    delete body.logprobs;
-    delete body.top_logprobs;
-    delete body.n;
-    delete body.seed;
-    delete body.max_tokens;
-    delete body.max_completion_tokens;
-    delete body.max_output_tokens; // Responses API clients send this but Codex rejects it
-    delete body.user; // Cursor sends this but Codex doesn't support it
-    delete body.prompt_cache_retention; // Cursor sends this but Codex doesn't support it
-    delete body.metadata; // Cursor sends this but Codex doesn't support it
-    delete body.stream_options; // Cursor sends this but Codex doesn't support it
-    delete body.safety_identifier; // Droid CLI sends this but Codex doesn't support it
-    delete body.previous_response_id; // store=false → backend can't resolve previous resp; avoid 404
-
-    if (body.service_tier === "fast") body.service_tier = "priority";
-    if (body.service_tier && body.service_tier !== "priority") delete body.service_tier;
-
-    // Final allowlist filter — strip any unknown field that could trigger upstream "routing_unsupported"
-    for (const k of Object.keys(body)) {
-      if (!RESPONSES_API_ALLOWLIST.has(k)) delete body[k];
-    }
+    configureCodexReasoning(body, model);
+    stripUnsupportedCodexParams(body);
 
     return body;
   }

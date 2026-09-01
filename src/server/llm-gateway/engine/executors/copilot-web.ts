@@ -140,6 +140,80 @@ interface CopilotWsEvent {
   parameter?: string;
 }
 
+function handleCopilotWsEvent(
+  event: CopilotWsEvent,
+  ctx: { chatSent: boolean },
+  model: string,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  timeout: ReturnType<typeof setTimeout>,
+  ws: WebSocket | null,
+  sendChat: () => void,
+  finish: () => void,
+  abort: (reason?: string) => void
+) {
+  const chunk = (delta: object, finishReason: string | null = null) => ({
+    id: `chatcmpl-copilot-${Date.now()}`, object: "chat.completion.chunk", created: Math.floor(Date.now() / 1000), model,
+    choices: [{ index: 0, delta, finish_reason: finishReason }],
+  });
+
+  switch (event.event) {
+    case "challenge": {
+      if (event.method === "hashcash" && event.parameter) {
+        const [param, diffStr] = String(event.parameter).split(":");
+        const solution = solveHashcash(param, parseInt(diffStr || "1", 10));
+        ws?.send(JSON.stringify({ event: "challengeResponse", token: solution !== null ? String(solution) : "", method: "hashcash" }));
+        ctx.chatSent = false;
+        sendChat();
+      } else if (event.method === "cloudflare") {
+        abort("Copilot requires Cloudflare Turnstile verification. Use an authenticated session (access_token) instead.");
+      } else {
+        abort(`Copilot challenge "${event.method}" not supported. Use an authenticated session.`);
+      }
+      break;
+    }
+    case "appendText":
+    case "replaceText": {
+      if (event.text) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ content: event.text }))}\n\n`));
+      break;
+    }
+    case "chainOfThought": {
+      if (event.text) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ reasoning_content: event.text }))}\n\n`));
+      break;
+    }
+    case "imageGenerated": {
+      if (event.url) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ content: [{ type: "image_url", image_url: { url: event.url, detail: "auto" } }] }))}\n\n`));
+      break;
+    }
+    case "citation": {
+      if (event.url) {
+        const annotation = { type: "url_citation", url_citation: { url: event.url, title: event.title || event.url } };
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ annotations: [annotation] }))}\n\n`));
+      }
+      break;
+    }
+    case "suggestedFollowups": {
+      if (Array.isArray(event.suggestions) && event.suggestions.length > 0) {
+        const text = `\n\n**Suggested follow-ups:**\n${event.suggestions.map((s) => `- ${s}`).join("\n")}`;
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ content: text }))}\n\n`));
+      }
+      break;
+    }
+    case "done": {
+      clearTimeout(timeout);
+      finish();
+      break;
+    }
+    case "error": {
+      clearTimeout(timeout);
+      abort(event.error || "Copilot stream error");
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 function wsChat(conversationId: string, prompt: string, mode: string, model: string, accessToken: string | undefined, signal?: AbortSignal): ReadableStream<Uint8Array> {
   const wsUrl = buildCopilotWebSocketUrl(accessToken);
   return new ReadableStream<Uint8Array>({
@@ -147,6 +221,7 @@ function wsChat(conversationId: string, prompt: string, mode: string, model: str
       const encoder = new TextEncoder();
       let ws: WebSocket | null = null;
       let settled = false;
+      const ctx = { chatSent: false };
 
       const cleanup = () => { if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; } };
       const chunk = (delta: object, finish: string | null = null) => ({
@@ -176,10 +251,9 @@ function wsChat(conversationId: string, prompt: string, mode: string, model: str
         ws = new WebSocket(wsUrl, accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined);
         const timeout = setTimeout(() => abort("Copilot WebSocket timeout"), COPILOT_WS_TIMEOUT_MS);
 
-        let chatSent = false;
         const sendChat = () => {
-          if (chatSent) return;
-          chatSent = true;
+          if (ctx.chatSent) return;
+          ctx.chatSent = true;
           ws?.send(JSON.stringify({ event: "send", conversationId, content: [{ type: "text", text: prompt }], mode }));
         };
 
@@ -188,61 +262,7 @@ function wsChat(conversationId: string, prompt: string, mode: string, model: str
         ws.onmessage = (ev: WebSocket.MessageEvent) => {
           try {
             const event: CopilotWsEvent = typeof ev.data === "string" ? JSON.parse(ev.data) : JSON.parse(String(ev.data));
-            switch (event.event) {
-              case "challenge": {
-                if (event.method === "hashcash" && event.parameter) {
-                  const [param, diffStr] = String(event.parameter).split(":");
-                  const solution = solveHashcash(param, parseInt(diffStr || "1", 10));
-                  ws?.send(JSON.stringify({ event: "challengeResponse", token: solution !== null ? String(solution) : "", method: "hashcash" }));
-                  chatSent = false;
-                  sendChat();
-                } else if (event.method === "cloudflare") {
-                  abort("Copilot requires Cloudflare Turnstile verification. Use an authenticated session (access_token) instead.");
-                } else {
-                  abort(`Copilot challenge "${event.method}" not supported. Use an authenticated session.`);
-                }
-                break;
-              }
-              case "appendText":
-              case "replaceText": {
-                if (event.text) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ content: event.text }))}\n\n`));
-                break;
-              }
-              case "chainOfThought": {
-                if (event.text) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ reasoning_content: event.text }))}\n\n`));
-                break;
-              }
-              case "imageGenerated": {
-                if (event.url) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ content: [{ type: "image_url", image_url: { url: event.url, detail: "auto" } }] }))}\n\n`));
-                break;
-              }
-              case "citation": {
-                if (event.url) {
-                  const annotation = { type: "url_citation", url_citation: { url: event.url, title: event.title || event.url } };
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ annotations: [annotation] }))}\n\n`));
-                }
-                break;
-              }
-              case "suggestedFollowups": {
-                if (Array.isArray(event.suggestions) && event.suggestions.length > 0) {
-                  const text = `\n\n**Suggested follow-ups:**\n${event.suggestions.map((s) => `- ${s}`).join("\n")}`;
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ content: text }))}\n\n`));
-                }
-                break;
-              }
-              case "done": {
-                clearTimeout(timeout);
-                finish();
-                break;
-              }
-              case "error": {
-                clearTimeout(timeout);
-                abort(event.error || "Copilot stream error");
-                break;
-              }
-              default:
-                break;
-            }
+            handleCopilotWsEvent(event, ctx, model, controller, encoder, timeout, ws, sendChat, finish, abort);
           } catch {
             // Skip unparseable messages.
           }

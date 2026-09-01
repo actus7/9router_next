@@ -191,7 +191,6 @@ export default function ModalsSection({
       <EditConnectionModal
         isOpen={showEditModal}
         connection={selectedConnection}
-        proxyPools={proxyPools}
         onSave={handleUpdateConnection}
         onClose={() => {
           setShowEditModal(false);

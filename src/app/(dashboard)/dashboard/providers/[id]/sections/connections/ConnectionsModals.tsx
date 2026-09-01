@@ -68,7 +68,6 @@ export default function ConnectionsModals({
       <EditConnectionModal
         isOpen={c.showEditModal}
         connection={c.selectedConnection}
-        proxyPools={c.proxyPools}
         onSave={c.handleUpdateConnection}
         onClose={() => c.setShowEditModal(false)}
       />

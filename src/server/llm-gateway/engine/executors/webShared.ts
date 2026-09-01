@@ -186,31 +186,16 @@ function emptyBodyErrorResponse(
 
 // ── Pass-through SSE executor ───────────────────────────────────────────────
 
-/**
- * Execute a pass-through SSE web provider.  The upstream response body is
- * forwarded verbatim (streaming) or returned as-is (non-streaming).
- */
-export async function executePassThroughWeb(
+function buildPassThroughRequest(
   config: PassThroughWebConfig,
-  params: WebExecuteParams,
-): Promise<WebExecuteResult> {
-  const { model, body, stream, credentials, signal, log } = params;
-  const {
-    providerName,
-    logTag,
-    apiUrl,
-    origin,
-    referer,
-    defaultModel,
-    authErrorMessage,
-    buildAuthHeaders,
-    acceptHeader,
-    acceptLanguage,
-  } = config;
+  params: WebExecuteParams
+): { headers: Record<string, string>; payload: Record<string, unknown> } | { error: WebExecuteResult } {
+  const { model, body, stream, credentials } = params;
+  const { origin, referer, defaultModel, buildAuthHeaders, acceptHeader, acceptLanguage } = config;
 
   const messages = body?.messages as Record<string, unknown>[] | undefined;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
-    return missingMessagesResponse(apiUrl);
+    return { error: missingMessagesResponse(config.apiUrl) };
   }
 
   const headers: Record<string, string> = {
@@ -223,6 +208,58 @@ export async function executePassThroughWeb(
     model: model || defaultModel,
     stream: stream !== false,
   };
+
+  return { headers, payload };
+}
+
+function handlePassThroughResponse(
+  config: PassThroughWebConfig,
+  response: Response,
+  stream: boolean | undefined,
+  apiUrl: string,
+  headers: Record<string, string>,
+  payload: Record<string, unknown>,
+  log?: Logger
+): WebExecuteResult {
+  const { providerName, logTag, authErrorMessage } = config;
+
+  if (!response.ok) {
+    return httpErrorResponse(providerName, response.status, authErrorMessage, apiUrl, headers, payload, log, logTag);
+  }
+
+  if (!response.body) {
+    return emptyBodyErrorResponse(providerName, apiUrl, headers, payload);
+  }
+
+  if (stream !== false) {
+    return {
+      response: new Response(response.body, {
+        status: 200,
+        headers: { ...SSE_HEADERS_NO_BUFFER },
+      }),
+      url: apiUrl,
+      headers,
+      transformedBody: payload,
+    };
+  }
+
+  return { response, url: apiUrl, headers, transformedBody: payload };
+}
+
+/**
+ * Execute a pass-through SSE web provider.  The upstream response body is
+ * forwarded verbatim (streaming) or returned as-is (non-streaming).
+ */
+export async function executePassThroughWeb(
+  config: PassThroughWebConfig,
+  params: WebExecuteParams,
+): Promise<WebExecuteResult> {
+  const { model, stream, signal, log } = params;
+  const { providerName, logTag, apiUrl } = config;
+
+  const request = buildPassThroughRequest(config, params);
+  if ("error" in request) return request.error;
+  const { headers, payload } = request;
 
   log?.info?.(logTag, `Query to ${model}, stream=${stream}`);
 
@@ -240,35 +277,5 @@ export async function executePassThroughWeb(
     return connectionErrorResponse(providerName, errMsg, apiUrl, headers, payload);
   }
 
-  if (!response.ok) {
-    return httpErrorResponse(
-      providerName,
-      response.status,
-      authErrorMessage,
-      apiUrl,
-      headers,
-      payload,
-      log,
-      logTag,
-    );
-  }
-
-  if (!response.body) {
-    return emptyBodyErrorResponse(providerName, apiUrl, headers, payload);
-  }
-
-  // Pass through SSE directly
-  if (stream !== false) {
-    return {
-      response: new Response(response.body, {
-        status: 200,
-        headers: { ...SSE_HEADERS_NO_BUFFER },
-      }),
-      url: apiUrl,
-      headers,
-      transformedBody: payload,
-    };
-  }
-
-  return { response, url: apiUrl, headers, transformedBody: payload };
+  return handlePassThroughResponse(config, response, stream, apiUrl, headers, payload, log);
 }

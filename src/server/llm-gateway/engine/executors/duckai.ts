@@ -256,6 +256,50 @@ function logAndDecideDuckAiRetry(
   return { delayMs, shouldRetry, refreshVqd };
 }
 
+async function emitDuckAiRemainingChunks(
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+  encoder: TextEncoder,
+  cid: string,
+  created: number,
+  model: string,
+  rawChunks: string[]
+) {
+  for (const rc of rawChunks) {
+    const ev = createDuckAiStreamEvent(rc);
+    if (!ev || ev.kind === "error") continue;
+    if (ev.content) {
+      await writer.write(encodeDuckAiChunk(encoder, cid, created, model, { content: ev.content }));
+    }
+  }
+}
+
+async function readUpstreamDuckAiChunks(
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+  encoder: TextEncoder,
+  cid: string,
+  created: number,
+  model: string,
+  signal: AbortSignal | undefined,
+  upstreamReader: ReadableStreamDefaultReader<Uint8Array>,
+  upstreamBuffer: string
+) {
+  const upstreamDecoder = new TextDecoder();
+  let buf = upstreamBuffer;
+  while (true) {
+    if (signal?.aborted) break;
+    const { done: d, value: v } = await upstreamReader.read();
+    if (d) {
+      const fc = extractDuckAiSseChunks(buf, true).chunks;
+      await emitDuckAiRemainingChunks(writer, encoder, cid, created, model, fc);
+      break;
+    }
+    buf += upstreamDecoder.decode(v, { stream: true });
+    const ext = extractDuckAiSseChunks(buf);
+    buf = ext.rest;
+    await emitDuckAiRemainingChunks(writer, encoder, cid, created, model, ext.chunks);
+  }
+}
+
 /**
  * Pump Duck.ai SSE content into a WritableStream writer.
  *
@@ -277,78 +321,20 @@ async function pumpDuckAiStreamToWriter(
   upstreamBuffer?: string
 ): Promise<void> {
   try {
-    // Emit role
-    await writer.write(
-      encodeDuckAiChunk(encoder, cid, created, model, { role: "assistant" })
-    );
+    await writer.write(encodeDuckAiChunk(encoder, cid, created, model, { role: "assistant" }));
+    await writer.write(encodeDuckAiChunk(encoder, cid, created, model, { content: firstContent }));
+    await emitDuckAiRemainingChunks(writer, encoder, cid, created, model, remainingRawChunks);
 
-    // Emit first content
-    await writer.write(
-      encodeDuckAiChunk(encoder, cid, created, model, { content: firstContent })
-    );
-
-    // Emit remaining chunks from the current batch
-    for (const rc of remainingRawChunks) {
-      const ev = createDuckAiStreamEvent(rc);
-      if (!ev || ev.kind === "error") continue;
-      if (ev.content) {
-        await writer.write(
-          encodeDuckAiChunk(encoder, cid, created, model, { content: ev.content })
-        );
-      }
-    }
-
-    // Continue reading from upstream if provided
     if (upstreamReader) {
-      const upstreamDecoder = new TextDecoder();
-      let buf = upstreamBuffer ?? "";
-      while (true) {
-        if (signal?.aborted) break;
-        const { done: d, value: v } = await upstreamReader.read();
-        if (d) {
-          const fc = extractDuckAiSseChunks(buf, true).chunks;
-          for (const rc of fc) {
-            const ev = createDuckAiStreamEvent(rc);
-            if (!ev || ev.kind === "error") continue;
-            if (ev.content) {
-              await writer.write(
-                encodeDuckAiChunk(encoder, cid, created, model, { content: ev.content })
-              );
-            }
-          }
-          break;
-        }
-        buf += upstreamDecoder.decode(v, { stream: true });
-        const ext = extractDuckAiSseChunks(buf);
-        buf = ext.rest;
-        for (const rc of ext.chunks) {
-          const ev = createDuckAiStreamEvent(rc);
-          if (!ev || ev.kind === "error") continue;
-          if (ev.content) {
-            await writer.write(
-              encodeDuckAiChunk(encoder, cid, created, model, { content: ev.content })
-            );
-          }
-        }
-      }
+      await readUpstreamDuckAiChunks(writer, encoder, cid, created, model, signal, upstreamReader, upstreamBuffer ?? "");
     }
 
-    // Emit finish
     await writer.write(encodeDuckAiChunk(encoder, cid, created, model, {}, "stop"));
     await writer.write(encoder.encode(SSE_DONE));
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     await writer
-      .write(
-        encodeDuckAiChunk(
-          encoder,
-          cid,
-          created,
-          model,
-          { content: `[Stream error: ${errorMsg}]` },
-          "stop"
-        )
-      )
+      .write(encodeDuckAiChunk(encoder, cid, created, model, { content: `[Stream error: ${errorMsg}]` }, "stop"))
       .catch(() => {});
     await writer.write(encoder.encode(SSE_DONE)).catch(() => {});
   } finally {
@@ -839,6 +825,25 @@ function flushDuckAiSseBuffer(
   }
 }
 
+function processDuckAiStreamChunk(
+  rawChunk: string,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  cid: string,
+  created: number,
+  model: string
+) {
+  const event = createDuckAiStreamEvent(rawChunk);
+  if (!event) return;
+  if (event.kind === "error") {
+    controller.enqueue(encodeDuckAiChunk(encoder, cid, created, model, { content: `[Error: ${event.message}]` }));
+    return;
+  }
+  if (event.content) {
+    controller.enqueue(encodeDuckAiChunk(encoder, cid, created, model, { content: event.content }));
+  }
+}
+
 function buildDuckAiStreamingResponse(
   chatBody: ReadableStream<Uint8Array>,
   model: string,
@@ -852,9 +857,7 @@ function buildDuckAiStreamingResponse(
   return new ReadableStream({
     async start(controller) {
       try {
-        controller.enqueue(
-          encodeDuckAiChunk(encoder, cid, created, model, { role: "assistant" })
-        );
+        controller.enqueue(encodeDuckAiChunk(encoder, cid, created, model, { role: "assistant" }));
 
         const reader = chatBody.getReader();
         let buffer = "";
@@ -862,59 +865,27 @@ function buildDuckAiStreamingResponse(
         try {
           while (true) {
             if (signal?.aborted) break;
-
             const { done, value } = await reader.read();
             if (done) {
               flushDuckAiSseBuffer(controller, encoder, cid, created, model, buffer);
               break;
             }
-
             buffer += decoder.decode(value, { stream: true });
             const extracted = extractDuckAiSseChunks(buffer);
             buffer = extracted.rest;
-
             for (const rawChunk of extracted.chunks) {
-              const event = createDuckAiStreamEvent(rawChunk);
-              if (!event) continue;
-
-              if (event.kind === "error") {
-                controller.enqueue(
-                  encodeDuckAiChunk(encoder, cid, created, model, {
-                    content: `[Error: ${event.message}]`,
-                  })
-                );
-                // Don't break — let the stream finish naturally
-                continue;
-              }
-
-              if (event.content) {
-                controller.enqueue(
-                  encodeDuckAiChunk(encoder, cid, created, model, {
-                    content: event.content,
-                  })
-                );
-              }
+              processDuckAiStreamChunk(rawChunk, controller, encoder, cid, created, model);
             }
           }
         } finally {
           try { reader.releaseLock(); } catch { /* ignore */ }
         }
 
-        // Emit finish chunk
         controller.enqueue(encodeDuckAiChunk(encoder, cid, created, model, {}, "stop"));
         controller.enqueue(encoder.encode(SSE_DONE));
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-        controller.enqueue(
-          encodeDuckAiChunk(
-            encoder,
-            cid,
-            created,
-            model,
-            { content: `[Stream error: ${errorMsg}]` },
-            "stop"
-          )
-        );
+        controller.enqueue(encodeDuckAiChunk(encoder, cid, created, model, { content: `[Stream error: ${errorMsg}]` }, "stop"));
         controller.enqueue(encoder.encode(SSE_DONE));
       } finally {
         controller.close();

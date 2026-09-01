@@ -126,18 +126,41 @@ function truncate(s: string, n: number) {
   return s && s.length > n ? `${s.slice(0, n)}...` : s || "";
 }
 
+function resolveQoderMaxTokens(body: Record<string, unknown>, modelConfig: Record<string, unknown>): number {
+  const maxOutputTokens = Number(modelConfig.max_output_tokens) || 0;
+  let maxTokens = 32_768;
+  if (maxOutputTokens > 0) maxTokens = maxOutputTokens;
+  if (typeof body.max_tokens === "number" && body.max_tokens > 0 && body.max_tokens < maxTokens) {
+    maxTokens = body.max_tokens;
+  }
+  if (typeof body.max_completion_tokens === "number" && body.max_completion_tokens > 0 && body.max_completion_tokens < maxTokens) {
+    maxTokens = body.max_completion_tokens;
+  }
+  return maxTokens;
+}
+
+function buildQoderChatContext(qoderKey: string, isReasoning: boolean, lastUser: string) {
+  return {
+    chatPrompt: "",
+    imageUrls: null,
+    extra: {
+      context: [],
+      modelConfig: { key: qoderKey, is_reasoning: isReasoning },
+      originalContent: lastUser,
+    },
+    features: [],
+    text: lastUser,
+  };
+}
+
 /**
  * Map the OpenAI-style request body into the exact shape Qoder expects.
  */
 async function buildQoderRequestBody({ model, body, credentials, log, proxyOptions, signal }: { model: string; body: Record<string, unknown>; credentials: Credentials; log?: Logger; proxyOptions?: unknown; signal?: AbortSignal }) {
   const qoderKey = String(model || "").replace(/^qoder\//, "");
   
-  // Fetch model config from dynamic API instead of relying on static QODER_MODEL_MAP.
-  // This allows support for new Qoder models (e.g., qmodel_latest) without code changes.
   let modelConfig = await getQoderModelConfig(credentials, qoderKey, { log, proxyOptions, signal });
   if (!modelConfig) {
-    // Try a forced refresh once before giving up — the cache may simply
-    // not be populated yet on first ever call for this credential.
     const refreshed = await resolveQoderModels(credentials, { forceRefresh: true, log, proxyOptions, signal });
     const retried = refreshed?.rawConfigs.get(qoderKey);
     if (!retried) {
@@ -151,16 +174,7 @@ async function buildQoderRequestBody({ model, body, credentials, log, proxyOptio
   const { messages, systemText } = normalizeMessages((body.messages || []) as Record<string, unknown>[]);
   const tools = body.tools;
   const isReasoning = !!modelConfig.is_reasoning;
-  const maxOutputTokens = Number(modelConfig.max_output_tokens) || 0;
-
-  let maxTokens = 32_768;
-  if (maxOutputTokens > 0) maxTokens = maxOutputTokens;
-  if (typeof body.max_tokens === "number" && body.max_tokens > 0 && body.max_tokens < maxTokens) {
-    maxTokens = body.max_tokens;
-  }
-  if (typeof body.max_completion_tokens === "number" && body.max_completion_tokens > 0 && body.max_completion_tokens < maxTokens) {
-    maxTokens = body.max_completion_tokens;
-  }
+  const maxTokens = resolveQoderMaxTokens(body, modelConfig);
 
   const lastUser = lastUserText(messages);
   const psd = credentials.providerSpecificData || {};
@@ -191,17 +205,7 @@ async function buildQoderRequestBody({ model, body, credentials, log, proxyOptio
       messages,
       tools: Array.isArray(tools) ? tools : [],
       parameters: { max_tokens: maxTokens },
-      chat_context: {
-        chatPrompt: "",
-        imageUrls: null,
-        extra: {
-          context: [],
-          modelConfig: { key: qoderKey, is_reasoning: isReasoning },
-          originalContent: lastUser,
-        },
-        features: [],
-        text: lastUser,
-      },
+      chat_context: buildQoderChatContext(qoderKey, isReasoning, lastUser),
       model_config: modelConfig,
       business: {
         product: "cli",
@@ -282,16 +286,102 @@ async function peekFirstQoderFrame(reader: ReadableStreamDefaultReader<Uint8Arra
  * If detected, return 403 response so chatCore marks connection unavailable
  * and triggers combo fallback instead of leaking error text into chat.
  */
+function processQoderLine(
+  line: string,
+  model: string,
+  encoder: TextEncoder,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  state: { doneEmitted: boolean }
+) {
+  const trimmed = line.replace(/\r$/, "").trim();
+  if (!trimmed || !trimmed.startsWith("data:") || state.doneEmitted) return;
+
+  const data = trimmed.slice(5).trimStart();
+  if (data === "[DONE]") {
+    controller.enqueue(encoder.encode(SSE_DONE));
+    state.doneEmitted = true;
+    return;
+  }
+
+  let envelope;
+  try { envelope = JSON.parse(data); } catch { return; }
+  const statusVal = typeof envelope.statusCodeValue === "number" ? envelope.statusCodeValue : 200;
+  const inner = typeof envelope.body === "string" ? envelope.body : "";
+
+  if (statusVal !== 200) {
+    const msg = inner || `upstream status ${statusVal}`;
+    const errChunk = JSON.stringify({
+      id: `qoder-error-${Date.now()}`,
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [{ index: 0, delta: { content: `\n[qoder error ${statusVal}: ${truncate(msg, 200)}]` }, finish_reason: "stop" }],
+    });
+    controller.enqueue(encoder.encode(`data: ${errChunk}\n\n`));
+    controller.enqueue(encoder.encode(SSE_DONE));
+    state.doneEmitted = true;
+    return;
+  }
+  if (!inner) return;
+  if (inner === "[DONE]") {
+    controller.enqueue(encoder.encode(SSE_DONE));
+    state.doneEmitted = true;
+    return;
+  }
+  const sanitized = inner.replace(/\r?\n/g, "");
+  controller.enqueue(encoder.encode(`data: ${sanitized}\n\n`));
+}
+
+function drainQoderBuffer(
+  buffer: string,
+  model: string,
+  encoder: TextEncoder,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  state: { doneEmitted: boolean }
+): string {
+  let nl;
+  while ((nl = buffer.indexOf("\n")) !== -1) {
+    const line = buffer.slice(0, nl);
+    buffer = buffer.slice(nl + 1);
+    processQoderLine(line, model, encoder, controller, state);
+    if (state.doneEmitted) return buffer;
+  }
+  return buffer;
+}
+
+async function pumpQoderStream(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  decoder: TextDecoder,
+  buffer: string,
+  model: string,
+  encoder: TextEncoder,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  state: { doneEmitted: boolean }
+) {
+  try {
+    while (!state.doneEmitted) {
+      const { done, value } = await reader.read();
+      if (done) {
+        buffer += decoder.decode();
+        if (buffer.length > 0) processQoderLine(buffer, model, encoder, controller, state);
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      buffer = drainQoderBuffer(buffer, model, encoder, controller, state);
+    }
+  } catch {
+    // fall through to terminal [DONE] + close
+  }
+}
+
 async function wrapQoderSSE(response: Response, model: string) {
   if (!response.ok || !response.body) return response;
 
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
 
-  // Peek first frame to detect billing block
   const peek = await peekFirstQoderFrame(reader, decoder);
   if (peek?.isBilling) {
-    // Billing block detected — return 403 so chatCore fails this connection
     await reader.cancel().catch(() => {});
     return new Response(
       JSON.stringify({ error: { message: peek.message, code: peek.statusVal } }),
@@ -299,113 +389,31 @@ async function wrapQoderSSE(response: Response, model: string) {
     );
   }
 
-  // Normal flow: re-process every byte the peek consumed, then continue.
   let buffer = peek.consumed || "";
   const upstreamDrained = peek.upstreamDone === true;
   const encoder = new TextEncoder();
-  let doneEmitted = false;
-
-  // Process one already-extracted SSE line (no trailing newline).
-  const processLine = (line: string, controller: ReadableStreamDefaultController<Uint8Array>) => {
-    const trimmed = line.replace(/\r$/, "").trim();
-    if (!trimmed) return;
-    if (!trimmed.startsWith("data:")) return;
-    if (doneEmitted) return;
-
-    const data = trimmed.slice(5).trimStart();
-    if (data === "[DONE]") {
-      controller.enqueue(encoder.encode(SSE_DONE));
-      doneEmitted = true;
-      return;
-    }
-
-    let envelope;
-    try { envelope = JSON.parse(data); } catch { return; }
-    const statusVal = typeof envelope.statusCodeValue === "number" ? envelope.statusCodeValue : 200;
-    const inner = typeof envelope.body === "string" ? envelope.body : "";
-    if (statusVal !== 200) {
-      const msg = inner || `upstream status ${statusVal}`;
-      const errChunk = JSON.stringify({
-        id: `qoder-error-${Date.now()}`,
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model,
-        choices: [{ index: 0, delta: { content: `\n[qoder error ${statusVal}: ${truncate(msg, 200)}]` }, finish_reason: "stop" }],
-      });
-      controller.enqueue(encoder.encode(`data: ${errChunk}\n\n`));
-      controller.enqueue(encoder.encode(SSE_DONE));
-      doneEmitted = true;
-      return;
-    }
-    if (!inner) return;
-    if (inner === "[DONE]") {
-      controller.enqueue(encoder.encode(SSE_DONE));
-      doneEmitted = true;
-      return;
-    }
-    // Strip embedded newlines so the SSE frame stays a single event.
-    const sanitized = inner.replace(/\r?\n/g, "");
-    controller.enqueue(encoder.encode(`data: ${sanitized}\n\n`));
-  };
+  const state = { doneEmitted: false };
 
   const stream = new ReadableStream({
-    // Use start()+loop (not pull): a pull that buffers a partial line without
-    // enqueueing would never be re-invoked, hanging consumers like .text().
     async start(controller) {
       try {
-        // Drain whatever the peek already pulled off the socket first.
-        let nlSeed;
-        while ((nlSeed = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, nlSeed);
-          buffer = buffer.slice(nlSeed + 1);
-          processLine(line, controller);
-          if (doneEmitted) {
-            await reader.cancel().catch(() => {});
-            controller.close();
-            return;
-          }
+        buffer = drainQoderBuffer(buffer, model, encoder, controller, state);
+        if (state.doneEmitted) {
+          await reader.cancel().catch(() => {});
+          controller.close();
+          return;
         }
         if (upstreamDrained) {
-          // Peek hit end-of-stream: flush any trailing partial line.
           buffer += decoder.decode();
-          if (buffer.length > 0) {
-            processLine(buffer, controller);
-            buffer = "";
-          }
+          if (buffer.length > 0) processQoderLine(buffer, model, encoder, controller, state);
+        } else {
+          await pumpQoderStream(reader, decoder, buffer, model, encoder, controller, state);
         }
-
-        while (!doneEmitted && !upstreamDrained) {
-          const { done, value } = await reader.read();
-          if (done) {
-            buffer += decoder.decode();
-            if (buffer.length > 0) {
-              processLine(buffer, controller);
-              buffer = "";
-            }
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-          let nl;
-          while ((nl = buffer.indexOf("\n")) !== -1) {
-            const line = buffer.slice(0, nl);
-            buffer = buffer.slice(nl + 1);
-            processLine(line, controller);
-            if (doneEmitted) {
-              // Terminal frame received — drop upstream keepalive and end.
-              await reader.cancel().catch(() => {});
-              controller.close();
-              return;
-            }
-          }
-        }
-      } catch {
-        // fall through to terminal [DONE] + close
       } finally {
-        if (!doneEmitted) {
+        if (!state.doneEmitted) {
           try {
             controller.enqueue(encoder.encode(SSE_DONE));
-            doneEmitted = true;
+            state.doneEmitted = true;
           } catch { /* already closed */ }
         }
         try { controller.close(); } catch { /* already closed */ }

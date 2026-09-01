@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, FlaskConical, XCircle } from "lucide-react";
 import { translate } from "@/i18n/runtime";
+import { testCustomModel, stripProviderAlias } from "./customModelHelpers";
 
 interface AddCustomModelModalProps {
   isOpen: boolean;
@@ -21,50 +22,22 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
   const [testError, setTestError] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
 
-  // Reset state when modal opens
-  useEffect(() => {
-    if (isOpen) { setModelId(""); setTestStatus(null); setTestError(""); }
-  }, [isOpen]);
-
-  // Strip provider's own alias prefix (e.g. "cc/model" -> "model" for cc provider)
-  const stripAlias = (id: string): string => {
-    const prefix = `${providerAlias}/`;
-    return id.startsWith(prefix) ? id.slice(prefix.length) : id;
-  };
+  useEffect(() => { if (isOpen) { setModelId(""); setTestStatus(null); setTestError(""); } }, [isOpen]);
 
   const handleTest = async () => {
-    const cleanId = stripAlias(modelId.trim());
+    const cleanId = stripProviderAlias(modelId.trim(), providerAlias);
     if (!cleanId) return;
-    setTestStatus("testing");
-    setTestError("");
-    try {
-      const res = await fetch("/api/models/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: `${providerAlias}/${cleanId}` }),
-      });
-      const data = await res.json();
-      setTestStatus(data.ok ? "ok" : "error");
-      setTestError(data.error || "");
-    } catch (err: unknown) {
-      setTestStatus("error");
-      setTestError(err instanceof Error ? err.message : "Unknown error");
-    }
+    setTestStatus("testing"); setTestError("");
+    const result = await testCustomModel(providerAlias, cleanId);
+    setTestStatus(result.status);
+    setTestError(result.error);
   };
 
   const handleSave = async () => {
-    const cleanId = stripAlias(modelId.trim());
+    const cleanId = stripProviderAlias(modelId.trim(), providerAlias);
     if (!cleanId || saving) return;
     setSaving(true);
-    try {
-      await onSave(cleanId);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleTest();
+    try { await onSave(cleanId); } finally { setSaving(false); }
   };
 
   return (
@@ -73,54 +46,18 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
         <div>
           <Label className="mb-1.5 block">{translate("Model ID")}</Label>
           <div className="flex gap-2">
-            <Input
-              type="text"
-              value={modelId}
-              onChange={(e) => { setModelId(e.target.value); setTestStatus(null); setTestError(""); }}
-              onKeyDown={handleKeyDown}
-              placeholder="e.g. claude-opus-4-5"
-              className="flex-1 px-3 py-2 text-sm"
-              autoFocus
-            />
-            <Button
-              variant="secondary"
-              icon={<FlaskConical className="size-4" />}
-              loading={testStatus === "testing"}
-              onClick={handleTest}
-              disabled={!modelId.trim() || testStatus === "testing"}
-            >
+            <Input type="text" value={modelId} onChange={(e) => { setModelId(e.target.value); setTestStatus(null); setTestError(""); }} onKeyDown={(e) => e.key === "Enter" && handleTest()} placeholder="e.g. claude-opus-4-5" className="flex-1 px-3 py-2 text-sm" autoFocus />
+            <Button variant="secondary" icon={<FlaskConical className="size-4" />} loading={testStatus === "testing"} onClick={handleTest} disabled={!modelId.trim() || testStatus === "testing"}>
               {testStatus === "testing" ? translate("Testing...") : translate("Test")}
             </Button>
           </div>
-          <p className="text-xs text-text-muted mt-1">
-            {translate("Sent to provider as:")} <code className="font-mono bg-sidebar px-1 rounded">{stripAlias(modelId.trim()) || "model-id"}</code>
-          </p>
+          <p className="text-xs text-text-muted mt-1">{translate("Sent to provider as:")} <code className="font-mono bg-sidebar px-1 rounded">{stripProviderAlias(modelId.trim(), providerAlias) || "model-id"}</code></p>
         </div>
-
-        {/* Test result */}
-        {testStatus === "ok" && (
-          <div className="flex items-center gap-2 text-sm text-green-600">
-            <CheckCircle2 className="size-4" />
-            {translate("Model is reachable")}
-          </div>
-        )}
-        {testStatus === "error" && (
-          <div className="flex items-start gap-2 text-sm text-red-500">
-            <XCircle className="size-4" />
-            <span>{testError || translate("Model is not reachable")}</span>
-          </div>
-        )}
-
+        {testStatus === "ok" && <div className="flex items-center gap-2 text-sm text-green-600"><CheckCircle2 className="size-4" />{translate("Model is reachable")}</div>}
+        {testStatus === "error" && <div className="flex items-start gap-2 text-sm text-red-500"><XCircle className="size-4" /><span>{testError || translate("Model is not reachable")}</span></div>}
         <div className="flex gap-2 pt-1">
           <Button onClick={onClose} variant="ghost" fullWidth size="sm">{translate("Cancel")}</Button>
-          <Button
-            onClick={handleSave}
-            fullWidth
-            size="sm"
-            disabled={!modelId.trim() || saving}
-          >
-            {saving ? translate("Adding...") : translate("Add Model")}
-          </Button>
+          <Button onClick={handleSave} fullWidth size="sm" disabled={!modelId.trim() || saving}>{saving ? translate("Adding...") : translate("Add Model")}</Button>
         </div>
       </div>
     </Modal>
