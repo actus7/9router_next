@@ -34,3 +34,13 @@ Para telas com muito estado interativo (`providers/[id]`, `basic-chat`, `usage/*
 ## Dead code
 
 - `no-unused-vars`/`noUnusedLocals` não estão ligados globalmente hoje (ver comentário em `eslint.config.mjs`). Isso significa que o TypeScript/IDE não bloqueia código morto automaticamente — ao tocar um arquivo, remover imports/variáveis/funções não usadas que você encontrar nele, mesmo que não sejam o foco da mudança.
+
+## Definição de pronto
+
+Antes de reportar qualquer tarefa como concluída, rodar `npm run check` (lint + typecheck + contract:check + test:coverage + build + git diff --check) e confirmar que sai verde. Para mudanças em `server/llm-gateway`, `shared/llm-catalog` ou `app/api`, isso já roda automaticamente via o hook em `.claude/settings.json`.
+
+Ao corrigir um bug: escreva um teste que reproduza o bug primeiro, confirme que ele falha pelo motivo esperado, e só então corrija a implementação — sem editar o teste.
+
+## Erros conhecidos
+
+_(vazio — populado quando um erro do Claude realmente se repetir duas vezes, formato erro → correção)_

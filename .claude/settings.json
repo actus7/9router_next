@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run test*)",
+      "Bash(npm run build)",
+      "Bash(npm run check)",
+      "Bash(git status)",
+      "Bash(git diff*)"
+    ],
+    "deny": [
+      "Read(**/.env*)",
+      "Read(**/*secret*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/check-gateway-boundaries.js \"$FILE_PATH\"",
+            "description": "Roda testes de fronteira arquitetural quando o LLM gateway é tocado"
+          }
+        ]
+      }
+    ]
+  }
+}

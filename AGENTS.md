@@ -10,4 +10,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Project conventions
 
-See [docs/CONVENTIONS.md](docs/CONVENTIONS.md) for file-size targets, component decomposition pattern, folder organization, and testing/lint conventions. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the LLM gateway boundaries and provider-domain rules.
+@docs/CONVENTIONS.md
+@docs/ARCHITECTURE.md
