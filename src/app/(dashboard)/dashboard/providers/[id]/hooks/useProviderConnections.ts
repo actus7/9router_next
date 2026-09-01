@@ -40,14 +40,18 @@ export function useProviderConnections({
   const modalsHook = useConnectionModals({ providerId, initialConnections, initialProvider, isCompatible, fetchConnections });
   const oneByOneHook = useOneByOneTest({ connections });
   const bulkProxyHook = useBulkProxy({ connections, proxyPools, fetchConnections });
+  const { setSelectedConnectionIds } = bulkProxyHook;
 
   const crud = createConnectionCrud({ setConnections, setConfirmState: modalsHook.setConfirmState, selectedConnectionIds: bulkProxyHook.selectedConnectionIds, setSelectedConnectionIds: bulkProxyHook.setSelectedConnectionIds, notify });
 
   const handleSwapPriority = (index1: number, index2: number) => crud.handleSwapPriority(connections, index1, index2, fetchConnections);
 
   useEffect(() => {
-    bulkProxyHook.setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
-  }, [bulkProxyHook, connections]);
+    setSelectedConnectionIds((prev) => {
+      const validSelection = prev.filter((id) => connections.some((conn) => conn.id === id));
+      return validSelection.length === prev.length ? prev : validSelection;
+    });
+  }, [connections, setSelectedConnectionIds]);
 
   return {
     connections, setConnections,
