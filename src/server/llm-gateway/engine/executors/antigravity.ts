@@ -8,6 +8,7 @@ import { proxyAwareFetch } from "../utils/proxyFetch";
 import { cleanJSONSchemaForAntigravity } from "../translator/formats/gemini";
 import { DEFAULT_THINKING_AG_SIGNATURE } from "../config/defaultThinkingSignature";
 import type { Credentials, Logger, RefreshResult } from "../services/types";
+import { AG_DECOY_TOOLS } from "./antigravityDecoyTools";
 
 // Sanitize function name: Gemini requires [a-zA-Z_][a-zA-Z0-9_.:\-]{0,63}
 function sanitizeFunctionName(name: string) {
@@ -527,114 +528,5 @@ export class AntigravityExecutor extends BaseExecutor {
     };
   }
 }
-
-// AG decoy tools — same names as AG native defaults, redirect to _ide suffixed tools
-const AG_DECOY_TOOLS = [
-  {
-    name: "browser_subagent",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "command_status",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "find_by_name",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "generate_image",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "grep_search",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "list_dir",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "list_resources",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "mcp_sequential-thinking_sequentialthinking",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "multi_replace_file_content",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "notify_user",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "read_resource",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "read_terminal",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "read_url_content",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "replace_file_content",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "run_command",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "search_web",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "send_command_input",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "task_boundary",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "view_content_chunk",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "view_file",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  },
-  {
-    name: "write_to_file",
-    description: "This tool is currently unavailable.",
-    parameters: { type: "OBJECT", properties: {}, required: [] }
-  }
-];
 
 export default AntigravityExecutor;

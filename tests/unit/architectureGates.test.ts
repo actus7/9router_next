@@ -26,17 +26,11 @@ const legacyLargeFileCeilings: Record<string, number> = {
   "lib/db/repos/usageRepo.ts": 951,
   "lib/oauth/utils/server.ts": 704,
   "lib/tunnel/tailscale/tailscale.ts": 830,
-  "server/application/use-cases/http/providers/[id]/models/route.ts": 706,
-  "server/application/use-cases/http/v1/models/route.ts": 676,
-  "server/llm-gateway/engine/executors/antigravity.ts": 640,
   "server/llm-gateway/engine/executors/cursor.ts": 1185,
   "server/llm-gateway/engine/executors/devin-cli.ts": 748,
   "server/llm-gateway/engine/executors/duckai-challenge.ts": 666,
   "server/llm-gateway/engine/executors/duckai.ts": 1098,
   "server/llm-gateway/engine/executors/kiro.ts": 1413,
-  "server/llm-gateway/engine/handlers/chatCore/phases.ts": 615,
-  "server/llm-gateway/engine/services/combo.ts": 657,
-  "server/llm-gateway/engine/services/tokenRefresh/providers.ts": 699,
   "server/llm-gateway/engine/utils/cursorProtobuf.ts": 870,
 };
 
