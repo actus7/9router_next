@@ -15,24 +15,24 @@ type ToastType = "success" | "error" | "warning" | "info";
 function getToastStyle(type: ToastType) {
   if (type === "success") {
     return {
-      wrapper: "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400",
+      wrapper: "border-success-border/30 bg-success/10 text-success-foreground",
       icon: <CheckCircle className="size-[18px] leading-5" />,
     };
   }
   if (type === "error") {
     return {
-      wrapper: "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
+      wrapper: "border-destructive/30 bg-destructive/10 text-destructive",
       icon: <AlertCircle className="size-[18px] leading-5" />,
     };
   }
   if (type === "warning") {
     return {
-      wrapper: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      wrapper: "border-warning-border/30 bg-warning/10 text-warning-foreground",
       icon: <TriangleAlert className="size-[18px] leading-5" />,
     };
   }
   return {
-    wrapper: "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    wrapper: "border-info-border/30 bg-info/10 text-info-foreground",
     icon: <Info className="size-[18px] leading-5" />,
   };
 }

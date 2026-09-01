@@ -22,10 +22,10 @@ export default function StatusAlert({ status, className = "" }: StatusAlertProps
   };
 
   return (
-    <div className={`p-2 rounded text-sm ${className} ${status.type === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" :
-        status.type === "warning" ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" :
-        status.type === "info" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
-          "bg-red-500/10 text-red-600 dark:text-red-400"
+    <div className={`p-2 rounded text-sm ${className} ${status.type === "success" ? "bg-success/10 text-success-foreground" :
+        status.type === "warning" ? "bg-warning/10 text-warning-foreground" :
+        status.type === "info" ? "bg-info/10 text-info-foreground" :
+          "bg-destructive/10 text-destructive"
       }`}>
       {renderMessage(status.message)}
     </div>

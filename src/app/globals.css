@@ -97,8 +97,14 @@
   --color-brand-900: color-mix(in oklab, var(--primary) 30%, black);
   --color-danger: var(--destructive);
   --color-success: #10B981;
+  --color-success-foreground: #047857;
+  --color-success-border: #059669;
   --color-warning: #F59E0B;
+  --color-warning-foreground: #b45309;
+  --color-warning-border: #d97706;
   --color-info: #3B82F6;
+  --color-info-foreground: #2563eb;
+  --color-info-border: #2563eb;
 
   /* Radius */
   --radius-brand: 10px;
@@ -172,8 +178,14 @@
   --shadow-2xl: 0px 1px 3px 0px hsl(0 0% 0% / 0.25);
 
   --color-success: #22c55e;
+  --color-success-foreground: #86efac;
+  --color-success-border: #22c55e;
   --color-warning: #fbbf24;
+  --color-warning-foreground: #fcd34d;
+  --color-warning-border: #fbbf24;
   --color-info: #60a5fa;
+  --color-info-foreground: #93c5fd;
+  --color-info-border: #60a5fa;
 
   /* Decorative shadows — dark-mode variants (still brand-orange tinted) */
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.3);
@@ -259,8 +271,14 @@ select {
   --color-accent: var(--color-brand-500);
   --color-danger: var(--color-danger);
   --color-success: var(--color-success);
+  --color-success-foreground: var(--color-success-foreground);
+  --color-success-border: var(--color-success-border);
   --color-warning: var(--color-warning);
+  --color-warning-foreground: var(--color-warning-foreground);
+  --color-warning-border: var(--color-warning-border);
   --color-info: var(--color-info);
+  --color-info-foreground: var(--color-info-foreground);
+  --color-info-border: var(--color-info-border);
 
   /* shadcn/ui color tokens for Tailwind utilities */
   --color-background: var(--background);

@@ -16,19 +16,18 @@ Gates confirmados no checkpoint acumulado:
 
 - Next.js 16.3.2 build passa; startup do layout foi movido para `instrumentation.register()` com guards de build e HMR.
 - Lint e TypeScript passam com `exhaustive-deps` e unused como erro.
-- 33 suites e 214 testes passam; cobertura esta em 4,42% statements, 2,55% branches, 3,82% functions e 4,79% lines, sem regressao da baseline e com 80% nos modulos criticos.
+- 34 suites e 216 testes passam; cobertura esta em 4,46% statements, 2,58% branches, 3,86% functions e 4,83% lines, sem regressao da baseline e com 80% nos modulos criticos.
 - `contract:check`, arquitetura dos handlers, build, `git diff --check` e `npm audit --omit=dev` passam; dependencias de producao reportam zero vulnerabilidades conhecidas.
 - O detector Impeccable retornou `[]` nas superficies alteradas; axe cobre associacao de campos e confirmacao destrutiva.
-- Todos os modulos tecnicos foram decompostos para menos de 600 linhas. O gate agora aceita apenas `globals.css` (fronteira global de tokens) e `components/ui/sidebar.tsx` (primitive oficial shadcn); artefatos Prisma gerados continuam excluidos.
+- Todos os modulos tecnicos foram decompostos para menos de 600 linhas. O gate agora aceita apenas `globals.css` (fronteira global de tokens, 987 linhas) e `components/ui/sidebar.tsx` (primitive oficial shadcn); artefatos Prisma gerados continuam excluidos.
 
-Pendencias que impedem alterar o veredito para GO:
+Pendencia que impede alterar o veredito para GO:
 
-1. Concluir a consolidacao de cores funcionais cruas que nao representem marca/dados.
-2. Corrigir os tres assets de logo ausentes observados no dashboard (`/providers/quillbot.png`, `/providers/duckai.png` e `/providers/ovh.png`); sao 404s visuais, nao uma falha de fluxo.
+1. Concluir a consolidacao de cores funcionais cruas que nao representem marca/dados. Esta passada introduziu tokens semanticos de foreground/borda e migrou os alertas de endpoint e notificacoes globais; os demais usos de status ainda devem convergir para eles por dominio.
 
 O uso de `space-y-*` foi removido de TS/TSX e substituido por `flex flex-col gap-*`, preservando o espacamento com layout explicito. A decomposicao incluiu analytics de uso, testes OAuth de provedores, proxies OAuth locais, instalacao/Funnel Tailscale, codecs Cursor, stream ACP Devin, Duck.ai e Kiro EventStream.
 
-Verificacao autenticada local concluida em browser real: login, dashboard, Chat, configuracoes de Chat, desktop/mobile e claro/escuro. O dashboard manteve navegacao e nomes acessiveis; em Chat sem provedores configurados, provider/model e envio ficaram corretamente indisponiveis. Os tres 404s de logo acima foram os unicos erros de console observados nessa passagem.
+Verificacao autenticada local concluida em browser real: login, dashboard, Chat, configuracoes de Chat, desktop/mobile e claro/escuro. O dashboard manteve navegacao e nomes acessiveis; em Chat sem provedores configurados, provider/model e envio ficaram corretamente indisponiveis. A passada inicial observou tres 404s de logo; eles foram eliminados ao representar QuillBot, Duck.ai e OVH com fallback textual enquanto nao houver asset local. A verificacao posterior do dashboard autenticado nao reportou erros de console.
 
 ## Veredito executivo
 

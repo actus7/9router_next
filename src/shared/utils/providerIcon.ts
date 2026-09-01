@@ -11,6 +11,15 @@ const ICON_ALIASES: Record<string, string> = {
   "vercel-ai-gateway": "vercel",
 };
 
+// These providers are intentionally represented by their text fallback until a
+// licensed local brand asset is added. Returning null avoids an avoidable 404
+// on every dashboard mount while keeping unknown missing assets observable.
+const PROVIDERS_WITHOUT_LOCAL_ICON = new Set([
+  "duckai",
+  "ovh",
+  "quillbot",
+]);
+
 // Runtime only — first 404 remembers id for the whole session
 const failedIds = new Set<string>();
 
@@ -24,8 +33,10 @@ function resolveProviderIconId(providerId: string | null | undefined): string {
   const raw = normalizeId(providerId);
   if (!raw) return "";
   const id = normalizeId(resolveProviderId(raw)) || raw;
+  if (PROVIDERS_WITHOUT_LOCAL_ICON.has(id)) return "";
   if (failedIds.has(id)) return "";
   const aliased = ICON_ALIASES[id] || id;
+  if (PROVIDERS_WITHOUT_LOCAL_ICON.has(aliased)) return "";
   if (failedIds.has(aliased)) return "";
   return aliased;
 }

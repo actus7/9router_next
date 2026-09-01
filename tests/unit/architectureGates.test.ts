@@ -22,7 +22,7 @@ function countLines(source: string): number {
 const justifiedLargeFileCeilings: Record<string, number> = {
   // Global CSS tokens and shadcn's registry-owned sidebar are intentional
   // composition boundaries; Prisma artifacts are excluded below as generated.
-  "app/globals.css": 969,
+  "app/globals.css": 987,
   "components/ui/sidebar.tsx": 723,
 };
 
