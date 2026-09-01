@@ -24,9 +24,11 @@ Gates confirmados no checkpoint acumulado:
 Pendencias que impedem alterar o veredito para GO:
 
 1. Concluir a consolidacao de cores funcionais cruas que nao representem marca/dados.
-2. Executar a verificacao autenticada em browser nos fluxos principais, desktop/mobile e light/dark; os gates estaticos nao substituem essa evidencia.
+2. Corrigir os tres assets de logo ausentes observados no dashboard (`/providers/quillbot.png`, `/providers/duckai.png` e `/providers/ovh.png`); sao 404s visuais, nao uma falha de fluxo.
 
 O uso de `space-y-*` foi removido de TS/TSX e substituido por `flex flex-col gap-*`, preservando o espacamento com layout explicito. A decomposicao incluiu analytics de uso, testes OAuth de provedores, proxies OAuth locais, instalacao/Funnel Tailscale, codecs Cursor, stream ACP Devin, Duck.ai e Kiro EventStream.
+
+Verificacao autenticada local concluida em browser real: login, dashboard, Chat, configuracoes de Chat, desktop/mobile e claro/escuro. O dashboard manteve navegacao e nomes acessiveis; em Chat sem provedores configurados, provider/model e envio ficaram corretamente indisponiveis. Os tres 404s de logo acima foram os unicos erros de console observados nessa passagem.
 
 ## Veredito executivo
 
