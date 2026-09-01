@@ -56,7 +56,7 @@ export default function ClineToolCard({ tool, isExpanded, onToggle, baseUrl, api
       if (!status) checkStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [isExpanded, status]);
 
   useEffect(() => {
     if (status?.settings?.openAiModelId) setSelectedModel(status.settings.openAiModelId);
@@ -94,7 +94,7 @@ export default function ClineToolCard({ tool, isExpanded, onToggle, baseUrl, api
       const res = await fetch("/api/cli-tools/cline-settings");
       const data = await res.json();
       setStatus(data);
-    } catch (error) {
+    } catch  {
       setStatus({ installed: false });
     } finally {
       setChecking(false);

@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/shared/components";
-import { translate } from "@/i18n/runtime";
 import { Plus } from "lucide-react";
 import type { SuggestedModel } from "../../types";
 

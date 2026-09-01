@@ -209,7 +209,3 @@ export async function resolveCursorModels(credentials: Credentials, options: Cur
     return null;
   }
 }
-
-function clearCursorModelCache(): void {
-  catalogCache.clear();
-}

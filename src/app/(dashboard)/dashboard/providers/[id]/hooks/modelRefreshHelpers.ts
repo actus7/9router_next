@@ -3,7 +3,7 @@
 import { getModelKind, getModelsByProviderId } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
-import { fetchSuggestedModels, type ModelsFetcher } from "@/shared/utils/providerModelsFetcher";
+import { fetchSuggestedModels } from "@/shared/utils/providerModelsFetcher";
 import { CLEAR_ALL_MODELS_SENTINEL } from "./modelConstants";
 import type { Connection, CustomModelEntry, LiveModel, ProviderNode, SuggestedModel } from "../types";
 
@@ -24,7 +24,7 @@ interface RefreshModelsArgs {
 
 export async function refreshModels({
   providerId, providerStorageAlias, isCompatible, connections, providerNode,
-  customModels, modelAliases, setLiveModels, setCustomModels, setModelAliases,
+  customModels: _customModels, modelAliases: _modelAliases, setLiveModels, setCustomModels, setModelAliases: _setModelAliases,
   onFetchDisabledModels, notify,
 }: RefreshModelsArgs): Promise<void> {
   const activeConnection = connections.find((conn) => conn.isActive !== false);

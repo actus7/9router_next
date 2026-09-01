@@ -190,7 +190,7 @@ function attachToolUsesToLastAssistant(history: KiroTurn[], toolUses: Record<str
 }
 
 /** Process a single message during conversion, updating state */
-function processMessage(msg: Record<string, unknown>, state: ConversionState, model: string) {
+function processMessage(msg: Record<string, unknown>, state: ConversionState, _model: string) {
   let role = msg.role as string;
   const wasSystem = role === ROLE.SYSTEM;
   if (role === ROLE.SYSTEM || role === ROLE.TOOL) role = ROLE.USER;

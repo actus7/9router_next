@@ -127,7 +127,7 @@ export default function GrokBuildToolCard({
       setGrokStatus(status);
       hasFetchedStatus.current = true;
       if (hydrate) hydrateForm(status);
-    } catch (error) {
+    } catch  {
       setGrokStatus({ installed: false });
     } finally {
       setChecking(false);

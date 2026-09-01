@@ -3,7 +3,7 @@ import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getProviderConnections, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import { getClaudeUsage, getCodexUsage, getExecutor, CLAUDE_CLI_SPOOF_HEADERS, proxyAwareFetch } from "@/server/llm-gateway/usage";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
-import { refreshAndUpdateCredentials } from "@/app/api/usage/[connectionId]/route";
+import { refreshAndUpdateCredentials } from "@/server/application/use-cases/http/usage/[connectionId]/route";
 import { QUOTA_AUTOPING_CONFIG } from "@/shared/constants/config";
 
 // ─── Types ───────────────────────────────────────────────────────────────────

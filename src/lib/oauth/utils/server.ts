@@ -95,28 +95,6 @@ export function startLocalServer(onCallback: (params: Record<string, string>) =>
 /**
  * Wait for callback with timeout
  */
-function waitForCallback(timeoutMs: number = 300000): Promise<Record<string, string>> {
-  return new Promise<Record<string, string>>((resolve: (value: Record<string, string>) => void, reject: (reason: Error) => void) => {
-    let resolved: boolean = false;
-
-    const timeout: ReturnType<typeof setTimeout> = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        reject(new Error("Authentication timeout"));
-      }
-    }, timeoutMs);
-
-    const onCallback = (params: Record<string, string>): void => {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        resolve(params);
-      }
-    };
-
-    (resolve as unknown as Record<string, unknown>).__onCallback = onCallback;
-  });
-}
 
 // Singleton proxy server for Codex OAuth callback on fixed port
 let codexProxyServer: http.Server | null = null;

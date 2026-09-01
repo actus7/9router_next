@@ -73,7 +73,7 @@ export default function DroidToolCard({
       if (!droidStatus) checkDroidStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [droidStatus, isExpanded]);
 
   const fetchModelAliases = async () => {
     try {
@@ -107,7 +107,7 @@ export default function DroidToolCard({
       const res = await fetch("/api/cli-tools/droid-settings");
       const data = await res.json();
       setDroidStatus(data);
-    } catch (error) {
+    } catch  {
       setDroidStatus({ installed: false });
     } finally {
       setCheckingDroid(false);

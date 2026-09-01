@@ -15,7 +15,7 @@ interface ToolStatuses {
   [toolId: string]: Record<string, unknown>;
 }
 
-export default function CLIToolsPageClient({ machineId }: CLIToolsPageClientProps) {
+export default function CLIToolsPageClient({ machineId: _machineId }: CLIToolsPageClientProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [toolStatuses, setToolStatuses] = useState<ToolStatuses>({});
 

@@ -211,8 +211,3 @@ export async function resolveKimchiModels(credentials: Credentials, options: Kim
   catalogCache.set(key, entry);
   return entry;
 }
-
-function clearKimchiCatalog(): void {
-  catalogCache.clear();
-  metadataByModelId.clear();
-}

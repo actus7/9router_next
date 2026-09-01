@@ -21,10 +21,19 @@ function ipv4ToInt(host: string): number | null {
 const BLOCKED_V4_RANGES: [number, number][] = [
   [ipv4ToInt("0.0.0.0")!, 8],
   [ipv4ToInt("10.0.0.0")!, 8],
+  [ipv4ToInt("100.64.0.0")!, 10],
   [ipv4ToInt("127.0.0.0")!, 8],
   [ipv4ToInt("169.254.0.0")!, 16],
   [ipv4ToInt("172.16.0.0")!, 12],
+  [ipv4ToInt("192.0.0.0")!, 24],
+  [ipv4ToInt("192.0.2.0")!, 24],
+  [ipv4ToInt("192.88.99.0")!, 24],
   [ipv4ToInt("192.168.0.0")!, 16],
+  [ipv4ToInt("198.18.0.0")!, 15],
+  [ipv4ToInt("198.51.100.0")!, 24],
+  [ipv4ToInt("203.0.113.0")!, 24],
+  [ipv4ToInt("224.0.0.0")!, 4],
+  [ipv4ToInt("240.0.0.0")!, 4],
 ];
 
 function isBlockedIpv4(host: string): boolean {
@@ -49,8 +58,23 @@ function isBlockedIpv6(host: string): boolean {
     const v4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
     return isBlockedIpv4(v4);
   }
+  if (h.startsWith("::ffff:")) return true;
   if (h === "::1" || h === "::") return true;
-  return h.startsWith("fe80:") || h.startsWith("fc") || h.startsWith("fd");
+  return (
+    h.startsWith("fe8") ||
+    h.startsWith("fe9") ||
+    h.startsWith("fea") ||
+    h.startsWith("feb") ||
+    h.startsWith("fc") ||
+    h.startsWith("fd") ||
+    h.startsWith("ff") ||
+    h.startsWith("2001:db8:")
+  );
+}
+
+/** Return whether an already-resolved IP belongs to a non-public range. */
+export function isBlockedIpAddress(address: string): boolean {
+  return isBlockedIpv4(address) || (address.includes(":") && isBlockedIpv6(address));
 }
 
 // Throw if URL targets a non-public host. Caller should map to 400.
@@ -58,8 +82,14 @@ export function assertPublicUrl(rawUrl: string): void {
   const parsed = new URL(rawUrl);
   const host = parsed.hostname.toLowerCase();
 
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Blocked URL: unsupported protocol");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("Blocked URL: embedded credentials");
+  }
+
   if (BLOCKED_HOSTNAMES.has(host)) throw new Error("Blocked URL: internal host");
   if (BLOCKED_SUFFIXES.some((s) => host.endsWith(s))) throw new Error("Blocked URL: internal host");
-  if (isBlockedIpv4(host)) throw new Error("Blocked URL: private IP");
-  if (host.includes(":") && isBlockedIpv6(host)) throw new Error("Blocked URL: private IP");
+  if (isBlockedIpAddress(host)) throw new Error("Blocked URL: private IP");
 }

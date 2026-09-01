@@ -41,7 +41,7 @@ const KIRO_DEFAULT_PROFILE_ARNS = {
 };
 
 // Back-compat single default (Builder ID).
-const KIRO_DEFAULT_PROFILE_ARN = KIRO_DEFAULT_PROFILE_ARNS["builder-id"];
+void (KIRO_DEFAULT_PROFILE_ARNS["builder-id"]);
 
 /** Resolve the shared default profileArn for a given auth method. */
 export function resolveDefaultProfileArn(authMethod: string) {
@@ -224,9 +224,6 @@ function buildKiroAdditionalModelRequestFields(body: KiroBody, effortPath: strin
 import { resolveKiroEffortPath } from "./kiroEffortPath";
 export { resolveKiroEffortPath };
 
-function supportsKiroAdditionalModelRequestFields(model: string) {
-  return resolveKiroEffortPath(model) !== null;
-}
 
 export function usesKiroNativeGptEffort(body: KiroBody, model: string) {
   return resolveKiroEffortPath(model) === "reasoning"
@@ -248,9 +245,6 @@ export function buildKiroAdditionalModelRequestFieldsForModel(body: KiroBody, mo
  * @param {string} [model] Model id the caller asked for (post-strip ok)
  * @returns {boolean}
  */
-function isThinkingEnabled(body: KiroBody, headers?: KiroHeaders, model?: string) {
-  return resolveKiroThinkingBudget(body, headers, model) !== null;
-}
 
 /**
  * Detect whether a model id refers to a modelhub synthetic agentic variant.

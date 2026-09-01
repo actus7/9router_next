@@ -200,7 +200,7 @@ Respond ONLY with the JSON object, no other text.`);
 }
 
 // Get content blocks from single message
-function getContentBlocksFromMessage(msg: Record<string, unknown>, toolNameMap: Map<string, string> = new Map()): Record<string, unknown>[] {
+function getContentBlocksFromMessage(msg: Record<string, unknown>, _toolNameMap: Map<string, string> = new Map()): Record<string, unknown>[] {
   const blocks: Record<string, unknown>[] = [];
 
   if (msg.role === ROLE.TOOL) {

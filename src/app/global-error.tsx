@@ -3,7 +3,7 @@
 import Button from "@/shared/components/Button";
 
 export default function GlobalError({
-  error,
+  error: _error,
   retry,
 }: {
   error: Error & { digest?: string };

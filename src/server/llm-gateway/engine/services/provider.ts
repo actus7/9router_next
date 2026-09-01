@@ -162,9 +162,6 @@ function isLastMessageFromUser(body: RequestBody) {
 }
 
 // Check if request has thinking config
-function hasThinkingConfig(body: RequestBody) {
-  return !!(body.reasoning_effort || body.thinking?.type === "enabled");
-}
 
 // Normalize provider-native thinking config based on last message role.
 // OpenAI reasoning_effort is request-level and must survive tool-result turns.

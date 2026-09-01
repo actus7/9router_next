@@ -1,6 +1,7 @@
 ﻿import { EventEmitter } from "events";
 import { getAdapter } from "../driver";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
+import { toPersistenceError } from "../errors";
 
 function maskApiKey(key: string | null): string | null {
   if (!key || typeof key !== "string") return null;
@@ -203,13 +204,14 @@ async function getConnectionMapCached(): Promise<Record<string, string>> {
     for (const c of all) map[c.id] = c.name || c.email || c.id;
     connCache.map = map;
     connCache.ts = Date.now();
-  } catch {}
-  return connCache.map;
+    return connCache.map;
+  } catch (error) {
+    throw toPersistenceError("usage.loadConnectionMap", error);
+  }
 }
 
 async function ensureRingInitialized(): Promise<void> {
   if (recentRing.initialized) return;
-  recentRing.initialized = true;
   try {
     const db = await getAdapter();
     const rows: Array<Record<string, unknown>> = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`, [RING_CAP]);
@@ -218,7 +220,10 @@ async function ensureRingInitialized(): Promise<void> {
       apiKey: r.apiKey as string, endpoint: r.endpoint as string, cost: r.cost as number, status: r.status as string,
       tokens: parseJson(r.tokens, {}) as Record<string, unknown>,
     }));
-  } catch {}
+    recentRing.initialized = true;
+  } catch (error) {
+    throw toPersistenceError("usage.initializeRecentRing", error);
+  }
 }
 
 async function calculateCost(provider: string, model: string, tokens: Record<string, unknown>): Promise<number> {
@@ -230,9 +235,8 @@ async function calculateCost(provider: string, model: string, tokens: Record<str
 
     const { calculateCostFromTokens } = await import("@/server/llm-gateway/engine/providers/pricing");
     return calculateCostFromTokens(tokens as Record<string, number | undefined>, pricing as Record<string, number | undefined>);
-  } catch (e: unknown) {
-    console.error("Error calculating cost:", e);
-    return 0;
+  } catch (error) {
+    throw toPersistenceError("usage.calculateCost", error);
   }
 }
 
@@ -413,8 +417,8 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
       pushToRing(entry);
       scheduleStatsEvent("update", 250);
     }
-  } catch (e: unknown) {
-    console.error("Failed to save usage stats:", e);
+  } catch (error) {
+    throw toPersistenceError("usage.saveRequest", error);
   }
 }
 
@@ -523,19 +527,15 @@ async function loadReferenceMaps(): Promise<RefMaps> {
     import("./nodesRepo"),
   ]);
 
-  let allConnections: Array<{ id: string; name: string | null; email: string | null }> = [];
-  try { allConnections = await getProviderConnections(); } catch {}
+  const allConnections: Array<{ id: string; name: string | null; email: string | null }> = await getProviderConnections();
   const connectionMap: Record<string, string> = {};
   for (const c of allConnections) connectionMap[c.id] = c.name || c.email || c.id;
 
   const providerNodeNameMap: Record<string, string> = {};
-  try {
-    const nodes = await getProviderNodes();
-    for (const n of nodes) if (n.id && n.name) providerNodeNameMap[n.id] = n.name!;
-  } catch {}
+  const nodes = await getProviderNodes();
+  for (const n of nodes) if (n.id && n.name) providerNodeNameMap[n.id] = n.name!;
 
-  let allApiKeys: Array<{ key: string; name: string | null; id: string; createdAt: string }> = [];
-  try { allApiKeys = await getApiKeys(); } catch {}
+  const allApiKeys: Array<{ key: string; name: string | null; id: string; createdAt: string }> = await getApiKeys();
   const apiKeyMap: Record<string, { name: string | null; id: string; createdAt: string }> = {};
   for (const k of allApiKeys) apiKeyMap[k.key] = { name: k.name, id: k.id, createdAt: k.createdAt };
 
@@ -945,8 +945,7 @@ export async function getRecentLogs(limit: number = 200): Promise<string[]> {
       const received: number | string = (r.completionTokens as number) ?? (tk.completion_tokens as number) ?? "-";
       return `${ts} | ${m} | ${p} | ${account} | ${sent} | ${received} | ${r.status || "-"}`;
     });
-  } catch (e: unknown) {
-    console.error("[usageRepo] getRecentLogs failed:", (e as Error).message);
-    return [];
+  } catch (error) {
+    throw toPersistenceError("usage.getRecentLogs", error);
   }
 }

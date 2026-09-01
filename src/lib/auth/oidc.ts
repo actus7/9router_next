@@ -1,11 +1,6 @@
 import crypto from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from "jose";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
-const OIDC_COOKIE_NAMES: Record<string, string> = {
-  state: "oidc_state",
-  nonce: "oidc_nonce",
-  verifier: "oidc_code_verifier",
-};
 
 const DEFAULT_SCOPES: string = "openid profile email";
 const DEFAULT_LOGIN_LABEL: string = "Sign in with OIDC";

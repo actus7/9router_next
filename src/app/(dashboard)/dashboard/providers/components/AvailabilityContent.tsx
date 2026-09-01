@@ -1,8 +1,7 @@
 "use client";
 
 import { Button } from "@/shared/components";
-import { cn } from "@/lib/utils";
-import { AlertCircle, CheckCircle2, Clock, HelpCircle, TriangleAlert } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, HelpCircle } from "lucide-react";
 
 interface StatusConfig {
   icon: React.ElementType;

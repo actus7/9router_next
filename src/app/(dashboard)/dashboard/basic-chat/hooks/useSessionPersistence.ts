@@ -69,7 +69,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     } finally {
       setIsHydrated(true);
     }
-  }, []);
+  }, [setActiveModelId, setActiveProjectId, setActiveProviderId, setActiveSessionId, setDraft, setIsHydrated, setProjects, setSessions, setSidebarOpen, setSystemPrompt, setTemperature]);
 
   // Fetch sessions from the durable server store
   useEffect(() => {
@@ -89,7 +89,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
       })
       .finally(() => { serverSessionsReadyRef.current = true; });
     return () => { cancelled = true; };
-  }, [isHydrated]);
+  }, [isHydrated, serverSessionsReadyRef, setSessions]);
 
   // Load or create API key
   useEffect(() => {
@@ -121,7 +121,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setApiKey]);
 
   // Model fallback: if the active model was removed/exhausted, pick the first available
   useEffect(() => {
@@ -132,7 +132,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     if (!fallback) return;
     setActiveProviderId(fallback.providerId);
     setActiveModelId(fallback.id);
-  }, [loadingData, providerGroups, modelIndex, activeModelId, activeProviderId]);
+  }, [loadingData, providerGroups, modelIndex, activeModelId, activeProviderId, setActiveProviderId, setActiveModelId]);
 
   // Initialization: pick session/model on first load when provider data arrives
   useEffect(() => {
@@ -176,7 +176,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     setActiveSessionId(session.id);
     setActiveProviderId(savedProvider.providerId);
     setActiveModelId(savedModel.id);
-  }, [isHydrated, loadingData, providerGroups, modelIndex, sessions, activeSessionId, activeProviderId, activeModelId, activeProjectId]);
+  }, [isHydrated, loadingData, providerGroups, modelIndex, sessions, activeSessionId, activeProviderId, activeModelId, activeProjectId, initializedRef, setSessions, setActiveSessionId, setActiveProviderId, setActiveModelId]);
 
   // Persist to localStorage
   useEffect(() => {
@@ -207,5 +207,5 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     return () => {
       if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current);
     };
-  }, [isHydrated, sessions]);
+  }, [isHydrated, serverSessionsReadyRef, serverSyncTimerRef, sessions]);
 }

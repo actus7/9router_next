@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { Connection, QuotaData } from "../utils";
+import type { Connection } from "../utils";
 import type { UseCodexResetReturn, CreditEntry, ResetConfirmState, ResetCreditsState } from "../types";
 
 export function useCodexReset(

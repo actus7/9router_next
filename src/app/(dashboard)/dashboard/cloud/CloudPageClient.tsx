@@ -38,7 +38,7 @@ export default function CloudPageClient() {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [cloudEnabled, setCloudEnabled] = useState(false);
-  const [selectedToolId, setSelectedToolId] = useState(CLOUD_TOOL_CATALOG[0]?.id ?? "");
+  const [selectedToolId, ] = useState(CLOUD_TOOL_CATALOG[0]?.id ?? "");
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
 

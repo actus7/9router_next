@@ -55,7 +55,7 @@ export function useProviderActions(
         if (failed === 0) notify.success(translate("All") + ` ${total} ` + translate("tests passed"));
         else notify.warning(`${passed}/${total} ` + translate("passed") + `, ${failed} ` + translate("failed"));
       }
-    } catch (error) {
+    } catch  {
       setTestResults({ error: translate("Test request failed") || "Test request failed" });
       notify.error(translate("Provider test failed") || "Provider test failed");
     } finally {

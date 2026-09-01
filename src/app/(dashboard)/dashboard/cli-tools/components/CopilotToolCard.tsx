@@ -8,7 +8,7 @@ import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
 import { useModelAliases } from "./useCliToolCommon";
 import { StatusMessage, ActionButtons } from "./CliToolShared";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, History, Info, Loader2, Save, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Info, Loader2, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; }
@@ -61,7 +61,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
       if (!status) checkStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [fetchModelAliases, isExpanded, status]);
 
   useEffect(() => {
     if (status?.config && Array.isArray(status.config) && selectedModels.length === 0) {
@@ -70,7 +70,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
         setSelectedModels(entry.models.map((m: { id: string }) => m.id));
       }
     }
-  }, [status]);
+  }, [selectedModels.length, status]);
 
   const saveModels = async (models: string[]) => {
     try {

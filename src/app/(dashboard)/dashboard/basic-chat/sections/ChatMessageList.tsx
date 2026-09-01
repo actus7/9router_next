@@ -55,7 +55,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
     previousLastMessageIdRef.current = currentMessages.at(-1)?.id || "";
     const frame = requestAnimationFrame(() => scrollToLatest());
     return () => cancelAnimationFrame(frame);
-  }, [activeSessionId, scrollToLatest]);
+  }, [activeSessionId, currentMessages, scrollToLatest]);
 
   // New turns are an intentional navigation to the latest content. Streaming
   // follows only while the user remains at the bottom; reading older messages

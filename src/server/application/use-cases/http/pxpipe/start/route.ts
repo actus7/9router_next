@@ -1,0 +1,27 @@
+import { NextResponse } from "next/server";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { getInstallInfo, installPxpipe } from "@/lib/pxpipe/install";
+import { loadPxpipe } from "@/lib/pxpipe/loader";
+import { getPxpipeStatus } from "@/lib/pxpipe/service";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+// "Start" in library mode = warm the in-process transform module.
+// Auto-installs first when the package is missing and pxpipeAutoInstall is on.
+export async function POST() {
+  try {
+    if (!getInstallInfo().installed) {
+      const settings = await getSettings();
+      if (!settings.pxpipeAutoInstall) {
+        return NextResponse.json({ error: "PXPIPE is not installed", code: "NOT_INSTALLED" }, { status: 409 });
+      }
+      await installPxpipe();
+    }
+    await loadPxpipe();
+    return NextResponse.json(getPxpipeStatus());
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error), code: (error as Record<string, unknown>).code || null }, { status: 500 });
+  }
+}
+// Application HTTP use case extracted from the Next.js route adapter.

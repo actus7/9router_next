@@ -103,7 +103,7 @@ export default function ClaudeToolCard({
       if (!claudeStatus) checkClaudeStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [claudeStatus, fetchModelAliases, isExpanded]);
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(data => {
@@ -145,7 +145,7 @@ export default function ClaudeToolCard({
       const data = await res.json();
       setClaudeStatus(data);
       setExaMcpEnabled(!!data.exaMcpEnabled);
-    } catch (error) {
+    } catch  {
       setClaudeStatus({ installed: false });
     } finally {
       setCheckingClaude(false);

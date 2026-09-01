@@ -35,8 +35,8 @@ const zed = {
     const auth: Record<string, unknown> = createZedNativeAuthData(config, { nativeAppPort });
     return { ...config, ...auth };
   },
-  buildAuthUrl: (config: Record<string, unknown>, redirectUri: string, state: string): string => config.authUrl as string,
-  exchangeToken: async (config: Record<string, unknown>, code: string, redirectUri: string, codeVerifier: string, state: string): Promise<Record<string, unknown>> => {
+  buildAuthUrl: (config: Record<string, unknown>, _redirectUri: string, _state: string): string => config.authUrl as string,
+  exchangeToken: async (config: Record<string, unknown>, code: string, redirectUri: string, codeVerifier: string, _state: string): Promise<Record<string, unknown>> => {
     const { userId, encryptedAccessToken } = parseZedCallbackPayload(code);
     const accessToken: string = decryptZedAccessToken(encryptedAccessToken, codeVerifier);
     return { accessToken, userId, systemId: config.systemId };

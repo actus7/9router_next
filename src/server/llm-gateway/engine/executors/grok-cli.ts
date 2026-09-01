@@ -64,7 +64,7 @@ const GROK_CLI_FREEFORM_TOOL_PARAMETERS = {
 
 // Per-session last turn index so multi-turn headers never go backwards within this process
 const sessionTurnStore = new Map();
-let requestTurnStore = new WeakMap();
+const requestTurnStore = new WeakMap();
 
 /**
  * Count user turns in a Responses `input` array.
@@ -115,14 +115,7 @@ function resolveGrokCliTurnIdx(sessionId: string, input: unknown, requestKey: un
 }
 
 /** Test helper — clear in-memory turn counters */
-function _resetGrokCliTurnStore() {
-  sessionTurnStore.clear();
-  requestTurnStore = new WeakMap();
-}
 
-function _getGrokCliTurnStoreSize() {
-  return sessionTurnStore.size;
-}
 
 function normalizeGrokCliEffort(value: unknown): string {
   const effort = typeof value === "string" ? value.trim().toLowerCase() : "";

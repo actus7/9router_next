@@ -5,7 +5,6 @@ import { Button, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/s
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
-import { matchKnownEndpoint } from "./cliEndpointMatch";
 import { ArrowRight, X } from "lucide-react";
 import ToolCardShell from "./ToolCardShell";
 
@@ -56,7 +55,7 @@ export default function KiloToolCard({ tool, isExpanded, onToggle, baseUrl, apiK
       if (!status) checkStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [isExpanded, status]);
 
   const fetchModelAliases = async () => {
     try {
@@ -88,7 +87,7 @@ export default function KiloToolCard({ tool, isExpanded, onToggle, baseUrl, apiK
       const res = await fetch("/api/cli-tools/kilo-settings");
       const data = await res.json();
       setStatus(data);
-    } catch (error) {
+    } catch  {
       setStatus({ installed: false });
     } finally {
       setChecking(false);

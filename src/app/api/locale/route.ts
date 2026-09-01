@@ -21,7 +21,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
 
     return NextResponse.json({ success: true, locale: normalized });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       { error: "Failed to set locale" },
       { status: 500 }

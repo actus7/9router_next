@@ -33,7 +33,7 @@ interface DeepSeekTuiToolCardProps {
 const ENDPOINT = "/api/cli-tools/deepseek-tui-settings";
 
 export default function DeepSeekTuiToolCard({
-  tool, isExpanded, onToggle, baseUrl, hasActiveProviders, apiKeys, activeProviders, cloudEnabled, initialStatus,
+  tool, isExpanded, onToggle, baseUrl: _baseUrl, hasActiveProviders, apiKeys, activeProviders, cloudEnabled, initialStatus,
   tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl,
 }: DeepSeekTuiToolCardProps) {
   const [deepseekStatus, setDeepseekStatus] = useState<StatusData | null>(initialStatus || null);
@@ -72,7 +72,7 @@ export default function DeepSeekTuiToolCard({
       if (!deepseekStatus) checkStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [deepseekStatus, isExpanded]);
 
   const fetchModelAliases = async () => {
     try {
@@ -98,7 +98,7 @@ export default function DeepSeekTuiToolCard({
       const res = await fetch(ENDPOINT);
       const data = await res.json();
       setDeepseekStatus(data);
-    } catch (error) {
+    } catch  {
       setDeepseekStatus({ installed: false });
     } finally {
       setChecking(false);

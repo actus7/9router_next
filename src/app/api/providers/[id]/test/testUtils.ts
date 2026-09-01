@@ -172,7 +172,7 @@ const OAUTH_TEST_CONFIG: Record<string, OAuthTestConfig> = {
  * account cannot spend — keep connection active and surface a warning.
  * Exported for unit tests.
  */
-function classifyOAuthProbeResult(res: Response | null, config: OAuthTestConfig | null, bodyText = ""): ProbeResult {
+function classifyOAuthProbeResult(res: Response | null, config: OAuthTestConfig | null, _bodyText = ""): ProbeResult {
   if (!res) return { valid: false, error: "No response", soft: false };
   const status = res.status;
   const accepted = res.ok || (config?.acceptStatuses && config.acceptStatuses.includes(status));
@@ -807,11 +807,11 @@ export async function testNoAuthProvider(providerId: string): Promise<{ valid: b
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(testUrl, {
+      void (await fetch(testUrl, {
         method: "GET",
         signal: controller.signal,
         headers: { "User-Agent": "ModelHub-BatchTest/1.0" },
-      });
+      }));
       clearTimeout(timer);
       const latencyMs = Date.now() - start;
       // Any HTTP response means the endpoint is reachable

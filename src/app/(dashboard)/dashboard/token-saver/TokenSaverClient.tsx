@@ -9,7 +9,6 @@ import { Zap } from "lucide-react";
 import { useHeadroom } from "./hooks/useHeadroom";
 import { usePxpipe } from "./hooks/usePxpipe";
 import { useTokenSaverSettings } from "./hooks/useTokenSaverSettings";
-import { patchSetting } from "./types";
 import HeadroomSection from "./sections/HeadroomSection";
 import HeadroomModal from "./sections/HeadroomModal";
 import PxpipeSection from "./sections/PxpipeSection";
@@ -19,7 +18,7 @@ export default function TokenSaverClient() {
   const settings = useTokenSaverSettings();
   const headroom = useHeadroom();
   const pxpipe = usePxpipe();
-  const { copied, copy } = useCopyToClipboard();
+  const {  } = useCopyToClipboard();
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -44,7 +43,7 @@ export default function TokenSaverClient() {
       } catch {}
     };
     loadSettings();
-  }, []);
+  }, [headroom, pxpipe, settings]);
 
   return (
     <div className="space-y-6 p-6">

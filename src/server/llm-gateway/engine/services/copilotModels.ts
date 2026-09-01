@@ -169,7 +169,3 @@ export async function resolveCopilotModels(credentials: Credentials, options: Co
   catalogCache.set(key, { expiresAt: now + CACHE_TTL_MS, models });
   return { models };
 }
-
-function clearCopilotModelCache(): void {
-  catalogCache.clear();
-}

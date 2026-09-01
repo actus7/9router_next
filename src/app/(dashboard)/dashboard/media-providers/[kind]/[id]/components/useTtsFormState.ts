@@ -107,7 +107,7 @@ export function useTtsFormState({ providerId }: { providerId: string }) {
         }
       }
     }
-  }, [providerId]);
+  }, [config.hasBrowseButton, config.hasModelSelector, config.modelKey, config.voiceKey, config.voiceSource, config.voicesPerModel, providerId]);
 
   useEffect(() => {
     if (!config.voicesPerModel || !selectedModel) return;
@@ -120,7 +120,7 @@ export function useTtsFormState({ providerId }: { providerId: string }) {
       setSelectedVoice("");
       setSelectedVoiceName("");
     }
-  }, [selectedModel]);
+  }, [config.voicesPerModel, providerId, selectedModel]);
 
   const openModal = async () => {
     setModalOpen(true);

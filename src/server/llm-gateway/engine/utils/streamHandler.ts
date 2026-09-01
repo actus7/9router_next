@@ -170,7 +170,7 @@ function createDisconnectAwareStream(transformStream: TransformStream<Uint8Array
           } else {
             controller.error(err);
           }
-        } catch (e) { /* already closed or cancelled */ }
+        } catch  { /* already closed or cancelled */ }
       }
     },
 

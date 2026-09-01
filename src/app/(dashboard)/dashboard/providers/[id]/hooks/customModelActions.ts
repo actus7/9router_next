@@ -1,6 +1,5 @@
 "use client";
 
-import type { CustomModelEntry } from "../types";
 
 export async function addCustomModelApi(
   providerAliasOverride: string,

@@ -8,7 +8,7 @@ import zlib from "zlib";
 
 const DEBUG = process.env.CURSOR_PROTOBUF_DEBUG === "1";
 const log = (tag: string, ...args: unknown[]) => DEBUG && console.log(`[PROTOBUF:${tag}]`, ...args);
-const textDecoder = new TextDecoder();
+void (new TextDecoder());
 
 const PROTOBUF_SCHEMA_VERSION = "1.1.3";
 
@@ -21,7 +21,6 @@ const ROLE = { USER: 1, ASSISTANT: 2 };
 const UNIFIED_MODE = { CHAT: 1, AGENT: 2 };
 
 const THINKING_LEVEL = { UNSPECIFIED: 0, MEDIUM: 1, HIGH: 2 };
-const CLIENT_SIDE_TOOL_V2 = { MCP: 19 };
 const CLIENT_SIDE_TOOL_V2_MCP = 19;
 
 const FIELD = {
@@ -371,7 +370,7 @@ function encodeToolResult(toolResult: Record<string, unknown>) {
   );
 }
 
-function encodeMessage(content: string, role: number, messageId: string, chatModeEnum: number | null = null, isLast = false, hasTools = false, toolResults: Record<string, unknown>[] = [], serverBubbleId: string | null = null) {
+function encodeMessage(content: string, role: number, messageId: string, _chatModeEnum: number | null = null, isLast = false, hasTools = false, toolResults: Record<string, unknown>[] = [], serverBubbleId: string | null = null) {
   const hasToolResults = toolResults.length > 0;
   return concatArrays(
     encodeField(FIELD.MSG_CONTENT, WIRE_TYPE.LEN, content),
@@ -596,39 +595,6 @@ function buildChatRequest(messages: Record<string, unknown>[], modelName: string
  * This is sent as a SEPARATE request frame, not inside conversation messages.
  * Proto: StreamUnifiedChatRequestWithTools.client_side_tool_v2_result = 2
  */
-function buildToolResultRequest(toolResult: Record<string, unknown>) {
-  const { toolCallId, modelCallId } = parseToolId((toolResult.tool_call_id as string) || "");
-  const rawName = (toolResult.tool_name as string) || "";
-  const resultContent = (toolResult.result_content as string) || "";
-
-  // selected_tool = raw tool name (e.g. "Write", "Read") per cursor-api Rust source:
-  // McpResult { selected_tool: tool_name, result } where tool_name is the mcpParams.tools[0].name
-  // which is the name AFTER server prefix stripping (e.g. "custom_Write" -> name = "Write")
-  // Actually cursor-api uses: name = tool_name.slice_unchecked(d+1..) → raw name without "custom_"
-  // So selected_tool = raw tool name without any prefix
-  const selectedTool = rawName.startsWith("mcp_custom_")
-    ? rawName.slice("mcp_custom_".length)
-    : rawName.startsWith("mcp_")
-    ? rawName.slice(4)
-    : rawName;
-
-  // ClientSideToolV2Result per proto:
-  //   field 1 (tool): varint = 19 (MCP)
-  //   field 28 (mcp_result): LEN { field 1: selected_tool, field 2: result }
-  //   field 35 (tool_call_id): string
-  //   field 48 (model_call_id): string (optional)
-  //   NO tool_index (None in Rust source: encode_tool_result sets tool_index: None)
-  const cv2Result = concatArrays(
-    encodeField(FIELD.CV2R_TOOL, WIRE_TYPE.VARINT, CLIENT_SIDE_TOOL_V2_MCP),
-    encodeField(FIELD.CV2R_MCP_RESULT, WIRE_TYPE.LEN, encodeMcpResult(selectedTool, resultContent)),
-    encodeField(FIELD.CV2R_CALL_ID, WIRE_TYPE.LEN, toolCallId),
-    ...(modelCallId ? [encodeField(FIELD.CV2R_MODEL_CALL_ID, WIRE_TYPE.LEN, modelCallId)] : [])
-    // tool_index intentionally omitted (None per Rust source)
-  );
-
-  // StreamUnifiedChatRequestWithTools: field 2 = client_side_tool_v2_result
-  return encodeField(2, WIRE_TYPE.LEN, cv2Result);
-}
 
 export function wrapConnectRPCFrame(payload: Uint8Array, compress = false) {
   let finalPayload = payload;
@@ -664,10 +630,6 @@ export function generateCursorBody(messages: Record<string, unknown>[], modelNam
  * Generate a framed tool result body to send as a separate request frame.
  * Uses field 2 (client_side_tool_v2_result) of StreamUnifiedChatRequestWithTools.
  */
-function generateToolResultBody(toolResult: Record<string, unknown>) {
-  const protobuf = buildToolResultRequest(toolResult);
-  return wrapConnectRPCFrame(protobuf, false);
-}
 
 // ==================== PRIMITIVE DECODING ====================
 

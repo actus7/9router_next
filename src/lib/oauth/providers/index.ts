@@ -95,9 +95,6 @@ export function getProvider(name: string): ProviderHandler {
 /**
  * Get all provider names
  */
-function getProviderNames(): string[] {
-  return Object.keys(PROVIDERS);
-}
 
 interface AuthData {
   authUrl: string | null;

@@ -195,9 +195,6 @@ export function getConnectionsEmptyMessage(totals: Totals, providerFilter: strin
   };
 }
 
-function sortRequestFromExpiringFirst(expiringFirst: boolean): string {
-  return expiringFirst ? "expiring" : "priority";
-}
 
 export function getPageSizeLabel(pageSize: number, isCustomPageSize: boolean): string {
   return isCustomPageSize ? `Custom: ${pageSize} / page` : `${pageSize} / page`;
@@ -303,7 +300,7 @@ export function formatResetTime(date: string | Date | null | undefined): string 
     const days = Math.floor(totalHours / 24);
     const remainingHours = totalHours % 24;
     return `${days}d ${remainingHours}h ${remainingMinutes}m`;
-  } catch (error) {
+  } catch  {
     return "-";
   }
 }
@@ -313,22 +310,12 @@ export function formatResetTime(date: string | Date | null | undefined): string 
  * @param percentage - Remaining percentage (0-100)
  * @returns Color name: "green" | "yellow" | "red"
  */
-function getStatusColor(percentage: number): string {
-  if (percentage > 70) return "green";
-  if (percentage >= 30) return "yellow";
-  return "red"; // 0-29% including 0% (out of quota) - show red
-}
 
 /**
  * Get status emoji based on percentage
  * @param percentage - Remaining percentage (0-100)
  * @returns Emoji: "🟢" | "🟡" | "🔴"
  */
-function getStatusEmoji(percentage: number): string {
-  if (percentage > 70) return "🟢";
-  if (percentage >= 30) return "🟡";
-  return "🔴"; // 0-29% including 0% (out of quota) - show red
-}
 
 /**
  * Calculate remaining percentage

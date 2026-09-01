@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import unusedImports from "eslint-plugin-unused-imports";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -9,16 +10,28 @@ const eslintConfig = defineConfig([
   // compiler-only static analyses cannot be enforced yet. Re-enable them when
   // the compiler becomes part of the production build.
   {
+    plugins: {
+      "unused-imports": unusedImports,
+    },
     rules: {
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/immutability": "off",
       "react-hooks/purity": "off",
       "react-hooks/refs": "off",
-      "react-hooks/exhaustive-deps": "off",
+      "react-hooks/exhaustive-deps": "error",
       // These legacy style rules have no runtime effect and would require a
       // repository-wide mechanical rewrite. TypeScript remains the source of
       // truth for type safety while the gateway migration is in progress.
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+      "unused-imports/no-unused-imports": "error",
       "@typescript-eslint/no-unused-expressions": "off",
       "import/no-anonymous-default-export": "off",
       // Provider media can be blob/data URLs or remote endpoints without
@@ -43,6 +56,24 @@ const eslintConfig = defineConfig([
             {
               group: ["@/lib/open-sse", "@/lib/open-sse/*", "@/sse", "@/sse/*"],
               message: "Import from @/server/llm-gateway/* (server) or @/shared/llm-catalog (client) instead.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Next route files are transport adapters only. Persistence belongs behind
+  // application use cases so HTTP concerns cannot bypass domain boundaries.
+  {
+    files: ["src/app/api/**/route.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/lib/db/repos", "@/lib/db/repos/*", "@/lib/db/driver", "@/lib/db/driver/*"],
+              message: "Route Handlers must delegate persistence to a server/application use case.",
             },
           ],
         },

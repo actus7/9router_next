@@ -31,7 +31,7 @@ export function useMcpMarketplace(isOpen: boolean, addedNames: string[]) {
       .then((d) => { if (d.error) setError(d.error); else setServers(d.servers || []); })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [isOpen]);
+  }, [isOpen, servers.length]);
 
   const addedSet = useMemo(() => new Set(addedNames), [addedNames]);
 

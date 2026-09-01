@@ -4,24 +4,17 @@ export {
   getModelsByProviderId,
 } from "@/shared/llm-catalog";
 
-import { AI_PROVIDERS, isOpenAICompatibleProvider } from "./providers";
+import { AI_PROVIDERS } from "./providers";
 import { PROVIDER_MODELS as MODELS } from "@/shared/llm-catalog";
 
 // Providers that accept any model (passthrough)
-const PASSTHROUGH_PROVIDERS = new Set(
+void (new Set(
   Object.entries(AI_PROVIDERS)
     .filter(([, p]) => p.passthroughModels)
     .map(([key]) => key)
-);
+));
 
 // Wrap isValidModel with passthrough providers
-function isValidModel(aliasOrId: string, modelId: string): boolean {
-  if (isOpenAICompatibleProvider(aliasOrId)) return true;
-  if (PASSTHROUGH_PROVIDERS.has(aliasOrId)) return true;
-  const models = MODELS[aliasOrId] as { id: string }[] | undefined;
-  if (!models) return false;
-  return models.some((m) => m.id === modelId);
-}
 
 // Legacy AI_MODELS for backward compatibility
 export const AI_MODELS = Object.entries(MODELS as Record<string, { id: string; name: string }[]>).flatMap(([alias, models]) =>

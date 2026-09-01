@@ -9,7 +9,7 @@ const INSTALL_LOG: string = path.join(PXPIPE_DIR, "install.log");
 const INSTALL_TIMEOUT_MS: number = 5 * 60 * 1000;
 
 const IS_WIN: boolean = process.platform === "win32";
-const NPM_CMD: string = IS_WIN ? "npm.cmd" : "npm";
+void (IS_WIN ? "npm.cmd" : "npm");
 
 // Same PATH extension trick as headroom/detect.js: packaged/launchd environments
 // often miss the Node bin dirs.

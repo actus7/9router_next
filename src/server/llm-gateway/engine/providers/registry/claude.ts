@@ -1,4 +1,3 @@
-import { CLAUDE_CLI_SPOOF_HEADERS } from "../shared";
 
 export default {
   id: "claude",

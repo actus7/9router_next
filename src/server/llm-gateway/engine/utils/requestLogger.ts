@@ -179,7 +179,7 @@ export async function createRequestLogger(sourceFormat: string, targetFormat: st
       try {
         const filePath = path!.join(sessionPath, "5_res_provider.txt");
         fs.appendFileSync(filePath, chunk);
-      } catch (err) {
+      } catch  {
         // Ignore append errors
       }
     },
@@ -190,7 +190,7 @@ export async function createRequestLogger(sourceFormat: string, targetFormat: st
       try {
         const filePath = path!.join(sessionPath, "6_res_openai.txt");
         fs.appendFileSync(filePath, chunk);
-      } catch (err) {
+      } catch  {
         // Ignore append errors
       }
     },
@@ -209,7 +209,7 @@ export async function createRequestLogger(sourceFormat: string, targetFormat: st
       try {
         const filePath = path!.join(sessionPath, "7_res_client.txt");
         fs.appendFileSync(filePath, chunk);
-      } catch (err) {
+      } catch  {
         // Ignore append errors
       }
     },
@@ -227,31 +227,3 @@ export async function createRequestLogger(sourceFormat: string, targetFormat: st
 }
 
 // Legacy functions for backward compatibility
-function logRequest() {}
-function logResponse() {}
-function logError(provider: string, { error, url, model, requestBody }: { error: unknown; url?: string; model?: string; requestBody?: unknown }) {
-  if (!fs || !LOGS_DIR) return;
-  
-  try {
-    if (!fs.existsSync(/*turbopackIgnore: true*/ LOGS_DIR)) {
-      fs.mkdirSync(LOGS_DIR, { recursive: true });
-    }
-    
-    const date = new Date().toISOString().split("T")[0];
-    const logPath = path!.join(LOGS_DIR, `${provider}-${date}.log`);
-    
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      type: "error",
-      provider,
-      model,
-      url,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      requestBody
-    };
-    
-    fs.appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
-  } catch (err: unknown) { console.error("[LOG] Failed to write error log:", err instanceof Error ? err.message : String(err));
-  }
-}

@@ -99,8 +99,3 @@ export async function getAdapter(): Promise<DbAdapter> {
   if (!state.initPromise) state.initPromise = initAdapter().then((a: DbAdapter) => { state.instance = a; return a; });
   return state.initPromise;
 }
-
-function getAdapterSync(): DbAdapter {
-  if (!state.instance) throw new Error("[DB] adapter not initialized — await getAdapter() first");
-  return state.instance;
-}

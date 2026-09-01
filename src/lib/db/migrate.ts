@@ -267,7 +267,7 @@ export async function runMigrationOnce(adapter: DbAdapter): Promise<void> {
   }
 
   // 1. Always run versioned migrations chain (skip-version safe)
-  const migInfo: { applied: number; from: number; to: number } = runVersionedMigrations(adapter);
+  void (runVersionedMigrations(adapter));
 
   // 2. Additive sync (auto add missing columns/indexes declared in TABLES)
   syncSchemaFromTables(adapter);

@@ -68,7 +68,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
       if (!status) checkStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [fetchModelAliases, isExpanded, status]);
 
   useEffect(() => {
     if (status?.opencode?.models) setSelectedModels(status.opencode.models);
@@ -117,7 +117,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
       const res = await fetch("/api/cli-tools/opencode-settings");
       const data = await res.json();
       setStatus(data);
-    } catch (error) {
+    } catch  {
       setStatus({ installed: false });
     } finally {
       setChecking(false);

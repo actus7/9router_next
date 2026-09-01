@@ -6,7 +6,7 @@ import { checkFallbackError, formatRetryAfter } from "./accountFallback";
 import { unavailableResponse } from "../utils/error";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import { extractTextContent } from "../translator/formats/gemini";
-import type { Logger, ComboEntry, CombosData, RequestBody } from "./types";
+import type { Logger, ComboEntry, CombosData } from "./types";
 import { getRoutingDecision } from "./smart-routing/context";
 
 // Hard capabilities = input modalities; missing one drops request data (e.g. image

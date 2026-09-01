@@ -1,8 +1,8 @@
 "use client";
 
-import { Card, Button, Input, Modal, ConfirmModal } from "@/shared/components";
+import { Button, Input, Modal, ConfirmModal } from "@/shared/components";
 import StatusAlert from "../components/StatusAlert";
-import { Check, CheckCircle2, CloudUpload, Copy, Loader2, Lock } from "lucide-react";
+import { Check, CheckCircle2, CloudUpload, Copy, Loader2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { TUNNEL_BENEFITS } from "../endpointConstants";
 import type { StatusInfo, ConfirmState } from "../types";
@@ -55,7 +55,7 @@ export default function EndpointModals({
   createdKey, setCreatedKey, copied, copy,
   showEnableTunnelModal, setShowEnableTunnelModal, handleEnableTunnel,
   showDisableTunnelModal, setShowDisableTunnelModal, handleDisableTunnel, tunnelLoading,
-  showTsModal, setShowTsModal, tsInstalled, tsInstalling, tsInstallLog, tsSudoPassword, setTsSudoPassword, tsStatus, handleInstallTailscale, handleConnectTailscale, tsLogRef,
+  showTsModal, setShowTsModal, tsInstalled, tsInstalling, tsInstallLog, tsSudoPassword: _tsSudoPassword, setTsSudoPassword, tsStatus, handleInstallTailscale, handleConnectTailscale, tsLogRef,
   showDisableTsModal, setShowDisableTsModal, handleDisableTailscale, tsLoading,
   confirmState, setConfirmState,
 }: EndpointModalsProps) {

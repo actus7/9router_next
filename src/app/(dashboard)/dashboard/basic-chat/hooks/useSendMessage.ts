@@ -30,7 +30,7 @@ export function useSendMessage({
   const resetStream = useCallback(() => { setStreamingMessageId(""); setStreamingText(""); }, []);
   const handleStop = () => { abortRef.current?.abort(); };
 
-  async function sendMessage(options?: SendMessageOptions) {
+  const sendMessage = useCallback(async (options?: SendMessageOptions) => {
     const model = activeModel || activeProviderGroup?.models?.[0] || null;
     if (!model) return;
     const userText = (options?.text ?? draft).trim();
@@ -82,7 +82,25 @@ export function useSendMessage({
       setIsSending(false); setStreamingMessageId(""); setStreamingText("");
       abortRef.current = null;
     }
-  }
+  }, [
+    activeModel,
+    activeProviderGroup,
+    draft,
+    attachments,
+    activeSessionId,
+    sessions,
+    ensureSessionForModel,
+    setSessions,
+    setActiveSessionId,
+    recordHarnessEvent,
+    setDraft,
+    setAttachments,
+    systemPrompt,
+    temperature,
+    apiKey,
+    updateSession,
+    setBlockedModelIds,
+  ]);
 
   const handleCopyMessage = useCallback(async (messageId: string, content: string) => {
     try {
@@ -95,7 +113,7 @@ export function useSendMessage({
   const handleRetryMessage = useCallback((messageId: string) => {
     const opts = prepareRetryMessage(sessions, activeSessionId, activeModel, messageId);
     if (opts) void sendMessage(opts);
-  }, [sessions, activeSessionId, activeModel]);
+  }, [sessions, activeSessionId, activeModel, sendMessage]);
 
   const handleFeedback = useCallback((messageId: string, feedback: "up" | "down") => {
     updateSession(activeSessionId, (session) => ({

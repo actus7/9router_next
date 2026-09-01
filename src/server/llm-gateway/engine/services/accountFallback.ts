@@ -1,5 +1,4 @@
 import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig";
-import type { Account, ErrorRule } from "./types";
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -53,35 +52,16 @@ export function checkFallbackError(status: number, errorText: string | unknown, 
 /**
  * Check if account is currently unavailable (cooldown not expired)
  */
-function isAccountUnavailable(unavailableUntil: string | undefined | null) {
-  if (!unavailableUntil) return false;
-  return new Date(unavailableUntil).getTime() > Date.now();
-}
 
 /**
  * Calculate unavailable until timestamp
  */
-function getUnavailableUntil(cooldownMs: number) {
-  return new Date(Date.now() + cooldownMs).toISOString();
-}
 
 /**
  * Get the earliest rateLimitedUntil from a list of accounts
  * @param {Array} accounts - Array of account objects with rateLimitedUntil
  * @returns {string|null} Earliest rateLimitedUntil ISO string, or null
  */
-function getEarliestRateLimitedUntil(accounts: Account[]) {
-  let earliest = null;
-  const now = Date.now();
-  for (const acc of accounts) {
-    if (!acc.rateLimitedUntil) continue;
-    const until = new Date(acc.rateLimitedUntil).getTime();
-    if (until <= now) continue;
-    if (!earliest || until < earliest) earliest = until;
-  }
-  if (!earliest) return null;
-  return new Date(earliest).toISOString();
-}
 
 /**
  * Format rateLimitedUntil to human-readable "reset after Xm Ys"
@@ -106,17 +86,6 @@ export function formatRetryAfter(rateLimitedUntil: string) {
 /**
  * Filter available accounts (not in cooldown)
  */
-function filterAvailableAccounts(accounts: Account[], excludeId: string | null = null) {
-  const now = Date.now();
-  return accounts.filter((acc: Account) => {
-    if (excludeId && acc.id === excludeId) return false;
-    if (acc.rateLimitedUntil) {
-      const until = new Date(acc.rateLimitedUntil).getTime();
-      if (until > now) return false;
-    }
-    return true;
-  });
-}
 
 /**
  * Reset account state when request succeeds
@@ -124,16 +93,6 @@ function filterAvailableAccounts(accounts: Account[], excludeId: string | null =
  * @param {object} account - Account object
  * @returns {object} Updated account with reset state
  */
-function resetAccountState(account: Account) {
-  if (!account) return account;
-  return {
-    ...account,
-    rateLimitedUntil: null,
-    backoffLevel: 0,
-    lastError: null,
-    status: "active"
-  };
-}
 
 /**
  * Apply error state to account
@@ -142,17 +101,3 @@ function resetAccountState(account: Account) {
  * @param {string} errorText - Error message
  * @returns {object} Updated account with error state
  */
-function applyErrorState(account: Account, status: number, errorText: string) {
-  if (!account) return account;
-
-  const backoffLevel = account.backoffLevel || 0;
-  const { cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel);
-
-  return {
-    ...account,
-    rateLimitedUntil: cooldownMs && cooldownMs > 0 ? getUnavailableUntil(cooldownMs as number) : null,
-    backoffLevel: newBackoffLevel ?? backoffLevel,
-    lastError: { status, message: errorText, timestamp: new Date().toISOString() },
-    status: "error"
-  };
-}

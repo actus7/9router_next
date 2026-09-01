@@ -7,7 +7,6 @@ import {
   shouldResetPage,
   ACCOUNT_FILTER_OPTIONS,
   QUOTA_SORT_OPTIONS,
-  type Connection,
 } from "../utils";
 import { translate } from "@/i18n/runtime";
 import {

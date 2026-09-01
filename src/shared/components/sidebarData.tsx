@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CloudUpload, Film, FolderOpen, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Puzzle, ScanEye, Server, Settings, Terminal, Webhook, Braces } from "lucide-react";
+import { BarChart3, CloudUpload, Film, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Puzzle, ScanEye, Server, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export const KIND_ICON_MAP: Record<string, LucideIcon> = {

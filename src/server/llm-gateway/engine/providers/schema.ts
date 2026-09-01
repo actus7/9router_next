@@ -56,21 +56,5 @@ export const PROVIDER_DEFAULTS = {
 };
 
 // Default endpoints per format (provider only overrides what differs)
-const ENDPOINT_DEFAULTS = {
-  openai: { chat: "/chat/completions", test: "/models", models: "/models" },
-  claude: { chat: "/messages", test: "/models", countTokens: "/messages/count_tokens" },
-  gemini: { chat: "/{model}:streamGenerateContent", models: "/models", test: "/models" }
-};
 
 // Deep-merge a provider entry over PROVIDER_DEFAULTS (defensive for missing transport)
-function resolveProvider(entry: Record<string, unknown>) {
-  const transport = (entry && (entry.transport as Record<string, unknown>)) || {};
-  return {
-    ...PROVIDER_DEFAULTS,
-    ...transport,
-    headers: { ...PROVIDER_DEFAULTS.headers, ...(transport.headers as Record<string, string> || {}) },
-    auth: { ...PROVIDER_DEFAULTS.auth, ...(transport.auth as Record<string, unknown> || {}) },
-    quirks: { ...PROVIDER_DEFAULTS.quirks, ...(transport.quirks as Record<string, unknown> || {}) },
-    retry: { ...PROVIDER_DEFAULTS.retry, ...(transport.retry as Record<string, unknown> || {}) }
-  };
-}

@@ -5,13 +5,13 @@
  * → token savers → proxy logging → execution error → token refresh → upstream error.
  */
 
-import { detectFormat, getTargetFormat, resolveTransport } from "../../services/provider";
+import { getTargetFormat, resolveTransport } from "../../services/provider";
 import { translateRequest } from "../../translator/index";
 import { applyThinking, extractThinking, stripThinkingSuffix } from "../../translator/concerns/thinkingUnified";
 import { FORMATS } from "../../translator/formats";
 import { normalizeClaudePassthrough, anchorClaudeCache } from "../../translator/formats/claude";
 import { createErrorResult, parseUpstreamError, formatProviderError } from "../../utils/error";
-import { HTTP_STATUS, TOKEN_SAVER_HEADER } from "../../config/runtimeConfig";
+import { HTTP_STATUS } from "../../config/runtimeConfig";
 import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "../../host/usage";
 import { getExecutor } from "../../executors/index";
 import { supportsGrokCliReasoningEffort } from "../../config/grokCli";

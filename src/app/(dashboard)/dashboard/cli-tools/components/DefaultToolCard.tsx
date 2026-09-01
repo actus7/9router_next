@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Card, ModelSelectModal, ActiveProvider } from "@/shared/components";
-import Button from "@/shared/components/Button";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Image from "next/image";
@@ -22,7 +21,6 @@ interface ToolInfo {
   guideSteps?: Array<{ step: number; title: string; desc?: string; type?: string; value?: string; copyable?: boolean }>;
   codeBlock?: { language: string; code: string };
 }
-interface StatusData { installed?: boolean; hasModelHub?: boolean; }
 
 interface DefaultToolCardProps {
   toolId: string;

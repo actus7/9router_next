@@ -34,7 +34,7 @@ function postProcessForVertex(body: Record<string, unknown>) {
   return body;
 }
 
-function openaiToVertexRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: unknown) {
+function openaiToVertexRequest(model: string, body: Record<string, unknown>, stream: boolean, _credentials?: unknown) {
   const gemini = openaiToGeminiRequest(model, body, stream);
   return postProcessForVertex(gemini);
 }

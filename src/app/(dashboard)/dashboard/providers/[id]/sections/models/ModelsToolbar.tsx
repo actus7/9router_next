@@ -21,7 +21,7 @@ interface ModelsToolbarProps {
 }
 
 export default function ModelsToolbar({
-  providerId,
+  providerId: _providerId,
   isCompatible,
   thinkingMode,
   onThinkingModeChange,

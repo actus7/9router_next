@@ -1,7 +1,7 @@
 import { BaseExecutor } from "./base";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { PROVIDERS } from "../config/providers";
-import type { Credentials, Logger } from "../services/types";
+import type { Credentials } from "../services/types";
 
 // Trae executor — SOLO remote agent API.
 //

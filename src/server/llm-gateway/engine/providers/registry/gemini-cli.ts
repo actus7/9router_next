@@ -1,4 +1,3 @@
-import { GOOGLE_OAUTH_CLIENT } from "../shared";
 
 export default {
   id: "gemini-cli",

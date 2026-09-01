@@ -1,4 +1,4 @@
-import { exec, spawn, execSync } from "child_process";
+import { spawn, execSync } from "child_process";
 import crypto from "crypto";
 
 const IS_WIN: boolean = process.platform === "win32";
@@ -51,9 +51,6 @@ export function getCachedPassword(): string | null {
   return (globalThis as unknown as Record<string, unknown>).__elevatedSudoPassword as string || null;
 }
 
-function setCachedPassword(pwd: string | null): void {
-  (globalThis as unknown as Record<string, unknown>).__elevatedSudoPassword = pwd;
-}
 
 function deriveKey(): Buffer {
   try {
@@ -66,14 +63,6 @@ function deriveKey(): Buffer {
   }
 }
 
-function encryptPassword(plaintext: string): string {
-  const key: Buffer = deriveKey();
-  const iv: Buffer = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv(ENCRYPT_ALGO, key, iv);
-  const encrypted: Buffer = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag: Buffer = cipher.getAuthTag();
-  return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted.toString("hex")}`;
-}
 
 function decryptPassword(stored: string): string | null {
   try {
@@ -92,11 +81,9 @@ type SettingsGetter = (() => Promise<Record<string, unknown>>) | null;
 type SettingsUpdater = ((updates: Record<string, unknown>) => Promise<Record<string, unknown>>) | null;
 
 let _getSettings: SettingsGetter = null;
-let _updateSettings: SettingsUpdater = null;
 
-export function initDbHooks(getSettingsFn: SettingsGetter, updateSettingsFn: SettingsUpdater): void {
+export function initDbHooks(getSettingsFn: SettingsGetter, _updateSettingsFn: SettingsUpdater): void {
   _getSettings = getSettingsFn;
-  _updateSettings = updateSettingsFn;
 }
 
 export async function loadEncryptedPassword(): Promise<string | null> {

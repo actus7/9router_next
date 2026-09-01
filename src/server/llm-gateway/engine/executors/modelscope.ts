@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { DefaultExecutor } from "./default";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { dbg } from "../utils/debugLog";
-import type { Credentials, Logger } from "../services/types";
+import type { Logger } from "../services/types";
 
 /**
  * ModelScopeExecutor — extends DefaultExecutor with custom credential validation.

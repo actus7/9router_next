@@ -11,7 +11,7 @@ import { join, relative } from "node:path";
  */
 
 const ENGINE_ROOT = join(__dirname, "..", "..", "src", "server", "llm-gateway", "engine");
-const HOST_DIR_SEGMENT = `${join("engine", "host")}`;
+void (`${join("engine", "host")}`);
 const FORBIDDEN = ["@/lib/", "@/shared/", "@/app/", "@/server/llm-gateway/"];
 
 function listTsFiles(dir: string): string[] {

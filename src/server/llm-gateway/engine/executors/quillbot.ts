@@ -151,40 +151,34 @@ function* parseQuillbotStream(rawText: string): Generator<QuillbotChunk> {
 
 // ── SSE stream builder ───────────────────────────────────────────────────────
 
+
 function buildStreamingResponse(rawText: string, model: string, cid: string, created: number): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream({
     start(controller) {
       try {
-        // Initial role chunk
         controller.enqueue(encoder.encode(sseChunk({
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
           choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null, logprobs: null }],
         })));
-
-        let sawCompleted = false;
         for (const chunk of parseQuillbotStream(rawText)) {
           if (chunk.type === "content" && chunk.content) {
             controller.enqueue(encoder.encode(sseChunk({
               id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
               choices: [{ index: 0, delta: { content: chunk.content }, finish_reason: null, logprobs: null }],
             })));
-          } else if (chunk.type === "status" && chunk.status === "completed") {
-            sawCompleted = true;
           }
         }
-
-        // Always emit stop
         controller.enqueue(encoder.encode(sseChunk({
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
           choices: [{ index: 0, delta: {}, finish_reason: "stop", logprobs: null }],
         })));
         controller.enqueue(encoder.encode(SSE_DONE));
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         controller.enqueue(encoder.encode(sseChunk({
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
-          choices: [{ index: 0, delta: { content: `[Stream error: ${msg}]` }, finish_reason: "stop", logprobs: null }],
+          choices: [{ index: 0, delta: { content: `[Stream error: ${message}]` }, finish_reason: "stop", logprobs: null }],
         })));
         controller.enqueue(encoder.encode(SSE_DONE));
       } finally {
@@ -219,7 +213,7 @@ export class QuillbotExecutor extends BaseExecutor {
     super("quillbot", { ...PROVIDERS["quillbot"], noAuth: true });
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: ExecuteArgs) {
+  async execute({ model, body, stream, credentials: _credentials, signal, log, proxyOptions = null }: ExecuteArgs) {
     const messages = body?.messages as Record<string, unknown>[] | undefined;
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       const errResp = new Response(JSON.stringify({

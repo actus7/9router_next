@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { buildModelsList } from "../route";
+import { buildModelsList } from "@/server/application/use-cases/http/v1/models/route";
 
 // URL slug → service kind(s). `web` covers both webSearch and webFetch.
 const KIND_SLUG_MAP: Record<string, string[]> = {

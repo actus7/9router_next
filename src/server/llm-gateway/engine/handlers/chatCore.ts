@@ -14,7 +14,6 @@ import {
   applyProviderThinkingOverride,
   resolveStreamMode,
   prepareTranslatedBody,
-  normalizeModalities,
   runTokenSavers,
   logRequestSummary,
   applyTtsCleanup,
@@ -23,7 +22,6 @@ import {
   attemptTokenRefresh,
   handleUpstreamError,
 } from "./chatCore/phases";
-import { saveRequestDetail } from "../host/usage";
 import type { HandleChatCoreOptions } from "./chatCore/types";
 
 /**
@@ -143,7 +141,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   const sharedCtx = { provider, model, body, stream, translatedBody: finalTranslatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
-  const appendLog = (extra: Record<string, unknown>) => appendRequestLog().catch(() => { });
+  const appendLog = (_extra: Record<string, unknown>) => appendRequestLog().catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
   // Provider forced streaming but client wants JSON

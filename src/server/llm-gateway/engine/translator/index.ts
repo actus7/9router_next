@@ -6,7 +6,6 @@ import { filterToOpenAIFormat } from "./formats/openai";
 import { normalizeThinkingConfig } from "../services/provider";
 import { applyThinking, captureThinking } from "./concerns/thinkingUnified";
 import { captureSessionId } from "../utils/sessionManager";
-import { AntigravityExecutor } from "../executors/antigravity";
 import { PROVIDERS } from "../providers/index";
 import { requestRegistry, responseRegistry } from "./registry";
 
@@ -43,7 +42,7 @@ function stripContentTypes(body: Record<string, unknown>, stripList: string[] = 
 }
 
 // Translate request: source -> openai -> target
-export function translateRequest(sourceFormat: string, targetFormat: string, model: string, body: Record<string, unknown>, stream = true, credentials: Credentials | null = null, provider: string | null = null, reqLogger: RequestLogger | null = null, stripList: string[] = [], connectionId: string | null = null, clientTool: string | null = null) {
+export function translateRequest(sourceFormat: string, targetFormat: string, model: string, body: Record<string, unknown>, stream = true, credentials: Credentials | null = null, provider: string | null = null, reqLogger: RequestLogger | null = null, stripList: string[] = [], connectionId: string | null = null, _clientTool: string | null = null) {
   let result = body;
 
   // Strip explicit content types (opt-in via strip[] in PROVIDER_MODELS entry)

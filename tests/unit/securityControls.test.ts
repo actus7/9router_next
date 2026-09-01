@@ -28,7 +28,22 @@ describe("SSRF guard (assertPublicUrl)", () => {
   });
 
   it("blocks private/reserved IPv4 ranges", () => {
-    for (const ip of ["10.0.0.5", "127.0.0.1", "169.254.169.254", "172.16.1.1", "172.31.255.255", "192.168.0.10", "0.0.0.0"]) {
+    for (const ip of [
+      "10.0.0.5",
+      "100.64.0.1",
+      "127.0.0.1",
+      "169.254.169.254",
+      "172.16.1.1",
+      "172.31.255.255",
+      "192.0.2.1",
+      "192.168.0.10",
+      "198.18.0.1",
+      "198.51.100.1",
+      "203.0.113.1",
+      "224.0.0.1",
+      "240.0.0.1",
+      "0.0.0.0",
+    ]) {
       expect(() => assertPublicUrl(`http://${ip}/x`), ip).toThrow(/private IP/);
     }
   });
@@ -43,6 +58,13 @@ describe("SSRF guard (assertPublicUrl)", () => {
     expect(() => assertPublicUrl("http://[fe80::1]/x")).toThrow(/private IP/);
     expect(() => assertPublicUrl("http://[fd00::1]/x")).toThrow(/private IP/);
     expect(() => assertPublicUrl("http://[::ffff:127.0.0.1]/x")).toThrow(/private IP/);
+    expect(() => assertPublicUrl("http://[2001:db8::1]/x")).toThrow(/private IP/);
+    expect(() => assertPublicUrl("http://[ff02::1]/x")).toThrow(/private IP/);
+  });
+
+  it("blocks non-HTTP protocols and embedded credentials", () => {
+    expect(() => assertPublicUrl("file:///etc/passwd")).toThrow(/unsupported protocol/);
+    expect(() => assertPublicUrl("https://user:password@example.com/x")).toThrow(/embedded credentials/);
   });
 });
 

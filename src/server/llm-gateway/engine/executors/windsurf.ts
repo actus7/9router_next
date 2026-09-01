@@ -1,6 +1,6 @@
 import { BaseExecutor } from "./base";
 import type { ExecuteArgs } from "./base";
-import type { Credentials, Logger } from "../services/types";
+import type { Credentials } from "../services/types";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { PROVIDERS } from "../config/providers";
 import { randomUUID } from "node:crypto";
@@ -224,132 +224,117 @@ function grpcWebFrame(payload: Uint8Array) {
 //   field 3 → DoneChunk    { field 1: UsageStats{ field1: prompt, field2: completion } }
 //   field 4 → ErrorChunk   { field 1: string message }
 
-function readVarint(buf: Uint8Array, offset: number): [number, number] {
+
+
+
+
+// ─── OpenAI messages → Windsurf wire ─────────────────────────────────────────
+
+function readVarint(buffer: Uint8Array, start: number): [number, number] {
   let result = 0;
   let shift = 0;
-  while (offset < buf.length) {
-    const b = buf[offset++];
-    result |= (b & 0x7f) << shift;
-    if ((b & 0x80) === 0) break;
+  let offset = start;
+  while (offset < buffer.length) {
+    const byte = buffer[offset++];
+    result |= (byte & 0x7f) << shift;
+    if ((byte & 0x80) === 0) break;
     shift += 7;
   }
   return [result >>> 0, offset];
 }
 
-function decodeStringField(buf: Uint8Array, targetField: number) {
+function decodeStringField(buffer: Uint8Array, targetField: number): string | null {
   let offset = 0;
-  while (offset < buf.length) {
-    let tag;
-    [tag, offset] = readVarint(buf, offset);
-    const fieldNum = tag >>> 3;
+  while (offset < buffer.length) {
+    let tag: number;
+    [tag, offset] = readVarint(buffer, offset);
+    const fieldNumber = tag >>> 3;
     const wireType = tag & 0x07;
     if (wireType === 2) {
-      let len;
-      [len, offset] = readVarint(buf, offset);
-      const payload = buf.slice(offset, offset + len);
-      offset += len;
-      if (fieldNum === targetField) return TEXT_DEC.decode(payload);
+      let length: number;
+      [length, offset] = readVarint(buffer, offset);
+      const payload = buffer.slice(offset, offset + length);
+      offset += length;
+      if (fieldNumber === targetField) return TEXT_DEC.decode(payload);
     } else if (wireType === 0) {
-      let v;
-      [v, offset] = readVarint(buf, offset);
-    } else if (wireType === 1) {
-      offset += 8;
-    } else if (wireType === 5) {
-      offset += 4;
-    } else {
-      break;
-    }
+      [, offset] = readVarint(buffer, offset);
+    } else if (wireType === 1) offset += 8;
+    else if (wireType === 5) offset += 4;
+    else break;
   }
   return null;
 }
 
-function decodeDoneChunk(buf: Uint8Array) {
-  // DoneChunk: field 1 = UsageStats (nested)
-  // UsageStats: field 1 = prompt_tokens (varint), field 2 = completion_tokens (varint)
+function decodeDoneChunk(buffer: Uint8Array): [number, number] {
   let offset = 0;
-  let usageBytes = null;
-  while (offset < buf.length) {
-    let tag;
-    [tag, offset] = readVarint(buf, offset);
-    const fieldNum = tag >>> 3;
+  let usageBytes: Uint8Array | null = null;
+  while (offset < buffer.length) {
+    let tag: number;
+    [tag, offset] = readVarint(buffer, offset);
+    const fieldNumber = tag >>> 3;
     const wireType = tag & 0x07;
     if (wireType === 2) {
-      let len;
-      [len, offset] = readVarint(buf, offset);
-      if (fieldNum === 1) usageBytes = buf.slice(offset, offset + len);
-      offset += len;
-    } else if (wireType === 0) {
-      let v;
-      [v, offset] = readVarint(buf, offset);
-    } else {
-      break;
-    }
+      let length: number;
+      [length, offset] = readVarint(buffer, offset);
+      if (fieldNumber === 1) usageBytes = buffer.slice(offset, offset + length);
+      offset += length;
+    } else if (wireType === 0) [, offset] = readVarint(buffer, offset);
+    else break;
   }
   if (!usageBytes) return [0, 0];
+
   let promptTokens = 0;
   let completionTokens = 0;
   offset = 0;
   while (offset < usageBytes.length) {
-    let tag;
+    let tag: number;
     [tag, offset] = readVarint(usageBytes, offset);
-    const fieldNum = tag >>> 3;
+    const fieldNumber = tag >>> 3;
     const wireType = tag & 0x07;
     if (wireType === 0) {
-      let v;
-      [v, offset] = readVarint(usageBytes, offset);
-      if (fieldNum === 1) promptTokens = v;
-      else if (fieldNum === 2) completionTokens = v;
+      let value: number;
+      [value, offset] = readVarint(usageBytes, offset);
+      if (fieldNumber === 1) promptTokens = value;
+      if (fieldNumber === 2) completionTokens = value;
     } else if (wireType === 2) {
-      let len;
-      [len, offset] = readVarint(usageBytes, offset);
-      offset += len;
-    } else {
-      break;
-    }
+      let length: number;
+      [length, offset] = readVarint(usageBytes, offset);
+      offset += length;
+    } else break;
   }
   return [promptTokens, completionTokens];
 }
 
-function decodeCompletionChunk(buf: Uint8Array) {
+function decodeCompletionChunk(buffer: Uint8Array) {
   let offset = 0;
-  while (offset < buf.length) {
-    let tag;
-    [tag, offset] = readVarint(buf, offset);
-    const fieldNum = tag >>> 3;
+  while (offset < buffer.length) {
+    let tag: number;
+    [tag, offset] = readVarint(buffer, offset);
+    const fieldNumber = tag >>> 3;
     const wireType = tag & 0x07;
-
     if (wireType === 2) {
-      let len;
-      [len, offset] = readVarint(buf, offset);
-      const payload = buf.slice(offset, offset + len);
-      offset += len;
-
-      if (fieldNum === 1) {
+      let length: number;
+      [length, offset] = readVarint(buffer, offset);
+      const payload = buffer.slice(offset, offset + length);
+      offset += length;
+      if (fieldNumber === 1) {
         const text = decodeStringField(payload, 1);
         if (text !== null) return { kind: "content", text };
-      } else if (fieldNum === 3) {
-        const usage = decodeDoneChunk(payload);
-        return { kind: "done", promptTokens: usage[0], completionTokens: usage[1] };
-      } else if (fieldNum === 4) {
-        const msg = decodeStringField(payload, 1);
-        return { kind: "error", message: msg ?? "unknown windsurf error" };
       }
-      // field 2 = ToolCallChunk — not yet handled; skip
-    } else if (wireType === 0) {
-      let v;
-      [v, offset] = readVarint(buf, offset);
-    } else if (wireType === 1) {
-      offset += 8;
-    } else if (wireType === 5) {
-      offset += 4;
-    } else {
-      break;
-    }
+      if (fieldNumber === 3) {
+        const [promptTokens, completionTokens] = decodeDoneChunk(payload);
+        return { kind: "done", promptTokens, completionTokens };
+      }
+      if (fieldNumber === 4) {
+        return { kind: "error", message: decodeStringField(payload, 1) ?? "unknown windsurf error" };
+      }
+    } else if (wireType === 0) [, offset] = readVarint(buffer, offset);
+    else if (wireType === 1) offset += 8;
+    else if (wireType === 5) offset += 4;
+    else break;
   }
   return { kind: "unknown" };
 }
-
-// ─── OpenAI messages → Windsurf wire ─────────────────────────────────────────
 
 function openAIMessagesToWs(messages: Record<string, unknown>[]): { role: string; content: string; toolCallId?: string }[] {
   const out: { role: string; content: string; toolCallId?: string }[] = [];
@@ -490,7 +475,7 @@ class WindsurfExecutor extends BaseExecutor {
     return WS_CHAT_URL;
   }
 
-  buildHeaders(credentials: Credentials, stream = true) {
+  buildHeaders(credentials: Credentials, _stream = true) {
     const token = credentials?.accessToken || credentials?.apiKey || "";
     return {
       "Content-Type": "application/grpc-web+proto",
@@ -507,7 +492,7 @@ class WindsurfExecutor extends BaseExecutor {
     return {} as Record<string, unknown>;
   }
 
-  async execute({ model, body, stream, credentials, signal, log, upstreamExtraHeaders, proxyOptions = null }: ExecuteArgs & { upstreamExtraHeaders?: Record<string, string> }) {
+  async execute({ model, body, stream: _stream, credentials, signal, log, upstreamExtraHeaders, proxyOptions = null }: ExecuteArgs & { upstreamExtraHeaders?: Record<string, string> }) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || "";
     const wsModel = resolveWsModelId(model);
 

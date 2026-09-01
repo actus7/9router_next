@@ -57,7 +57,7 @@ export default function TranslatorClient() {
   const setContent = (id: number, val: string) => setContents(prev => ({ ...prev, [id]: val }));
   const toggle = (id: number) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const openNext = (nextId: number) => setExpanded(prev => {
+  const openNext = (nextId: number) => setExpanded(_prev => {
     const next: Record<number, boolean> = {};
     STEPS.forEach(s => { next[s.id] = false; });
     next[nextId] = true;

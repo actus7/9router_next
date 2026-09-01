@@ -188,9 +188,5 @@ function sendToChild(name: string, jsonRpc: Record<string, unknown>): void {
   entry.proc.stdin.write(`${JSON.stringify(jsonRpc)}\n`);
 }
 
-function isRunning(name: string): boolean {
-  const entry: BridgeEntry | undefined = getStore().get(name);
-  return !!(entry?.proc && !entry.proc.killed && entry.proc.exitCode === null);
-}
 
 export { registerSession, unregisterSession, sendToChild, findPlugin, killAllBridges };

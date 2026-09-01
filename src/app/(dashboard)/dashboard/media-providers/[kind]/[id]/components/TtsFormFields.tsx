@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@/shared/components";
 import Button from "@/shared/components/Button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";

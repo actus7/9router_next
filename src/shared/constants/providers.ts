@@ -80,7 +80,7 @@ export const FREE_TIER_PROVIDERS = byCategory("freeTier");
 // defaultMode: fallback when user hasn't configured
 // extended: claude-style thinking (thinking.type + budget_tokens) — used by most providers
 // effort: openai-style reasoning_effort — only openai + codex
-const THINKING_CONFIG = {
+void ({
   extended: {
     options: ["auto", "on", "off"],
     defaultMode: "auto",
@@ -90,9 +90,8 @@ const THINKING_CONFIG = {
     options: ["auto", "none", "low", "medium", "high"],
     defaultMode: "auto"
   }
-} as const;
+} as const);
 
-type ThinkingConfig = typeof THINKING_CONFIG;
 
 export const OAUTH_PROVIDERS = byCategory("oauth");
 export const APIKEY_PROVIDERS = byCategory("apikey");
@@ -120,7 +119,6 @@ export const MEDIA_PROVIDER_KINDS: readonly MediaProviderKind[] = [
   { id: "music",       label: "Music",          icon: "music_note",        endpoint: { method: "POST", path: "/v1/audio/music" } },
 ] as const;
 
-type MediaProviderKindId = (typeof MEDIA_PROVIDER_KINDS)[number]["id"];
 
 export const OPENAI_COMPATIBLE_PREFIX = "openai-compatible-" as const;
 export const ANTHROPIC_COMPATIBLE_PREFIX = "anthropic-compatible-" as const;
@@ -181,13 +179,12 @@ export function validateProviderCatalog(entries: readonly RegistryEntry[] = REGI
 }
 
 // Auth methods
-const AUTH_METHODS = {
+void ({
   oauth: { id: "oauth" },
   apikey: { id: "apikey" },
   cookie: { id: "cookie" },
-} as const;
+} as const);
 
-type AuthMethodKey = keyof typeof AUTH_METHODS;
 
 // Helper: Get provider by alias
 export function getProviderByAlias(alias: string): ProviderCatalogEntry | null {
@@ -226,10 +223,10 @@ export const ALIAS_TO_ID: Record<string, string> = Object.values(AI_PROVIDERS).r
 }, {});
 
 // ID to Alias mapping
-const ID_TO_ALIAS: Record<string, string> = Object.values(AI_PROVIDERS).reduce((acc: Record<string, string>, p) => {
+void (Object.values(AI_PROVIDERS).reduce((acc: Record<string, string>, p) => {
   acc[p.id as string] = p.alias as string;
   return acc;
-}, {});
+}, {}));
 
 // Helper: Get providers by service kind (e.g. "tts", "embedding", "image")
 // Providers without serviceKinds default to ["llm"]

@@ -140,39 +140,8 @@ function processElement(element: Node): void {
 // Apply server-provided translations synchronously (before render).
 // This sets the module-level variables so translate() returns correct text
 // during the initial client render, preventing hydration mismatches.
-function applyServerTranslations(locale: Locale, translations: TranslationMap): void {
-  currentLocale = locale;
-  translationMap = translations;
-}
 
 // Set translations from server and set up DOM observer (called after mount)
-function setServerTranslations(locale: Locale, translations: TranslationMap): void {
-  currentLocale = locale;
-  translationMap = translations;
-
-  // Process existing DOM
-  if (typeof window !== "undefined") {
-    processElement(document.body);
-
-    // Watch for new nodes
-    const observer: MutationObserver = new MutationObserver((mutations: MutationRecord[]) => {
-      mutations.forEach((mutation: MutationRecord) => {
-        mutation.addedNodes.forEach((node: Node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            processElement(node);
-          } else if (node.nodeType === Node.TEXT_NODE) {
-            processTextNode(node as Text);
-          }
-        });
-      });
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  }
-}
 
 // Initialize runtime i18n (fallback when server props not available)
 export async function initRuntimeI18n(): Promise<void> {

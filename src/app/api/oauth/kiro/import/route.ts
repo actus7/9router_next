@@ -10,7 +10,7 @@ import { createProviderConnection } from "@/models";
  */
 export async function POST(request: NextRequest) {
   try {
-    const { refreshToken, clientId, clientSecret, region, authMethod, profileArn } = await request.json();
+    const { refreshToken, clientId, clientSecret, region, profileArn } = await request.json();
 
     if (!refreshToken || typeof refreshToken !== "string") {
       return NextResponse.json(

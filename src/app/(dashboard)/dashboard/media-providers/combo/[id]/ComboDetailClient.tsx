@@ -100,7 +100,7 @@ export default function ComboDetailClient({
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testError, setTestError] = useState("");
-  const [apiKey, setApiKey] = useState(() => {
+  const [apiKey, ] = useState(() => {
     const keys = initialKeys as Record<string, unknown>[];
     return (keys.find((x: Record<string, unknown>) => x.isActive !== false)?.key as string) || "";
   });

@@ -64,11 +64,6 @@ function startCacheCleanup(): void {
 }
 
 /** Stop the periodic background cleanup (e.g. during graceful shutdown). */
-function stopCacheCleanup(): void {
-    if (!_cleanupTimer) return;
-    clearInterval(_cleanupTimer);
-    _cleanupTimer = null;
-}
 
 // Start automatically when the module is first imported
 startCacheCleanup();
@@ -140,15 +135,6 @@ export function invalidateProjectId(connectionId: string): void {
  *
  * @param {string} connectionId
  */
-function removeConnection(connectionId: string): void {
-    if (!connectionId) return;
-    projectIdCache.delete(connectionId);
-    const pending = pendingFetches.get(connectionId);
-    if (pending) {
-        try { pending.controller.abort(); } catch (_) { /* ignore */ }
-        pendingFetches.delete(connectionId);
-    }
-}
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 

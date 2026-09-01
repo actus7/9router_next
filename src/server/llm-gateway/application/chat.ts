@@ -21,7 +21,6 @@ import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActi
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
-import { FREE_PROVIDERS } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
 import { getProjectIdForConnection } from "@/server/llm-gateway/engine/services/projectId";
@@ -135,7 +134,7 @@ async function validateApiKey(
 function buildClassifierCallback(
   request: Request,
   apiKey: string | null,
-  clientRawRequest: ClientRawRequest,
+  _clientRawRequest: ClientRawRequest,
 ) {
   return async (classifierModel: string, prompt: string, timeoutMs: number) => {
     const classifierBody: ChatBody = {
@@ -530,8 +529,7 @@ export async function handleSingleModelChat(
   const cooldownResponse = checkNoAuthCooldownResponse(provider, model);
   if (cooldownResponse) return cooldownResponse;
 
-  const isNoAuth = FREE_PROVIDERS[provider]?.noAuth;
-  const excludeConnectionIds: Set<string> = new Set();
+    const excludeConnectionIds: Set<string> = new Set();
   let lastError: string | null = null;
   let lastStatus: number | null = null;
 

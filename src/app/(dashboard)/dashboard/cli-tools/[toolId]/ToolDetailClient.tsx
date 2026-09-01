@@ -55,7 +55,7 @@ interface ApiKey {
   name?: string;
 }
 
-export default function ToolDetailClient({ toolId, machineId }: ToolDetailClientProps) {
+export default function ToolDetailClient({ toolId, machineId: _machineId }: ToolDetailClientProps) {
   const tool = CLI_TOOLS[toolId as keyof typeof CLI_TOOLS] as unknown as { name: string; description?: string; requiresExternalUrl?: boolean; image?: string; color?: string; notes?: Array<{ type: string; text: string }>; defaultModels: Array<{ alias: string; name: string; envKey?: string; defaultValue?: string }>; guideSteps?: Array<{ step: number; title: string; desc?: string; type?: string; value?: string; copyable?: boolean }>; [key: string]: unknown };
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

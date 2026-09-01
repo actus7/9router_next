@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNotificationStore } from "@/store/notificationStore";
-import { translate } from "@/i18n/runtime";
 
 export function useProxyDeploy(fetchProxyPools: () => Promise<void>) {
   const [showVercelModal, setShowVercelModal] = useState(false);

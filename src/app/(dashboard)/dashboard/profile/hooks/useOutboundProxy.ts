@@ -37,7 +37,7 @@ export function useOutboundProxy(initialSettings: Settings, settings: Settings, 
       } else {
         setProxyStatus({ type: "error", message: data.error || translate("Failed to update proxy settings") || "Failed to update proxy settings" });
       }
-    } catch (err) {
+    } catch  {
       setProxyStatus({ type: "error", message: translate("An error occurred") || "An error occurred" });
     } finally {
       setProxyLoading(false);
@@ -75,7 +75,7 @@ export function useOutboundProxy(initialSettings: Settings, settings: Settings, 
           message: data?.error || translate("Proxy test failed") || "Proxy test failed",
         });
       }
-    } catch (err) {
+    } catch  {
       setProxyStatus({ type: "error", message: translate("An error occurred") || "An error occurred" });
     } finally {
       setProxyTestLoading(false);
@@ -104,7 +104,7 @@ export function useOutboundProxy(initialSettings: Settings, settings: Settings, 
       } else {
         setProxyStatus({ type: "error", message: data.error || translate("Failed to update proxy settings") || "Failed to update proxy settings" });
       }
-    } catch (err) {
+    } catch  {
       setProxyStatus({ type: "error", message: translate("An error occurred") || "An error occurred" });
     } finally {
       setProxyLoading(false);

@@ -1,4 +1,4 @@
-import { HTTP_STATUS, RETRY_CONFIG, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig";
+import { HTTP_STATUS, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig";
 import { shouldRefreshCredentials } from "../services/oauthCredentialManager";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { dbg } from "../utils/debugLog";
@@ -106,7 +106,7 @@ export class BaseExecutor {
   }
 
   // Override in subclass for provider-specific transformations
-  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials) {
+  transformRequest(model: string, body: Record<string, unknown>, _stream: boolean, _credentials: Credentials) {
     return body;
   }
 
@@ -115,7 +115,7 @@ export class BaseExecutor {
   }
 
   // Override in subclass for provider-specific refresh
-  async refreshCredentials(credentials: Credentials, log?: Logger, proxyOptions: unknown = null): Promise<RefreshResult | null> {
+  async refreshCredentials(credentials: Credentials, log?: Logger, _proxyOptions: unknown = null): Promise<RefreshResult | null> {
     return null;
   }
 

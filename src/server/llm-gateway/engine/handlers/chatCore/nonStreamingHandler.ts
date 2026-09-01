@@ -7,14 +7,13 @@ import { createErrorResult } from "../../utils/error";
 import { HTTP_STATUS } from "../../config/runtimeConfig";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail";
-import { appendRequestLog, saveRequestDetail } from "../../host/usage";
+import { saveRequestDetail } from "../../host/usage";
 import { decloakToolNames } from "../../utils/claudeCloaking";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index";
 import type { NonStreamingHandlerContext } from "./types";
 
 // Local types for dynamic JSON structures
 interface JsonObject { [key: string]: unknown }
-type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
 
 function parseToolArguments(value: unknown): JsonObject {
   if (!value) return {};

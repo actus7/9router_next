@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import ProviderIcon from "./ProviderIcon";
 import CapacityBadges from "./CapacityBadges";
 import { CAPACITY_META, type CapacityKey } from "@/shared/constants/models";
 import { Check } from "lucide-react";

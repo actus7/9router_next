@@ -30,8 +30,8 @@ interface UseModelDiscoveryArgs {
 }
 
 export function useModelDiscovery({
-  providerId, providerStorageAlias, isCompatible, isAnthropicCompatible, connections, providerNode,
-  staticModels, catalogCleared, customModels, modelAliases, disabledModelIds,
+  providerId, providerStorageAlias, isCompatible, isAnthropicCompatible: _isAnthropicCompatible, connections, providerNode,
+  staticModels, catalogCleared, customModels, modelAliases, disabledModelIds: _disabledModelIds,
   onAddCustomModel, onFetchDisabledModels, onClearTestResults,
   setCustomModels, setModelAliases, setDisabledModelIds,
 }: UseModelDiscoveryArgs) {

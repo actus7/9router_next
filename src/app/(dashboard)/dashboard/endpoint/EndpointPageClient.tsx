@@ -15,7 +15,7 @@ import ApiKeysCard from "./sections/ApiKeysCard";
 import EndpointModals from "./sections/EndpointModals";
 import type { APIPageClientProps } from "./types";
 
-export default function APIPageClient({ machineId }: APIPageClientProps) {
+export default function APIPageClient({ machineId: _machineId }: APIPageClientProps) {
   const apiKeys = useApiKeys();
   const settings = useEndpointSettings();
   const tunnel = useTunnel();
@@ -32,7 +32,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
     apiKeys.fetchData();
     settings.loadSettings();
     tunnel.loadTunnelStatus();
-  }, []);
+  }, [apiKeys, settings, tunnel]);
 
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
@@ -59,7 +59,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tunnel.tunnelEnabled, tailscale.tsEnabled, tunnel.tunnelReachable, tailscale.tsReachable]);
+  }, [tunnel.tunnelEnabled, tailscale.tsEnabled, tunnel.tunnelReachable, tailscale.tsReachable, tunnel, tailscale]);
 
   // Browser-side periodic ping: probes tunnel/tailscale URLs directly so UI stays
   // "reachable" even when backend DNS (1.1.1.1) hiccups on *.ts.net or *.trycloudflare.com.
@@ -92,7 +92,7 @@ export default function APIPageClient({ machineId }: APIPageClientProps) {
     if (tunnelHealthy && tsHealthy) return;
     const id = setInterval(probeBoth, CLIENT_PING_FAST_MS);
     return () => clearInterval(id);
-  }, [tunnel.tunnelEnabled, tunnel.tunnelUrl, tunnel.tunnelPublicUrl, tailscale.tsEnabled, tailscale.tsUrl, tunnel.tunnelReachable, tailscale.tsReachable]);
+  }, [tunnel.tunnelEnabled, tunnel.tunnelUrl, tunnel.tunnelPublicUrl, tailscale.tsEnabled, tailscale.tsUrl, tunnel.tunnelReachable, tailscale.tsReachable, tunnel, tailscale]);
 
   if (apiKeys.loading) {
     return (

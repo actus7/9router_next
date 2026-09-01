@@ -112,7 +112,7 @@ export class DefaultExecutor extends BaseExecutor {
     return { ...body, messages, response_format: { type: "json_object" } };
   }
 
-  buildUrl(model: string, stream: boolean, urlIndex = 0, credentials: Credentials | null = null) {
+  buildUrl(model: string, stream: boolean, _urlIndex = 0, credentials: Credentials | null = null) {
     // Runtime transport (multi-endpoint providers): use the sourceFormat-matched endpoint
     const rt = credentials?.runtimeTransport as Record<string, unknown> | undefined;
     if (rt?.baseUrl) {

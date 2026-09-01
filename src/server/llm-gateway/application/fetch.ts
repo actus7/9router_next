@@ -34,8 +34,8 @@ export async function handleFetch(request: Request): Promise<Response> {
   const reqUrl: URL = new URL(request.url);
   const providerInput: string = (body.provider || body.model) as string;
   const targetUrl: string = body.url as string;
-  const format: string = body.format as string;
-  const maxCharacters: number = body.max_characters as number;
+  void (body.format as string);
+  void (body.max_characters as number);
 
   log.request("POST", `${reqUrl.pathname} | ${providerInput}`);
 
@@ -133,7 +133,7 @@ export async function handleFetch(request: Request): Promise<Response> {
   return handleSingleProviderFetch(body, providerInput, request, apiKey, settings);
 }
 
-async function handleSingleProviderFetch(body: Record<string, unknown>, providerInput: string, request: Request, apiKey: string | null, settings: Record<string, unknown>): Promise<Response> {
+async function handleSingleProviderFetch(body: Record<string, unknown>, providerInput: string, _request: Request, _apiKey: string | null, _settings: Record<string, unknown>): Promise<Response> {
   const targetUrl: string = body.url as string;
   const format: string = body.format as string;
   const maxCharacters: number = body.max_characters as number;

@@ -218,6 +218,3 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
 }
 
 // Eager init helper (optional)
-async function initDb(): Promise<void> {
-  await getAdapter();
-}

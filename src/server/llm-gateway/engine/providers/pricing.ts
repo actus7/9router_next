@@ -399,10 +399,6 @@ export function getDefaultPricing() {
  * @param {number} cost
  * @returns {string}
  */
-function formatCost(cost: number | null | undefined) {
-  if (cost === null || cost === undefined || isNaN(cost)) return "$0.00";
-  return `$${cost.toFixed(2)}`;
-}
 
 /**
  * Calculate cost from tokens and pricing

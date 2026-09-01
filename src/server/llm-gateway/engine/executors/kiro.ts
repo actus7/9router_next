@@ -812,7 +812,7 @@ export class KiroExecutor extends BaseExecutor {
     super(providerId, PROVIDERS[providerId]);
   }
 
-  buildHeaders(credentials: Credentials, stream = true, url = ""): Record<string, string> {
+  buildHeaders(credentials: Credentials, _stream = true, url = ""): Record<string, string> {
     const headers: Record<string, string> = {
       ...this.config.headers,
       "Amz-Sdk-Request": "attempt=1; max=3",
@@ -907,7 +907,7 @@ export class KiroExecutor extends BaseExecutor {
       || (hasFallback && KIRO_ENDPOINT_FALLBACK_STATUSES.has(status));
   }
 
-  transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials): Record<string, unknown> {
+  transformRequest(model: string, body: Record<string, unknown>, _stream: boolean, _credentials: Credentials): Record<string, unknown> {
     return body;
   }
 

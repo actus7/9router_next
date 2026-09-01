@@ -17,10 +17,6 @@ export const HTTP_STATUS = {
 // Re-export error config (backward compat)
 
 // Cache TTLs (seconds)
-const CACHE_TTL = {
-  userInfo: 300,    // 5 minutes
-  modelAlias: 3600  // 1 hour
-};
 
 // Memory management config
 export const MEMORY_CONFIG = {

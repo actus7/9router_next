@@ -11,7 +11,7 @@ const execAsync: (command: string, options?: Record<string, unknown>) => Promise
 
 const BIN_DIR: string = path.join(DATA_DIR, "bin");
 const IS_MAC: boolean = os.platform() === "darwin";
-const IS_LINUX: boolean = os.platform() === "linux";
+void (os.platform() === "linux");
 const IS_WINDOWS: boolean = os.platform() === "win32";
 const TAILSCALE_BIN: string = path.join(BIN_DIR, IS_WINDOWS ? "tailscale.exe" : "tailscale");
 
@@ -732,7 +732,7 @@ export async function startFunnel(port: number): Promise<FunnelResult> {
   const bin: string | null = getTailscaleBin();
   if (!bin) throw new Error("Tailscale not installed");
 
-  try { execSync(`"${bin}" ${SOCKET_FLAG.join(" ")} funnel --bg reset`, { stdio: "ignore", windowsHide: true }); } catch (e: unknown) { /* ignore */ }
+  try { execSync(`"${bin}" ${SOCKET_FLAG.join(" ")} funnel --bg reset`, { stdio: "ignore", windowsHide: true }); } catch  { /* ignore */ }
 
   return new Promise<FunnelResult>((resolve: (value: FunnelResult) => void, reject: (reason: Error) => void) => {
     const child: ChildProcess = spawn(/*turbopackIgnore: true*/ bin, tsArgs("funnel", "--bg", `${port}`), {
@@ -824,18 +824,7 @@ export async function provisionCert(hostname: string): Promise<void> {
 export function stopFunnel(): void {
   const bin: string | null = getTailscaleBin();
   if (!bin) return;
-  try { execSync(`"${bin}" ${SOCKET_FLAG.join(" ")} funnel --bg reset`, { stdio: "ignore", windowsHide: true }); } catch (e: unknown) { /* ignore */ }
+  try { execSync(`"${bin}" ${SOCKET_FLAG.join(" ")} funnel --bg reset`, { stdio: "ignore", windowsHide: true }); } catch  { /* ignore */ }
 }
 
 /** Kill tailscaled daemon (runs as root, needs sudo) */
-async function stopDaemon(sudoPassword: string): Promise<void> {
-  try { execSync("pkill -x tailscaled", { stdio: "ignore", windowsHide: true, timeout: 3000 }); } catch { /* ignore */ }
-
-  try { execSync("pgrep -x tailscaled", { stdio: "ignore", windowsHide: true, timeout: 2000 }); } catch { return; }
-
-  if (!IS_WINDOWS) {
-    try { await execWithPassword("pkill -x tailscaled", sudoPassword || ""); } catch { /* ignore */ }
-  }
-
-  try { if (fs.existsSync(TAILSCALE_SOCKET)) fs.unlinkSync(TAILSCALE_SOCKET); } catch { /* ignore */ }
-}

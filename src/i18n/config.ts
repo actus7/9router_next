@@ -41,43 +41,6 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 export const LOCALE_COOKIE: string = "locale";
 
-const LOCALE_NAMES: Record<Locale, string> = {
-  en: "English",
-  vi: "Tiếng Việt",
-  "zh-CN": "简体中文",
-  "zh-TW": "繁體中文",
-  ja: "日本語",
-  "pt-BR": "Português (Brasil)",
-  "pt-PT": "Português (Portugal)",
-  ko: "한국어",
-  es: "Español",
-  de: "Deutsch",
-  fr: "Français",
-  he: "עברית",
-  ar: "العربية",
-  ru: "Русский",
-  pl: "Polski",
-  cs: "Čeština",
-  nl: "Nederlands",
-  tr: "Türkçe",
-  uk: "Українська",
-  tl: "Tagalog",
-  id: "Indonesia",
-  th: "ไทย",
-  km: "ខ្មែរ",
-  hi: "हिन्दी",
-  bn: "বাংলা",
-  ur: "اردو",
-  ro: "Română",
-  sv: "Svenska",
-  it: "Italiano",
-  el: "Ελληνικά",
-  hu: "Magyar",
-  fi: "Suomi",
-  da: "Dansk",
-  no: "Norsk",
-  fa: "فارسی",
-};
 
 export function normalizeLocale(locale: string): Locale {
   if (locale === "zh" || locale === "zh-CN") {

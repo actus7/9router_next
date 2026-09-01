@@ -280,7 +280,3 @@ export function resetGrokBuildConfig(toml: string): string {
   next = restorePreviousDefault(next);
   return next.replace(/\n{3,}/g, "\n\n");
 }
-
-function getGrokSubagentSlot(type: string): string | null {
-  return GROK_SUBAGENT_TYPES.includes(type) ? modelSlot(type) : null;
-}

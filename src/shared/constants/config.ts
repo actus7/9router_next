@@ -7,14 +7,12 @@ export const APP_CONFIG = {
   version: pkg.version,
 } as const;
 
-type AppConfig = typeof APP_CONFIG;
 
 // GitHub configuration
 export const GITHUB_CONFIG = {
   changelogUrl: "/CHANGELOG.md",
 } as const;
 
-type GithubConfig = typeof GITHUB_CONFIG;
 
 // Updater configuration
 export const UPDATER_CONFIG = {
@@ -34,45 +32,40 @@ export const UPDATER_CONFIG = {
   appPort: 20128,
 } as const;
 
-type UpdaterConfig = typeof UPDATER_CONFIG;
 
 // Theme configuration
-const THEME_CONFIG = {
+void ({
   storageKey: "theme",
   defaultTheme: "system", // "light" | "dark" | "system"
-} as const;
+} as const);
 
-type ThemeConfig = typeof THEME_CONFIG;
 
 // Subscription
-const SUBSCRIPTION_CONFIG = {
+void ({
   price: 1.0,
   currency: "USD",
   interval: "month",
   planName: "Pro Plan",
-} as const;
+} as const);
 
-type SubscriptionConfig = typeof SUBSCRIPTION_CONFIG;
 
 // API endpoints
-const API_ENDPOINTS = {
+void ({
   users: "/api/users",
   providers: "/api/providers",
   payments: "/api/payments",
   auth: "/api/auth",
-} as const;
+} as const);
 
-type ApiEndpoints = typeof API_ENDPOINTS;
 
 export const CONSOLE_LOG_CONFIG = {
   maxLines: 200,
   pollIntervalMs: 1000,
 } as const;
 
-type ConsoleLogConfig = typeof CONSOLE_LOG_CONFIG;
 
 // Client-side store TTL: how long fetched data stays fresh before re-fetching
-const CLIENT_STORE_TTL_MS = 60000 as const;
+void (60000 as const);
 
 // Quota auto-ping: keep 5h windows warm by sending a tiny request right after reset.
 export const QUOTA_AUTOPING_CONFIG = {
@@ -104,7 +97,6 @@ export const QUOTA_AUTOPING_CONFIG = {
   },
 } as const;
 
-type QuotaAutopingConfig = typeof QUOTA_AUTOPING_CONFIG;
 
 // Re-export from providers.js for backward compatibility
 export {

@@ -685,7 +685,7 @@ export class DevinCliExecutor extends BaseExecutor {
     return body;
   }
 
-  async execute({ model, body, credentials, signal, log }: ExecuteArgs) {
+  async execute({ model, body, credentials: _credentials, signal, log }: ExecuteArgs) {
     const b = body ?? {};
     const messages = Array.isArray(b.messages) ? b.messages : Array.isArray(b.input) ? b.input : [];
     const promptText = buildPromptText(messages);

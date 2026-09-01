@@ -88,7 +88,7 @@ export function compressMessages(body: Record<string, unknown> | null | undefine
 }
 
 // Compress Kiro format: conversationState.history[].userInputMessage.userInputMessageContext.toolResults[].content[].text
-function compressKiroFormat(body: Record<string, unknown>, enabled: boolean) {
+function compressKiroFormat(body: Record<string, unknown>, _enabled: boolean) {
   const stats: RtkStats = { bytesBefore: 0, bytesAfter: 0, hits: [] };
   try {
     const state = body.conversationState as Record<string, unknown> | undefined;

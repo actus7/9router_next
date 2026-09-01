@@ -22,9 +22,9 @@ interface LocalModeCardProps {
 }
 
 export default function LocalModeCard({
-  theme, setTheme, isDark,
-  dbLoading, dbStatus, dbAuth, setDbAuth, importFileRef,
-  handleExportDatabase, handleImportDatabase, handleDbAuthConfirm,
+  theme, setTheme, isDark: _isDark,
+  dbLoading, dbStatus, dbAuth: _dbAuth, setDbAuth, importFileRef,
+  handleExportDatabase: _handleExportDatabase, handleImportDatabase, handleDbAuthConfirm: _handleDbAuthConfirm,
 }: LocalModeCardProps) {
   return (
     <Card>

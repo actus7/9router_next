@@ -229,7 +229,7 @@ function cleanupResponsesFields(result: Record<string, unknown>) {
 /**
  * Convert OpenAI Responses API request to OpenAI Chat Completions format
  */
-export function openaiResponsesToOpenAIRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
+export function openaiResponsesToOpenAIRequest(model: string, body: Record<string, unknown>, _stream: boolean, _credentials: Record<string, unknown>) {
   if (!body.input) return body;
 
   const result = { ...body } as { messages: Record<string, unknown>[]; [key: string]: unknown };
@@ -401,7 +401,7 @@ function passthroughResponseFields(body: Record<string, unknown>, result: Record
 /**
  * Convert OpenAI Chat Completions to OpenAI Responses API format
  */
-export function openaiToOpenAIResponsesRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown>) {
+export function openaiToOpenAIResponsesRequest(model: string, body: Record<string, unknown>, _stream: boolean, _credentials: Record<string, unknown>) {
   if (body.input) return { ...body, model, stream: true };
 
   const result: { input: Record<string, unknown>[]; [key: string]: unknown } = {

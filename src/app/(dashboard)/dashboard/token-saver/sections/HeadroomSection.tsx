@@ -4,7 +4,6 @@ import { Button } from "@/shared/components";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { translate } from "@/i18n/runtime";
 
 interface HeadroomSectionProps {
   headroomRunning: boolean;

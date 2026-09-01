@@ -13,9 +13,6 @@ interface CallbackData {
   fullUrl: string;
 }
 
-/**
- * OAuth Callback Page Content
- */
 function CallbackContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState("processing");
@@ -26,64 +23,35 @@ function CallbackContent() {
     const state = searchParams.get("state");
     const error = searchParams.get("error");
     const errorDescription = searchParams.get("error_description");
+    const callbackData: CallbackData = { code, token, state, error, errorDescription, fullUrl: window.location.href };
+    const expectedOrigins = [window.location.origin, "http://localhost:1455"];
 
-    const callbackData: CallbackData = {
-      code,
-      token,
-      state,
-      error,
-      errorDescription,
-      fullUrl: window.location.href,
-    };
-
-    let relayed = false;
-
-    // Trusted origins that may receive this callback. The OAuth code/state
-    // must only be relayed to the dashboard window we expect to be the opener
-    // (same origin) or the Codex helper that listens on a fixed loopback port.
-    // Any other origin is treated as hostile (drive-by attacker that opened
-    // the popup against the well-known redirect_uri to phish the code).
-    const expectedOrigins = [
-      window.location.origin, // Same origin (for most providers)
-      "http://localhost:1455", // Codex specific port
-    ];
-
-    // Method 1: postMessage to opener (popup mode)
-    // Send once per expected origin. The browser delivers the message only
-    // when the opener's origin matches the targetOrigin we pass — using "*"
-    // here would leak the code/state to any opener (e.g. an attacker page
-    // that opened this URL in a popup), so iterate over the allowlist.
     if (window.opener) {
       for (const origin of expectedOrigins) {
         try {
           (window.opener as Window).postMessage({ type: "oauth_callback", data: callbackData }, origin);
-          relayed = true;
-        } catch (error) { console.error("postMessage failed:", error);
+        } catch (postMessageError) {
+          console.error("postMessage failed:", postMessageError);
         }
       }
     }
-
-    // Method 2: BroadcastChannel (same origin tabs)
     try {
       const channel = new BroadcastChannel("oauth_callback");
       channel.postMessage(callbackData);
       channel.close();
-      relayed = true;
-    } catch (error) { console.error("BroadcastChannel failed:", error);
+    } catch (broadcastError) {
+      console.error("BroadcastChannel failed:", broadcastError);
     }
-
-    // Method 3: localStorage event (fallback)
     try {
       localStorage.setItem("oauth_callback", JSON.stringify({ ...callbackData, timestamp: Date.now() }));
-      relayed = true;
-    } catch (error) { console.error("localStorage failed:", error);
+    } catch (storageError) {
+      console.error("localStorage failed:", storageError);
     }
 
     if (!(code || token || error)) {
       setTimeout(() => setStatus("manual"), 0);
       return;
     }
-
     setStatus("success");
     setTimeout(() => {
       window.close();
@@ -94,42 +62,24 @@ function CallbackContent() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg">
       <div className="text-center p-8 max-w-md">
-        {status === "processing" && (
-          <>
-            <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <Loader2 className="size-4" />
-            </div>
-            <h1 className="text-xl font-semibold mb-2">Processing...</h1>
-            <p className="text-text-muted">Please wait while we complete the authorization.</p>
-          </>
-        )}
-
-        {(status === "success" || status === "done") && (
-          <>
-            <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <CheckCircle2 className="size-4" />
-            </div>
-            <h1 className="text-xl font-semibold mb-2">Authorization Successful!</h1>
-            <p className="text-text-muted">
-              {status === "success" ? "This window will close automatically..." : "You can close this tab now."}
-            </p>
-          </>
-        )}
-
-        {status === "manual" && (
-          <>
-            <div className="size-16 mx-auto mb-4 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-              <Info className="size-4" />
-            </div>
-            <h1 className="text-xl font-semibold mb-2">Copy This URL</h1>
-            <p className="text-text-muted mb-4">
-              Please copy the URL from the address bar and paste it in the application.
-            </p>
-            <div className="bg-surface border border-border rounded-lg p-3 text-left">
-              <code className="text-xs break-all">{typeof window !== "undefined" ? window.location.href : ""}</code>
-            </div>
-          </>
-        )}
+        {status === "processing" && <>
+          <div className="size-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center"><Loader2 className="size-4" /></div>
+          <h1 className="text-xl font-semibold mb-2">Processing...</h1>
+          <p className="text-text-muted">Please wait while we complete the authorization.</p>
+        </>}
+        {(status === "success" || status === "done") && <>
+          <div className="size-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center"><CheckCircle2 className="size-4" /></div>
+          <h1 className="text-xl font-semibold mb-2">Authorization Successful!</h1>
+          <p className="text-text-muted">{status === "success" ? "This window will close automatically..." : "You can close this tab now."}</p>
+        </>}
+        {status === "manual" && <>
+          <div className="size-16 mx-auto mb-4 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center"><Info className="size-4" /></div>
+          <h1 className="text-xl font-semibold mb-2">Copy This URL</h1>
+          <p className="text-text-muted mb-4">Please copy the URL from the address bar and paste it in the application.</p>
+          <div className="bg-surface border border-border rounded-lg p-3 text-left">
+            <code className="text-xs break-all">{typeof window !== "undefined" ? window.location.href : ""}</code>
+          </div>
+        </>}
       </div>
     </div>
   );

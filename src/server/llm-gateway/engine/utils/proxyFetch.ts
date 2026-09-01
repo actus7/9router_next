@@ -1,6 +1,4 @@
-import { Readable } from "stream";
 import { MEMORY_CONFIG } from "../config/runtimeConfig";
-import { dbg } from "./debugLog";
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
@@ -98,11 +96,7 @@ async function tryGotScrapingFetch(url, options) {
 */
 
 // DNS cache — use Map to avoid prototype pollution via malformed hostnames
-const DNS_CACHE = new Map();
-const GOOGLE_DNS_SERVERS = ["8.8.8.8", "8.8.4.4"];
-const HTTPS_PORT = 443;
-const HTTP_SUCCESS_MIN = 200;
-const HTTP_SUCCESS_MAX = 300;
+void (new Map());
 
 function normalizeString(value: unknown): string {
   if (value === undefined || value === null) return "";
@@ -112,25 +106,6 @@ function normalizeString(value: unknown): string {
 /**
  * Resolve real IP using Google DNS (bypass system DNS)
  */
-async function resolveRealIP(hostname: string): Promise<string | null> {
-  const cached = DNS_CACHE.get(hostname);
-  if (cached && Date.now() < cached.expiry) return cached.ip;
-
-  try {
-    const dns = await import("dns");
-    const { promisify } = await import("util");
-    const resolver = new dns.Resolver();
-    resolver.setServers(GOOGLE_DNS_SERVERS);
-    const resolve4 = promisify(resolver.resolve4.bind(resolver));
-    const addresses = await resolve4(hostname);
-    DNS_CACHE.set(hostname, { ip: addresses[0], expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
-    return addresses[0];
-  } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    console.warn(`[ProxyFetch] DNS resolve failed for ${hostname}:`, errMsg);
-    return null;
-  }
-}
 
 function shouldBypassByNoProxy(targetUrl: string, noProxyValue: unknown): boolean {
   const noProxy = normalizeString(noProxyValue);
@@ -230,60 +205,6 @@ async function getDispatcher(proxyUrl: string) {
 /**
  * Create HTTPS request with manual socket connection (bypass DNS)
  */
-async function createBypassRequest(parsedUrl: URL, realIP: string, options: Record<string, unknown>) {
-  const httpsModule = await import("https");
-  const netModule = await import("net");
-  // CJS modules expose exports via .default in ESM dynamic import context
-  const https = httpsModule.default ?? httpsModule;
-  const net = netModule.default ?? netModule;
-
-  return new Promise((resolve, reject) => {
-    const socket = new net.Socket();
-
-    socket.connect(HTTPS_PORT, realIP, () => {
-      const reqOptions = {
-        socket,
-        // SNI + cert hostname are validated against the hostname the caller
-        // asked for, not the IP we connected to. This keeps the DNS-bypass
-        // while still rejecting on-path attackers that present a different cert.
-        // All targets are public-CA-issued (Google / GitHub / AWS / Cursor)
-        // so default verification works without any extra trust store.
-        servername: parsedUrl.hostname,
-        path: parsedUrl.pathname + parsedUrl.search,
-        method: (options.method as string) || "POST",
-        headers: {
-          ...(options.headers as Record<string, string> || {}),
-          Host: parsedUrl.hostname,
-        },
-      };
-
-      const req = https.request(reqOptions, (res) => {
-        const response = {
-          ok: (res.statusCode ?? 0) >= HTTP_SUCCESS_MIN && (res.statusCode ?? 0) < HTTP_SUCCESS_MAX,
-          status: res.statusCode,
-          statusText: res.statusMessage,
-          headers: new Map(Object.entries(res.headers)),
-          body: Readable.toWeb(res),
-          text: async () => {
-            const chunks = [];
-            for await (const chunk of res) chunks.push(chunk);
-            return Buffer.concat(chunks).toString();
-          },
-          json: async () => JSON.parse(await response.text()),
-        };
-        resolve(response);
-      });
-
-      req.on("error", reject);
-      if (options.body) {
-        req.write(typeof options.body === "string" ? options.body : JSON.stringify(options.body));
-      }
-      req.end();
-    });
-
-    socket.on("error", reject);
-  });
-}
 
 export async function proxyAwareFetch(url: string | URL, options: RequestInit & { dispatcher?: unknown } = {}, proxyOptions: ProxyOptions | null = null): Promise<Response> {
   const targetUrl = typeof url === "string" ? url : url.toString();

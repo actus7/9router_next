@@ -16,9 +16,9 @@ interface UseConnectionModalsArgs {
 }
 
 export function useConnectionModals({
-  providerId, initialConnections, initialProvider, isCompatible, fetchConnections,
+  providerId, initialConnections: _initialConnections, initialProvider: _initialProvider, isCompatible: _isCompatible, fetchConnections,
 }: UseConnectionModalsArgs) {
-  const notify = useNotificationStore();
+  void (useNotificationStore());
   const [showOAuthModal, setShowOAuthModal] = useState<boolean>(false);
   const [showIFlowCookieModal, setShowIFlowCookieModal] = useState<boolean>(false);
   const [showAddApiKeyModal, setShowAddApiKeyModal] = useState<boolean>(false);

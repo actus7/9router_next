@@ -34,7 +34,7 @@ function getLocaleFromCookie() {
   return normalizeLocale(value);
 }
 
-export default function ProfileClient({ initialSettings, initialDbInfo }: ProfileClientProps) {
+export default function ProfileClient({ initialSettings, initialDbInfo: _initialDbInfo }: ProfileClientProps) {
   const router = useRouter();
   const { theme, setTheme, isDark } = useTheme();
   const [locale, setLocale] = useState(() => getLocaleFromCookie());

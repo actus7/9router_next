@@ -5,7 +5,6 @@ import { getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
 import {
   WENYAN_LOCALES,
   CAVEMAN_LEVELS,
-  PONYTAIL_LEVELS,
 } from "../../endpoint/endpointConstants";
 import { patchSetting } from "../types";
 

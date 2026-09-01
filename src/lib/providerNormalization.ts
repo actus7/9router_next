@@ -9,9 +9,6 @@ interface ProviderEntry {
 /**
  * Detect xAI Grok models by id pattern (grok-*, Grok_*, etc).
  */
-function isXaiModel(modelId: string): boolean {
-  return typeof modelId === "string" && /^grok[-_]/i.test(modelId.trim());
-}
 
 export function normalizeProviderId(provider: string): string {
   if (typeof provider !== "string") return provider;

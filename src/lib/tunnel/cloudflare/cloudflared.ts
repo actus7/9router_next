@@ -197,76 +197,6 @@ interface SpawnResult {
   tunnelUrl: string;
 }
 
-async function spawnCloudflared(tunnelToken: string): Promise<ChildProcess> {
-  const binaryPath: string = await ensureCloudflared();
-
-  const child: ChildProcess = spawn(/*turbopackIgnore: true*/ binaryPath, ["tunnel", "run", "--dns-resolver-addrs", "1.1.1.1:53", "--token", tunnelToken], {
-    detached: false,
-    windowsHide: true,
-    cwd: os.tmpdir(),
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-
-  cloudflaredProcess = child;
-  savePid(child.pid!);
-
-  return new Promise<ChildProcess>((resolve: (value: ChildProcess) => void, reject: (reason: Error) => void) => {
-    let connectionCount: number = 0;
-    let resolved: boolean = false;
-    const timeout: ReturnType<typeof setTimeout> = setTimeout(() => {
-      resolved = true;
-      resolve(child);
-    }, 90000);
-
-    const handleLog = (data: Buffer): void => {
-      const msg: string = data.toString();
-      const matches: RegExpMatchArray | null = msg.match(/Registered tunnel connection/g);
-      if (matches) {
-        connectionCount += matches.length;
-        if (connectionCount >= 4 && !resolved) {
-          resolved = true;
-          clearTimeout(timeout);
-          resolve(child);
-        }
-      }
-    };
-
-    child.stdout!.on("data", handleLog);
-    child.stderr!.on("data", handleLog);
-
-    child.on("error", (err: Error) => {
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        reject(err);
-      }
-    });
-
-    child.on("exit", (code: number | null, signal: string | null) => {
-      if (cloudflaredProcess === child) cloudflaredProcess = null;
-      clearPid(child.pid!);
-      const wasConnected: boolean = resolved;
-      if (!resolved) {
-        resolved = true;
-        clearTimeout(timeout);
-        let stderrOutput: string = "";
-        if (child.stderr && !child.stderr.destroyed) {
-          stderrOutput = " Check cloudflared logs for details.";
-        }
-        if (code === 1) {
-          reject(new Error(`cloudflared exited with code ${code}${stderrOutput} Ensure your tunnel token is valid and network is reachable.`));
-        } else if (code === 2) {
-          reject(new Error(`cloudflared exited with code ${code}${stderrOutput} Check if required arguments are correct.`));
-        } else {
-          reject(new Error(`cloudflared exited with code ${code}${stderrOutput}`));
-        }
-        return;
-      }
-      if (intentionalKill) { intentionalKill = false; return; }
-      if (wasConnected && unexpectedExitHandler) unexpectedExitHandler();
-    });
-  });
-}
 
 export async function spawnQuickTunnel(localPort: number, onUrlUpdate?: (url: string) => void): Promise<SpawnResult> {
   const binaryPath: string = await ensureCloudflared();
@@ -281,7 +211,7 @@ export async function spawnQuickTunnel(localPort: number, onUrlUpdate?: (url: st
     isCleaned = true;
     try {
       fs.rmSync(configDir, { recursive: true, force: true });
-    } catch (e: unknown) { /* ignore */ }
+    } catch  { /* ignore */ }
   };
 
   const requestedProtocol: string = String(process.env.TUNNEL_TRANSPORT_PROTOCOL || process.env.CLOUDFLARED_PROTOCOL || DEFAULT_QUICK_TUNNEL_PROTOCOL).trim().toLowerCase();
@@ -401,7 +331,7 @@ function killCloudflaredByPort(port: number): void {
     } else {
       execSync(`pkill -f "cloudflared.*:${port}([^0-9]|$)" 2>/dev/null || true`, { stdio: "ignore", windowsHide: true });
     }
-  } catch (e: unknown) { /* ignore */ }
+  } catch  { /* ignore */ }
 }
 
 export function killCloudflared(localPort: number): void {
@@ -409,7 +339,7 @@ export function killCloudflared(localPort: number): void {
   if (cloudflaredProcess) {
     try {
       cloudflaredProcess.kill();
-    } catch (e: unknown) { /* ignore */ }
+    } catch  { /* ignore */ }
     cloudflaredProcess = null;
   }
 
@@ -417,7 +347,7 @@ export function killCloudflared(localPort: number): void {
   if (pid) {
     try {
       process.kill(pid);
-    } catch (e: unknown) { /* ignore */ }
+    } catch  { /* ignore */ }
     clearPid();
   }
 
@@ -430,7 +360,7 @@ export function isCloudflaredRunning(): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch (e: unknown) {
+  } catch  {
     return false;
   }
 }

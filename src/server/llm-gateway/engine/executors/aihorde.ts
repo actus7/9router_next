@@ -2,7 +2,7 @@ import { BaseExecutor } from "./base";
 import { PROVIDERS } from "../config/providers";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { dbg } from "../utils/debugLog";
-import type { Credentials, Logger } from "../services/types";
+import type { Credentials } from "../services/types";
 
 /**
  * AIHordeExecutor — queue-based executor for AI Horde's OpenAI-compatible proxy.
@@ -140,7 +140,7 @@ export class AIHordeExecutor extends BaseExecutor {
    * For non-streaming: standard call with usage synthesis.
    */
   async execute(opts: import("./base").ExecuteArgs) {
-    const { model, body, stream, credentials, signal, log, proxyOptions } = opts;
+    const { model, body, stream, credentials, signal, proxyOptions } = opts;
 
     const url = this.buildUrl(model, false, 0, credentials); // always non-streaming upstream
     const transformedBody = this.transformRequest(model, body, stream, credentials);

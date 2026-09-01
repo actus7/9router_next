@@ -5,7 +5,6 @@ import { Button, Input, Modal, ConfirmModal } from "@/shared/components";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { translate } from "@/i18n/runtime";
-import { Cloud, CloudUpload, Terminal } from "lucide-react";
 import type { ProxyPool, ConfirmState } from "../types";
 
 interface ProxyPoolModalsProps {

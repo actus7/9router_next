@@ -242,7 +242,7 @@ function mergeChunksToResponse(chunks: unknown[], sourceFormat: string): Record<
     const messageStop = chunks.find((c) => (c as Record<string, unknown>).type === "message_stop");
     if (messageStop) {
       // Reconstruct complete message from chunks
-      const contentDelta = chunks.find((c) => (c as Record<string, unknown>).type === "content_block_delta");
+      void (chunks.find((c) => (c as Record<string, unknown>).type === "content_block_delta"));
       const messageDelta = chunks.find((c) => (c as Record<string, unknown>).type === "message_delta") as Record<string, unknown> | undefined;
       const messageStart = chunks.find((c) => (c as Record<string, unknown>).type === "message_start") as Record<string, unknown> | undefined;
 

@@ -20,7 +20,7 @@ interface ModelRowProps {
   thinkingSuffix?: string | null;
 }
 
-export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }: ModelRowProps) {
+export default function ModelRow({ model, fullModel, alias: _alias, copied, onCopy, testStatus, isCustom, isFree: _isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }: ModelRowProps) {
   const displayModel = thinkingSuffix ? `${fullModel}(${thinkingSuffix})` : fullModel;
   const borderColor = testStatus === "ok"
     ? "border-green-500/40"

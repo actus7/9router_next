@@ -1,10 +1,11 @@
 import { getAdapter } from "../driver";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
+import { toPersistenceError, type PersistenceError } from "../errors";
 
 const DEFAULT_MAX_RECORDS: number = 200;
 const DEFAULT_BATCH_SIZE: number = 20;
 const DEFAULT_FLUSH_INTERVAL_MS: number = 5000;
-const DEFAULT_MAX_JSON_SIZE: number = 5 * 1024;
+void (5 * 1024);
 const CONFIG_CACHE_TTL_MS: number = 5000;
 
 interface ObservabilityConfig {
@@ -49,14 +50,8 @@ async function getObservabilityConfig(): Promise<ObservabilityConfig> {
       flushIntervalMs: (settings.observabilityFlushIntervalMs as number) || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
       maxJsonSize: ((settings.observabilityMaxJsonSize as number) || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
     };
-  } catch {
-    cachedConfig = {
-      enabled: false,
-      maxRecords: DEFAULT_MAX_RECORDS,
-      batchSize: DEFAULT_BATCH_SIZE,
-      flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
-      maxJsonSize: DEFAULT_MAX_JSON_SIZE,
-    };
+  } catch (error) {
+    throw toPersistenceError("requestDetails.loadConfiguration", error);
   }
   cachedConfigTs = Date.now();
   return cachedConfig;
@@ -82,6 +77,7 @@ interface WriteBufferItem {
 const writeBuffer: WriteBufferItem[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let isFlushing: boolean = false;
+let lastFlushError: PersistenceError | null = null;
 
 function sanitizeHeaders(headers: Record<string, unknown>): Record<string, unknown> {
   if (!headers || typeof headers !== "object") return {};
@@ -93,7 +89,6 @@ function sanitizeHeaders(headers: Record<string, unknown>): Record<string, unkno
   return sanitized;
 }
 
-const __test__ = { sanitizeHeaders };
 
 function generateDetailId(model?: string): string {
   const timestamp: string = new Date().toISOString();
@@ -114,10 +109,12 @@ async function flushToDatabase(): Promise<void> {
   if (isFlushing) return;
   if (writeBuffer.length === 0) return;
   isFlushing = true;
+  let inFlight: WriteBufferItem[] = [];
   try {
     // Drain entire buffer (loop in case more pushed during await)
     while (writeBuffer.length > 0) {
       const items: WriteBufferItem[] = writeBuffer.splice(0, writeBuffer.length);
+      inFlight = items;
       const db = await getAdapter();
       const config: ObservabilityConfig = await getObservabilityConfig();
 
@@ -157,15 +154,24 @@ async function flushToDatabase(): Promise<void> {
           );
         }
       });
+      inFlight = [];
     }
-  } catch (e: unknown) {
-    console.error("[requestDetailsRepo] Batch write failed:", e);
+    lastFlushError = null;
+  } catch (error) {
+    if (inFlight.length > 0) writeBuffer.unshift(...inFlight);
+    lastFlushError = toPersistenceError("requestDetails.flush", error);
+    throw lastFlushError;
   } finally {
     isFlushing = false;
   }
 }
 
 export async function saveRequestDetail(detail: WriteBufferItem): Promise<void> {
+  if (lastFlushError) {
+    const error = lastFlushError;
+    lastFlushError = null;
+    throw error;
+  }
   const config: ObservabilityConfig = await getObservabilityConfig();
   if (!config.enabled) {return;}
 
@@ -175,11 +181,13 @@ export async function saveRequestDetail(detail: WriteBufferItem): Promise<void> 
   // flushToDatabase() drains entire buffer in a loop, so all pushes during await are persisted.
   if (writeBuffer.length >= config.batchSize) {
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
-    flushToDatabase().catch((e: unknown) => console.error("[requestDetailsRepo] flush err:", e));
+    await flushToDatabase();
   } else if (!flushTimer) {
     flushTimer = setTimeout(() => {
       flushTimer = null;
-      flushToDatabase().catch(() => {});
+      void flushToDatabase().catch((error: unknown) => {
+        console.error("[requestDetailsRepo] delayed flush failed:", toPersistenceError("requestDetails.delayedFlush", error));
+      });
     }, config.flushIntervalMs);
   }
 }

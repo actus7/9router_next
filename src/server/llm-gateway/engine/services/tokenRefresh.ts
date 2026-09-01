@@ -18,7 +18,7 @@ import {
   refreshWindsurfToken,
   classifyOAuthRefreshError,
 } from "./tokenRefresh/providers";
-import type { Credentials, RefreshResult, Logger, VertexServiceAccount, UserInfo, RefreshHandler, ProviderConfig } from "./types";
+import type { Credentials, RefreshResult, Logger, VertexServiceAccount, RefreshHandler, ProviderConfig } from "./types";
 
 // Re-export all provider refresh functions (preserves public API for all consumers)
 export {
@@ -159,25 +159,7 @@ const REFRESH_HANDLERS: Record<string, RefreshHandler> = {
   "vertex-partner": vertexRefreshHandler as RefreshHandler,
 };
 
-async function getAccessToken(provider: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
-  if (!credentials || !credentials.refreshToken || typeof credentials.refreshToken !== "string") {
-    log?.warn?.("TOKEN_REFRESH", `No valid refresh token available for provider: ${provider}`);
-    return null;
-  }
-  return _getAccessTokenInternal(provider, credentials, log);
-}
 
-async function _getAccessTokenInternal(provider: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
-  if (provider === "gemini") {
-    return refreshGoogleToken(credentials.refreshToken || "", (PROVIDERS.gemini as ProviderConfig).clientId || "", (PROVIDERS.gemini as ProviderConfig).clientSecret || "", log);
-  }
-  const handler = REFRESH_HANDLERS[provider];
-  if (!handler) {
-    log?.warn?.("TOKEN_REFRESH", `Unsupported provider for token refresh: ${provider}`);
-    return null;
-  }
-  return handler(credentials, log);
-}
 
 export async function refreshTokenByProvider(provider: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   if (!credentials.refreshToken) return null;
@@ -185,74 +167,7 @@ export async function refreshTokenByProvider(provider: string, credentials: Cred
   return handler ? handler(credentials, log) : refreshAccessToken(provider, credentials.refreshToken, credentials, log);
 }
 
-function formatProviderCredentials(provider: string, credentials: Credentials, log?: Logger): Record<string, unknown> | null {
-  const config = PROVIDERS[provider] as ProviderConfig | undefined;
-  if (!config) {
-    log?.warn?.("TOKEN_REFRESH", `No configuration found for provider: ${provider}`);
-    return null;
-  }
 
-  switch (provider) {
-    case "gemini":
-      return {
-        apiKey: credentials.apiKey,
-        accessToken: credentials.accessToken,
-        projectId: credentials.projectId
-      };
-
-    case "claude":
-      return {
-        apiKey: credentials.apiKey,
-        accessToken: credentials.accessToken
-      };
-
-    case "codex":
-    case "iflow":
-    case "openai":
-    case "openrouter":
-    case "xai":
-    case "grok-cli":
-      return {
-        apiKey: credentials.apiKey,
-        accessToken: credentials.accessToken
-      };
-
-    case "antigravity":
-    case "gemini-cli":
-      return {
-        accessToken: credentials.accessToken,
-        refreshToken: credentials.refreshToken,
-        projectId: credentials.projectId
-      };
-
-    default:
-      return {
-        apiKey: credentials.apiKey,
-        accessToken: credentials.accessToken,
-        refreshToken: credentials.refreshToken
-      };
-  }
-}
-
-async function getAllAccessTokens(userInfo: UserInfo, log?: Logger): Promise<Record<string, RefreshResult>> {
-  const results: Record<string, RefreshResult> = {};
-
-  if (userInfo.connections && Array.isArray(userInfo.connections)) {
-    for (const connection of userInfo.connections) {
-      if (connection.isActive && connection.provider) {
-        const token = await getAccessToken(connection.provider, {
-          refreshToken: connection.refreshToken
-        }, log);
-
-        if (token) {
-          results[connection.provider] = token;
-        }
-      }
-    }
-  }
-
-  return results;
-}
 
 export async function refreshWithRetry(refreshFn: () => Promise<RefreshResult | null>, maxRetries = 3, log: Logger | null = null): Promise<RefreshResult | null> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {

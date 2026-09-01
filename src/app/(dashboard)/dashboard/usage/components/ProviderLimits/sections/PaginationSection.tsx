@@ -30,7 +30,7 @@ interface PaginationSectionProps {
 
 export default function PaginationSection({
   pagination,
-  page,
+  page: _page,
   setPage,
   pageSize,
   setPageSize,
@@ -40,7 +40,7 @@ export default function PaginationSection({
   refreshingAll,
 }: PaginationSectionProps) {
   const isCustomPageSize = !ACCOUNT_PAGE_SIZE_OPTIONS.includes(pageSize);
-  const pageSizeLabel = getPageSizeLabel(pageSize, isCustomPageSize);
+  void (getPageSizeLabel(pageSize, isCustomPageSize));
   const connectionsPageSummary = getConnectionsPaginationSummary(pagination);
 
   return (

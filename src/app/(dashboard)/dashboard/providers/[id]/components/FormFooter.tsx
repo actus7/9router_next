@@ -23,7 +23,7 @@ interface FormFooterProps {
 }
 
 export default function FormFooter({
-  isCompatible, isAzure, isCloudflareAi, defaultModel, onDefaultModelChange, isAnthropic,
+  isCompatible, isAzure: _isAzure, isCloudflareAi: _isCloudflareAi, defaultModel, onDefaultModelChange, isAnthropic,
   priority, onPriorityChange, proxyPoolId, onProxyPoolChange, proxyPools, noneProxyPoolValue,
   saving, canSubmit, onSubmit, onClose,
 }: FormFooterProps) {

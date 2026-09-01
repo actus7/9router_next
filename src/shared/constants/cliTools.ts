@@ -1,54 +1,7 @@
-interface DefaultModel {
-  id: string;
-  name: string;
-  alias: string;
-  mandatory?: boolean;
-  contextLength?: number;
-  rateMultiplier?: number;
-  envKey?: string;
-  defaultValue?: string;
-  isTopLevel?: boolean;
-}
 
-interface Note {
-  type: "info" | "warning" | "error" | "cloudCheck";
-  text: string;
-}
 
-interface GuideStep {
-  step: number;
-  title: string;
-  desc?: string;
-  value?: string;
-  copyable?: boolean;
-  type?: string;
-  docsUrl?: string;
-}
 
-interface CodeBlock {
-  language: string;
-  code: string;
-}
 
-interface CliToolBase {
-  id: string;
-  name: string;
-  image: string;
-  color: string;
-  description: string;
-  configType: "env" | "custom" | "guide";
-  envVars?: Record<string, string>;
-  modelAliases?: string[];
-  settingsFile?: string;
-  defaultModels?: DefaultModel[];
-  requiresExternalUrl?: boolean;
-  notes?: Note[];
-  guideSteps?: GuideStep[];
-  codeBlock?: CodeBlock;
-  docsUrl?: string;
-  defaultCommand?: string;
-  installUrl?: string;
-}
 
 // CLI Tools configuration
 export const CLI_TOOLS = {
@@ -437,37 +390,7 @@ gemini extensions install https://github.com/manalkaff/opendesign
   // },
 } as const;
 
-type CliToolKey = keyof typeof CLI_TOOLS;
-type CliToolEntry = (typeof CLI_TOOLS)[CliToolKey];
 
-interface ProviderConnection {
-  id: string;
-  provider: string;
-  name: string;
-  models?: string[];
-  isActive?: boolean;
-  testStatus?: string;
-}
 
-interface ProviderModelMapping {
-  connectionId: string;
-  provider: string;
-  name: string;
-  models: string[];
-}
 
 // Get all provider models for mapping dropdown
-const getProviderModelsForMapping = (providers: ProviderConnection[]): ProviderModelMapping[] => {
-  const result: ProviderModelMapping[] = [];
-  providers.forEach(conn => {
-    if (conn.isActive && (conn.testStatus === "active" || conn.testStatus === "success")) {
-      result.push({
-        connectionId: conn.id,
-        provider: conn.provider,
-        name: conn.name,
-        models: conn.models || [],
-      });
-    }
-  });
-  return result;
-};

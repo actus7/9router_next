@@ -49,7 +49,6 @@ export function formatRelativeTime(value: string | undefined | null): string {
   return `${Math.round(diffHours / 24)}d`;
 }
 
-const DATE_GROUP_ORDER = ["Hoje", "Ontem", "Últimos 7 dias", "Últimos 30 dias", "Anteriores"];
 
 export function getDateGroup(value: string): string {
   const date = new Date(value);

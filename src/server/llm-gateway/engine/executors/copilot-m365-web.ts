@@ -107,8 +107,7 @@ function wsChat(opts: { wsUrl: string; prompt: string; model: string; tier?: str
     start(controller) {
       const encoder = new TextEncoder();
       let ws: WebSocket | null = null;
-      const settled = false;
-      const ctx = { handshakeComplete: false, previousText: "", finalResultMessage: "", settled: false };
+            const ctx = { handshakeComplete: false, previousText: "", finalResultMessage: "", settled: false };
 
       const cleanup = () => {
         if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; }
@@ -144,22 +143,14 @@ function wsChat(opts: { wsUrl: string; prompt: string; model: string; tier?: str
 
       try {
         const wsUrlParts = new URL(opts.wsUrl);
-        const requestId = wsUrlParts.searchParams.get("chatsessionid") ?? wsUrlParts.searchParams.get("clientrequestid") ?? crypto.randomUUID();
-        const sessionId = wsUrlParts.searchParams.get("X-SessionId") ?? crypto.randomUUID();
-        const conversationId = wsUrlParts.searchParams.get("ConversationId") ?? crypto.randomUUID();
-        const traceId = crypto.randomUUID();
+        void (wsUrlParts.searchParams.get("chatsessionid") ?? wsUrlParts.searchParams.get("clientrequestid") ?? crypto.randomUUID());
+        void (wsUrlParts.searchParams.get("X-SessionId") ?? crypto.randomUUID());
+        void (wsUrlParts.searchParams.get("ConversationId") ?? crypto.randomUUID());
+        void (crypto.randomUUID());
 
         log?.debug?.("M365_WS", `connecting → ${redactWsUrl(opts.wsUrl)}`);
         ws = new WebSocket(opts.wsUrl, { headers: { Origin: "https://m365.cloud.microsoft", "User-Agent": M365_USER_AGENT } });
 
-        const sendChat = () => {
-          const overrides = resolveChatInvocationOverrides(opts.tier);
-          const tone = resolveToneForModel(opts.model) ?? overrides.tone;
-          const invocationFrame = encodeFrame(buildChatInvocation({
-            text: opts.prompt, traceId, sessionId, requestId, conversationId, isStartOfSession: true, ...overrides, tone,
-          }));
-          ws?.send(invocationFrame + metricsFrame());
-        };
 
         ws.on("open", () => {
           log?.debug?.("M365_WS", "socket open — sending handshake");

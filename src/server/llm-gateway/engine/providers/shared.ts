@@ -68,7 +68,6 @@ export function selectAnthropicBeta(model = "") {
 }
 
 // Shared baseUrls
-const KIMI_CODING_BASE_URL = "https://api.kimi.com/coding/v1/messages";
 
 // Default base for dynamic compat providers (openai-compatible-* / anthropic-compatible-*) when user gives no baseUrl
 export const OPENAI_COMPAT_BASE = "https://api.openai.com/v1";

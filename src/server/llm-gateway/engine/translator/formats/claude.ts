@@ -1,7 +1,6 @@
 // Claude helper functions for translator
 import { DEFAULT_THINKING_CLAUDE_SIGNATURE } from "../../config/defaultThinkingSignature";
 import { ROLE, CLAUDE_BLOCK } from "../schema/index";
-import { adjustMaxTokens } from "./maxTokens";
 import { applyCloaking } from "../../utils/claudeCloaking";
 import { resolveSessionId } from "../../utils/sessionManager";
 import { isValidClaudeSignature } from "../../utils/claudeSignature";

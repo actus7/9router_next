@@ -21,7 +21,7 @@ interface PxpipeModalProps {
 }
 
 export default function PxpipeModal({
-  showPxpipeModal, setShowPxpipeModal, pxpipeStatus, pxpipeHealthy,
+  showPxpipeModal: _showPxpipeModal, setShowPxpipeModal, pxpipeStatus, pxpipeHealthy,
   pxpipeStatusLabel, pxpipeHealth, pxpipeMinChars, setPxpipeMinChars,
   handlePxpipeMinCharsBlur, pxpipeActionLoading, pxpipeActionError,
   pxpipeAction, refreshPxpipeStatus, runPxpipeHealth,

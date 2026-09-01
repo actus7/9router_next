@@ -69,7 +69,7 @@ export default function ModalsSection({
   setShowEditModal,
   selectedConnection,
   setSelectedConnection,
-  proxyPools,
+  proxyPools: _proxyPools,
   handleUpdateConnection,
 }: ModalsSectionProps) {
   return (

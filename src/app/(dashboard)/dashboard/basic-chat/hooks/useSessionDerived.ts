@@ -123,12 +123,12 @@ export function useSessionDerived({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [historyMenuRef, setHistoryOpen]);
 
   // Focus rename input when renaming starts
   useEffect(() => {
     if (renamingSessionId) renameInputRef.current?.focus();
-  }, [renamingSessionId]);
+  }, [renameInputRef, renamingSessionId]);
 
   return {
     activeProviderGroup, activeModel, currentSession, currentMessages, activeProject,

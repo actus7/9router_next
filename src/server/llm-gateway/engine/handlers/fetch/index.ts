@@ -1,6 +1,8 @@
 // Web Fetch handler — dispatches to firecrawl, jina-reader, tavily, exa
 // Returns normalized shape across all providers
 
+import { safePublicFetch } from "@/server/security/safeFetch";
+
 const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_FORMAT = "markdown";
 
@@ -32,16 +34,17 @@ function sanitizeHeaders(headers: Record<string, unknown> | undefined): Record<s
 }
 
 async function tryFetch(url: string, init: RequestInit, timeoutMs: number): Promise<TryFetchResult> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { ...init, headers: sanitizeHeaders(init.headers as Record<string, unknown>) as Record<string, string>, signal: ctrl.signal });
+    const res = await safePublicFetch(url, {
+      ...init,
+      headers: sanitizeHeaders(init.headers as Record<string, unknown>) as Record<string, string>,
+      destinationPolicy: "public-only",
+      timeoutMs,
+    });
     return { ok: true, res };
   } catch (err: unknown) {
-    const isAbort = (err as Error)?.name === "AbortError";
+    const isAbort = (err as Error)?.name === "AbortError" || (err as Error)?.name === "TimeoutError";
     return { ok: false, timeout: isAbort, error: (err as Error)?.message || String(err) };
-  } finally {
-    clearTimeout(timer);
   }
 }
 

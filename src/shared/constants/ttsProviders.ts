@@ -154,6 +154,4 @@ export const TTS_PROVIDER_CONFIG = {
   },
 } as const satisfies Record<string, TtsProviderEntry>;
 
-type TtsProviderKey = keyof typeof TTS_PROVIDER_CONFIG;
-type TtsProviderEntryConfig = (typeof TTS_PROVIDER_CONFIG)[TtsProviderKey];
 export type { TtsProviderEntry };

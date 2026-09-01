@@ -16,11 +16,6 @@ interface DbAdapter {
 
 const CHECKPOINT_INTERVAL_MS: number = 60 * 1000;
 
-interface NodeSqliteDbLike {
-  exec(sql: string): void;
-  prepare(sql: string): NodeSqliteStmtLike;
-  close(): void;
-}
 interface NodeSqliteStmtLike {
   run(...params: unknown[]): { changes: unknown; lastInsertRowid: unknown };
   get(...params: unknown[]): Record<string, unknown> | undefined;

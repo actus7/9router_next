@@ -231,7 +231,7 @@ class ZedExecutor extends BaseExecutor {
     }
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Credentials; signal?: AbortSignal; log?: Logger; proxyOptions?: unknown }) {
+  async execute({ model, body, stream, credentials, signal, log, proxyOptions: _proxyOptions = null }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Credentials; signal?: AbortSignal; log?: Logger; proxyOptions?: unknown }) {
     const { provider } = await this.resolveModel(model, credentials, signal, log);
     const providerRequest = buildProviderRequest(provider, model, body, stream, credentials);
     const bodyRecord = body || {};

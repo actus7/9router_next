@@ -59,9 +59,6 @@ function getPlatformEnum() {
   return PLATFORM.UNSPECIFIED;
 }
 
-function getPlatformUserAgent() {
-  return ANTIGRAVITY_IDE_USER_AGENT;
-}
 
 export const CLIENT_METADATA = {
   ideType: IDE_TYPE.ANTIGRAVITY,
@@ -70,7 +67,6 @@ export const CLIENT_METADATA = {
 };
 
 // Internal anti-loop header
-const INTERNAL_REQUEST_HEADER = { name: "x-request-source", value: "local" };
 
 // Suffix added to client tools when forwarding to Antigravity provider (anti-ban cloaking)
 export const AG_TOOL_SUFFIX = "_ide";
@@ -170,7 +166,6 @@ export const LOAD_CODE_ASSIST_METADATA = {
 
 // System prompts
 export const CLAUDE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude.";
-const ANTIGRAVITY_DEFAULT_SYSTEM = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**";
 
 // Derive từ registry oauth.refreshLeadMs
 export const REFRESH_LEAD_MS: Record<string, unknown> = Object.fromEntries(

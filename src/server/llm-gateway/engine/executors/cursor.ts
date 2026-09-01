@@ -7,7 +7,6 @@ import {
   encodeField,
   wrapConnectRPCFrame,
   decodeMessage,
-  parseConnectRPCFrame,
   extractTextFromResponse
 } from "../utils/cursorProtobuf";
 import { buildCursorHeaders } from "../utils/cursorChecksum";
@@ -318,8 +317,7 @@ function emitToolCallChunks(state: SseFrameState, tc: CursorToolCall): void {
 
   if (state.toolCallsMap.has(tc.id)) {
     const existing = state.toolCallsMap.get(tc.id)!;
-    const oldArgsLen = existing.function.arguments.length;
-    existing.function.arguments += tc.function.arguments;
+        existing.function.arguments += tc.function.arguments;
     existing.isLast = tc.isLast;
 
     if (tc.function.arguments) {
@@ -854,7 +852,7 @@ export class CursorExecutor extends BaseExecutor {
     };
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Record<string, unknown>; signal?: AbortSignal; log: Logger; proxyOptions?: Record<string, unknown> | null }) {
+  async execute({ model, body, stream, credentials, signal, log: _log, proxyOptions = null }: { model: string; body: Record<string, unknown>; stream: boolean; credentials: Record<string, unknown>; signal?: AbortSignal; log: Logger; proxyOptions?: Record<string, unknown> | null }) {
     if (isAgentTextRequest(body)) {
       try {
         return await this.executeAgent({ model, body, stream, credentials, signal });

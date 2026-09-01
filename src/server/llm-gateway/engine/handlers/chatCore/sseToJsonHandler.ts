@@ -12,7 +12,7 @@ interface JsonObject { [key: string]: unknown }
 
 // Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
 const isResponsesProvider = (p: string): boolean => (PROVIDERS[p] as Record<string, unknown>)?.format === FORMATS.OPENAI_RESPONSES;
-import { saveRequestDetail, appendRequestLog } from "../../host/usage";
+import { saveRequestDetail } from "../../host/usage";
 
 function textFromResponsesMessageItem(item: unknown): string {
   if (!(item as Record<string, unknown>)?.content || !Array.isArray((item as Record<string, unknown>).content)) return "";
@@ -204,7 +204,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       const inTokensForLog = ((usage.input_tokens as number) || 0)
         + ((usage.cache_read_input_tokens as number) || (usage.cached_tokens as number) || 0)
         + ((usage.cache_creation_input_tokens as number) || 0);
-      const { msgItem, textContent } = pickAssistantMessageForChatCompletion(jsonResponse.output as unknown[]);
+      const { textContent } = pickAssistantMessageForChatCompletion(jsonResponse.output as unknown[]);
       const totalLatency = Date.now() - requestStartTime;
 
       saveRequestDetail(buildRequestDetail({

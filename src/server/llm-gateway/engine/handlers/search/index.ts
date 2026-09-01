@@ -6,6 +6,7 @@
 import { buildSearchRequest } from "./callers";
 import { normalizeSearchResponse } from "./normalizers";
 import { handleChatSearch } from "./chatSearch";
+import { safePublicFetch } from "@/server/security/safeFetch";
 
 const GLOBAL_TIMEOUT_MS = 15000;
 const NON_RETRIABLE = new Set([400, 401, 403, 404]);
@@ -96,14 +97,15 @@ async function tryDedicatedProvider({ provider, providerConfig, body, credential
   // Timeout = min(provider timeout, remaining global)
   const remaining = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
   const timeout = Math.min((providerConfig.timeoutMs as number) || 10000, Math.max(remaining, 1000));
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-
   log?.info?.("SEARCH", `${provider.id} | "${params.query.slice(0, 80)}" | type=${params.searchType}`);
 
   try {
-    const resp = await fetch(url, { ...init, headers: sanitizeHeaders(init.headers as Record<string, unknown>), signal: controller.signal });
-    clearTimeout(timer);
+    const resp = await safePublicFetch(url, {
+      ...init,
+      headers: sanitizeHeaders(init.headers as Record<string, unknown>),
+      destinationPolicy: "public-only",
+      timeoutMs: timeout,
+    });
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "");
       log?.error?.("SEARCH", `${provider.id} ${resp.status}: ${errText.slice(0, 200)}`);
@@ -127,8 +129,7 @@ async function tryDedicatedProvider({ provider, providerConfig, body, credential
       }
     };
   } catch (err: unknown) {
-    clearTimeout(timer);
-    const isTimeout = (err as Error).name === "AbortError";
+    const isTimeout = (err as Error).name === "AbortError" || (err as Error).name === "TimeoutError";
     const status = isTimeout ? 504 : 502;
     log?.error?.("SEARCH", `${provider.id} ${isTimeout ? "timeout" : "error"}: ${(err as Error).message}`);
     return { success: false, status, error: `${provider.id} ${isTimeout ? "timeout" : "error"}: ${(err as Error).message}` };

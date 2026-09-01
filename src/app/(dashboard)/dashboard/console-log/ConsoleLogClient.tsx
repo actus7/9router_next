@@ -23,7 +23,7 @@ function colorLine(line: string) {
 
 export default function ConsoleLogClient() {
   const [logs, setLogs] = useState<string[]>([]);
-  const [connected, setConnected] = useState(false);
+  const [, setConnected] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   const handleClear = async () => {

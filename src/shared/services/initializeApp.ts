@@ -1,9 +1,8 @@
 import os from "os";
-import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { cleanupProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import {
   enableTunnel, enableTailscale,
-  isTunnelManuallyDisabled, isTunnelReconnecting, isTailscaleReconnecting,
   getTunnelService, getTailscaleService, setTunnelUnexpectedExitCallback,
   killCloudflared, isCloudflaredRunning, ensureCloudflared,
   isTailscaleRunning, isTailscaleRunningStrict, isDaemonAlive, startFunnel,

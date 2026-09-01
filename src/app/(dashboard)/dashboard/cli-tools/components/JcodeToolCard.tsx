@@ -31,7 +31,7 @@ interface JcodeToolCardProps {
 }
 
 export default function JcodeToolCard({
-  tool, isExpanded, onToggle, baseUrl, hasActiveProviders, apiKeys, activeProviders, cloudEnabled, initialStatus,
+  tool, isExpanded, onToggle, baseUrl: _baseUrl, hasActiveProviders, apiKeys, activeProviders, cloudEnabled, initialStatus,
   tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl,
 }: JcodeToolCardProps) {
   const [jcodeStatus, setJcodeStatus] = useState<StatusData | null>(initialStatus || null);
@@ -70,7 +70,7 @@ export default function JcodeToolCard({
       if (!jcodeStatus) checkJcodeStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [isExpanded, jcodeStatus]);
 
   const fetchModelAliases = async () => {
     try {
@@ -100,7 +100,7 @@ export default function JcodeToolCard({
       const res = await fetch("/api/cli-tools/jcode-settings");
       const data = await res.json();
       setJcodeStatus(data);
-    } catch (error) {
+    } catch  {
       setJcodeStatus({ installed: false });
     } finally {
       setCheckingJcode(false);

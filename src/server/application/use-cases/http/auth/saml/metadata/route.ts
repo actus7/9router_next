@@ -1,0 +1,27 @@
+import { NextRequest } from "next/server";
+import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { generateSamlMetadata } from "@/lib/auth/saml";
+
+export async function GET(request: NextRequest): Promise<Response> {
+  try {
+    const settings = await getSettings();
+    const origin = new URL(request.url).origin;
+    const metadataXml = generateSamlMetadata(origin, settings);
+
+    return new Response(metadataXml, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/xml",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch (error) {
+    return new Response(`<?xml version="1.0"?><Error>${(error as Error).message || "Failed to generate metadata"}</Error>`, {
+      status: 500,
+      headers: {
+        "Content-Type": "application/xml",
+      },
+    });
+  }
+}
+// Application HTTP use case extracted from the Next.js route adapter.

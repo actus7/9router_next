@@ -52,10 +52,6 @@ const upsertEnvVar = (envText: string, key: string, value: string) => {
   return envText.length > 0 && !envText.endsWith("\n") ? `${envText}\n${line}\n` : `${envText}${line}\n`;
 };
 
-const removeEnvVar = (envText: string, key: string) => {
-  const re = new RegExp(`^${key}=.*\\r?\\n?`, "m");
-  return envText.replace(re, "");
-};
 
 const checkHermesInstalled = async () => {
   try {

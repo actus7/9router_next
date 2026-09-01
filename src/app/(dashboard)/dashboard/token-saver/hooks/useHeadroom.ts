@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { translate } from "@/i18n/runtime";
 import type { HeadroomExtrasState, ExtrasConfirmState } from "../types";
 import { patchSetting } from "../types";
 

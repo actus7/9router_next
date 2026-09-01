@@ -55,7 +55,7 @@ const clinepass = {
         lastName: tokenData.lastName as string,
         expires_at: tokenData.expiresAt as string,
       };
-    } catch (e: unknown) {
+    } catch  {
       const response: Response = await fetch(config.tokenUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },

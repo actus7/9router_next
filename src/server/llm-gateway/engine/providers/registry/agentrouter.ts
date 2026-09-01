@@ -1,4 +1,4 @@
-import { CLAUDE_API_HEADERS, CLAUDE_CLI_SPOOF_HEADERS } from "../shared";
+import { CLAUDE_API_HEADERS } from "../shared";
 
 export default {
   id: "agentrouter",

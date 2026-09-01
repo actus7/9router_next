@@ -16,7 +16,7 @@ interface AddCustomModelModalProps {
   onClose: () => void;
 }
 
-export default function AddCustomModelModal({ isOpen, providerAlias, providerDisplayAlias, onSave, onClose }: AddCustomModelModalProps) {
+export default function AddCustomModelModal({ isOpen, providerAlias, providerDisplayAlias: _providerDisplayAlias, onSave, onClose }: AddCustomModelModalProps) {
   const [modelId, setModelId] = useState<string>("");
   const [testStatus, setTestStatus] = useState<null | "testing" | "ok" | "error">(null);
   const [testError, setTestError] = useState<string>("");

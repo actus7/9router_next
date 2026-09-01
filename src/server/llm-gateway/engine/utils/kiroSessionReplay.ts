@@ -151,9 +151,6 @@ export function applyKiroSessionReplay({
   };
 }
 
-function clearKiroSessionReplayStore() {
-  sessionStartStore.clear();
-}
 
 const cleanup = setInterval(() => {
   const now = Date.now();

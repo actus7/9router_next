@@ -3,7 +3,6 @@
 import { getStatusVariant as getConnectionStatusVariant, getStatusClassName } from "@/shared/utils/connectionStatus";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Key, Lock } from "lucide-react";
 
 interface ConnectionBadgesProps {
   connection: {

@@ -35,7 +35,7 @@ export function useProviderConnections({
   const fetchConnections = useCallback(async () => {
     await fetchAllProviderData(providerId, isCompatible, setConnections, setProxyPools, setProviderNode, settingsHook.loadSettings);
     setLoading(false);
-  }, [providerId, isCompatible]);
+  }, [providerId, isCompatible, settingsHook.loadSettings]);
 
   const modalsHook = useConnectionModals({ providerId, initialConnections, initialProvider, isCompatible, fetchConnections });
   const oneByOneHook = useOneByOneTest({ connections });
@@ -47,7 +47,7 @@ export function useProviderConnections({
 
   useEffect(() => {
     bulkProxyHook.setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
-  }, [connections]);
+  }, [bulkProxyHook, connections]);
 
   return {
     connections, setConnections,

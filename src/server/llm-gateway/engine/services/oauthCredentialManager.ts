@@ -7,7 +7,6 @@ import { PROVIDER_OAUTH } from "../providers/index";
 import type { Credentials, RefreshResult, Logger, OAuthProviderConfig } from "./types";
 
 // Single source: codex.oauth.maxRefreshAgeMs (8 days) — proactive refresh window
-const CODEX_MAX_REFRESH_AGE_MS = (PROVIDER_OAUTH["codex"] as OAuthProviderConfig | undefined)?.maxRefreshAgeMs;
 
 const refreshLocks = new Map<string, Promise<RefreshResult | null>>();
 

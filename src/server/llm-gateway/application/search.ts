@@ -116,7 +116,7 @@ export async function handleSearch(request: Request): Promise<Response> {
   return handleSingleProviderSearch(body, providerInput, request, apiKey, settings);
 }
 
-async function handleSingleProviderSearch(body: Record<string, unknown>, providerInput: string, request: Request, apiKey: string | null, settings: Record<string, unknown>): Promise<Response> {
+async function handleSingleProviderSearch(body: Record<string, unknown>, providerInput: string, _request: Request, _apiKey: string | null, _settings: Record<string, unknown>): Promise<Response> {
   const query: string = body.query as string;
   const providerId: string = resolveProviderId(providerInput);
   const resolvedProvider = AI_PROVIDERS[providerId];

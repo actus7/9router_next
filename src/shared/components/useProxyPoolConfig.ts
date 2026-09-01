@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { translate } from "@/i18n/runtime";
 
 const NONE_PROXY_POOL_VALUE = "__none__";
 

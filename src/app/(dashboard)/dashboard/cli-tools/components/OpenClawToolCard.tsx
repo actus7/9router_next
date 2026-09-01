@@ -31,7 +31,7 @@ interface OpenClawToolCardProps {
 }
 
 export default function OpenClawToolCard({
-  tool, isExpanded, onToggle, baseUrl, hasActiveProviders, apiKeys, activeProviders, cloudEnabled, initialStatus,
+  tool, isExpanded, onToggle, baseUrl: _baseUrl, hasActiveProviders, apiKeys, activeProviders, cloudEnabled, initialStatus,
   tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl,
 }: OpenClawToolCardProps) {
   const [openclawStatus, setOpenclawStatus] = useState<StatusData | null>(initialStatus || null);
@@ -71,7 +71,7 @@ export default function OpenClawToolCard({
       if (!openclawStatus) checkOpenclawStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [isExpanded, openclawStatus]);
 
   const fetchModelAliases = async () => {
     try {
@@ -109,7 +109,7 @@ export default function OpenClawToolCard({
       const res = await fetch("/api/cli-tools/openclaw-settings");
       const data = await res.json();
       setOpenclawStatus(data);
-    } catch (error) {
+    } catch  {
       setOpenclawStatus({ installed: false });
     } finally {
       setCheckingOpenclaw(false);

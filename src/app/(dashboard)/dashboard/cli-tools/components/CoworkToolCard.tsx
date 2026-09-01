@@ -42,7 +42,7 @@ const ensureV1 = (url: string) => {
 };
 
 export default function CoworkToolCard({
-  tool, isExpanded, onToggle, baseUrl, apiKeys, activeProviders, hasActiveProviders, cloudEnabled, cloudUrl,
+  tool, isExpanded, onToggle, baseUrl: _baseUrl, apiKeys, activeProviders, hasActiveProviders, cloudEnabled, cloudUrl,
   tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl, initialStatus,
 }: CoworkToolCardProps) {
   const [status, setStatus] = useState<StatusData | null>(initialStatus || null);
@@ -73,7 +73,7 @@ export default function CoworkToolCard({
 
   useEffect(() => {
     if (isExpanded && !status) checkStatus();
-  }, [isExpanded]);
+  }, [isExpanded, status]);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -95,7 +95,7 @@ export default function CoworkToolCard({
     }
     if (Array.isArray(status?.cowork?.localPlugins)) setLocalPlugins(status.cowork.localPlugins);
     if (Array.isArray(status?.cowork?.customPlugins) && status.cowork.customPlugins.length > 0) setCustomPlugins(status.cowork.customPlugins);
-  }, [status]);
+  }, [customBaseUrl, plugins.length, status]);
 
   const checkStatus = async () => {
     setChecking(true);
@@ -103,7 +103,7 @@ export default function CoworkToolCard({
       const res = await fetch(ENDPOINT);
       const data = await res.json();
       setStatus(data);
-    } catch (error) {
+    } catch  {
       setStatus({ installed: false });
     } finally {
       setChecking(false);

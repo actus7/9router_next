@@ -18,11 +18,11 @@ const VERCEL_AI_GATEWAY_CREDITS_URL = (U("vercel-ai-gateway") as Record<string, 
 /**
  * iFlow Usage
  */
-export async function getIflowUsage(accessToken: string) {
+export async function getIflowUsage(_accessToken: string) {
   try {
     // iFlow may have usage endpoint
     return { message: "iFlow connected. Usage tracked per request." };
-  } catch (error: unknown) {
+  } catch  {
     return { message: "Unable to fetch iFlow usage." };
   }
 }

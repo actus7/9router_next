@@ -3,7 +3,6 @@
 // Provider-specific application lives in thinkingUnified.js; this file is maps-only.
 
 // Discrete effort levels, ordered low→high.
-const EFFORT_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max"];
 
 // Web-standard level → budget_tokens (Anthropic/Gemini docs).
 export const LEVEL_TO_BUDGET: Record<string, number> = {

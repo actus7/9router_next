@@ -410,6 +410,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   }, [rawActiveSet]);
 
   const activeSet = useMemo(() => {
+    void tick;
     const now = Date.now();
     const filtered = new Set<string>();
     for (const p of rawActiveSet) {
@@ -432,11 +433,11 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
 
   const rfInstance = useRef<{ fitView: (opts?: Record<string, unknown>) => void } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const fitOpts = { padding: 0.2, duration: 200 };
+  const fitOpts = useMemo(() => ({ padding: 0.2, duration: 200 }), []);
   const onInit = useCallback((instance: { fitView: (opts?: Record<string, unknown>) => void }) => {
     rfInstance.current = instance;
     setTimeout(() => instance.fitView(fitOpts as unknown as Record<string, unknown>), 50);
-  }, []);
+  }, [fitOpts]);
 
   // Re-fit on container resize
   useEffect(() => {
@@ -447,7 +448,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [fitOpts]);
 
   // Re-fit when node count/layout changes
   useEffect(() => {
@@ -455,7 +456,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
       const id = setTimeout(() => rfInstance.current?.fitView(fitOpts as unknown as Record<string, unknown>), 50);
       return () => clearTimeout(id);
     }
-  }, [nodes.length]);
+  }, [fitOpts, nodes.length]);
 
   return (
     <div ref={containerRef} className="h-[320px] w-full min-w-0 rounded-lg border border-border bg-bg-subtle/30 sm:h-[480px]">

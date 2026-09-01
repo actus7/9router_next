@@ -159,14 +159,6 @@ export async function restartHeadroomProxy(opts: ExtrasProxyArgs = {}): Promise<
   return startHeadroomProxy(opts);
 }
 
-function getHeadroomLogTail(maxLines: number = 200): string {
-  try {
-    if (!fs.existsSync(LOG_FILE)) return "";
-    const content: string = fs.readFileSync(LOG_FILE, "utf8");
-    const lines: string[] = content.split(/\r?\n/).filter(Boolean);
-    return lines.slice(-maxLines).join("\n");
-  } catch { return ""; }
-}
 
 interface InstallResult {
   success: boolean;

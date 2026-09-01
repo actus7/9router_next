@@ -2,7 +2,7 @@
 import { getProviderNodes } from "@/lib/db/repos/nodesRepo";
 import { getComboByName } from "@/lib/db/repos/combosRepo";
 import { getModelAliases } from "@/lib/db/repos/aliasRepo";
-import { parseModel as parseModelCore, resolveModelAliasFromMap, getModelInfoCore } from "@/server/llm-gateway/engine/services/model";
+import { parseModel as parseModelCore, getModelInfoCore } from "@/server/llm-gateway/engine/services/model";
 import REGISTRY from "@/server/llm-gateway/engine/providers/registry/index";
 
 interface ParsedModel {
@@ -52,10 +52,6 @@ function parseModel(modelStr: string): ParsedModel {
 /**
  * Resolve model alias from localDb
  */
-async function resolveModelAlias(alias: string): Promise<string | null> {
-  const aliases = await getModelAliases() as Record<string, string>;
-  return resolveModelAliasFromMap(alias, aliases) as unknown as string | null;
-}
 
 /**
  * Get full model info (parse or resolve)

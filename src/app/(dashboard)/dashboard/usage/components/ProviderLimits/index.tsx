@@ -76,7 +76,7 @@ export default function ProviderLimits() {
     };
 
     initializeData();
-  }, [connectionsHook.fetchConnections, quotaHook.fetchQuota, connectionsHook.page]);
+  }, [connectionsHook.fetchConnections, quotaHook.fetchQuota, connectionsHook.page, connectionsHook, quotaHook]);
 
   const sortedConnections = useMemo(
     () =>

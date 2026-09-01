@@ -374,12 +374,3 @@ export async function resolveQoderModels(credentials: Credentials, options: Qode
     }
   }
 }
-
-function invalidateQoderCatalog(credentials: Credentials): void {
-  if (!credentials) return;
-  catalogCache.delete(cacheKey(credentials));
-}
-
-function clearQoderCatalog(): void {
-  catalogCache.clear();
-}

@@ -12,7 +12,6 @@ import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Settings, CapacityAdapterEntry, CapacityAdapterLegacyEntry } from "./types";
 
 const CAPABILITY_KEYS = ["vision", "pdf", "audioInput", "videoInput"] as const;
-type CapabilityKey = typeof CAPABILITY_KEYS[number];
 const HARD_CAPS = new Set<string>(CAPABILITY_KEYS);
 const DEFAULT_FALLBACK_MODEL = "oc/mimo-v2.5-free";
 

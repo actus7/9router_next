@@ -69,7 +69,7 @@ export function useSessionHandlers({
 }: UseSessionHandlersArgs): UseSessionHandlersReturn {
   const updateSession = useCallback((sessionId: string, updater: (session: ChatSession) => ChatSession) => {
     setSessions((prev) => prev.map((session) => (session.id === sessionId ? updater(cloneSession(session)) : session)));
-  }, []);
+  }, [setSessions]);
 
   const ensureSessionForModel = useCallback((model: NormalizedModel | null): ChatSession | undefined => {
     if (!model) return undefined;

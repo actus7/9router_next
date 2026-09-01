@@ -1,5 +1,4 @@
 import { SAML } from "@node-saml/node-saml";
-import { getSettings } from "../db/repos/settingsRepo";
 
 /**
  * Formats a raw Base64 string or unformatted X.509 certificate into standard PEM format.
@@ -34,21 +33,10 @@ export function isSamlConfigured(settings: SamlSettings): boolean {
   return Boolean(settings?.samlEntryPoint && settings?.samlCert);
 }
 
-interface SamlRuntimeConfig {
-  configured: boolean;
-  settings: SamlSettings;
-}
 
 /**
  * Fetches settings and returns runtime status + settings.
  */
-async function getSamlRuntimeConfig(): Promise<SamlRuntimeConfig> {
-  const settings: SamlSettings = await getSettings() as SamlSettings;
-  return {
-    configured: isSamlConfigured(settings),
-    settings,
-  };
-}
 
 const DUMMY_FALLBACK_CERT: string =
   "-----BEGIN CERTIFICATE-----\nMIIC...DUMMY...\n-----END CERTIFICATE-----";

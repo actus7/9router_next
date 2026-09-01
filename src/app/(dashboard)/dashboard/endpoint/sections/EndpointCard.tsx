@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import EndpointRow from "../components/EndpointRow";
 import SecurityWarning from "../components/SecurityWarning";
 import Tooltip from "../components/Tooltip";
-import { AlertCircle, Check, CheckCircle2, CloudUpload, Copy, ExternalLink, Loader2, Lock, Power, Webhook } from "lucide-react";
+import { AlertCircle, Check, CloudUpload, Copy, ExternalLink, Loader2, Lock, Power, Webhook } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { StatusInfo } from "../types";
 
@@ -63,7 +63,7 @@ export default function EndpointCard({
   currentEndpoint, copied, copy,
   tunnelEnabled, tunnelLoading, tunnelReachable, tunnelUrl, tunnelPublicUrl,
   tunnelProgress, tunnelChecking, tunnelStatus, tunnelEverReachable,
-  setShowEnableTunnelModal,   setShowDisableTunnelModal, setTunnelLoading, setTunnelProgress, setTunnelStatus, setTunnelChecking, setTunnelEverReachable,
+  setShowEnableTunnelModal,   setShowDisableTunnelModal, setTunnelLoading, setTunnelProgress, setTunnelStatus, setTunnelChecking, setTunnelEverReachable: _setTunnelEverReachable,
   tsEnabled, tsLoading, tsConnecting, tsReachable, tsUrl, tsProgress, tsStatus, setTsStatus,
   tsAuthUrl, tsAuthLabel, tsEverReachable,
   setShowDisableTsModal, handleOpenTsModal, setTsLoading, setTsConnecting, setTsProgress, clearUserAuth,

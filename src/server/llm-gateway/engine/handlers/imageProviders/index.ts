@@ -46,7 +46,3 @@ const ADAPTERS: Record<string, {
 export function getImageAdapter(provider: string) {
   return ADAPTERS[provider] || null;
 }
-
-function isImageProvider(provider: string): boolean {
-  return provider in ADAPTERS;
-}

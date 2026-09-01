@@ -78,11 +78,6 @@ function generateBinaryStyleId() {
 /**
  * Clears all session IDs (e.g. useful for testing or explicit reset)
  */
-function clearSessionStore() {
-    runtimeSessionStore.clear();
-    assistantSessionStore.clear();
-    continuationStore.clear();
-}
 
 // Conversation-stable session store: Key = hash(scope+assistant text), Value = { sessionId, lastUsed }
 const assistantSessionStore = new Map();

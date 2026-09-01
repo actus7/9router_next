@@ -184,7 +184,7 @@ export default function MediaProviderKindClient({ initialConnections, initialNod
   const [customNodes, setCustomNodes] = useState<ProviderNode[]>(
     initialNodes.filter((n) => n.type === "custom-embedding")
   );
-  const [combos, setCombos] = useState<Combo[]>(initialCombos);
+  const [combos, ] = useState<Combo[]>(initialCombos);
   const [showAddCustomEmbedding, setShowAddCustomEmbedding] = useState(false);
 
   // webSearch/webFetch listing pages are merged into /web

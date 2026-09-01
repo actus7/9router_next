@@ -111,7 +111,7 @@ export function useSsoConfig(initialSettings: Settings, settings: Settings, setS
       } else {
         setOidcStatus({ type: "error", message: data.error || translate("Failed to save OIDC settings") || "Failed to save OIDC settings" });
       }
-    } catch (err) {
+    } catch  {
       setOidcStatus({ type: "error", message: translate("An error occurred") || "An error occurred" });
     } finally {
       setOidcLoading(false);
@@ -180,7 +180,7 @@ export function useSsoConfig(initialSettings: Settings, settings: Settings, setS
       } else {
         setOidcTestStatus({ type: "error", message: data.error || translate("OIDC connection test failed") || "OIDC connection test failed" });
       }
-    } catch (err) {
+    } catch  {
       setOidcTestStatus({ type: "error", message: translate("An error occurred") || "An error occurred" });
     } finally {
       setOidcTestLoading(false);
@@ -238,7 +238,7 @@ export function useSsoConfig(initialSettings: Settings, settings: Settings, setS
           type: "success",
           message: `${translate("IdP metadata imported!") || "IdP metadata imported!"} (${translate("SSO URL") || "SSO URL"}: ${ssoUrl ? translate("found") || "found" : translate("not found") || "not found"}, EntityID: ${entityID ? translate("found") || "found" : translate("not found") || "not found"}, ${translate("Cert") || "Cert"}: ${certStr ? translate("found") || "found" : translate("not found") || "not found"})`,
         });
-      } catch (err) {
+      } catch  {
         setSamlStatus({ type: "error", message: translate("Error reading IdP metadata XML file") || "Error reading IdP metadata XML file" });
       }
     };

@@ -186,7 +186,7 @@ function convertMessages(messages: OpenAIMessage[]): CursorMessage[] {
   return result;
 }
 
-function openaiToCursorRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials?: unknown) {
+function openaiToCursorRequest(model: string, body: Record<string, unknown>, _stream: boolean, _credentials?: unknown) {
   const messages = convertMessages((body.messages as OpenAIMessage[]) || []);
 
   // Strip fields irrelevant to Cursor (OpenAI/Anthropic-specific)

@@ -22,7 +22,7 @@ export default function ConnectionsBottomActions({
   providerId,
   isCompatible,
   hasDualAuthModes,
-  isOAuth,
+  isOAuth: _isOAuth,
   oauthConnectionLabel,
   apiKeyConnectionLabel,
   onTriggerOAuth,

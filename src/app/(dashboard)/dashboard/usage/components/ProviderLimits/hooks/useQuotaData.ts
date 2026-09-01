@@ -5,7 +5,6 @@ import {
   parseQuotaData,
   buildLoadingState,
   filterQuotaStateByConnections,
-  getQuotaCache,
   setQuotaCache,
   REFRESH_INTERVAL_MS,
   CLAUDE_REFRESH_INTERVAL_MS,

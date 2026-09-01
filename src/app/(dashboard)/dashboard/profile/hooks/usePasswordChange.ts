@@ -4,7 +4,7 @@ import { useState } from "react";
 import { translate } from "@/i18n/runtime";
 import type { Settings, StatusMessage } from "../types";
 
-export function usePasswordChange(settings: Settings) {
+export function usePasswordChange(_settings: Settings) {
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
   const [passStatus, setPassStatus] = useState<StatusMessage>({ type: "", message: "" });
   const [passLoading, setPassLoading] = useState(false);
@@ -37,7 +37,7 @@ export function usePasswordChange(settings: Settings) {
       } else {
         setPassStatus({ type: "error", message: data.error || translate("Failed to update password") || "Failed to update password" });
       }
-    } catch (err) {
+    } catch  {
       setPassStatus({ type: "error", message: translate("An error occurred") || "An error occurred" });
     } finally {
       setPassLoading(false);

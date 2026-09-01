@@ -68,7 +68,7 @@ export default function AddCompatibleModal({ variant, isOpen, onClose, onCreated
   useEffect(() => {
     if (config.hasApiType) setFormData((prev) => ({ ...prev, baseUrl: config.defaultBaseUrl }));
     else if (isOpen) { setValidationResult(null); setCheckKey(""); setCheckModelId(""); }
-  }, [config.hasApiType ? formData.apiType : isOpen, config]);
+  }, [config, isOpen]);
 
   const handleSubmit = async () => {
     if (!formData.name.trim() || !formData.prefix.trim() || !formData.baseUrl.trim()) return;

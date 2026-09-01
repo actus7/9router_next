@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Card } from "@/shared/components";
-import { translate } from "@/i18n/runtime";
 import AddCustomModelModal from "../AddCustomModelModal";
 import ModelsGrid from "./models/ModelsGrid";
 import ModelsToolbar from "./models/ModelsToolbar";

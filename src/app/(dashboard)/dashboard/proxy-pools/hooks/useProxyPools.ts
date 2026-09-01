@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import type { ProxyPool, ConfirmState } from "../types";

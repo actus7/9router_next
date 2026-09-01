@@ -47,7 +47,7 @@ export function ProxyOAuthSection({
   callbackUrl,
   pasteToken,
   ideStatus,
-  error,
+  error: _error,
   setAuthMode,
   setError,
   setStep,
@@ -56,8 +56,8 @@ export function ProxyOAuthSection({
   startOAuthFlow,
   handleManualSubmit,
   handleClose,
-  copied,
-  copy,
+  copied: _copied,
+  copy: _copy,
 }: ProxyOAuthSectionProps) {
   return (
     <>

@@ -2,7 +2,6 @@
 // Driven by getCapabilitiesForModel: vision/audioInput/pdf. Replaces removed
 // media with a short text placeholder so messages never become empty.
 import { FORMATS } from "../formats";
-import type { ModelCapabilities } from "./openaiTypes";
 
 type CapabilityKey = "vision" | "audioInput" | "pdf";
 

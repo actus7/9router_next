@@ -21,53 +21,17 @@ function formatTime(): string {
 }
 
 // Colored-dot tags to correlate request lines by session (same session → same color)
-const REQ_TAGS: string[] = ["🟢", "🔵", "🟣", "🟡", "🟠", "🔴", "⚪", "🟤"];
-let tagCursor: number = 0;
 
 // Allocate next rotating tag (fallback when no session seed available)
-function nextTag(): string {
-  const tag: string = REQ_TAGS[tagCursor % REQ_TAGS.length];
-  tagCursor++;
-  return tag;
-}
 
 // Stable tag derived from a session/connection seed: same seed always maps to the same color
-function tagForSession(seed: string | null | undefined): string {
-  if (!seed) return nextTag();
-  let h: number = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
-  return REQ_TAGS[Math.abs(h) % REQ_TAGS.length];
-}
 
 // Print one correlated line: [time] tag symbol message
-function line(tag: string, symbol: string, message: string): void {
-  if (LEVEL > LOG_LEVELS.INFO) return;
-  console.log(`[${formatTime()}] ${tag} ${symbol} ${message}`);
-}
 
 // Like line() but always printed regardless of LOG_LEVEL (errors must never be hidden)
-function errorLine(tag: string, symbol: string, message: string): void {
-  console.error(`[${formatTime()}] ${tag} ${symbol} ${message}`);
-}
 
-interface ThinkIntent {
-  mode: string;
-  budget?: number;
-  level?: string;
-}
 
 // Format thinking intent for the request line ("high(10k)" / "off" / "auto")
-function fmtThink(intent: ThinkIntent | null | undefined): string | null {
-  if (!intent || !intent.mode) return null;
-  if (intent.mode === "none") return "off";
-  if (intent.mode === "auto") return "auto";
-  if (intent.mode === "budget") {
-    const k: string = intent.budget! >= 1000 ? `${Math.round(intent.budget! / 1000)}k` : `${intent.budget}`;
-    return k;
-  }
-  if (intent.mode === "level") return intent.level!;
-  return null;
-}
 
 function formatData(data: unknown): string {
   if (!data) return "";
@@ -112,16 +76,7 @@ export function request(method: string, path: string, extra?: unknown): void {
   console.log(`\x1b[36m[${formatTime()}] 📥 ${method} ${path}${dataStr}\x1b[0m`);
 }
 
-function response(status: number, duration: number, extra?: unknown): void {
-  const icon: string = status < 400 ? "📤" : "💥";
-  const dataStr: string = extra ? ` ${formatData(extra)}` : "";
-  console.log(`[${formatTime()}] ${icon} ${status} (${duration}ms)${dataStr}`);
-}
 
-function stream(event: string, data?: unknown): void {
-  const dataStr: string = data ? ` ${formatData(data)}` : "";
-  console.log(`[${formatTime()}] 🌊 [STREAM] ${event}${dataStr}`);
-}
 
 // Mask sensitive data
 export function maskKey(key: string | null | undefined): string {

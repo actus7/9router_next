@@ -33,7 +33,7 @@ interface HermesToolCardProps {
 const ENDPOINT = "/api/cli-tools/hermes-settings";
 
 export default function HermesToolCard({
-  tool, isExpanded, onToggle, baseUrl, hasActiveProviders, apiKeys, activeProviders, cloudEnabled, initialStatus,
+  tool, isExpanded, onToggle, baseUrl: _baseUrl, hasActiveProviders, apiKeys, activeProviders, cloudEnabled, initialStatus,
   tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl,
 }: HermesToolCardProps) {
   const [hermesStatus, setHermesStatus] = useState<StatusData | null>(initialStatus || null);
@@ -72,7 +72,7 @@ export default function HermesToolCard({
       if (!hermesStatus) checkStatus();
       fetchModelAliases();
     }
-  }, [isExpanded]);
+  }, [hermesStatus, isExpanded]);
 
   const fetchModelAliases = async () => {
     try {
@@ -98,7 +98,7 @@ export default function HermesToolCard({
       const res = await fetch(ENDPOINT);
       const data = await res.json();
       setHermesStatus(data);
-    } catch (error) {
+    } catch  {
       setHermesStatus({ installed: false });
     } finally {
       setChecking(false);

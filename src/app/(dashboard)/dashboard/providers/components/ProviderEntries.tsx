@@ -1,6 +1,5 @@
 "use client";
 
-import { translate } from "@/i18n/runtime";
 import { getProviderConnectionAuthTypes } from "@/shared/constants/providers";
 import { ProviderSection } from "./ProviderSection";
 import { ProviderCard } from "./ProviderCard";

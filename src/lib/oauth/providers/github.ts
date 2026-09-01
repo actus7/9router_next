@@ -83,7 +83,7 @@ const github = {
     let data: Record<string, unknown>;
     try {
       data = await response.json();
-    } catch (e: unknown) {
+    } catch  {
       const text: string = await response.text();
       data = { error: "invalid_response", error_description: text };
     }

@@ -3,7 +3,7 @@ export const RAW_CAP = 10 * 1024 * 1024;      // 10 MiB
 export const MIN_COMPRESS_SIZE = 500;          // bytes; skip tiny blobs
 export const DETECT_WINDOW = 1024;             // autodetect peeks first N chars
 export const GIT_DIFF_HUNK_MAX_LINES = 100;    // per-hunk line cap
-const GIT_DIFF_CONTEXT_KEEP = 3;        // context lines around changes
+// context lines around changes
 export const GIT_LOG_MAX_LINES = 200;          // gitLog line cap
 export const DEDUP_LINE_MAX = 2000;            // dedupLog truncation cap
 
@@ -44,17 +44,3 @@ export const SMART_TRUNCATE_MIN_LINES = 250;   // only kick in above this
 export const READ_NUMBERED_MIN_HIT_RATIO = 0.7;
 
 // Filter name strings (Rust parity + JS extras)
-const FILTERS = {
-  GIT_DIFF: "git-diff",
-  GIT_STATUS: "git-status",
-  GIT_LOG: "git-log",
-  GREP: "grep",
-  FIND: "find",
-  LS: "ls",
-  TREE: "tree",
-  DEDUP_LOG: "dedup-log",
-  SMART_TRUNCATE: "smart-truncate",
-  READ_NUMBERED: "read-numbered",
-  SEARCH_LIST: "search-list",
-  BUILD_OUTPUT: "build-output"
-};

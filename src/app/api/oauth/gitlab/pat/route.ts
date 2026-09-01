@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
+import { isLocalRequest } from "@/dashboardGuard";
+import { safePublicFetch } from "@/server/security/safeFetch";
 
 const GITLAB_DEFAULT_BASE = "https://gitlab.com";
 
@@ -24,8 +26,10 @@ export async function POST(request: NextRequest) {
     const base = (baseUrl?.trim() || GITLAB_DEFAULT_BASE).replace(/\/$/, "");
 
     // Verify token by fetching current user
-    const userRes = await fetch(`${base}/api/v4/user`, {
+    const userRes = await safePublicFetch(`${base}/api/v4/user`, {
       headers: { "Private-Token": token.trim(), Accept: "application/json" },
+      destinationPolicy: isLocalRequest(request) ? "trusted-local" : "public-only",
+      timeoutMs: 10_000,
     });
 
     if (!userRes.ok) {

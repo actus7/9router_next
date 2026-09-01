@@ -3,6 +3,7 @@
  * /v1/search response format. Supports gemini, openai, xai, kimi, minimax, perplexity.
  */
 import { PROVIDER_MEDIA } from "../../providers/index";
+import { safePublicFetch } from "@/server/security/safeFetch";
 
 // Default search model + endpoint derive from registry searchViaChat (single source)
 const searchModel = (id: string): string | undefined => (PROVIDER_MEDIA[id]?.searchViaChat as Record<string, unknown>)?.defaultModel as string | undefined;
@@ -385,21 +386,18 @@ export async function handleChatSearch({
   const body = cfg.buildBody(query, useModel || "");
   const headers = cfg.buildHeaders(token);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
   const upstreamStart = Date.now();
   let resp: Response;
   try {
-    resp = await fetch(url, {
+    resp = await safePublicFetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
-      signal: controller.signal
+      destinationPolicy: "public-only",
+      timeoutMs: REQUEST_TIMEOUT_MS,
     });
   } catch (err: unknown) {
-    clearTimeout(timer);
-    if ((err as Error)?.name === "AbortError") {
+    if ((err as Error)?.name === "AbortError" || (err as Error)?.name === "TimeoutError") {
       log?.warn?.(`[chatSearch] timeout provider=${provider}`);
       return { success: false, status: 504, error: "Upstream timeout" };
     }
@@ -410,7 +408,6 @@ export async function handleChatSearch({
       error: `Network error: ${(err as Error)?.message || "unknown"}`
     };
   }
-  clearTimeout(timer);
   const upstreamLatency = Date.now() - upstreamStart;
 
   let data: Record<string, unknown>;

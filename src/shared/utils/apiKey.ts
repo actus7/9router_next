@@ -2,11 +2,6 @@ import crypto from "crypto";
 
 const API_KEY_SECRET: string = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
 
-interface ParsedApiKey {
-  machineId: string | null;
-  keyId: string;
-  isNewFormat: boolean;
-}
 
 export interface GeneratedApiKey {
   key: string;
@@ -53,48 +48,11 @@ export function generateApiKeyWithMachine(machineId: string): GeneratedApiKey {
  * - New: sk-{machineId}-{keyId}-{crc8}
  * - Old: sk-{random8}
  */
-function parseApiKey(apiKey: string): ParsedApiKey | null {
-  if (!apiKey || !apiKey.startsWith("sk-")) return null;
-
-  const parts = apiKey.split("-");
-
-  // New format: sk-{machineId}-{keyId}-{crc8} = 4 parts
-  if (parts.length === 4) {
-    const [, machineId, keyId, crc] = parts;
-
-    // Validate CRC
-    const expectedCrc = generateCrc(machineId, keyId);
-    if (crc !== expectedCrc) return null;
-
-    return { machineId, keyId, isNewFormat: true };
-  }
-
-  // Old format: sk-{random8} = 2 parts
-  if (parts.length === 2) {
-    return { machineId: null, keyId: parts[1], isNewFormat: false };
-  }
-
-  return null;
-}
 
 /**
  * Verify API key CRC (only for new format)
  */
-function verifyApiKeyCrc(apiKey: string): boolean {
-  const parsed = parseApiKey(apiKey);
-  if (!parsed) return false;
-
-  // Old format doesn't have CRC, always valid if parsed
-  if (!parsed.isNewFormat) return true;
-
-  // New format already verified in parseApiKey
-  return true;
-}
 
 /**
  * Check if API key is new format (contains machineId)
  */
-function isNewFormatKey(apiKey: string): boolean {
-  const parsed = parseApiKey(apiKey);
-  return parsed?.isNewFormat === true;
-}

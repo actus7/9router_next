@@ -40,9 +40,9 @@ export function useModelSelectData({ isOpen, activeProviders, modelAliases, kind
     if (!searchQuery.trim()) return combos;
     const q = searchQuery.toLowerCase();
     return combos.filter((c) => c.name.toLowerCase().includes(q));
-  }, [combos, searchQuery, kindFilter]);
+  }, [kindFilter, capFilter, searchQuery, combos]);
 
-  const filteredGroups = useMemo(() => filterAndSortGroups({ groupedModels, searchQuery, capFilter, addedModelValues, getCaps }), [groupedModels, searchQuery, addedModelValues]);
+  const filteredGroups = useMemo(() => filterAndSortGroups({ groupedModels, searchQuery, capFilter, addedModelValues, getCaps }), [groupedModels, searchQuery, capFilter, addedModelValues, getCaps]);
 
   return { filteredGroups, filteredCombos, getCaps };
 }

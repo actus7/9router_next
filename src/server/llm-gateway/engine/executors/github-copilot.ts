@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { BaseExecutor } from "./base";
 import { PROVIDERS } from "../config/providers";
-import type { Credentials, Logger } from "../services/types";
+import type { Credentials } from "../services/types";
 
 /**
  * GitHubCopilotExecutor — token exchange + cache for GitHub Copilot API.

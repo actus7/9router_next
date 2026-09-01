@@ -122,7 +122,7 @@ const antigravity = {
               const result: Record<string, unknown> = await onboardRes.json();
               if (result.done === true) break;
             }
-          } catch (e: unknown) {
+          } catch  {
             break;
           }
           await new Promise<void>((resolve: () => void) => setTimeout(resolve, 5000));

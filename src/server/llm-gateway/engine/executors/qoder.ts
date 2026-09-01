@@ -36,7 +36,6 @@ import {
   QODER_CHAT_URL_ENCODED,
   QODER_CHAT_BASE_ALT,
   QODER_CHAT_SIG_PATH,
-  QODER_MODEL_MAP,
 } from "../shared/qoder/constants";
 import { getQoderModelConfig, resolveQoderModels, isQoderPat, resolveQoderCredentials } from "../services/qoderModels";
 
@@ -455,7 +454,7 @@ export class QoderExecutor extends BaseExecutor {
   //   - body encoded with QoderEncodeBody before signing
   //   - COSY headers built from the *encoded* body bytes
   //   - response stream re-wrapped from {statusCodeValue, body} to OpenAI SSE
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: ExecuteArgs) {
+  async execute({ model, body, stream: _stream, credentials, signal, log, proxyOptions = null }: ExecuteArgs) {
     // PAT (pt-...) → exchange for short-lived job token + resolve userId so
     // downstream COSY signing + catalog fetch work. Device tokens (dt-...) and
     // job tokens (jt-...) skip this and are used directly.
@@ -590,9 +589,3 @@ export default QoderExecutor;
 
 // Internals exposed for unit tests. Not part of the public API — callers
 // should import QoderExecutor and use its public methods.
-const __test__ = {
-  normalizeMessages,
-  wrapQoderSSE,
-  buildQoderRequestBody,
-  isBillingBlock,
-};

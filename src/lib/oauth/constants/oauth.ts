@@ -48,7 +48,6 @@ export function getOAuthClientMetadata(): { ideType: number; platform: number; p
 }
 
 // OpenAI OAuth Configuration (Authorization Code Flow with PKCE)
-const OPENAI_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["openai"] };
 
 // GitHub Copilot OAuth Configuration (Device Code Flow)
 export const GITHUB_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["github"] };
@@ -188,32 +187,3 @@ export const ZED_HOSTED_CONFIG: Record<string, unknown> = {
 export const OAUTH_TIMEOUT: number = 300000;
 
 // Provider list
-const PROVIDERS: Record<string, string> = {
-  CLAUDE: "claude",
-  CODEX: "codex",
-  GEMINI: "gemini-cli",
-  QODER: "qoder",
-  IFLOW: "iflow",
-  ANTIGRAVITY: "antigravity",
-  OPENAI: "openai",
-  GITHUB: "github",
-  KIRO: "kiro",
-  CURSOR: "cursor",
-  KIMI: "kimi",
-  KIMI_CODING: "kimi",
-  KILOCODE: "kilocode",
-  CLINE: "cline",
-  CLINEPASS: "clinepass",
-  GITLAB: "gitlab",
-  CODEBUDDY: "codebuddy-cn",
-  CODEBUDDY_INTL: "codebuddy-intl",
-  KIMCHI: "kimchi",
-  GROK_CLI: "grok-cli",
-  TRAE: "trae",
-  WINDSURF: "windsurf",
-  ZED: "zed",
-  GHE_COPILOT: "ghe-copilot",
-  AMAZON_Q: "amazon-q",
-  AGY: "agy",
-  OPENFERENCE: "openference",
-};

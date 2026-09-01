@@ -360,7 +360,7 @@ function estimateInputTokens(body: Record<string, unknown> | null | undefined): 
 
     // Estimate: ~4 chars per token (rough average across all tokenizers)
     return Math.ceil(totalChars / 4);
-  } catch (err) {
+  } catch  {
     // Fallback if stringify fails
     return 0;
   }
@@ -416,7 +416,7 @@ export function estimateUsage(body: Record<string, unknown> | null | undefined, 
 /**
  * Log usage with cache info (green color)
  */
-export function logUsage(provider: string | null, usage: Record<string, unknown>, model: string | null = null, connectionId: string | null = null, apiKey: string | null = null) {
+export function logUsage(provider: string | null, usage: Record<string, unknown>, _model: string | null = null, connectionId: string | null = null, _apiKey: string | null = null) {
   if (!usage || typeof usage !== "object") return;
 
   // Console output moved to the unified "📊 done" line (streamingHandler). Kept as

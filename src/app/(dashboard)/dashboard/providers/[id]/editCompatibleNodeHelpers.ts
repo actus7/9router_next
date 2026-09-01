@@ -1,6 +1,5 @@
 "use client";
 
-import { translate } from "@/i18n/runtime";
 
 export async function validateCompatibleNode(
   baseUrl: string,

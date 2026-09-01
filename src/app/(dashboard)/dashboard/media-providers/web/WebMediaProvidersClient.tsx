@@ -179,8 +179,8 @@ interface WebMediaProvidersClientProps {
 export default function WebMediaProvidersClient({ initialConnections, initialCombos }: WebMediaProvidersClientProps) {
   const notify = useNotificationStore();
   const router = useRouter();
-  const [connections, setConnections] = useState<Connection[]>(initialConnections);
-  const [combos, setCombos] = useState<Combo[]>(initialCombos);
+  const [connections, ] = useState<Connection[]>(initialConnections);
+  const [combos, ] = useState<Combo[]>(initialCombos);
 
   const searchProviders = getProvidersByKind("webSearch") as unknown as Provider[];
   const fetchProviders = getProvidersByKind("webFetch") as unknown as Provider[];

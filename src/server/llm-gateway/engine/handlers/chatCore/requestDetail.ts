@@ -1,8 +1,8 @@
-﻿import { saveRequestUsage, appendRequestLog, saveRequestDetail } from "../../host/usage";
+﻿import { saveRequestUsage } from "../../host/usage";
 import { COLORS } from "../../utils/stream";
 import { canonicalizeUsage } from "../../utils/usageTracking";
 import { getRoutingDecision } from "../../services/smart-routing/context";
-import type { TokenUsage, RequestDetailBase, RequestDetailOverrides, SaveUsageStatsOptions } from "./types";
+import type { RequestDetailBase, RequestDetailOverrides, SaveUsageStatsOptions } from "./types";
 
 const OPTIONAL_PARAMS = [
   "temperature", "top_p", "top_k",

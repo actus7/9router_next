@@ -54,13 +54,7 @@ export async function getConsistentMachineId(salt: string | null = null): Promis
   return crypto.createHash("sha256").update(raw + saltValue + extra).digest("hex").substring(0, 16);
 }
 
-async function getRawMachineId(): Promise<string> {
-  return loadRawMachineId();
-}
 
 /**
  * Check if we're running in browser or server environment
  */
-function isBrowser(): boolean {
-  return typeof window !== "undefined";
-}

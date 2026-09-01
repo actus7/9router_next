@@ -112,9 +112,3 @@ export async function compressWithPxpipe(body: unknown, { enabled, format, model
     return skipped("transform_error", { detail: e instanceof Error ? e.message : String(e), originalChars, durationMs: Date.now() - startedAt });
   }
 }
-
-function formatPxpipeLog(summary: PxpipeSummary | null | undefined) {
-  if (!summary) return null;
-  if (!summary.applied) return null;
-  return `imaged ${summary.imagedChars}ch → ${summary.imageCount} image(s) | est ${summary.tokensBeforeEst}→${summary.tokensAfterEst} tokens (-${summary.savedPct}%) | ${summary.durationMs}ms`;
-}
