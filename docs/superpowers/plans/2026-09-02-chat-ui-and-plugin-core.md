@@ -848,7 +848,7 @@ Reference: a `+` button opens a command palette (compact, export, feedback, goal
 **Interfaces:**
 - Consumes: `handleExportConversation` (already in `UseSendMessageReturn`, `useSendMessage.ts` line 336), `currentSession`/`updateSession` for the plan-mode toggle (already available in `ChatComposer.tsx`).
 
-- [ ] **Step 1: Build the menu component**
+- [x] **Step 1: Build the menu component**
 
 Create `src/app/(dashboard)/dashboard/basic-chat/sections/ChatCommandsMenu.tsx`:
 
@@ -899,7 +899,7 @@ export default function ChatCommandsMenu({ disabled, onExport, onTogglePlanMode,
 }
 ```
 
-- [ ] **Step 2: Wire it into `ChatComposer.tsx`, keeping attach separate**
+- [x] **Step 2: Wire it into `ChatComposer.tsx`, keeping attach separate**
 
 Add the import, and destructure `handleExportConversation` from `sendHook` (line 23). Insert the new menu immediately before the existing Paperclip button (line 79), so the toolbar reads `[+] [paperclip] [model name] ...`:
 
@@ -912,16 +912,16 @@ Add the import, and destructure `handleExportConversation` from `sendHook` (line
               />
 ```
 
-- [ ] **Step 3: Manually verify in the browser**
+- [x] **Step 3: Manually verify in the browser**
 
 Click the new `+` button — confirm the menu opens with Export/Plan-mode as clickable, the 4 "coming soon" items greyed and inert, and the paperclip attach button still works independently right next to it.
 
-- [ ] **Step 4: Run lint and typecheck**
+- [x] **Step 4: Run lint and typecheck**
 
 Run: `npx eslint "src/app/(dashboard)/dashboard/basic-chat/sections/ChatCommandsMenu.tsx" "src/app/(dashboard)/dashboard/basic-chat/sections/ChatComposer.tsx" && npx tsc --noEmit --pretty false`
 Expected: 0 errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatCommandsMenu.tsx src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatComposer.tsx
