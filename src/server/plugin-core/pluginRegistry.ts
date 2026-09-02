@@ -24,10 +24,6 @@ export function registerProvider(config: ProviderConfig): void {
   pluginProviders.set(config.id, config);
 }
 
-export function getPluginProvider(id: string): ProviderConfig | null {
-  return pluginProviders.get(id) ?? null;
-}
-
 export function listPluginProviders(): ProviderConfig[] {
   return [...pluginProviders.values()];
 }

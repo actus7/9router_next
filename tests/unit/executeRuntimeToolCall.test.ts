@@ -15,6 +15,10 @@ function httpError(status: number, body = "server error") {
   return new Response(body, { status });
 }
 
+function okBinary(bytes: Uint8Array, contentType: string): Response {
+  return new Response(bytes as unknown as BodyInit, { status: 200, headers: { "content-type": contentType } });
+}
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe("executeRuntimeToolCall", () => {
@@ -348,5 +352,179 @@ describe("executeRuntimeToolCall", () => {
     const result = JSON.parse(await executeRuntimeToolCall(call, context()));
     expect(result.ok).toBe(false);
     expect(result.error).toContain("No configured web search provider");
+  });
+
+  // ── generate_image ───────────────────────────────────────────────────────
+  it("generates an image using a discovered model", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(ok(JSON.stringify({ data: [{ id: "prov/img-model" }] })))
+      .mockResolvedValueOnce(ok(JSON.stringify({ data: [{ url: "https://cdn.example.com/img.png" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "generate_image", arguments: '{"prompt":"a sunset"}' };
+
+    const result = await executeRuntimeToolCall(call, context());
+    expect(result).toBe(JSON.stringify({ data: [{ url: "https://cdn.example.com/img.png" }] }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/v1/images/generations", expect.objectContaining({
+      body: JSON.stringify({ model: "prov/img-model", prompt: "a sunset" }),
+    }));
+  });
+
+  it("uses an explicit model for generate_image without calling the discovery endpoint", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(ok(JSON.stringify({ data: [{ url: "https://cdn.example.com/img.png" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "generate_image", arguments: '{"prompt":"a sunset","model":"prov/img-model"}' };
+
+    await executeRuntimeToolCall(call, context());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/images/generations", expect.objectContaining({
+      body: JSON.stringify({ model: "prov/img-model", prompt: "a sunset" }),
+    }));
+  });
+
+  it("returns error when no image provider is configured", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok('{"data":[]}'));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "generate_image", arguments: '{"prompt":"a sunset"}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("No configured image generation provider");
+  });
+
+  it("rejects empty prompt for generate_image", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const call: ToolCall = { id: "call", name: "generate_image", arguments: '{"prompt":"  "}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("non-empty prompt");
+  });
+
+  // ── text_to_speech ───────────────────────────────────────────────────────
+  it("synthesizes speech and returns a base64 data URI", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(ok(JSON.stringify({ data: [{ id: "prov/tts-model" }] })))
+      .mockResolvedValueOnce(okBinary(new Uint8Array([1, 2, 3, 4]), "audio/mpeg"));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "text_to_speech", arguments: '{"input":"hello world"}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(true);
+    expect(result.audioUrl).toMatch(/^data:audio\/mpeg;base64,/);
+  });
+
+  it("falls back to the next tts model when the first fails", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(ok(JSON.stringify({ data: [{ id: "prov-a/tts" }, { id: "prov-b/tts" }] })))
+      .mockResolvedValueOnce(httpError(500))
+      .mockResolvedValueOnce(okBinary(new Uint8Array([9]), "audio/wav"));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "text_to_speech", arguments: '{"input":"hi"}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(true);
+    expect(result.audioUrl).toMatch(/^data:audio\/wav;base64,/);
+  });
+
+  it("returns error when no tts provider is configured", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok('{"data":[]}'));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "text_to_speech", arguments: '{"input":"hello"}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("No configured text-to-speech provider");
+  });
+
+  it("rejects empty input for text_to_speech", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const call: ToolCall = { id: "call", name: "text_to_speech", arguments: '{"input":"  "}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("non-empty input");
+  });
+
+  // ── generate_video ───────────────────────────────────────────────────────
+  it("creates and polls a video job to completion", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(ok(JSON.stringify({ data: [{ id: "prov/vid-model" }] })))
+      .mockResolvedValueOnce(ok(JSON.stringify({ request_id: "job-1" })))
+      .mockResolvedValueOnce(ok(JSON.stringify({ status: "completed", video: { url: "https://cdn.example.com/v.mp4" } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "generate_video", arguments: '{"prompt":"a cat"}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(true);
+    expect(result.url).toBe("https://cdn.example.com/v.mp4");
+  });
+
+  it("uses an explicit model for generate_video without calling the discovery endpoint", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(ok(JSON.stringify({ request_id: "job-2" })))
+      .mockResolvedValueOnce(ok(JSON.stringify({ status: "completed", video: { url: "https://cdn.example.com/v2.mp4" } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "generate_video", arguments: '{"prompt":"a cat","model":"xai/grok-imagine-video"}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/v1/videos/generations", expect.objectContaining({
+      body: JSON.stringify({ model: "xai/grok-imagine-video", prompt: "a cat" }),
+    }));
+  });
+
+  it("returns error when the video job fails", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(ok(JSON.stringify({ data: [{ id: "prov/vid-model" }] })))
+      .mockResolvedValueOnce(ok(JSON.stringify({ request_id: "job-3" })))
+      .mockResolvedValueOnce(ok(JSON.stringify({ status: "failed", error: "upstream rejected prompt" })));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "generate_video", arguments: '{"prompt":"a cat"}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("upstream rejected prompt");
+    expect(result.requestId).toBe("job-3");
+  });
+
+  it("times out video generation after the polling deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(ok(JSON.stringify({ data: [{ id: "prov/vid-model" }] })))
+        .mockResolvedValueOnce(ok(JSON.stringify({ request_id: "job-4" })))
+        .mockResolvedValue(ok(JSON.stringify({ status: "processing" })));
+      vi.stubGlobal("fetch", fetchMock);
+      const call: ToolCall = { id: "call", name: "generate_video", arguments: '{"prompt":"a cat"}' };
+
+      const resultPromise = executeRuntimeToolCall(call, context());
+      await vi.advanceTimersByTimeAsync(95_000);
+      const result = JSON.parse(await resultPromise);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("timed out");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns error when no video provider is configured", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok('{"data":[]}'));
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = { id: "call", name: "generate_video", arguments: '{"prompt":"a cat"}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("No configured video generation provider");
+  });
+
+  it("rejects empty prompt for generate_video", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const call: ToolCall = { id: "call", name: "generate_video", arguments: '{"prompt":"  "}' };
+
+    const result = JSON.parse(await executeRuntimeToolCall(call, context()));
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("non-empty prompt");
   });
 });

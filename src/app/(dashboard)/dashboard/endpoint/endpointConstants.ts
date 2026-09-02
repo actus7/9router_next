@@ -28,3 +28,8 @@ export const PONYTAIL_LEVELS = [
   { id: "full", label: "Full", desc: "Ladder enforced: stdlib/native first" },
   { id: "ultra", label: "Ultra", desc: "YAGNI extremist, deletion first" },
 ];
+
+export const SYNAPSE_LEVELS = [
+  { id: "lite", label: "Lite", desc: "Responde apenas padrões sociais inequívocos: saudações, agradecimentos e despedidas" },
+  { id: "full", label: "Full", desc: "Soma identidade, ping e confirmações curtas — mais cobertura, ainda conservador" },
+];

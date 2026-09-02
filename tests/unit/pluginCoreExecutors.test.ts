@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { bootstrap, resetContext } from "@/server/plugin-core/context";
-import { executors, getExecutor, hasSpecializedExecutor } from "@/server/llm-gateway/engine/executors";
+import {
+  executors,
+  getExecutor,
+  hasSpecializedExecutor,
+} from "@/server/llm-gateway/engine/executors";
 import { resetPluginRegistry } from "@/server/plugin-core/pluginRegistry";
 import { OpenCodeExecutor } from "@/server/llm-gateway/engine/executors/opencode";
 
@@ -51,5 +55,15 @@ describe("executors plugin", () => {
     expect(executors).not.toHaveProperty("opencode");
     expect(getExecutor("opencode")).toBeInstanceOf(OpenCodeExecutor);
     expect(hasSpecializedExecutor("opencode")).toBe(true);
+  });
+
+  it("routes OpenCode chat models to the Zen OpenAI-compatible endpoint", async () => {
+    await bootstrap();
+    const executor = getExecutor("opencode");
+
+    expect(executor).toBeInstanceOf(OpenCodeExecutor);
+    expect((executor as OpenCodeExecutor).buildUrl("big-pickle")).toBe(
+      "https://opencode.ai/zen/v1/chat/completions",
+    );
   });
 });

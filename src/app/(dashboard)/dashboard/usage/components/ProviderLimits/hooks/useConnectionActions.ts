@@ -101,10 +101,6 @@ export function useConnectionActions(
           body: JSON.stringify({ isActive }),
         });
         if (res.ok) {
-          setQuotaData((prev) => {
-            const next = { ...prev };
-            return next;
-          });
           await reconcileConnectionsPage(fetchConnections, page);
         }
       } catch (error) {
@@ -113,7 +109,7 @@ export function useConnectionActions(
         setTogglingId(null);
       }
     },
-    [fetchConnections, page, setQuotaData],
+    [fetchConnections, page],
   );
 
   const handleUpdateConnection = useCallback(

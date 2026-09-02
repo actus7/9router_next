@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { HarnessEvent } from "../types";
 
 export interface UseHarnessEventsReturn {
@@ -16,6 +16,10 @@ export interface UseHarnessEventsReturn {
 export function useHarnessEvents(activeSessionId: string): UseHarnessEventsReturn {
   const [harnessEvents, setHarnessEvents] = useState<HarnessEvent[]>([]);
   const [showRunJournal, setShowRunJournal] = useState(false);
+  const activeSessionIdRef = useRef(activeSessionId);
+  useEffect(() => {
+    activeSessionIdRef.current = activeSessionId;
+  }, [activeSessionId]);
 
   useEffect(() => {
     if (!activeSessionId) {
@@ -41,13 +45,13 @@ export function useHarnessEvents(activeSessionId: string): UseHarnessEventsRetur
       body: JSON.stringify({ type, data }),
     }).then(async (response) => {
       const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
-      if (response.ok && sessionId === activeSessionId && payload.event && typeof payload.event === "object") {
+      if (response.ok && sessionId === activeSessionIdRef.current && payload.event && typeof payload.event === "object") {
         setHarnessEvents((previous) => [...previous, payload.event as HarnessEvent].sort((a, b) => a.seq - b.seq));
       }
     }).catch(() => {
       // Event delivery is retried by future state changes; never block chat input.
     });
-  }, [activeSessionId]);
+  }, []);
 
   return { harnessEvents, recordHarnessEvent, showRunJournal, setShowRunJournal };
 }

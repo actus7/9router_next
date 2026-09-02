@@ -14,6 +14,8 @@ export function useTokenSaverSettings() {
   const [cavemanLevel, setCavemanLevel] = useState("full");
   const [ponytailEnabled, setPonytailEnabled] = useState(false);
   const [ponytailLevel, setPonytailLevel] = useState("full");
+  const [synapseEnabled, setSynapseEnabled] = useState(false);
+  const [synapseLevel, setSynapseLevel] = useState("lite");
   const [locale, setLocale] = useState("en");
 
   useEffect(() => {
@@ -67,12 +69,25 @@ export function useTokenSaverSettings() {
     patchSetting({ ponytailLevel: level });
   };
 
+  const handleSynapseEnabled = (value: boolean) => {
+    setSynapseEnabled(value);
+    patchSetting({ synapseEnabled: value });
+  };
+
+  const handleSynapseLevel = (level: string) => {
+    setSynapseLevel(level);
+    patchSetting({ synapseLevel: level });
+  };
+
   return {
     rtkEnabled, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel,
+    synapseEnabled, synapseLevel,
     locale, isWenyanLocale, visibleCavemanLevels,
     setRtkEnabledState, setCavemanEnabled, setCavemanLevel,
     setPonytailEnabled, setPonytailLevel,
+    setSynapseEnabled, setSynapseLevel,
     handleRtkEnabled, handleCavemanEnabled, handleCavemanLevel,
     handlePonytailEnabled, handlePonytailLevel,
+    handleSynapseEnabled, handleSynapseLevel,
   };
 }

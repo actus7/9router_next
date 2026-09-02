@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { filterDiscoveredNoAuthModels, parseRemoteModels } from "@/app/api/models/free/route";
+import {
+  FREE_MODEL_DISCOVERY_TIMEOUT_MS,
+  filterDiscoveredNoAuthModels,
+  getEligibleFreeModelProviders,
+  parseRemoteModels,
+  resolveFreeModelGroups,
+} from "@/app/api/models/free/route";
 import { buildFreeChatModels, isFreeModelEnabledForChat } from "@/app/(dashboard)/dashboard/basic-chat/hooks/useChatModels";
 
 describe("free model discovery", () => {
@@ -69,5 +75,40 @@ describe("free model discovery", () => {
       "oc/big-pickle",
       "oc/ling-3.0-flash-fin-free",
     ]);
+  });
+
+  it("does not discover hidden or non-chat free providers", () => {
+    const providers = getEligibleFreeModelProviders({
+      visible: { id: "visible", noAuth: true },
+      hidden: { id: "hidden", noAuth: true, hidden: true },
+      tts: { id: "tts", noAuth: true, serviceKinds: ["tts"] },
+      keyed: { id: "keyed", noAuth: false },
+    });
+
+    expect(providers.map((provider) => provider.id)).toEqual(["visible"]);
+  });
+
+  it("starts independent free catalogues concurrently and caps their wait", async () => {
+    const started: string[] = [];
+    let release: (() => void) | undefined;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const groupsPromise = resolveFreeModelGroups(
+      [
+        { id: "first", name: "First" },
+        { id: "second", name: "Second" },
+      ],
+      async (provider) => {
+        started.push(String(provider.id));
+        await pending;
+        return [{ id: "model", name: "Model" }];
+      },
+    );
+
+    await Promise.resolve();
+    expect(started).toEqual(["first", "second"]);
+    expect(FREE_MODEL_DISCOVERY_TIMEOUT_MS).toBeLessThanOrEqual(2_500);
+
+    release?.();
+    await expect(groupsPromise).resolves.toHaveLength(2);
   });
 });

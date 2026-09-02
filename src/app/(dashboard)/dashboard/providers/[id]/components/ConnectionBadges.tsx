@@ -3,6 +3,7 @@
 import { getStatusVariant as getConnectionStatusVariant, getStatusClassName } from "@/shared/utils/connectionStatus";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import CooldownTimer from "./CooldownTimer";
 
 interface ConnectionBadgesProps {
   connection: {
@@ -29,6 +30,9 @@ interface ConnectionBadgesProps {
   hasAnyProxy: boolean;
   proxyBadgeVariant: "secondary" | "default" | "destructive";
   proxyBadgeClassName?: string;
+  effectiveStatus?: string;
+  isCooldown?: boolean;
+  modelLockUntil?: string | null;
 }
 
 export default function ConnectionBadges({
@@ -38,12 +42,14 @@ export default function ConnectionBadges({
   hasAnyProxy,
   proxyBadgeVariant,
   proxyBadgeClassName,
+  effectiveStatus,
+  isCooldown = false,
+  modelLockUntil = null,
 }: ConnectionBadgesProps) {
   const rowAuthType = connection.authType || (isOAuth ? "oauth" : "apikey");
   const isOAuthConnection = rowAuthType === "oauth";
   const isCookieConnection = rowAuthType === "cookie";
   const authLabel = isOAuthConnection ? "OAuth" : isCookieConnection ? "Cookie" : "API Key";
-  const effectiveStatus = connection.testStatus;
 
   const getStatusVariant = () => getConnectionStatusVariant(connection.isActive, effectiveStatus ?? "");
 
@@ -83,6 +89,7 @@ export default function ConnectionBadges({
           Proxy
         </Badge>
       )}
+      {isCooldown && connection.isActive !== false && modelLockUntil && <CooldownTimer until={modelLockUntil} />}
       {connection.lastError && connection.isActive !== false && (
         <TooltipProvider>
           <Tooltip>

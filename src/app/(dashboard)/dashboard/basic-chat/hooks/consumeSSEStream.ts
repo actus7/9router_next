@@ -7,6 +7,7 @@ export interface ChatFetchResult {
   toolCalls: ToolCall[];
   reasoning: string;
   usage: TokenUsage | null;
+  responseSource: "synapse" | null;
 }
 
 type PartialStreamToolCall = {
@@ -46,6 +47,7 @@ export async function executeChatFetch(
   onStreamText: (text: string) => void,
 ): Promise<ChatFetchResult> {
   const response = await fetch(url, fetchOptions);
+  const responseSource = response.headers.get("x-modelhub-response-source") === "synapse" ? "synapse" : null;
 
   if (!response.ok) {
     const errorData = (await response.json().catch(() => ({}))) as Record<string, unknown>;
@@ -63,11 +65,11 @@ export async function executeChatFetch(
       ((data?.choices as Array<Record<string, unknown>> | undefined)?.[0] as Record<string, unknown> | undefined)
         ?.message || data?.output_text || data?.error || data?.message || "",
     );
-    return { text: fallbackText, streamed: false, toolCalls: [], reasoning: "", usage: null };
+    return { text: fallbackText, streamed: false, toolCalls: [], reasoning: "", usage: null, responseSource };
   }
 
   const { text, toolCalls, reasoning, usage } = await consumeSSEStream(reader, onStreamText);
-  return { text, streamed: true, toolCalls, reasoning, usage };
+  return { text, streamed: true, toolCalls, reasoning, usage, responseSource };
 }
 
 /** Read an SSE stream, invoking `onText` with the accumulated text on every chunk. */

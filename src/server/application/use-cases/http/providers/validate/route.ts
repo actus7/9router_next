@@ -4,6 +4,7 @@ import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbe
 import { getDefaultModel, resolveXiaomiTokenplanBaseUrl, PROVIDERS, resolveQoderCredentials, resolveQoderModels } from "@/server/llm-gateway/catalog";
 import { openaiToCommandCodeRequest } from "@/server/llm-gateway/translator";
 import { normalizeProviderId } from "@/lib/providerNormalization";
+import { safePublicFetch } from "@/server/security/safeFetch";
 
 type ValidateBody = { apiKey?: string; providerSpecificData?: Record<string, unknown> };
 
@@ -89,7 +90,7 @@ async function handleOpenAiCompatibleNode(provider: string, apiKey: string): Pro
     return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
   }
   const modelsUrl = `${(node.baseUrl as string)?.replace(/\/$/, "")}/models`;
-  const res = await fetch(modelsUrl, {
+  const res = await safePublicFetch(modelsUrl, {
     headers: { "Authorization": `Bearer ${apiKey}` },
   });
   const isValid = res.ok;
@@ -105,7 +106,7 @@ async function handleCustomEmbeddingNode(provider: string, apiKey: string): Prom
     return NextResponse.json({ error: "Custom Embedding node not found" }, { status: 404 });
   }
   const baseUrl = (node.baseUrl as string)?.replace(/\/$/, "");
-  const modelsRes = await fetch(`${baseUrl}/models`, {
+  const modelsRes = await safePublicFetch(`${baseUrl}/models`, {
     headers: { "Authorization": `Bearer ${apiKey}` },
   });
   if (modelsRes.ok) {
@@ -116,7 +117,7 @@ async function handleCustomEmbeddingNode(provider: string, apiKey: string): Prom
     return NextResponse.json({ valid: false, error: "Invalid API key" });
   }
   // Fallback: probe /embeddings with a common test model — many providers lack /models
-  const embedRes = await fetch(`${baseUrl}/embeddings`, {
+  const embedRes = await safePublicFetch(`${baseUrl}/embeddings`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: "test", input: "ping" }),
@@ -143,7 +144,7 @@ async function handleAnthropicCompatibleNode(provider: string, apiKey: string): 
   const messagesUrl = `${normalizedBase}/v1/messages`;
   const model = node.defaultModel || "claude-3-haiku-20240307";
 
-  const res = await fetch(messagesUrl, {
+  const res = await safePublicFetch(messagesUrl, {
     method: "POST",
     headers: {
       "x-api-key": apiKey,

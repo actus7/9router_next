@@ -8,6 +8,7 @@ import ConnectionBadges from "./components/ConnectionBadges";
 import ProxyDropdown from "./components/ProxyDropdown";
 import ConnectionActions from "./components/ConnectionActions";
 import { computeProxyInfo, computeDisplayName } from "./components/connectionRowHelpers";
+import { useConnectionCooldown } from "./hooks/useConnectionCooldown";
 
 interface Connection {
   id: string; name?: string; email?: string; displayName?: string; authType?: string;
@@ -30,6 +31,7 @@ interface ConnectionRowProps {
 export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null }: ConnectionRowProps) {
   const proxy = computeProxyInfo(connection, proxyPools);
   const { displayName, secondaryDisplayName } = computeDisplayName(connection, isOAuth);
+  const { effectiveStatus, isCooldown, modelLockUntil } = useConnectionCooldown(connection);
   const rowAuthType = connection.authType || (isOAuth ? "oauth" : "apikey");
   const isCookieConnection = rowAuthType === "cookie";
   const isOAuthConnection = rowAuthType === "oauth";
@@ -48,7 +50,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{displayName}</p>
           {secondaryDisplayName && <p className="text-xs text-text-muted truncate">{secondaryDisplayName}</p>}
-          <ConnectionBadges connection={connection} isOAuth={isOAuth} oneByOneStatus={oneByOneStatus} hasAnyProxy={proxy.hasAnyProxy} proxyBadgeVariant={proxy.proxyBadgeVariant} proxyBadgeClassName={proxy.proxyBadgeClassName} />
+          <ConnectionBadges connection={connection} isOAuth={isOAuth} oneByOneStatus={oneByOneStatus} hasAnyProxy={proxy.hasAnyProxy} proxyBadgeVariant={proxy.proxyBadgeVariant} proxyBadgeClassName={proxy.proxyBadgeClassName} effectiveStatus={effectiveStatus} isCooldown={isCooldown} modelLockUntil={modelLockUntil} />
           {proxy.hasAnyProxy && (
             <div className="mt-1 flex items-center gap-2 flex-wrap">
               <span className="max-w-full truncate text-[11px] text-text-muted sm:max-w-[420px]" title={proxy.proxyDisplayText}>{proxy.proxyDisplayText}</span>

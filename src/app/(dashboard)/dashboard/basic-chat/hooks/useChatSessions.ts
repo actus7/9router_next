@@ -141,7 +141,7 @@ export function useChatSessions({
   >(null);
   const [conversationDisplay, setConversationDisplay] = useState<
     "normal" | "compact"
-  >("normal");
+  >("compact");
   const [enterBehavior, setEnterBehavior] = useState<"queue" | "steer">(
     "queue",
   );

@@ -25,7 +25,7 @@ export function finalizeStreamSuccess(
   updateSession(sessionId, (current) => ({
     ...current,
     messages: current.messages.map((m) =>
-      m.id === assistantMessageId ? { ...m, content: assistantText || m.content, status: "done" as const, tokenUsage: telemetry.usage ?? m.tokenUsage, timing: telemetry.timing ?? m.timing, responseSource: telemetry.responseSource !== undefined ? telemetry.responseSource : m.responseSource } : m,
+      m.id === assistantMessageId ? { ...m, content: assistantText || m.content, status: "done" as const, tokenUsage: telemetry.usage ?? m.tokenUsage, timing: telemetry.timing ?? m.timing, responseSource: telemetry.responseSource !== undefined ? telemetry.responseSource : m.responseSource, reasoning: telemetry.reasoning || m.reasoning } : m,
     ),
     updatedAt: new Date().toISOString(),
   }));

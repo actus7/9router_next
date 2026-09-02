@@ -39,6 +39,15 @@ interface McpServerLike {
   }>;
 }
 
+export const MODELHUB_AGENT_CONTEXT = [
+  "You are operating inside the ModelHub Chat Harness.",
+  "ModelHub is the product name; never present this application as an upstream or reference harness.",
+  "Do not invent or import unpublished ModelHub or vendor-specific plugin SDK packages.",
+  "ModelHub session capabilities are declared as HarnessPluginDefinition objects in the exact file src/shared/harness/agentPlugins.ts.",
+  "Provider plugins implement CorePlugin under the exact directory src/server/plugin-core/plugins (spell plugin-core literally) and use the repository's cordis dependency; CorePlugin is declared in src/server/plugin-core/plugins/registry.ts.",
+  "When asked to create or modify a plugin, target these real ModelHub contracts. If no filesystem editing tool is available, say so and provide a compatible patch without claiming it was installed.",
+].join(" ");
+
 const tool = (
   name: string,
   description: string,
@@ -64,6 +73,14 @@ const tool = (
  * that can actually be composed into a session, never decorative metadata.
  */
 export const HARNESS_PLUGINS: readonly HarnessPluginDefinition[] = [
+  {
+    id: "persona",
+    title: "ModelHub context",
+    description:
+      "Identifies the product and exposes the real ModelHub plugin contracts to the agent.",
+    module: "builtin:modelhub-context",
+    kind: "context",
+  },
   {
     id: "agent-instructions",
     title: "Agent instructions",
@@ -222,6 +239,7 @@ export const AGENT_PRESETS: readonly AgentPresetDefinition[] = [
     description:
       "Focused investigation agent with web search, web fetch, and bounded subagents.",
     pluginIds: [
+      "persona",
       "agent-instructions",
       "plan-mode",
       "tool-web-search",
@@ -235,6 +253,7 @@ export const AGENT_PRESETS: readonly AgentPresetDefinition[] = [
     description:
       "Creative agent with image, audio, and video generation capabilities.",
     pluginIds: [
+      "persona",
       "agent-instructions",
       "tool-image-generation",
       "tool-text-to-speech",
@@ -246,7 +265,7 @@ export const AGENT_PRESETS: readonly AgentPresetDefinition[] = [
     title: "Minimal mode",
     description:
       "A focused conversational agent with only session instructions.",
-    pluginIds: ["agent-instructions"],
+    pluginIds: ["persona", "agent-instructions"],
   },
 ];
 
@@ -266,6 +285,26 @@ export function resolveSessionPlugins(
     else enabled.delete(pluginId);
   }
   return HARNESS_PLUGINS.filter((plugin) => enabled.has(plugin.id));
+}
+
+export function buildSessionSystemPrompt(
+  presetId?: string,
+  overrides?: Record<string, boolean>,
+  customInstructions = "",
+  planningMode = false,
+): string {
+  const enabled = new Set(
+    resolveSessionPlugins(presetId, overrides).map((plugin) => plugin.id),
+  );
+  return [
+    enabled.has("persona") ? MODELHUB_AGENT_CONTEXT : "",
+    enabled.has("agent-instructions") ? customInstructions.trim() : "",
+    planningMode && enabled.has("plan-mode")
+      ? "Planning mode is active. Analyze the request and return a clear, actionable plan. Do not call tools or claim that you executed steps."
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export function getRuntimeToolDefinitions(

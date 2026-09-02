@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, ModelSelectModal, ActiveProvider, ManualConfigModal, ComboFormModal, McpMarketplaceModal } from "@/shared/components";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
@@ -63,6 +64,7 @@ export default function CoworkToolCard({
   const [modelSelectOpen, setModelSelectOpen] = useState<boolean>(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState<boolean>(false);
   const [addMcpOpen, setAddMcpOpen] = useState<boolean>(false);
+  const [relaxSecurity, setRelaxSecurity] = useState<boolean>(false);
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) setSelectedApiKey(apiKeys[0].key);
@@ -140,7 +142,7 @@ export default function CoworkToolCard({
       const res = await fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: effectiveUrl, apiKey: keyToUse, models: selectedModels, plugins, localPlugins, customPlugins }),
+        body: JSON.stringify({ baseUrl: effectiveUrl, apiKey: keyToUse, models: selectedModels, plugins, localPlugins, customPlugins, relaxSecurity }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -363,6 +365,11 @@ export default function CoworkToolCard({
                   <span>{message.text}</span>
                 </div>
               )}
+
+              <label className="flex items-start gap-2 text-xs text-text-muted">
+                <Checkbox checked={relaxSecurity} onCheckedChange={(checked) => setRelaxSecurity(checked === true)} className="mt-0.5" />
+                <span>Relax Claude Desktop security for this integration (allow all extension egress hosts, skip extension signature checks, disable telemetry). Leave unchecked unless a plugin needs it.</span>
+              </label>
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <Button variant="primary" size="sm" onClick={handleApply} disabled={selectedModels.length === 0} loading={applying} className="w-full sm:w-auto">

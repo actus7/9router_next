@@ -8,7 +8,7 @@ import { textValue } from "../chatFormatUtils";
 import {
   dedupeModels, getProviderLabel, isConfiguredChatModel, isConnectionSelectable,
   isExplicitlyEnabledModel, isModelEnabledForChat, normalizeConfiguredModel, normalizeLiveModel,
-  parseProviderModelsPayload, selectableConfiguredModelIds,
+  normalizeStaticModel, parseProviderModelsPayload, selectableConfiguredModelIds,
 } from "../chatModelUtils";
 import type { NormalizedModel, ProviderGroup } from "../types";
 
@@ -17,6 +17,8 @@ interface FreeModelGroupPayload {
   providerName: string;
   models: Array<{ id: string; name: string }>;
 }
+
+const FREE_MODELS_CLIENT_TIMEOUT_MS = 3_000;
 
 export function isFreeModelEnabledForChat(
   providerId: string,
@@ -61,6 +63,32 @@ export function buildFreeChatModels(
   return Array.from(merged.values());
 }
 
+function toFreeProviderGroups(
+  groups: FreeModelGroupPayload[],
+  customModels: Array<Record<string, unknown>>,
+  disabledByProvider: Record<string, string[]>,
+  testLatencies: ReturnType<typeof getStoredModelTestLatencies>,
+): ProviderGroup[] {
+  return groups.map((group) => ({
+    providerId: group.providerId,
+    providerName: group.providerName,
+    providerType: "free",
+    connections: [],
+    models: sortModelsByTestLatency(dedupeModels(
+      buildFreeChatModels(group.providerId, group.models || [], customModels, disabledByProvider)
+        .map((model) => ({
+          id: model.id,
+          requestModel: model.id,
+          name: model.name,
+          providerId: group.providerId,
+          providerName: group.providerName,
+          source: "catalog" as const,
+        })),
+    ), testLatencies),
+  })).filter((group) => group.models.length > 0)
+    .sort((a, b) => a.providerName.localeCompare(b.providerName));
+}
+
 export interface UseChatModelsReturn {
   providerGroups: ProviderGroup[];
   loadingData: boolean;
@@ -86,47 +114,41 @@ export function useChatModels(): UseChatModelsReturn {
       const testLatencies = getStoredModelTestLatencies();
 
       try {
-        const [providersRes, disabledModelsRes, customModelsRes, freeModelsRes] = await Promise.all([
+        // Free catalogues are optional metadata. Start their request now, but
+        // never make existing configured connections wait for it to resolve.
+        const freeModelsPromise = fetch("/api/models/free", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(FREE_MODELS_CLIENT_TIMEOUT_MS),
+        }).catch(() => null);
+        const [providersRes, disabledModelsRes, customModelsRes] = await Promise.all([
           fetch("/api/providers", { cache: "no-store" }),
           fetch("/api/models/disabled", { cache: "no-store" }),
           fetch("/api/models/custom", { cache: "no-store" }),
-          fetch("/api/models/free", { cache: "no-store" }),
         ]);
         const providersData = await providersRes.json().catch(() => ({})) as Record<string, unknown>;
         const disabledModelsData = await disabledModelsRes.json().catch(() => ({})) as Record<string, unknown>;
         const customModelsData = await customModelsRes.json().catch(() => ({})) as Record<string, unknown>;
-        const freeModelsData = await freeModelsRes.json().catch(() => ({})) as { groups?: FreeModelGroupPayload[] };
         const disabledByProvider = disabledModelsRes.ok && typeof disabledModelsData.disabled === "object" && disabledModelsData.disabled
           ? disabledModelsData.disabled as Record<string, string[]>
           : {};
         const customModels = customModelsRes.ok && Array.isArray(customModelsData.models)
           ? customModelsData.models as Array<Record<string, unknown>>
           : [];
-        const freeProviderGroups: ProviderGroup[] = freeModelsRes.ok && Array.isArray(freeModelsData.groups)
-          ? freeModelsData.groups.map((g) => ({
-              providerId: g.providerId,
-              providerName: g.providerName,
-              providerType: "free",
-              connections: [],
-              models: buildFreeChatModels(g.providerId, g.models || [], customModels, disabledByProvider)
-                .map((m) => ({
-                  id: m.id,
-                  requestModel: m.id,
-                  name: m.name,
-                  providerId: g.providerId,
-                  providerName: g.providerName,
-                  source: "catalog" as const,
-                })),
-            }))
-          : [];
         const connections = Array.isArray(providersData.connections)
           ? (providersData.connections as Array<Record<string, unknown>>).filter(isConnectionSelectable)
           : [];
 
-        if (connections.length === 0 && freeProviderGroups.length === 0) {
+        if (connections.length === 0) {
+          const freeModelsRes = await freeModelsPromise;
           if (!cancelled) {
-            setProviderGroups([]);
-            setProviderLoadError(translate("No active, configured providers available yet.") || "No active, configured providers available yet.");
+            const freeModelsData = freeModelsRes ? await freeModelsRes.json().catch(() => ({})) as { groups?: FreeModelGroupPayload[] } : {};
+            const freeProviderGroups = freeModelsRes?.ok && Array.isArray(freeModelsData.groups)
+              ? toFreeProviderGroups(freeModelsData.groups, customModels, disabledByProvider, testLatencies)
+              : [];
+            setProviderGroups(freeProviderGroups);
+            if (freeProviderGroups.length === 0) {
+              setProviderLoadError(translate("No active, configured providers available yet.") || "No active, configured providers available yet.");
+            }
           }
           return;
         }
@@ -210,12 +232,44 @@ export function useChatModels(): UseChatModelsReturn {
           group.models.push(...result.models);
         }
 
-        const normalized = [...freeProviderGroups, ...Array.from(providerMap.values())]
+        // Fallback for providers that ended up with zero models (no curated
+        // catalog entry, no explicit configuration, and live discovery
+        // failed): use the connection's own defaultModel so the provider
+        // isn't silently dropped from the picker despite being active.
+        for (const group of providerMap.values()) {
+          if (group.models.length > 0) continue;
+          for (const connection of group.connections) {
+            const nested = connection.providerSpecificData;
+            const defaultModelId = (connection.defaultModel as string)
+              || (typeof nested === "object" && nested ? (nested as Record<string, unknown>).defaultModel as string : undefined);
+            if (!defaultModelId) continue;
+            const fallbackModel = normalizeStaticModel({ id: defaultModelId }, connection);
+            if (fallbackModel && isModelEnabledForChat(fallbackModel, connection, disabledByProvider)) {
+              group.models.push(fallbackModel);
+              break;
+            }
+          }
+        }
+
+        const configuredGroups = Array.from(providerMap.values())
           .map((group) => ({
             ...group,
             models: sortModelsByTestLatency(dedupeModels(group.models), testLatencies),
           }))
           .filter((group) => group.models.length > 0)
+          .sort((a, b) => a.providerName.localeCompare(b.providerName));
+
+        if (!cancelled) {
+          setProviderGroups(configuredGroups);
+          setLoadingData(false);
+        }
+
+        const freeModelsRes = await freeModelsPromise;
+        const freeModelsData = freeModelsRes ? await freeModelsRes.json().catch(() => ({})) as { groups?: FreeModelGroupPayload[] } : {};
+        const freeProviderGroups = freeModelsRes?.ok && Array.isArray(freeModelsData.groups)
+          ? toFreeProviderGroups(freeModelsData.groups, customModels, disabledByProvider, testLatencies)
+          : [];
+        const normalized = [...freeProviderGroups, ...configuredGroups]
           .sort((a, b) => a.providerName.localeCompare(b.providerName));
 
         if (!cancelled) {

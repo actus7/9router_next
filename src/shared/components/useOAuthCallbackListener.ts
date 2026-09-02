@@ -33,7 +33,14 @@ export function useOAuthCallbackListener(
     };
 
     const handleMessage = (event: MessageEvent) => {
-      const isLocalhost = event.origin.includes("localhost") || event.origin.includes("127.0.0.1");
+      const originHostname = (() => {
+        try {
+          return new URL(event.origin).hostname;
+        } catch {
+          return "";
+        }
+      })();
+      const isLocalhost = originHostname === "localhost" || originHostname === "127.0.0.1";
       const isSameOrigin = event.origin === window.location.origin;
       if (!isLocalhost && !isSameOrigin) return;
       if (event.data?.type === "oauth_callback") handleCallback(event.data.data);

@@ -18,7 +18,7 @@ export function ComboSection({ combos, selectedModel, addedModelValues, onSelect
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5">
-        <Layers className="size-4" /><span className="text-xs font-medium text-primary">Combos</span><span className="text-[10px] text-text-muted">({combos.length})</span>
+        <Layers className="size-4" /><span className="text-xs font-medium text-primary">{translate("Combos")}</span><span className="text-[10px] text-text-muted">({combos.length})</span>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {combos.map((combo) => {

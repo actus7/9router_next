@@ -1,6 +1,6 @@
 # Auditoria tecnica completa - Next.js 16, Tailwind CSS 4, shadcn/ui e qualidade arquitetural
 
-**Projeto:** ModelHub / RouterX2 (`9router-new`)  
+**Projeto:** ModelHub (`9router-new`)
 **Data:** 2026-09-01  
 **Branch / commit-base:** `main` / `0f15b1f52ee1a615404954a5dfe3fd033d348a38`  
 **Escopo:** codigo-fonte, configuracao, arquitetura, camada de dados, App Router, componentes, acessibilidade estatica, seguranca relacionada ao codigo, testes e gates de release.  

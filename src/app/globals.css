@@ -844,7 +844,7 @@ button:disabled,
   font-size: 0.875em;
 }
 .prose-chat pre {
-  background: color-mix(in oklab, var(--muted) 78%, var(--foreground));
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   padding: 0.875rem 1rem;

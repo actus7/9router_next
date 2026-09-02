@@ -205,11 +205,6 @@ export async function handleManualSubmitAction({
   try {
     setError(null);
 
-    if (authMode === "paste-token" && provider && PROXY_OAUTH_PROVIDERS.has(provider)) {
-      // This branch is dead code for paste-token (paste-token providers are trae/windsurf which are proxy providers)
-      // but kept for safety — the actual paste-token logic is below
-    }
-
     if (authMode === "paste-token" && provider) {
       const { PASTE_TOKEN_PROVIDERS } = await import("./oauthFlowConstants");
       if (PASTE_TOKEN_PROVIDERS[provider]) {

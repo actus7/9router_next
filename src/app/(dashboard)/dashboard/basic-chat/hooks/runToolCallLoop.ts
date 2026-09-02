@@ -311,6 +311,7 @@ export async function runToolCallLoop(
             status: "done",
             toolCalls: continuationResult.toolCalls,
             tokenUsage: continuationResult.usage ?? message.tokenUsage,
+            reasoning: continuationResult.reasoning || message.reasoning,
           }
         : message,
     );

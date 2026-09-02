@@ -19,7 +19,7 @@ export function HeaderBreadcrumb({ breadcrumbs, title, description, icon }: Head
           <div key={`${crumb.label}-${crumb.href || "current"}`} className="flex items-center gap-2">
             {i > 0 && <ChevronRight className="size-4" />}
             {crumb.href ? (
-              <Link href={crumb.href} className="text-text-muted hover:text-primary transition-colors">{crumb.label}</Link>
+              <Link href={crumb.href} className="text-text-muted hover:text-primary transition-colors">{translate(crumb.label)}</Link>
             ) : (
               <div className="flex items-center gap-2">
                 {crumb.image && <ProviderIcon src={crumb.image} alt={crumb.label} size={28} className="object-contain rounded max-w-[28px] max-h-[28px]" fallbackText={crumb.label.slice(0, 2).toUpperCase()} />}

@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { textValue } from "../chatFormatUtils";
 import {
+  buildSessionSystemPrompt,
   getEnabledRuntimeToolNames,
   getMcpRuntimeToolDefinitions,
   getRuntimeToolDefinitions,
-  resolveSessionPlugins,
 } from "@/shared/harness/agentPlugins";
 import {
   isPuterBrowserModel,
@@ -180,20 +180,12 @@ export function useSendMessage({
       abortRef.current?.abort();
       abortRef.current = new AbortController();
 
-      const sessionPlugins = resolveSessionPlugins(
+      const effectiveSystemPrompt = buildSessionSystemPrompt(
         session.agentPresetId,
         session.pluginOverrides,
+        systemPrompt,
+        session.mode === "plan",
       );
-      const hasPlugin = (pluginId: string) =>
-        sessionPlugins.some((plugin) => plugin.id === pluginId);
-      const effectiveSystemPrompt = [
-        hasPlugin("agent-instructions") ? systemPrompt.trim() : "",
-        session.mode === "plan" && hasPlugin("plan-mode")
-          ? "Planning mode is active. Analyze the request and return a clear, actionable plan. Do not call tools or claim that you executed steps."
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n\n");
       const requestMessages = buildRequestMessages(
         nextMessages,
         assistantMessageId,

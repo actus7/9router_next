@@ -199,34 +199,49 @@ export default function ChatComposer({
                 onChange={handleAttachFiles}
               />
               <Popover>
-                <PopoverTrigger className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground truncate max-w-[180px]">
-                  {activeModel
-                    ? activeModel.name
-                    : translate("No model") || "No model"}
-                  {reasoningEffort && (
-                    <span className="text-muted-foreground/70">
-                      · {reasoningEffort}
-                    </span>
-                  )}
+                <PopoverTrigger
+                  className="flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Selecionar esforço de raciocínio"
+                >
+                  Esforço: {reasoningEffort === "low"
+                    ? "Baixo"
+                    : reasoningEffort === "medium"
+                      ? "Médio"
+                      : reasoningEffort === "high"
+                        ? "Alto"
+                        : "Padrão"}
                 </PopoverTrigger>
                 <PopoverContent className="w-48 p-1" align="start">
                   <p className="px-2 pt-1 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {translate("Effort") || "Effort"}
+                    Esforço de raciocínio
                   </p>
                   {(["low", "medium", "high"] as const).map((level) => (
                     <button
                       key={level}
                       type="button"
-                      onClick={() =>
-                        setReasoningEffort(
-                          reasoningEffort === level ? null : level,
-                        )
-                      }
+                      onClick={() => setReasoningEffort(level)}
                       className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs capitalize hover:bg-muted ${reasoningEffort === level ? "font-semibold text-foreground" : "text-muted-foreground"}`}
                     >
-                      {level}
+                      {level === "low"
+                        ? "Baixo"
+                        : level === "medium"
+                          ? "Médio"
+                          : "Alto"}
+                      {reasoningEffort === level ? (
+                        <Check className="size-3.5" aria-hidden="true" />
+                      ) : null}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setReasoningEffort(null)}
+                    className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-muted ${reasoningEffort === null ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+                  >
+                    Padrão do modelo
+                    {reasoningEffort === null ? (
+                      <Check className="size-3.5" aria-hidden="true" />
+                    ) : null}
+                  </button>
                 </PopoverContent>
               </Popover>
               <Popover>

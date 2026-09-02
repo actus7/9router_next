@@ -31,7 +31,7 @@ const injectAuthHeaders = async (entries: Record<string, unknown>[]) => {
 
 const PROVIDER = "gateway";
 
-// Hardcoded relax-security profile applied on every Apply.
+// Relax-security profile, applied only when the caller opts in via relaxSecurity:true.
 const SECURITY_RELAX = {
   coworkEgressAllowedHosts: ["*"],
   disabledBuiltinTools: [],
@@ -308,7 +308,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { baseUrl, apiKey, models, plugins, localPlugins, customPlugins } = await request.json();
+    const { baseUrl, apiKey, models, plugins, localPlugins, customPlugins, relaxSecurity } = await request.json();
 
     if (!baseUrl || !apiKey) {
       return NextResponse.json({ error: "baseUrl and apiKey are required" }, { status: 400 });
@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
     const configPath = path.join(getWriteConfigDir(), `${meta.appliedId}.json`);
 
     const newConfig = {
-      ...SECURITY_RELAX,
+      ...(relaxSecurity === true ? SECURITY_RELAX : {}),
       inferenceProvider: PROVIDER,
       inferenceGatewayBaseUrl: baseUrl,
       inferenceGatewayApiKey: apiKey,
@@ -359,6 +359,7 @@ export async function POST(request: NextRequest) {
       configPath,
       skipApprovals: skipResult,
       localMcp: localMcpResult,
+      securityRelaxed: relaxSecurity === true,
     });
   } catch (error) {
     console.error("Error applying cowork settings:", error);

@@ -50,20 +50,6 @@ export function checkFallbackError(status: number, errorText: string | unknown, 
 }
 
 /**
- * Check if account is currently unavailable (cooldown not expired)
- */
-
-/**
- * Calculate unavailable until timestamp
- */
-
-/**
- * Get the earliest rateLimitedUntil from a list of accounts
- * @param {Array} accounts - Array of account objects with rateLimitedUntil
- * @returns {string|null} Earliest rateLimitedUntil ISO string, or null
- */
-
-/**
  * Format rateLimitedUntil to human-readable "reset after Xm Ys"
  * @param {string} rateLimitedUntil - ISO timestamp
  * @returns {string} e.g. "reset after 2m 30s"
@@ -82,22 +68,3 @@ export function formatRetryAfter(rateLimitedUntil: string) {
   if (s > 0 || parts.length === 0) parts.push(`${s}s`);
   return `reset after ${parts.join(" ")}`;
 }
-
-/**
- * Filter available accounts (not in cooldown)
- */
-
-/**
- * Reset account state when request succeeds
- * Clears cooldown and resets backoff level to 0
- * @param {object} account - Account object
- * @returns {object} Updated account with reset state
- */
-
-/**
- * Apply error state to account
- * @param {object} account - Account object
- * @param {number} status - HTTP status code
- * @param {string} errorText - Error message
- * @returns {object} Updated account with error state
- */

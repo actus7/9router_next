@@ -407,6 +407,8 @@ async function buildChatCoreOptions(
     cavemanLevel: chatSettings.cavemanLevel || "full",
     ponytailEnabled: !!chatSettings.ponytailEnabled,
     ponytailLevel: chatSettings.ponytailLevel || "full",
+    synapseEnabled: !!chatSettings.synapseEnabled,
+    synapseLevel: chatSettings.synapseLevel || "lite",
     pxpipeEnabled: !!chatSettings.pxpipeEnabled,
     pxpipeMinChars: chatSettings.pxpipeMinChars,
     pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,

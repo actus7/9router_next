@@ -13,7 +13,7 @@ export const STORAGE_KEYS = {
   projects: "basic-chat.projects",
   activeProjectId: "basic-chat.activeProjectId",
   sidebarOpen: "basic-chat.sidebarOpen",
-  conversationDisplay: "basic-chat.conversationDisplay",
+  conversationDisplay: "basic-chat.executionDisplay",
   enterBehavior: "basic-chat.enterBehavior",
 };
 
@@ -107,9 +107,9 @@ export function hydrateFromStorage(): HydratedState {
     reasoningEffort,
     conversationDisplay:
       globalThis.localStorage.getItem(STORAGE_KEYS.conversationDisplay) ===
-      "compact"
-        ? "compact"
-        : "normal",
+      "normal"
+        ? "normal"
+        : "compact",
     enterBehavior:
       globalThis.localStorage.getItem(STORAGE_KEYS.enterBehavior) === "steer"
         ? "steer"

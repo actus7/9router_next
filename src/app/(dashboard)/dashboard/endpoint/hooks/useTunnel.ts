@@ -10,7 +10,7 @@ import {
 } from "../endpointConstants";
 import type { StatusInfo } from "../types";
 
-const LOCAL_ONLY_MESSAGE: string =
+const localOnlyMessage = (): string =>
   translate("Cloudflare Tunnel requires a local ModelHub instance — not available on this hosted deployment.") ||
   "Cloudflare Tunnel requires a local ModelHub instance — not available on this hosted deployment.";
 
@@ -132,7 +132,7 @@ export function useTunnel() {
       const res = await fetch("/api/tunnel/enable", { method: "POST" });
       polling = false;
       if (res.status === 403) {
-        setTunnelStatus({ type: "info", message: LOCAL_ONLY_MESSAGE });
+        setTunnelStatus({ type: "info", message: localOnlyMessage() });
         return;
       }
       const data = await res.json();
@@ -188,7 +188,7 @@ export function useTunnel() {
         const data = await res.json();
         syncFromStatus(data);
       } else if (res.status === 403) {
-        setTunnelStatus({ type: "info", message: LOCAL_ONLY_MESSAGE });
+        setTunnelStatus({ type: "info", message: localOnlyMessage() });
       }
     } catch (error) {
       console.error("Error loading settings:", error);

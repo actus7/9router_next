@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { translate } from "@/i18n/runtime";
 import { ensureBuiltinMcpServers } from "@/shared/harness/builtinMcpServers";
 import { createId } from "../chatFormatUtils";
@@ -9,6 +9,9 @@ import type {
   ProviderGroup,
 } from "../types";
 import { hydrateFromStorage, persistToStorage } from "./chatSessionStorage";
+import { discoverTools, normalizeDiscoveredTools } from "./useMcpServers";
+
+const CONTEXT7_SERVER_ID = "builtin-context7";
 
 export interface UseSessionPersistenceArgs {
   providerGroups: ProviderGroup[];
@@ -364,4 +367,40 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
       if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current);
     };
   }, [isHydrated, serverSessionsReadyRef, serverSyncTimerRef, sessions]);
+
+  // Auto-connect Context7 (no token required): discover its tools as soon as a
+  // session carries the built-in server without them, so it works out of the
+  // box without the user opening Harness settings and clicking Connect.
+  const context7AutoConnectAttemptedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isHydrated) return;
+    for (const session of sessions) {
+      const server = session.mcpServers?.find((s) => s.id === CONTEXT7_SERVER_ID);
+      if (!server || server.tools.length > 0) continue;
+      if (context7AutoConnectAttemptedRef.current.has(session.id)) continue;
+      context7AutoConnectAttemptedRef.current.add(session.id);
+      discoverTools(server.url)
+        .then((payload) => {
+          const tools = normalizeDiscoveredTools(payload, CONTEXT7_SERVER_ID);
+          if (!tools.length) return;
+          setSessions((current) =>
+            current.map((s) =>
+              s.id === session.id
+                ? {
+                    ...s,
+                    mcpServers: (s.mcpServers ?? []).map((srv) =>
+                      srv.id === CONTEXT7_SERVER_ID
+                        ? { ...srv, tools, validatedAt: new Date().toISOString() }
+                        : srv,
+                    ),
+                  }
+                : s,
+            ),
+          );
+        })
+        .catch(() => {
+          // Silent — the user can still connect manually from Harness settings.
+        });
+    }
+  }, [isHydrated, sessions, setSessions]);
 }

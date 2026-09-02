@@ -49,6 +49,8 @@ interface Settings {
   cavemanLevel: string;
   ponytailEnabled: boolean;
   ponytailLevel: string;
+  synapseEnabled: boolean;
+  synapseLevel: string;
   pxpipeEnabled: boolean;
   pxpipeAutoInstall: boolean;
   pxpipeMinChars: number;
@@ -107,6 +109,8 @@ const DEFAULT_SETTINGS: Settings = {
   cavemanLevel: "full",
   ponytailEnabled: false,
   ponytailLevel: "full",
+  synapseEnabled: false,
+  synapseLevel: "lite",
   pxpipeEnabled: false,
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,

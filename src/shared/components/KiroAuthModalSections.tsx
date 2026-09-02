@@ -329,7 +329,7 @@ export function ImportTokenSection({
 
           <div>
             <Label className="block mb-2">
-              Refresh Token <span className="text-destructive-foreground">*</span>
+              {translate("Refresh Token")} <span className="text-destructive-foreground">*</span>
             </Label>
             <Input
               value={refreshToken}

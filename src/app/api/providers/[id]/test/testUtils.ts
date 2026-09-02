@@ -73,8 +73,8 @@ export async function testApiAirforceConnection(apiKey: unknown, effectiveProxy:
 // ── Provider-family helpers for testApiKeyConnection ──────────────────────
 
 /** Probe a URL with Bearer auth; success = res.ok. */
-async function probeBearerGet(url: string, apiKey: string, proxy: ConnectionProxyConfig | null, errorMsg = "Invalid API key"): Promise<TestResult> {
-  const res = await fetchWithConnectionProxy(url, { headers: { Authorization: `Bearer ${apiKey}` } }, proxy);
+async function probeBearerGet(url: string, apiKey: string, proxy: ConnectionProxyConfig | null, errorMsg = "Invalid API key", requireSafeDestination = false): Promise<TestResult> {
+  const res = await fetchWithConnectionProxy(url, { headers: { Authorization: `Bearer ${apiKey}` } }, proxy, requireSafeDestination);
   return { valid: res.ok, error: res.ok ? null : errorMsg, refreshed: false };
 }
 
@@ -176,7 +176,7 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
   // OpenAI-compatible custom base: GET /models
   if (isOpenAICompatibleProvider(provider)) {
     if (!psd.baseUrl) return { valid: false, error: "Missing base URL", refreshed: false };
-    try { return await probeBearerGet(`${(psd.baseUrl as string).replace(/\/$/, "")}/models`, apiKey, effectiveProxy, "Invalid API key or base URL"); }
+    try { return await probeBearerGet(`${(psd.baseUrl as string).replace(/\/$/, "")}/models`, apiKey, effectiveProxy, "Invalid API key or base URL", true); }
     catch (err) { return { valid: false, error: (err as Error).message, refreshed: false }; }
   }
 
@@ -189,7 +189,7 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
       const model = (connection.defaultModel as string) || "claude-3-haiku-20240307";
       const res = await fetchWithConnectionProxy(`${mb}/v1/messages`, { method: "POST",
         headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: "user", content: "test" }] }) }, effectiveProxy);
+        body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: "user", content: "test" }] }) }, effectiveProxy, true);
       const valid = res.status !== 401 && res.status !== 403;
       return { valid, error: valid ? null : "Invalid API key or base URL" };
     } catch (err) { return { valid: false, error: (err as Error).message, refreshed: false }; }
@@ -263,7 +263,7 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
         return { valid: exRes.ok, error: exRes.ok ? null : "Invalid Personal Access Token" };
       }
       case "llm7": return probeBearerGet(
-        `${((psd.baseUrl as string) || "https://api.llm7.io/v1").replace(/\/$/, "")}/models`, apiKey, effectiveProxy, "Invalid API key or base URL");
+        `${((psd.baseUrl as string) || "https://api.llm7.io/v1").replace(/\/$/, "")}/models`, apiKey, effectiveProxy, "Invalid API key or base URL", true);
       case "kimchi": return fetchWithConnectionProxy(
         (KIMCHI_CONFIG.validationUrl as string) || "https://api.cast.ai/v1/llm/openai/supported-providers",
         { method: "GET", headers: { Accept: "application/json", Authorization: `Bearer ${apiKey}`, "User-Agent": "kimchi/0.1.40" } }, effectiveProxy)

@@ -95,9 +95,6 @@ async function tryGotScrapingFetch(url, options) {
 }
 */
 
-// DNS cache — use Map to avoid prototype pollution via malformed hostnames
-void (new Map());
-
 function normalizeString(value: unknown): string {
   if (value === undefined || value === null) return "";
   return String(value).trim();

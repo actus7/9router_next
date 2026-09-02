@@ -10,7 +10,7 @@ import {
 } from "../endpointConstants";
 import type { StatusInfo } from "../types";
 
-const LOCAL_ONLY_MESSAGE: string =
+const localOnlyMessage = (): string =>
   translate("Tailscale requires a local ModelHub instance — not available on this hosted deployment.") ||
   "Tailscale requires a local ModelHub instance — not available on this hosted deployment.";
 
@@ -80,7 +80,7 @@ export function useTailscale() {
         return data;
       }
       if (res.status === 403) {
-        setTsStatus({ type: "info", message: LOCAL_ONLY_MESSAGE });
+        setTsStatus({ type: "info", message: localOnlyMessage() });
       }
     } catch { /* ignore */ }
     setTsInstalled(false);
@@ -177,7 +177,7 @@ export function useTailscale() {
     try {
       const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
       if (res.status === 403) {
-        setTsStatus({ type: "info", message: LOCAL_ONLY_MESSAGE });
+        setTsStatus({ type: "info", message: localOnlyMessage() });
         return;
       }
       const data = await res.json();

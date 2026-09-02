@@ -37,6 +37,8 @@ export interface ChatMessage {
   status?: string;
   toolCalls?: ToolCall[];
   toolCallId?: string;
+  /** Model's reasoning/thinking trace for this turn, when the provider exposes one. */
+  reasoning?: string;
   feedback?: "up" | "down" | null;
   tokenUsage?: TokenUsage;
   timing?: MessageTiming;

@@ -8,7 +8,7 @@ interface DiscoverPayload {
   error?: unknown;
 }
 
-function normalizeDiscoveredTools(payload: DiscoverPayload, idForRuntimeName: string): HarnessMcpTool[] {
+export function normalizeDiscoveredTools(payload: DiscoverPayload, idForRuntimeName: string): HarnessMcpTool[] {
   const tools = payload.tools ?? [];
   return tools.flatMap((tool, index) =>
     typeof tool.name === "string" && tool.name
@@ -27,7 +27,7 @@ function normalizeDiscoveredTools(payload: DiscoverPayload, idForRuntimeName: st
   );
 }
 
-async function discoverTools(url: string, authToken?: string): Promise<DiscoverPayload> {
+export async function discoverTools(url: string, authToken?: string): Promise<DiscoverPayload> {
   const response = await fetch("/api/harness/mcp/discover", {
     method: "POST",
     headers: { "content-type": "application/json" },

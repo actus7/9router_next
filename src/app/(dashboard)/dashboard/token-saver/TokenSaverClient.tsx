@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
-import { CAVEMAN_LEVELS, PONYTAIL_LEVELS } from "../endpoint/endpointConstants";
+import { CAVEMAN_LEVELS, PONYTAIL_LEVELS, SYNAPSE_LEVELS } from "../endpoint/endpointConstants";
 import { Zap } from "lucide-react";
 import { useHeadroom } from "./hooks/useHeadroom";
 import { usePxpipe } from "./hooks/usePxpipe";
@@ -35,6 +35,8 @@ export default function TokenSaverClient() {
     settings.setCavemanLevel((data.cavemanLevel as string) || "full");
     settings.setPonytailEnabled(!!data.ponytailEnabled);
     settings.setPonytailLevel((data.ponytailLevel as string) || "full");
+    settings.setSynapseEnabled(!!data.synapseEnabled);
+    settings.setSynapseLevel((data.synapseLevel as string) || "lite");
     pxpipe.setPxpipeEnabled(!!data.pxpipeEnabled);
     if (typeof data.pxpipeMinChars === "number") pxpipe.setPxpipeMinChars(data.pxpipeMinChars);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setters are stable; only settings data should hydrate local state
@@ -195,6 +197,56 @@ export default function TokenSaverClient() {
             <Switch
               checked={settings.ponytailEnabled}
               onCheckedChange={() => settings.handlePonytailEnabled(!settings.ponytailEnabled)}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-4 mt-4 border-t border-border gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">
+              Respostas triviais locais{" "}
+              <a
+                href="https://github.com/actus7/synapse"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-normal text-primary underline hover:opacity-80"
+              >
+                (Synapse)
+              </a>
+            </p>
+            <p className="text-sm text-text-muted">
+              Responde saudações, agradecimentos e despedidas direto no gateway,
+              sem gastar tokens; sem match claro, a mensagem segue ao modelo.
+              Nunca opera em conversas com tools
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {settings.synapseEnabled && (
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5">
+                  {SYNAPSE_LEVELS.map((lvl) => (
+                    <Button
+                      key={lvl.id}
+                      variant={settings.synapseLevel === lvl.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => settings.handleSynapseLevel(lvl.id)}
+                      title={lvl.desc}
+                    >
+                      {lvl.label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-primary">
+                  {
+                    SYNAPSE_LEVELS.find((lvl) => lvl.id === settings.synapseLevel)
+                      ?.desc
+                  }
+                </p>
+              </div>
+            )}
+            <Switch
+              checked={settings.synapseEnabled}
+              onCheckedChange={() => settings.handleSynapseEnabled(!settings.synapseEnabled)}
             />
           </div>
         </div>

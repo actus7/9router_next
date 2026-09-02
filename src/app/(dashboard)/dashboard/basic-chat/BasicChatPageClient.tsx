@@ -74,10 +74,6 @@ export default function BasicChatPageClient() {
           sessionsHook={chatSessions}
           harnessHook={harnessHook}
           onOpenPlugins={() => {
-            setHarnessSettingsSection("plugins");
-            setHarnessSettingsOpen(true);
-          }}
-          onOpenSettings={() => {
             setHarnessSettingsSection("general");
             setHarnessSettingsOpen(true);
           }}

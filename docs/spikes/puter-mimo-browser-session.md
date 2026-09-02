@@ -12,7 +12,7 @@ O experimento está em `src/app/(dashboard)/dashboard/basic-chat/puterBrowser.ts
 NEXT_PUBLIC_ENABLE_PUTER_SPIKE=true
 ```
 
-Ele disponibiliza `Xiaomi MiMo V2.5 (Puter)` como `Puter (MiMo experimental)`. O histórico da conversa e o streaming ficam no cliente; a requisição não passa pelo gateway do RouterX2 e não cria uma conexão em banco.
+Ele disponibiliza `Xiaomi MiMo V2.5 (Puter)` como `Puter (MiMo experimental)`. O histórico da conversa e o streaming ficam no cliente; a requisição não passa pelo gateway do ModelHub e não cria uma conexão em banco.
 
 ## Limites de segurança
 
