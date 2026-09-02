@@ -1,6 +1,6 @@
 import { translate } from "@/i18n/runtime";
 import { makeSessionTitle, textValue } from "../chatFormatUtils";
-import type { ChatSession, TokenUsage } from "../types";
+import type { ChatSession, MessageTiming, TokenUsage } from "../types";
 
 type UpdateSessionFn = (sessionId: string, updater: (session: ChatSession) => ChatSession) => void;
 type RecordEventFn = (sessionId: string, type: string, data: Record<string, unknown>) => void;
@@ -8,6 +8,8 @@ type RecordEventFn = (sessionId: string, type: string, data: Record<string, unkn
 export interface StreamTelemetry {
   reasoning?: string;
   usage?: TokenUsage | null;
+  responseSource?: "synapse" | null;
+  timing?: MessageTiming | null;
 }
 
 /** Persist the final assistant text, record the run/end event, and update the session title. */
@@ -23,7 +25,7 @@ export function finalizeStreamSuccess(
   updateSession(sessionId, (current) => ({
     ...current,
     messages: current.messages.map((m) =>
-      m.id === assistantMessageId ? { ...m, content: assistantText || m.content, status: "done" as const, tokenUsage: telemetry.usage ?? m.tokenUsage } : m,
+      m.id === assistantMessageId ? { ...m, content: assistantText || m.content, status: "done" as const, tokenUsage: telemetry.usage ?? m.tokenUsage, timing: telemetry.timing ?? m.timing, responseSource: telemetry.responseSource !== undefined ? telemetry.responseSource : m.responseSource } : m,
     ),
     updatedAt: new Date().toISOString(),
   }));

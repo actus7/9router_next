@@ -230,8 +230,12 @@ export function useSendMessage({
         runtimeTools,
       );
 
+      const requestStartedAt = Date.now();
+      let firstTokenAt: number | null = null;
+
       try {
         const updateStreamingText = (text: string) => {
+          if (firstTokenAt === null && text) firstTokenAt = Date.now();
           setStreamingText(text);
           setLiveActivities((activities) =>
             activities.map((activity) =>
@@ -280,6 +284,7 @@ export function useSendMessage({
               updateStreamingText,
             );
         if (result.streamed) {
+          const completedAt = Date.now();
           finalizeStreamSuccess(
             sessionId,
             assistantMessageId,
@@ -291,6 +296,7 @@ export function useSendMessage({
               reasoning: result.reasoning,
               usage: result.usage,
               responseSource: result.responseSource,
+              timing: { ttftMs: (firstTokenAt ?? completedAt) - requestStartedAt, totalMs: completedAt - requestStartedAt },
             },
           );
         } else {
