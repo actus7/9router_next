@@ -9,6 +9,7 @@ import { ArrowUp, ListTree, LogIn, LogOut, Paperclip, StopCircle, X } from "luci
 import { getPuterAuthStatus, isPuterBrowserModel, signInToPuter, signOutOfPuter } from "../puterBrowser";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import type { UseSendMessageReturn } from "../hooks/useSendMessage";
+import ChatUsageBar from "./ChatUsageBar";
 
 interface ChatComposerProps {
   sessionsHook: UseChatSessionsReturn;
@@ -146,6 +147,7 @@ export default function ChatComposer({ sessionsHook, sendHook, loadingData }: Ch
           </div>
         </div>
       </div>
+      <ChatUsageBar messages={currentSession?.messages ?? []} />
     </div>
   );
 }
