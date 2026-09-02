@@ -78,6 +78,7 @@ async function rpc(
   body: Record<string, unknown>,
   dispatcher: Dispatcher,
   sessionId?: string,
+  authToken?: string,
 ) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MCP_TIMEOUT_MS);
@@ -89,6 +90,7 @@ async function rpc(
         accept: "application/json, text/event-stream",
         "mcp-protocol-version": MCP_PROTOCOL_VERSION,
         ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+        ...(authToken ? { authorization: `Bearer ${authToken}` } : {}),
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -115,7 +117,7 @@ async function rpc(
   }
 }
 
-async function openSession(url: string): Promise<{ sessionId: string | undefined; dispatcher: Dispatcher }> {
+async function openSession(url: string, authToken?: string): Promise<{ sessionId: string | undefined; dispatcher: Dispatcher }> {
   assertSafeMcpUrl(url);
   const dispatcher = await resolvePinnedDispatcher(url);
   const initialized = await rpc(url, {
@@ -127,7 +129,7 @@ async function openSession(url: string): Promise<{ sessionId: string | undefined
       capabilities: {},
       clientInfo: { name: "modelhub-harness", version: "1" },
     },
-  }, dispatcher);
+  }, dispatcher, undefined, authToken);
   if (!initialized.payload?.result)
     throw new Error(
       initialized.payload?.error?.message
@@ -139,6 +141,7 @@ async function openSession(url: string): Promise<{ sessionId: string | undefined
     { jsonrpc: "2.0", method: "notifications/initialized", params: {} },
     dispatcher,
     initialized.sessionId,
+    authToken,
   ).catch(() => undefined);
   return { sessionId: initialized.sessionId, dispatcher };
 }
@@ -173,13 +176,15 @@ function normalizeTools(value: unknown): DiscoveredMcpTool[] {
 
 export async function discoverMcpTools(
   url: string,
+  authToken?: string,
 ): Promise<DiscoveredMcpTool[]> {
-  const { sessionId, dispatcher } = await openSession(url);
+  const { sessionId, dispatcher } = await openSession(url, authToken);
   const listed = await rpc(
     url,
     { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
     dispatcher,
     sessionId,
+    authToken,
   );
   if (!listed.payload?.result)
     throw new Error(
@@ -194,8 +199,9 @@ export async function callMcpTool(
   url: string,
   toolName: string,
   args: Record<string, unknown>,
+  authToken?: string,
 ): Promise<unknown> {
-  const { sessionId, dispatcher } = await openSession(url);
+  const { sessionId, dispatcher } = await openSession(url, authToken);
   const result = await rpc(
     url,
     {
@@ -206,6 +212,7 @@ export async function callMcpTool(
     },
     dispatcher,
     sessionId,
+    authToken,
   );
   if (!result.payload?.result)
     throw new Error(

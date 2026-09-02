@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { translate } from "@/i18n/runtime";
+import { ensureBuiltinMcpServers } from "@/shared/harness/builtinMcpServers";
 import { createId } from "../chatFormatUtils";
 import type {
   ChatProject,
@@ -99,7 +100,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
   useEffect(() => {
     try {
       const saved = hydrateFromStorage();
-      setSessions(saved.sessions);
+      setSessions(saved.sessions.map(ensureBuiltinMcpServers));
       setProjects(saved.projects);
       setActiveProjectId(saved.activeProjectId);
       setActiveSessionId(saved.activeSessionId);
@@ -148,10 +149,12 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
         if (cancelled) return;
         const remote = Array.isArray(data.sessions) ? data.sessions : [];
         if (remote.length > 0) {
-          const remoteSessions = remote.map((session) => ({
-            ...session,
-            messages: Array.isArray(session?.messages) ? session.messages : [],
-          })) as ChatSession[];
+          const remoteSessions = remote
+            .map((session) => ({
+              ...session,
+              messages: Array.isArray(session?.messages) ? session.messages : [],
+            }))
+            .map(ensureBuiltinMcpServers) as ChatSession[];
           // Merge instead of overwrite: a session created locally between hydration and
           // this fetch resolving hasn't reached the server yet and must not be discarded.
           setSessions((current) => {
@@ -284,7 +287,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     };
 
     initializedRef.current = true;
-    setSessions([session]);
+    setSessions([ensureBuiltinMcpServers(session)]);
     setActiveSessionId(session.id);
     setActiveProviderId(savedProvider.providerId);
     setActiveModelId(savedModel.id);

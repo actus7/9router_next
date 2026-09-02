@@ -6,6 +6,8 @@ interface StoredMcpServer {
   id?: unknown;
   url?: unknown;
   tools?: unknown;
+  enabled?: unknown;
+  authToken?: unknown;
 }
 
 export async function POST(request: NextRequest) {
@@ -33,19 +35,24 @@ export async function POST(request: NextRequest) {
     );
     if (!server || typeof server.url !== "string" || !Array.isArray(server.tools))
       throw new Error("Servidor MCP não encontrado nesta sessão.");
+    if (server.enabled === false)
+      throw new Error("Servidor MCP está desativado nesta sessão.");
 
     const tool = server.tools.find(
       (item: unknown) =>
         item &&
         typeof item === "object" &&
         (item as { runtimeName?: unknown }).runtimeName === runtimeName,
-    ) as { name?: unknown } | undefined;
+    ) as { name?: unknown; enabled?: unknown } | undefined;
     if (!tool || typeof tool.name !== "string")
       throw new Error("Ferramenta MCP não está habilitada nesta sessão.");
+    if (tool.enabled === false)
+      throw new Error("Ferramenta MCP está desativada nesta sessão.");
 
+    const authToken = typeof server.authToken === "string" && server.authToken ? server.authToken : undefined;
     return NextResponse.json({
       ok: true,
-      result: await callMcpTool(server.url, tool.name, args),
+      result: await callMcpTool(server.url, tool.name, args, authToken),
     });
   } catch (error) {
     return NextResponse.json(

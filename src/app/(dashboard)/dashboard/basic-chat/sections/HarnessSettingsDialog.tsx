@@ -7,7 +7,6 @@ import {
   ChevronDown,
   ChevronUp,
   PlugZap,
-  Plus,
   Search,
   Server,
   Settings2,
@@ -36,7 +35,9 @@ import {
   HARNESS_PLUGINS,
   resolveSessionPlugins,
 } from "@/shared/harness/agentPlugins";
-import type { ChatSession, HarnessMcpServer, HarnessMcpTool } from "../types";
+import type { ChatSession } from "../types";
+import { useMcpServers } from "../hooks/useMcpServers";
+import McpServersSection from "./McpServersSection";
 import { PluginConfiguration } from "./PluginConfiguration";
 
 export type HarnessSettingsSection = "general" | "plugins" | "mcp" | "presets";
@@ -68,11 +69,8 @@ export default function HarnessSettingsDialog(
 ) {
   const [query, setQuery] = useState("");
   const [expandedPluginId, setExpandedPluginId] = useState<string | null>(null);
-  const [mcpName, setMcpName] = useState("");
-  const [mcpUrl, setMcpUrl] = useState("");
-  const [mcpError, setMcpError] = useState("");
-  const [isConnectingMcp, setIsConnectingMcp] = useState(false);
   const { session, updateSession, section, onSectionChange } = props;
+  const mcp = useMcpServers({ session, updateSession });
   const preset = getAgentPreset(
     session?.agentPresetId ?? DEFAULT_AGENT_PRESET_ID,
   );
@@ -110,101 +108,6 @@ export default function HarnessSettingsDialog(
       },
     }));
   };
-  const addMcpServer = async () => {
-    if (!session || !mcpUrl.trim()) return;
-    setIsConnectingMcp(true);
-    setMcpError("");
-    try {
-      const response = await fetch("/api/harness/mcp/discover", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: mcpUrl.trim() }),
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        tools?: Array<{
-          name?: unknown;
-          description?: unknown;
-          inputSchema?: unknown;
-        }>;
-        error?: unknown;
-      } | null;
-      if (!response.ok || !Array.isArray(payload?.tools))
-        throw new Error(
-          typeof payload?.error === "string"
-            ? payload.error
-            : "Não foi possível descobrir as ferramentas MCP.",
-        );
-      const id = crypto.randomUUID();
-      const tools: HarnessMcpTool[] = payload.tools.flatMap((tool, index) =>
-        typeof tool.name === "string" && tool.name
-          ? [
-              {
-                name: tool.name,
-                description:
-                  typeof tool.description === "string"
-                    ? tool.description
-                    : "MCP tool",
-                inputSchema:
-                  tool.inputSchema &&
-                  typeof tool.inputSchema === "object" &&
-                  !Array.isArray(tool.inputSchema)
-                    ? (tool.inputSchema as Record<string, unknown>)
-                    : { type: "object", properties: {} },
-                runtimeName: `mcp_${id.replace(/-/g, "")}_${index}`,
-              },
-            ]
-          : [],
-      );
-      if (!tools.length)
-        throw new Error(
-          "O servidor MCP não disponibilizou ferramentas compatíveis.",
-        );
-      const server: HarnessMcpServer = {
-        id,
-        name: mcpName.trim() || new URL(mcpUrl.trim()).hostname,
-        url: mcpUrl.trim(),
-        enabled: true,
-        tools,
-        validatedAt: new Date().toISOString(),
-      };
-      updateSession(session.id, (current) => ({
-        ...current,
-        mcpServers: [...(current.mcpServers ?? []), server],
-      }));
-      setMcpName("");
-      setMcpUrl("");
-    } catch (error) {
-      setMcpError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível conectar ao MCP.",
-      );
-    } finally {
-      setIsConnectingMcp(false);
-    }
-  };
-  const updateMcpServer = (
-    serverId: string,
-    updater: (server: HarnessMcpServer) => HarnessMcpServer,
-  ) => {
-    if (!session) return;
-    updateSession(session.id, (current) => ({
-      ...current,
-      mcpServers: (current.mcpServers ?? []).map((server) =>
-        server.id === serverId ? updater(server) : server,
-      ),
-    }));
-  };
-  const removeMcpServer = (serverId: string) => {
-    if (!session) return;
-    updateSession(session.id, (current) => ({
-      ...current,
-      mcpServers: (current.mcpServers ?? []).filter(
-        (server) => server.id !== serverId,
-      ),
-    }));
-  };
-
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent
@@ -274,22 +177,20 @@ export default function HarnessSettingsDialog(
             />
           ) : null}
           {section === "mcp" ? (
-            <McpSection
+            <McpServersSection
               servers={session?.mcpServers ?? []}
-              name={mcpName}
-              url={mcpUrl}
-              error={mcpError}
-              connecting={isConnectingMcp}
-              onNameChange={setMcpName}
-              onUrlChange={setMcpUrl}
-              onAdd={() => void addMcpServer()}
-              onToggle={(server) =>
-                updateMcpServer(server.id, (current) => ({
-                  ...current,
-                  enabled: !current.enabled,
-                }))
-              }
-              onRemove={removeMcpServer}
+              name={mcp.name}
+              url={mcp.url}
+              error={mcp.error}
+              connecting={mcp.connecting}
+              onNameChange={mcp.setName}
+              onUrlChange={mcp.setUrl}
+              onAdd={mcp.addServer}
+              onToggleServer={mcp.toggleServer}
+              onRemoveServer={mcp.removeServer}
+              onConnectServer={mcp.connectServer}
+              onToggleTool={mcp.toggleTool}
+              onSetServerToken={mcp.setServerToken}
             />
           ) : null}
           {section === "presets" ? (
@@ -660,134 +561,6 @@ function PluginsSection({
           Nenhum plugin encontrado.
         </p>
       ) : null}
-    </section>
-  );
-}
-
-function McpSection({
-  servers,
-  name,
-  url,
-  error,
-  connecting,
-  onNameChange,
-  onUrlChange,
-  onAdd,
-  onToggle,
-  onRemove,
-}: {
-  servers: readonly HarnessMcpServer[];
-  name: string;
-  url: string;
-  error: string;
-  connecting: boolean;
-  onNameChange: (value: string) => void;
-  onUrlChange: (value: string) => void;
-  onAdd: () => void;
-  onToggle: (server: HarnessMcpServer) => void;
-  onRemove: (serverId: string) => void;
-}) {
-  return (
-    <section aria-labelledby="mcp-heading" className="max-w-3xl">
-      <h2 id="mcp-heading" className="text-2xl font-semibold tracking-tight">
-        MCP servers
-      </h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        Conecte servidores Model Context Protocol para disponibilizar suas
-        ferramentas ao agente deste chat.
-      </p>
-      <div className="mt-6 rounded-xl border border-border bg-muted/30 p-4">
-        <div className="flex items-center gap-2 font-medium">
-          <Plus className="size-4" /> Adicionar servidor HTTPS
-        </div>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          A conexão valida o handshake MCP e descobre as ferramentas antes de
-          salvar. Servidores com OAuth ou headers secretos ainda não são
-          aceitos.
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto]">
-          <Input
-            value={name}
-            onChange={(event) => onNameChange(event.target.value)}
-            placeholder="Nome (opcional)"
-            aria-label="Nome do servidor MCP"
-          />
-          <Input
-            value={url}
-            onChange={(event) => onUrlChange(event.target.value)}
-            placeholder="https://mcp.exemplo.com/mcp"
-            type="url"
-            aria-label="URL do servidor MCP"
-          />
-          <Button onClick={onAdd} disabled={connecting || !url.trim()}>
-            {connecting ? "Conectando…" : "Conectar"}
-          </Button>
-        </div>
-        {error ? (
-          <p role="alert" className="mt-3 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-      </div>
-      <div className="mt-7">
-        <h3 className="font-medium">Servidores desta sessão</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ative somente ferramentas que este agente deve poder chamar.
-        </p>
-        <ul className="mt-4 grid gap-3">
-          {servers.map((server) => (
-            <li
-              key={server.id}
-              className="rounded-xl border border-border bg-card p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium">{server.name}</p>
-                  <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
-                    {server.url}
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {server.tools.length} ferramentas descobertas
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant={server.enabled ? "secondary" : "outline"}
-                    onClick={() => onToggle(server)}
-                    aria-pressed={server.enabled}
-                  >
-                    {server.enabled ? "Ativo" : "Inativo"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => onRemove(server.id)}
-                  >
-                    Remover
-                  </Button>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {server.tools.map((tool) => (
-                  <span
-                    key={tool.runtimeName}
-                    className="rounded-md bg-muted px-2 py-1 font-mono text-xs"
-                  >
-                    {tool.name}
-                  </span>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ul>
-        {!servers.length ? (
-          <p className="mt-6 rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            Nenhum servidor MCP conectado nesta sessão.
-          </p>
-        ) : null}
-      </div>
     </section>
   );
 }

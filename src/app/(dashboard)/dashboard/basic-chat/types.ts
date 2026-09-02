@@ -82,6 +82,8 @@ export interface HarnessMcpTool {
   description: string;
   inputSchema: Record<string, unknown>;
   runtimeName: string;
+  /** Individually disables this tool without removing it from the server's discovered list. Defaults to true when absent. */
+  enabled?: boolean;
 }
 
 export interface HarnessMcpServer {
@@ -91,6 +93,10 @@ export interface HarnessMcpServer {
   enabled: boolean;
   tools: HarnessMcpTool[];
   validatedAt: string;
+  /** Built-in servers (e.g. Context7, GitHub) can be disabled but not removed from the session. */
+  builtin?: boolean;
+  /** Optional bearer token, sent as `Authorization: Bearer <token>` on every request to this server. */
+  authToken?: string;
 }
 
 export interface SendMessageOptions {
