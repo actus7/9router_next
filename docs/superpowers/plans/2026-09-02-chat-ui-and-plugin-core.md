@@ -945,7 +945,7 @@ Reference: a button near the composer showing `1% of context used  ~8.7K / 1M` w
 - Consumes: `ChatSession["messages"]`, the session's system prompt string, the resolved runtime-tools JSON (from `@/shared/harness/agentPlugins`'s `getRuntimeToolDefinitions`).
 - Produces: `estimateContextUsage(messages, systemPrompt, toolsJson, contextWindowTokens?): ContextUsageEstimate`.
 
-- [ ] **Step 1: Write the estimator with its test first**
+- [x] **Step 1: Write the estimator with its test first**
 
 Create `src/app/(dashboard)/dashboard/basic-chat/sections/contextUsageEstimate.ts`:
 
@@ -991,7 +991,7 @@ export function estimateContextUsage(
 }
 ```
 
-- [ ] **Step 2: Write the test**
+- [x] **Step 2: Write the test**
 
 Create `tests/unit/contextUsageEstimate.test.ts`:
 
@@ -1017,12 +1017,12 @@ describe("estimateContextUsage", () => {
 });
 ```
 
-- [ ] **Step 3: Run the test**
+- [x] **Step 3: Run the test**
 
 Run: `npx vitest run tests/unit/contextUsageEstimate.test.ts`
 Expected: PASS.
 
-- [ ] **Step 4: Display it in the composer**
+- [x] **Step 4: Display it in the composer**
 
 In `ChatComposer.tsx`, import `estimateContextUsage` and `getRuntimeToolDefinitions` from `@/shared/harness/agentPlugins`, plus `Popover`/`PopoverContent`/`PopoverTrigger` (already imported by Task 3.2 if that landed first — dedupe the import). Ensure `systemPrompt` is destructured from `sessionsHook` (add it to the existing destructuring at line 20-22 if not already present). Compute the estimate right before the `return` statement:
 
@@ -1057,16 +1057,16 @@ Add a small button+popover next to the model name (inside the same toolbar row, 
               </Popover>
 ```
 
-- [ ] **Step 5: Manually verify in the browser**
+- [x] **Step 5: Manually verify in the browser**
 
 Confirm the percentage badge appears, updates as messages are sent, and the popover breakdown adds up to the total shown in the header line.
 
-- [ ] **Step 6: Run lint and typecheck**
+- [x] **Step 6: Run lint and typecheck**
 
 Run: `npx eslint "src/app/(dashboard)/dashboard/basic-chat/sections/ChatComposer.tsx" "src/app/(dashboard)/dashboard/basic-chat/sections/contextUsageEstimate.ts" && npx tsc --noEmit --pretty false`
 Expected: 0 errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/sections/contextUsageEstimate.ts src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatComposer.tsx tests/unit/contextUsageEstimate.test.ts
