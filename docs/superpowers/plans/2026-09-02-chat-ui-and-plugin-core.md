@@ -1087,7 +1087,7 @@ Today `ChatSidebar.tsx:236-246` always renders an open search `<Input>`; `145-15
 **Interfaces:**
 - Consumes: `historySearch`/`setHistorySearch` (already in `useChatSessions.ts`'s return, used today at `ChatSidebar.tsx:236-246`).
 
-- [ ] **Step 1: Add local open/close state and the icon-toggle behavior**
+- [x] **Step 1: Add local open/close state and the icon-toggle behavior**
 
 In `ChatSidebar.tsx`, add local state near the top of the component:
 
@@ -1131,7 +1131,7 @@ Replace the always-visible input block (lines 236-246) with a toggle:
 
 (`Search` is already imported per the earlier grep; add `X` to the same `lucide-react` import line if not already present — `ChatComposer.tsx` already imports `X` from `lucide-react`; confirm `ChatSidebar.tsx`'s import list and add it if missing.)
 
-- [ ] **Step 2: Apply the same icon-toggle chrome to "create project"**
+- [x] **Step 2: Apply the same icon-toggle chrome to "create project"**
 
 The existing `isCreatingProject` boolean (line 145-154) already collapses/expands a form — this step only needs to change its *trigger* to match the new visual language (icon that becomes an X while open), if it doesn't already. Read the current trigger button at `ChatSidebar.tsx:145-147` before editing: if it's a static `Plus` icon that stays a `Plus` while `isCreatingProject` is true, change it to render `X` instead of `Plus` when `isCreatingProject` is true, mirroring Step 1's pattern:
 
@@ -1141,16 +1141,16 @@ The existing `isCreatingProject` boolean (line 145-154) already collapses/expand
 </button>
 ```
 
-- [ ] **Step 3: Manually verify in the browser**
+- [x] **Step 3: Manually verify in the browser**
 
 Confirm search starts closed (just a "Search" affordance), clicking it opens the input with focus, clicking X closes it and clears the query. Confirm the project-creation toggle now shows X while its form is open.
 
-- [ ] **Step 4: Run lint and typecheck**
+- [x] **Step 4: Run lint and typecheck**
 
 Run: `npx eslint "src/app/(dashboard)/dashboard/basic-chat/sections/ChatSidebar.tsx" && npx tsc --noEmit --pretty false`
 Expected: 0 errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatSidebar.tsx
