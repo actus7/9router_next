@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BUILTIN_MCP_SERVERS } from "@/shared/harness/builtinMcpServers";
 import type { HarnessMcpServer } from "../types";
 
 interface McpServerCardProps {
@@ -25,6 +26,11 @@ function McpServerCard({
 }: McpServerCardProps) {
   const [tokenDraft, setTokenDraft] = useState(server.authToken ?? "");
   const isUnconnected = server.tools.length === 0;
+  const requiresToken = BUILTIN_MCP_SERVERS.find((definition) => definition.id === server.id)?.requiresToken ?? false;
+  const tokenHint = requiresToken ? " (token obrigatório)" : "";
+  const statusText = isUnconnected
+    ? `Ainda não conectado — conecte para descobrir e poder ativar/desativar as ferramentas${tokenHint}.`
+    : `${server.tools.length} ferramentas descobertas`;
 
   return (
     <li className="rounded-xl border border-border bg-card p-4">
@@ -39,9 +45,7 @@ function McpServerCard({
             ) : null}
           </p>
           <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{server.url}</p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {isUnconnected ? "Ainda não conectado" : `${server.tools.length} ferramentas descobertas`}
-          </p>
+          <p className="mt-2 text-xs text-muted-foreground">{statusText}</p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant={server.enabled ? "secondary" : "outline"} onClick={() => onToggleServer(server)} aria-pressed={server.enabled}>
@@ -61,7 +65,7 @@ function McpServerCard({
             onChange={(event) => setTokenDraft(event.target.value)}
             onBlur={() => onSetServerToken(server.id, tokenDraft.trim())}
             type="password"
-            placeholder="Token (opcional)"
+            placeholder={requiresToken ? "Token (obrigatório)" : "Token (opcional)"}
             className="h-8 max-w-64 text-xs"
             aria-label={`Token para ${server.name}`}
           />
