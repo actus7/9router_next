@@ -37,7 +37,7 @@ The earlier proof-of-concept migrated `xiaomi-tokenplan` into `corePlugins`. The
 - Consumes: `CorePlugin` interface from `registry.ts` (`{ name: string; inject?: string[]; apply(ctx): void | Promise<void> }`), `OpenCodeExecutor` from `../../llm-gateway/engine/executors/opencode`.
 - Produces: `opencodePlugin: CorePlugin`, exported for `registry.ts` to import.
 
-- [ ] **Step 1: Restore the static xiaomi-tokenplan registration**
+- [x] **Step 1: Restore the static xiaomi-tokenplan registration**
 
 In `src/server/llm-gateway/engine/executors/index.ts`, re-add the import that Phase-0-of-the-previous-round removed:
 
@@ -63,7 +63,7 @@ and this line:
   opencode: new OpenCodeExecutor(),
 ```
 
-- [ ] **Step 2: Delete the old plugin file and create the new one**
+- [x] **Step 2: Delete the old plugin file and create the new one**
 
 Delete `src/server/plugin-core/plugins/xiaomi-tokenplan-plugin.ts`.
 
@@ -90,7 +90,7 @@ export const opencodePlugin: CorePlugin = {
 };
 ```
 
-- [ ] **Step 3: Point the registry at the new plugin**
+- [x] **Step 3: Point the registry at the new plugin**
 
 In `src/server/plugin-core/plugins/registry.ts`, replace:
 
@@ -116,7 +116,7 @@ with:
 export const corePlugins: CorePlugin[] = [opencodePlugin];
 ```
 
-- [ ] **Step 4: Update the end-to-end plugin test**
+- [x] **Step 4: Update the end-to-end plugin test**
 
 In `tests/unit/pluginCoreExecutors.test.ts`, replace the import:
 
@@ -141,17 +141,17 @@ Replace the test body (same name is fine to keep, or rename — rename for clari
   });
 ```
 
-- [ ] **Step 5: Run the plugin-core tests**
+- [x] **Step 5: Run the plugin-core tests**
 
 Run: `npx vitest run tests/unit/pluginCoreExecutors.test.ts tests/unit/pluginCoreContext.test.ts tests/unit/pluginCoreProviders.test.ts`
 Expected: all pass, including the new opencode assertion.
 
-- [ ] **Step 6: Run the full check**
+- [x] **Step 6: Run the full check**
 
 Run: `npm run check`
 Expected: exit 0 (lint, typecheck, contract, coverage, build all green).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/server/plugin-core/plugins/opencode-plugin.ts src/server/plugin-core/plugins/registry.ts src/server/llm-gateway/engine/executors/index.ts tests/unit/pluginCoreExecutors.test.ts
