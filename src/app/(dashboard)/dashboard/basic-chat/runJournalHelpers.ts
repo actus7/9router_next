@@ -1,5 +1,16 @@
 import type { HarnessEvent, TokenUsage } from "./types";
 
+export type EventKind = "system" | "context" | "user" | "assistant" | "tool";
+
+/** Buckets a raw harness event type string into the Trajectory tab's taxonomy. */
+export function classifyEventKind(event: HarnessEvent): EventKind {
+  if (event.type.startsWith("user/")) return "user";
+  if (event.type.startsWith("assistant/")) return "assistant";
+  if (event.type.startsWith("tool/")) return "tool";
+  if (event.type.startsWith("run/")) return "system";
+  return "context";
+}
+
 export interface RunJournalGroup {
   runId: string;
   events: HarnessEvent[];
