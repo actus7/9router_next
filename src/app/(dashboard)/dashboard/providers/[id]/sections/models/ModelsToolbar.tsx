@@ -16,6 +16,7 @@ interface ModelsToolbarProps {
   noModelDiscovery?: boolean;
   modelsHook: UseProviderModelsReturn;
   onShowClearConfirmation: () => void;
+  onShowDiagnostics: () => void;
   models: LiveModel[];
   kiloFreeModels: LiveModel[];
 }
@@ -28,6 +29,7 @@ export default function ModelsToolbar({
   noModelDiscovery,
   modelsHook: m,
   onShowClearConfirmation,
+  onShowDiagnostics,
   models,
   kiloFreeModels,
 }: ModelsToolbarProps) {
@@ -69,8 +71,8 @@ export default function ModelsToolbar({
           <Button
             variant="secondary"
             size="sm"
-            onClick={m.handleTestAllModels}
-            disabled={!!m.testAllModels?.running}
+            onClick={() => { if (m.testAllModels?.running) onShowDiagnostics(); else { void m.handleTestAllModels(); onShowDiagnostics(); } }}
+            title={m.testAllModels?.running ? translate("Show test progress") ?? undefined : undefined}
           >
             <Beaker className={`size-4 mr-1.5 ${m.testAllModels?.running ? "animate-pulse" : ""}`} />
             {m.testAllModels?.running ? translate("Testing...") : translate("Test Model Sample")}

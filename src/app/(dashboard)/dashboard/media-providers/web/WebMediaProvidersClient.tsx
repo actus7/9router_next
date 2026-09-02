@@ -45,7 +45,7 @@ function ProviderCard({ provider, kind, connections }: { provider: Provider; kin
   const allDisabled = total > 0 && providerConns.every((c) => c.isActive === false);
 
   const renderStatus = () => {
-    if (isNoAuth) return <Badge variant="success">Ready</Badge>;
+    if (isNoAuth) return <Badge variant="secondary">No auth required</Badge>;
     if (allDisabled) return <Badge variant="secondary" >Disabled</Badge>;
     if (total === 0) return <span className="text-xs text-text-muted">No connections</span>;
     return (

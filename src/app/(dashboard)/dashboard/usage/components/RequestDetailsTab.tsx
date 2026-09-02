@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import useSWR from "swr";
 import Drawer from "@/shared/components/Drawer";
+import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 import { translate } from "@/i18n/runtime";
 import type { RequestDetail } from "./types";
 import { fetchProviderNames, getProviderName } from "./providerUtils";
@@ -14,9 +16,8 @@ import JsonCollapsiblePanel from "./JsonCollapsiblePanel";
 import ClientResponsePanel from "./ClientResponsePanel";
 
 export default function RequestDetailsTab() {
-  const [details, setDetails] = useState<RequestDetail[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
-  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedDetail, setSelectedDetail] = useState<RequestDetail | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [providers, setProviders] = useState<Array<{ id: string; name: string }>>([]);
@@ -35,36 +36,29 @@ export default function RequestDetailsTab() {
     }
   }, []);
 
-  const fetchDetails = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: pagination.page.toString(), pageSize: pagination.pageSize.toString() });
-      if (filters.provider) params.append("provider", filters.provider);
-      if (filters.startDate) params.append("startDate", filters.startDate);
-      if (filters.endDate) params.append("endDate", filters.endDate);
-      const res = await fetch(`/api/usage/request-details?${params}`);
-      const data = await res.json();
-      setDetails(data.details || []);
-      setPagination(prev => ({ ...prev, ...data.pagination }));
-    } catch (error) {
-      console.error("Failed to fetch request details:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [pagination.page, pagination.pageSize, filters]);
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (filters.provider) params.set("provider", filters.provider);
+  if (filters.startDate) params.set("startDate", filters.startDate);
+  if (filters.endDate) params.set("endDate", filters.endDate);
+
+  const { data, isLoading: loading } = useSWR<{
+    details?: RequestDetail[];
+    pagination?: { totalItems?: number };
+  }>(`/api/usage/request-details?${params.toString()}`, jsonFetcher);
+  const details = data?.details ?? [];
+  const totalItems = data?.pagination?.totalItems ?? 0;
 
   useEffect(() => { fetchProviders(); }, [fetchProviders]);
-  useEffect(() => { fetchDetails(); }, [fetchDetails]);
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <FilterBar providers={providers} filters={filters} onFiltersChange={setFilters} />
       <RequestTable
-        details={details} loading={loading} pagination={pagination}
+        details={details} loading={loading} pagination={{ page, pageSize, totalItems }}
         providerNameCache={providerNameCache}
         onViewDetail={(d) => { setSelectedDetail(d); setIsDrawerOpen(true); }}
-        onPageChange={(p) => setPagination(prev => ({ ...prev, page: p }))}
-        onPageSizeChange={(s) => setPagination(prev => ({ ...prev, pageSize: s, page: 1 }))}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
       />
       <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}
         title={translate("Request Details") || "Request Details"} width="lg">

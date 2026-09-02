@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export function useEndpointSettings() {
   const [requireApiKey, setRequireApiKey] = useState(false);
@@ -23,7 +23,7 @@ export function useEndpointSettings() {
     }
   }, []);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const res = await fetch("/api/settings");
       if (res.ok) {
@@ -36,7 +36,7 @@ export function useEndpointSettings() {
     } catch (error) {
       console.error("Error loading settings:", error);
     }
-  };
+  }, []);
 
   const handleTunnelDashboardAccess = async (value: boolean) => {
     try {

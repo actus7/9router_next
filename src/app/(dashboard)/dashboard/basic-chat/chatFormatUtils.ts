@@ -1,5 +1,5 @@
 import { translate } from "@/i18n/runtime";
-import type { ChatMessage, ChatSession } from "./types";
+import type { ChatMessage, ChatSession, TokenUsage } from "./types";
 
 export function createId(): string {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -99,6 +99,28 @@ export function readAssistantText(chunk: Record<string, unknown>): string {
     .map(textValue)
     .filter(Boolean);
   return pieces[0] || "";
+}
+
+/** Reasoning/thinking delta text, when the provider streams it alongside content (OpenAI-compatible reasoning models). */
+export function readReasoningText(chunk: Record<string, unknown>): string {
+  if (!chunk || typeof chunk !== "object") return "";
+  const choices = chunk.choices as Array<Record<string, unknown>> | undefined;
+  const delta = (choices?.[0]?.delta as Record<string, unknown>) || {};
+  const pieces = [delta.reasoning_content, delta.reasoning, delta.thinking]
+    .map(textValue)
+    .filter(Boolean);
+  return pieces[0] || "";
+}
+
+/** Final-chunk token usage, when the provider (or `stream_options.include_usage`) reports it. */
+export function readStreamUsage(chunk: Record<string, unknown>): TokenUsage | null {
+  const usage = chunk?.usage as Record<string, unknown> | undefined;
+  if (!usage || typeof usage !== "object") return null;
+  return {
+    prompt_tokens: Number(usage.prompt_tokens ?? usage.input_tokens ?? 0) || 0,
+    completion_tokens: Number(usage.completion_tokens ?? usage.output_tokens ?? 0) || 0,
+    total_tokens: Number(usage.total_tokens ?? 0) || undefined,
+  };
 }
 
 export async function fileToDataUrl(file: File): Promise<string> {

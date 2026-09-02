@@ -133,6 +133,7 @@ export default function ConnectionCard({
   const { copied, copy } = useCopyToClipboard();
 
   const isInactive = conn.isActive === false;
+  const isUsageOnly = conn.usageOnly === true;
   const isCodex = conn.provider === "codex";
   const resetCreditCount = getCodexResetCreditCount(quota);
   const isResettingLimit = resettingLimitId === conn.id;
@@ -284,7 +285,7 @@ export default function ConnectionCard({
                 </Tooltip>
               </TooltipProvider>
             )}
-            <TooltipProvider>
+            {!isUsageOnly && <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger render={<span className="inline-flex" />}>
                   <Button
@@ -300,7 +301,8 @@ export default function ConnectionCard({
                 </TooltipTrigger>
                 <TooltipContent>Refresh quota</TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider>}
+            {!isUsageOnly && <>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger render={<span className="inline-flex" />}>
@@ -359,6 +361,7 @@ export default function ConnectionCard({
                 }
               />
             </div>
+            </>}
           </div>
         </div>
       </div>

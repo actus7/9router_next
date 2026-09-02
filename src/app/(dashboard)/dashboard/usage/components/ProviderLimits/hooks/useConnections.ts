@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   getSafePagination,
   getSafeTotals,
@@ -36,11 +36,16 @@ export function useConnections(): UseConnectionsReturn {
   const [accountFilter, setAccountFilter] = useState("all");
   const [providerMenuOpen, setProviderMenuOpen] = useState(false);
 
+  // Ref to always have access to the current page without making it a dependency
+  const pageRef = useRef(page);
+  pageRef.current = page;
+
   const fetchConnections = useCallback(
-    async (targetPage = page) => {
+    async (targetPage?: number) => {
+      const effectivePage = targetPage ?? pageRef.current;
       try {
         const params = new URLSearchParams({
-          page: String(targetPage),
+          page: String(effectivePage),
           pageSize: String(pageSize),
           accountStatus: accountFilter,
           sort: "priority",
@@ -64,7 +69,7 @@ export function useConnections(): UseConnectionsReturn {
         setProviderOptions(getProviderOptions(data.providerOptions as string[] | null));
         setPagination(nextPagination);
         setTotals(nextTotals);
-        setPage(getPaginationPageValue(data.pagination as Pagination | null, targetPage));
+        setPage(getPaginationPageValue(data.pagination as Pagination | null, effectivePage));
         return connectionList;
       } catch (error) {
         console.error("Error fetching connections:", error);
@@ -75,7 +80,7 @@ export function useConnections(): UseConnectionsReturn {
         return [];
       }
     },
-    [accountFilter, page, pageSize, providerFilter],
+    [accountFilter, pageSize, providerFilter],
   );
 
   return {

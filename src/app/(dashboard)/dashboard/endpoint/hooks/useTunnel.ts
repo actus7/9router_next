@@ -180,7 +180,7 @@ export function useTunnel() {
     }
   };
 
-  const loadTunnelStatus = async () => {
+  const loadTunnelStatus = useCallback(async () => {
     setTunnelChecking(true);
     try {
       const res = await fetch("/api/tunnel/status", { cache: "no-store" });
@@ -195,7 +195,7 @@ export function useTunnel() {
     } finally {
       setTunnelChecking(false);
     }
-  };
+  }, [syncFromStatus]);
 
   return {
     tunnelChecking, setTunnelChecking, tunnelEnabled, setTunnelEnabled,

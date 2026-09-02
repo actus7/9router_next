@@ -39,7 +39,6 @@ export default function BasicChatPageClient() {
     temperature: sessionsHook.temperature,
     apiKey: sessionsHook.apiKey,
     recordHarnessEvent: harnessHook.recordHarnessEvent,
-    setBlockedModelIds: modelsHook.setBlockedModelIds,
   });
 
   // Starting a new chat must also clear any in-flight streaming UI state,
@@ -63,8 +62,8 @@ export default function BasicChatPageClient() {
         <ChatMobileHistoryMenu sessionsHook={chatSessions} />
 
         {sendHook.chatError ? (
-          <div className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive">
-            <div className="flex items-start gap-2">
+          <div className="mx-6 mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
+            <div className="flex items-start gap-2.5">
               <AlertCircle className="size-4 shrink-0 mt-0.5" />
               <p className="text-xs leading-5">{sendHook.chatError}</p>
             </div>

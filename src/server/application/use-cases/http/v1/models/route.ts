@@ -444,7 +444,7 @@ function buildProviderModelEntries(
 
   // Web search/fetch — provider IS the model, expose as {alias}/search and/or {alias}/fetch with explicit kind
   const providerInfo = AI_PROVIDERS[providerId];
-  if (kindFilter.includes("webSearch") && providerInfo?.searchConfig) {
+  if (kindFilter.includes("webSearch") && (providerInfo?.searchConfig || providerInfo?.searchViaChat)) {
     entries.push({
       id: `${outputAlias}/search`,
       object: "model",
@@ -474,6 +474,44 @@ function deduplicateModels(models: Record<string, unknown>[]): Record<string, un
     deduped.push(model);
   }
   return deduped;
+}
+
+/** Build web search/fetch entries for noAuth providers without an active connection. */
+function buildNoAuthWebEntries(
+  kindFilter: string[],
+  connectedProviders: Set<string>,
+): Record<string, unknown>[] {
+  const entries: Record<string, unknown>[] = [];
+  for (const [providerId, providerInfo] of Object.entries(AI_PROVIDERS)) {
+    if (!providerInfo.noAuth) continue;
+    if (connectedProviders.has(providerId)) continue;
+    if (providerInfo.hidden) continue;
+    const hiddenKinds = providerInfo.hiddenKinds as string[] | undefined;
+
+    const alias = (PROVIDER_ID_TO_ALIAS[providerId] || providerInfo.alias || providerId) as string;
+
+    if (kindFilter.includes("webSearch") && (providerInfo.searchConfig || providerInfo.searchViaChat)) {
+      if (!hiddenKinds?.includes("webSearch")) {
+        entries.push({
+          id: `${alias}/search`,
+          object: "model",
+          kind: "webSearch",
+          owned_by: alias,
+        });
+      }
+    }
+    if (kindFilter.includes("webFetch") && providerInfo.fetchConfig) {
+      if (!hiddenKinds?.includes("webFetch")) {
+        entries.push({
+          id: `${alias}/fetch`,
+          object: "model",
+          kind: "webFetch",
+          owned_by: alias,
+        });
+      }
+    }
+  }
+  return entries;
 }
 
 // ---------------------------------------------------------------------------
@@ -516,6 +554,10 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
       models.push(...buildProviderModelEntries(ctx, mergedModelIds, customModelKindById, kindFilter, isDisabled));
     }
   }
+
+  // Add noAuth web providers that have no active connection (searchViaChat / searchConfig / fetchConfig)
+  const connectedProviderIds = new Set(activeConnectionByProvider.keys());
+  models.push(...buildNoAuthWebEntries(kindFilter, connectedProviderIds));
 
   return deduplicateModels(models);
 }

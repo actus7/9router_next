@@ -51,6 +51,7 @@ export interface Connection {
   authType?: string;
   testStatus?: string;
   providerSpecificData?: Record<string, unknown>;
+  usageOnly?: boolean;
 }
 
 export interface Pagination {

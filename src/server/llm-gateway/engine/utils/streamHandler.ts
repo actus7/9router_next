@@ -198,8 +198,9 @@ function createDisconnectAwareStream(transformStream: TransformStream<Uint8Array
  * @param {TransformStream} transformStream - Transform stream for SSE
  * @param {object} streamController - Stream controller from createStreamController
  */
-export function pipeWithDisconnect(providerResponse: Response, transformStream: TransformStream<Uint8Array, Uint8Array>, streamController: ReturnType<typeof createStreamController>, onAbortTerminal: (() => Uint8Array | null | undefined) | null = null, stallTimeoutMs: number = STREAM_STALL_TIMEOUT_MS) {
+export function pipeWithDisconnect(providerResponse: Response, transformStream: TransformStream<Uint8Array, Uint8Array>, streamController: ReturnType<typeof createStreamController>, onAbortTerminal: (() => Uint8Array | null | undefined) | null = null, stallTimeoutMs: number = STREAM_STALL_TIMEOUT_MS, firstChunkTimeoutMs: number = stallTimeoutMs) {
   let stallTimer: ReturnType<typeof setTimeout> | null = null;
+  let firstChunkTimer: ReturnType<typeof setTimeout> | null = null;
   let chunkCount = 0;
   let totalBytes = 0;
   let lastChunkAt = Date.now();
@@ -207,6 +208,9 @@ export function pipeWithDisconnect(providerResponse: Response, transformStream: 
   const tag = "STREAM";
   const clearStall = () => {
     if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
+  };
+  const clearFirstChunk = () => {
+    if (firstChunkTimer) { clearTimeout(firstChunkTimer); firstChunkTimer = null; }
   };
   const armStall = () => {
     clearStall();
@@ -217,6 +221,16 @@ export function pipeWithDisconnect(providerResponse: Response, transformStream: 
       streamController.abort?.();
     }, stallTimeoutMs);
   };
+  const armFirstChunk = () => {
+    clearFirstChunk();
+    firstChunkTimer = setTimeout(() => {
+      firstChunkTimer = null;
+      if (chunkCount > 0) return;
+      dbg(tag, `FIRST CHUNK TIMEOUT ${firstChunkTimeoutMs}ms`);
+      streamController.handleError?.(new Error("stream first-chunk timeout"));
+      streamController.abort?.();
+    }, firstChunkTimeoutMs);
+  };
 
   // Wrap controller so every termination path clears the stall timer.
   // Without this, abort/cancel/downstream-error paths leave the timer armed
@@ -225,18 +239,19 @@ export function pipeWithDisconnect(providerResponse: Response, transformStream: 
     signal: streamController.signal,
     startTime: streamController.startTime,
     isConnected: () => streamController.isConnected(),
-    handleComplete: () => { dbg(tag, `complete | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleComplete(); },
-    handleError: (e: Error) => { dbg(tag, `error: ${e?.message} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleError(e); },
-    handleDisconnect: (r: string) => { dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); streamController.handleDisconnect(r); },
-    abort: () => { clearStall(); streamController.abort(); }
+    handleComplete: () => { dbg(tag, `complete | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); clearFirstChunk(); streamController.handleComplete(); },
+    handleError: (e: Error) => { dbg(tag, `error: ${e?.message} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); clearFirstChunk(); streamController.handleError(e); },
+    handleDisconnect: (r: string) => { dbg(tag, `disconnect: ${r} | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); clearFirstChunk(); streamController.handleDisconnect(r); },
+    abort: () => { clearStall(); clearFirstChunk(); streamController.abort(); }
   };
 
-  armStall();
-  dbg(tag, `pipe start | stallTimeout=${stallTimeoutMs}ms`);
+  armFirstChunk();
+  dbg(tag, `pipe start | firstChunkTimeout=${firstChunkTimeoutMs}ms | stallTimeout=${stallTimeoutMs}ms`);
 
   const upstreamTap = new TransformStream({
     transform(chunk, controller) {
       chunkCount++;
+      if (chunkCount === 1) clearFirstChunk();
       const sz = chunk?.byteLength || chunk?.length || 0;
       totalBytes += sz;
       const now = Date.now();
@@ -248,7 +263,7 @@ export function pipeWithDisconnect(providerResponse: Response, transformStream: 
       armStall();
       controller.enqueue(chunk);
     },
-    flush() { dbg(tag, `upstream EOF | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); }
+    flush() { dbg(tag, `upstream EOF | chunks=${chunkCount} | bytes=${totalBytes} | dur=${Date.now() - t0}ms`); clearStall(); clearFirstChunk(); }
   });
 
   const transformedBody = providerResponse.body!

@@ -1,3 +1,5 @@
+import { mutate } from "swr";
+
 export interface HeadroomExtrasState {
   version: string | null;
   extras: Record<string, boolean>;
@@ -33,6 +35,11 @@ export const patchSetting = async (patch: Record<string, unknown>) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
+    mutate<Record<string, unknown>>(
+      "/api/settings",
+      (current) => ({ ...current, ...patch }),
+      { revalidate: false },
+    );
   } catch (error) {
     console.error("Error updating setting:", error);
   }

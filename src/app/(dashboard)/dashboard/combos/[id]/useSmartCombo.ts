@@ -1,9 +1,10 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTierOrDefault, type SmartModelProfile, type SmartRoutingConfig } from "@/shared/llm-catalog";
-import { ALL_TIERS, capProfilesPerTier, normalizeConfig, type ComboData, type SuggestionPreview } from "./smartComboHelpers";
+import { getStoredModelTestLatencies } from "@/shared/utils/modelTestLatency";
+import { ALL_TIERS, capProfilesPerTier, normalizeConfig, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview } from "./smartComboHelpers";
 
 export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartModelProfile[]) {
   const notify = useNotificationStore();
@@ -19,8 +20,11 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [preview, setPreview] = useState<SuggestionPreview | null>(null);
+  const [suggestionPreset, setSuggestionPreset] = useState<SuggestionPreset>("balanced");
+  const [modelTestLatencies, setModelTestLatencies] = useState<ModelLatencyMap>({});
   const [confirming, setConfirming] = useState(false);
   const currentModels = config.overrides[selectedNeed]?.[selectedTier] || [];
+  useEffect(() => setModelTestLatencies(getStoredModelTestLatencies()), []);
   const tierOptionsForNeed: RoutingTierOrDefault[] = selectedNeed === "general" ? ["default"] : ALL_TIERS;
   const profileSummary = useMemo(() => ({
     total: profiles.length,
@@ -73,11 +77,15 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
       const res = await fetch("/api/smart-routing/suggest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ webResearch: true, classifierModel: config.classifier.model === "auto" ? undefined : config.classifier.model }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || translate("Failed to suggest profiles") || "Failed to suggest profiles");
+      setSuggestionPreset("balanced");
+      setModelTestLatencies(getStoredModelTestLatencies());
       setPreview(data);
     } catch (e) { notify.error(e instanceof Error ? e.message : translate("Failed to suggest profiles") || "Failed to suggest profiles"); }
     finally { setSuggesting(false); }
   };
-  const cappedPreviewProfiles = useMemo(() => (preview ? capProfilesPerTier(preview.profiles) : []), [preview]);
+  const cappedPreviewProfiles = useMemo(() => (
+    preview ? capProfilesPerTier(preview.profiles, suggestionPreset, modelTestLatencies) : []
+  ), [preview, suggestionPreset, modelTestLatencies]);
   const handleConfirmProfiles = async () => {
     if (!preview) return;
     setConfirming(true);
@@ -108,6 +116,7 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     selectedNeed, setSelectedNeed, selectedTier, setSelectedTier,
     showModelSelect, setShowModelSelect, showGlobalModelSelect, setShowGlobalModelSelect,
     saving, profiles, loadingProfiles, suggesting, preview, setPreview, confirming,
+    suggestionPreset, setSuggestionPreset, modelTestLatencies,
     currentModels, tierOptionsForNeed, profileSummary, cappedPreviewProfiles,
     patchModels, handleSave, handleRefresh, handleSuggest, handleConfirmProfiles,
     NEED_LABELS, TIER_LABELS, NEED_OPTIONS,

@@ -48,6 +48,7 @@ export interface ChatSession {
   updatedAt: string;
   projectId?: string;
   mode?: "agent" | "plan";
+  isArchived?: boolean;
   messages: ChatMessage[];
 }
 

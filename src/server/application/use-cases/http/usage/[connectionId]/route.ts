@@ -5,6 +5,7 @@ import { getUsageForProvider, getExecutor } from "@/server/llm-gateway/usage";
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
+import { getUsageStats } from "@/lib/db/repos/usageRepo";
 
 // Detect auth-expired messages returned by usage providers instead of throwing
 const AUTH_EXPIRED_PATTERNS = ["expired", "authentication", "unauthorized", "401", "re-authorize"];
@@ -123,6 +124,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { connectionId } = await params;
     const force = new URL(request.url).searchParams.get("force") === "1";
+
+    if (connectionId.startsWith("usage:")) {
+      const provider = connectionId.slice("usage:".length);
+      const usage = (await getUsageStats("all")).byProvider[provider];
+      if (!usage) return Response.json({ error: "Observed usage provider not found" }, { status: 404 });
+      const tokens = Number(usage.promptTokens || 0) + Number(usage.completionTokens || 0);
+      return Response.json({
+        quotas: {},
+        message: `This provider does not expose a quota API. Recorded usage: ${Number(usage.requests || 0).toLocaleString()} requests and ${tokens.toLocaleString()} tokens.`,
+      });
+    }
 
 
     // Get connection from database

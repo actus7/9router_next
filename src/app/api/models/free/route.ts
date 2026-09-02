@@ -3,6 +3,8 @@ import { safePublicFetch } from "@/server/security/safeFetch";
 import { FREE_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderModels, PROVIDER_ID_TO_ALIAS } from "@/server/llm-gateway/catalog";
 
+export const dynamic = "force-dynamic";
+
 interface FreeModelGroup {
   providerId: string;
   providerName: string;
@@ -29,8 +31,25 @@ export function parseRemoteModels(payload: unknown): Array<{ id: string; name: s
       const id = typeof model?.id === "string" ? model.id.trim() : "";
       return { id, name: typeof model?.name === "string" ? model.name : id };
     })
-    .filter((model) => model.id.length > 0 && isChatModelId(model.id))
-    .slice(0, 12);
+    .filter((model) => model.id.length > 0 && isChatModelId(model.id));
+}
+
+/**
+ * Some shared endpoints (notably OpenCode Zen) list paid models before their
+ * free catalogue. Apply the provider's eligibility rule before imposing the
+ * UI cap, otherwise all free entries can be lost from the first page.
+ */
+export function filterDiscoveredNoAuthModels(
+  models: Array<{ id: string; name: string }>,
+  fetcherType: string,
+): Array<{ id: string; name: string }> {
+  const eligible = fetcherType === "opencode-free"
+    ? models.filter((model) => model.id.endsWith("-free") || model.id === "big-pickle")
+    : fetcherType === "mimo-free"
+      ? models.filter((model) => model.id.startsWith("mimo") || model.name.toLowerCase().includes("mimo"))
+      : models;
+
+  return eligible.slice(0, 12);
 }
 
 async function discoverNoAuthModels(provider: Record<string, unknown>, alias: string): Promise<Array<{ id: string; name: string }>> {
@@ -44,7 +63,10 @@ async function discoverNoAuthModels(provider: Record<string, unknown>, alias: st
         timeoutMs: 8_000,
       });
       if (response.ok) {
-        const discovered = parseRemoteModels(await response.json());
+        const discovered = filterDiscoveredNoAuthModels(
+          parseRemoteModels(await response.json()),
+          typeof fetcher?.type === "string" ? fetcher.type : "",
+        );
         if (discovered.length > 0) return discovered;
       }
     } catch {

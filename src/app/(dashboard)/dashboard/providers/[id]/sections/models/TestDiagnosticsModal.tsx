@@ -35,7 +35,7 @@ export default function TestDiagnosticsModal({
       title={translate("Model Test Diagnostics") || "Model Test Diagnostics"}
       size="full"
       className="max-w-[50rem]"
-      onClose={() => { if (!testAllModels.running) onClose(); }}
+      onClose={onClose}
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -48,8 +48,13 @@ export default function TestDiagnosticsModal({
           <span className="text-success">{translate("Passed") || "Passed"}: {passed.length}</span>
           <span className="text-destructive">{translate("Failed") || "Failed"}: {failed.length}</span>
           {cancelled.length > 0 && <span className="text-warning">Cancelled: {cancelled.length}</span>}
-          {testAllModels.running && <Button variant="ghost" size="sm" onClick={onCancelTests}>Cancel tests</Button>}
+          {testAllModels.running && <Button variant="ghost" size="sm" onClick={onCancelTests}>{translate("Cancel tests") || "Cancel tests"}</Button>}
         </div>
+        {testAllModels.running && (
+          <p className="text-xs text-text-muted">
+            {translate("Closing this window keeps the tests running in the background.") || "Closing this window keeps the tests running in the background."}
+          </p>
+        )}
         <div className="flex flex-col gap-2">
           {pending.map((r, index) => (
             <div key={`pending-${r.modelId}-${index}`} className="rounded-lg border border-info-border/30 bg-info/10 px-3 py-2 text-info">

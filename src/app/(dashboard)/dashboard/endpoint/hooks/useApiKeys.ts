@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { translate } from "@/i18n/runtime";
 import type { ApiKey, ConfirmState } from "../types";
 
@@ -13,7 +13,7 @@ export function useApiKeys() {
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const fetchKeys = async () => {
         const res = await fetch("/api/keys");
@@ -40,7 +40,7 @@ export function useApiKeys() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;

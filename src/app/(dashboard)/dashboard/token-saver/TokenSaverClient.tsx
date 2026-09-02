@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import useSWR from "swr";
 import { Card, ConfirmModal } from "@/shared/components";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 import { CAVEMAN_LEVELS, PONYTAIL_LEVELS } from "../endpoint/endpointConstants";
 import { Zap } from "lucide-react";
 import { useHeadroom } from "./hooks/useHeadroom";
@@ -20,31 +22,32 @@ export default function TokenSaverClient() {
   const headroom = useHeadroom();
   const pxpipe = usePxpipe();
   const {  } = useCopyToClipboard();
+  const { data } = useSWR<Record<string, unknown>>("/api/settings", jsonFetcher);
+  const statusChecksStartedRef = useRef(false);
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const res = await fetch("/api/settings");
-        if (res.ok) {
-          const data = await res.json();
-          settings.setRtkEnabledState(data.rtkEnabled !== false);
-          headroom.setHeadroomEnabled(!!data.headroomEnabled);
-          headroom.setHeadroomUrl(data.headroomUrl || "http://localhost:8787");
-          // codeAware and kompress are managed inside useHeadroom
-          settings.setCavemanEnabled(!!data.cavemanEnabled);
-          settings.setCavemanLevel(data.cavemanLevel || "full");
-          settings.setPonytailEnabled(!!data.ponytailEnabled);
-          settings.setPonytailLevel(data.ponytailLevel || "full");
-          pxpipe.setPxpipeEnabled(!!data.pxpipeEnabled);
-          if (typeof data.pxpipeMinChars === "number") pxpipe.setPxpipeMinChars(data.pxpipeMinChars);
-          headroom.refreshHeadroomStatus();
-          // PRD: run the PXPIPE health check automatically when the page opens
-          pxpipe.refreshPxpipeStatus().then(pxpipe.runPxpipeHealth);
-        }
-      } catch {}
-    };
-    loadSettings();
-  }, [headroom, pxpipe, settings]);
+    if (!data) return;
+    settings.setRtkEnabledState(data.rtkEnabled !== false);
+    headroom.setHeadroomEnabled(!!data.headroomEnabled);
+    headroom.setHeadroomUrl((data.headroomUrl as string) || "http://localhost:8787");
+    // codeAware and kompress are managed inside useHeadroom
+    settings.setCavemanEnabled(!!data.cavemanEnabled);
+    settings.setCavemanLevel((data.cavemanLevel as string) || "full");
+    settings.setPonytailEnabled(!!data.ponytailEnabled);
+    settings.setPonytailLevel((data.ponytailLevel as string) || "full");
+    pxpipe.setPxpipeEnabled(!!data.pxpipeEnabled);
+    if (typeof data.pxpipeMinChars === "number") pxpipe.setPxpipeMinChars(data.pxpipeMinChars);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setters are stable; only settings data should hydrate local state
+  }, [data]);
+
+  useEffect(() => {
+    if (statusChecksStartedRef.current) return;
+    statusChecksStartedRef.current = true;
+    headroom.refreshHeadroomStatus();
+    // PRD: run the PXPIPE health check automatically when the page opens
+    pxpipe.refreshPxpipeStatus().then(pxpipe.runPxpipeHealth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- status callbacks are stable useCallback([]) references
+  }, []);
 
   return (
     <div className="flex flex-col gap-6 p-6">

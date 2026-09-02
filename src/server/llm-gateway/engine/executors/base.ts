@@ -114,6 +114,12 @@ export class BaseExecutor {
     return status === HTTP_STATUS.RATE_LIMITED && urlIndex + 1 < this.getFallbackCount();
   }
 
+  // A provider can override this for models that legitimately take longer to
+  // produce response headers (for example, a reasoning model's prefill).
+  getTimeoutMs(_model: string) {
+    return (this.config?.timeoutMs as number) || FETCH_CONNECT_TIMEOUT_MS;
+  }
+
   // Override in subclass for provider-specific refresh
   async refreshCredentials(credentials: Credentials, log?: Logger, _proxyOptions: unknown = null): Promise<RefreshResult | null> {
     return null;
@@ -163,7 +169,7 @@ export class BaseExecutor {
 
       // Abort if upstream doesn't return response headers within connection timeout
       const connectCtrl = new AbortController();
-      const timeoutMs = (this.config?.timeoutMs as number) || FETCH_CONNECT_TIMEOUT_MS;
+      const timeoutMs = this.getTimeoutMs(model);
       const connectTimer = setTimeout(() => connectCtrl.abort(new Error("fetch connect timeout")), timeoutMs);
       const mergedSignal = signal ? AbortSignal.any([signal, connectCtrl.signal]) : connectCtrl.signal;
 

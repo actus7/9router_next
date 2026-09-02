@@ -72,26 +72,27 @@ export class AIHordeExecutor extends BaseExecutor {
 
   /**
    * Transform the request body for AI Horde compatibility:
+   * - Forward only the parameters supported by its queued OpenAI proxy
    * - Floor max_tokens to >= 16, default to 512 if omitted
    * - Wrap string stop in an array
-   * - Drop tools/tool_choice/parallel_tool_calls (no tool support)
    */
-  transformRequest(_model: string, body: Record<string, unknown>, _stream?: boolean, _credentials?: Credentials) {
-    const transformed = { ...body };
+  transformRequest(model: string, body: Record<string, unknown>, _stream?: boolean, _credentials?: Credentials) {
+    const transformed: Record<string, unknown> = {
+      model: typeof body.model === "string" ? body.model : model,
+      messages: body.messages,
+    };
 
     // max_tokens: floor at 16, default when omitted
-    const mt = transformed.max_tokens as number | undefined;
+    const mt = body.max_tokens as number | undefined;
     transformed.max_tokens = Math.max(MIN_MAX_TOKENS, mt ?? DEFAULT_MAX_TOKENS);
 
-    // stop: must be an array
-    if (transformed.stop != null && !Array.isArray(transformed.stop)) {
-      transformed.stop = [transformed.stop];
-    }
+    if (body.temperature != null) transformed.temperature = body.temperature;
+    if (body.top_p != null) transformed.top_p = body.top_p;
 
-    // Drop tool-related fields (no tool support)
-    delete transformed.tools;
-    delete transformed.tool_choice;
-    delete transformed.parallel_tool_calls;
+    // stop: must be an array
+    if (body.stop != null) {
+      transformed.stop = Array.isArray(body.stop) ? body.stop : [body.stop];
+    }
 
     return transformed;
   }

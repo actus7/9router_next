@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { backfillCodexEmails } from "@/lib/oauth/providers";
 import { USAGE_APIKEY_PROVIDERS, USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
+import { getUsageStats } from "@/lib/db/repos/usageRepo";
 
 const SAFE_FIELDS = [
   "id", "provider", "authType", "name", "email", "displayName",
   "priority", "globalPriority", "isActive", "defaultModel",
   "testStatus", "lastError", "lastErrorAt", "errorCode",
   "expiresAt", "lastUsedAt", "consecutiveUseCount",
-  "createdAt", "updatedAt",
+  "createdAt", "updatedAt", "usageOnly",
 ];
 
 const SAFE_PSD_FIELDS = [
@@ -86,7 +87,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const pageSize = Math.min(parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
 
     const allConnections = await getProviderConnections();
-    const eligibleConnections = allConnections.filter(isUsageEligible);
+    const quotaConnections = allConnections.filter(isUsageEligible);
+    const usageStats = await getUsageStats("all");
+    const configuredProviders = new Set(allConnections.map((connection) => connection.provider));
+    const observedConnections = Object.keys(usageStats.byProvider)
+      .filter((provider) => provider && !configuredProviders.has(provider))
+      .map((provider) => ({
+        id: `usage:${provider}`,
+        provider,
+        name: "Observed usage",
+        isActive: true,
+        authType: "usage",
+        testStatus: "usage",
+        usageOnly: true,
+      }));
+    const eligibleConnections = [...quotaConnections, ...observedConnections];
     const providerOptions = Array.from(new Set(eligibleConnections.map((conn: Record<string, unknown>) => conn.provider))).sort();
 
     const providerFilteredConnections = eligibleConnections.filter((conn: Record<string, unknown>) => (

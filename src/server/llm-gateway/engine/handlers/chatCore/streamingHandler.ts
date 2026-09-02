@@ -3,7 +3,7 @@ import { needsTranslation } from "../../translator/index";
 import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger } from "../../utils/stream";
 import { pipeWithDisconnect } from "../../utils/streamHandler";
 import { PROVIDERS } from "../../config/providers";
-import { STREAM_STALL_TIMEOUT_MS } from "../../config/runtimeConfig";
+import { STREAM_FIRST_CHUNK_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../../config/runtimeConfig";
 import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail";
 import { saveRequestDetail } from "../../host/usage";
@@ -98,7 +98,8 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   const isResponsesPassthrough = sourceFormat === FORMATS.OPENAI_RESPONSES && targetFormat === FORMATS.OPENAI_RESPONSES;
   const onAbortTerminal = isResponsesPassthrough ? buildAbortedResponsesTerminalBytes : null;
   const stallTimeoutMs = ((PROVIDERS[provider] as Record<string, unknown>)?.stallTimeoutMs as number) || STREAM_STALL_TIMEOUT_MS;
-  const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController as unknown as Parameters<typeof pipeWithDisconnect>[2], onAbortTerminal as unknown as Parameters<typeof pipeWithDisconnect>[3], stallTimeoutMs);
+  const firstChunkTimeoutMs = ((PROVIDERS[provider] as Record<string, unknown>)?.firstChunkTimeoutMs as number) || STREAM_FIRST_CHUNK_TIMEOUT_MS;
+  const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController as unknown as Parameters<typeof pipeWithDisconnect>[2], onAbortTerminal as unknown as Parameters<typeof pipeWithDisconnect>[3], stallTimeoutMs, firstChunkTimeoutMs);
 
   saveRequestDetail(buildRequestDetail({
     provider, model, connectionId,

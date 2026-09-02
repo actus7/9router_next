@@ -27,6 +27,7 @@ export interface UseChatSessionsReturn {
   historyOpen: boolean; setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
   sidebarOpen: boolean; setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   historySearch: string; setHistorySearch: React.Dispatch<React.SetStateAction<string>>;
+  showArchived: boolean; setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
   newProjectName: string; setNewProjectName: React.Dispatch<React.SetStateAction<string>>;
   isCreatingProject: boolean; setIsCreatingProject: React.Dispatch<React.SetStateAction<boolean>>;
   systemPrompt: string; setSystemPrompt: React.Dispatch<React.SetStateAction<string>>;
@@ -51,6 +52,7 @@ export interface UseChatSessionsReturn {
   handleRenameProject: (projectId: string, title: string) => void;
   handleDeleteProject: (projectId: string) => void;
   handleDeleteSession: (sessionId: string) => void; handleBulkDeleteSessions: () => void;
+  handleToggleArchiveSession: (sessionId: string) => void;
   toggleSessionSelected: (event: React.MouseEvent, sessionId: string) => void;
   toggleAllVisibleSessions: () => void;
   startRenameSession: (event: React.MouseEvent, session: ChatSession) => void;
@@ -76,6 +78,7 @@ export function useChatSessions({ providerGroups, loadingData, modelIndex }: Use
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [historySearch, setHistorySearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -106,7 +109,7 @@ export function useChatSessions({ providerGroups, loadingData, modelIndex }: Use
   // Derived: memos, grouping, DnD, UI effects
   const derived = useSessionDerived({
     providerGroups, modelIndex, sessions, setSessions, projects, activeProjectId,
-    activeSessionId, activeProviderId, activeModelId, historySearch,
+    activeSessionId, activeProviderId, activeModelId, historySearch, showArchived,
     selectedSessionIds, renamingSessionId, setHistoryOpen, historyMenuRef, renameInputRef,
   });
 
@@ -120,7 +123,6 @@ export function useChatSessions({ providerGroups, loadingData, modelIndex }: Use
     newProjectName, setNewProjectName, setIsCreatingProject,
     setRenamingSessionId, setRenameValue, renameValue,
     selectedSessionIds, setSelectedSessionIds,
-    activeModel: derived.activeModel,
     filteredSessionItems: derived.filteredSessionItems,
     allVisibleSessionsSelected: derived.allVisibleSessionsSelected,
     fileInputRef,
@@ -131,7 +133,7 @@ export function useChatSessions({ providerGroups, loadingData, modelIndex }: Use
     activeSessionId, setActiveSessionId, activeProviderId, setActiveProviderId,
     activeModelId, setActiveModelId, draft, setDraft, attachments, setAttachments,
     fileInputRef, historyOpen, setHistoryOpen,
-    sidebarOpen, setSidebarOpen, historySearch, setHistorySearch,
+    sidebarOpen, setSidebarOpen, historySearch, setHistorySearch, showArchived, setShowArchived,
     newProjectName, setNewProjectName, isCreatingProject, setIsCreatingProject,
     systemPrompt, setSystemPrompt, temperature, setTemperature,
     showSettings, setShowSettings, renamingSessionId, setRenamingSessionId,

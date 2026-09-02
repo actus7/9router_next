@@ -14,15 +14,17 @@ export async function register(): Promise<void> {
   globalThis.__modelHubInstrumentationRegistered = true;
 
   try {
-    const [{ initConsoleLogCapture }, { ensureOutboundProxyInitialized }, { initializeApp }] = await Promise.all([
+    const [{ initConsoleLogCapture }, { ensureOutboundProxyInitialized }, { initializeApp }, { bootstrap }] = await Promise.all([
       import("@/lib/consoleLogBuffer"),
       import("@/lib/network/initOutboundProxy"),
       import("@/shared/services/initializeApp"),
+      import("@/server/plugin-core/context"),
     ]);
 
     initConsoleLogCapture();
     await ensureOutboundProxyInitialized();
     await initializeApp();
+    await bootstrap();
   } catch (error) {
     globalThis.__modelHubInstrumentationRegistered = false;
     throw error;

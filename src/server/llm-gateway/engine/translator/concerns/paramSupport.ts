@@ -15,6 +15,9 @@ const STRIP_RULES: StripRule[] = [
   { provider: "github", match: (m: string) => /claude/i.test(m) && !/claude.*(opus|sonnet).*4\.6/i.test(m), drop: ["thinking", "reasoning_effort"] },
   // Cloudflare Workers AI: content must be plain string, rejects OpenAI content-part array (#1926)
   { provider: "cloudflare-ai", flattenContent: true },
+  // Cohere's OpenAI compatibility API rejects these otherwise valid JSON-schema
+  // keywords in function parameters, returning HTTP 400 before the model runs.
+  { provider: "cohere", flattenContent: true, stripToolSchemaKeys: ["additionalProperties", "$schema"] },
   { provider: "volcengine-ark", match: /glm-5/i, clampToModelMaxOutput: true },
   // VolcEngine Ark caps the Kimi family at max_tokens <= 32768, but the model's
   // advertised ceiling is far higher (Kimi-K2.7-Code resolves to maxOutput 262144),
@@ -36,6 +39,16 @@ function clampNumber(body: Record<string, unknown>, key: string, ceiling: number
   }
 }
 
+function stripSchemaKeys(value: unknown, keys: Set<string>): unknown {
+  if (Array.isArray(value)) return value.map((item) => stripSchemaKeys(item, keys));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !keys.has(key))
+      .map(([key, child]) => [key, stripSchemaKeys(child, keys)]),
+  );
+}
+
 // Remove unsupported params from body in place; returns body.
 export function stripUnsupportedParams(provider: string, model: string, body: Record<string, unknown>): Record<string, unknown> {
   if (!model || !body || typeof body !== "object") return body;
@@ -54,6 +67,14 @@ export function stripUnsupportedParams(provider: string, model: string, body: Re
             .join("");
         }
       }
+    }
+    if (rule.stripToolSchemaKeys && Array.isArray(body.tools)) {
+      const keys = new Set(rule.stripToolSchemaKeys);
+      body.tools = (body.tools as Record<string, unknown>[]).map((tool) => {
+        const fn = tool?.function as Record<string, unknown> | undefined;
+        if (!fn?.parameters || typeof fn.parameters !== "object") return tool;
+        return { ...tool, function: { ...fn, parameters: stripSchemaKeys(fn.parameters, keys) } };
+      });
     }
     if (rule.clampToModelMaxOutput || Number.isFinite(rule.maxOutputCap)) {
       const modelCeiling = getCapabilitiesForModel(provider, model).maxOutput;

@@ -52,31 +52,43 @@ export default function ProviderLimits() {
     quotaHook.setLastUpdated,
   );
   const settingsHook = useSettings();
+  const {
+    fetchConnections,
+    page,
+    setConnectionsLoading,
+  } = connectionsHook;
+  const {
+    fetchQuota,
+    setErrors,
+    setLastUpdated,
+    setLoading,
+    setQuotaData,
+  } = quotaHook;
 
   // Initial data load
   useEffect(() => {
     const initializeData = async () => {
-      connectionsHook.setConnectionsLoading(true);
-      const visibleConnections = await connectionsHook.fetchConnections(connectionsHook.page);
-      connectionsHook.setConnectionsLoading(false);
+      setConnectionsLoading(true);
+      const visibleConnections = await fetchConnections(page);
+      setConnectionsLoading(false);
 
       // Always fetch fresh quota on mount, no cache display
-      quotaHook.setLoading(buildLoadingState(visibleConnections));
-      quotaHook.setErrors((prev) =>
+      setLoading(buildLoadingState(visibleConnections));
+      setErrors((prev) =>
         filterQuotaStateByConnections(prev, visibleConnections),
       );
-      quotaHook.setQuotaData((prev) =>
+      setQuotaData((prev) =>
         filterQuotaStateByConnections(prev, visibleConnections),
       );
 
       await Promise.all(
-        visibleConnections.map((conn) => quotaHook.fetchQuota(conn.id, conn.provider)),
+        visibleConnections.map((conn) => fetchQuota(conn.id, conn.provider)),
       );
-      quotaHook.setLastUpdated(new Date());
+      setLastUpdated(new Date());
     };
 
     initializeData();
-  }, [connectionsHook.fetchConnections, quotaHook.fetchQuota, connectionsHook.page, connectionsHook, quotaHook]);
+  }, [fetchConnections, fetchQuota, page, setConnectionsLoading, setErrors, setLastUpdated, setLoading, setQuotaData]);
 
   const sortedConnections = useMemo(
     () =>

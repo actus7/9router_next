@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import {
   AreaChart,
   Area,
@@ -13,6 +14,7 @@ import {
 import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
+import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 
 const fmtTokens = (n: number) => {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -26,31 +28,13 @@ interface UsageChartProps {
   period?: string;
 }
 
+type ChartPoint = { label: string; tokens: number; cost: number };
+
 export default function UsageChart({ period = "7d" }: UsageChartProps) {
-  const [data, setData] = useState<Array<{ label: string; tokens: number; cost: number }>>([]);
-  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("tokens");
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/usage/chart?period=${period}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
-    } catch (e) {
-      console.error("Failed to fetch chart data:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [period]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
+  const { data = [], isLoading } = useSWR<ChartPoint[]>(`/api/usage/chart?period=${period}`, jsonFetcher);
   const hasData = data.some((d) => d.tokens > 0 || d.cost > 0);
+  const loading = isLoading;
 
   return (
     <Card className="flex min-w-0 flex-col gap-3 p-3 sm:p-4">

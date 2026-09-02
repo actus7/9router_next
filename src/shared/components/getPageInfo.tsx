@@ -4,7 +4,7 @@ import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
-import { BarChart3, Globe, Key, Languages, Layers, Monitor, Network, PieChart, PiggyBank, Puzzle, Server, Settings, Terminal, Webhook } from "lucide-react";
+import { BarChart3, Globe, Key, Languages, Layers, MessageCircle, Monitor, Network, PieChart, PiggyBank, Puzzle, Server, Settings, Terminal, Webhook } from "lucide-react";
 
 export interface Breadcrumb {
   label: string;
@@ -61,6 +61,7 @@ function matchProviderDetail(pathname: string): PageInfo | null {
 }
 
 const SIMPLE_ROUTES: { test: (p: string) => boolean; title: string; desc: string; icon: React.ReactNode }[] = [
+  { test: (p) => p.includes("/basic-chat"), title: "Chat", desc: "Converse with AI models from your connected providers", icon: <MessageCircle className="size-6" /> },
   { test: (p) => p.includes("/providers") && !p.includes("/media-providers"), title: "Providers", desc: "Manage your AI provider connections", icon: <Server className="size-6" /> },
   { test: (p) => p.includes("/combos"), title: "Combos", desc: "Model combos with fallback", icon: <Layers className="size-6" /> },
   { test: (p) => p.includes("/usage"), title: "Usage & Analytics", desc: "Monitor your API usage, token consumption, and request logs", icon: <BarChart3 className="size-6" /> },

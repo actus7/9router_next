@@ -3,23 +3,102 @@ import type { NormalizedModel } from "../types";
 
 const MAX_RESULT_CHARS = 30_000;
 
-async function resolveWebProvider(kind: "webSearch" | "webFetch", apiKey: string, signal: AbortSignal): Promise<string | null> {
+interface WebProviderEntry {
+  kind?: unknown;
+  owned_by?: unknown;
+  id?: unknown;
+}
+
+function extractProvider(entry: WebProviderEntry): string | null {
+  if (entry.owned_by !== "combo" && typeof entry.owned_by === "string" && entry.owned_by) {
+    return entry.owned_by;
+  }
+  if (typeof entry.id === "string") return entry.id.replace(/\/(search|fetch)$/, "");
+  return null;
+}
+
+/**
+ * Returns deduplicated provider list for the requested kind, preserving
+ * first-occurrence order from the API response. Only exact kind matches
+ * are considered (no fallback to `kind: smart`).
+ */
+async function resolveWebProviders(kind: "webSearch" | "webFetch", apiKey: string, signal: AbortSignal): Promise<string[]> {
   const response = await fetch("/api/v1/models/web", {
     headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {},
     signal,
   });
-  if (!response.ok) return null;
-  const payload = await response.json().catch(() => null) as { data?: Array<{ kind?: unknown; owned_by?: unknown; id?: unknown }> } | null;
-  const model = payload?.data?.find((entry) => entry.kind === kind);
-  if (!model) return null;
-  if (typeof model.owned_by === "string" && model.owned_by) return model.owned_by;
-  return typeof model.id === "string" ? model.id.replace(/\/search$/, "") : null;
+  if (!response.ok) return [];
+  const payload = await response.json().catch(() => null) as { data?: WebProviderEntry[] } | null;
+  const entries = payload?.data;
+  if (!Array.isArray(entries)) return [];
+
+  const seen = new Set<string>();
+  const providers: string[] = [];
+  for (const entry of entries) {
+    if (entry.kind !== kind) continue;
+    const provider = extractProvider(entry);
+    if (provider && !seen.has(provider)) {
+      seen.add(provider);
+      providers.push(provider);
+    }
+  }
+  return providers;
 }
 
 interface RuntimeToolContext {
   apiKey: string;
   model: NormalizedModel;
   signal: AbortSignal;
+}
+
+interface AttemptInfo {
+  provider: string;
+  status: number;
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+/**
+ * Tries providers sequentially for a search/fetch call.
+ * Returns the successful response text, or throws on AbortError.
+ * If all providers fail, returns a JSON error with attempt details.
+ */
+async function tryProvidersWithFallback(
+  providers: string[],
+  kind: "webSearch" | "webFetch",
+  buildRequest: (provider: string) => { url: string; init: RequestInit },
+  signal: AbortSignal,
+): Promise<string> {
+  const attempts: AttemptInfo[] = [];
+
+  for (const provider of providers) {
+    const { url, init } = buildRequest(provider);
+    let response: Response;
+    try {
+      response = await fetch(url, { ...init, signal });
+    } catch (error) {
+      // Abort/cancellation must propagate immediately — no fallback
+      if (isAbortError(error) || signal.aborted) throw error;
+      attempts.push({ provider, status: 0 });
+      continue;
+    }
+
+    const text = await response.text();
+    if (response.ok) {
+      return text.length > MAX_RESULT_CHARS ? `${text.slice(0, MAX_RESULT_CHARS)}\n[truncated]` : text;
+    }
+    attempts.push({ provider, status: response.status });
+  }
+
+  const lastStatus = attempts.length > 0 ? attempts[attempts.length - 1]!.status : undefined;
+  return JSON.stringify({
+    ok: false,
+    error: `All providers failed for ${kind === "webSearch" ? "web search" : "web fetch"}`,
+    status: lastStatus,
+    attempts,
+  });
 }
 
 export async function executeRuntimeToolCall(call: ToolCall, context: RuntimeToolContext): Promise<string> {
@@ -69,41 +148,50 @@ export async function executeRuntimeToolCall(call: ToolCall, context: RuntimeToo
     if (typeof arguments_.url !== "string" || !arguments_.url.trim()) {
       return JSON.stringify({ ok: false, error: "web_fetch requires a public URL" });
     }
-    const provider = await resolveWebProvider("webFetch", apiKey, signal);
-    if (!provider) return JSON.stringify({ ok: false, error: "No configured web fetch provider is available" });
-    const response = await fetch("/api/v1/web/fetch", {
-      method: "POST",
-      headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
-      body: JSON.stringify({
-        provider,
-        url: arguments_.url.trim(),
-        ...(typeof arguments_.max_characters === "number" ? { max_characters: Math.max(500, Math.min(MAX_RESULT_CHARS, Math.floor(arguments_.max_characters))) } : {}),
+    const providers = await resolveWebProviders("webFetch", apiKey, signal);
+    if (providers.length === 0) return JSON.stringify({ ok: false, error: "No configured web fetch provider is available" });
+
+    return tryProvidersWithFallback(
+      providers,
+      "webFetch",
+      (provider) => ({
+        url: "/api/v1/web/fetch",
+        init: {
+          method: "POST",
+          headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
+          body: JSON.stringify({
+            provider,
+            url: arguments_.url!.toString().trim(),
+            ...(typeof arguments_.max_characters === "number" ? { max_characters: Math.max(500, Math.min(MAX_RESULT_CHARS, Math.floor(arguments_.max_characters as number))) } : {}),
+          }),
+        },
       }),
       signal,
-    });
-    const text = await response.text();
-    if (!response.ok) return JSON.stringify({ ok: false, status: response.status, error: text.slice(0, MAX_RESULT_CHARS) });
-    return text.length > MAX_RESULT_CHARS ? `${text.slice(0, MAX_RESULT_CHARS)}\n[truncated]` : text;
+    );
   }
 
   if (typeof arguments_.query !== "string" || !arguments_.query.trim()) {
     return JSON.stringify({ ok: false, error: "web_search requires a non-empty query" });
   }
 
-  const provider = await resolveWebProvider("webSearch", apiKey, signal);
-  if (!provider) return JSON.stringify({ ok: false, error: "No configured web search provider is available" });
+  const providers = await resolveWebProviders("webSearch", apiKey, signal);
+  if (providers.length === 0) return JSON.stringify({ ok: false, error: "No configured web search provider is available" });
 
-  const response = await fetch("/api/v1/search", {
-    method: "POST",
-    headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
-    body: JSON.stringify({
-      query: arguments_.query.trim(),
-      provider,
-      ...(typeof arguments_.max_results === "number" ? { max_results: Math.max(1, Math.min(10, Math.floor(arguments_.max_results))) } : {}),
+  return tryProvidersWithFallback(
+    providers,
+    "webSearch",
+    (provider) => ({
+      url: "/api/v1/search",
+      init: {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) },
+        body: JSON.stringify({
+          query: arguments_.query!.toString().trim(),
+          provider,
+          ...(typeof arguments_.max_results === "number" ? { max_results: Math.max(1, Math.min(10, Math.floor(arguments_.max_results as number))) } : {}),
+        }),
+      },
     }),
     signal,
-  });
-  const text = await response.text();
-  if (!response.ok) return JSON.stringify({ ok: false, status: response.status, error: text.slice(0, MAX_RESULT_CHARS) });
-  return text.length > MAX_RESULT_CHARS ? `${text.slice(0, MAX_RESULT_CHARS)}\n[truncated]` : text;
+  );
 }

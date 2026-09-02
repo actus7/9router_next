@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import useSWR from "swr";
 import { usePathname, useRouter } from "next/navigation";
 import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
@@ -10,25 +11,28 @@ import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { translate } from "@/i18n/runtime";
+import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 import { Search, X } from "lucide-react";
 import { getPageInfo } from "./getPageInfo";
 import { HeaderBreadcrumb, HeaderAuthBadge } from "./HeaderParts";
 
+interface AuthStatus {
+  displayName?: string;
+  samlName?: string;
+  samlEmail?: string;
+  oidcName?: string;
+  oidcEmail?: string;
+  loginMethod?: string;
+}
+
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [loginMethod, setLoginMethod] = useState("");
+  const { data: authStatus } = useSWR<AuthStatus>("/api/auth/status", jsonFetcher);
+  const displayName = authStatus?.displayName || authStatus?.samlName || authStatus?.samlEmail || authStatus?.oidcName || authStatus?.oidcEmail || "";
+  const email = authStatus?.oidcEmail || authStatus?.samlEmail || "";
+  const loginMethod = authStatus?.loginMethod || "";
   const { title, description, icon, breadcrumbs } = useMemo(() => getPageInfo(pathname), [pathname]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/auth/status", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((data) => {
-      if (!cancelled && data) { setDisplayName(data?.displayName || data?.samlName || data?.samlEmail || data?.oidcName || data?.oidcEmail || ""); setEmail(data?.oidcEmail || data?.samlEmail || ""); setLoginMethod(data?.loginMethod || ""); }
-    }).catch(() => { if (!cancelled) { setDisplayName(""); setEmail(""); setLoginMethod(""); } });
-    return () => { cancelled = true; };
-  }, []);
 
   const handleLogout = async () => { try { const r = await fetch("/api/auth/logout", { method: "POST" }); if (r.ok) router.replace("/login"); } catch (e) { console.error("Failed to logout:", e); } };
 

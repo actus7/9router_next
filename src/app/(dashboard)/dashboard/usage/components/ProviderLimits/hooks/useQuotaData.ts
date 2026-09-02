@@ -32,6 +32,9 @@ export function useQuotaData(
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickCountRef = useRef(0);
+  const busyRef = useRef(false);
+  // Stable ref for refreshAll so interval/visibility handlers never go stale
+  const refreshAllRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
 
   // Fetch quota for a specific connection
   const fetchQuota = useCallback(async (connectionId: string, provider: string, { force = false } = {}) => {
@@ -117,8 +120,8 @@ export function useQuotaData(
   );
 
   const refreshAll = useCallback(async (force = false) => {
-    if (refreshingAll) return;
-
+    if (busyRef.current) return;
+    busyRef.current = true;
     setRefreshingAll(true);
     setCountdown(60);
 
@@ -149,9 +152,10 @@ export function useQuotaData(
     } catch (error) {
       console.error("Error refreshing all providers:", error);
     } finally {
+      busyRef.current = false;
       setRefreshingAll(false);
     }
-  }, [refreshingAll, fetchConnections, fetchQuota, page]);
+  }, [fetchConnections, fetchQuota, page]);
 
   // Hydrate auto-refresh preference
   useEffect(() => {
@@ -167,65 +171,55 @@ export function useQuotaData(
     window.localStorage.setItem(AUTO_REFRESH_STORAGE_KEY, String(autoRefresh));
   }, [autoRefresh, hasHydratedAutoRefresh]);
 
-  // Auto-refresh interval
+  // Keep refreshAll ref in sync so interval/visibility handlers always call the latest version
   useEffect(() => {
-    if (!hasHydratedAutoRefresh || !autoRefresh) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-        countdownRef.current = null;
-      }
-      return;
-    }
+    refreshAllRef.current = refreshAll;
+  }, [refreshAll]);
 
-    // Main refresh interval
+  // Helper to start intervals (shared between auto-refresh effect and visibility handler)
+  const startIntervals = useCallback(() => {
+    if (intervalRef.current) return; // Already running, don't duplicate
     intervalRef.current = setInterval(() => {
-      refreshAll();
+      refreshAllRef.current?.();
     }, REFRESH_INTERVAL_MS);
-
-    // Countdown interval
     countdownRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) return 60;
         return prev - 1;
       });
     }, 1000);
+  }, []);
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, [autoRefresh, refreshAll, hasHydratedAutoRefresh]);
+  // Helper to stop intervals
+  const stopIntervals = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+  }, []);
 
-  // Pause auto-refresh when tab is hidden (Page Visibility API)
+  // A single effect owns both timers and visibility changes, preventing
+  // competing effects from recreating or duplicating the same intervals.
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        if (countdownRef.current) {
-          clearInterval(countdownRef.current);
-          countdownRef.current = null;
-        }
-      } else if (autoRefresh && hasHydratedAutoRefresh) {
-        // Resume auto-refresh when tab becomes visible
-        intervalRef.current = setInterval(() => refreshAll(), REFRESH_INTERVAL_MS);
-        countdownRef.current = setInterval(() => {
-          setCountdown((prev) => (prev <= 1 ? 60 : prev - 1));
-        }, 1000);
+    const syncIntervals = () => {
+      if (!hasHydratedAutoRefresh || !autoRefresh || document.hidden) {
+        stopIntervals();
+        return;
       }
+      startIntervals();
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    syncIntervals();
+    document.addEventListener("visibilitychange", syncIntervals);
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", syncIntervals);
+      stopIntervals();
     };
-  }, [autoRefresh, refreshAll, hasHydratedAutoRefresh]);
+  }, [autoRefresh, hasHydratedAutoRefresh, startIntervals, stopIntervals]);
 
   return {
     quotaData,

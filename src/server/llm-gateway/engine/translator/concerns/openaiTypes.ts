@@ -72,6 +72,7 @@ export interface StripRule {
   match?: RegExp | ((model: string) => boolean);
   drop?: string[];
   flattenContent?: boolean;
+  stripToolSchemaKeys?: string[];
   clampToModelMaxOutput?: boolean;
   maxOutputCap?: number;
 }

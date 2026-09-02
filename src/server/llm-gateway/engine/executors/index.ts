@@ -52,6 +52,8 @@ import { V0VercelWebExecutor } from "./v0-vercel-web";
 import { AdobeFireflyExecutor } from "./adobe-firefly";
 import { ZenmuxFreeExecutor } from "./zenmux-free";
 import { TheOldLLMExecutor } from "./theoldllm";
+import { CloudflareAIExecutor } from "./cloudflare-ai";
+import { getPluginExecutor, hasPluginExecutor } from "@/server/plugin-core/pluginRegistry";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
@@ -113,6 +115,7 @@ const executors = {
   "adobe-firefly": new AdobeFireflyExecutor(),
   "zenmux-free": new ZenmuxFreeExecutor(),
   theoldllm: new TheOldLLMExecutor(),
+  "cloudflare-ai": new CloudflareAIExecutor(),
   puter: new PuterExecutor(),
 };
 
@@ -121,13 +124,14 @@ export { executors };
 const defaultCache = new Map();
 
 export function getExecutor(provider: string) {
+  if (hasPluginExecutor(provider)) return getPluginExecutor(provider);
   if ((executors as Record<string, unknown>)[provider]) return (executors as Record<string, unknown>)[provider];
   if (!defaultCache.has(provider)) defaultCache.set(provider, new DefaultExecutor(provider));
   return defaultCache.get(provider);
 }
 
 export function hasSpecializedExecutor(provider: string) {
-  return !!(executors as Record<string, unknown>)[provider];
+  return hasPluginExecutor(provider) || !!(executors as Record<string, unknown>)[provider];
 }
 
 export { default as TraeExecutor } from "./trae";

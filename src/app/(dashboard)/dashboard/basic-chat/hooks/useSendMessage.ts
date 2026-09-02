@@ -20,7 +20,7 @@ export type { UseSendMessageReturn } from "./useSendMessageTypes";
 export function useSendMessage({
   activeModel, activeProviderGroup, activeSessionId, setActiveSessionId, sessions, setSessions,
   updateSession, ensureSessionForModel, draft, setDraft, attachments, setAttachments,
-  systemPrompt, temperature, apiKey, recordHarnessEvent, setBlockedModelIds,
+  systemPrompt, temperature, apiKey, recordHarnessEvent,
 }: UseSendMessageArgs): UseSendMessageReturn {
   const [chatError, setChatError] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -112,11 +112,11 @@ export function useSendMessage({
                 updateStreamingText(text);
               },
             });
-            return { streamed: true, text: finalText || text, toolCalls: [] };
+            return { streamed: true, text: finalText || text, toolCalls: [], reasoning: "", usage: null };
           })()
         : await executeChatFetch("/api/v1/chat/completions", fetchOptions, updateStreamingText);
       if (result.streamed) {
-        finalizeStreamSuccess(sessionId, assistantMessageId, result.text, userText, updateSession, recordHarnessEvent);
+        finalizeStreamSuccess(sessionId, assistantMessageId, result.text, userText, updateSession, recordHarnessEvent, { reasoning: result.reasoning, usage: result.usage });
       } else {
         updateSession(sessionId, (s) => ({
           ...s,
@@ -218,15 +218,18 @@ export function useSendMessage({
               },
             );
             conversation = conversation.map((message) => message.id === continuation.id
-              ? { ...message, content: continuationResult.text, status: "done", toolCalls: continuationResult.toolCalls }
+              ? { ...message, content: continuationResult.text, status: "done", toolCalls: continuationResult.toolCalls, tokenUsage: continuationResult.usage ?? message.tokenUsage }
               : message);
             updateSession(sessionId, (s) => ({ ...s, messages: conversation, updatedAt: new Date().toISOString() }));
             setLiveActivities((activities) => activities.map((activity) => activity.id === continuation.id
               ? { ...activity, detail: "Concluída", state: "done" }
               : activity));
+            if (continuationResult.reasoning) {
+              recordHarnessEvent(sessionId, "assistant/reasoning", { runId: continuation.id, content: continuationResult.reasoning });
+            }
             recordHarnessEvent(sessionId, "assistant/message", { runId: continuation.id, content: continuationResult.text });
             if (continuationResult.toolCalls.length === 0) {
-              recordHarnessEvent(sessionId, "run/complete", { runId: continuation.id });
+              recordHarnessEvent(sessionId, "run/complete", { runId: continuation.id, ...(continuationResult.usage ? { usage: continuationResult.usage } : {}) });
             }
             pendingCalls = continuationResult.toolCalls;
             runId = continuation.id;
@@ -240,7 +243,7 @@ export function useSendMessage({
       setLiveActivities((activities) => activities.map((activity) => activity.id === currentRunId
         ? { ...activity, detail: "Interrompida", state: "error" }
         : activity));
-      finalizeStreamError(sessionId, currentRunId, error, model.id, updateSession, recordHarnessEvent, setChatError, setBlockedModelIds);
+      finalizeStreamError(sessionId, currentRunId, error, updateSession, recordHarnessEvent, setChatError);
     } finally {
       setIsSending(false); setStreamingMessageId(""); setStreamingText("");
       abortRef.current = null;
@@ -272,7 +275,6 @@ export function useSendMessage({
     temperature,
     apiKey,
     updateSession,
-    setBlockedModelIds,
   ]);
 
   const queueMessage = useCallback(() => {

@@ -7,11 +7,13 @@ export default {
     color: "#10B981",
     textIcon: "PL",
     website: "https://pollinations.ai",
-    notice: "Public free API — no API key required. Subject to rate limits.",
+    notice: {
+      text: "Shared-capacity API. A Pollinations publishable (pk_) or secret (sk_) key is required for chat completions.",
+      apiKeyUrl: "https://enter.pollinations.ai",
+    },
   },
   category: "free",
   authType: "apikey",
-  noAuth: true,
   transport: {
     baseUrl: "https://gen.pollinations.ai/v1/chat/completions",
     retry: {
@@ -19,10 +21,8 @@ export default {
       429: { attempts: 1, delayMs: 5000 },
     },
   },
-  // No models-list endpoint — Pollinations has no /v1/models. Curated from the
-  // upstream reference (diegosouzapw/OmniRoute); free keyless models only
-  // (claude/gemini/midijourney premium tiers need a key, omitted since this
-  // provider is registered noAuth).
+  // The model catalogue is public, but inference requires a Pollinations key.
+  // Keep the curated rows until a model-refresh endpoint is implemented.
   models: [
     { id: "openai", name: "OpenAI (Pollinations)" },
     { id: "openai-fast", name: "OpenAI Fast (Pollinations)" },

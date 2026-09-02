@@ -1,10 +1,12 @@
-import { readAssistantText, textValue } from "../chatFormatUtils";
-import type { ToolCall } from "../types";
+import { readAssistantText, readReasoningText, readStreamUsage, textValue } from "../chatFormatUtils";
+import type { TokenUsage, ToolCall } from "../types";
 
 export interface ChatFetchResult {
   text: string;
   streamed: boolean;
   toolCalls: ToolCall[];
+  reasoning: string;
+  usage: TokenUsage | null;
 }
 
 type PartialStreamToolCall = {
@@ -61,22 +63,47 @@ export async function executeChatFetch(
       ((data?.choices as Array<Record<string, unknown>> | undefined)?.[0] as Record<string, unknown> | undefined)
         ?.message || data?.output_text || data?.error || data?.message || "",
     );
-    return { text: fallbackText, streamed: false, toolCalls: [] };
+    return { text: fallbackText, streamed: false, toolCalls: [], reasoning: "", usage: null };
   }
 
-  const { text, toolCalls } = await consumeSSEStream(reader, onStreamText);
-  return { text, streamed: true, toolCalls };
+  const { text, toolCalls, reasoning, usage } = await consumeSSEStream(reader, onStreamText);
+  return { text, streamed: true, toolCalls, reasoning, usage };
 }
 
 /** Read an SSE stream, invoking `onText` with the accumulated text on every chunk. */
 async function consumeSSEStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   onText: (text: string) => void,
-): Promise<{ text: string; toolCalls: ToolCall[] }> {
+): Promise<{ text: string; toolCalls: ToolCall[]; reasoning: string; usage: TokenUsage | null }> {
   const decoder = new TextDecoder();
   let buffer = "";
   let assistantText = "";
+  let reasoningText = "";
+  let usage: TokenUsage | null = null;
   const streamedToolCalls = new Map<number, StreamToolCall>();
+  const consumeLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) return;
+
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+
+    try {
+      const chunk = JSON.parse(payload);
+      const delta = (chunk?.choices?.[0]?.delta || {}) as Record<string, unknown>;
+      collectToolCallDeltas(streamedToolCalls, delta.tool_calls);
+      usage = readStreamUsage(chunk) || usage;
+      const reasoningDelta = readReasoningText(chunk);
+      if (reasoningDelta) reasoningText += reasoningDelta;
+      const text = readAssistantText(chunk);
+      if (!text) return;
+
+      assistantText += text;
+      onText(assistantText);
+    } catch {
+      // Ignore malformed chunks.
+    }
+  };
 
   while (true) {
     const { value, done } = await reader.read();
@@ -87,31 +114,22 @@ async function consumeSSEStream(
     buffer = lines.pop() || "";
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("data:")) continue;
-
-      const payload = trimmed.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-
-      try {
-        const chunk = JSON.parse(payload);
-        const delta = (chunk?.choices?.[0]?.delta || {}) as Record<string, unknown>;
-        collectToolCallDeltas(streamedToolCalls, delta.tool_calls);
-        const text = readAssistantText(chunk);
-        if (!text) continue;
-
-        assistantText += text;
-        onText(assistantText);
-      } catch {
-        // Ignore malformed chunks.
-      }
+      consumeLine(line);
     }
   }
+
+  // Some providers close immediately after the final data frame instead of
+  // terminating it with a newline. Flush the decoder and process that valid
+  // final frame so the answer is not silently truncated.
+  buffer += decoder.decode();
+  if (buffer.trim()) consumeLine(buffer);
 
   return {
     text: assistantText,
     toolCalls: Array.from(streamedToolCalls.values())
       .filter((call) => call.id && call.name)
       .map((call) => ({ ...call, status: "pending" })),
+    reasoning: reasoningText,
+    usage,
   };
 }

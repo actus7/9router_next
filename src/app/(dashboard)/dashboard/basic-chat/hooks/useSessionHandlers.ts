@@ -3,6 +3,36 @@ import { translate } from "@/i18n/runtime";
 import { cloneSession, createId, fileToDataUrl } from "../chatFormatUtils";
 import type { ChatAttachment, ChatProject, ChatSession, NormalizedModel, ProviderGroup } from "../types";
 
+const LAST_SELECTED_MODEL_KEY = "basic-chat.lastSelectedModelId";
+
+function getLastSelectedModelId(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(LAST_SELECTED_MODEL_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function persistLastSelectedModelId(modelId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LAST_SELECTED_MODEL_KEY, modelId);
+  } catch {
+    // Storage is only a convenience; a new chat still has a deterministic fallback.
+  }
+}
+
+export function resolveNewChatModel(
+  lastSelectedModelId: string,
+  modelIndex: Map<string, NormalizedModel>,
+  providerGroups: ProviderGroup[],
+): NormalizedModel | null {
+  return modelIndex.get(lastSelectedModelId)
+    || providerGroups.flatMap((group) => group.models)[0]
+    || null;
+}
+
 export interface UseSessionHandlersArgs {
   providerGroups: ProviderGroup[];
   modelIndex: Map<string, NormalizedModel>;
@@ -29,7 +59,6 @@ export interface UseSessionHandlersArgs {
   renameValue: string;
   selectedSessionIds: Set<string>;
   setSelectedSessionIds: React.Dispatch<React.SetStateAction<Set<string>>>;
-  activeModel: NormalizedModel | null;
   filteredSessionItems: ChatSession[];
   allVisibleSessionsSelected: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -46,6 +75,7 @@ export interface UseSessionHandlersReturn {
   handleDeleteProject: (projectId: string) => void;
   handleDeleteSession: (sessionId: string) => void;
   handleBulkDeleteSessions: () => void;
+  handleToggleArchiveSession: (sessionId: string) => void;
   toggleSessionSelected: (event: React.MouseEvent, sessionId: string) => void;
   toggleAllVisibleSessions: () => void;
   startRenameSession: (event: React.MouseEvent, session: ChatSession) => void;
@@ -65,7 +95,7 @@ export function useSessionHandlers({
   newProjectName, setNewProjectName, setIsCreatingProject,
   setRenamingSessionId, setRenameValue, renameValue,
   selectedSessionIds, setSelectedSessionIds,
-  activeModel, filteredSessionItems, allVisibleSessionsSelected,
+  filteredSessionItems, allVisibleSessionsSelected,
 }: UseSessionHandlersArgs): UseSessionHandlersReturn {
   const updateSession = useCallback((sessionId: string, updater: (session: ChatSession) => ChatSession) => {
     setSessions((prev) => prev.map((session) => (session.id === sessionId ? updater(cloneSession(session)) : session)));
@@ -88,8 +118,9 @@ export function useSessionHandlers({
   }, [activeProjectId]);
 
   const handleNewChat = () => {
-    if (!activeModel) return;
-    const session = ensureSessionForModel(activeModel);
+    const model = resolveNewChatModel(getLastSelectedModelId(), modelIndex, providerGroups);
+    if (!model) return;
+    const session = ensureSessionForModel(model);
     if (!session) return;
     setSessions((prev) => [session, ...prev]);
     setActiveSessionId(session.id);
@@ -175,6 +206,19 @@ export function useSessionHandlers({
     }
   };
 
+  const handleToggleArchiveSession = (sessionId: string) => {
+    const session = sessions.find((item) => item.id === sessionId);
+    if (!session) return;
+    const archiving = !session.isArchived;
+    setSessions((prev) => prev.map((item) => (item.id === sessionId ? { ...item, isArchived: archiving } : item)));
+    if (archiving && activeSessionId === sessionId) {
+      const fallback = sessions.find((item) => item.id !== sessionId && !item.isArchived) || null;
+      setActiveSessionId(fallback?.id || "");
+      setActiveProviderId(fallback?.providerId || "");
+      setActiveModelId(fallback?.modelId || "");
+    }
+  };
+
   const handleBulkDeleteSessions = () => {
     const ids = selectedSessionIds;
     if (ids.size === 0) return;
@@ -250,6 +294,7 @@ export function useSessionHandlers({
 
     setActiveProviderId(model.providerId);
     setActiveModelId(model.id);
+    persistLastSelectedModelId(model.id);
   };
 
   const handleSelectProvider = (providerId: string) => {
@@ -292,7 +337,7 @@ export function useSessionHandlers({
   return {
     updateSession, ensureSessionForModel, handleNewChat, handleSelectSession,
     handleCreateProject, handleSelectProject, handleRenameProject, handleDeleteProject,
-    handleDeleteSession, handleBulkDeleteSessions,
+    handleDeleteSession, handleBulkDeleteSessions, handleToggleArchiveSession,
     toggleSessionSelected, toggleAllVisibleSessions, startRenameSession, commitRenameSession,
     handleSelectModel, handleSelectProvider, handleAttachFiles, removeAttachment,
   };

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { translate } from "@/i18n/runtime";
 import { getProviderAlias, isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
+import { getStoredModelTestLatencies, sortModelsByTestLatency } from "@/shared/utils/modelTestLatency";
 import { textValue } from "../chatFormatUtils";
 import {
   dedupeModels, getProviderLabel, isConfiguredChatModel, isConnectionSelectable,
@@ -29,13 +30,42 @@ export function isFreeModelEnabledForChat(
   return !disabledIds.some((id) => id.toLowerCase().replace(/^.+?\//, "") === normalized);
 }
 
+export function buildFreeChatModels(
+  providerId: string,
+  catalogModels: Array<{ id: string; name: string }>,
+  customModels: Array<Record<string, unknown>>,
+  disabledByProvider: Record<string, string[]>,
+): Array<{ id: string; name: string }> {
+  const alias = getProviderAlias(providerId);
+  const providerAliases = new Set([providerId, alias]);
+  const merged = new Map<string, { id: string; name: string }>();
+  const add = (model: { id: string; name: string }) => {
+    if (!model.id || !isFreeModelEnabledForChat(providerId, model.id, disabledByProvider)) return;
+    const key = model.id.toLowerCase();
+    if (!merged.has(key)) merged.set(key, model);
+  };
+
+  catalogModels.forEach(add);
+  customModels
+    .filter((entry) => (entry.kind || entry.type || "llm") === "llm")
+    .filter((entry) => providerAliases.has(String(entry.providerAlias || "")))
+    .forEach((entry) => {
+      const rawId = String(entry.id || "").trim();
+      if (!rawId) return;
+      add({
+        id: rawId.startsWith(`${alias}/`) ? rawId : `${alias}/${rawId}`,
+        name: String(entry.name || rawId),
+      });
+    });
+
+  return Array.from(merged.values());
+}
+
 export interface UseChatModelsReturn {
   providerGroups: ProviderGroup[];
   loadingData: boolean;
   providerLoadError: string;
   modelIndex: Map<string, NormalizedModel>;
-  blockedModelIds: Set<string>;
-  setBlockedModelIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
 // Owns discovery and normalization of the chat-eligible model catalogue:
@@ -46,7 +76,6 @@ export function useChatModels(): UseChatModelsReturn {
   const [providerGroups, setProviderGroups] = useState<ProviderGroup[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [providerLoadError, setProviderLoadError] = useState("");
-  const [blockedModelIds, setBlockedModelIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +83,7 @@ export function useChatModels(): UseChatModelsReturn {
     async function loadData() {
       setLoadingData(true);
       setProviderLoadError("");
+      const testLatencies = getStoredModelTestLatencies();
 
       try {
         const [providersRes, disabledModelsRes, customModelsRes, freeModelsRes] = await Promise.all([
@@ -69,14 +99,16 @@ export function useChatModels(): UseChatModelsReturn {
         const disabledByProvider = disabledModelsRes.ok && typeof disabledModelsData.disabled === "object" && disabledModelsData.disabled
           ? disabledModelsData.disabled as Record<string, string[]>
           : {};
+        const customModels = customModelsRes.ok && Array.isArray(customModelsData.models)
+          ? customModelsData.models as Array<Record<string, unknown>>
+          : [];
         const freeProviderGroups: ProviderGroup[] = freeModelsRes.ok && Array.isArray(freeModelsData.groups)
           ? freeModelsData.groups.map((g) => ({
               providerId: g.providerId,
               providerName: g.providerName,
               providerType: "free",
               connections: [],
-              models: (g.models || [])
-                .filter((m) => isFreeModelEnabledForChat(g.providerId, m.id, disabledByProvider))
+              models: buildFreeChatModels(g.providerId, g.models || [], customModels, disabledByProvider)
                 .map((m) => ({
                   id: m.id,
                   requestModel: m.id,
@@ -86,9 +118,6 @@ export function useChatModels(): UseChatModelsReturn {
                   source: "catalog" as const,
                 })),
             }))
-          : [];
-        const customModels = customModelsRes.ok && Array.isArray(customModelsData.models)
-          ? customModelsData.models as Array<Record<string, unknown>>
           : [];
         const connections = Array.isArray(providersData.connections)
           ? (providersData.connections as Array<Record<string, unknown>>).filter(isConnectionSelectable)
@@ -184,9 +213,8 @@ export function useChatModels(): UseChatModelsReturn {
         const normalized = [...freeProviderGroups, ...Array.from(providerMap.values())]
           .map((group) => ({
             ...group,
-            models: dedupeModels(group.models).sort((a, b) => a.name.localeCompare(b.name)),
+            models: sortModelsByTestLatency(dedupeModels(group.models), testLatencies),
           }))
-          .map((group) => ({ ...group, models: group.models.filter((model: NormalizedModel) => !blockedModelIds.has(model.id)) }))
           .filter((group) => group.models.length > 0)
           .sort((a, b) => a.providerName.localeCompare(b.providerName));
 
@@ -210,7 +238,7 @@ export function useChatModels(): UseChatModelsReturn {
     return () => {
       cancelled = true;
     };
-  }, [blockedModelIds]);
+  }, []);
 
   const modelIndex = useMemo(() => {
     const map = new Map<string, NormalizedModel>();
@@ -226,5 +254,5 @@ export function useChatModels(): UseChatModelsReturn {
     return map;
   }, [providerGroups]);
 
-  return { providerGroups, loadingData, providerLoadError, modelIndex, blockedModelIds, setBlockedModelIds };
+  return { providerGroups, loadingData, providerLoadError, modelIndex };
 }

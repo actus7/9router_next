@@ -56,6 +56,7 @@ export function buildChatFetchOptions(
       model: model.requestModel || model.id,
       messages: requestMessages,
       stream: true,
+      stream_options: { include_usage: true },
       temperature,
       ...(tools?.length ? { tools, tool_choice: "auto" } : {}),
     }),

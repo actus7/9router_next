@@ -38,6 +38,7 @@ export default function ModelsSection({
   modelsHook: m,
 }: ModelsSectionProps) {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
   return (
     <>
@@ -50,6 +51,7 @@ export default function ModelsSection({
           noModelDiscovery={noModelDiscovery}
           modelsHook={m}
           onShowClearConfirmation={() => setShowClearConfirmation(true)}
+          onShowDiagnostics={() => setDiagnosticsOpen(true)}
           models={m.models}
           kiloFreeModels={m.kiloFreeModels}
         />
@@ -90,8 +92,8 @@ export default function ModelsSection({
       />
 
       <TestDiagnosticsModal
-        isOpen={!!m.testAllModels}
-        onClose={() => m.setTestAllModels(null)}
+        isOpen={diagnosticsOpen && !!m.testAllModels}
+        onClose={() => setDiagnosticsOpen(false)}
         testAllModels={m.testAllModels}
         onCancelTests={m.handleCancelTestAllModels}
       />

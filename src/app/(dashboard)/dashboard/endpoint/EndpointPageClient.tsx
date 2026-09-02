@@ -21,6 +21,17 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
   const tunnel = useTunnel();
   const tailscale = useTailscale();
   const { copied, copy } = useCopyToClipboard();
+  const { fetchData } = apiKeys;
+  const { loadSettings } = settings;
+  const {
+    tunnelEnabled, tunnelReachable, tunnelUrl, tunnelPublicUrl,
+    tunnelClientReachableRef, tunnelMissRef, tunnelEverReachableRef,
+    setTunnelReachable, setTunnelEverReachable, loadTunnelStatus, syncFromStatus: syncTunnelFromStatus,
+  } = tunnel;
+  const {
+    tsEnabled, tsReachable, tsUrl, tsClientReachableRef, tsMissRef, tsEverReachableRef,
+    setTsReachable, setTsEverReachable, syncFromStatus: syncTailscaleFromStatus,
+  } = tailscale;
 
   // Security gate: block remote exposure while dashboard uses default password or login is off.
   const isLoginUnsafe = !settings.requireLogin || !settings.hasPassword;
@@ -29,26 +40,26 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
     : (translate("Change the dashboard default password before enabling the tunnel.") || "Change the dashboard default password before enabling the tunnel.");
 
   useEffect(() => {
-    apiKeys.fetchData();
-    settings.loadSettings();
-    tunnel.loadTunnelStatus();
-  }, [apiKeys, settings, tunnel]);
+    fetchData();
+    loadSettings();
+    loadTunnelStatus();
+  }, [fetchData, loadSettings, loadTunnelStatus]);
 
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
   useEffect(() => {
-    const anyEnabled = tunnel.tunnelEnabled || tailscale.tsEnabled;
+    const anyEnabled = tunnelEnabled || tsEnabled;
     if (!anyEnabled) return;
-    const tunnelHealthy = !tunnel.tunnelEnabled || tunnel.tunnelReachable;
-    const tsHealthy = !tailscale.tsEnabled || tailscale.tsReachable;
+    const tunnelHealthy = !tunnelEnabled || tunnelReachable;
+    const tsHealthy = !tsEnabled || tsReachable;
     const allHealthy = tunnelHealthy && tsHealthy;
     const syncTunnelStatus = async () => {
       try {
         const statusRes = await fetch("/api/tunnel/status", { cache: "no-store" });
         if (!statusRes.ok) return;
         const data = await statusRes.json();
-        tunnel.syncFromStatus(data);
-        tailscale.syncFromStatus(data);
+        syncTunnelFromStatus(data);
+        syncTailscaleFromStatus(data);
       } catch { /* ignore poll errors */ }
     };
     const onVisible = () => { if (!document.hidden) syncTunnelStatus(); };
@@ -59,7 +70,10 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tunnel.tunnelEnabled, tailscale.tsEnabled, tunnel.tunnelReachable, tailscale.tsReachable, tunnel, tailscale]);
+  }, [
+    tunnelEnabled, tsEnabled, tunnelReachable, tsReachable,
+    syncTunnelFromStatus, syncTailscaleFromStatus,
+  ]);
 
   // Browser-side periodic ping: probes tunnel/tailscale URLs directly so UI stays
   // "reachable" even when backend DNS (1.1.1.1) hiccups on *.ts.net or *.trycloudflare.com.
@@ -67,32 +81,37 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
   useEffect(() => {
     const probeBoth = async () => {
       if (document.hidden) return;
-      if (tunnel.tunnelEnabled && (tunnel.tunnelUrl || tunnel.tunnelPublicUrl)) {
-        const ok = await clientPingAny(tunnel.tunnelPublicUrl, tunnel.tunnelUrl);
-        tunnel.tunnelClientReachableRef.current = ok;
-        if (ok) { tunnel.tunnelMissRef.current = 0; tunnel.setTunnelReachable(true); if (!tunnel.tunnelEverReachableRef.current) { tunnel.tunnelEverReachableRef.current = true; tunnel.setTunnelEverReachable(true); } }
-        else { tunnel.tunnelMissRef.current += 1; if (tunnel.tunnelMissRef.current >= REACHABLE_MISS_THRESHOLD) tunnel.setTunnelReachable(false); }
+      if (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) {
+        const ok = await clientPingAny(tunnelPublicUrl, tunnelUrl);
+        tunnelClientReachableRef.current = ok;
+        if (ok) { tunnelMissRef.current = 0; setTunnelReachable(true); if (!tunnelEverReachableRef.current) { tunnelEverReachableRef.current = true; setTunnelEverReachable(true); } }
+        else { tunnelMissRef.current += 1; if (tunnelMissRef.current >= REACHABLE_MISS_THRESHOLD) setTunnelReachable(false); }
       } else {
-        tunnel.tunnelClientReachableRef.current = false;
+        tunnelClientReachableRef.current = false;
       }
-      if (tailscale.tsEnabled && tailscale.tsUrl) {
-        const ok = await clientPingUrl(tailscale.tsUrl);
-        tailscale.tsClientReachableRef.current = ok;
-        if (ok) { tailscale.tsMissRef.current = 0; tailscale.setTsReachable(true); if (!tailscale.tsEverReachableRef.current) { tailscale.tsEverReachableRef.current = true; tailscale.setTsEverReachable(true); } }
-        else { tailscale.tsMissRef.current += 1; if (tailscale.tsMissRef.current >= REACHABLE_MISS_THRESHOLD) tailscale.setTsReachable(false); }
+      if (tsEnabled && tsUrl) {
+        const ok = await clientPingUrl(tsUrl);
+        tsClientReachableRef.current = ok;
+        if (ok) { tsMissRef.current = 0; setTsReachable(true); if (!tsEverReachableRef.current) { tsEverReachableRef.current = true; setTsEverReachable(true); } }
+        else { tsMissRef.current += 1; if (tsMissRef.current >= REACHABLE_MISS_THRESHOLD) setTsReachable(false); }
       } else {
-        tailscale.tsClientReachableRef.current = false;
+        tsClientReachableRef.current = false;
       }
     };
-    const anyEnabled = (tunnel.tunnelEnabled && (tunnel.tunnelUrl || tunnel.tunnelPublicUrl)) || (tailscale.tsEnabled && tailscale.tsUrl);
+    const anyEnabled = (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) || (tsEnabled && tsUrl);
     if (!anyEnabled) return;
     probeBoth();
-    const tunnelHealthy = !tunnel.tunnelEnabled || tunnel.tunnelReachable;
-    const tsHealthy = !tailscale.tsEnabled || tailscale.tsReachable;
+    const tunnelHealthy = !tunnelEnabled || tunnelReachable;
+    const tsHealthy = !tsEnabled || tsReachable;
     if (tunnelHealthy && tsHealthy) return;
     const id = setInterval(probeBoth, CLIENT_PING_FAST_MS);
     return () => clearInterval(id);
-  }, [tunnel.tunnelEnabled, tunnel.tunnelUrl, tunnel.tunnelPublicUrl, tailscale.tsEnabled, tailscale.tsUrl, tunnel.tunnelReachable, tailscale.tsReachable, tunnel, tailscale]);
+  }, [
+    tunnelEnabled, tunnelUrl, tunnelPublicUrl, tunnelReachable,
+    tsEnabled, tsUrl, tsReachable,
+    tunnelClientReachableRef, tunnelMissRef, tunnelEverReachableRef, setTunnelReachable, setTunnelEverReachable,
+    tsClientReachableRef, tsMissRef, tsEverReachableRef, setTsReachable, setTsEverReachable,
+  ]);
 
   if (apiKeys.loading) {
     return (

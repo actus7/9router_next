@@ -1,6 +1,7 @@
 import { Service } from "cordis";
 import type { Context } from "cordis";
 import providerRegistry from "@/server/llm-gateway/engine/providers/registry";
+import { registerProvider } from "../pluginRegistry";
 
 export interface ProviderConfig {
   id: string;
@@ -29,5 +30,11 @@ export class ProvidersService extends Service {
 
   getAll(): ProviderConfig[] {
     return [...this.map.values()];
+  }
+
+  /** Contribute or override a provider config. Visible to `getById`/`getAll` on this context and to the shared plugin registry. */
+  register(config: ProviderConfig): void {
+    this.map.set(config.id, config);
+    registerProvider(config);
   }
 }

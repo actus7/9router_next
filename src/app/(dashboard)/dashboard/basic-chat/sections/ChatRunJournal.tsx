@@ -1,16 +1,79 @@
 "use client";
 
+import { useState } from "react";
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { UseHarnessEventsReturn } from "../hooks/useHarnessEvents";
+import {
+  eventColorClass,
+  eventLabel,
+  eventTimelineOffsets,
+  formatDuration,
+  formatTokenUsage,
+  groupHarnessEvents,
+  type RunJournalGroup,
+} from "../runJournalHelpers";
+import type { HarnessEvent } from "../types";
 
 interface ChatRunJournalProps {
   harnessHook: UseHarnessEventsReturn;
 }
 
+function readEventText(event: HarnessEvent): string {
+  const content = event.data?.content ?? event.data?.arguments;
+  return typeof content === "string" ? content : "";
+}
+
+function EventRow({ event, isOpen, onToggle }: { event: HarnessEvent; isOpen: boolean; onToggle: () => void }) {
+  const preview = readEventText(event);
+  const isReasoning = event.type === "assistant/reasoning";
+  return (
+    <li className="min-w-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full min-w-0 items-center gap-2 py-0.5 text-left text-xs hover:text-foreground"
+        aria-expanded={isOpen}
+      >
+        <span className={`size-1.5 shrink-0 rounded-full ${eventColorClass(event.type)}`} aria-hidden />
+        <span className="font-mono tabular-nums text-muted-foreground">{event.seq}</span>
+        <span className="min-w-0 truncate font-medium text-foreground">{eventLabel(event.type)}</span>
+        <time className="ml-auto shrink-0 text-[11px] text-muted-foreground">{formatRelativeTime(event.createdAt)}</time>
+      </button>
+      {isReasoning && preview && !isOpen && (
+        <p className="mb-1 truncate pl-3.5 text-[11px] italic text-muted-foreground">{preview}</p>
+      )}
+      {isOpen && (
+        <pre className="mb-1 max-h-48 overflow-auto rounded-md bg-muted/50 p-2 text-[11px] leading-relaxed text-muted-foreground">
+          {JSON.stringify(event.data, null, 2)}
+        </pre>
+      )}
+    </li>
+  );
+}
+
+function RunTimeline({ group }: { group: RunJournalGroup }) {
+  if (!group.durationMs) return null;
+  const offsets = eventTimelineOffsets(group);
+  return (
+    <div className="relative mb-1 h-1 w-full overflow-hidden rounded-full bg-muted/60" aria-hidden>
+      {group.events.map((event, index) => (
+        <span
+          key={`${event.sessionId}:${event.seq}`}
+          className={`absolute top-0 h-full w-1 rounded-full ${eventColorClass(event.type)}`}
+          style={{ left: `${offsets[index]}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function ChatRunJournal({ harnessHook }: ChatRunJournalProps) {
   const { showRunJournal, harnessEvents } = harnessHook;
+  const [openKey, setOpenKey] = useState("");
 
   if (!showRunJournal) return null;
+
+  const groups = groupHarnessEvents(harnessEvents);
 
   return (
     <section className="shrink-0 border-b border-border bg-card/50 px-4 py-3" aria-label="Run journal">
@@ -18,26 +81,41 @@ export default function ChatRunJournal({ harnessHook }: ChatRunJournalProps) {
         <div className="mb-2 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Run journal</h2>
-            <p className="text-xs text-muted-foreground">Ordered, durable activity for this conversation.</p>
+            <p className="text-xs text-muted-foreground">Step-by-step activity for this conversation — click a row for details.</p>
           </div>
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{harnessEvents.length} events</span>
         </div>
-        {harnessEvents.length === 0 ? (
+        {groups.length === 0 ? (
           <p className="py-2 text-xs text-muted-foreground">The next message will open a recorded run.</p>
         ) : (
-          <ol className="max-h-36 flex flex-col gap-1 overflow-y-auto border-l border-border pl-3 custom-scrollbar">
-            {harnessEvents.slice(-12).map((event) => (
-              <li key={`${event.sessionId}:${event.seq}`} className="flex min-w-0 items-center gap-2 py-0.5 text-xs">
-                <span className="font-mono tabular-nums text-muted-foreground">{event.seq}</span>
-                <span className="min-w-0 truncate font-medium text-foreground">{event.type}</span>
-                <time className="ml-auto shrink-0 text-[11px] text-muted-foreground">{formatRelativeTime(event.createdAt)}</time>
-              </li>
+          <div className="max-h-96 overflow-y-auto custom-scrollbar">
+            {groups.map((group) => (
+              <div key={group.runId} className="mb-2 border-l border-border pl-3 last:mb-0">
+                {(group.durationMs != null || group.usage) && (
+                  <div className="mb-0.5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {group.durationMs != null && <span>{formatDuration(group.durationMs)}</span>}
+                    {group.usage && <span>{formatTokenUsage(group.usage)}</span>}
+                  </div>
+                )}
+                <RunTimeline group={group} />
+                <ol className="flex flex-col">
+                  {group.events.map((event) => {
+                    const key = `${event.sessionId}:${event.seq}`;
+                    return (
+                      <EventRow
+                        key={key}
+                        event={event}
+                        isOpen={openKey === key}
+                        onToggle={() => setOpenKey((current) => (current === key ? "" : key))}
+                      />
+                    );
+                  })}
+                </ol>
+              </div>
             ))}
-          </ol>
+          </div>
         )}
       </div>
     </section>
   );
 }
-
-

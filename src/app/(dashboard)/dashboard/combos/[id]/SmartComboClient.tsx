@@ -119,6 +119,9 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         onConfirm={s.handleConfirmProfiles}
         confirming={s.confirming}
         onClose={() => s.setPreview(null)}
+        preset={s.suggestionPreset}
+        onPresetChange={s.setSuggestionPreset}
+        latencies={s.modelTestLatencies}
       />
     </div>
   );

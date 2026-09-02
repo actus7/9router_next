@@ -99,6 +99,20 @@ async function probeChatCompletions(
   return { valid, error: valid ? null : errorMsg };
 }
 
+async function probePollinationsKey(apiKey: string, proxy: ConnectionProxyConfig | null): Promise<TestResult> {
+  const res = await fetchWithConnectionProxy("https://gen.pollinations.ai/account/key", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  }, proxy);
+
+  // A depleted Pollen balance proves the key is authenticated; retain it as an
+  // active connection with a warning rather than marking it invalid. A 403 is
+  // inconclusive because scoped keys may not access account introspection.
+  if (res.ok) return { valid: true, error: null, refreshed: false };
+  if (res.status === 402) return { valid: true, error: null, warning: "Pollinations key is valid, but its Pollen balance is exhausted.", refreshed: false };
+  if (res.status === 403) return { valid: true, error: null, warning: "Pollinations could not verify this scoped key; it was kept active.", refreshed: false };
+  return { valid: false, error: "Invalid Pollinations API key", refreshed: false };
+}
+
 // Lookup tables ───────────────────────────────────────────────────────────
 
 /** GET /models (or equivalent) with Bearer auth, validated via res.ok. */
@@ -202,6 +216,7 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
     switch (provider) {
       case "kilo-gateway": return testKiloGatewayConnection(apiKey, effectiveProxy);
       case "api-airforce": return testApiAirforceConnection(apiKey, effectiveProxy);
+      case "pollinations": return probePollinationsKey(apiKey, effectiveProxy);
       case "cloudflare-ai": {
         if (!psd.accountId) return { valid: false, error: "Missing Account ID", refreshed: false };
         return probeChatCompletions(`https://api.cloudflare.com/client/v4/accounts/${psd.accountId}/ai/v1/chat/completions`,

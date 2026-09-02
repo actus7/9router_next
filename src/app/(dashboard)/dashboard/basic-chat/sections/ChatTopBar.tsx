@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 import {
-  MessageSquare, PanelRightClose, PanelRightOpen, Plus, Settings2, Terminal,
+  ChevronDown, MessageSquare, PanelRightClose, PanelRightOpen, Plus, Settings2, Terminal,
 } from "lucide-react";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import type { UseHarnessEventsReturn } from "../hooks/useHarnessEvents";
+import ChatModelPickerModal from "./ChatModelPickerModal";
+import IconActionButton from "./IconActionButton";
 
 interface ChatTopBarProps {
   sessionsHook: UseChatSessionsReturn;
@@ -14,71 +17,48 @@ interface ChatTopBarProps {
 }
 
 export default function ChatTopBar({ sessionsHook, harnessHook }: ChatTopBarProps) {
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const {
     sidebarOpen, setSidebarOpen, activeModel, activeProject, setShowSettings,
     handleNewChat, setHistoryOpen, providerGroups, activeProviderId, activeModelId,
-    activeProviderGroup, handleSelectProvider, handleSelectModel,
+    handleSelectModel,
   } = sessionsHook;
   const { showRunJournal, setShowRunJournal } = harnessHook;
 
   return (
-    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="flex items-center gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <label className="sr-only" htmlFor="chat-provider">{translate("Provider") || "Provider"}</label>
-          <select
-            id="chat-provider"
-            value={activeProviderId}
-            onChange={(event) => handleSelectProvider(event.target.value)}
-            className="h-9 max-w-40 rounded-lg border border-border bg-card px-2 text-xs font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
-          >
-            {providerGroups.map((provider) => (
-              <option key={provider.providerId} value={provider.providerId}>{provider.providerName}</option>
-            ))}
-          </select>
-          <label className="sr-only" htmlFor="chat-model">{translate("Model") || "Model"}</label>
-          <select
-            id="chat-model"
-            value={activeModelId}
-            onChange={(event) => handleSelectModel(event.target.value)}
-            disabled={!activeProviderGroup?.models.length}
-            className="h-9 min-w-0 max-w-60 rounded-lg border border-border bg-card px-2 text-xs font-medium text-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {activeProviderGroup?.models.map((model) => (
-              <option key={model.id} value={model.id}>{model.name}</option>
-            ))}
-          </select>
-        </div>
+    <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="flex items-center gap-3">
+        <Button type="button" variant="outline" onClick={() => setModelPickerOpen(true)} disabled={providerGroups.length === 0} className="h-8 max-w-72 justify-between gap-2 px-3 text-xs font-medium">
+          <span className="min-w-0 truncate">{activeModel?.name || (translate("Choose model") || "Choose model")}</span><ChevronDown className="size-4 shrink-0" />
+        </Button>
         {activeProject ? (
-          <span className="hidden max-w-40 truncate rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground lg:inline">{activeProject.title}</span>
+          <span className="hidden max-w-40 truncate rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground lg:inline">{activeProject.title}</span>
         ) : null}
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <Button variant="ghost" size="icon-sm" type="button" onClick={() => setShowSettings((v) => !v)} aria-label={translate("Chat settings") || "Chat settings"} className="size-8">
-          <Settings2 className="size-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon-sm" type="button" onClick={() => setShowRunJournal((v) => !v)} aria-label="Run journal" aria-pressed={showRunJournal} className="size-8">
-          <Terminal className="size-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          type="button"
+      <div className="flex items-center gap-1">
+        <IconActionButton tooltip={translate("Chat settings") || "Chat settings"} onClick={() => setShowSettings((v) => !v)} className="size-8">
+          <Settings2 className="size-4" />
+        </IconActionButton>
+        <IconActionButton tooltip={translate("Run journal") || "Run journal"} onClick={() => setShowRunJournal((v) => !v)} aria-pressed={showRunJournal} className="size-8">
+          <Terminal className="size-4" />
+        </IconActionButton>
+        <IconActionButton tooltip={translate("New chat") || "New chat"} onClick={handleNewChat} disabled={!activeModel} className="size-8">
+          <Plus className="size-4" />
+        </IconActionButton>
+        <IconActionButton
+          tooltip={sidebarOpen ? (translate("Hide sidebar") || "Hide sidebar") : (translate("Show sidebar") || "Show sidebar")}
           onClick={() => setSidebarOpen((value) => !value)}
-          aria-label={sidebarOpen ? (translate("Hide sidebar") || "Hide sidebar") : (translate("Show sidebar") || "Show sidebar")}
           aria-pressed={sidebarOpen}
           className="hidden size-8 md:flex"
         >
-          {sidebarOpen ? <PanelRightClose className="size-3.5" /> : <PanelRightOpen className="size-3.5" />}
-        </Button>
-        <Button variant="ghost" size="icon-sm" type="button" aria-label={translate("New chat") || "New chat"} onClick={handleNewChat} disabled={!activeModel} className="size-7 md:hidden">
-          <Plus className="size-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon-sm" type="button" onClick={() => setHistoryOpen((v) => !v)} aria-label={translate("History") || "History"} className="size-8 md:hidden">
-          <MessageSquare className="size-3.5" />
-        </Button>
+          {sidebarOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+        </IconActionButton>
+        <IconActionButton tooltip={translate("History") || "History"} onClick={() => setHistoryOpen((v) => !v)} className="size-8 md:hidden">
+          <MessageSquare className="size-4" />
+        </IconActionButton>
       </div>
+      <ChatModelPickerModal isOpen={modelPickerOpen} onClose={() => setModelPickerOpen(false)} onSelect={handleSelectModel} providerGroups={providerGroups} activeProviderId={activeProviderId} activeModelId={activeModelId} />
     </div>
   );
 }

@@ -8,11 +8,10 @@ function isLLMProvider(id: string): boolean {
   return (p.serviceKinds as string[]).includes("llm");
 }
 
-export async function fetchConnectedProviders(): Promise<{ provider: string; name: string; nodeName?: string }[]> {
-  const [d, nodesData] = await Promise.all([
-    fetch("/api/providers").then((r) => r.ok ? r.json() : null),
-    fetch("/api/provider-nodes").then((r) => r.ok ? r.json() : null),
-  ]);
+export function buildConnectedProviders(
+  d: { connections?: { isActive?: boolean; provider: string; name?: string }[] } | null | undefined,
+  nodesData: { nodes?: { id: string; name: string }[] } | null | undefined,
+): { provider: string; name: string; nodeName?: string }[] {
   const nodeNameMap: Record<string, string> = {};
   for (const node of (nodesData?.nodes || [])) nodeNameMap[node.id] = node.name;
   const seen = new Set<string>();
@@ -22,7 +21,7 @@ export async function fetchConnectedProviders(): Promise<{ provider: string; nam
     if (seen.has(c.provider)) return false;
     seen.add(c.provider);
     return true;
-  }).map((c: { provider: string; name?: string }) => ({ ...c, nodeName: nodeNameMap[c.provider] || undefined }));
+  }).map((c: { provider: string; name?: string }) => ({ provider: c.provider, name: c.name || c.provider, nodeName: nodeNameMap[c.provider] || undefined }));
   const noAuth = Object.values(FREE_PROVIDERS as Record<string, { id: string; name: string; noAuth?: boolean; hidden?: boolean }>)
     .filter((p) => p.noAuth && !p.hidden && !seen.has(p.id) && isLLMProvider(p.id))
     .map((p) => ({ provider: p.id, name: p.name }));

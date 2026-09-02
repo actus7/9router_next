@@ -13,11 +13,12 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  CheckCircle2, Download, FolderKanban, GripVertical, Pencil, Plus, Search, Trash2,
+  Archive, ArchiveRestore, CheckCircle2, Download, FolderKanban, GripVertical, Pencil, Plus, Search, Trash2,
 } from "lucide-react";
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { ChatProject, ChatSession } from "../types";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
+import IconActionButton from "./IconActionButton";
 
 interface SortableSessionItemProps {
   session: ChatSession;
@@ -31,13 +32,14 @@ interface SortableSessionItemProps {
   onStartRename: (e: React.MouseEvent, session: ChatSession) => void;
   onCommitRename: (id: string) => void;
   onDelete: (id: string) => void;
+  onToggleArchive: (id: string) => void;
   onRenameChange: (value: string) => void;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 function SortableSessionItem({
   session, isActive, isSelected, isRenaming, renameValue, selectedCount,
-  onSelect, onToggleSelect, onStartRename, onCommitRename, onDelete, onRenameChange, renameInputRef,
+  onSelect, onToggleSelect, onStartRename, onCommitRename, onDelete, onToggleArchive, onRenameChange, renameInputRef,
 }: SortableSessionItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: session.id });
   const style = {
@@ -86,8 +88,15 @@ function SortableSessionItem({
       </div>
       {!isRenaming && (
         <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          <Button variant="ghost" size="icon-sm" type="button" onClick={(e: React.MouseEvent) => onStartRename(e, session)} className="size-5"><Pencil className="size-2.5" /></Button>
-          <Button variant="ghost" size="icon-sm" type="button" onClick={(e: React.MouseEvent) => { e.stopPropagation(); onDelete(session.id); }} className="size-5 text-destructive hover:text-destructive"><Trash2 className="size-2.5" /></Button>
+          <IconActionButton tooltip={translate("Rename") || "Rename"} onClick={(e: React.MouseEvent) => onStartRename(e, session)} className="size-5"><Pencil className="size-2.5" /></IconActionButton>
+          <IconActionButton
+            tooltip={session.isArchived ? (translate("Unarchive") || "Unarchive") : (translate("Archive") || "Archive")}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleArchive(session.id); }}
+            className="size-5"
+          >
+            {session.isArchived ? <ArchiveRestore className="size-2.5" /> : <Archive className="size-2.5" />}
+          </IconActionButton>
+          <IconActionButton tooltip={translate("Delete") || "Delete"} onClick={(e: React.MouseEvent) => { e.stopPropagation(); onDelete(session.id); }} className="size-5 text-destructive hover:text-destructive"><Trash2 className="size-2.5" /></IconActionButton>
         </div>
       )}
     </div>
@@ -103,12 +112,12 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
   const {
     sidebarOpen, projects, activeProjectId, sessions, projectSessionCounts, isCreatingProject, newProjectName,
     setNewProjectName, handleCreateProject, setIsCreatingProject, handleSelectProject, handleRenameProject,
-    handleDeleteProject, handleNewChat, activeModel,
-    historySearch, setHistorySearch, selectedSessionCount, allVisibleSessionsSelected,
+    handleDeleteProject,
+    historySearch, setHistorySearch, showArchived, setShowArchived, selectedSessionCount, allVisibleSessionsSelected,
     toggleAllVisibleSessions, handleBulkDeleteSessions, groupedSessionItems, dndSensors, handleDragEnd,
     filteredSessionItems, activeSessionId, selectedSessionIds, renamingSessionId, setRenamingSessionId, renameValue,
     handleSelectSession, toggleSessionSelected, startRenameSession, commitRenameSession, handleDeleteSession,
-    setRenameValue, renameInputRef,
+    handleToggleArchiveSession, setRenameValue, renameInputRef,
   } = sessionsHook;
   const [renamingProjectId, setRenamingProjectId] = useState("");
   const [projectTitle, setProjectTitle] = useState("");
@@ -130,12 +139,12 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
 
   return (
     <aside className={`order-2 w-72 shrink-0 flex-col border-l border-border bg-card/50 min-h-0 xl:w-80 ${sidebarOpen ? "hidden md:flex" : "hidden"}`}>
-      <div className="shrink-0 border-b border-border px-3 py-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="shrink-0 border-b border-border px-3 py-2.5">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{translate("Projects") || "Projects"}</h2>
-          <Button variant="ghost" size="icon-sm" type="button" aria-label={translate("Create project") || "Create project"} onClick={() => setIsCreatingProject((value) => !value)} className="size-7">
+          <IconActionButton tooltip={translate("Create project") || "Create project"} onClick={() => setIsCreatingProject((value) => !value)} className="size-7">
             <Plus className="size-3.5" />
-          </Button>
+          </IconActionButton>
         </div>
         {isCreatingProject ? (
           <form className="flex gap-1.5" onSubmit={(event) => { event.preventDefault(); handleCreateProject(); }}>
@@ -147,7 +156,7 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
           <button type="button" onClick={() => handleSelectProject("")} aria-pressed={!activeProjectId} className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${!activeProjectId ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
             <FolderKanban className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate">{translate("All conversations") || "All conversations"}</span>
-            <span className="text-[10px] tabular-nums text-muted-foreground">{sessions.length}</span>
+            <span className="text-[10px] tabular-nums text-muted-foreground">{sessions.filter((session) => !session.isArchived).length}</span>
           </button>
           {projects.map((project) => {
             const isRenaming = renamingProjectId === project.id;
@@ -180,12 +189,12 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
                   <>
                     <span className="text-[10px] tabular-nums text-muted-foreground">{sessionCount}</span>
                     <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                      <Button variant="ghost" size="icon-sm" type="button" onClick={(event) => startRenameProject(event, project)} aria-label={`${translate("Rename project") || "Rename project"}: ${project.title}`} className="size-5">
+                      <IconActionButton tooltip={translate("Rename project") || "Rename project"} onClick={(event) => startRenameProject(event, project)} className="size-5">
                         <Pencil className="size-2.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon-sm" type="button" onClick={(event) => { event.stopPropagation(); setProjectPendingDeletion(project); }} aria-label={`${translate("Delete project") || "Delete project"}: ${project.title}`} className="size-5 text-destructive hover:text-destructive">
+                      </IconActionButton>
+                      <IconActionButton tooltip={translate("Delete project") || "Delete project"} onClick={(event) => { event.stopPropagation(); setProjectPendingDeletion(project); }} className="size-5 text-destructive hover:text-destructive">
                         <Trash2 className="size-2.5" />
-                      </Button>
+                      </IconActionButton>
                     </div>
                   </>
                 ) : null}
@@ -212,15 +221,15 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-3">
-        <h2 className="text-sm font-semibold text-foreground">{translate("History") || "History"}</h2>
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+        <h2 className="text-sm font-semibold text-foreground">{showArchived ? (translate("Archived") || "Archived") : (translate("History") || "History")}</h2>
         <div className="flex items-center gap-0.5">
-          <Button variant="ghost" size="icon-sm" type="button" aria-label={translate("Export") || "Export"} onClick={() => onExport("markdown")} className="size-7">
+          <IconActionButton tooltip={showArchived ? (translate("Back to history") || "Back to history") : (translate("Archived chats") || "Archived chats")} onClick={() => setShowArchived((value) => !value)} aria-pressed={showArchived} className="size-7">
+            {showArchived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
+          </IconActionButton>
+          <IconActionButton tooltip={translate("Export") || "Export"} onClick={() => onExport("markdown")} className="size-7">
             <Download className="size-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" type="button" aria-label={translate("New chat") || "New chat"} onClick={handleNewChat} disabled={!activeModel} className="size-7">
-            <Plus className="size-3.5" />
-          </Button>
+          </IconActionButton>
         </div>
       </div>
 
@@ -242,16 +251,20 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
             <Checkbox checked={allVisibleSessionsSelected} className="pointer-events-none" />
             {`${selectedSessionCount} ${translate("selected") || "selected"}`}
           </button>
-          <Button variant="ghost" size="icon-sm" type="button" onClick={handleBulkDeleteSessions} className="size-6 text-destructive hover:text-destructive">
+          <IconActionButton tooltip={translate("Delete selected") || "Delete selected"} onClick={handleBulkDeleteSessions} className="size-6 text-destructive hover:text-destructive">
             <Trash2 className="size-3" />
-          </Button>
+          </IconActionButton>
         </div>
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto p-2 custom-scrollbar">
         {groupedSessionItems.length === 0 ? (
           <p className="px-2 py-8 text-center text-xs text-muted-foreground">
-            {historySearch ? (translate("No results") || "No results") : (translate("No conversations yet.") || "No conversations yet.")}
+            {historySearch
+              ? (translate("No results") || "No results")
+              : showArchived
+                ? (translate("No archived conversations.") || "No archived conversations.")
+                : (translate("No conversations yet.") || "No conversations yet.")}
           </p>
         ) : (
           <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -273,6 +286,7 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
                       onStartRename={startRenameSession}
                       onCommitRename={(id) => { if (id) commitRenameSession(id); else setRenamingSessionId(""); }}
                       onDelete={handleDeleteSession}
+                      onToggleArchive={handleToggleArchiveSession}
                       onRenameChange={setRenameValue}
                       renameInputRef={renameInputRef}
                     />

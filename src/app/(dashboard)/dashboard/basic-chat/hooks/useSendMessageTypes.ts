@@ -24,7 +24,6 @@ export interface UseSendMessageArgs {
   temperature: number;
   apiKey: string;
   recordHarnessEvent: (sessionId: string, type: string, data: Record<string, unknown>) => void;
-  setBlockedModelIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
 export interface UseSendMessageReturn {

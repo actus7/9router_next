@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { getModelKind } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
 import { useNotificationStore } from "@/store/notificationStore";
+import { saveModelTestLatency } from "@/shared/utils/modelTestLatency";
 import { pingModelWithRetry, isDefinitivelyUnavailableModel } from "./modelTestHelpers";
 import type { LiveModel, ModelDiagnostic } from "../types";
 
@@ -51,6 +52,7 @@ export function useModelTesting({
         const modelId = sampledModelIds[nextIndex++];
         const updateProgress = (d: ModelDiagnostic) => setTestAllModels((c) => c ? { ...c, results: c.results.map((i) => i.modelId === modelId ? d : i) } : c);
         const result = await pingModelWithRetry(providerStorageAlias, modelId, updateProgress, schedule, controller.signal);
+        if (result.ok) saveModelTestLatency(providerStorageAlias, modelId, result.latencyMs);
         if (result.state !== "cancelled") setModelTestResults((prev) => ({ ...prev, [modelId]: result.ok ? "ok" : "error" }));
         updateProgress(result);
         results.push(result);
@@ -62,6 +64,11 @@ export function useModelTesting({
     if (unavailableIds.length > 0) await onDisableModels(unavailableIds);
     setTestAllModels((prev) => prev ? { ...prev, running: false } : prev);
     testAllAbortRef.current = null;
+    if (!controller.signal.aborted) {
+      const passed = results.filter((r) => r.state === "passed").length;
+      const failed = results.length - passed;
+      notify.success(`${passed} ${translate("passed") || "passed"}, ${failed} ${translate("failed") || "failed"}`, translate("Model test finished") || "Model test finished");
+    }
   };
 
   const handleCancelTestAllModels = () => {
@@ -80,6 +87,7 @@ export function useModelTesting({
     try {
       const res = await fetch("/api/models/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}` }) });
       const data = await res.json();
+      if (data.ok) saveModelTestLatency(providerStorageAlias, modelId, data.latencyMs);
       setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
       setModelsTestError(data.ok ? "" : (data.error || translate("Model is not reachable")));
     } catch {

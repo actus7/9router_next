@@ -19,6 +19,7 @@ export interface UseSessionDerivedArgs {
   activeProviderId: string;
   activeModelId: string;
   historySearch: string;
+  showArchived: boolean;
   selectedSessionIds: Set<string>;
   renamingSessionId: string;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -44,7 +45,7 @@ export interface UseSessionDerivedReturn {
 
 export function useSessionDerived({
   providerGroups, modelIndex, sessions, setSessions, projects, activeProjectId,
-  activeSessionId, activeProviderId, activeModelId, historySearch,
+  activeSessionId, activeProviderId, activeModelId, historySearch, showArchived,
   selectedSessionIds, renamingSessionId, setHistoryOpen, historyMenuRef, renameInputRef,
 }: UseSessionDerivedArgs): UseSessionDerivedReturn {
   const activeProviderGroup = useMemo(() => {
@@ -65,12 +66,14 @@ export function useSessionDerived({
   const activeProject = useMemo(() => projects.find((project) => project.id === activeProjectId) || null, [projects, activeProjectId]);
 
   const sessionItems = useMemo(() => sessions
+    .filter((session) => !!session.isArchived === showArchived)
     .filter((session) => !activeProjectId || session.projectId === activeProjectId)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [sessions, activeProjectId]);
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()), [sessions, activeProjectId, showArchived]);
 
   const projectSessionCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const session of sessions) {
+      if (session.isArchived) continue;
       if (session.projectId) counts.set(session.projectId, (counts.get(session.projectId) || 0) + 1);
     }
     return counts;
