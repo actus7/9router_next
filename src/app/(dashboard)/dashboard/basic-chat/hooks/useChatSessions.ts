@@ -2,7 +2,13 @@
 
 import { useRef, useState } from "react";
 import type { DragEndEvent } from "@dnd-kit/core";
-import type { ChatAttachment, ChatProject, ChatSession, NormalizedModel, ProviderGroup } from "../types";
+import type {
+  ChatAttachment,
+  ChatProject,
+  ChatSession,
+  NormalizedModel,
+  ProviderGroup,
+} from "../types";
 import { useSessionDerived } from "./useSessionDerived";
 import { useSessionHandlers } from "./useSessionHandlers";
 import { useSessionPersistence } from "./useSessionPersistence";
@@ -14,44 +20,85 @@ interface UseChatSessionsArgs {
 }
 
 export interface UseChatSessionsReturn {
-  isHydrated: boolean; apiKey: string;
+  isHydrated: boolean;
+  apiKey: string;
   providerGroups: ProviderGroup[];
-  sessions: ChatSession[]; setSessions: React.Dispatch<React.SetStateAction<ChatSession[]>>;
-  projects: ChatProject[]; activeProjectId: string;
-  activeSessionId: string; setActiveSessionId: React.Dispatch<React.SetStateAction<string>>;
-  activeProviderId: string; setActiveProviderId: React.Dispatch<React.SetStateAction<string>>;
-  activeModelId: string; setActiveModelId: React.Dispatch<React.SetStateAction<string>>;
-  draft: string; setDraft: React.Dispatch<React.SetStateAction<string>>;
-  attachments: ChatAttachment[]; setAttachments: React.Dispatch<React.SetStateAction<ChatAttachment[]>>;
+  sessions: ChatSession[];
+  setSessions: React.Dispatch<React.SetStateAction<ChatSession[]>>;
+  projects: ChatProject[];
+  activeProjectId: string;
+  activeSessionId: string;
+  setActiveSessionId: React.Dispatch<React.SetStateAction<string>>;
+  activeProviderId: string;
+  setActiveProviderId: React.Dispatch<React.SetStateAction<string>>;
+  activeModelId: string;
+  setActiveModelId: React.Dispatch<React.SetStateAction<string>>;
+  draft: string;
+  setDraft: React.Dispatch<React.SetStateAction<string>>;
+  attachments: ChatAttachment[];
+  setAttachments: React.Dispatch<React.SetStateAction<ChatAttachment[]>>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
-  historyOpen: boolean; setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  sidebarOpen: boolean; setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  historySearch: string; setHistorySearch: React.Dispatch<React.SetStateAction<string>>;
-  showArchived: boolean; setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
-  newProjectName: string; setNewProjectName: React.Dispatch<React.SetStateAction<string>>;
-  isCreatingProject: boolean; setIsCreatingProject: React.Dispatch<React.SetStateAction<boolean>>;
-  systemPrompt: string; setSystemPrompt: React.Dispatch<React.SetStateAction<string>>;
-  temperature: number; setTemperature: React.Dispatch<React.SetStateAction<number>>;
-  showSettings: boolean; setShowSettings: React.Dispatch<React.SetStateAction<boolean>>;
-  renamingSessionId: string; setRenamingSessionId: React.Dispatch<React.SetStateAction<string>>;
-  renameValue: string; setRenameValue: React.Dispatch<React.SetStateAction<string>>;
+  historyOpen: boolean;
+  setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  sidebarOpen: boolean;
+  setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  historySearch: string;
+  setHistorySearch: React.Dispatch<React.SetStateAction<string>>;
+  showArchived: boolean;
+  setShowArchived: React.Dispatch<React.SetStateAction<boolean>>;
+  newProjectName: string;
+  setNewProjectName: React.Dispatch<React.SetStateAction<string>>;
+  isCreatingProject: boolean;
+  setIsCreatingProject: React.Dispatch<React.SetStateAction<boolean>>;
+  systemPrompt: string;
+  setSystemPrompt: React.Dispatch<React.SetStateAction<string>>;
+  temperature: number;
+  setTemperature: React.Dispatch<React.SetStateAction<number>>;
+  reasoningEffort: "low" | "medium" | "high" | null;
+  setReasoningEffort: React.Dispatch<
+    React.SetStateAction<"low" | "medium" | "high" | null>
+  >;
+  conversationDisplay: "normal" | "compact";
+  setConversationDisplay: React.Dispatch<
+    React.SetStateAction<"normal" | "compact">
+  >;
+  enterBehavior: "queue" | "steer";
+  setEnterBehavior: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
+  renamingSessionId: string;
+  setRenamingSessionId: React.Dispatch<React.SetStateAction<string>>;
+  renameValue: string;
+  setRenameValue: React.Dispatch<React.SetStateAction<string>>;
   selectedSessionIds: Set<string>;
-  historyMenuRef: React.RefObject<HTMLDivElement | null>; renameInputRef: React.RefObject<HTMLInputElement | null>;
-  activeProviderGroup: ProviderGroup | null; activeModel: NormalizedModel | null;
-  currentSession: ChatSession | null; currentMessages: ChatSession["messages"];
-  activeProject: ChatProject | null; sessionItems: ChatSession[];
-  projectSessionCounts: Map<string, number>; filteredSessionItems: ChatSession[];
+  historyMenuRef: React.RefObject<HTMLDivElement | null>;
+  renameInputRef: React.RefObject<HTMLInputElement | null>;
+  activeProviderGroup: ProviderGroup | null;
+  activeModel: NormalizedModel | null;
+  currentSession: ChatSession | null;
+  currentMessages: ChatSession["messages"];
+  activeProject: ChatProject | null;
+  sessionItems: ChatSession[];
+  projectSessionCounts: Map<string, number>;
+  filteredSessionItems: ChatSession[];
   groupedSessionItems: Array<{ label: string; items: ChatSession[] }>;
-  selectedSessionCount: number; allVisibleSessionsSelected: boolean;
+  selectedSessionCount: number;
+  allVisibleSessionsSelected: boolean;
   dndSensors: ReturnType<typeof import("@dnd-kit/core").useSensors>;
   handleDragEnd: (event: DragEndEvent) => void;
-  updateSession: (sessionId: string, updater: (session: ChatSession) => ChatSession) => void;
-  ensureSessionForModel: (model: NormalizedModel | null) => ChatSession | undefined;
-  handleNewChat: () => void; handleSelectSession: (sessionId: string) => void;
-  handleCreateProject: () => void; handleSelectProject: (projectId: string) => void;
+  updateSession: (
+    sessionId: string,
+    updater: (session: ChatSession) => ChatSession,
+  ) => void;
+  ensureSessionForModel: (
+    model: NormalizedModel | null,
+  ) => ChatSession | undefined;
+  handleNewChat: () => void;
+  handleSelectSession: (sessionId: string) => void;
+  handleCreateProject: () => void;
+  handleSelectProject: (projectId: string) => void;
   handleRenameProject: (projectId: string, title: string) => void;
   handleDeleteProject: (projectId: string) => void;
-  handleDeleteSession: (sessionId: string) => void; handleBulkDeleteSessions: () => void;
+  handleDeleteSession: (sessionId: string) => void;
+  handleBulkDeleteSessions: () => void;
   handleToggleArchiveSession: (sessionId: string) => void;
   toggleSessionSelected: (event: React.MouseEvent, sessionId: string) => void;
   toggleAllVisibleSessions: () => void;
@@ -59,11 +106,17 @@ export interface UseChatSessionsReturn {
   commitRenameSession: (sessionId: string) => void;
   handleSelectModel: (modelId: string) => void;
   handleSelectProvider: (providerId: string) => void;
-  handleAttachFiles: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  handleAttachFiles: (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => Promise<void>;
   removeAttachment: (attachmentId: string) => void;
 }
 
-export function useChatSessions({ providerGroups, loadingData, modelIndex }: UseChatSessionsArgs): UseChatSessionsReturn {
+export function useChatSessions({
+  providerGroups,
+  loadingData,
+  modelIndex,
+}: UseChatSessionsArgs): UseChatSessionsReturn {
   // State
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [projects, setProjects] = useState<ChatProject[]>([]);
@@ -83,10 +136,20 @@ export function useChatSessions({ providerGroups, loadingData, modelIndex }: Use
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [temperature, setTemperature] = useState(0.7);
-  const [showSettings, setShowSettings] = useState(false);
+  const [reasoningEffort, setReasoningEffort] = useState<
+    "low" | "medium" | "high" | null
+  >(null);
+  const [conversationDisplay, setConversationDisplay] = useState<
+    "normal" | "compact"
+  >("normal");
+  const [enterBehavior, setEnterBehavior] = useState<"queue" | "steer">(
+    "queue",
+  );
   const [renamingSessionId, setRenamingSessionId] = useState("");
   const [renameValue, setRenameValue] = useState("");
-  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initializedRef = useRef(false);
@@ -97,47 +160,144 @@ export function useChatSessions({ providerGroups, loadingData, modelIndex }: Use
 
   // Persistence: hydration, server fetch/sync, API key, model fallback, init
   useSessionPersistence({
-    providerGroups, loadingData, modelIndex,
-    sessions, activeSessionId, activeProviderId, activeModelId, activeProjectId,
-    draft, systemPrompt, temperature, projects, sidebarOpen, isHydrated,
-    setSessions, setProjects, setActiveProjectId, setActiveSessionId,
-    setActiveProviderId, setActiveModelId, setDraft, setApiKey,
-    setSidebarOpen, setSystemPrompt, setTemperature, setIsHydrated,
-    initializedRef, serverSessionsReadyRef, serverSyncTimerRef,
+    providerGroups,
+    loadingData,
+    modelIndex,
+    sessions,
+    activeSessionId,
+    activeProviderId,
+    activeModelId,
+    activeProjectId,
+    draft,
+    systemPrompt,
+    temperature,
+    reasoningEffort,
+    projects,
+    sidebarOpen,
+    conversationDisplay,
+    enterBehavior,
+    isHydrated,
+    setSessions,
+    setProjects,
+    setActiveProjectId,
+    setActiveSessionId,
+    setActiveProviderId,
+    setActiveModelId,
+    setDraft,
+    setApiKey,
+    setSidebarOpen,
+    setSystemPrompt,
+    setTemperature,
+    setReasoningEffort,
+    setConversationDisplay,
+    setEnterBehavior,
+    setIsHydrated,
+    initializedRef,
+    serverSessionsReadyRef,
+    serverSyncTimerRef,
   });
 
   // Derived: memos, grouping, DnD, UI effects
   const derived = useSessionDerived({
-    providerGroups, modelIndex, sessions, setSessions, projects, activeProjectId,
-    activeSessionId, activeProviderId, activeModelId, historySearch, showArchived,
-    selectedSessionIds, renamingSessionId, setHistoryOpen, historyMenuRef, renameInputRef,
+    providerGroups,
+    modelIndex,
+    sessions,
+    setSessions,
+    projects,
+    activeProjectId,
+    activeSessionId,
+    activeProviderId,
+    activeModelId,
+    historySearch,
+    showArchived,
+    selectedSessionIds,
+    renamingSessionId,
+    setHistoryOpen,
+    historyMenuRef,
+    renameInputRef,
   });
 
   // Handlers: CRUD, model selection, attachments, rename/delete/bulk
   const handlers = useSessionHandlers({
-    providerGroups, modelIndex, sessions, setSessions,
-    projects, setProjects,
-    activeSessionId, setActiveSessionId, activeProviderId, setActiveProviderId,
-    activeModelId, setActiveModelId, activeProjectId, setActiveProjectId,
-    setDraft, setAttachments, setHistoryOpen,
-    newProjectName, setNewProjectName, setIsCreatingProject,
-    setRenamingSessionId, setRenameValue, renameValue,
-    selectedSessionIds, setSelectedSessionIds,
+    providerGroups,
+    modelIndex,
+    sessions,
+    setSessions,
+    projects,
+    setProjects,
+    activeSessionId,
+    setActiveSessionId,
+    activeProviderId,
+    setActiveProviderId,
+    activeModelId,
+    setActiveModelId,
+    activeProjectId,
+    setActiveProjectId,
+    setDraft,
+    setAttachments,
+    setHistoryOpen,
+    newProjectName,
+    setNewProjectName,
+    setIsCreatingProject,
+    setRenamingSessionId,
+    setRenameValue,
+    renameValue,
+    selectedSessionIds,
+    setSelectedSessionIds,
     filteredSessionItems: derived.filteredSessionItems,
     allVisibleSessionsSelected: derived.allVisibleSessionsSelected,
     fileInputRef,
   });
 
   return {
-    isHydrated, apiKey, providerGroups, sessions, setSessions, projects, activeProjectId,
-    activeSessionId, setActiveSessionId, activeProviderId, setActiveProviderId,
-    activeModelId, setActiveModelId, draft, setDraft, attachments, setAttachments,
-    fileInputRef, historyOpen, setHistoryOpen,
-    sidebarOpen, setSidebarOpen, historySearch, setHistorySearch, showArchived, setShowArchived,
-    newProjectName, setNewProjectName, isCreatingProject, setIsCreatingProject,
-    systemPrompt, setSystemPrompt, temperature, setTemperature,
-    showSettings, setShowSettings, renamingSessionId, setRenamingSessionId,
-    renameValue, setRenameValue, selectedSessionIds, historyMenuRef, renameInputRef,
-    ...derived, ...handlers,
+    isHydrated,
+    apiKey,
+    providerGroups,
+    sessions,
+    setSessions,
+    projects,
+    activeProjectId,
+    activeSessionId,
+    setActiveSessionId,
+    activeProviderId,
+    setActiveProviderId,
+    activeModelId,
+    setActiveModelId,
+    draft,
+    setDraft,
+    attachments,
+    setAttachments,
+    fileInputRef,
+    historyOpen,
+    setHistoryOpen,
+    sidebarOpen,
+    setSidebarOpen,
+    historySearch,
+    setHistorySearch,
+    showArchived,
+    setShowArchived,
+    newProjectName,
+    setNewProjectName,
+    isCreatingProject,
+    setIsCreatingProject,
+    systemPrompt,
+    setSystemPrompt,
+    temperature,
+    setTemperature,
+    reasoningEffort,
+    setReasoningEffort,
+    conversationDisplay,
+    setConversationDisplay,
+    enterBehavior,
+    setEnterBehavior,
+    renamingSessionId,
+    setRenamingSessionId,
+    renameValue,
+    setRenameValue,
+    selectedSessionIds,
+    historyMenuRef,
+    renameInputRef,
+    ...derived,
+    ...handlers,
   };
 }

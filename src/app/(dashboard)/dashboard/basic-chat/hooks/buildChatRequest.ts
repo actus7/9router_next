@@ -1,7 +1,7 @@
 import { buildUserContent } from "../chatFormatUtils";
 import type { ChatMessage, NormalizedModel } from "../types";
 
-type ToolDefinition = Record<string, unknown>;
+type ToolDefinition = object;
 
 /** Filter out the placeholder assistant message and map to API format. */
 export function buildRequestMessages(
@@ -44,6 +44,7 @@ export function buildChatFetchOptions(
   apiKey: string,
   signal: AbortSignal,
   tools?: readonly ToolDefinition[],
+  reasoningEffort?: "low" | "medium" | "high" | null,
 ): RequestInit {
   return {
     method: "POST",
@@ -58,6 +59,7 @@ export function buildChatFetchOptions(
       stream: true,
       stream_options: { include_usage: true },
       temperature,
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
       ...(tools?.length ? { tools, tool_choice: "auto" } : {}),
     }),
     signal,

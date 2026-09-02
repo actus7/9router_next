@@ -1,4 +1,10 @@
-import type { ChatAttachment, ChatSession, NormalizedModel, ProviderGroup, SendMessageOptions } from "../types";
+import type {
+  ChatAttachment,
+  ChatSession,
+  NormalizedModel,
+  ProviderGroup,
+  SendMessageOptions,
+} from "../types";
 
 export interface AgentActivity {
   id: string;
@@ -14,16 +20,27 @@ export interface UseSendMessageArgs {
   setActiveSessionId: React.Dispatch<React.SetStateAction<string>>;
   sessions: ChatSession[];
   setSessions: React.Dispatch<React.SetStateAction<ChatSession[]>>;
-  updateSession: (sessionId: string, updater: (session: ChatSession) => ChatSession) => void;
-  ensureSessionForModel: (model: NormalizedModel | null) => ChatSession | undefined;
+  updateSession: (
+    sessionId: string,
+    updater: (session: ChatSession) => ChatSession,
+  ) => void;
+  ensureSessionForModel: (
+    model: NormalizedModel | null,
+  ) => ChatSession | undefined;
   draft: string;
   setDraft: React.Dispatch<React.SetStateAction<string>>;
   attachments: ChatAttachment[];
   setAttachments: React.Dispatch<React.SetStateAction<ChatAttachment[]>>;
   systemPrompt: string;
   temperature: number;
+  reasoningEffort: "low" | "medium" | "high" | null;
+  enterBehavior: "queue" | "steer";
   apiKey: string;
-  recordHarnessEvent: (sessionId: string, type: string, data: Record<string, unknown>) => void;
+  recordHarnessEvent: (
+    sessionId: string,
+    type: string,
+    data: Record<string, unknown>,
+  ) => void;
 }
 
 export interface UseSendMessageReturn {
@@ -39,6 +56,7 @@ export interface UseSendMessageReturn {
   queuedMessage: string;
   sendMessage: (options?: SendMessageOptions) => Promise<void>;
   queueMessage: () => void;
+  steerMessage: () => void;
   handleStop: () => void;
   resetStream: () => void;
   handleCopyMessage: (messageId: string, content: string) => Promise<void>;

@@ -27,7 +27,15 @@ describe("buildChatRequest", () => {
     const request = buildChatFetchOptions(model, [], 0.7, "", new AbortController().signal, runtimeToolDefinitions);
     const body = JSON.parse(String(request.body));
     expect(body.tools).toEqual(runtimeToolDefinitions);
-    expect(body.tools).toHaveLength(3);
+    expect(body.tools).toHaveLength(runtimeToolDefinitions.length);
     expect(body.tool_choice).toBe("auto");
+  });
+
+  it("includes reasoning_effort in the request body when set, omits it when null", () => {
+    const withEffort = buildChatFetchOptions(model, [], 0.7, "", new AbortController().signal, undefined, "high");
+    expect(JSON.parse(String(withEffort.body)).reasoning_effort).toBe("high");
+
+    const withoutEffort = buildChatFetchOptions(model, [], 0.7, "", new AbortController().signal, undefined, null);
+    expect(JSON.parse(String(withoutEffort.body))).not.toHaveProperty("reasoning_effort");
   });
 });

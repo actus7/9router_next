@@ -1,7 +1,12 @@
 import { useEffect } from "react";
 import { translate } from "@/i18n/runtime";
 import { createId } from "../chatFormatUtils";
-import type { ChatProject, ChatSession, NormalizedModel, ProviderGroup } from "../types";
+import type {
+  ChatProject,
+  ChatSession,
+  NormalizedModel,
+  ProviderGroup,
+} from "../types";
 import { hydrateFromStorage, persistToStorage } from "./chatSessionStorage";
 
 export interface UseSessionPersistenceArgs {
@@ -17,8 +22,11 @@ export interface UseSessionPersistenceArgs {
   draft: string;
   systemPrompt: string;
   temperature: number;
+  reasoningEffort: "low" | "medium" | "high" | null;
   projects: ChatProject[];
   sidebarOpen: boolean;
+  conversationDisplay: "normal" | "compact";
+  enterBehavior: "queue" | "steer";
   isHydrated: boolean;
   // State setters
   setSessions: React.Dispatch<React.SetStateAction<ChatSession[]>>;
@@ -32,22 +40,59 @@ export interface UseSessionPersistenceArgs {
   setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setSystemPrompt: React.Dispatch<React.SetStateAction<string>>;
   setTemperature: React.Dispatch<React.SetStateAction<number>>;
+  setReasoningEffort: React.Dispatch<
+    React.SetStateAction<"low" | "medium" | "high" | null>
+  >;
+  setConversationDisplay: React.Dispatch<
+    React.SetStateAction<"normal" | "compact">
+  >;
+  setEnterBehavior: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
   setIsHydrated: React.Dispatch<React.SetStateAction<boolean>>;
   // Refs
   initializedRef: React.MutableRefObject<boolean>;
   serverSessionsReadyRef: React.MutableRefObject<boolean>;
-  serverSyncTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
+  serverSyncTimerRef: React.MutableRefObject<ReturnType<
+    typeof setTimeout
+  > | null>;
 }
 
 export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
   const {
-    providerGroups, loadingData, modelIndex,
-    sessions, activeSessionId, activeProviderId, activeModelId, activeProjectId,
-    draft, systemPrompt, temperature, projects, sidebarOpen, isHydrated,
-    setSessions, setProjects, setActiveProjectId, setActiveSessionId,
-    setActiveProviderId, setActiveModelId, setDraft, setApiKey,
-    setSidebarOpen, setSystemPrompt, setTemperature, setIsHydrated,
-    initializedRef, serverSessionsReadyRef, serverSyncTimerRef,
+    providerGroups,
+    loadingData,
+    modelIndex,
+    sessions,
+    activeSessionId,
+    activeProviderId,
+    activeModelId,
+    activeProjectId,
+    draft,
+    systemPrompt,
+    temperature,
+    reasoningEffort,
+    projects,
+    sidebarOpen,
+    conversationDisplay,
+    enterBehavior,
+    isHydrated,
+    setSessions,
+    setProjects,
+    setActiveProjectId,
+    setActiveSessionId,
+    setActiveProviderId,
+    setActiveModelId,
+    setDraft,
+    setApiKey,
+    setSidebarOpen,
+    setSystemPrompt,
+    setTemperature,
+    setReasoningEffort,
+    setConversationDisplay,
+    setEnterBehavior,
+    setIsHydrated,
+    initializedRef,
+    serverSessionsReadyRef,
+    serverSyncTimerRef,
   } = args;
 
   // Hydrate from localStorage on mount
@@ -64,31 +109,71 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
       setSidebarOpen(saved.sidebarOpen);
       setSystemPrompt(saved.systemPrompt);
       setTemperature(saved.temperature);
+      setReasoningEffort(saved.reasoningEffort);
+      setConversationDisplay(saved.conversationDisplay);
+      setEnterBehavior(saved.enterBehavior);
     } catch {
       // Storage can be unavailable in privacy-restricted browser contexts.
     } finally {
       setIsHydrated(true);
     }
-  }, [setActiveModelId, setActiveProjectId, setActiveProviderId, setActiveSessionId, setDraft, setIsHydrated, setProjects, setSessions, setSidebarOpen, setSystemPrompt, setTemperature]);
+  }, [
+    setActiveModelId,
+    setActiveProjectId,
+    setActiveProviderId,
+    setActiveSessionId,
+    setConversationDisplay,
+    setDraft,
+    setEnterBehavior,
+    setIsHydrated,
+    setProjects,
+    setReasoningEffort,
+    setSessions,
+    setSidebarOpen,
+    setSystemPrompt,
+    setTemperature,
+  ]);
 
   // Fetch sessions from the durable server store
   useEffect(() => {
     if (!isHydrated) return;
     let cancelled = false;
     void fetch("/api/harness/sessions", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Failed to load harness sessions")))
+      .then((response) =>
+        response.ok
+          ? response.json()
+          : Promise.reject(new Error("Failed to load harness sessions")),
+      )
       .then((data: Record<string, unknown>) => {
         if (cancelled) return;
         const remote = Array.isArray(data.sessions) ? data.sessions : [];
         if (remote.length > 0) {
-          setSessions(remote.map((session) => ({ ...session, messages: Array.isArray(session?.messages) ? session.messages : [] })) as ChatSession[]);
+          const remoteSessions = remote.map((session) => ({
+            ...session,
+            messages: Array.isArray(session?.messages) ? session.messages : [],
+          })) as ChatSession[];
+          // Merge instead of overwrite: a session created locally between hydration and
+          // this fetch resolving hasn't reached the server yet and must not be discarded.
+          setSessions((current) => {
+            const remoteIds = new Set(
+              remoteSessions.map((session) => session.id),
+            );
+            const localOnly = current.filter(
+              (session) => !remoteIds.has(session.id),
+            );
+            return [...remoteSessions, ...localOnly];
+          });
         }
       })
       .catch(() => {
         // Keep local drafts usable when the durable store is temporarily unavailable.
       })
-      .finally(() => { serverSessionsReadyRef.current = true; });
-    return () => { cancelled = true; };
+      .finally(() => {
+        serverSessionsReadyRef.current = true;
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isHydrated, serverSessionsReadyRef, setSessions]);
 
   // Load or create API key
@@ -98,8 +183,13 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     async function loadOrCreateApiKey() {
       try {
         const res = await fetch("/api/keys", { cache: "no-store" });
-        const data = await res.json().catch(() => ({})) as Record<string, unknown>;
-        const keys = Array.isArray(data.keys) ? (data.keys as Array<{ key: string }>) : [];
+        const data = (await res.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        const keys = Array.isArray(data.keys)
+          ? (data.keys as Array<{ key: string }>)
+          : [];
         if (keys[0]?.key) {
           if (!cancelled) setApiKey(keys[0].key);
           return;
@@ -110,8 +200,12 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ name: "Basic Chat" }),
         });
-        const createdData = await created.json().catch(() => ({})) as Record<string, unknown>;
-        if (!cancelled && typeof createdData.key === "string") setApiKey(createdData.key);
+        const createdData = (await created.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        if (!cancelled && typeof createdData.key === "string")
+          setApiKey(createdData.key);
       } catch {
         // Ignore — the chat request will surface a clear "Missing API key" error if this fails.
       }
@@ -127,30 +221,48 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
   useEffect(() => {
     if (loadingData || providerGroups.length === 0) return;
     if (activeModelId && modelIndex.has(activeModelId)) return;
-    const activeProviderGroup = providerGroups.find((group) => group.providerId === activeProviderId) || providerGroups[0] || null;
-    const fallback = activeProviderGroup?.models[0] || providerGroups[0]?.models[0];
+    const activeProviderGroup =
+      providerGroups.find((group) => group.providerId === activeProviderId) ||
+      providerGroups[0] ||
+      null;
+    const fallback =
+      activeProviderGroup?.models[0] || providerGroups[0]?.models[0];
     if (!fallback) return;
     setActiveProviderId(fallback.providerId);
     setActiveModelId(fallback.id);
-  }, [loadingData, providerGroups, modelIndex, activeModelId, activeProviderId, setActiveProviderId, setActiveModelId]);
+  }, [
+    loadingData,
+    providerGroups,
+    modelIndex,
+    activeModelId,
+    activeProviderId,
+    setActiveProviderId,
+    setActiveModelId,
+  ]);
 
   // Initialization: pick session/model on first load when provider data arrives
   useEffect(() => {
     if (!isHydrated || loadingData || initializedRef.current) return;
     if (providerGroups.length === 0) return;
 
-    const savedProvider = providerGroups.find((group) => group.providerId === activeProviderId) || providerGroups[0];
-    const savedModel = activeModelId && modelIndex.has(activeModelId)
-      ? modelIndex.get(activeModelId)!
-      : savedProvider.models[0];
+    const savedProvider =
+      providerGroups.find((group) => group.providerId === activeProviderId) ||
+      providerGroups[0];
+    const savedModel =
+      activeModelId && modelIndex.has(activeModelId)
+        ? modelIndex.get(activeModelId)!
+        : savedProvider.models[0];
 
     if (sessions.length > 0) {
-      const session = sessions.find((item) => item.id === activeSessionId) || sessions[0];
+      const session =
+        sessions.find((item) => item.id === activeSessionId) || sessions[0];
       // A session belongs to the conversation history. The active selection
       // belongs to the composer and must survive reopening that history.
-      const sessionModel = savedModel || (session?.modelId && modelIndex.has(session.modelId)
-        ? modelIndex.get(session.modelId)!
-        : null);
+      const sessionModel =
+        savedModel ||
+        (session?.modelId && modelIndex.has(session.modelId)
+          ? modelIndex.get(session.modelId)!
+          : null);
       initializedRef.current = true;
       setActiveSessionId(session.id);
       setActiveProviderId(sessionModel?.providerId || savedProvider.providerId);
@@ -176,20 +288,61 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     setActiveSessionId(session.id);
     setActiveProviderId(savedProvider.providerId);
     setActiveModelId(savedModel.id);
-  }, [isHydrated, loadingData, providerGroups, modelIndex, sessions, activeSessionId, activeProviderId, activeModelId, activeProjectId, initializedRef, setSessions, setActiveSessionId, setActiveProviderId, setActiveModelId]);
+  }, [
+    isHydrated,
+    loadingData,
+    providerGroups,
+    modelIndex,
+    sessions,
+    activeSessionId,
+    activeProviderId,
+    activeModelId,
+    activeProjectId,
+    initializedRef,
+    setSessions,
+    setActiveSessionId,
+    setActiveProviderId,
+    setActiveModelId,
+  ]);
 
   // Persist to localStorage
   useEffect(() => {
     if (!isHydrated) return;
     try {
       persistToStorage({
-        sessions, activeSessionId, activeProviderId, activeModelId, draft,
-        systemPrompt, temperature, projects, activeProjectId, sidebarOpen,
+        sessions,
+        activeSessionId,
+        activeProviderId,
+        activeModelId,
+        draft,
+        systemPrompt,
+        temperature,
+        reasoningEffort,
+        projects,
+        activeProjectId,
+        sidebarOpen,
+        conversationDisplay,
+        enterBehavior,
       });
     } catch {
       // Ignore storage errors.
     }
-  }, [isHydrated, sessions, activeSessionId, activeProviderId, activeModelId, draft, systemPrompt, temperature, projects, activeProjectId, sidebarOpen]);
+  }, [
+    isHydrated,
+    sessions,
+    activeSessionId,
+    activeProviderId,
+    activeModelId,
+    draft,
+    systemPrompt,
+    temperature,
+    reasoningEffort,
+    projects,
+    activeProjectId,
+    sidebarOpen,
+    conversationDisplay,
+    enterBehavior,
+  ]);
 
   // Debounced server sync
   useEffect(() => {

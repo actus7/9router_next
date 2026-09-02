@@ -24,6 +24,7 @@ interface RunToolCallLoopParams {
   initialToolCalls: ToolCall[];
   effectiveSystemPrompt: string;
   temperature: number;
+  reasoningEffort: "low" | "medium" | "high" | null;
   apiKey: string;
   signal: AbortSignal;
   runtimeTools: readonly object[];
@@ -62,6 +63,7 @@ export async function runToolCallLoop(
     initialToolCalls,
     effectiveSystemPrompt,
     temperature,
+    reasoningEffort,
     apiKey,
     signal,
     runtimeTools,
@@ -278,6 +280,7 @@ export async function runToolCallLoop(
         apiKey,
         signal,
         runtimeTools,
+        reasoningEffort,
       ),
       (text) => {
         setStreamingText(text);

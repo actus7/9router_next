@@ -1,20 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { useChatModels } from "./hooks/useChatModels";
-import { useChatSessions, type UseChatSessionsReturn } from "./hooks/useChatSessions";
+import {
+  useChatSessions,
+  type UseChatSessionsReturn,
+} from "./hooks/useChatSessions";
 import { useHarnessEvents } from "./hooks/useHarnessEvents";
 import { useSendMessage } from "./hooks/useSendMessage";
 import ChatSidebar from "./sections/ChatSidebar";
 import ChatTopBar from "./sections/ChatTopBar";
-import ChatSettingsPanel from "./sections/ChatSettingsPanel";
 import ChatRunJournal from "./sections/ChatRunJournal";
 import ChatMobileHistoryMenu from "./sections/ChatMobileHistoryMenu";
 import ChatMessageList from "./sections/ChatMessageList";
 import ChatComposer from "./sections/ChatComposer";
 import ChatLiveRunStatus from "./sections/ChatLiveRunStatus";
+import HarnessSettingsDialog, {
+  type HarnessSettingsSection,
+} from "./sections/HarnessSettingsDialog";
 
 export default function BasicChatPageClient() {
+  const [harnessSettingsOpen, setHarnessSettingsOpen] = useState(false);
+  const [harnessSettingsSection, setHarnessSettingsSection] =
+    useState<HarnessSettingsSection>("general");
   const modelsHook = useChatModels();
   const sessionsHook = useChatSessions({
     providerGroups: modelsHook.providerGroups,
@@ -37,6 +46,8 @@ export default function BasicChatPageClient() {
     setAttachments: sessionsHook.setAttachments,
     systemPrompt: sessionsHook.systemPrompt,
     temperature: sessionsHook.temperature,
+    reasoningEffort: sessionsHook.reasoningEffort,
+    enterBehavior: sessionsHook.enterBehavior,
     apiKey: sessionsHook.apiKey,
     recordHarnessEvent: harnessHook.recordHarnessEvent,
   });
@@ -53,11 +64,24 @@ export default function BasicChatPageClient() {
 
   return (
     <div className="relative flex-1 flex h-full min-h-0 min-w-0 bg-background text-foreground overflow-hidden">
-      <ChatSidebar sessionsHook={chatSessions} onExport={sendHook.handleExportConversation} />
+      <ChatSidebar
+        sessionsHook={chatSessions}
+        onExport={sendHook.handleExportConversation}
+      />
 
       <div className="relative order-1 flex h-full min-h-0 min-w-0 flex-1 flex-col">
-        <ChatTopBar sessionsHook={chatSessions} harnessHook={harnessHook} />
-        <ChatSettingsPanel sessionsHook={sessionsHook} />
+        <ChatTopBar
+          sessionsHook={chatSessions}
+          harnessHook={harnessHook}
+          onOpenPlugins={() => {
+            setHarnessSettingsSection("plugins");
+            setHarnessSettingsOpen(true);
+          }}
+          onOpenSettings={() => {
+            setHarnessSettingsSection("general");
+            setHarnessSettingsOpen(true);
+          }}
+        />
         <ChatRunJournal harnessHook={harnessHook} />
         <ChatMobileHistoryMenu sessionsHook={chatSessions} />
 
@@ -72,10 +96,33 @@ export default function BasicChatPageClient() {
 
         <div className="flex flex-1 flex-col min-h-0">
           <ChatMessageList sessionsHook={sessionsHook} sendHook={sendHook} />
-          <ChatLiveRunStatus active={sendHook.isSending} activities={sendHook.liveActivities} />
-          <ChatComposer sessionsHook={sessionsHook} sendHook={sendHook} loadingData={modelsHook.loadingData} />
+          <ChatLiveRunStatus
+            active={sendHook.isSending}
+            activities={sendHook.liveActivities}
+          />
+          <ChatComposer
+            sessionsHook={sessionsHook}
+            sendHook={sendHook}
+            loadingData={modelsHook.loadingData}
+          />
         </div>
       </div>
+      <HarnessSettingsDialog
+        open={harnessSettingsOpen}
+        onOpenChange={setHarnessSettingsOpen}
+        section={harnessSettingsSection}
+        onSectionChange={setHarnessSettingsSection}
+        session={sessionsHook.currentSession}
+        updateSession={sessionsHook.updateSession}
+        systemPrompt={sessionsHook.systemPrompt}
+        setSystemPrompt={sessionsHook.setSystemPrompt}
+        temperature={sessionsHook.temperature}
+        setTemperature={sessionsHook.setTemperature}
+        conversationDisplay={sessionsHook.conversationDisplay}
+        setConversationDisplay={sessionsHook.setConversationDisplay}
+        enterBehavior={sessionsHook.enterBehavior}
+        setEnterBehavior={sessionsHook.setEnterBehavior}
+      />
     </div>
   );
 }

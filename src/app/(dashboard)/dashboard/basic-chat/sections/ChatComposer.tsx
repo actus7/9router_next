@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { translate } from "@/i18n/runtime";
 import { ArrowUp, ListTree, LogIn, LogOut, Paperclip, StopCircle, X } from "lucide-react";
 import { getPuterAuthStatus, isPuterBrowserModel, signInToPuter, signOutOfPuter } from "../puterBrowser";
@@ -20,6 +21,7 @@ interface ChatComposerProps {
 export default function ChatComposer({ sessionsHook, sendHook, loadingData }: ChatComposerProps) {
   const {
     draft, setDraft, attachments, removeAttachment, fileInputRef, handleAttachFiles, activeModel, currentSession, updateSession,
+    reasoningEffort, setReasoningEffort,
   } = sessionsHook;
   const { handleKeyDown, isSending, handleStop, canSend, canQueue, queuedMessage, sendMessage, queueMessage } = sendHook;
 
@@ -81,9 +83,27 @@ export default function ChatComposer({ sessionsHook, sendHook, loadingData }: Ch
                 <Paperclip className="size-4" />
               </Button>
               <Input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAttachFiles} />
-              <span className="text-[11px] font-medium text-muted-foreground truncate max-w-[140px]">
-                {activeModel ? activeModel.name : (translate("No model") || "No model")}
-              </span>
+              <Popover>
+                <PopoverTrigger className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground truncate max-w-[180px]">
+                  {activeModel ? activeModel.name : (translate("No model") || "No model")}
+                  {reasoningEffort && <span className="text-muted-foreground/70">· {reasoningEffort}</span>}
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-1" align="start">
+                  <p className="px-2 pt-1 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {translate("Effort") || "Effort"}
+                  </p>
+                  {(["low", "medium", "high"] as const).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setReasoningEffort(reasoningEffort === level ? null : level)}
+                      className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs capitalize hover:bg-muted ${reasoningEffort === level ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
               <Button
                 variant={currentSession?.mode === "plan" ? "secondary" : "ghost"}
                 size="sm"

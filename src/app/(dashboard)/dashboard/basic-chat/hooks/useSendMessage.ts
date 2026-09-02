@@ -56,6 +56,7 @@ export function useSendMessage({
   setAttachments,
   systemPrompt,
   temperature,
+  reasoningEffort,
   enterBehavior,
   apiKey,
   recordHarnessEvent,
@@ -228,6 +229,7 @@ export function useSendMessage({
         apiKey,
         signal,
         runtimeTools,
+        reasoningEffort,
       );
 
       const requestStartedAt = Date.now();
@@ -353,6 +355,7 @@ export function useSendMessage({
               initialToolCalls: result.toolCalls,
               effectiveSystemPrompt,
               temperature,
+              reasoningEffort,
               apiKey,
               signal,
               runtimeTools,
@@ -415,6 +418,7 @@ export function useSendMessage({
       setAttachments,
       systemPrompt,
       temperature,
+      reasoningEffort,
       apiKey,
       updateSession,
     ],
