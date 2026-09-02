@@ -10,6 +10,7 @@ import { ArrowUp, ListTree, LogIn, LogOut, Paperclip, StopCircle, X } from "luci
 import { getPuterAuthStatus, isPuterBrowserModel, signInToPuter, signOutOfPuter } from "../puterBrowser";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import type { UseSendMessageReturn } from "../hooks/useSendMessage";
+import ChatCommandsMenu from "./ChatCommandsMenu";
 import ChatUsageBar from "./ChatUsageBar";
 
 interface ChatComposerProps {
@@ -23,7 +24,7 @@ export default function ChatComposer({ sessionsHook, sendHook, loadingData }: Ch
     draft, setDraft, attachments, removeAttachment, fileInputRef, handleAttachFiles, activeModel, currentSession, updateSession,
     reasoningEffort, setReasoningEffort,
   } = sessionsHook;
-  const { handleKeyDown, isSending, handleStop, canSend, canQueue, queuedMessage, sendMessage, queueMessage } = sendHook;
+  const { handleKeyDown, isSending, handleStop, canSend, canQueue, queuedMessage, sendMessage, queueMessage, handleExportConversation } = sendHook;
 
   const isPuterModel = !!activeModel && isPuterBrowserModel(activeModel);
   const [puterAuth, setPuterAuth] = useState<{ isSignedIn: boolean; username?: string } | null>(null);
@@ -79,6 +80,12 @@ export default function ChatComposer({ sessionsHook, sendHook, loadingData }: Ch
 
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/70 pt-3">
             <div className="flex items-center gap-2">
+              <ChatCommandsMenu
+                disabled={!activeModel || loadingData}
+                onExport={handleExportConversation}
+                onTogglePlanMode={() => currentSession && updateSession(currentSession.id, (session) => ({ ...session, mode: session.mode === "plan" ? "agent" : "plan" }))}
+                isPlanMode={currentSession?.mode === "plan"}
+              />
               <Button variant="ghost" size="icon-sm" type="button" aria-label={translate("Attach image") || "Attach image"} onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="size-8 text-muted-foreground hover:text-foreground">
                 <Paperclip className="size-4" />
               </Button>
