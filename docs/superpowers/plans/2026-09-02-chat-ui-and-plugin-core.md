@@ -550,12 +550,12 @@ Reference screenshot: clicking the small "Usage 8.7K tok" pill on a message open
 **Interfaces:**
 - Consumes: `ChatMessage.tokenUsage`, `ChatMessage.timing`, `ChatMessage.providerName`, `ChatMessage.modelName` (all already defined in `types.ts`).
 
-- [ ] **Step 1: Confirm the Popover primitive exists**
+- [x] **Step 1: Confirm the Popover primitive exists**
 
 Run: `ls src/components/ui/popover.tsx 2>/dev/null || echo MISSING`
 Expected: prints the file path. If it prints `MISSING`, run `npx shadcn@latest add popover` (the project already uses shadcn — check `components.json` for the configured registry) before continuing, and re-run `npm run check` once to confirm the generated file matches existing lint rules.
 
-- [ ] **Step 2: Replace the plain token-count text with two clickable popovers**
+- [x] **Step 2: Replace the plain token-count text with two clickable popovers**
 
 In `ChatMessageList.tsx`, locate the existing inline usage rendering (around line 279-285, the small `total_tokens` count). Replace it with (import `Popover, PopoverContent, PopoverTrigger` from `@/components/ui/popover` at the top of the file, and `Badge` is already imported):
 
@@ -619,16 +619,16 @@ In `ChatMessageList.tsx`, locate the existing inline usage rendering (around lin
 
 Remove whatever the old inline single-line token count rendering was (the one this block replaces), keeping the rest of the message actions row (copy/retry/feedback buttons) untouched.
 
-- [ ] **Step 3: Manually verify in the browser**
+- [x] **Step 3: Manually verify in the browser**
 
 Send a message, wait for completion, click the "Usage" pill — confirm the popover opens with the breakdown and closes on outside click. Click "Ran for Xs" — confirm the timing popover opens.
 
-- [ ] **Step 4: Run lint and typecheck**
+- [x] **Step 4: Run lint and typecheck**
 
 Run: `npx eslint "src/app/(dashboard)/dashboard/basic-chat/sections/ChatMessageList.tsx" && npx tsc --noEmit --pretty false`
 Expected: 0 errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatMessageList.tsx
