@@ -656,7 +656,7 @@ The server already accepts and translates `reasoning_effort` (`src/server/llm-ga
 **Interfaces:**
 - Produces: `buildChatFetchOptions(model, messages, temperature, apiKey, signal, tools?, reasoningEffort?)` with `reasoningEffort: "low" | "medium" | "high" | null`.
 
-- [ ] **Step 1: Add the state**
+- [x] **Step 1: Add the state**
 
 In `useChatSessions.ts`, add near the `temperature` state (line 85):
 
@@ -670,7 +670,7 @@ Add `reasoningEffort` and `setReasoningEffort` to the returned object (mirroring
 reasoningEffort: "low" | "medium" | "high" | null; setReasoningEffort: React.Dispatch<React.SetStateAction<"low" | "medium" | "high" | null>>;
 ```
 
-- [ ] **Step 2: Persist it like `temperature`**
+- [x] **Step 2: Persist it like `temperature`**
 
 In `chatSessionStorage.ts`: add `reasoningEffort: "basic-chat.reasoningEffort"` to `STORAGE_KEYS` (next to the `temperature` entry at line 11). In the load function (around line 48-49, mirroring the `savedTemperature` read), add:
 
@@ -688,11 +688,11 @@ In the save function, add the corresponding param to its type (mirroring line 75
   globalThis.localStorage.setItem(STORAGE_KEYS.reasoningEffort, params.reasoningEffort ?? "");
 ```
 
-- [ ] **Step 3: Wire hydration**
+- [x] **Step 3: Wire hydration**
 
 In `useSessionPersistence.ts`, add `reasoningEffort` to the destructured load result (mirroring line 46) and call `setReasoningEffort(saved.reasoningEffort)` next to `setTemperature(saved.temperature)` (line 66). Add `reasoningEffort` to the save-effect's dependency array and payload (mirroring lines 194 and 199).
 
-- [ ] **Step 4: Write the failing test for the request body**
+- [x] **Step 4: Write the failing test for the request body**
 
 In `tests/unit/buildChatRequest.test.ts`, add:
 
@@ -706,12 +706,12 @@ it("includes reasoning_effort in the request body when set, omits it when null",
 });
 ```
 
-- [ ] **Step 5: Run it to verify it fails**
+- [x] **Step 5: Run it to verify it fails**
 
 Run: `npx vitest run tests/unit/buildChatRequest.test.ts`
 Expected: FAIL (`buildChatFetchOptions` doesn't accept a 7th argument yet).
 
-- [ ] **Step 6: Implement**
+- [x] **Step 6: Implement**
 
 In `buildChatRequest.ts`, change the `buildChatFetchOptions` signature to add the parameter and include it conditionally in the body:
 
@@ -746,23 +746,23 @@ export function buildChatFetchOptions(
 }
 ```
 
-- [ ] **Step 7: Thread `reasoningEffort` through `useSendMessage.ts`**
+- [x] **Step 7: Thread `reasoningEffort` through `useSendMessage.ts`**
 
 Add `reasoningEffort` to `UseSendMessageArgs` in `useSendMessageTypes.ts` (mirroring `temperature: number;` at line 24) as `reasoningEffort: "low" | "medium" | "high" | null;`. In `useSendMessage.ts`, destructure it from the hook args (line 23, next to `temperature`), pass it as the 7th argument at both `buildChatFetchOptions` call sites (lines 106 and 223), and add it to the `useCallback` dependency array (line 291, next to `temperature`).
 
 In `BasicChatPageClient.tsx` (line 42 area, where `temperature: sessionsHook.temperature` is passed into the `useSendMessage` args object), add `reasoningEffort: sessionsHook.reasoningEffort,`.
 
-- [ ] **Step 8: Run the test to verify it passes**
+- [x] **Step 8: Run the test to verify it passes**
 
 Run: `npx vitest run tests/unit/buildChatRequest.test.ts`
 Expected: PASS.
 
-- [ ] **Step 9: Run full typecheck**
+- [x] **Step 9: Run full typecheck**
 
 Run: `npx tsc --noEmit --pretty false`
 Expected: 0 errors (this touches many files' signatures — this step catches any missed call site).
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/hooks/ src/app/\(dashboard\)/dashboard/basic-chat/BasicChatPageClient.tsx
@@ -777,7 +777,7 @@ git commit -m "feat: add reasoning-effort state, persistence, and wire it into c
 **Interfaces:**
 - Consumes: `reasoningEffort`/`setReasoningEffort` from `sessionsHook` (Task 3.1).
 
-- [ ] **Step 1: Replace the plain model-name `<span>` with a popover-triggering button**
+- [x] **Step 1: Replace the plain model-name `<span>` with a popover-triggering button**
 
 In `ChatComposer.tsx`, destructure `reasoningEffort, setReasoningEffort` from `sessionsHook` (line 20-22). Replace the existing model-name span (line 83-85):
 
@@ -815,16 +815,16 @@ with a `Popover` (import `Popover, PopoverContent, PopoverTrigger` from `@/compo
 
 (Model *switching* stays on the existing `ChatModelPickerModal`, opened elsewhere in the top bar — this popover only adds the effort control next to the model's display name, matching the reference screenshot's "Model / Effort" two-row popover minus the redundant model-switch row, since that already exists via `ChatTopBar.tsx`.)
 
-- [ ] **Step 2: Manually verify in the browser**
+- [x] **Step 2: Manually verify in the browser**
 
 Click the model name in the composer — confirm the Low/Medium/High popover opens, selecting one shows `· high` (etc.) next to the model name, and clicking the same level again clears it back to no suffix.
 
-- [ ] **Step 3: Run lint and typecheck**
+- [x] **Step 3: Run lint and typecheck**
 
 Run: `npx eslint "src/app/(dashboard)/dashboard/basic-chat/sections/ChatComposer.tsx" && npx tsc --noEmit --pretty false`
 Expected: 0 errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatComposer.tsx
