@@ -142,6 +142,7 @@ export async function runToolCallLoop(
             signal,
             enabledToolNames,
             mcpServers: session.mcpServers,
+            sessionId: session.id,
             webSearchMaxResults: pluginSettings.webSearchMaxResults,
             webFetchMaxCharacters: pluginSettings.webFetchMaxCharacters,
           });
