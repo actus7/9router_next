@@ -36,7 +36,7 @@ export function PreviewModal({
           <div className="rounded-lg bg-muted p-3 text-sm text-text-muted">
             <p className="truncate"><span className="font-medium text-text-main">{translate("Assessed by:")}</span> {preview.classifierModel}</p>
             <p className="mt-1"><span className="font-medium text-text-main">{translate("Web research:")}</span> {preview.webResearchUsed ? `${translate("yes, via")} ${preview.researchProvider}` : translate("unavailable; used a conservative estimate")}</p>
-            {preview.truncated && <p className="mt-1 text-warning-foreground">{translate("There were more models than this round's limit; the rest were not reassessed now.")}</p>}
+            {preview.truncated && <p className="mt-1 text-warning">{translate("There were more models than this round's limit; the rest were not reassessed now.")}</p>}
           </div>
           <p className="text-xs text-text-muted">{translate("Organized by complexity level")} ({translate("up to")} {MAX_SUGGESTIONS_PER_TIER} {translate("models per tier")}). {translate("On confirm, this list replaces what is in the \"Default routing\" board above.")}</p>
           <div className="grid max-h-[55vh] gap-3 overflow-y-auto custom-scrollbar sm:grid-cols-2 lg:grid-cols-4">

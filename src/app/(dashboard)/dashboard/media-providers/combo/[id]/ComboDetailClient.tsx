@@ -282,7 +282,7 @@ export default function ComboDetailClient({
             <code className="text-lg font-semibold font-mono">{combo.name}</code>
           </div>
         </div>
-        <Button variant="outline" icon={<Trash2 className="size-4" />} onClick={() => setShowDeleteConfirm(true)} className="text-destructive-foreground border-destructive-border hover:bg-destructive">
+        <Button variant="outline" icon={<Trash2 className="size-4" />} onClick={() => setShowDeleteConfirm(true)} className="text-destructive border-destructive-border hover:bg-destructive hover:text-destructive-foreground">
           Delete
         </Button>
       </div>
@@ -345,7 +345,7 @@ export default function ComboDetailClient({
                     <Button variant="ghost" size="icon-sm" onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={idx === providers.length - 1 ? "text-text-muted/20" : ""} title="Move down">
                       <ArrowDown className="size-4" />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveProvider(idx)} className="text-destructive-foreground hover:bg-destructive" title="Remove">
+                    <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveProvider(idx)} className="text-destructive hover:bg-destructive hover:text-destructive-foreground" title="Remove">
                       <X className="size-4" />
                     </Button>
                   </div>

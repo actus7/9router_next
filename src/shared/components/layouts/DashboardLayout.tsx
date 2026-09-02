@@ -15,7 +15,7 @@ type ToastType = "success" | "error" | "warning" | "info";
 function getToastStyle(type: ToastType) {
   if (type === "success") {
     return {
-      wrapper: "border-success-border/30 bg-success/10 text-success-foreground",
+      wrapper: "border-success-border/30 bg-success/10 text-success",
       icon: <CheckCircle className="size-[18px] leading-5" />,
     };
   }
@@ -27,12 +27,12 @@ function getToastStyle(type: ToastType) {
   }
   if (type === "warning") {
     return {
-      wrapper: "border-warning-border/30 bg-warning/10 text-warning-foreground",
+      wrapper: "border-warning-border/30 bg-warning/10 text-warning",
       icon: <TriangleAlert className="size-[18px] leading-5" />,
     };
   }
   return {
-    wrapper: "border-info-border/30 bg-info/10 text-info-foreground",
+    wrapper: "border-info-border/30 bg-info/10 text-info",
     icon: <Info className="size-[18px] leading-5" />,
   };
 }

@@ -264,7 +264,7 @@ export default function TranslatorClient() {
                   <span className="text-xs font-mono text-text-muted/60 w-4">{step.id}</span>
                   <h3 className="text-sm font-semibold text-text-main">{translate(step.label)}</h3>
                   <span className="text-xs text-text-muted/60 font-mono">{step.file}</span>
-                  {content && <span className="text-xs text-success-foreground">({content.length} chars)</span>}
+                  {content && <span className="text-xs text-success">({content.length} chars)</span>}
                 </Button>
                 {!isExpanded && (
                   <div className="flex gap-1 shrink-0">

@@ -31,7 +31,7 @@ export default function OneByOneSummaryBar({
         <span>Passed: {summary.passed}</span>
         <span>Failed: {summary.failed}</span>
         {summary.stopped && (
-          <span className="text-warning-foreground dark:text-warning-foreground">Stopped</span>
+          <span className="text-warning">Stopped</span>
         )}
         {running && currentConnectionId && (
           <span>Running: {connections.find((conn) => conn.id === currentConnectionId)?.name || currentConnectionId}</span>

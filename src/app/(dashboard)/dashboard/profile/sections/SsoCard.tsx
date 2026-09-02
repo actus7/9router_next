@@ -141,13 +141,13 @@ export default function SsoCard({
           )}
 
           {settings.authMode === "oidc" || settings.authMode === "saml" || settings.authMode === "sso" ? (
-            <p className="text-xs sm:text-sm text-warning-foreground dark:text-warning-foreground">
+            <p className="text-xs sm:text-sm text-warning">
               {translate("SSO login")} ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) {translate("is currently active. Password login is disabled until you change back.")}
             </p>
           ) : null}
 
           {settings.authMode === "both" && (
-            <p className="text-xs sm:text-sm text-warning-foreground dark:text-warning-foreground">
+            <p className="text-xs sm:text-sm text-warning">
               {translate("Password login and SSO")} ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) {translate("are both active.")}
             </p>
           )}

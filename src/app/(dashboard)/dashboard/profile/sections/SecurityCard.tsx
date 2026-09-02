@@ -85,7 +85,7 @@ export default function SecurityCard({
             </div>
 
             {passStatus.message && (
-              <p className={`text-xs sm:text-sm ${passStatus.type === "error" ? "text-destructive-foreground" : "text-success-foreground"}`}>
+              <p className={`text-xs sm:text-sm ${passStatus.type === "error" ? "text-destructive" : "text-success"}`}>
                 {passStatus.message}
               </p>
             )}

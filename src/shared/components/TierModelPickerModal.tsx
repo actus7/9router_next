@@ -67,10 +67,24 @@ export default function TierModelPickerModal({ isOpen, onClose, onSelect, title,
     const isUsed = addedModelValues.includes(model.value);
     const badge = priceTierBadge(priceByModel[model.value]);
     return (
-      <button key={model.value} type="button" disabled={isUsed} onClick={() => onSelect(model.value)} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors", isUsed ? "cursor-not-allowed opacity-50" : "hover:bg-muted")}>
-        {!selectedProviderId && <ProviderIcon providerId={providerId} alt={model.name} size={20} fallbackText={providerId.slice(0, 2).toUpperCase()} />}
-        <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-text-main">{model.name}</p><p className="truncate text-xs text-text-muted">{priceLine(priceByModel[model.value])}</p></div>
-        {isUsed ? <span className="shrink-0 text-xs text-text-muted">{translate("already used") || "already used"}</span> : badge ? <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", badge.className)}>{badge.label}</span> : null}
+      <button key={model.value} type="button" disabled={isUsed} onClick={() => onSelect(model.value)} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors", isUsed ? "cursor-not-allowed opacity-50" : "hover:bg-muted/70")}>
+        {!selectedProviderId && (
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60">
+            <ProviderIcon providerId={providerId} alt={model.name} size={16} fallbackText={providerId.slice(0, 2).toUpperCase()} />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-text-main">{model.name}</p>
+          <p className="truncate text-[11px] font-mono tracking-tight text-text-muted/80 tabular-nums">{priceLine(priceByModel[model.value])}</p>
+        </div>
+        {isUsed ? (
+          <span className="shrink-0 text-xs text-text-muted">{translate("already used") || "already used"}</span>
+        ) : badge ? (
+          <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-text-muted">
+            <span className={cn("size-1.5 rounded-full", badge.dotClassName)} />
+            {badge.label}
+          </span>
+        ) : null}
       </button>
     );
   };
@@ -83,14 +97,20 @@ export default function TierModelPickerModal({ isOpen, onClose, onSelect, title,
           <Button onClick={onClose} aria-label={translate("Close") || "Close"} variant="ghost" size="icon-sm" className="shrink-0"><X className="size-5" /></Button>
         </div>
         <div className="border-b border-border-subtle p-4">
-          <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" /><Input type="text" placeholder={translate("Search by model or provider...") || "Search by model or provider..."} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" /></div>
+          <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-text-muted" /><Input type="text" placeholder={translate("Search by model or provider...") || "Search by model or provider..."} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-10 rounded-lg pl-10" /></div>
         </div>
         <div className="flex max-h-[60vh] min-h-0">
           <ProviderSidebar sortedProviderIds={sortedProviderIds} groups={groups} selectedProviderId={selectedProviderId} totalCount={totalCount} onSelect={setSelectedProviderId} />
           <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
             {selectedProviderId ? (flatModelsSorted || []).map((m) => renderModelRow(selectedProviderId, m)) : visibleGroups.map(([pid, g]) => (
               <div key={pid} className="mb-3">
-                <div className="sticky top-0 flex items-center gap-1.5 bg-surface px-3 py-1.5 text-xs font-medium text-text-muted"><ProviderIcon providerId={pid} alt={g.name} size={14} fallbackText={pid.slice(0, 2).toUpperCase()} /><span className="uppercase">{g.name}</span><span>· {g.models.length}</span></div>
+                <div className="sticky top-0 z-10 flex items-center gap-2 bg-surface px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                    <ProviderIcon providerId={pid} alt={g.name} size={12} fallbackText={pid.slice(0, 2).toUpperCase()} />
+                  </span>
+                  <span>{g.name}</span>
+                  <span className="ml-auto rounded-full bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal tabular-nums text-text-muted">{g.models.length}</span>
+                </div>
                 {g.models.map((m) => renderModelRow(pid, m))}
               </div>
             ))}

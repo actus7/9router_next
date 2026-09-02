@@ -89,7 +89,7 @@ export default function BulkAddForm({
         onChange={(e) => setBulkText(e.target.value)}
       />
       {bulkResult && (
-        <div className={`text-sm font-medium ${bulkResult.failed > 0 ? "text-warning-foreground" : "text-success-foreground"}`}>
+        <div className={`text-sm font-medium ${bulkResult.failed > 0 ? "text-warning" : "text-success"}`}>
           ✓ {bulkResult.success} added{bulkResult.failed > 0 ? `, ✗ ${bulkResult.failed} failed` : ""}
         </div>
       )}

@@ -94,7 +94,7 @@ export default function LocalModeCard({
           />
         </div>
         {dbStatus.message && (
-          <p className={`text-sm ${dbStatus.type === "error" ? "text-destructive-foreground" : "text-success-foreground dark:text-success-foreground"}`}>
+          <p className={`text-sm ${dbStatus.type === "error" ? "text-destructive" : "text-success"}`}>
             {dbStatus.message}
           </p>
         )}

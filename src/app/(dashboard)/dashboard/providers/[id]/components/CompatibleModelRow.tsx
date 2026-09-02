@@ -17,11 +17,12 @@ interface CompatibleModelRowProps {
 
 export default function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, testStatus, isTesting }: CompatibleModelRowProps) {
   const borderColor = testStatus === "ok" ? "border-success-border" : testStatus === "error" ? "border-destructive-border" : "border-border";
-  const iconColor = testStatus === "ok" ? "#22c55e" : testStatus === "error" ? "#ef4444" : undefined;
+  const statusTint = testStatus === "ok" ? "bg-success/5" : testStatus === "error" ? "bg-destructive/5" : "";
+  const iconColorClass = testStatus === "ok" ? "text-success" : testStatus === "error" ? "text-destructive" : "text-text-muted";
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg border ${borderColor} hover:bg-sidebar/50`}>
-      <span className="text-base text-text-muted" style={iconColor ? { color: iconColor } : undefined}>
+    <div className={`flex items-center gap-3 p-3 rounded-lg border ${borderColor} ${statusTint} hover:bg-sidebar/50`}>
+      <span className={`flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60 ${iconColorClass}`}>
         {testStatus === "ok" ? <CheckCircle2 className="size-4" /> : testStatus === "error" ? <X className="size-4" /> : <Bot className="size-4" />}
       </span>
       <div className="flex-1 min-w-0">
@@ -50,7 +51,7 @@ export default function CompatibleModelRow({ modelId, fullModel, copied, onCopy,
           )}
         </div>
       </div>
-      <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-destructive-foreground hover:bg-destructive hover:text-destructive-foreground" title="Remove model">
+      <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-destructive hover:bg-destructive hover:text-destructive-foreground" title="Remove model">
         <Trash2 className="size-4" />
       </Button>
     </div>

@@ -54,8 +54,8 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
           </div>
           <p className="text-xs text-text-muted mt-1">{translate("Sent to provider as:")} <code className="font-mono bg-sidebar px-1 rounded">{stripProviderAlias(modelId.trim(), providerAlias) || "model-id"}</code></p>
         </div>
-        {testStatus === "ok" && <div className="flex items-center gap-2 text-sm text-success-foreground"><CheckCircle2 className="size-4" />{translate("Model is reachable")}</div>}
-        {testStatus === "error" && <div className="flex items-start gap-2 text-sm text-destructive-foreground"><XCircle className="size-4" /><span>{testError || translate("Model is not reachable")}</span></div>}
+        {testStatus === "ok" && <div className="flex items-center gap-2 text-sm text-success"><CheckCircle2 className="size-4" />{translate("Model is reachable")}</div>}
+        {testStatus === "error" && <div className="flex items-start gap-2 text-sm text-destructive"><XCircle className="size-4" /><span>{testError || translate("Model is not reachable")}</span></div>}
         <div className="flex gap-2 pt-1">
           <Button onClick={onClose} variant="ghost" fullWidth size="sm">{translate("Cancel")}</Button>
           <Button onClick={handleSave} fullWidth size="sm" disabled={!modelId.trim() || saving}>{saving ? translate("Adding...") : translate("Add Model")}</Button>

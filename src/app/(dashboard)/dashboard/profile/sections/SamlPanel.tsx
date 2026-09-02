@@ -308,13 +308,13 @@ export default function SamlPanel({
       </div>
 
       {samlTestStatus.message && (
-        <p className={`text-xs sm:text-sm ${samlTestStatus.type === "error" ? "text-destructive-foreground" : "text-success-foreground"}`}>
+        <p className={`text-xs sm:text-sm ${samlTestStatus.type === "error" ? "text-destructive" : "text-success"}`}>
           {samlTestStatus.message}
         </p>
       )}
 
       {samlStatus.message && (
-        <p className={`text-xs sm:text-sm ${samlStatus.type === "error" ? "text-destructive-foreground" : "text-success-foreground"}`}>
+        <p className={`text-xs sm:text-sm ${samlStatus.type === "error" ? "text-destructive" : "text-success"}`}>
           {samlStatus.message}
         </p>
       )}

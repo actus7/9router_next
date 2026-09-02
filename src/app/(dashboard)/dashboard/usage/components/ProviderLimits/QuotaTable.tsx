@@ -50,7 +50,7 @@ function formatResetTimeDisplay(resetTime: string | null | undefined) {
 function getColorClasses(remainingPercentage: number) {
   if (remainingPercentage > 70) {
     return {
-      text: "text-success-foreground dark:text-success-foreground",
+      text: "text-success",
       bg: "bg-success",
       bgLight: "bg-success",
       emoji: "🟢",
@@ -59,7 +59,7 @@ function getColorClasses(remainingPercentage: number) {
 
   if (remainingPercentage >= 30) {
     return {
-      text: "text-warning-foreground dark:text-warning-foreground",
+      text: "text-warning",
       bg: "bg-warning",
       bgLight: "bg-warning",
       emoji: "🟡",
@@ -67,7 +67,7 @@ function getColorClasses(remainingPercentage: number) {
   }
 
   return {
-    text: "text-destructive-foreground dark:text-destructive-foreground",
+    text: "text-destructive",
     bg: "bg-destructive",
     bgLight: "bg-destructive",
     emoji: "🔴",

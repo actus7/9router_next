@@ -58,10 +58,10 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }: Bul
       <div className="flex flex-col gap-4">
         <p className="text-xs text-text-muted">{translate("Paste an array of codex account JSON objects. Each must include accessToken (and ideally refreshToken, idToken).")}</p>
         <Textarea className="font-mono min-h-[240px]" placeholder={PLACEHOLDER} value={jsonText} onChange={(e) => setJsonText(e.target.value)} disabled={submitting} />
-        {parseError && <p className="text-xs text-destructive-foreground break-words">{parseError}</p>}
+        {parseError && <p className="text-xs text-destructive break-words">{parseError}</p>}
         {result && (
           <div className="flex flex-col gap-2">
-            <div className={`text-sm font-medium ${result.failed > 0 ? "text-warning-foreground" : "text-success-foreground"}`}>
+            <div className={`text-sm font-medium ${result.failed > 0 ? "text-warning" : "text-success"}`}>
               ✓ {result.success} {translate("added")}{result.failed > 0 ? `, ✗ ${result.failed} ${translate("failed")}` : ""}
             </div>
             {failedItems.length > 0 && (

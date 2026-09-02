@@ -19,13 +19,14 @@ interface CardModelRowProps {
 
 export default function CardModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting }: CardModelRowProps) {
   const borderColor = testStatus === "ok" ? "border-success-border" : testStatus === "error" ? "border-destructive-border" : "border-border";
-  const iconColor = testStatus === "ok" ? "#22c55e" : testStatus === "error" ? "#ef4444" : undefined;
+  const statusTint = testStatus === "ok" ? "bg-success/5" : testStatus === "error" ? "bg-destructive/5" : "";
+  const iconColorClass = testStatus === "ok" ? "text-success" : testStatus === "error" ? "text-destructive" : "text-text-muted";
 
   return (
-    <div className={`group px-3 py-2 rounded-lg border ${borderColor} hover:bg-sidebar/50`}>
+    <div className={`group px-3 py-2 rounded-lg border ${borderColor} ${statusTint} hover:bg-sidebar/50`}>
       <div className="flex items-center gap-2">
-        <span className="text-base" style={iconColor ? { color: iconColor } : undefined}>
-          {testStatus === "ok" ? <CheckCircle2 className="size-4" /> : testStatus === "error" ? <X className="size-4" /> : <Bot className="size-4" />}
+        <span className={`flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/60 ${iconColorClass}`}>
+          {testStatus === "ok" ? <CheckCircle2 className="size-3.5" /> : testStatus === "error" ? <X className="size-3.5" /> : <Bot className="size-3.5" />}
         </span>
         <div className="flex flex-col gap-1">
           <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>
@@ -51,9 +52,14 @@ export default function CardModelRow({ model, fullModel, copied, onCopy, testSta
             {copied === `model-${model.id}` ? "Copied!" : "Copy"}
           </span>
         </div>
-        {isFree && <span className="text-[10px] font-bold text-success-foreground bg-success px-1.5 py-0.5 rounded">FREE</span>}
+        {isFree && (
+          <span className="flex items-center gap-1 text-[10px] font-medium text-text-muted">
+            <span className="size-1.5 rounded-full bg-success" />
+            FREE
+          </span>
+        )}
         {isCustom && (
-          <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-destructive-foreground opacity-0 group-hover:opacity-100 ml-auto" title="Remove custom model">
+          <Button variant="ghost" size="icon-sm" onClick={onDeleteAlias} className="text-destructive opacity-0 group-hover:opacity-100 ml-auto" title="Remove custom model">
             <X className="size-4" />
           </Button>
         )}

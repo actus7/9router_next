@@ -241,7 +241,7 @@ export default function EndpointModals({
           {/* Installed: show Connect button */}
           {tsInstalled === true && !tsInstalling && (
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm text-success-foreground dark:text-success-foreground">
+              <div className="flex items-center gap-2 text-sm text-success">
                 <CheckCircle2 className="size-4" />
                 {translate("Tailscale installed") || "Tailscale installed"}
               </div>

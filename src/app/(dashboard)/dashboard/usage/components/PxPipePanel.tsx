@@ -35,7 +35,7 @@ export default function PxPipePanel({ pxpipe }: Props) {
           </div>
           <div>
             <span className="text-text-muted block text-xs">Economizado</span>
-            <span className="font-mono text-success-foreground">{pxpipe.savedPct || 0}%</span>
+            <span className="font-mono text-success">{pxpipe.savedPct || 0}%</span>
           </div>
           <div>
             <span className="text-text-muted block text-xs">Imagens</span>

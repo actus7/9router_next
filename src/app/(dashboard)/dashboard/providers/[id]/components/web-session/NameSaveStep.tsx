@@ -165,8 +165,8 @@ export default function NameSaveStep({
           aria-live="polite"
           className={`flex items-center gap-2 rounded-lg border p-3 text-xs ${
             validationResult === "success"
-              ? "border-success/30 bg-success/5 text-success-foreground"
-              : "border-warning/30 bg-warning/5 text-warning-foreground"
+              ? "border-success/30 bg-success/5 text-success"
+              : "border-warning/30 bg-warning/5 text-warning"
           }`}
         >
           {validationResult === "success" ? (

@@ -221,7 +221,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => pools.handleDelete(pool)}
-                    className="text-destructive-foreground hover:bg-destructive hover:text-destructive-foreground"
+                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     title={translate("Delete") ?? undefined}
                   >
                     <Trash2 className="size-5" />

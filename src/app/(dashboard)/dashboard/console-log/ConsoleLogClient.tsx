@@ -8,17 +8,17 @@ import { Trash2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 
 const LOG_LEVEL_COLORS: Record<string, string> = {
-  LOG: "text-success-foreground",
-  INFO: "text-info-foreground",
-  WARN: "text-warning-foreground",
-  ERROR: "text-destructive-foreground",
+  LOG: "text-success",
+  INFO: "text-info",
+  WARN: "text-warning",
+  ERROR: "text-destructive",
   DEBUG: "text-purple-400",
 };
 
 function colorLine(line: string) {
   const match = line.match(/\[(\w+)\]/g);
   const levelTag = match ? match[1]?.replace(/\[|\]/g, "") : null;
-  const color = LOG_LEVEL_COLORS[levelTag ?? ""] || "text-success-foreground";
+  const color = LOG_LEVEL_COLORS[levelTag ?? ""] || "text-success";
   return <span className={color}>{line}</span>;
 }
 

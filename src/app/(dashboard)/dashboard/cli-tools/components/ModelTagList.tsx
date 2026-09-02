@@ -53,7 +53,7 @@ export function ModelTagList({
             {selectedModels.length > 0 && activeModel ? (
               <>Active: <span className="text-primary">{activeModel}</span></>
             ) : selectedModels.length > 0 ? (
-              <span className="text-warning-foreground">Click a model to set/clear active</span>
+              <span className="text-warning">Click a model to set/clear active</span>
             ) : (
               "Select models to add"
             )}

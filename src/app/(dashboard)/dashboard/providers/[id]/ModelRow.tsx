@@ -28,20 +28,23 @@ export default function ModelRow({ model, fullModel, alias: _alias, copied, onCo
     ? "border-destructive-border"
     : "border-border";
 
-  const iconColor = testStatus === "ok"
-    ? "#22c55e"
+  const statusTint = testStatus === "ok"
+    ? "bg-success/5"
     : testStatus === "error"
-    ? "#ef4444"
-    : undefined;
+    ? "bg-destructive/5"
+    : "";
+
+  const iconColorClass = testStatus === "ok"
+    ? "text-success"
+    : testStatus === "error"
+    ? "text-destructive"
+    : "text-text-muted";
 
   return (
-    <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 transition-colors ${borderColor} hover:bg-sidebar/50`}>
+    <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 transition-colors ${borderColor} ${statusTint} hover:bg-sidebar/50`}>
       <div className="flex min-w-0 items-start gap-2.5 sm:items-center">
-        <span
-          className="shrink-0 text-base"
-          style={iconColor ? { color: iconColor } : undefined}
-        >
-          {testStatus === "ok" ? <CheckCircle2 className="size-4" /> : testStatus === "error" ? <X className="size-4" /> : <Bot className="size-4" />}
+        <span className={`flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/60 ${iconColorClass}`}>
+          {testStatus === "ok" ? <CheckCircle2 className="size-3.5" /> : testStatus === "error" ? <X className="size-3.5" /> : <Bot className="size-3.5" />}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <code className="max-w-[52vw] truncate font-mono text-xs font-medium text-text-main sm:max-w-[260px]">{displayModel}</code>
@@ -87,7 +90,7 @@ export default function ModelRow({ model, fullModel, alias: _alias, copied, onCo
             variant="ghost"
             size="icon-xs"
             onClick={onDeleteAlias}
-            className="ml-auto text-destructive-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+            className="ml-auto text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
             title="Remove custom model"
           >
             <X className="size-4" />
@@ -97,7 +100,7 @@ export default function ModelRow({ model, fullModel, alias: _alias, copied, onCo
             variant="ghost"
             size="icon-xs"
             onClick={onDisable}
-            className="ml-auto text-destructive-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
+            className="ml-auto text-destructive opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground"
             title="Disable this model"
           >
             <X className="size-4" />
