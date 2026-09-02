@@ -1,6 +1,6 @@
 import "server-only";
 import { lookup } from "node:dns/promises";
-import { Agent, type Dispatcher } from "undici";
+import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { assertPublicUrl, isBlockedIpAddress } from "@/shared/utils/ssrfGuard";
 
 const MCP_PROTOCOL_VERSION = "2025-06-18";
@@ -83,7 +83,11 @@ async function rpc(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MCP_TIMEOUT_MS);
   try {
-    const response = await fetch(url, {
+    // Uses undici's own fetch (not Node's global fetch) so the Dispatcher we
+    // pass is guaranteed to be the same class/version it expects — mixing
+    // Node's internal undici (global fetch) with the npm undici package's
+    // Agent throws "invalid onRequestStart method" (version mismatch).
+    const response = await undiciFetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -95,7 +99,6 @@ async function rpc(
       body: JSON.stringify(body),
       signal: controller.signal,
       redirect: "error",
-      // @ts-expect-error -- `dispatcher` is an undici-specific fetch extension pinning the connection to the DNS-validated IP; not in the standard lib.dom fetch types.
       dispatcher,
     });
     if (!response.ok) {
