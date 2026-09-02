@@ -18,7 +18,9 @@ export const metadata: Metadata = {
   description:
     "One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.",
   icons: {
-    icon: "/favicon.svg",
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/apple-icon.png",
   },
 };
 
