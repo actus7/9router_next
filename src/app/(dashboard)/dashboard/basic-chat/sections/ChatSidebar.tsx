@@ -13,7 +13,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Archive, ArchiveRestore, CheckCircle2, Download, FolderKanban, GripVertical, Pencil, Plus, Search, Trash2,
+  Archive, ArchiveRestore, CheckCircle2, Download, FolderKanban, GripVertical, Pencil, Plus, Search, Trash2, X,
 } from "lucide-react";
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { ChatProject, ChatSession } from "../types";
@@ -122,6 +122,7 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
   const [renamingProjectId, setRenamingProjectId] = useState("");
   const [projectTitle, setProjectTitle] = useState("");
   const [projectPendingDeletion, setProjectPendingDeletion] = useState<ChatProject | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const onDragEnd = (event: DragEndEvent) => handleDragEnd(event);
   const startRenameProject = (event: React.MouseEvent, project: ChatProject) => {
@@ -142,8 +143,12 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
       <div className="shrink-0 border-b border-border px-3 py-2.5">
         <div className="mb-1.5 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{translate("Projects") || "Projects"}</h2>
-          <IconActionButton tooltip={translate("Create project") || "Create project"} onClick={() => setIsCreatingProject((value) => !value)} className="size-7">
-            <Plus className="size-3.5" />
+          <IconActionButton
+            tooltip={isCreatingProject ? (translate("Cancel") || "Cancel") : (translate("Create project") || "Create project")}
+            onClick={() => setIsCreatingProject((value) => !value)}
+            className="size-7"
+          >
+            {isCreatingProject ? <X className="size-3.5" /> : <Plus className="size-3.5" />}
           </IconActionButton>
         </div>
         {isCreatingProject ? (
@@ -234,15 +239,36 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
       </div>
 
       <div className="shrink-0 border-b border-border px-3 py-2">
-        <div className="relative">
-          <Search aria-hidden="true" className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={historySearch}
-            onChange={(e) => setHistorySearch(e.target.value)}
-            placeholder={translate("Search...") || "Search..."}
-            className="h-7 pl-7 text-xs"
-          />
-        </div>
+        {isSearchOpen ? (
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex-1">
+              <Search aria-hidden="true" className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                autoFocus
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder={translate("Search...") || "Search..."}
+                className="h-7 pl-7 text-xs"
+              />
+            </div>
+            <IconActionButton
+              tooltip={translate("Close search") || "Close search"}
+              onClick={() => { setIsSearchOpen(false); setHistorySearch(""); }}
+              className="size-7"
+            >
+              <X className="size-3.5" />
+            </IconActionButton>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(true)}
+            className="flex items-center gap-1.5 rounded-md px-1 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Search className="size-3.5" />
+            {translate("Search") || "Search"}
+          </button>
+        )}
       </div>
 
       {selectedSessionCount > 0 && (
