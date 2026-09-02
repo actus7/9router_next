@@ -8,10 +8,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { translate } from "@/i18n/runtime";
 import { ArrowUp, ListTree, LogIn, LogOut, Paperclip, StopCircle, X } from "lucide-react";
 import { getPuterAuthStatus, isPuterBrowserModel, signInToPuter, signOutOfPuter } from "../puterBrowser";
+import { getRuntimeToolDefinitions } from "@/shared/harness/agentPlugins";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import type { UseSendMessageReturn } from "../hooks/useSendMessage";
 import ChatCommandsMenu from "./ChatCommandsMenu";
 import ChatUsageBar from "./ChatUsageBar";
+import { estimateContextUsage } from "./contextUsageEstimate";
 
 interface ChatComposerProps {
   sessionsHook: UseChatSessionsReturn;
@@ -22,9 +24,15 @@ interface ChatComposerProps {
 export default function ChatComposer({ sessionsHook, sendHook, loadingData }: ChatComposerProps) {
   const {
     draft, setDraft, attachments, removeAttachment, fileInputRef, handleAttachFiles, activeModel, currentSession, updateSession,
-    reasoningEffort, setReasoningEffort,
+    reasoningEffort, setReasoningEffort, systemPrompt,
   } = sessionsHook;
   const { handleKeyDown, isSending, handleStop, canSend, canQueue, queuedMessage, sendMessage, queueMessage, handleExportConversation } = sendHook;
+
+  const contextUsage = estimateContextUsage(
+    currentSession?.messages ?? [],
+    systemPrompt,
+    JSON.stringify(getRuntimeToolDefinitions(currentSession?.agentPresetId, currentSession?.pluginOverrides)),
+  );
 
   const isPuterModel = !!activeModel && isPuterBrowserModel(activeModel);
   const [puterAuth, setPuterAuth] = useState<{ isSignedIn: boolean; username?: string } | null>(null);
@@ -109,6 +117,24 @@ export default function ChatComposer({ sessionsHook, sendHook, loadingData }: Ch
                       {level}
                     </button>
                   ))}
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground">
+                  {contextUsage.percentUsed < 1 ? "<1" : contextUsage.percentUsed.toFixed(0)}% {translate("of context used") || "of context used"}
+                </PopoverTrigger>
+                <PopoverContent className="w-64" align="start">
+                  <p className="mb-2 text-xs font-medium">
+                    {contextUsage.percentUsed.toFixed(0)}% {translate("of context used") || "of context used"} — ~{(contextUsage.totalTokens / 1000).toFixed(1)}K / {(contextUsage.contextWindowTokens / 1000).toFixed(0)}K
+                  </p>
+                  <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div className="h-full bg-primary" style={{ width: `${Math.min(100, contextUsage.percentUsed)}%` }} />
+                  </div>
+                  <dl className="space-y-1 text-[11px]">
+                    <div className="flex justify-between"><dt className="text-muted-foreground">{translate("System prompt") || "System prompt"}</dt><dd>~{(contextUsage.systemPromptTokens / 1000).toFixed(1)}K</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">{translate("Tools") || "Tools"}</dt><dd>~{(contextUsage.toolsTokens / 1000).toFixed(1)}K</dd></div>
+                    <div className="flex justify-between"><dt className="text-muted-foreground">{translate("Messages") || "Messages"}</dt><dd>~{(contextUsage.messagesTokens / 1000).toFixed(1)}K</dd></div>
+                  </dl>
                 </PopoverContent>
               </Popover>
               <Button
