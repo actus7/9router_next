@@ -9,7 +9,6 @@ import { KimchiExecutor } from "./kimchi";
 import { CodexExecutor } from "./codex";
 import { CursorExecutor } from "./cursor";
 import { VertexExecutor } from "./vertex";
-import { OpenCodeExecutor } from "./opencode";
 import { GrokCliExecutor } from "./grok-cli";
 import { CommandCodeExecutor } from "./commandcode";
 import { XiaomiTokenplanExecutor } from "./xiaomi-tokenplan";
@@ -70,7 +69,6 @@ const executors = {
   cu: new CursorExecutor(), // Alias for cursor
   vertex: new VertexExecutor("vertex"),
   "vertex-partner": new VertexExecutor("vertex-partner"),
-  opencode: new OpenCodeExecutor(),
   "grok-cli": new GrokCliExecutor(),
   gcli: new GrokCliExecutor(), // Alias
   gb: new GrokCliExecutor(), // Alias (Grok Build)

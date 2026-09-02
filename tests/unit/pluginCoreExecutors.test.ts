@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { bootstrap, resetContext } from "@/server/plugin-core/context";
 import { executors, getExecutor, hasSpecializedExecutor } from "@/server/llm-gateway/engine/executors";
 import { resetPluginRegistry } from "@/server/plugin-core/pluginRegistry";
+import { OpenCodeExecutor } from "@/server/llm-gateway/engine/executors/opencode";
 
 describe("executors plugin", () => {
   afterEach(async () => {
@@ -43,5 +44,12 @@ describe("executors plugin", () => {
     const override = { execute: async () => ({}) };
     ctx.executors.register("aihorde", override);
     expect(getExecutor("aihorde")).toBe(override);
+  });
+
+  it("opencode resolves through the real opencodePlugin, not a static entry", async () => {
+    await bootstrap();
+    expect(executors).not.toHaveProperty("opencode");
+    expect(getExecutor("opencode")).toBeInstanceOf(OpenCodeExecutor);
+    expect(hasSpecializedExecutor("opencode")).toBe(true);
   });
 });
