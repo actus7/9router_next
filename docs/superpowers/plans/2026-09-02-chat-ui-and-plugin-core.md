@@ -1173,12 +1173,12 @@ This is the largest, most visual phase. The existing `ChatRunJournal.tsx` + `use
 - Consumes: `HarnessEvent` (`types.ts:69-75`, already has `type: string`).
 - Produces: `classifyEventKind(event: HarnessEvent): "system" | "context" | "user" | "assistant" | "tool"`.
 
-- [ ] **Step 1: Confirm the exact event `type` strings already emitted**
+- [x] **Step 1: Confirm the exact event `type` strings already emitted**
 
 Run: `grep -n "recordHarnessEvent(" "src/app/(dashboard)/dashboard/basic-chat/hooks/useSendMessage.ts"`
 Expected output includes exactly these event-type strings: `"user/message"`, `"run/start"`, `"assistant/reasoning"`, `"assistant/message"`, `"tool/call"`, `"tool/result"`, `"run/complete"`, `"run/end"` — use exactly these when writing the classifier below (do not invent new event names).
 
-- [ ] **Step 2: Write the test**
+- [x] **Step 2: Write the test**
 
 Add to `tests/unit/runJournalHelpers.test.ts` (create following the sibling test-file pattern if it doesn't exist yet):
 
@@ -1207,12 +1207,12 @@ describe("classifyEventKind", () => {
 });
 ```
 
-- [ ] **Step 3: Run it to verify it fails**
+- [x] **Step 3: Run it to verify it fails**
 
 Run: `npx vitest run tests/unit/runJournalHelpers.test.ts`
 Expected: FAIL (`classifyEventKind` not exported yet).
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 In `runJournalHelpers.ts`, add:
 
@@ -1231,12 +1231,12 @@ export function classifyEventKind(event: HarnessEvent): EventKind {
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `npx vitest run tests/unit/runJournalHelpers.test.ts`
 Expected: PASS (5 tests).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/runJournalHelpers.ts tests/unit/runJournalHelpers.test.ts
@@ -1251,11 +1251,11 @@ git commit -m "feat: classify harness events into a system/context/user/assistan
 **Interfaces:**
 - Consumes: `classifyEventKind` (Task 7.1), existing `harnessEvents` from `useHarnessEvents.ts` (unchanged).
 
-- [ ] **Step 1: Read the current file in full before editing**
+- [x] **Step 1: Read the current file in full before editing**
 
 Open `src/app/(dashboard)/dashboard/basic-chat/sections/ChatRunJournal.tsx` in the editor. This plan doesn't reproduce its current ~121 lines here since editing in place is more reliable than a from-scratch rewrite; the next two steps describe the change relative to what's there.
 
-- [ ] **Step 2: Add a per-event label chip using the taxonomy**
+- [x] **Step 2: Add a per-event label chip using the taxonomy**
 
 Wherever the file renders one event row (the colored dot + `eventColorClass`), add a small uppercase label chip next to the dot showing the event's kind, styled as a `Badge` (already imported project-wide from `@/components/ui/badge` — confirm the import exists in this file and add it if not):
 
@@ -1267,7 +1267,7 @@ Wherever the file renders one event row (the colored dot + `eventColorClass`), a
 
 Place it immediately before or after the existing colored dot, in the same row, without removing the dot (the dot stays as the fine-grained per-event-type color, the badge adds the coarse taxonomy label from the reference). Import `classifyEventKind` from `../runJournalHelpers` at the top of the file.
 
-- [ ] **Step 3: Replace the raw-JSON expandable body with readable content for the common cases**
+- [x] **Step 3: Replace the raw-JSON expandable body with readable content for the common cases**
 
 Where the current file dumps `JSON.stringify(event.data)` in the expandable row body, add a helper and use it instead:
 
@@ -1289,16 +1289,16 @@ function renderEventContent(event: HarnessEvent): string {
 
 Use `renderEventContent(event)` in place of the raw `JSON.stringify(event.data)` call in the row body.
 
-- [ ] **Step 4: Manually verify in the browser**
+- [x] **Step 4: Manually verify in the browser**
 
 Open the Trajectory/Run Journal panel after a conversation with at least one tool call — confirm each row now shows a taxonomy badge, and `user/message`/`assistant/message`/`tool/call`/`tool/result` rows show readable text instead of raw JSON (other event types still fall back to JSON, which is fine).
 
-- [ ] **Step 5: Run lint and typecheck**
+- [x] **Step 5: Run lint and typecheck**
 
 Run: `npx eslint "src/app/(dashboard)/dashboard/basic-chat/sections/ChatRunJournal.tsx" && npx tsc --noEmit --pretty false`
 Expected: 0 errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatRunJournal.tsx
