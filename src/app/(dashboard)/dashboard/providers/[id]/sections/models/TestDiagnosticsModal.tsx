@@ -45,14 +45,14 @@ export default function TestDiagnosticsModal({
               {translate("Testing...")} ({passed.length + failed.length + cancelled.length}/{testAllModels.results.length})
             </span>
           )}
-          <span className="text-success-foreground">{translate("Passed") || "Passed"}: {passed.length}</span>
-          <span className="text-destructive-foreground">{translate("Failed") || "Failed"}: {failed.length}</span>
-          {cancelled.length > 0 && <span className="text-warning-foreground">Cancelled: {cancelled.length}</span>}
+          <span className="text-success">{translate("Passed") || "Passed"}: {passed.length}</span>
+          <span className="text-destructive">{translate("Failed") || "Failed"}: {failed.length}</span>
+          {cancelled.length > 0 && <span className="text-warning">Cancelled: {cancelled.length}</span>}
           {testAllModels.running && <Button variant="ghost" size="sm" onClick={onCancelTests}>Cancel tests</Button>}
         </div>
         <div className="flex flex-col gap-2">
           {pending.map((r, index) => (
-            <div key={`pending-${r.modelId}-${index}`} className="rounded-lg border border-info-border/30 bg-info/10 px-3 py-2 text-info-foreground">
+            <div key={`pending-${r.modelId}-${index}`} className="rounded-lg border border-info-border/30 bg-info/10 px-3 py-2 text-info">
               <div className="flex items-center gap-2">
                 {r.state === "queued" ? <span className="size-2 shrink-0 rounded-full bg-muted-foreground" /> : <Loader2 className="size-4 shrink-0 animate-spin" />}
                 <code className="truncate text-xs font-mono text-foreground">{r.modelId}</code>
@@ -78,14 +78,14 @@ export default function TestDiagnosticsModal({
             </div>
           ))}
           {cancelled.map((r, index) => (
-            <div key={`cancelled-${r.modelId}-${index}`} className="flex items-center gap-2 rounded-lg border border-warning-border/30 bg-warning/10 px-3 py-2 text-warning-foreground">
+            <div key={`cancelled-${r.modelId}-${index}`} className="flex items-center gap-2 rounded-lg border border-warning-border/30 bg-warning/10 px-3 py-2 text-warning">
               <Ban className="size-4 shrink-0" />
               <code className="truncate text-xs font-mono text-foreground">{r.modelId}</code>
               <span className="ml-auto text-[10px] opacity-80">Cancelled</span>
             </div>
           ))}
           {passed.map((r, index) => (
-            <div key={`passed-${r.modelId}-${index}`} className="flex items-center gap-2 rounded-lg border border-success-border/30 bg-success/10 px-3 py-2 text-success-foreground">
+            <div key={`passed-${r.modelId}-${index}`} className="flex items-center gap-2 rounded-lg border border-success-border/30 bg-success/10 px-3 py-2 text-success">
               <Check className="size-4 shrink-0" />
               <code className="truncate text-xs font-mono text-foreground">{r.modelId}</code>
               {typeof r.latencyMs === "number" && (
