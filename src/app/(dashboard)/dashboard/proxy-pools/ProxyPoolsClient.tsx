@@ -12,7 +12,7 @@ import { useProxyPools } from "./hooks/useProxyPools";
 import { useProxyDeploy } from "./hooks/useProxyDeploy";
 import { useProxyImport } from "./hooks/useProxyImport";
 import ProxyPoolModals from "./sections/ProxyPoolModals";
-import { getStatusVariant, getStatusClassName, formatDateTime } from "./types";
+import { getStatusVariant, formatDateTime } from "./types";
 export type { ProxyPool } from "./types";
 import type { ProxyPool } from "./types";
 
@@ -103,7 +103,7 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
             </Label>
           )}
           <Badge variant="secondary">{translate("Total:") || "Total:"} {pools.proxyPools.length}</Badge>
-          <Badge variant="default" className="bg-success text-success-foreground dark:text-success-foreground">{translate("Active:") || "Active:"} {pools.activeCount}</Badge>
+          <Badge variant="success">{translate("Active:") || "Active:"} {pools.activeCount}</Badge>
         </div>
 
         {(pools.selectedIds.length > 0 || pools.healthChecking) && (
@@ -167,10 +167,10 @@ export default function ProxyPoolsClient({ initialProxyPools }: ProxyPoolsClient
                   <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="min-w-0 max-w-full truncate text-sm font-medium sm:max-w-[18rem]">{pool.name}</p>
-                    <Badge variant={getStatusVariant(pool.testStatus)} className={getStatusClassName(pool.testStatus)}>
+                    <Badge variant={getStatusVariant(pool.testStatus)}>
                       {pool.testStatus || "unknown"}
                     </Badge>
-                    <Badge variant={pool.isActive ? "default" : "secondary"} className={pool.isActive ? "bg-success text-success-foreground dark:text-success-foreground" : undefined}>
+                    <Badge variant={pool.isActive ? "success" : "secondary"}>
                       {pool.isActive ? (translate("Active") || "active") : (translate("Inactive") || "inactive")}
                     </Badge>
                     {pool.type === "vercel" && (

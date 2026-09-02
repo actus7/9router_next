@@ -10,7 +10,7 @@ export function EmbeddingValidationResult({ result }: { result: ValidationResult
   if (result.valid) {
     return (
       <>
-        <Badge variant="default" className="bg-success text-success-foreground dark:text-success-foreground">{translate("Valid") || "Valid"}</Badge>
+        <Badge variant="success">{translate("Valid") || "Valid"}</Badge>
         {result.dimensions && <span className="text-sm text-text-muted">{result.dimensions} {translate("Dimensions") || "Dimensions"}</span>}
       </>
     );
@@ -18,7 +18,7 @@ export function EmbeddingValidationResult({ result }: { result: ValidationResult
   return (
     <div className="flex flex-col gap-1">
       <Badge variant="destructive">{translate("Invalid") || "Invalid"}</Badge>
-      {result.error && <span className="text-sm text-destructive-foreground">{result.error}</span>}
+      {result.error && <span className="text-sm text-destructive">{result.error}</span>}
     </div>
   );
 }

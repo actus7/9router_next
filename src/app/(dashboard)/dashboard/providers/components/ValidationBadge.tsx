@@ -14,7 +14,7 @@ export default function ValidationBadge({ result }: { result: ValidationResult |
   if (valid) {
     return (
       <>
-        <Badge variant="default" className="bg-success text-success-foreground dark:text-success-foreground">Valid</Badge>
+        <Badge variant="success">Valid</Badge>
         {method === "chat" && <span className="text-sm text-text-muted">(via inference test)</span>}
       </>
     );
@@ -22,7 +22,7 @@ export default function ValidationBadge({ result }: { result: ValidationResult |
   return (
     <div className="flex flex-col gap-1">
       <Badge variant="destructive">Invalid</Badge>
-      {error && <span className="text-sm text-destructive-foreground">{error}</span>}
+      {error && <span className="text-sm text-destructive">{error}</span>}
     </div>
   );
 }

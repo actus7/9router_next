@@ -8,7 +8,7 @@ export function getStatusDisplay(connected: number, error: number, errorCode: st
   const parts = [];
   if (connected > 0) {
     parts.push(
-      <Badge key="connected" variant="default" className="bg-success text-success-foreground dark:text-success-foreground">
+      <Badge key="connected" variant="success">
         {connected} {translate("Connected")}
       </Badge>,
     );

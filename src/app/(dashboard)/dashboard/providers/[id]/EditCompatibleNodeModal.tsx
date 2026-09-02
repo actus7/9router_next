@@ -56,7 +56,7 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
           <div className="pt-6"><Button onClick={handleValidate} disabled={!checkKey || validating || !formData.baseUrl.trim()} variant="secondary">{validating ? "Checking..." : "Check"}</Button></div>
         </div>
         <Input label="Model ID (optional)" value={checkModelId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCheckModelId(e.target.value)} placeholder="e.g. my-model-id" hint="If provider lacks /models endpoint, enter a model ID to validate via chat/completions instead." />
-        {validationResult && <Badge variant={validationResult === "success" ? "default" : "destructive"} className={validationResult === "success" ? "bg-success text-success-foreground dark:text-success-foreground" : undefined}>{validationResult === "success" ? "Valid" : "Invalid"}</Badge>}
+        {validationResult && <Badge variant={validationResult === "success" ? "success" : "destructive"}>{validationResult === "success" ? "Valid" : "Invalid"}</Badge>}
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={!formData.name.trim() || !formData.prefix.trim() || !formData.baseUrl.trim() || saving}>{saving ? translate("Saving...") : translate("Save")}</Button>
           <Button onClick={onClose} variant="ghost" fullWidth>{translate("Cancel")}</Button>

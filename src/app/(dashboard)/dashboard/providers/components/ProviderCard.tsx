@@ -59,7 +59,7 @@ export function ProviderCard({ providerId, provider, stats, onToggle, availabili
                     </span>
                   </Badge>
                 ) : isNoAuth ? (
-                  <Badge variant="default" className="bg-success text-success-foreground dark:text-success-foreground">{translate("Ready")}</Badge>
+                  <Badge variant="success">{translate("Ready")}</Badge>
                 ) : (
                   <>
                     {getStatusDisplay(connected, error, errorCode)}

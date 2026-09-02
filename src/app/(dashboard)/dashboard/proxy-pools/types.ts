@@ -18,15 +18,10 @@ export interface ConfirmState {
   onConfirm: () => Promise<void>;
 }
 
-export function getStatusVariant(status?: string): "secondary" | "default" | "destructive" {
-  if (status === "active") return "default";
+export function getStatusVariant(status?: string): "secondary" | "success" | "destructive" {
+  if (status === "active") return "success";
   if (status === "error") return "destructive";
   return "secondary";
-}
-
-export function getStatusClassName(status?: string): string | undefined {
-  if (status === "active") return "bg-green-500/10 text-green-600 dark:text-green-400";
-  return undefined;
 }
 
 export function formatDateTime(value?: string) {
