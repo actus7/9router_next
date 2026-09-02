@@ -182,7 +182,7 @@ Add a compact stats line under the composer, matching the reference: `N turns ·
 **Interfaces:**
 - Produces: `TokenUsage.cached_tokens?: number`, new `MessageTiming { ttftMs: number; totalMs: number }`, `ChatMessage.timing?: MessageTiming`.
 
-- [ ] **Step 1: Add the fields**
+- [x] **Step 1: Add the fields**
 
 In `types.ts`, change:
 
@@ -214,7 +214,7 @@ export interface MessageTiming {
 
 Add `timing?: MessageTiming;` to `ChatMessage`, right after the existing `tokenUsage?: TokenUsage;` line.
 
-- [ ] **Step 2: Parse `cached_tokens` from the stream**
+- [x] **Step 2: Parse `cached_tokens` from the stream**
 
 In `src/app/(dashboard)/dashboard/basic-chat/chatFormatUtils.ts`, change `readStreamUsage` (around line 116-124) to also read the OpenAI-style nested field and the Anthropic-style flat field:
 
@@ -233,7 +233,7 @@ export function readStreamUsage(chunk: Record<string, unknown>): TokenUsage | nu
 }
 ```
 
-- [ ] **Step 3: Write the test**
+- [x] **Step 3: Write the test**
 
 In `tests/unit/chatFormatUtils.test.ts` (create the file if it does not exist yet, following the pattern of other `tests/unit/*.test.ts` files — `import { describe, expect, it } from "vitest";` then `import { readStreamUsage } from "@/app/(dashboard)/dashboard/basic-chat/chatFormatUtils";`), add:
 
@@ -256,12 +256,12 @@ describe("readStreamUsage", () => {
 });
 ```
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Run: `npx vitest run tests/unit/chatFormatUtils.test.ts`
 Expected: PASS (3 new tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/types.ts src/app/\(dashboard\)/dashboard/basic-chat/chatFormatUtils.ts tests/unit/chatFormatUtils.test.ts
@@ -279,11 +279,11 @@ git commit -m "feat: parse provider cache-hit token counts and add message timin
 - Consumes: `MessageTiming` from `types.ts` (Task 1.1).
 - Produces: `StreamTelemetry.timing?: MessageTiming` (new field), `finalizeStreamSuccess(...)` stores it on the message.
 
-- [ ] **Step 1: Extend `StreamTelemetry` and store `timing` on the message**
+- [x] **Step 1: Extend `StreamTelemetry` and store `timing` on the message**
 
 In `finalizeStreamResult.ts`, add `timing?: MessageTiming | null;` to the `StreamTelemetry` interface (import `MessageTiming` from `../types`), and in `finalizeStreamSuccess`, alongside the existing `tokenUsage: telemetry.usage ?? m.tokenUsage` line, add `timing: telemetry.timing ?? m.timing`.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Add to `tests/unit/finalizeStreamResult.test.ts` (if the file doesn't exist, create it importing `finalizeStreamSuccess` the same way existing hook tests import from `hooks/`):
 
@@ -297,12 +297,12 @@ it("stores timing telemetry on the finalized message", () => {
 });
 ```
 
-- [ ] **Step 3: Run it to verify it fails**
+- [x] **Step 3: Run it to verify it fails**
 
 Run: `npx vitest run tests/unit/finalizeStreamResult.test.ts`
 Expected: FAIL (`timing` is `undefined`) if run before Step 1's edit lands. If Step 1 was already applied, this will already PASS — either order is fine as long as both the test and the implementation exist before moving on.
 
-- [ ] **Step 4: Instrument timing capture in `useSendMessage.ts`**
+- [x] **Step 4: Instrument timing capture in `useSendMessage.ts`**
 
 Around line 106 (right before `const fetchOptions = ...`), capture the start time:
 
@@ -336,12 +336,12 @@ Then, where `finalizeStreamSuccess` is called (line 135), compute and pass `timi
       } else {
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `npx vitest run tests/unit/finalizeStreamResult.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/hooks/finalizeStreamResult.ts src/app/\(dashboard\)/dashboard/basic-chat/hooks/useSendMessage.ts tests/unit/finalizeStreamResult.test.ts
@@ -360,7 +360,7 @@ git commit -m "feat: capture time-to-first-token and total turn duration"
 - Consumes: `ChatSession["messages"]` (from `types.ts`, already defined).
 - Produces: `computeUsageBarStats(messages: ChatMessage[]): UsageBarStats | null` (pure function, exported for the test), `<ChatUsageBar messages={...} />` component.
 
-- [ ] **Step 1: Write the pure stats-computation function with its test first**
+- [x] **Step 1: Write the pure stats-computation function with its test first**
 
 Create `src/app/(dashboard)/dashboard/basic-chat/sections/chatUsageBarStats.ts`:
 
@@ -415,7 +415,7 @@ export function computeUsageBarStats(messages: ChatMessage[]): UsageBarStats | n
 }
 ```
 
-- [ ] **Step 2: Write the test**
+- [x] **Step 2: Write the test**
 
 Create `tests/unit/chatUsageBarStats.test.ts`:
 
@@ -458,12 +458,12 @@ describe("computeUsageBarStats", () => {
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it passes**
+- [x] **Step 3: Run the test to verify it passes**
 
 Run: `npx vitest run tests/unit/chatUsageBarStats.test.ts`
 Expected: PASS (4 tests).
 
-- [ ] **Step 4: Build the display component**
+- [x] **Step 4: Build the display component**
 
 Create `src/app/(dashboard)/dashboard/basic-chat/sections/ChatUsageBar.tsx`:
 
@@ -500,7 +500,7 @@ export default function ChatUsageBar({ messages }: ChatUsageBarProps) {
 }
 ```
 
-- [ ] **Step 5: Wire it into `ChatComposer.tsx`**
+- [x] **Step 5: Wire it into `ChatComposer.tsx`**
 
 In `ChatComposer.tsx`, add the import at the top:
 
@@ -519,16 +519,16 @@ import ChatUsageBar from "./ChatUsageBar";
 
 (This replaces the existing bare `</div>\n    </div>` at the end of the file — the new `<ChatUsageBar />` line goes between the two closing divs, matching the outer `shrink-0 border-t ...` wrapper.)
 
-- [ ] **Step 6: Run the full test suite for this task and typecheck**
+- [x] **Step 6: Run the full test suite for this task and typecheck**
 
 Run: `npx vitest run tests/unit/chatUsageBarStats.test.ts tests/unit/finalizeStreamResult.test.ts tests/unit/chatFormatUtils.test.ts && npx tsc --noEmit --pretty false`
 Expected: all PASS, 0 type errors.
 
-- [ ] **Step 7: Manually verify in the browser**
+- [x] **Step 7: Manually verify in the browser**
 
 Start the dev server (`npm run dev`), open `/dashboard/basic-chat`, send a message, and confirm the stats line appears under the composer after the response completes, with plausible numbers (no `NaN`, no `undefined`).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatUsageBar.tsx src/app/\(dashboard\)/dashboard/basic-chat/sections/chatUsageBarStats.ts src/app/\(dashboard\)/dashboard/basic-chat/sections/ChatComposer.tsx tests/unit/chatUsageBarStats.test.ts
