@@ -10,6 +10,10 @@ import {
 } from "../endpointConstants";
 import type { StatusInfo } from "../types";
 
+const LOCAL_ONLY_MESSAGE: string =
+  translate("Cloudflare Tunnel requires a local ModelHub instance — not available on this hosted deployment.") ||
+  "Cloudflare Tunnel requires a local ModelHub instance — not available on this hosted deployment.";
+
 export function useTunnel() {
   const [tunnelChecking, setTunnelChecking] = useState(true);
   const [tunnelEnabled, setTunnelEnabled] = useState(false);
@@ -127,6 +131,10 @@ export function useTunnel() {
     try {
       const res = await fetch("/api/tunnel/enable", { method: "POST" });
       polling = false;
+      if (res.status === 403) {
+        setTunnelStatus({ type: "info", message: LOCAL_ONLY_MESSAGE });
+        return;
+      }
       const data = await res.json();
       if (!res.ok) {
         setTunnelStatus({ type: "error", message: data.error || (translate("Failed to enable tunnel") || "Failed to enable tunnel") });
@@ -179,6 +187,8 @@ export function useTunnel() {
       if (res.ok) {
         const data = await res.json();
         syncFromStatus(data);
+      } else if (res.status === 403) {
+        setTunnelStatus({ type: "info", message: LOCAL_ONLY_MESSAGE });
       }
     } catch (error) {
       console.error("Error loading settings:", error);

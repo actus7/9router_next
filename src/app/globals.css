@@ -99,14 +99,14 @@
   --color-destructive-foreground: color-mix(in oklab, var(--destructive) 82%, black);
   --color-destructive-border: var(--destructive);
   --color-success: #10B981;
-  --color-success-foreground: #047857;
-  --color-success-border: #059669;
+  --color-success-foreground: color-mix(in oklab, var(--color-success) 82%, black);
+  --color-success-border: var(--color-success);
   --color-warning: #F59E0B;
-  --color-warning-foreground: #b45309;
-  --color-warning-border: #d97706;
+  --color-warning-foreground: color-mix(in oklab, var(--color-warning) 82%, black);
+  --color-warning-border: var(--color-warning);
   --color-info: #3B82F6;
-  --color-info-foreground: #2563eb;
-  --color-info-border: #2563eb;
+  --color-info-foreground: color-mix(in oklab, var(--color-info) 82%, black);
+  --color-info-border: var(--color-info);
 
   /* Radius */
   --radius-brand: 10px;
@@ -182,14 +182,14 @@
   --color-success: #22c55e;
   --color-destructive-foreground: color-mix(in oklab, var(--destructive) 72%, white);
   --color-destructive-border: var(--destructive);
-  --color-success-foreground: #86efac;
-  --color-success-border: #22c55e;
+  --color-success-foreground: color-mix(in oklab, var(--color-success) 72%, white);
+  --color-success-border: var(--color-success);
   --color-warning: #fbbf24;
-  --color-warning-foreground: #fcd34d;
-  --color-warning-border: #fbbf24;
+  --color-warning-foreground: color-mix(in oklab, var(--color-warning) 72%, white);
+  --color-warning-border: var(--color-warning);
   --color-info: #60a5fa;
-  --color-info-foreground: #93c5fd;
-  --color-info-border: #60a5fa;
+  --color-info-foreground: color-mix(in oklab, var(--color-info) 72%, white);
+  --color-info-border: var(--color-info);
 
   /* Decorative shadows — dark-mode variants (still brand-orange tinted) */
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.3);

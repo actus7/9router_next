@@ -76,11 +76,10 @@ export default function ModelsToolbar({
             {m.testAllModels?.running ? translate("Testing...") : translate("Test Model Sample")}
           </Button>
           <Button
-            variant="secondary"
+            variant="destructive"
             size="sm"
             onClick={onShowClearConfirmation}
             disabled={m.clearingModels}
-            className="text-destructive-foreground hover:text-destructive-foreground dark:text-destructive-foreground"
           >
             <Trash2 className="size-4 mr-1.5" />
             {m.clearingModels ? translate("Clearing...") : translate("Clear All Models")}

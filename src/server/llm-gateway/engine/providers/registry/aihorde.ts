@@ -21,5 +21,10 @@ export default {
     baseUrl: "https://oai.aihorde.net/v1/chat/completions",
     timeoutMs: 120000,
   },
+  // Confirmed available by the public model catalogue. Horde availability is
+  // queue-based, so callers must still surface retryable queue failures.
+  models: [
+    { id: "aphrodite/SicariusSicariiStuff/Impish_Bloodmoon_12B", name: "Impish Bloodmoon 12B (AI Horde)" },
+  ],
   modelsFetcher: { url: "https://oai.aihorde.net/v1/models", type: "openai" },
 };

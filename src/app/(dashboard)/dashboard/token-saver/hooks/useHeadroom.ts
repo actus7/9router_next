@@ -4,6 +4,9 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import type { HeadroomExtrasState, ExtrasConfirmState } from "../types";
 import { patchSetting } from "../types";
 
+const LOCAL_ONLY_MESSAGE: string =
+  "Headroom requires a local ModelHub instance — not available on this hosted deployment.";
+
 export function useHeadroom() {
   const [headroomEnabled, setHeadroomEnabled] = useState(false);
   const [headroomUrl, setHeadroomUrl] = useState("http://localhost:8787");
@@ -61,6 +64,11 @@ export function useHeadroom() {
       const res = await fetch("/api/headroom/status", {
         headers: { "Cache-Control": "no-store" },
       });
+      if (res.status === 403) {
+        setHeadroomActionError(LOCAL_ONLY_MESSAGE);
+        setHeadroomStatus({ installed: false, running: false, python: null, loading: false });
+        return;
+      }
       const data = await res.json();
       setHeadroomStatus({ ...data, loading: false });
       if (!data?.installed) {
@@ -118,6 +126,7 @@ export function useHeadroom() {
     setHeadroomActionLoading(true);
     try {
       const res = await fetch("/api/headroom/start", { method: "POST" });
+      if (res.status === 403) throw new Error(LOCAL_ONLY_MESSAGE);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to start proxy");
       await refreshHeadroomStatus();

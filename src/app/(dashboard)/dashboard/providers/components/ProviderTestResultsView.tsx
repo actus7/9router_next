@@ -35,7 +35,7 @@ export function ProviderTestResultsView({ results }: { results: TestResults }) {
             {summary.passed} {translate("passed")}
           </span>
           {summary.failed > 0 && (
-            <span className="px-2 py-0.5 rounded bg-destructive text-destructive-foreground font-medium">
+            <span className="px-2 py-0.5 rounded bg-destructive/10 text-destructive font-medium">
               {summary.failed} {translate("failed")}
             </span>
           )}
@@ -71,7 +71,7 @@ export function ProviderTestResultsView({ results }: { results: TestResults }) {
             className={`shrink-0 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
               r.valid
                 ? "bg-emerald-500/15 text-emerald-400"
-                : "bg-destructive text-destructive-foreground"
+                : "bg-destructive/10 text-destructive"
             }`}
           >
             {r.valid ? "OK" : r.diagnosis?.type || "ERROR"}

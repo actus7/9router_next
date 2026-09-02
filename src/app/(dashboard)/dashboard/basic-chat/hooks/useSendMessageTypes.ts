@@ -1,5 +1,12 @@
 import type { ChatAttachment, ChatSession, NormalizedModel, ProviderGroup, SendMessageOptions } from "../types";
 
+export interface AgentActivity {
+  id: string;
+  label: string;
+  detail?: string;
+  state: "running" | "streaming" | "done" | "error";
+}
+
 export interface UseSendMessageArgs {
   activeModel: NormalizedModel | null;
   activeProviderGroup: ProviderGroup | null;
@@ -26,9 +33,13 @@ export interface UseSendMessageReturn {
   isSending: boolean;
   streamingMessageId: string;
   streamingText: string;
+  liveActivities: AgentActivity[];
   copiedMessageId: string;
   canSend: boolean;
+  canQueue: boolean;
+  queuedMessage: string;
   sendMessage: (options?: SendMessageOptions) => Promise<void>;
+  queueMessage: () => void;
   handleStop: () => void;
   resetStream: () => void;
   handleCopyMessage: (messageId: string, content: string) => Promise<void>;

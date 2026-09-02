@@ -11,6 +11,12 @@ import {
 } from "../chatModelUtils";
 import type { NormalizedModel, ProviderGroup } from "../types";
 
+interface FreeModelGroupPayload {
+  providerId: string;
+  providerName: string;
+  models: Array<{ id: string; name: string }>;
+}
+
 export interface UseChatModelsReturn {
   providerGroups: ProviderGroup[];
   loadingData: boolean;
@@ -38,14 +44,32 @@ export function useChatModels(): UseChatModelsReturn {
       setProviderLoadError("");
 
       try {
-        const [providersRes, disabledModelsRes, customModelsRes] = await Promise.all([
+        const [providersRes, disabledModelsRes, customModelsRes, freeModelsRes] = await Promise.all([
           fetch("/api/providers", { cache: "no-store" }),
           fetch("/api/models/disabled", { cache: "no-store" }),
           fetch("/api/models/custom", { cache: "no-store" }),
+          fetch("/api/models/free", { cache: "no-store" }),
         ]);
         const providersData = await providersRes.json().catch(() => ({})) as Record<string, unknown>;
         const disabledModelsData = await disabledModelsRes.json().catch(() => ({})) as Record<string, unknown>;
         const customModelsData = await customModelsRes.json().catch(() => ({})) as Record<string, unknown>;
+        const freeModelsData = await freeModelsRes.json().catch(() => ({})) as { groups?: FreeModelGroupPayload[] };
+        const freeProviderGroups: ProviderGroup[] = freeModelsRes.ok && Array.isArray(freeModelsData.groups)
+          ? freeModelsData.groups.map((g) => ({
+              providerId: g.providerId,
+              providerName: g.providerName,
+              providerType: "free",
+              connections: [],
+              models: (g.models || []).map((m) => ({
+                id: m.id,
+                requestModel: m.id,
+                name: m.name,
+                providerId: g.providerId,
+                providerName: g.providerName,
+                source: "catalog" as const,
+              })),
+            }))
+          : [];
         const disabledByProvider = disabledModelsRes.ok && typeof disabledModelsData.disabled === "object" && disabledModelsData.disabled
           ? disabledModelsData.disabled as Record<string, string[]>
           : {};
@@ -56,7 +80,7 @@ export function useChatModels(): UseChatModelsReturn {
           ? (providersData.connections as Array<Record<string, unknown>>).filter(isConnectionSelectable)
           : [];
 
-        if (connections.length === 0) {
+        if (connections.length === 0 && freeProviderGroups.length === 0) {
           if (!cancelled) {
             setProviderGroups([]);
             setProviderLoadError(translate("No active, configured providers available yet.") || "No active, configured providers available yet.");
@@ -143,12 +167,12 @@ export function useChatModels(): UseChatModelsReturn {
           group.models.push(...result.models);
         }
 
-        const normalized = Array.from(providerMap.values())
+        const normalized = [...freeProviderGroups, ...Array.from(providerMap.values())]
           .map((group) => ({
             ...group,
             models: dedupeModels(group.models).sort((a, b) => a.name.localeCompare(b.name)),
           }))
-          .map((group) => ({ ...group, models: group.models.filter((model) => !blockedModelIds.has(model.id)) }))
+          .map((group) => ({ ...group, models: group.models.filter((model: NormalizedModel) => !blockedModelIds.has(model.id)) }))
           .filter((group) => group.models.length > 0)
           .sort((a, b) => a.providerName.localeCompare(b.providerName));
 

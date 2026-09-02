@@ -20,6 +20,7 @@ import TraeExecutor from "./trae";
 import ZedExecutor from "./zed";
 import WindsurfExecutor from "./windsurf";
 import { DefaultExecutor } from "./default";
+import { PuterExecutor } from "./puter";
 import { DevinCliExecutor } from "./devin-cli";
 import { GithubCopilotExecutor } from "./github-copilot";
 import { QuillbotExecutor } from "./quillbot";
@@ -112,6 +113,7 @@ const executors = {
   "adobe-firefly": new AdobeFireflyExecutor(),
   "zenmux-free": new ZenmuxFreeExecutor(),
   theoldllm: new TheOldLLMExecutor(),
+  puter: new PuterExecutor(),
 };
 
 export { executors };

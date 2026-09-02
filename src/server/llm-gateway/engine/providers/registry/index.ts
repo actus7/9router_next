@@ -284,6 +284,7 @@ import p308 from "./v0-vercel-web";
 import p309 from "./adobe-firefly";
 import p310 from "./zenmux-free";
 import p311 from "./theoldllm";
+import p312 from "./puter";
 
 export default [
   p0,
@@ -569,4 +570,5 @@ export default [
   p309,
   p310,
   p311,
+  p312,
 ];

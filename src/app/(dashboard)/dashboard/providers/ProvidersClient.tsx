@@ -59,7 +59,15 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         </ProviderSection>
       )}
       {d.webCookieEntries.length > 0 && (
-        <ProviderSection title={translate("Web Session Providers")} testMode="cookie" testLabel="Test all Web Session connections" testAriaLabel="Test all Web Session connections" testingMode={d.testingMode} onTest={d.handleBatchTest}>
+        <ProviderSection
+          title={translate("Web Session Providers")}
+          testMode="cookie"
+          testLabel="Test all Web Session connections"
+          testAriaLabel="Test all Web Session connections"
+          testingMode={d.testingMode}
+          onTest={d.handleBatchTest}
+          description={translate("Guided setup imports session from a copied browser request.") || "Guided setup imports session from a copied browser request."}
+        >
           {d.filterEntries(d.webCookieEntries, "other", "cookie").map(([key, info]) => (
             <ApiKeyProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, "cookie")} onToggle={(active) => d.handleToggleProvider(key, "cookie", active)} availability={d.availabilityFor(info)} />
           ))}

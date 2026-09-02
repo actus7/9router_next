@@ -6,6 +6,7 @@ import { translate } from "@/i18n/runtime";
 
 interface ProviderSectionProps {
   title: React.ReactNode;
+  description?: string;
   testMode: string;
   testLabel: string;
   testAriaLabel: string;
@@ -17,6 +18,7 @@ interface ProviderSectionProps {
 
 export function ProviderSection({
   title,
+  description,
   testMode,
   testLabel,
   testAriaLabel,
@@ -28,9 +30,14 @@ export function ProviderSection({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-          {title}
-        </h2>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
+            {title}
+          </h2>
+          {description && (
+            <p className="text-xs text-text-muted">{description}</p>
+          )}
+        </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <Button
             variant="outline"

@@ -4,8 +4,7 @@ export const GITLAB_COM = "https://gitlab.com";
 
 export function getRedirectUri(): string {
   if (typeof window === "undefined") return "http://localhost/callback";
-  const port = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
-  return `http://localhost:${port}/callback`;
+  return `${window.location.origin}/callback`;
 }
 
 export async function submitGitLabPAT(

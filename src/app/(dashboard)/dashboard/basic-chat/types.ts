@@ -28,6 +28,7 @@ export interface ChatMessage {
   createdAt?: string;
   status?: string;
   toolCalls?: ToolCall[];
+  toolCallId?: string;
   feedback?: "up" | "down" | null;
   tokenUsage?: TokenUsage;
   modelId?: string;
@@ -46,6 +47,7 @@ export interface ChatSession {
   createdAt: string;
   updatedAt: string;
   projectId?: string;
+  mode?: "agent" | "plan";
   messages: ChatMessage[];
 }
 

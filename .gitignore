@@ -66,3 +66,6 @@ custom-server.js
 # fallow analysis artifacts
 .fallowrc.json
 loop-history/
+
+# brainstorming visual companion mockups
+.superpowers/

@@ -12,6 +12,7 @@ import ChatRunJournal from "./sections/ChatRunJournal";
 import ChatMobileHistoryMenu from "./sections/ChatMobileHistoryMenu";
 import ChatMessageList from "./sections/ChatMessageList";
 import ChatComposer from "./sections/ChatComposer";
+import ChatLiveRunStatus from "./sections/ChatLiveRunStatus";
 
 export default function BasicChatPageClient() {
   const modelsHook = useChatModels();
@@ -72,6 +73,7 @@ export default function BasicChatPageClient() {
 
         <div className="flex flex-1 flex-col min-h-0">
           <ChatMessageList sessionsHook={sessionsHook} sendHook={sendHook} />
+          <ChatLiveRunStatus active={sendHook.isSending} activities={sendHook.liveActivities} />
           <ChatComposer sessionsHook={sessionsHook} sendHook={sendHook} loadingData={modelsHook.loadingData} />
         </div>
       </div>

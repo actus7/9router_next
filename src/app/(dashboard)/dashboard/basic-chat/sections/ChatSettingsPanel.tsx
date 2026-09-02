@@ -47,5 +47,3 @@ export default function ChatSettingsPanel({ sessionsHook }: ChatSettingsPanelPro
     </div>
   );
 }
-
-

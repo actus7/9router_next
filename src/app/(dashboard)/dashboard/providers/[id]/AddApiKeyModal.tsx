@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import BulkAddForm from "./components/BulkAddForm";
 import SingleAddForm from "./components/SingleAddForm";
+import { WebSessionSetup } from "./components/web-session";
 
 const BULK_PLACEHOLDER = `name1|sk-key1\nname2|sk-key2\nsk-key-only-auto-named`;
 
@@ -87,6 +88,25 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   };
 
   if (!provider) return null;
+
+  // Web Session providers get a dedicated guided setup
+  if (isCookie) {
+    return (
+      <Modal isOpen={isOpen} title={`Connect ${providerName || provider}`} onClose={onClose} size="lg">
+        <WebSessionSetup
+          provider={provider}
+          providerName={providerName || provider}
+          website={website}
+          authHint={authHint}
+          proxyPools={proxyPools}
+          error={error}
+          existingNames={existingNames}
+          onSave={onSave}
+          onClose={onClose}
+        />
+      </Modal>
+    );
+  }
 
   return (
     <Modal isOpen={isOpen} title={`Add ${providerName || provider} ${credentialLabel}`} onClose={onClose}>

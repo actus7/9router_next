@@ -28,6 +28,9 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
   const stickToBottomRef = useRef(true);
   const previousLastMessageIdRef = useRef("");
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  // Tool result messages exist in the model transcript, but their associated
+  // assistant card is the readable UI representation for people.
+  const visibleMessages = currentMessages.filter((message) => message.role !== "tool");
 
   const isNearBottom = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -74,7 +77,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
   return (
     <div className="relative flex-1 min-h-0">
       <div ref={scrollContainerRef} onScroll={handleScroll} className="h-full overflow-y-auto py-6 custom-scrollbar">
-      {currentMessages.length === 0 ? (
+      {visibleMessages.length === 0 ? (
         <div className="flex min-h-[50vh] items-center justify-center px-4 text-center">
           <div className="w-full max-w-xl flex flex-col gap-6">
             <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm">
@@ -103,7 +106,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
       ) : null}
 
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4">
-        {currentMessages.map((message) => {
+        {visibleMessages.map((message) => {
           const isUser = message.role === "user";
           const isAssistant = message.role === "assistant";
           const isStreaming = isAssistant && message.id === streamingMessageId && message.status === "streaming";
@@ -234,7 +237,7 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
         })}
       </div>
       </div>
-      {showJumpToLatest && currentMessages.length > 0 ? (
+      {showJumpToLatest && visibleMessages.length > 0 ? (
         <button
           type="button"
           onClick={() => scrollToLatest("smooth")}
@@ -247,5 +250,4 @@ export default function ChatMessageList({ sessionsHook, sendHook }: ChatMessageL
     </div>
   );
 }
-
 

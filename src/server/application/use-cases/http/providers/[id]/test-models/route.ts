@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProviderConnectionById } from "@/lib/db/repos/connectionsRepo";
 import { getProviderModels, PROVIDER_ID_TO_ALIAS } from "@/server/llm-gateway/catalog";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
-import { UPDATER_CONFIG } from "@/shared/constants/config";
 import { pingModelByKind } from "@/app/api/models/test/ping";
+import { getInternalBaseUrl } from "@/shared/utils/internalBaseUrl";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, { params }: RouteContext): Prom
 
     let models = getProviderModels(alias);
 
-    const baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`;
+    const baseUrl = getInternalBaseUrl();
 
     // Compatible providers: fetch live model list
     if (isCompatible && models.length === 0) {
