@@ -17,6 +17,18 @@ interface FreeModelGroupPayload {
   models: Array<{ id: string; name: string }>;
 }
 
+export function isFreeModelEnabledForChat(
+  providerId: string,
+  modelId: string,
+  disabledByProvider: Record<string, string[]>,
+): boolean {
+  const aliases = new Set([providerId, getProviderAlias(providerId)].filter(Boolean));
+  const disabledIds = Array.from(aliases).flatMap((alias) => disabledByProvider[alias] || []);
+  if (disabledIds.includes("__catalog_cleared__")) return false;
+  const normalized = modelId.toLowerCase().replace(/^.+?\//, "");
+  return !disabledIds.some((id) => id.toLowerCase().replace(/^.+?\//, "") === normalized);
+}
+
 export interface UseChatModelsReturn {
   providerGroups: ProviderGroup[];
   loadingData: boolean;
@@ -54,25 +66,27 @@ export function useChatModels(): UseChatModelsReturn {
         const disabledModelsData = await disabledModelsRes.json().catch(() => ({})) as Record<string, unknown>;
         const customModelsData = await customModelsRes.json().catch(() => ({})) as Record<string, unknown>;
         const freeModelsData = await freeModelsRes.json().catch(() => ({})) as { groups?: FreeModelGroupPayload[] };
+        const disabledByProvider = disabledModelsRes.ok && typeof disabledModelsData.disabled === "object" && disabledModelsData.disabled
+          ? disabledModelsData.disabled as Record<string, string[]>
+          : {};
         const freeProviderGroups: ProviderGroup[] = freeModelsRes.ok && Array.isArray(freeModelsData.groups)
           ? freeModelsData.groups.map((g) => ({
               providerId: g.providerId,
               providerName: g.providerName,
               providerType: "free",
               connections: [],
-              models: (g.models || []).map((m) => ({
-                id: m.id,
-                requestModel: m.id,
-                name: m.name,
-                providerId: g.providerId,
-                providerName: g.providerName,
-                source: "catalog" as const,
-              })),
+              models: (g.models || [])
+                .filter((m) => isFreeModelEnabledForChat(g.providerId, m.id, disabledByProvider))
+                .map((m) => ({
+                  id: m.id,
+                  requestModel: m.id,
+                  name: m.name,
+                  providerId: g.providerId,
+                  providerName: g.providerName,
+                  source: "catalog" as const,
+                })),
             }))
           : [];
-        const disabledByProvider = disabledModelsRes.ok && typeof disabledModelsData.disabled === "object" && disabledModelsData.disabled
-          ? disabledModelsData.disabled as Record<string, string[]>
-          : {};
         const customModels = customModelsRes.ok && Array.isArray(customModelsData.models)
           ? customModelsData.models as Array<Record<string, unknown>>
           : [];

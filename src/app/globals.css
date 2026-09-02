@@ -99,13 +99,13 @@
   --color-destructive-foreground: color-mix(in oklab, var(--destructive) 82%, black);
   --color-destructive-border: var(--destructive);
   --color-success: #10B981;
-  --color-success-foreground: color-mix(in oklab, var(--color-success) 82%, black);
+  --color-success-foreground: color-mix(in oklab, var(--color-success) 30%, black);
   --color-success-border: var(--color-success);
   --color-warning: #F59E0B;
-  --color-warning-foreground: color-mix(in oklab, var(--color-warning) 82%, black);
+  --color-warning-foreground: color-mix(in oklab, var(--color-warning) 30%, black);
   --color-warning-border: var(--color-warning);
   --color-info: #3B82F6;
-  --color-info-foreground: color-mix(in oklab, var(--color-info) 82%, black);
+  --color-info-foreground: color-mix(in oklab, var(--color-info) 30%, black);
   --color-info-border: var(--color-info);
 
   /* Radius */
@@ -182,13 +182,13 @@
   --color-success: #22c55e;
   --color-destructive-foreground: color-mix(in oklab, var(--destructive) 72%, white);
   --color-destructive-border: var(--destructive);
-  --color-success-foreground: color-mix(in oklab, var(--color-success) 72%, white);
+  --color-success-foreground: color-mix(in oklab, var(--color-success) 30%, black);
   --color-success-border: var(--color-success);
   --color-warning: #fbbf24;
-  --color-warning-foreground: color-mix(in oklab, var(--color-warning) 72%, white);
+  --color-warning-foreground: color-mix(in oklab, var(--color-warning) 30%, black);
   --color-warning-border: var(--color-warning);
   --color-info: #60a5fa;
-  --color-info-foreground: color-mix(in oklab, var(--color-info) 72%, white);
+  --color-info-foreground: color-mix(in oklab, var(--color-info) 30%, black);
   --color-info-border: var(--color-info);
 
   /* Decorative shadows — dark-mode variants (still brand-orange tinted) */
