@@ -54,8 +54,9 @@ function SortableSessionItem({
       tabIndex={0}
       onClick={() => { if (!isRenaming) onSelect(session.id); }}
       onKeyDown={(e) => { if (!isRenaming && e.key === "Enter") onSelect(session.id); }}
-      className={`group flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-2 text-left text-sm transition-all hover:bg-muted ${isActive ? "bg-muted" : ""} ${isDragging ? "z-50" : ""}`}
+      className={`group relative flex w-full cursor-pointer items-center gap-1.5 rounded-lg py-2 pl-3 pr-2 text-left text-sm transition-all hover:bg-muted ${isActive ? "bg-primary/10" : ""} ${isDragging ? "z-50" : ""}`}
     >
+      <span className={`absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} />
       <button
         type="button"
         className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
