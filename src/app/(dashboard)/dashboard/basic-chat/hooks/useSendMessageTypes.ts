@@ -13,6 +13,12 @@ export interface AgentActivity {
   state: "running" | "streaming" | "done" | "error";
 }
 
+export interface QueuedMessage {
+  id: string;
+  text: string;
+  attachments: ChatAttachment[];
+}
+
 export interface UseSendMessageArgs {
   activeModel: NormalizedModel | null;
   activeProviderGroup: ProviderGroup | null;
@@ -53,10 +59,12 @@ export interface UseSendMessageReturn {
   copiedMessageId: string;
   canSend: boolean;
   canQueue: boolean;
-  queuedMessage: string;
+  queuedMessages: QueuedMessage[];
   sendMessage: (options?: SendMessageOptions) => Promise<void>;
   queueMessage: () => void;
   steerMessage: () => void;
+  cancelQueuedMessage: (id: string) => void;
+  moveQueuedMessage: (id: string, direction: "up" | "down") => void;
   handleStop: () => void;
   resetStream: () => void;
   handleCopyMessage: (messageId: string, content: string) => Promise<void>;

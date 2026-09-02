@@ -34,6 +34,7 @@ import { prepareRetryMessage } from "./prepareRetryMessage";
 import { runToolCallLoop } from "./runToolCallLoop";
 import type {
   AgentActivity,
+  QueuedMessage,
   UseSendMessageArgs,
   UseSendMessageReturn,
 } from "./useSendMessageTypes";
@@ -68,7 +69,6 @@ export function useSendMessage({
   const [liveActivities, setLiveActivities] = useState<AgentActivity[]>([]);
   const [copiedMessageId, setCopiedMessageId] = useState("");
   const abortRef = useRef<AbortController | null>(null);
-  const queuedMessageRef = useRef<SendMessageOptions | null>(null);
   const sessionsRef = useRef(sessions);
   const activityClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -76,7 +76,11 @@ export function useSendMessage({
   const queuedReplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const [queuedMessage, setQueuedMessage] = useState("");
+  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
+  const queuedMessagesRef = useRef<QueuedMessage[]>([]);
+  useEffect(() => {
+    queuedMessagesRef.current = queuedMessages;
+  }, [queuedMessages]);
 
   useEffect(() => {
     sessionsRef.current = sessions;
@@ -100,14 +104,13 @@ export function useSendMessage({
     (draft.trim().length > 0 || attachments.length > 0);
   const canQueue =
     isSending &&
-    !queuedMessage &&
     (draft.trim().length > 0 || attachments.length > 0);
   const resetStream = useCallback(() => {
     if (activityClearTimerRef.current)
       clearTimeout(activityClearTimerRef.current);
     activityClearTimerRef.current = null;
-    queuedMessageRef.current = null;
-    setQueuedMessage("");
+    queuedMessagesRef.current = [];
+    setQueuedMessages([]);
     setStreamingMessageId("");
     setStreamingText("");
     setLiveActivities([]);
@@ -389,12 +392,12 @@ export function useSendMessage({
         setStreamingMessageId("");
         setStreamingText("");
         abortRef.current = null;
-        const queued = queuedMessageRef.current;
-        if (queued) {
-          queuedMessageRef.current = null;
-          setQueuedMessage("");
+        const [next, ...rest] = queuedMessagesRef.current;
+        if (next) {
+          queuedMessagesRef.current = rest;
+          setQueuedMessages(rest);
           queuedReplayTimerRef.current = setTimeout(() => {
-            void sendMessage(queued);
+            void sendMessage({ text: next.text, attachments: next.attachments });
           }, 0);
         } else {
           activityClearTimerRef.current = setTimeout(() => {
@@ -427,14 +430,31 @@ export function useSendMessage({
   const queueMessage = useCallback(() => {
     if (!canQueue) return;
     const text = draft.trim();
-    queuedMessageRef.current = { text, attachments };
-    setQueuedMessage(
-      text ||
-        `${attachments.length} anexo${attachments.length === 1 ? "" : "s"}`,
-    );
+    const item: QueuedMessage = { id: crypto.randomUUID(), text, attachments };
+    const next = [...queuedMessagesRef.current, item];
+    queuedMessagesRef.current = next;
+    setQueuedMessages(next);
     setDraft("");
     setAttachments([]);
   }, [attachments, canQueue, draft, setAttachments, setDraft]);
+
+  const cancelQueuedMessage = useCallback((id: string) => {
+    const next = queuedMessagesRef.current.filter((item) => item.id !== id);
+    queuedMessagesRef.current = next;
+    setQueuedMessages(next);
+  }, []);
+
+  const moveQueuedMessage = useCallback((id: string, direction: "up" | "down") => {
+    const current = queuedMessagesRef.current;
+    const index = current.findIndex((item) => item.id === id);
+    if (index === -1) return;
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= current.length) return;
+    const next = [...current];
+    [next[index], next[targetIndex]] = [next[targetIndex]!, next[index]!];
+    queuedMessagesRef.current = next;
+    setQueuedMessages(next);
+  }, []);
 
   const steerMessage = useCallback(() => {
     if (!canQueue) return;
@@ -510,10 +530,12 @@ export function useSendMessage({
     copiedMessageId,
     canSend,
     canQueue,
-    queuedMessage,
+    queuedMessages,
     sendMessage,
     queueMessage,
     steerMessage,
+    cancelQueuedMessage,
+    moveQueuedMessage,
     handleStop,
     resetStream,
     handleCopyMessage,
