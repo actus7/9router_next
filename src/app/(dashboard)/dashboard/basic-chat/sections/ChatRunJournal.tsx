@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { UseHarnessEventsReturn } from "../hooks/useHarnessEvents";
 import {
+  classifyEventKind,
   eventColorClass,
   eventLabel,
   eventTimelineOffsets,
@@ -18,14 +20,24 @@ interface ChatRunJournalProps {
   harnessHook: UseHarnessEventsReturn;
 }
 
+/** Readable one-line preview for the most common event types; other types show no preview (JSON is still available on expand). */
 function readEventText(event: HarnessEvent): string {
-  const content = event.data?.content ?? event.data?.arguments;
-  return typeof content === "string" ? content : "";
+  if (event.type === "user/message" || event.type === "assistant/message" || event.type === "assistant/reasoning") {
+    return typeof event.data?.content === "string" ? event.data.content : "";
+  }
+  if (event.type === "tool/call") {
+    const name = typeof event.data?.name === "string" ? event.data.name : "tool";
+    const args = typeof event.data?.arguments === "string" ? event.data.arguments : "";
+    return `${name}(${args})`;
+  }
+  if (event.type === "tool/result") {
+    return typeof event.data?.content === "string" ? event.data.content.slice(0, 500) : "";
+  }
+  return "";
 }
 
 function EventRow({ event, isOpen, onToggle }: { event: HarnessEvent; isOpen: boolean; onToggle: () => void }) {
   const preview = readEventText(event);
-  const isReasoning = event.type === "assistant/reasoning";
   return (
     <li className="min-w-0">
       <button
@@ -35,11 +47,14 @@ function EventRow({ event, isOpen, onToggle }: { event: HarnessEvent; isOpen: bo
         aria-expanded={isOpen}
       >
         <span className={`size-1.5 shrink-0 rounded-full ${eventColorClass(event.type)}`} aria-hidden />
+        <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[9px] uppercase tracking-wide">
+          {classifyEventKind(event)}
+        </Badge>
         <span className="font-mono tabular-nums text-muted-foreground">{event.seq}</span>
         <span className="min-w-0 truncate font-medium text-foreground">{eventLabel(event.type)}</span>
         <time className="ml-auto shrink-0 text-[11px] text-muted-foreground">{formatRelativeTime(event.createdAt)}</time>
       </button>
-      {isReasoning && preview && !isOpen && (
+      {preview && !isOpen && (
         <p className="mb-1 truncate pl-3.5 text-[11px] italic text-muted-foreground">{preview}</p>
       )}
       {isOpen && (
