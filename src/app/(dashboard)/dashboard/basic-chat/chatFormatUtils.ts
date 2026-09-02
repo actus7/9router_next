@@ -116,10 +116,13 @@ export function readReasoningText(chunk: Record<string, unknown>): string {
 export function readStreamUsage(chunk: Record<string, unknown>): TokenUsage | null {
   const usage = chunk?.usage as Record<string, unknown> | undefined;
   if (!usage || typeof usage !== "object") return null;
+  const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+  const cachedTokens = Number(promptDetails?.cached_tokens ?? usage.cache_read_input_tokens ?? 0) || 0;
   return {
     prompt_tokens: Number(usage.prompt_tokens ?? usage.input_tokens ?? 0) || 0,
     completion_tokens: Number(usage.completion_tokens ?? usage.output_tokens ?? 0) || 0,
     total_tokens: Number(usage.total_tokens ?? 0) || undefined,
+    ...(cachedTokens > 0 ? { cached_tokens: cachedTokens } : {}),
   };
 }
 

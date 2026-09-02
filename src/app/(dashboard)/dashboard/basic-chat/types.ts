@@ -18,6 +18,14 @@ export interface TokenUsage {
   prompt_tokens?: number;
   completion_tokens?: number;
   total_tokens?: number;
+  cached_tokens?: number;
+}
+
+export interface MessageTiming {
+  /** Time from request start to the first streamed token, in milliseconds. */
+  ttftMs: number;
+  /** Total time from request start to stream completion, in milliseconds. */
+  totalMs: number;
 }
 
 export interface ChatMessage {
@@ -31,10 +39,12 @@ export interface ChatMessage {
   toolCallId?: string;
   feedback?: "up" | "down" | null;
   tokenUsage?: TokenUsage;
+  timing?: MessageTiming;
   modelId?: string;
   modelName?: string;
   providerId?: string;
   providerName?: string;
+  responseSource?: "synapse" | null;
 }
 
 export interface ChatSession {
@@ -48,8 +58,39 @@ export interface ChatSession {
   updatedAt: string;
   projectId?: string;
   mode?: "agent" | "plan";
+  /** Per-session plugin composition, resolved from a built-in agent preset. */
+  agentPresetId?: string;
+  /** Explicit enablement changes layered over the selected preset. */
+  pluginOverrides?: Record<string, boolean>;
+  /** Runtime options managed from Plugin configuration. */
+  pluginSettings?: HarnessPluginSettings;
+  /** Remote, unauthenticated MCP servers composed into this chat session. */
+  mcpServers?: HarnessMcpServer[];
   isArchived?: boolean;
   messages: ChatMessage[];
+}
+
+export interface HarnessPluginSettings {
+  maxToolSteps?: number;
+  maxSubagentCalls?: number;
+  webSearchMaxResults?: number;
+  webFetchMaxCharacters?: number;
+}
+
+export interface HarnessMcpTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  runtimeName: string;
+}
+
+export interface HarnessMcpServer {
+  id: string;
+  name: string;
+  url: string;
+  enabled: boolean;
+  tools: HarnessMcpTool[];
+  validatedAt: string;
 }
 
 export interface SendMessageOptions {
