@@ -236,7 +236,7 @@ export default function ToolbarSection({
           variant="outline"
           onClick={handleEnableAvailable}
           disabled={bulkToggling}
-          className="gap-1 text-xs border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
+          className="gap-1 text-xs border-success-border text-success hover:bg-success/10"
           title="Enable connections that still have quota on the current page"
         >
           <CheckCircle2 className="size-4" />

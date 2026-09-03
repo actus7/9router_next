@@ -188,12 +188,6 @@ export default function MediaProviderKindClient({ initialConnections, initialNod
   const [combos, ] = useState<Combo[]>(initialCombos);
   const [showAddCustomEmbedding, setShowAddCustomEmbedding] = useState(false);
 
-  // webSearch/webFetch listing pages are merged into /web
-  if (kind === "webSearch" || kind === "webFetch") {
-    router.replace("/dashboard/media-providers/web");
-    return null;
-  }
-
   const kindConfig = MEDIA_PROVIDER_KINDS.find((k: { id: string }) => k.id === kind);
   const isEmbedding = kind === "embedding";
   const supportsCombo = COMBO_KINDS.has(kind as string);

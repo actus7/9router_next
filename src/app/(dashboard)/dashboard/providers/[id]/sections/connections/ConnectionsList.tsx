@@ -67,6 +67,7 @@ export default function ConnectionsList({
           </div>
           <div className="flex-1 min-w-0">
             <ConnectionRow
+              providerId={providerId}
               connection={conn}
               proxyPools={proxyPools}
               isOAuth={isOAuth}

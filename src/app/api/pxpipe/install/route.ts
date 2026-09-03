@@ -3,7 +3,6 @@ import { installPxpipe } from "@/lib/pxpipe/install";
 import { unloadPxpipe } from "@/lib/pxpipe/loader";
 import { runHealthCheck } from "@/lib/pxpipe/service";
 
-export const dynamic = "force-dynamic";
 // npm install can legitimately take minutes on a cold cache.
 export const maxDuration = 300;
 

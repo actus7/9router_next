@@ -39,17 +39,19 @@ export function computeProxyInfo(
   const noProxyText = boundProxyPool?.noProxy || connection.providerSpecificData?.connectionNoProxy || "";
   let proxyBadgeVariant: "secondary" | "default" | "destructive" = "secondary";
   let proxyBadgeClassName: string | undefined;
-  if (boundProxyPool?.isActive === true) { proxyBadgeVariant = "default"; proxyBadgeClassName = "bg-green-500/10 text-green-600 dark:text-green-400"; }
+  if (boundProxyPool?.isActive === true) { proxyBadgeVariant = "default"; proxyBadgeClassName = "bg-success/10 text-success-foreground"; }
   else if (boundProxyPoolId || hasLegacyProxy) proxyBadgeVariant = "destructive";
 
   return { boundProxyPoolId, boundProxyPool, hasLegacyProxy, hasAnyProxy, proxyDisplayText, maskedProxyUrl, noProxyText, proxyBadgeVariant, proxyBadgeClassName };
 }
 
+import { resolveConnectionAuthType } from "@/shared/constants/providers";
+
 export function computeDisplayName(
   connection: { name?: string; email?: string; displayName?: string; authType?: string },
-  isOAuth: boolean,
+  providerId: string,
 ): { displayName: string; secondaryDisplayName: string | null } {
-  const rowAuthType = connection.authType || (isOAuth ? "oauth" : "apikey");
+  const rowAuthType = resolveConnectionAuthType(providerId, connection.authType);
   const isOAuthConnection = rowAuthType === "oauth";
   const isCookieConnection = rowAuthType === "cookie";
   const displayName = connection.name?.trim()

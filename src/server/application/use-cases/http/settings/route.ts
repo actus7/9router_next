@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "@/server/llm-gateway/catalog";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import bcrypt from "bcryptjs";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const SETTINGS_RESPONSE_HEADERS = {
   "Cache-Control": "no-store"
@@ -15,6 +14,7 @@ const SETTINGS_RESPONSE_HEADERS = {
 const PROTECTED_SETTING_KEYS = ["password"];
 
 export async function GET(): Promise<NextResponse> {
+  await assertRequestRuntime();
   try {
     const settings = await getSettings();
     const { password, oidcClientSecret, ...safeSettings } = settings;
@@ -36,6 +36,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
+  await assertRequestRuntime();
   try {
     const body = await request.json();
 
@@ -101,7 +102,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       Object.prototype.hasOwnProperty.call(body, "codexAutoPing")
     ) {
       // Keep the scheduler absent when no account opted in; load its provider graph only on demand.
-      import("@/shared/services/quotaAutoPing")
+      import("@/server/services/quotaAutoPing")
         .then(({ configureQuotaAutoPing }) => {
           configureQuotaAutoPing(settings);
         })

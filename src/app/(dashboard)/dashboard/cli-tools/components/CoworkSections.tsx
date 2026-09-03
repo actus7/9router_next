@@ -1,17 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X } from "lucide-react";
+import { AddMcpModal } from "./ModalsSection";
+
+export { AddMcpModal };
 
 interface Plugin { name: string; title?: string; oauth?: boolean; toolNames?: string[]; }
 interface CustomPlugin { name: string; url: string; transport?: string; custom?: boolean; }
 interface LocalPlugin { name: string; title?: string; description?: string; extensionUrl?: string; }
-
-// ── MCP Plugins Section ──
 
 interface McpPluginsSectionProps {
   plugins: Plugin[];
@@ -43,7 +42,7 @@ export function McpPluginsSection({
                 <span className="text-[9px] px-1 py-0.5 rounded bg-black/5 dark:bg-white/5 text-text-muted whitespace-nowrap">+{p.toolNames.length - 6}</span>
               )}
             </div>
-            <Button variant="ghost" size="sm" onClick={() => onRemovePlugin(p.name)} className="shrink-0 hover:text-destructive-foreground ml-auto p-0 h-auto">
+            <Button variant="ghost" size="sm" onClick={() => onRemovePlugin(p.name)} aria-label={`Remove ${p.title || p.name}`} className="shrink-0 hover:text-destructive-foreground ml-auto p-0 h-auto">
               <X className="size-3" />
             </Button>
           </div>
@@ -53,7 +52,7 @@ export function McpPluginsSection({
             <span className="text-xs font-medium min-w-0 truncate flex-shrink-0">{p.name}</span>
             <span className="text-[8px] px-1 py-0.5 rounded bg-info text-info-foreground shrink-0">custom</span>
             <span className="flex-1 text-[9px] text-text-muted truncate">{p.url}</span>
-            <Button variant="ghost" size="sm" onClick={() => onRemoveCustomPlugin(p.name)} className="shrink-0 hover:text-destructive-foreground ml-auto p-0 h-auto">
+            <Button variant="ghost" size="sm" onClick={() => onRemoveCustomPlugin(p.name)} aria-label={`Remove custom MCP ${p.name}`} className="shrink-0 hover:text-destructive-foreground ml-auto p-0 h-auto">
               <X className="size-3" />
             </Button>
           </div>
@@ -70,8 +69,6 @@ export function McpPluginsSection({
     </div>
   );
 }
-
-// ── Tools Section ──
 
 interface ToolsSectionProps {
   plugins: Plugin[];
@@ -130,8 +127,6 @@ export function ToolsSection({
   );
 }
 
-// ── Local Plugins Section ──
-
 interface LocalPluginsSectionProps {
   localStdioPlugins: LocalPlugin[];
   localPlugins: string[];
@@ -174,70 +169,6 @@ export function LocalPluginsSection({ localStdioPlugins, localPlugins, onLocalPl
         <p className="text-[10px] text-text-muted leading-snug">
           ⚠️ Local plugins run as subprocess via <code className="px-1 py-0.5 rounded bg-black/5 dark:bg-white/5">npx</code>. Requires Node.js installed.
         </p>
-      </div>
-    </div>
-  );
-}
-
-// ── Add Custom MCP Modal ──
-
-interface AddMcpModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onAdd: (plugin: CustomPlugin) => void;
-}
-
-export function AddMcpModal({ isOpen, onClose, onAdd }: AddMcpModalProps) {
-  const [form, setForm] = useState<{ name: string; url: string }>({ name: "", url: "" });
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-sm mx-4 p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Add Custom MCP</h3>
-          <Button variant="ghost" size="icon-sm" onClick={onClose} className="text-text-muted hover:text-text-main">
-            <X className="size-5" />
-          </Button>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-1">
-            <Label className="text-[11px] text-text-muted">Name</Label>
-            <Input
-              type="text"
-              placeholder="my-mcp"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.replace(/\s+/g, "-").toLowerCase() }))}
-              className="px-2 py-1.5 text-xs"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label className="text-[11px] text-text-muted">SSE URL</Label>
-            <Input
-              type="text"
-              placeholder="https://your-mcp-server.com/sse"
-              value={form.url}
-              onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
-              className="px-2 py-1.5 text-xs"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2 justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button
-            onClick={() => {
-              const name = form.name.trim();
-              if (!name || !form.url.trim()) return;
-              onAdd({ name, url: form.url.trim(), transport: "sse", custom: true });
-              setForm({ name: "", url: "" });
-              onClose();
-            }}
-            size="sm"
-          >Add</Button>
-        </div>
       </div>
     </div>
   );

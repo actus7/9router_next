@@ -1,5 +1,13 @@
 import type { RuntimeToolDefinition } from "./agentPlugins";
 import { BUNDLE_SKILLS } from "./bundleSkills";
+import {
+  readSkillPreferences,
+  resolveSkillSessionEnabled,
+  type SkillPreferenceMap,
+} from "./skillPreferences";
+
+export { resolveSkillSessionEnabled } from "./skillPreferences";
+export type { SkillPreferenceMap } from "./skillPreferences";
 
 export interface AgentSkillDefinition {
   id: string;
@@ -106,19 +114,20 @@ export function composeSkills(
 
 export function resolveSessionSkillsFrom(
   catalog: SkillCatalog,
-  overrides?: Record<string, boolean>,
+  sessionOverrides?: Record<string, boolean>,
+  preferences?: SkillPreferenceMap,
 ): AgentSkillDefinition[] {
-  return catalog.skills.filter((skill) => {
-    const override = overrides?.[skill.id];
-    const enabled = override !== undefined ? override : skill.enabled;
-    return enabled;
-  });
+  const prefs = preferences ?? readSkillPreferences();
+  return catalog.skills.filter((skill) =>
+    resolveSkillSessionEnabled(skill, prefs, sessionOverrides),
+  );
 }
 
 export function resolveSessionSkills(
-  overrides?: Record<string, boolean>,
+  sessionOverrides?: Record<string, boolean>,
+  preferences?: SkillPreferenceMap,
 ): AgentSkillDefinition[] {
-  return resolveSessionSkillsFrom(activeCatalog, overrides);
+  return resolveSessionSkillsFrom(activeCatalog, sessionOverrides, preferences);
 }
 
 export function buildSkillsPromptBlock(
@@ -168,6 +177,62 @@ export function getUpdateSkillToolDefinition(): RuntimeToolDefinition {
     },
     ["name"],
   );
+}
+
+export function getPatchSkillToolDefinition(): RuntimeToolDefinition {
+  return skillTool(
+    "patch_skill",
+    "Apply a partial markdown patch to an existing user skill body (append or replace section).",
+    {
+      name: { type: "string", description: "Skill id to patch." },
+      patch: {
+        type: "string",
+        description: "Markdown fragment to append or substitute.",
+      },
+      mode: {
+        type: "string",
+        enum: ["append", "replace"],
+        description: "append (default) adds to the end; replace substitutes entire body.",
+      },
+    },
+    ["name", "patch"],
+  );
+}
+
+export function getLearnSkillToolDefinition(): RuntimeToolDefinition {
+  return skillTool(
+    "learn_skill",
+    "Capture a reusable lesson as a new Agent Skill from a concise name, description, and instructions.",
+    {
+      name: { type: "string", description: "New skill id (kebab-case)." },
+      description: { type: "string", description: "When to use this skill." },
+      lesson: {
+        type: "string",
+        description: "Instruction body distilled from the conversation.",
+      },
+    },
+    ["name", "description", "lesson"],
+  );
+}
+
+export function getLoadSkillFileToolDefinition(): RuntimeToolDefinition {
+  return skillTool(
+    "load_skill_file",
+    "Load an auxiliary file attached to a multi-file Agent Skill.",
+    {
+      name: { type: "string", description: "Skill id." },
+      path: { type: "string", description: "Relative file path within the skill." },
+    },
+    ["name", "path"],
+  );
+}
+
+export function getSupplementalSkillAuthoringTools(): RuntimeToolDefinition[] {
+  return [
+    getUpdateSkillToolDefinition(),
+    getPatchSkillToolDefinition(),
+    getLearnSkillToolDefinition(),
+  ];
 }
 
 export function getSkillRuntimeToolDefinitions(options: {
@@ -228,7 +293,8 @@ export function getSkillRuntimeToolDefinitions(options: {
 }
 
 export function getEnabledSkillIds(
-  overrides?: Record<string, boolean>,
+  sessionOverrides?: Record<string, boolean>,
+  preferences?: SkillPreferenceMap,
 ): Set<string> {
-  return new Set(resolveSessionSkills(overrides).map((skill) => skill.id));
+  return new Set(resolveSessionSkills(sessionOverrides, preferences).map((skill) => skill.id));
 }

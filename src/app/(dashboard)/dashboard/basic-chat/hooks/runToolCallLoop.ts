@@ -3,9 +3,11 @@ import {
   buildRequestMessages,
 } from "./buildChatRequest";
 import { executeChatFetch } from "./consumeSSEStream";
+import { recordRoutingTraceEvent } from "./recordRoutingTraceEvent";
 import { executeRuntimeToolCall } from "./executeRuntimeToolCall";
 import { createAssistantMessage } from "./prepareChatMessages";
 import { getEnabledSkillIds } from "@/shared/harness/agentSkills";
+import { readSkillPreferences } from "@/shared/harness/skillPreferences";
 import type { AgentActivity } from "./useSendMessageTypes";
 import type {
   ChatMessage,
@@ -98,7 +100,10 @@ export async function runToolCallLoop(
     Math.min(4, pluginSettings.maxSubagentCalls ?? 2),
   );
   let usedSubagentCalls = 0;
-  const enabledSkillIds = getEnabledSkillIds(session.skillOverrides);
+  const enabledSkillIds = getEnabledSkillIds(
+    session.skillOverrides,
+    readSkillPreferences(),
+  );
   for (
     let step = 0;
     step < maxToolSteps && pendingCalls.length > 0;
@@ -149,6 +154,8 @@ export async function runToolCallLoop(
             webSearchMaxResults: pluginSettings.webSearchMaxResults,
             webFetchMaxCharacters: pluginSettings.webFetchMaxCharacters,
             onSkillEvent: (type, data) =>
+              recordHarnessEvent(sessionId, type, { runId, ...data }),
+            onMemoryEvent: (type, data) =>
               recordHarnessEvent(sessionId, type, { runId, ...data }),
           });
           const failed = content.includes('"ok":false');
@@ -308,6 +315,7 @@ export async function runToolCallLoop(
         }));
       },
     );
+    recordRoutingTraceEvent(recordHarnessEvent, sessionId, continuation.id, continuationResult.routingTrace);
     conversation = conversation.map((message) =>
       message.id === continuation.id
         ? {

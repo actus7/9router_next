@@ -40,7 +40,7 @@ export function AvailabilityFilterBar({
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-3 text-xs text-text-muted">
         <span className="inline-flex items-center gap-1.5"><KeyRound className="size-3.5" /> {translate("API Key") || "API Key"}</span>
         <span className="inline-flex items-center gap-1.5"><UserRound className="size-3.5" /> {translate("Account connection") || "Account connection"}</span>
-        <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3.5 text-emerald-500" /> {translate("Free access or recurring free tier") || "Free access or recurring free tier"}</span>
+        <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3.5 text-success" /> {translate("Free access or recurring free tier") || "Free access or recurring free tier"}</span>
       </div>
     </section>
   );

@@ -52,6 +52,44 @@ The model only sees skill **descriptions** in the system prompt. Call \`load_ski
     origin: "bundle",
     bundled: true,
   },
+  {
+    id: "memory-guide",
+    name: "memory-guide",
+    description:
+      "Guides when and how to use curated agent/user memory. Use when deciding what to persist or before memory_add/replace/remove.",
+    body: `# Memory Guide
+
+Use curated memory for **durable facts** that should survive across chat sessions.
+
+## When to write memory
+
+- User explicitly asks to remember something
+- Stable preferences (language, formatting, stack choices)
+- Long-running project facts the user confirmed
+
+Do **not** store: secrets, API keys, one-off task details, or speculative guesses.
+
+## Scopes
+
+- \`agent\`: facts the assistant should apply (project conventions, standing instructions)
+- \`user\`: preferences about the user (name, timezone, communication style)
+
+## Tools
+
+- \`memory_add(scope, content)\` — new entry
+- \`memory_replace(id, content)\` — update by id from the memory block
+- \`memory_remove(id)\` — delete entry
+
+When write approval is enabled, writes are queued for the user to approve in Configurações → Memória.
+
+## Limits
+
+Agent memory: 2200 chars total. User memory: 1375 chars total. Keep entries concise.
+`,
+    enabled: true,
+    origin: "bundle",
+    bundled: true,
+  },
 ];
 
 export const BUNDLE_SKILL_IDS = new Set(BUNDLE_SKILLS.map((skill) => skill.id));

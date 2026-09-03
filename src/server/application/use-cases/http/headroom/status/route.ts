@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { DEFAULT_HEADROOM_URL, getHeadroomStatus } from "@/lib/headroom/detect";
 import { getManagedPid } from "@/lib/headroom/process";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 
-export const dynamic = "force-dynamic";
 
 // --- Request coalescing with short TTL cache ---
 // Concurrent callers share the same in-flight computation.
@@ -60,6 +60,7 @@ function startComputation(url: string): Promise<unknown> {
 }
 
 export async function GET() {
+  await assertRequestRuntime();
   try {
     // Short-circuit: serve from cache if still valid.
     const cached = getCachedResult();

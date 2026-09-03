@@ -7,6 +7,7 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import { GuideSteps } from "./GuideSteps";
+import { expandableCardHeaderProps } from "./expandableCardHeader";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo {
@@ -116,7 +117,7 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
 
   return (
     <Card padding="xs" className="overflow-hidden overflow-x-hidden">
-      <div className="flex items-center justify-between hover:cursor-pointer" onClick={onToggle}>
+      <div className="flex items-center justify-between hover:cursor-pointer" {...expandableCardHeaderProps(onToggle, isExpanded)}>
         <div className="flex items-center gap-3">
           <div className="size-8 rounded-lg flex items-center justify-center shrink-0">
             {renderIcon()}

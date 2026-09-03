@@ -13,6 +13,31 @@ export const EXTRA_MARKERS: Record<string, string[]> = {
 };
 
 const HEADROOM_PIP_TIMEOUT_MS: number = 8000;
+const HEADROOM_EXEC_TIMEOUT_MS: number = 3000;
+const DETECTION_CACHE_TTL_MS: number = 30_000;
+
+interface CachedValue<T> {
+  value: T;
+  expiresAt: number;
+}
+
+let headroomBinaryCache: CachedValue<string | null> | null = null;
+let pythonCache: CachedValue<string | null> | null = null;
+
+/** Reset cached headroom/python detection. Exported for testing only. */
+export function resetHeadroomDetectionCache(): void {
+  headroomBinaryCache = null;
+  pythonCache = null;
+}
+
+function readCache<T>(entry: CachedValue<T> | null): T | undefined {
+  if (!entry || Date.now() >= entry.expiresAt) return undefined;
+  return entry.value;
+}
+
+function writeCache<T>(value: T): CachedValue<T> {
+  return { value, expiresAt: Date.now() + DETECTION_CACHE_TTL_MS };
+}
 
 const IS_WIN: boolean = process.platform === "win32";
 const WHICH_CMD: string = IS_WIN ? "where" : "which";
@@ -65,22 +90,29 @@ interface ExtrasStatus {
 
 // Detect whether the headroom CLI is installed and where its binary lives.
 export function findHeadroomBinary(): string | null {
+  const cached = readCache(headroomBinaryCache);
+  if (cached !== undefined) return cached;
+
   try {
     const out: string = execSync(`${WHICH_CMD} headroom`, {
       stdio: ["ignore", "pipe", "ignore"],
       windowsHide: true,
+      timeout: HEADROOM_EXEC_TIMEOUT_MS,
       env: { ...process.env, PATH: EXTENDED_PATH },
     }).toString().trim();
     // Windows `where` may return multiple lines — take the first.
-    return out ? out.split(/\r?\n/)[0].trim() : null;
+    const headroomBinary = out ? out.split(/\r?\n/)[0].trim() : null;
+    headroomBinaryCache = writeCache(headroomBinary);
+    return headroomBinary;
   } catch {
+    headroomBinaryCache = writeCache(null);
     return null;
   }
 }
 
-function pythonCandidates(): string[] {
+function pythonCandidates(headroomBinary: string | null = findHeadroomBinary()): string[] {
   const list: string[] = [];
-  const bin: string | null = findHeadroomBinary();
+  const bin: string | null = headroomBinary;
   if (bin) {
     const dir: string = path.dirname(bin);
     const names: string[] = IS_WIN ? ["python.exe", "python3.exe"] : ["python3", "python3.13", "python"];
@@ -95,12 +127,17 @@ function pythonCandidates(): string[] {
 }
 
 export function findPython310(): string | null {
+  const cached = readCache(pythonCache);
+  if (cached !== undefined) return cached;
+
   let fallback: string | null = null;
-  for (const candidate of pythonCandidates()) {
+  const headroomBinary = findHeadroomBinary();
+  for (const candidate of pythonCandidates(headroomBinary)) {
     try {
       const ver: string = execSync(`${candidate} --version`, {
         stdio: ["ignore", "pipe", "ignore"],
         windowsHide: true,
+        timeout: HEADROOM_EXEC_TIMEOUT_MS,
         env: { ...process.env, PATH: EXTENDED_PATH },
       }).toString().trim();
       const match: RegExpMatchArray | null = ver.match(/(\d+)\.(\d+)/);
@@ -115,6 +152,7 @@ export function findPython310(): string | null {
           timeout: HEADROOM_PIP_TIMEOUT_MS,
           env: { ...process.env, PATH: EXTENDED_PATH },
         });
+        pythonCache = writeCache(candidate);
         return candidate;
       } catch {
         // Keep scanning until an interpreter that sees headroom-ai is found.
@@ -123,6 +161,7 @@ export function findPython310(): string | null {
       // candidate not present, try next
     }
   }
+  pythonCache = writeCache(fallback);
   return fallback;
 }
 

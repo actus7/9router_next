@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDisabledModels, disableModels, enableModels } from "@/lib/disabledModelsDb";
 
-export const dynamic = "force-dynamic";
 
 // GET /api/models/disabled?providerAlias=xxx
 export async function GET(request: NextRequest): Promise<NextResponse> {

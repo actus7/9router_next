@@ -1,5 +1,5 @@
 import type { ToolCall } from "../types";
-import { setActiveSkillCatalog } from "@/shared/harness/agentSkills";
+import { tryExecuteHarnessToolCall } from "./executeHarnessToolCall";
 import {
   generateVideo,
   MAX_RESULT_CHARS,
@@ -49,6 +49,17 @@ export async function executeRuntimeToolCall(
     description?: unknown;
     body?: unknown;
     enabled?: unknown;
+    scope?: unknown;
+    id?: unknown;
+    content?: unknown;
+    exclude_session_id?: unknown;
+    path?: unknown;
+    patch?: unknown;
+    mode?: unknown;
+    lesson?: unknown;
+    plugin_id?: unknown;
+    tool_name?: unknown;
+    title?: unknown;
   };
   try {
     const parsed = JSON.parse(call.arguments);
@@ -97,178 +108,18 @@ export async function executeRuntimeToolCall(
     );
   }
 
+  const harnessResult = await tryExecuteHarnessToolCall(
+    call,
+    context,
+    arguments_,
+    signal,
+  );
+  if (harnessResult !== null) return harnessResult;
+
   const requestedModel =
     typeof arguments_.model === "string" && arguments_.model.trim()
       ? arguments_.model.trim()
       : null;
-
-  if (call.name === "load_skill") {
-    const skillId =
-      typeof arguments_.name === "string"
-        ? arguments_.name.trim().toLowerCase()
-        : "";
-    if (!skillId) {
-      return JSON.stringify({ ok: false, error: "load_skill requires name" });
-    }
-    if (context.enabledSkillIds && !context.enabledSkillIds.has(skillId)) {
-      return JSON.stringify({
-        ok: false,
-        error: `Skill not enabled in this session: ${skillId}`,
-      });
-    }
-    const response = await fetch(
-      `/api/harness/skills?id=${encodeURIComponent(skillId)}`,
-      { signal },
-    );
-    const payload = (await response.json().catch(() => null)) as {
-      ok?: boolean;
-      skill?: { id?: string; body?: string; description?: string };
-      error?: unknown;
-    } | null;
-    if (!response.ok || !payload?.skill?.body) {
-      return JSON.stringify({
-        ok: false,
-        error:
-          typeof payload?.error === "string"
-            ? payload.error
-            : "Skill not found",
-      });
-    }
-    context.onSkillEvent?.("skill/load", { name: skillId });
-    return JSON.stringify({
-      ok: true,
-      name: skillId,
-      description: payload.skill.description ?? "",
-      body: payload.skill.body.slice(0, MAX_RESULT_CHARS),
-    });
-  }
-
-  if (call.name === "create_skill") {
-    const name =
-      typeof arguments_.name === "string"
-        ? arguments_.name.trim().toLowerCase()
-        : "";
-    const description =
-      typeof arguments_.description === "string"
-        ? arguments_.description.trim()
-        : "";
-    const body =
-      typeof arguments_.body === "string" ? arguments_.body.trim() : "";
-    if (!name || !description || !body) {
-      return JSON.stringify({
-        ok: false,
-        error: "create_skill requires name, description, and body",
-      });
-    }
-    const response = await fetch("/api/harness/skills", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: name, name, description, body, enabled: true }),
-      signal,
-    });
-    const payload = (await response.json().catch(() => null)) as {
-      error?: unknown;
-    } | null;
-    if (!response.ok) {
-      return JSON.stringify({
-        ok: false,
-        error:
-          typeof payload?.error === "string"
-            ? payload.error
-            : "Failed to create skill",
-      });
-    }
-    const catalogPayload = (await fetch("/api/harness/skills", { signal })
-      .then((r) => r.json())
-      .catch(() => null)) as { skills?: unknown[] } | null;
-    if (catalogPayload?.skills?.length) {
-      setActiveSkillCatalog({
-        skills: catalogPayload.skills as Parameters<
-          typeof setActiveSkillCatalog
-        >[0]["skills"],
-      });
-    }
-    context.onSkillEvent?.("skill/created", { name, description });
-    return JSON.stringify({ ok: true, name, message: "Skill created" });
-  }
-
-  if (call.name === "update_skill") {
-    const name =
-      typeof arguments_.name === "string"
-        ? arguments_.name.trim().toLowerCase()
-        : "";
-    if (!name) {
-      return JSON.stringify({ ok: false, error: "update_skill requires name" });
-    }
-    const existingResponse = await fetch(
-      `/api/harness/skills?id=${encodeURIComponent(name)}`,
-      { signal },
-    );
-    const existingPayload = (await existingResponse.json().catch(() => null)) as {
-      skill?: {
-        id?: string;
-        description?: string;
-        body?: string;
-        enabled?: boolean;
-        bundled?: boolean;
-      };
-      error?: unknown;
-    } | null;
-    if (!existingResponse.ok || !existingPayload?.skill) {
-      return JSON.stringify({
-        ok: false,
-        error: "Skill not found",
-      });
-    }
-    if (existingPayload.skill.bundled) {
-      return JSON.stringify({
-        ok: false,
-        error: "Bundled skills cannot be edited via update_skill",
-      });
-    }
-    const description =
-      typeof arguments_.description === "string"
-        ? arguments_.description.trim()
-        : existingPayload.skill.description ?? "";
-    const body =
-      typeof arguments_.body === "string"
-        ? arguments_.body.trim()
-        : existingPayload.skill.body ?? "";
-    const enabled =
-      typeof arguments_.enabled === "boolean"
-        ? arguments_.enabled
-        : existingPayload.skill.enabled !== false;
-    const response = await fetch("/api/harness/skills", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: name, name, description, body, enabled }),
-      signal,
-    });
-    const payload = (await response.json().catch(() => null)) as {
-      error?: unknown;
-    } | null;
-    if (!response.ok) {
-      return JSON.stringify({
-        ok: false,
-        error:
-          typeof payload?.error === "string"
-            ? payload.error
-            : "Failed to update skill",
-      });
-    }
-    const catalogPayload = (await fetch("/api/harness/skills", { signal })
-      .then((r) => r.json())
-      .catch(() => null)) as { skills?: unknown[] } | null;
-    if (catalogPayload?.skills?.length) {
-      setActiveSkillCatalog({
-        skills: catalogPayload.skills as Parameters<
-          typeof setActiveSkillCatalog
-        >[0]["skills"],
-      });
-    }
-    context.onSkillEvent?.("skill/updated", { name });
-    return JSON.stringify({ ok: true, name, message: "Skill updated" });
-  }
 
   if (call.name === "generate_image") {
     if (typeof arguments_.prompt !== "string" || !arguments_.prompt.trim()) {

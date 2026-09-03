@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomModels, syncDiscoveredCustomModels } from "@/models";
 
-export const dynamic = "force-dynamic";
 
 const DISCOVERED_MODEL_METADATA_KEYS = new Set([
   "description", "context_length", "contextLength", "contextWindow", "max_output_tokens", "maxOutputTokens",

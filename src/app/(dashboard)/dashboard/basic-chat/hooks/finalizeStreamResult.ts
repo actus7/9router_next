@@ -44,6 +44,16 @@ export function finalizeStreamSuccess(
     title: session.title === (translate("New conversation") || "New conversation") ? title : session.title,
     updatedAt: new Date().toISOString(),
   }));
+  void fetch("/api/harness/learning/review", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      sessionId,
+      runId: assistantMessageId,
+      userText,
+      assistantText: assistantText,
+    }),
+  }).catch(() => undefined);
 }
 
 /** Mark the assistant message as errored and only retire a definitively missing model. */
@@ -55,7 +65,22 @@ export function finalizeStreamError(
   recordHarnessEvent: RecordEventFn,
   setChatError: (msg: string) => void,
 ): void {
-  if ((error as Error).name === "AbortError") return;
+  // A user-initiated stop is not a failure: keep whatever text arrived and
+  // settle the message, or it stays "streaming" forever and reloads as a
+  // half-finished bubble with no actions on it.
+  if ((error as Error)?.name === "AbortError") {
+    updateSession(sessionId, (current) => ({
+      ...current,
+      // Every still-streaming message settles, not just the run id we know
+      // about: a stop during a tool continuation leaves a second one open.
+      messages: current.messages.map((m) =>
+        m.status === "streaming" ? { ...m, status: "done" as const } : m,
+      ),
+      updatedAt: new Date().toISOString(),
+    }));
+    recordHarnessEvent(sessionId, "run/end", { runId: assistantMessageId, status: "stopped" });
+    return;
+  }
 
   const errorText = textValue((error as Error)?.message || error);
   updateSession(sessionId, (current) => ({

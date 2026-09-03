@@ -12,6 +12,7 @@ import {
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS } from "@/shared/constants/providers";
 import { Spinner } from "@/shared/components/Loading";
 import ProviderDetailClient from "./ProviderDetailClient";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { notFound } from "next/navigation";
 
 async function ProviderDetailContent({
@@ -19,6 +20,7 @@ async function ProviderDetailContent({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await assertRequestRuntime();
   const { id } = await params;
 
   // Validate provider exists in constants (id is provider name like "kiro", not a UUID)

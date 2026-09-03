@@ -1,12 +1,10 @@
-import { NextRequest, NextResponse  } from "next/server";
-import { exec } from "child_process";
-import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import { DEFAULT_PLUGINS } from "@/shared/constants/coworkPlugins";
-
-const execAsync = promisify(exec);
+import { HttpValidationError } from "@/server/application/http/requestBody";
+import { createCliToolHandlers } from "@/server/application/use-cases/http/cli-tools/createCliToolHandlers";
+import { checkCliOnPath } from "@/server/application/use-cases/http/cli-tools/cliToolIo";
 
 // Exa MCP def — reuse from coworkPlugins (DRY).
 const EXA_PLUGIN = DEFAULT_PLUGINS.find((p) => p.name === "exa");
@@ -51,25 +49,7 @@ const writeClaudeJsonMcp = async (mcpServers: Record<string, unknown> | null) =>
 };
 
 
-// Check if claude CLI is installed (via which/where or config file exists)
-const checkClaudeInstalled = async () => {
-  try {
-    const isWindows = os.platform() === "win32";
-    const command = isWindows ? "where claude" : "which claude";
-    const env = isWindows
-      ? { ...process.env, PATH: `${process.env.APPDATA}\\npm;${process.env.PATH}` }
-      : process.env;
-    await execAsync(command, { windowsHide: true, env });
-    return true;
-  } catch {
-    try {
-      await fs.access(getClaudeSettingsPath());
-      return true;
-    } catch {
-      return false;
-    }
-  }
-};
+const checkClaudeInstalled = async () => checkCliOnPath("claude", getClaudeSettingsPath());
 
 // Read current settings
 const readSettings = async () => {
@@ -85,115 +65,86 @@ const readSettings = async () => {
   }
 };
 
-// GET - Check claude CLI and read current settings
-export async function GET() {
-  try {
-    const isInstalled = await checkClaudeInstalled();
-    
-    if (!isInstalled) {
-      return NextResponse.json({
-        installed: false,
-        settings: null,
-        message: "Claude CLI is not installed",
-      });
-    }
+async function handleGet() {
+  const isInstalled = await checkClaudeInstalled();
 
-    const settings = await readSettings();
-    const hasModelHub = !!(settings?.env?.ANTHROPIC_BASE_URL);
-    const claudeJson = await readClaudeJson();
-
-    return NextResponse.json({
-      installed: true,
-      settings: settings,
-      hasModelHub: hasModelHub,
-      exaMcpEnabled: !!claudeJson?.mcpServers?.exa,
-      settingsPath: getClaudeSettingsPath(),
-    });
-  } catch (error) {
-    console.error("Error checking claude settings:", error);
-    return NextResponse.json(
-      { error: "Failed to check claude settings" },
-      { status: 500 }
-    );
-  }
-}
-
-// POST - Backup old fields and write new settings
-export async function POST(request: NextRequest) {
-  try {
-    const { env, exaMcpEnabled, maxContextTokens } = await request.json();
-    
-    if (!env || typeof env !== "object") {
-      return NextResponse.json(
-        { error: "Invalid env object" },
-        { status: 400 }
-      );
-    }
-
-    const settingsPath = getClaudeSettingsPath();
-    const claudeDir = path.dirname(settingsPath);
-
-    // Ensure .claude directory exists
-    await fs.mkdir(claudeDir, { recursive: true });
-
-    // Read current settings
-    let currentSettings: Record<string, unknown> = {};
-    try {
-      const content = await fs.readFile(settingsPath, "utf-8");
-      currentSettings = JSON.parse(content);
-    } catch (error: unknown) {
-      if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "ENOENT") {
-        throw error;
-      }
-    }
-
-    // Normalize ANTHROPIC_BASE_URL to ensure /v1 suffix
-    if (env.ANTHROPIC_BASE_URL) {
-      env.ANTHROPIC_BASE_URL = env.ANTHROPIC_BASE_URL.endsWith("/v1") 
-        ? env.ANTHROPIC_BASE_URL 
-        : `${env.ANTHROPIC_BASE_URL}/v1`;
-    }
-
-    // Merge new env with existing settings
-    const newSettings = {
-      ...currentSettings,
-      hasCompletedOnboarding: true,
-      env: {
-        ...((currentSettings.env as Record<string, unknown>) || {}),
-        ...env,
-      },
+  if (!isInstalled) {
+    return {
+      installed: false,
+      settings: null,
+      message: "Claude CLI is not installed",
     };
-
-    // CLAUDE_CODE_MAX_CONTEXT_TOKENS — only set when a concrete value is chosen;
-    // "Default" removes the key so Claude Code falls back to the model's window.
-    if (maxContextTokens) {
-      newSettings.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = String(maxContextTokens);
-    } else {
-      delete newSettings.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS;
-    }
-
-    // Write new settings
-    await fs.writeFile(settingsPath, JSON.stringify(newSettings, null, 2));
-
-    // Exa MCP toggle — write to ~/.claude.json (CLI reads mcpServers from here).
-    if (EXA_PLUGIN) {
-      await writeClaudeJsonMcp(exaMcpEnabled ? { exa: buildExaMcpEntry() } : null);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Settings updated successfully",
-    });
-  } catch (error) {
-    console.error("Error updating claude settings:", error);
-    return NextResponse.json(
-      { error: "Failed to update claude settings" },
-      { status: 500 }
-    );
   }
+
+  const settings = await readSettings();
+  const hasModelHub = !!(settings?.env?.ANTHROPIC_BASE_URL);
+  const claudeJson = await readClaudeJson();
+
+  return {
+    installed: true,
+    settings,
+    hasModelHub,
+    exaMcpEnabled: !!claudeJson?.mcpServers?.exa,
+    settingsPath: getClaudeSettingsPath(),
+  };
 }
 
-// Fields to remove when resetting
+async function handlePost(body: Record<string, unknown>) {
+  const { env, exaMcpEnabled, maxContextTokens } = body;
+
+  if (!env || typeof env !== "object") {
+    throw new HttpValidationError("Invalid env object", 400);
+  }
+
+  const settingsPath = getClaudeSettingsPath();
+  const claudeDir = path.dirname(settingsPath);
+  await fs.mkdir(claudeDir, { recursive: true });
+
+  let currentSettings: Record<string, unknown> = {};
+  try {
+    const content = await fs.readFile(settingsPath, "utf-8");
+    currentSettings = JSON.parse(content);
+  } catch (error: unknown) {
+    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const envObj = { ...(env as Record<string, unknown>) };
+  if (envObj.ANTHROPIC_BASE_URL) {
+    envObj.ANTHROPIC_BASE_URL = String(envObj.ANTHROPIC_BASE_URL).endsWith("/v1")
+      ? envObj.ANTHROPIC_BASE_URL
+      : `${envObj.ANTHROPIC_BASE_URL}/v1`;
+  }
+
+  const newSettings: Record<string, unknown> = {
+    ...currentSettings,
+    hasCompletedOnboarding: true,
+    env: {
+      ...((currentSettings.env as Record<string, unknown>) || {}),
+      ...envObj,
+    },
+  };
+
+  const mergedEnv = newSettings.env as Record<string, unknown>;
+  if (maxContextTokens) {
+    mergedEnv.CLAUDE_CODE_MAX_CONTEXT_TOKENS = String(maxContextTokens);
+  } else {
+    delete mergedEnv.CLAUDE_CODE_MAX_CONTEXT_TOKENS;
+  }
+
+  await fs.writeFile(settingsPath, JSON.stringify(newSettings, null, 2));
+
+  if (EXA_PLUGIN) {
+    await writeClaudeJsonMcp(exaMcpEnabled ? { exa: buildExaMcpEntry() } : null);
+  }
+
+  return {
+    success: true,
+    message: "Settings updated successfully",
+  };
+}
+
 const RESET_ENV_KEYS = [
   "ANTHROPIC_BASE_URL",
   "ANTHROPIC_AUTH_TOKEN",
@@ -204,55 +155,41 @@ const RESET_ENV_KEYS = [
   "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
 ];
 
-// DELETE - Reset settings (remove env fields)
-export async function DELETE() {
+async function handleDelete() {
+  const settingsPath = getClaudeSettingsPath();
+
+  let currentSettings: Record<string, unknown> = {};
   try {
-    const settingsPath = getClaudeSettingsPath();
-
-    // Read current settings
-    let currentSettings: Record<string, unknown> = {};
-    try {
-      const content = await fs.readFile(settingsPath, "utf-8");
-      currentSettings = JSON.parse(content);
-    } catch (error: unknown) {
-      if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
-        return NextResponse.json({
-          success: true,
-          message: "No settings file to reset",
-        });
-      }
-      throw error;
+    const content = await fs.readFile(settingsPath, "utf-8");
+    currentSettings = JSON.parse(content);
+  } catch (error: unknown) {
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { success: true, message: "No settings file to reset" };
     }
-
-    // Remove specified env fields
-    if (currentSettings.env) {
-      const envObj = currentSettings.env as Record<string, unknown>;
-      RESET_ENV_KEYS.forEach((key) => {
-        delete envObj[key];
-      });
-      
-      // Clean up empty env object
-      if (Object.keys(envObj).length === 0) {
-        delete currentSettings.env;
-      }
-    }
-
-    // Remove injected MCP servers (Exa) from ~/.claude.json
-    await writeClaudeJsonMcp(null);
-
-    // Write updated settings
-    await fs.writeFile(settingsPath, JSON.stringify(currentSettings, null, 2));
-
-    return NextResponse.json({
-      success: true,
-      message: "Settings reset successfully",
-    });
-  } catch (error) {
-    console.error("Error resetting claude settings:", error);
-    return NextResponse.json(
-      { error: "Failed to reset claude settings" },
-      { status: 500 }
-    );
+    throw error;
   }
+
+  if (currentSettings.env) {
+    const envObj = currentSettings.env as Record<string, unknown>;
+    RESET_ENV_KEYS.forEach((key) => {
+      delete envObj[key];
+    });
+    if (Object.keys(envObj).length === 0) {
+      delete currentSettings.env;
+    }
+  }
+
+  await writeClaudeJsonMcp(null);
+  await fs.writeFile(settingsPath, JSON.stringify(currentSettings, null, 2));
+
+  return {
+    success: true,
+    message: "Settings reset successfully",
+  };
 }
-// Application HTTP use case extracted from the Next.js route adapter.
+
+export const { GET, POST, DELETE } = createCliToolHandlers("claude", {
+  get: handleGet,
+  post: handlePost,
+  delete: handleDelete,
+});

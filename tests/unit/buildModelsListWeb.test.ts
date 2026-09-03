@@ -30,7 +30,7 @@ beforeEach(() => {
 });
 
 describe("buildModelsList — web providers (noAuth discovery)", () => {
-  it("exposes noAuth searchViaChat providers (AnySearch, Context7) without their own connection", async () => {
+  it("exposes keyless web providers (AnySearch, Context7) without their own connection", async () => {
     // Only an LLM provider connection exists — no web provider connections
     vi.mocked(getProviderConnections).mockResolvedValue([
       {
@@ -47,38 +47,18 @@ describe("buildModelsList — web providers (noAuth discovery)", () => {
     const models = await buildModelsList(["webSearch", "webFetch"]);
     const ids = models.map((m) => m.id as string);
 
-    // AnySearch uses searchViaChat — must appear even without a connection
+    // Both serve /v1/search through a keyless searchConfig, so they must be
+    // listed even with no connection of their own.
     expect(ids).toContain("anysearch/search");
-    // Context7 uses searchViaChat — must appear even without a connection
     expect(ids).toContain("ctx7/search");
-  });
-
-  it("exposes noAuth searchConfig providers (SearXNG) without their own connection", async () => {
-    vi.mocked(getProviderConnections).mockResolvedValue([
-      {
-        id: "conn-openai",
-        provider: "openai",
-        name: "openai-key",
-        authType: "apikey",
-        isActive: true,
-        apiKey: "sk-test",
-        providerSpecificData: {},
-      },
-    ] as never);
-
-    const models = await buildModelsList(["webSearch", "webFetch"]);
-    const ids = models.map((m) => m.id as string);
-
-    // SearXNG uses searchConfig — must appear even without a connection
-    expect(ids).toContain("searxng/search");
   });
 
   it("does not duplicate entries when a noAuth web provider also has a connection", async () => {
     vi.mocked(getProviderConnections).mockResolvedValue([
       {
-        id: "conn-searxng",
-        provider: "searxng",
-        name: "searxng-conn",
+        id: "conn-anysearch",
+        provider: "anysearch",
+        name: "anysearch-conn",
         authType: "none",
         isActive: true,
         providerSpecificData: {},
@@ -86,12 +66,12 @@ describe("buildModelsList — web providers (noAuth discovery)", () => {
     ] as never);
 
     const models = await buildModelsList(["webSearch"]);
-    const searxngEntries = models.filter((m) => (m.id as string).startsWith("searxng/"));
+    const entries = models.filter((m) => (m.id as string).startsWith("anysearch/"));
 
     // Should appear exactly once — no duplicates
-    expect(searxngEntries).toHaveLength(1);
-    expect(searxngEntries[0].id).toBe("searxng/search");
-    expect(searxngEntries[0].kind).toBe("webSearch");
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).toBe("anysearch/search");
+    expect(entries[0].kind).toBe("webSearch");
   });
 
   it("uses connection alias/prefix for connected web providers", async () => {
@@ -146,6 +126,5 @@ describe("buildModelsList — web providers (noAuth discovery)", () => {
     // Even with zero connections, noAuth web providers must be listed
     expect(ids).toContain("anysearch/search");
     expect(ids).toContain("ctx7/search");
-    expect(ids).toContain("searxng/search");
   });
 });

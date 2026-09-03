@@ -73,7 +73,6 @@ import p75 from "./qoder";
 import p77 from "./recraft";
 import p78 from "./runwayml";
 import p80 from "./searchapi";
-import p81 from "./searxng";
 import p82 from "./serper";
 import p83 from "./siliconflow";
 import p84 from "./stability-ai";
@@ -361,7 +360,6 @@ export default [
   p77,
   p78,
   p80,
-  p81,
   p82,
   p83,
   p84,

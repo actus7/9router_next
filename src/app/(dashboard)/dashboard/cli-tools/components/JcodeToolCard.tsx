@@ -273,7 +273,7 @@ id = "${selectedModel || "cc/claude-opus-4-7"}"`;
             <ArrowRight className="size-4" />
             <div className="relative w-full min-w-0">
               <Input type="text" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} placeholder="cc/claude-opus-4-7" className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
-              {selectedModel && <Button variant="ghost" size="sm" onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear"><X className="size-4" /></Button>}
+              {selectedModel && <Button variant="ghost" size="sm" onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear" aria-label="Clear model selection"><X className="size-4" /></Button>}
             </div>
             <Button variant="outline" size="sm" onClick={() => setModalOpen(true)} disabled={!hasActiveProviders} className="w-full sm:w-auto">Select</Button>
           </div>

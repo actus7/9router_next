@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse  } from "next/server";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { getChartData } from "@/lib/usageDb";
 
 const VALID_PERIODS = new Set(["today", "24h", "7d", "30d", "60d"]);
 
 export async function GET(request: NextRequest) {
+  await assertRequestRuntime();
   try {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "7d";

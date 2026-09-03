@@ -1,6 +1,6 @@
 ﻿import { getComboByName } from "../../host/store";
 import { ROUTE_NEEDS, ROUTING_TIERS, DEFAULT_SMART_ROUTING_CONFIG } from "./types";
-import { rankSmartProfiles, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
+import { rankSmartProfilesForEndpoint, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
 import { recordRoutingTier, scoreRoutingRequest } from "./scoring";
 import type {
   RouteNeed,
@@ -144,7 +144,8 @@ function mergeLegacyModels(config: SmartRoutingConfig, need: RouteNeed, models: 
 }
 
 export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): Promise<SmartRoutingResolution> {
-  const assessment = scoreRoutingRequest(options.body, options.endpointNeed || "general", options.sessionKey);
+  const endpointNeed = options.endpointNeed || "general";
+  const assessment = scoreRoutingRequest(options.body, endpointNeed, options.sessionKey);
   const header = parseRoutingTierHeader(options.headers);
   if (header.error) throw new Error(header.error);
 
@@ -152,7 +153,7 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
   let chosenTier = config.complexity.enabled ? assessment.tier : "standard";
   let chosenNeed = config.task.enabled && assessment.needConfidence >= config.task.confidenceThreshold
     ? assessment.need
-    : (options.endpointNeed || "general");
+    : endpointNeed;
   let reason = assessment.reason;
   let classifierModel: string | undefined;
   let classifierLatencyMs: number | undefined;
@@ -192,7 +193,20 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
   }
 
   config = mergeLegacyModels(config, chosenNeed, options.combo.models || []);
-  const ranked = rankSmartProfiles(profiles, chosenNeed, chosenTier, config, assessment.signals.tokenEstimate);
+  config = mergeLegacyModels(config, endpointNeed, options.combo.models || []);
+  const ranking = rankSmartProfilesForEndpoint({
+    profiles,
+    need: chosenNeed,
+    endpointNeed,
+    requestedTier: chosenTier,
+    config,
+    tokenEstimate: assessment.signals.tokenEstimate,
+  });
+  const ranked = ranking.candidates;
+  if (ranking.fellBackToEndpointNeed) {
+    chosenNeed = ranking.need;
+    reason = "endpoint";
+  }
   const selected = ranked[0];
   const sourceSet = new Set(ranked.map((candidate) => candidate.source));
   const meta: RoutingDecisionMeta = {

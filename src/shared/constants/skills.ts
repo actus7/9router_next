@@ -65,7 +65,7 @@ export const SKILLS: readonly Skill[] = [
   {
     id: "modelhub-web-search",
     name: "Web Search",
-    description: "Tavily / Exa / Brave / Serper / SearXNG / Google PSE / You.com.",
+    description: "Tavily / Exa / Brave / Serper / Google PSE / You.com.",
     endpoint: "/v1/search",
     icon: "search",
   },

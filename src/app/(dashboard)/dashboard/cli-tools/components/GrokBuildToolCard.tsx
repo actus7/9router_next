@@ -11,6 +11,7 @@ import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
 import { useModelAliases } from "./useCliToolCommon";
 import { StatusMessage, ActionButtons } from "./CliToolShared";
+import { expandableCardHeaderProps } from "./expandableCardHeader";
 import { ArrowRight, ChevronDown, Copy, GitBranch, Info, Loader2, TriangleAlert, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
@@ -62,7 +63,7 @@ function ModelField({ label, value, placeholder, onChange, onSelect, disabled, h
       <div className="relative w-full min-w-0">
         <Input type="text" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
         {value && (
-          <Button variant="ghost" size="sm" type="button" onClick={() => onChange("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear (inherit main model for subagents)">
+          <Button variant="ghost" size="sm" type="button" onClick={() => onChange("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear (inherit main model for subagents)" aria-label="Clear subagent model selection">
             <X className="size-4" />
           </Button>
         )}
@@ -244,7 +245,7 @@ export default function GrokBuildToolCard({
 
   return (
     <Card padding="xs" className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" onClick={onToggle}>
+      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" {...expandableCardHeaderProps(onToggle, isExpanded)}>
         <div className="flex min-w-0 items-center gap-3">
           <div className="size-8 flex items-center justify-center shrink-0">
             <Image src={tool.image || "/providers/grok-cli.png"} alt={tool.name} width={32} height={32} className="size-8 object-contain rounded-lg" sizes="32px" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />

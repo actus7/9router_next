@@ -1,28 +1,21 @@
 import { loadState, saveState, generateShortId } from "../shared/state";
+import { throwIfCancelled } from "../shared/cancel";
+import {
+  cancelService,
+  createTunnelServiceState,
+  finishEnable,
+  prepareEnable,
+} from "../shared/serviceState";
+import type { DisableResult, TunnelServiceState } from "../shared/types";
 import { spawnQuickTunnel, killCloudflared, isCloudflaredRunning, setUnexpectedExitHandler } from "./cloudflared";
 import { clearPid } from "./pid";
 import { waitForHealth, probeUrlAlive } from "./healthCheck";
 import { WORKER_URL } from "./config";
 import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
-interface CancelToken {
-  cancelled: boolean;
-}
 
-interface TunnelService {
-  cancelToken: CancelToken;
-  spawnInProgress: boolean;
-  lastRestartAt: number;
-  activeLocalPort: number | null;
-}
+const svc: TunnelServiceState = createTunnelServiceState();
 
-const svc: TunnelService = {
-  cancelToken: { cancelled: false },
-  spawnInProgress: false,
-  lastRestartAt: 0,
-  activeLocalPort: null,
-};
-
-export function getTunnelService(): TunnelService { return svc; }
+export function getTunnelService(): TunnelServiceState { return svc; }
 export function isTunnelManuallyDisabled(): boolean { return svc.cancelToken.cancelled; }
 export function isTunnelReconnecting(): boolean { return svc.spawnInProgress; }
 
@@ -37,10 +30,6 @@ async function registerTunnelUrl(shortId: string, tunnelUrl: string): Promise<vo
   });
 }
 
-function throwIfCancelled(token: CancelToken): void {
-  if (token.cancelled) throw new Error("tunnel cancelled");
-}
-
 interface EnableResult {
   success: boolean;
   tunnelUrl: string;
@@ -51,10 +40,7 @@ interface EnableResult {
 
 export async function enableTunnel(localPort: number = 20128): Promise<EnableResult> {
   console.log(`[Tunnel] enable start (port=${localPort})`);
-  svc.cancelToken = { cancelled: false };
-  svc.activeLocalPort = localPort;
-  svc.spawnInProgress = true;
-  const token: CancelToken = svc.cancelToken;
+  const token = prepareEnable(svc, localPort);
 
   try {
     if (isCloudflaredRunning()) {
@@ -75,7 +61,7 @@ export async function enableTunnel(localPort: number = 20128): Promise<EnableRes
 
     killCloudflared(localPort);
     console.log("[Tunnel] killed existing cloudflared");
-    throwIfCancelled(token);
+    throwIfCancelled(token, "tunnel cancelled");
 
     const existing = loadState();
     const shortId: string = existing?.shortId || generateShortId();
@@ -95,7 +81,7 @@ export async function enableTunnel(localPort: number = 20128): Promise<EnableRes
 
     const { tunnelUrl } = await spawnQuickTunnel(localPort, onUrlUpdate);
     console.log(`[Tunnel] spawned: ${tunnelUrl}`);
-    throwIfCancelled(token);
+    throwIfCancelled(token, "tunnel cancelled");
 
     const publicUrl: string = `https://r${shortId}.abc-tunnel.us`;
     await registerTunnelUrl(shortId, tunnelUrl);
@@ -119,17 +105,13 @@ export async function enableTunnel(localPort: number = 20128): Promise<EnableRes
     }
     throw e;
   } finally {
-    svc.spawnInProgress = false;
+    finishEnable(svc);
   }
-}
-
-interface DisableResult {
-  success: boolean;
 }
 
 export async function disableTunnel(): Promise<DisableResult> {
   console.log("[Tunnel] disable");
-  svc.cancelToken.cancelled = true;
+  cancelService(svc);
   setUnexpectedExitHandler(null);
 
   try { killCloudflared(svc.activeLocalPort!); } catch (e: unknown) { console.warn(`[Tunnel] kill warn: ${(e as Error).message}`); }

@@ -30,6 +30,6 @@ export const PONYTAIL_LEVELS = [
 ];
 
 export const SYNAPSE_LEVELS = [
-  { id: "lite", label: "Lite", desc: "Responde apenas padrões sociais inequívocos: saudações, agradecimentos e despedidas" },
-  { id: "full", label: "Full", desc: "Soma identidade, ping e confirmações curtas — mais cobertura, ainda conservador" },
+  { id: "lite", label: "Lite", desc: "Answer only unambiguous social patterns: greetings, thanks and goodbyes" },
+  { id: "full", label: "Full", desc: "Adds identity, ping and short confirmations — more coverage, still conservative" },
 ];

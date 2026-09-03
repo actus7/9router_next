@@ -2,7 +2,6 @@ import { NextRequest, NextResponse  } from "next/server";
 import { getInstallLogTail } from "@/lib/pxpipe/install";
 import { readPxpipeEvents } from "@/lib/pxpipe/events";
 
-export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {

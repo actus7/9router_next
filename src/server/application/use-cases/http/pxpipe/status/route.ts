@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getPxpipeStatus } from "@/lib/pxpipe/service";
-
-export const dynamic = "force-dynamic";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 
 export async function GET() {
+  await assertRequestRuntime();
   try {
     const settings = await getSettings();
     const status = getPxpipeStatus();

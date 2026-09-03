@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse  } from "next/server";
 import { getRequestDetails } from "@/lib/usageDb";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 
 /**
  * GET /api/usage/request-details
  * Query parameters: page, pageSize (1-100), provider, model, connectionId, status, startDate, endDate
  */
 export async function GET(request: NextRequest) {
+  // Opt out before the try block: reading `request.url` inside it makes Next throw
+  // to interrupt the prerender, and the catch would turn that signal into a 500.
+  await assertRequestRuntime();
   try {
     const { searchParams } = new URL(request.url);
     

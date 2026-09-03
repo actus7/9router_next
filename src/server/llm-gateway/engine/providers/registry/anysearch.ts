@@ -24,8 +24,19 @@ export default {
   // No models-list endpoint — single search-tool entry, nothing to discover.
   noModelDiscovery: true,
   serviceKinds: ["webSearch"],
-  searchViaChat: {
-    defaultModel: "anysearch",
-    endpoint: "https://api.anysearch.com/v1/search",
+  // AnySearch is a dedicated search API, not a chat endpoint, so /v1/search
+  // reaches it through the same builder/normalizer path as Brave or Tavily.
+  // The key is optional: authType "none" keeps it usable with no connection,
+  // and a configured key still rides along as a bearer token.
+  searchConfig: {
+    baseUrl: "https://api.anysearch.com/v1/search",
+    method: "POST",
+    authType: "none",
+    authHeader: "bearer",
+    costPerQuery: 0,
+    searchTypes: ["web"],
+    defaultMaxResults: 5,
+    maxMaxResults: 20,
+    timeoutMs: 10000,
   },
 };

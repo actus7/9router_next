@@ -1,7 +1,8 @@
 "use client";
 
 import {
-  OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS,
+  AI_PROVIDERS,
+  resolveProviderAuthContext,
 } from "@/shared/constants/providers";
 import type { ProviderInfo, ProviderNode } from "./types";
 
@@ -20,7 +21,7 @@ export function resolveProviderInfo(
       type: providerNode.type,
     };
   }
-  return (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId] || WEB_COOKIE_PROVIDERS[providerId]) as ProviderInfo | undefined;
+  return AI_PROVIDERS[providerId] as ProviderInfo | undefined;
 }
 
 export function resolveAuthModes(
@@ -28,12 +29,7 @@ export function resolveAuthModes(
   providerInfo: ProviderInfo | undefined,
   isCompatible: boolean,
 ) {
-  const authModes: string[] = (providerInfo?.authModes as string[] | undefined) || [];
-  const isOAuth = !!OAUTH_PROVIDERS[providerId] || !!providerInfo?.hasOAuth || authModes.includes("oauth");
-  const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
-  const isFreeNoAuth = !!(FREE_PROVIDERS[providerId] as Record<string, unknown>)?.noAuth;
-  const hasDualAuthModes = !isCompatible && isOAuth && supportsApiKeyAuth;
-  return { isOAuth, supportsApiKeyAuth, isFreeNoAuth, hasDualAuthModes };
+  return resolveProviderAuthContext(providerId, providerInfo as Parameters<typeof resolveProviderAuthContext>[1], { isCompatible });
 }
 
 export function resolveConnectionLabels(providerId: string) {

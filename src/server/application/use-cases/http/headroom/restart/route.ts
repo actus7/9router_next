@@ -3,7 +3,6 @@ import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { restartHeadroomProxy } from "@/lib/headroom/process";
 import { DEFAULT_HEADROOM_URL, isLoopbackHeadroomUrl } from "@/lib/headroom/detect";
 
-export const dynamic = "force-dynamic";
 
 function parsePortFromUrl(url: string) {
   try {

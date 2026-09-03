@@ -124,6 +124,7 @@ export default function BasicChatPageClient() {
         setConversationDisplay={sessionsHook.setConversationDisplay}
         enterBehavior={sessionsHook.enterBehavior}
         setEnterBehavior={sessionsHook.setEnterBehavior}
+        harnessEvents={harnessHook.harnessEvents}
       />
     </div>
   );

@@ -3,10 +3,15 @@ import {
   deleteAgentSkillRow,
   upsertAgentSkillRow,
 } from "@/lib/db/repos/agentSkillsRepo";
+import {
+  deleteAgentSkillFilesForSkill,
+  isValidSkillFilePath,
+  listAgentSkillFiles,
+  replaceAgentSkillFiles,
+} from "@/lib/db/repos/agentSkillFilesRepo";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import {
   invalidateSkillTreeCache,
-  isBundledSkillId,
   reloadSkillTree,
 } from "@/server/harness/skills/context";
 import {
@@ -72,6 +77,29 @@ function readPutBody(body: Record<string, unknown>): AgentSkillRow | string {
   };
 }
 
+function readSkillFiles(body: Record<string, unknown>): Array<{ filePath: string; content: string }> | string {
+  if (!Array.isArray(body.files)) return [];
+  const files: Array<{ filePath: string; content: string }> = [];
+  for (const entry of body.files) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return "files must be an array of { path, content } objects";
+    }
+    const record = entry as Record<string, unknown>;
+    const filePath =
+      typeof record.path === "string"
+        ? record.path.trim().toLowerCase()
+        : typeof record.filePath === "string"
+          ? record.filePath.trim().toLowerCase()
+          : "";
+    const content = typeof record.content === "string" ? record.content : "";
+    if (!filePath || !content.trim()) return "each file needs path and content";
+    if (!isValidSkillFilePath(filePath)) return `invalid skill file path: ${filePath}`;
+    if (content.length > 32_768) return `file too large: ${filePath}`;
+    files.push({ filePath, content: content.trim() });
+  }
+  return files;
+}
+
 function serialize(state: Awaited<ReturnType<typeof reloadSkillTree>>) {
   return {
     revision: state.revision,
@@ -85,12 +113,32 @@ export async function GET(request: NextRequest) {
   await assertRequestRuntime();
   const state = await reloadSkillTree();
   const id = new URL(request.url).searchParams.get("id");
+  const filePath = new URL(request.url).searchParams.get("file");
   if (id) {
-    const skill = state.skills.find((item) => item.id === normalizeSkillId(id));
+    const normalized = normalizeSkillId(id);
+    const skill = state.skills.find((item) => item.id === normalized);
     if (!skill) {
       return NextResponse.json({ error: "Skill not found" }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, skill });
+    const files = await listAgentSkillFiles(normalized);
+    if (filePath) {
+      const normalizedPath = filePath.trim().toLowerCase();
+      const match = files.find((file) => file.filePath === normalizedPath);
+      if (!match) {
+        return NextResponse.json({ error: "Skill file not found" }, { status: 404 });
+      }
+      return NextResponse.json({ ok: true, file: match });
+    }
+    return NextResponse.json({
+      ok: true,
+      skill: {
+        ...skill,
+        files: files.map((file) => ({
+          path: file.filePath,
+          size: file.content.length,
+        })),
+      },
+    });
   }
   return NextResponse.json(serialize(state));
 }
@@ -103,11 +151,15 @@ export async function PUT(request: NextRequest) {
   >;
   const row = readPutBody(body);
   if (typeof row === "string") return badRequest(row);
+  const files = readSkillFiles(body);
+  if (typeof files === "string") return badRequest(files);
 
-  if (isBundledSkillId(row.id) && row.source === "override") {
-    await upsertAgentSkillRow(row);
-  } else {
-    await upsertAgentSkillRow(row);
+  await upsertAgentSkillRow(row);
+  if (files.length > 0 && row.source !== "override") {
+    await replaceAgentSkillFiles(row.id, files.map((file) => ({
+      filePath: file.filePath,
+      content: file.content,
+    })));
   }
 
   return NextResponse.json(serialize(await invalidateSkillTreeCache()));
@@ -118,6 +170,7 @@ export async function DELETE(request: NextRequest) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return badRequest("id is required");
   const normalized = normalizeSkillId(id);
+  await deleteAgentSkillFilesForSkill(normalized);
   await deleteAgentSkillRow(normalized);
   return NextResponse.json(serialize(await invalidateSkillTreeCache()));
 }

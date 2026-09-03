@@ -8,7 +8,9 @@ export function classifyEventKind(event: HarnessEvent): EventKind {
   if (event.type.startsWith("assistant/")) return "assistant";
   if (event.type.startsWith("tool/")) return "tool";
   if (event.type.startsWith("skill/")) return "context";
+  if (event.type.startsWith("memory/")) return "context";
   if (event.type.startsWith("run/")) return "system";
+  if (event.type.startsWith("routing/")) return "system";
   return "context";
 }
 
@@ -70,8 +72,12 @@ const EVENT_LABELS: Record<string, string> = {
   "skill/load": "Skill loaded",
   "skill/created": "Skill created",
   "skill/updated": "Skill updated",
+  "memory/add": "Memory add",
+  "memory/replace": "Memory replace",
+  "memory/remove": "Memory remove",
   "assistant/message": "Assistant",
   "assistant/reasoning": "Reasoning",
+  "routing/trace": "Routing",
 };
 
 const EVENT_COLORS: Record<string, string> = {
@@ -84,8 +90,12 @@ const EVENT_COLORS: Record<string, string> = {
   "skill/load": "bg-teal-500",
   "skill/created": "bg-teal-600",
   "skill/updated": "bg-teal-400",
+  "memory/add": "bg-indigo-500",
+  "memory/replace": "bg-indigo-600",
+  "memory/remove": "bg-indigo-400",
   "assistant/message": "bg-violet-500",
   "assistant/reasoning": "bg-fuchsia-500",
+  "routing/trace": "bg-cyan-500",
 };
 
 export function eventLabel(type: string): string {

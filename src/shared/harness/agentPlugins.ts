@@ -244,6 +244,81 @@ export const HARNESS_PLUGINS: readonly HarnessPluginDefinition[] = [
     ),
   },
   {
+    id: "tool-memory",
+    title: "Agent memory",
+    description:
+      "Persists curated agent and user memory across sessions via memory_add, memory_replace, and memory_remove.",
+    module: "@modelhub/harness-tool-memory",
+    kind: "tool",
+    tool: tool(
+      "memory_add",
+      "Add a new memory entry. Use scope 'agent' for assistant facts, 'user' for user preferences.",
+      {
+        scope: {
+          type: "string",
+          enum: ["agent", "user"],
+          description: "Memory scope.",
+        },
+        content: {
+          type: "string",
+          description: "Concise fact to remember (plain text).",
+        },
+      },
+      ["scope", "content"],
+    ),
+  },
+  {
+    id: "tool-session-search",
+    title: "Session search",
+    description: "Full-text search across past chat sessions indexed by ModelHub.",
+    module: "@modelhub/harness-tool-session-search",
+    kind: "tool",
+    tool: tool(
+      "search_past_sessions",
+      "Search indexed messages from past chat sessions. Use for recalling prior work, decisions, or context from earlier conversations.",
+      {
+        query: {
+          type: "string",
+          description: "Search terms (keywords or phrases).",
+        },
+        max_results: {
+          type: "integer",
+          minimum: 1,
+          maximum: 20,
+          description: "Maximum hits to return. Defaults to 8.",
+        },
+        exclude_session_id: {
+          type: "string",
+          description: "Optional session id to exclude (usually the current session).",
+        },
+      },
+      ["query"],
+    ),
+  },
+  {
+    id: "tool-harness-governance",
+    title: "Harness governance",
+    description:
+      "Stages plugin toggles and new capability proposals for user approval.",
+    module: "@modelhub/harness-tool-governance",
+    kind: "tool",
+    tool: tool(
+      "toggle_plugin",
+      "Enable or disable a harness plugin globally via an override row (requires approval when write_approval is on).",
+      {
+        plugin_id: {
+          type: "string",
+          description: "Plugin id from the harness catalogue (e.g. tool-web-search).",
+        },
+        enabled: {
+          type: "boolean",
+          description: "Desired enabled state.",
+        },
+      },
+      ["plugin_id", "enabled"],
+    ),
+  },
+  {
     id: "tool-skill-authoring",
     title: "Skill authoring",
     description:
@@ -287,6 +362,8 @@ export const AGENT_PRESETS: readonly AgentPresetDefinition[] = [
       "tool-web-fetch",
       "tool-subagent",
       "tool-skills",
+      "tool-memory",
+      "tool-session-search",
     ],
   },
   {
@@ -421,6 +498,22 @@ export function getRuntimeToolDefinitions(
 ): RuntimeToolDefinition[] {
   return resolveSessionPlugins(presetId, overrides).flatMap((plugin) =>
     plugin.tool ? [plugin.tool] : [],
+  );
+}
+
+export function getProposeHarnessCapabilityToolDefinition(): RuntimeToolDefinition {
+  return tool(
+    "propose_harness_capability",
+    "Propose a new harness capability row for user approval before it is installed.",
+    {
+      title: { type: "string", description: "Human-readable capability title." },
+      description: { type: "string", description: "What the capability does." },
+      tool_name: {
+        type: "string",
+        description: "Runtime tool name the capability would expose.",
+      },
+    },
+    ["title", "description", "tool_name"],
   );
 }
 

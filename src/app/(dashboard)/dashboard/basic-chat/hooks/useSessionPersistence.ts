@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { translate } from "@/i18n/runtime";
+import { useNotificationStore } from "@/store/notificationStore";
 import { ensureBuiltinMcpServers } from "@/shared/harness/builtinMcpServers";
 import { createId } from "../chatFormatUtils";
 import type {
@@ -61,6 +62,7 @@ export interface UseSessionPersistenceArgs {
 }
 
 export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
+  const notify = useNotificationStore();
   const {
     providerGroups,
     loadingData,
@@ -171,8 +173,12 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
           });
         }
       })
-      .catch(() => {
-        // Keep local drafts usable when the durable store is temporarily unavailable.
+      .catch((error: unknown) => {
+        console.error("Failed to load harness sessions:", error);
+        notify.warning(
+          translate("Could not load saved sessions. Using local copy.") ||
+            "Could not load saved sessions. Using local copy.",
+        );
       })
       .finally(() => {
         serverSessionsReadyRef.current = true;
@@ -180,7 +186,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     return () => {
       cancelled = true;
     };
-  }, [isHydrated, serverSessionsReadyRef, setSessions]);
+  }, [isHydrated, notify, serverSessionsReadyRef, setSessions]);
 
   // Load or create API key
   useEffect(() => {
@@ -359,14 +365,18 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessions }),
-      }).catch(() => {
-        // The local copy remains intact; a later state transition retries sync.
+      }).catch((error: unknown) => {
+        console.error("Failed to sync harness sessions:", error);
+        notify.warning(
+          translate("Could not sync sessions to server. Changes are saved locally.") ||
+            "Could not sync sessions to server. Changes are saved locally.",
+        );
       });
     }, 350);
     return () => {
       if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current);
     };
-  }, [isHydrated, serverSessionsReadyRef, serverSyncTimerRef, sessions]);
+  }, [isHydrated, notify, serverSessionsReadyRef, serverSyncTimerRef, sessions]);
 
   // Auto-connect Context7 (no token required): discover its tools as soon as a
   // session carries the built-in server without them, so it works out of the

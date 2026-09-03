@@ -10,12 +10,23 @@ type ProxyClientMaxBodySize = NonNullable<NextConfig["experimental"]>["proxyClie
 const proxyClientMaxBodySize = (process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb") as ProxyClientMaxBodySize;
 
 const nextConfig: NextConfig = {
+  cacheComponents: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // `standalone` is for the project's self-hosted runtime. Vercel already
   // consumes Next's output tracing and its build adapter expects the standard
   // tracing manifests rather than the standalone artifact layout.
   output: process.env.VERCEL ? undefined : "standalone",
-  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open", "puppeteer", "puppeteer-core"],
+  serverExternalPackages: [
+    "better-sqlite3",
+    "sql.js",
+    "node:sqlite",
+    "bun:sqlite",
+    "open",
+    "puppeteer",
+    "puppeteer-core",
+    "@jitl/quickjs-singlefile-cjs-release-sync",
+    "quickjs-emscripten-core",
+  ],
   turbopack: {
     root: tracingRoot,
   },

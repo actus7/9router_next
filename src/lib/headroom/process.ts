@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { spawn, ChildProcess } from "child_process";
 import { DATA_DIR } from "@/lib/dataDir";
-import { findHeadroomBinary, findPython310, HEADROOM_COMPRESSION_EXTRAS, EXTRA_MARKERS, getInstalledHeadroomExtras } from "./detect";
+import { findHeadroomBinary, findPython310, HEADROOM_COMPRESSION_EXTRAS, EXTRA_MARKERS, getInstalledHeadroomExtras, resetHeadroomDetectionCache } from "./detect";
 
 const HEADROOM_DIR: string = path.join(DATA_DIR, "headroom");
 const PID_FILE: string = path.join(HEADROOM_DIR, "proxy.pid");
@@ -201,6 +201,7 @@ export async function installHeadroomExtras(extras: string[] = []): Promise<Inst
     child.once("exit", (code: number | null) => {
       fs.closeSync(outFd);
       if (code === 0) {
+        resetHeadroomDetectionCache();
         const status: { installed: boolean; version: string | null; extras: Record<string, boolean> } = getInstalledHeadroomExtras(py);
         resolve({ success: true, code: code!, spec, extras: requested, installed: status.installed, version: status.version, extrasStatus: status.extras });
       } else {
@@ -252,6 +253,7 @@ export async function uninstallHeadroomExtras(extras: string[] = []): Promise<Un
     child.once("exit", (code: number | null) => {
       fs.closeSync(outFd);
       if (code === 0) {
+        resetHeadroomDetectionCache();
         const status: { installed: boolean; version: string | null; extras: Record<string, boolean> } = getInstalledHeadroomExtras(py);
         resolve({ success: true, code: code!, removed: pkgs, extras: requested, installed: status.installed, version: status.version, extrasStatus: status.extras });
       } else {

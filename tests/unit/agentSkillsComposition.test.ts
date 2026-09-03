@@ -88,6 +88,15 @@ describe("resolveSessionSkillsFrom", () => {
       resolveSessionSkillsFrom(catalog, { a: false }).map((s) => s.id),
     ).toEqual([]);
   });
+
+  it("honours persisted harness preferences across sessions", () => {
+    expect(
+      resolveSessionSkillsFrom(catalog, {}, { b: true }).map((s) => s.id),
+    ).toEqual(["a", "b"]);
+    expect(
+      resolveSessionSkillsFrom(catalog, { b: false }, { b: true }).map((s) => s.id),
+    ).toEqual(["a", "b"]);
+  });
 });
 
 describe("buildSkillsPromptBlock", () => {

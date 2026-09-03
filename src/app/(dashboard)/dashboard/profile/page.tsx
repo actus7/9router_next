@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { getSettings, getDatabaseInfo } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ProfileClient from "./ProfileClient";
 
 async function ProfileContent() {
+  await assertRequestRuntime();
   const [settings, dbInfo] = await Promise.all([
     getSettings(),
     getDatabaseInfo()

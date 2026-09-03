@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, Plus, Search } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  resolveSessionSkillsFrom,
   getActiveSkillCatalog,
+  resolveSkillSessionEnabled,
   type AgentSkillDefinition,
 } from "@/shared/harness/agentSkills";
 import {
@@ -15,7 +15,10 @@ import {
   type SkillDraft,
 } from "../hooks/useAgentSkills";
 import type { ChatSession } from "../types";
+import { useSkillPreferences } from "../hooks/useSkillPreferences";
+import { useSkillLibrary } from "../hooks/useSkillLibrary";
 import SkillEditorPanel from "./SkillEditorPanel";
+import SkillLibraryPanel from "./SkillLibraryPanel";
 
 function skillBadge(skill: AgentSkillDefinition): string {
   if (skill.bundled) return "Padrão";
@@ -25,28 +28,31 @@ function skillBadge(skill: AgentSkillDefinition): string {
 
 export default function HarnessSkillsSection({
   session,
-  updateSession,
 }: {
   session: ChatSession | null;
-  updateSession: (
+  updateSession?: (
     sessionId: string,
     updater: (session: ChatSession) => ChatSession,
   ) => void;
 }) {
   const skillsHook = useAgentSkills(true);
+  const { preferences, setSkillEnabled } = useSkillPreferences();
+  const installedSkillIds = new Set(skillsHook.skills.map((skill) => skill.id));
+  const skillLibrary = useSkillLibrary({
+    installedSkillIds,
+    onInstalled: () => {
+      void skillsHook.reload();
+    },
+  });
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editorDraft, setEditorDraft] = useState<SkillDraft | null | "new">(null);
 
-  const effectiveSkills = useMemo(() => {
-    const catalog = {
-      skills: skillsHook.skills.length
-        ? skillsHook.skills
-        : getActiveSkillCatalog().skills,
-    };
-    return resolveSessionSkillsFrom(catalog, session?.skillOverrides);
-  }, [skillsHook.skills, session?.skillOverrides]);
-  const enabledSessionIds = new Set(effectiveSkills.map((skill) => skill.id));
+  const catalogSkills = skillsHook.skills.length
+    ? skillsHook.skills
+    : getActiveSkillCatalog().skills;
+  const isSkillEnabledInChat = (skill: AgentSkillDefinition) =>
+    resolveSkillSessionEnabled(skill, preferences, session?.skillOverrides);
 
   const visibleSkills = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -59,14 +65,9 @@ export default function HarnessSkillsSection({
   }, [query, skillsHook.skills]);
 
   const toggleSessionSkill = (skillId: string) => {
-    if (!session) return;
-    updateSession(session.id, (current) => ({
-      ...current,
-      skillOverrides: {
-        ...current.skillOverrides,
-        [skillId]: !enabledSessionIds.has(skillId),
-      },
-    }));
+    const skill = catalogSkills.find((item) => item.id === skillId);
+    if (!skill) return;
+    setSkillEnabled(skillId, !isSkillEnabledInChat(skill));
   };
 
   const handleSave = async (draft: SkillDraft) => {
@@ -84,8 +85,9 @@ export default function HarnessSkillsSection({
         o modelo carrega o corpo com <code className="text-xs">load_skill</code>.
       </p>
       <p className="mt-4 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        Toggle no card = nesta sessão. No painel expandido, toggle global =
-        instalação inteira. Skills importadas entram desativadas por padrão.
+        Toggle no card = uso no chat (persiste entre conversas). No painel expandido,
+        toggle global = instalação inteira. Skills importadas entram desativadas por
+        padrão.
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -99,9 +101,35 @@ export default function HarnessSkillsSection({
             type="search"
           />
         </label>
+        <Button
+          type="button"
+          variant="default"
+          onClick={() => skillLibrary.setOpen(true)}
+        >
+          <BookOpen className="size-4" />
+          Explorar biblioteca
+        </Button>
         <Button type="button" variant="outline" onClick={() => setEditorDraft("new")}>
           <Plus className="size-4" />
           Nova skill
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={skillsHook.loading}
+          onClick={() => {
+            const blob = new Blob([JSON.stringify(skillsHook.skills, null, 2)], {
+              type: "application/json",
+            });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = "modelhub-skills-export.json";
+            anchor.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          Exportar
         </Button>
       </div>
 
@@ -114,7 +142,7 @@ export default function HarnessSkillsSection({
 
       <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {visibleSkills.map((skill) => {
-          const sessionEnabled = enabledSessionIds.has(skill.id);
+          const sessionEnabled = isSkillEnabledInChat(skill);
           const expanded = expandedId === skill.id;
           const busy = skillsHook.busyId === skill.id;
           return (
@@ -152,10 +180,9 @@ export default function HarnessSkillsSection({
                     sessionEnabled && "text-emerald-700 dark:text-emerald-400",
                   )}
                   onClick={() => toggleSessionSkill(skill.id)}
-                  disabled={!session}
                   aria-pressed={sessionEnabled}
                 >
-                  {sessionEnabled ? "Sessão" : "Off sessão"}
+                  {sessionEnabled ? "Ativa" : "Inativa"}
                 </Button>
                 <button
                   type="button"
@@ -260,6 +287,11 @@ export default function HarnessSkillsSection({
           );
         })}
       </ul>
+
+      <SkillLibraryPanel
+        state={skillLibrary}
+        installedSkillIds={installedSkillIds}
+      />
 
       {editorDraft !== null ? (
         <SkillEditorPanel

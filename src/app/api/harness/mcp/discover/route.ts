@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { discoverMcpTools } from "@/server/harness/mcpClient";
 
-export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
+  await assertRequestRuntime();
   try {
     const { url, authToken } = await request.json();
     if (typeof url !== "string" || !url.trim())

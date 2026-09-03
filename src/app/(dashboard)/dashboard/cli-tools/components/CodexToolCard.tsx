@@ -268,7 +268,7 @@ model = "${effectiveSubagentModel}"
             <ArrowRight className="size-4" />
             <div className="relative w-full min-w-0">
               <Input type="text" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} placeholder="provider/model-id" className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
-              {selectedModel && <Button variant="ghost" size="sm" onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear"><X className="size-4" /></Button>}
+              {selectedModel && <Button variant="ghost" size="sm" onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear" aria-label="Clear model selection"><X className="size-4" /></Button>}
             </div>
             <Button variant="outline" size="sm" onClick={() => setModalOpen(true)} disabled={!activeProviders?.length} className="w-full sm:w-auto">Select Model</Button>
           </div>
@@ -279,7 +279,7 @@ model = "${effectiveSubagentModel}"
             <div className="relative w-full min-w-0">
               <Input type="text" value={subagentModel} onChange={(e) => setSubagentModel(e.target.value)} placeholder={selectedModel || "provider/model-id (defaults to main model)"} className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
               {subagentModel && (
-                <Button variant="ghost" size="sm" onClick={() => setSubagentModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear (will use main model)">
+                <Button variant="ghost" size="sm" onClick={() => setSubagentModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear (will use main model)" aria-label="Clear subagent model selection">
                   <X className="size-4" />
                 </Button>
               )}

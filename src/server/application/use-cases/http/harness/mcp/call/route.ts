@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callMcpTool } from "@/server/harness/mcpClient";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { listHarnessConversations } from "@/lib/db/repos/harnessConversationsRepo";
 
 interface StoredMcpServer {
@@ -11,6 +12,7 @@ interface StoredMcpServer {
 }
 
 export async function POST(request: NextRequest) {
+  await assertRequestRuntime();
   try {
     const { sessionId, serverId, runtimeName, arguments: args } = await request.json();
     if (

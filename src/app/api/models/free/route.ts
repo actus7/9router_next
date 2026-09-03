@@ -3,7 +3,6 @@ import { safePublicFetch } from "@/server/security/safeFetch";
 import { FREE_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderModels, PROVIDER_ID_TO_ALIAS } from "@/server/llm-gateway/catalog";
 
-export const dynamic = "force-dynamic";
 
 interface FreeModelGroup {
   providerId: string;

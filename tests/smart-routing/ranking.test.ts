@@ -1,5 +1,10 @@
 ﻿import { describe, expect, it } from "vitest";
-import { getSmartTierOrder, rankSmartProfiles } from "@/server/llm-gateway/engine/services/smart-routing/inventory";
+import {
+  getSmartTierOrder,
+  rankSmartProfiles,
+  rankSmartProfilesForEndpoint,
+  serviceKindForNeed,
+} from "@/server/llm-gateway/engine/services/smart-routing/inventory";
 import { attachRoutingDecision, getRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import { DEFAULT_SMART_ROUTING_CONFIG, type RoutingTier, type SmartModelProfile } from "@/server/llm-gateway/engine/services/smart-routing/types";
 
@@ -63,6 +68,68 @@ describe("smart model ranking", () => {
     };
     const result = rankSmartProfiles([profile("p/first", "standard"), profile("p/second", "standard")], "coding", "standard", config);
     expect(result[0]).toMatchObject({ modelKey: "p/second", source: "manual" });
+  });
+});
+
+function withKinds(modelKey: string, serviceKinds: string[], search = false): SmartModelProfile {
+  const base = profile(modelKey, "standard");
+  return { ...base, capabilities: { ...base.capabilities, serviceKinds, search } };
+}
+
+describe("endpoint service eligibility", () => {
+  const searchOnly = withKinds("anysearch/anysearch", ["webSearch"]);
+  const chatWithSearch = withKinds("perplexity/sonar", ["llm", "webSearch"], true);
+  const chatOnly = withKinds("toll/gemini_3_pro", ["llm"]);
+  const searchOverrides = {
+    ...DEFAULT_SMART_ROUTING_CONFIG,
+    overrides: { web_search: { default: ["anysearch/anysearch", "toll/gemini_3_pro", "perplexity/sonar"] } },
+  };
+
+  it("maps each endpoint to the service its answer must come from", () => {
+    expect(serviceKindForNeed("general")).toBe("llm");
+    expect(serviceKindForNeed("coding")).toBe("llm");
+    expect(serviceKindForNeed("web_search")).toBe("webSearch");
+    expect(serviceKindForNeed("tts")).toBe("tts");
+    expect(serviceKindForNeed("embeddings")).toBe("embedding");
+  });
+
+  // A search-only provider answers /v1/search, never a chat turn: its payload is
+  // a result list, so the chat would render raw links as the assistant reply.
+  it("never offers a search-only provider to a chat request", () => {
+    const result = rankSmartProfiles([searchOnly, chatWithSearch], "web_search", "standard", searchOverrides, 0, "llm");
+    expect(result.map((candidate) => candidate.modelKey)).toEqual(["perplexity/sonar"]);
+  });
+
+  it("still offers a search-only provider to the search endpoint", () => {
+    const result = rankSmartProfiles([searchOnly, chatOnly], "web_search", "standard", searchOverrides, 0, "webSearch");
+    expect(result.map((candidate) => candidate.modelKey)).toEqual(["anysearch/anysearch"]);
+  });
+
+  it("prefers a chat model that can search when the request needs search", () => {
+    const resolved = rankSmartProfilesForEndpoint({
+      profiles: [searchOnly, chatWithSearch, chatOnly],
+      need: "web_search",
+      endpointNeed: "general",
+      requestedTier: "standard",
+      config: searchOverrides,
+    });
+    expect(resolved.need).toBe("web_search");
+    expect(resolved.fellBackToEndpointNeed).toBe(false);
+    expect(resolved.candidates.map((candidate) => candidate.modelKey)).toEqual(["perplexity/sonar"]);
+  });
+
+  // Answering with a plain chat model beats answering with a link dump or a 503.
+  it("falls back to the endpoint need when no chat model covers the classified need", () => {
+    const resolved = rankSmartProfilesForEndpoint({
+      profiles: [searchOnly, chatOnly],
+      need: "web_search",
+      endpointNeed: "general",
+      requestedTier: "standard",
+      config: searchOverrides,
+    });
+    expect(resolved.need).toBe("general");
+    expect(resolved.fellBackToEndpointNeed).toBe(true);
+    expect(resolved.candidates.map((candidate) => candidate.modelKey)).toEqual(["toll/gemini_3_pro"]);
   });
 });
 

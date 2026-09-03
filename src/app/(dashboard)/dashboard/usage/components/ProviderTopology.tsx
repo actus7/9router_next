@@ -3,371 +3,14 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   ReactFlow,
-  Handle,
-  Position,
   Controls,
-  BaseEdge,
-  getBezierPath,
   type EdgeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AI_PROVIDERS } from "@/shared/constants/providers";
-import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
-import { DynamicMedia } from "@/components/ui/dynamic-media";
-
-// Force-stop FE animation if a provider stays active longer than this
-const FE_ACTIVE_TIMEOUT_MS = 60000;
-const FE_ACTIVE_TICK_MS = 1000;
-
-// Kame + electric particles along active edges
-const KAME_PARTICLE_COUNT = 6;
-const SPARK_COUNT = 5;
-
-function getProviderConfig(providerId: string) {
-  return AI_PROVIDERS[providerId] || { color: "#6b7280", name: providerId };
-}
-
-function getProviderImageUrl(providerId: string) {
-  return getProviderIconSrc(providerId);
-}
-
-interface ProviderNodeData {
-  label: string;
-  color: string;
-  imageUrl?: string;
-  textIcon?: string;
-  active?: boolean;
-}
-
-interface RouterNodeData {
-  activeCount?: number;
-}
-
-interface TopologyEdgeData {
-  active?: boolean;
-}
-
-// Custom provider node - rectangle with image + name
-function ProviderNode({ data }: { data: ProviderNodeData }) {
-  const { label, color, imageUrl, textIcon, active } = data;
-  const [imgError, setImgError] = useState(false);
-  return (
-    <div
-      className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg border-2 transition-all duration-300 bg-bg"
-      style={{
-        borderColor: active ? color : "var(--color-border)",
-        boxShadow: active ? `0 0 16px ${color}40` : "none",
-        minWidth: "150px",
-      }}
-    >
-      <Handle type="target" position={Position.Top} id="top" className="!bg-transparent !border-0 !w-0 !h-0" />
-      <Handle type="target" position={Position.Bottom} id="bottom" className="!bg-transparent !border-0 !w-0 !h-0" />
-      <Handle type="target" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
-      <Handle type="target" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
-
-      {/* Provider icon */}
-      <div
-        className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
-        style={{ backgroundColor: `${color}15` }}
-      >
-        {imageUrl && !imgError ? (
-          <DynamicMedia
-            src={imageUrl}
-            alt={label}
-            className="w-6 h-6 rounded-sm object-contain"
-            loading="lazy"
-            decoding="async"
-            onError={() => {
-              const m = imageUrl?.match(/^\/providers\/([^/]+)\.png$/i);
-              if (m) markProviderIconMissing(m[1]);
-              setImgError(true);
-            }}
-          />
-        ) : (
-          <span className="text-sm font-bold" style={{ color }}>{textIcon}</span>
-        )}
-      </div>
-
-      {/* Provider name */}
-      <span
-        className="text-base font-medium truncate"
-        style={{ color: active ? color : "var(--color-text)" }}
-      >
-        {label}
-      </span>
-
-      {/* Active indicator */}
-      {active && (
-        <span className="relative flex h-2 w-2 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }} />
-          <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: color }} />
-        </span>
-      )}
-    </div>
-  );
-}
-
-// Center ModelHub node — pulse/glow on card only (no expanding rings)
-function RouterNode({ data }: { data: RouterNodeData }) {
-  const powering = (data.activeCount || 0) > 0;
-  return (
-    <div
-      className={`relative z-[1] flex items-center justify-center px-5 py-3 rounded-xl border-2 min-w-[130px] ${
-        powering
-          ? "topology-router-core border-yellow-300 bg-gradient-to-br from-primary/30 via-yellow-400/20 to-cyan-400/25"
-          : "border-primary bg-primary/5 shadow-md"
-      }`}
-    >
-      <Handle type="source" position={Position.Top} id="top" className="!bg-transparent !border-0 !w-0 !h-0" />
-      <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-transparent !border-0 !w-0 !h-0" />
-      <Handle type="source" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
-      <Handle type="source" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
-
-      <DynamicMedia
-        src="/favicon.png"
-        alt="ModelHub"
-        className={`w-6 h-6 mr-2 ${powering ? "topology-router-icon" : ""}`}
-        loading="lazy"
-        decoding="async"
-      />
-      <span className={`text-sm font-bold ${powering ? "topology-router-label text-yellow-300" : "text-primary"}`}>
-        ModelHub
-      </span>
-      {data.activeCount !== undefined && data.activeCount > 0 && (
-        <span className="ml-2 px-1.5 py-0.5 rounded-full bg-yellow-400 text-black text-xs font-bold topology-router-badge">
-          {data.activeCount}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// Active: electric kame beam (multi-layer stroke + sparks). Idle/last/error: solid BaseEdge.
-function TopologyEdge({
-  id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
-  style = {} as React.CSSProperties,
-  data,
-}: {
-  id?: string;
-  sourceX?: number;
-  sourceY?: number;
-  targetX?: number;
-  targetY?: number;
-  sourcePosition?: Position;
-  targetPosition?: Position;
-  style?: React.CSSProperties;
-  data?: TopologyEdgeData;
-}) {
-  const [edgePath] = getBezierPath({
-    sourceX: sourceX ?? 0,
-    sourceY: sourceY ?? 0,
-    sourcePosition,
-    targetX: targetX ?? 0,
-    targetY: targetY ?? 0,
-    targetPosition,
-  });
-  const active = !!data?.active;
-  const stroke = (style.stroke as string) || "var(--color-border)";
-  const filterId = `topo-electric-${id}`;
-
-  if (!active) {
-    return <BaseEdge id={id} path={edgePath} style={{ ...style, stroke } as React.CSSProperties} />;
-  }
-
-  return (
-    <g className="topology-edge-electric">
-      <defs>
-        <filter id={filterId} x="-40%" y="-40%" width="180%" height="180%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="2" result="noise">
-            <animate attributeName="baseFrequency" values="0.8;1.4;0.8" dur="0.25s" repeatCount="indefinite" />
-          </feTurbulence>
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </defs>
-      {/* Outer electric halo */}
-      <path
-        d={edgePath}
-        fill="none"
-        stroke="#22d3ee"
-        strokeWidth={10}
-        strokeOpacity={0.35}
-        strokeLinecap="round"
-        filter={`url(#${filterId})`}
-        className="topology-edge-halo"
-      />
-      {/* Mid plasma */}
-      <path
-        d={edgePath}
-        fill="none"
-        stroke="#4ade80"
-        strokeWidth={5}
-        strokeOpacity={0.85}
-        strokeLinecap="round"
-        filter={`url(#${filterId})`}
-        className="topology-edge-plasma"
-      />
-      {/* Hot white core */}
-      <BaseEdge
-        id={id}
-        path={edgePath}
-        style={{ stroke: "#f8fafc", strokeWidth: 2.2, opacity: 1 }}
-        className="topology-edge-kame"
-      />
-      {/* Energy orbs */}
-      {Array.from({ length: KAME_PARTICLE_COUNT }, (_, i) => (
-        <circle
-          key={`${id}-p-${i}`}
-          r={i % 2 === 0 ? 4 : 2.5}
-          fill={i % 3 === 0 ? "#fde047" : i % 3 === 1 ? "#67e8f9" : "#fff"}
-          opacity={0.95}
-          style={{ filter: "drop-shadow(0 0 4px #22d3ee)" }}
-        >
-          <animateMotion
-            dur={`${0.4 + i * 0.08}s`}
-            repeatCount="indefinite"
-            path={edgePath}
-            begin={`${i * 0.09}s`}
-          />
-        </circle>
-      ))}
-      {/* Electric sparks (short-lived blink along path) */}
-      {Array.from({ length: SPARK_COUNT }, (_, i) => (
-        <circle
-          key={`${id}-s-${i}`}
-          r={1.8}
-          fill="#e0f2fe"
-          opacity={0}
-        >
-          <animate
-            attributeName="opacity"
-            values="0;1;0;0;1;0"
-            dur={`${0.35 + (i % 3) * 0.1}s`}
-            begin={`${i * 0.07}s`}
-            repeatCount="indefinite"
-          />
-          <animateMotion
-            dur={`${0.28 + i * 0.05}s`}
-            repeatCount="indefinite"
-            path={edgePath}
-            begin={`${i * 0.11}s`}
-          />
-        </circle>
-      ))}
-    </g>
-  );
-}
-
-const nodeTypes = { provider: ProviderNode, router: RouterNode };
-const edgeTypes = { topology: TopologyEdge } as Record<string, React.ComponentType<Record<string, unknown>>>;
-
-// Place N nodes evenly along an ellipse around the router center.
-interface TopologyProvider {
-  id?: string;
-  provider: string;
-  name?: string;
-  nodeName?: string;
-}
-
-function buildLayout(providers: TopologyProvider[], activeSet: Set<string>, lastSet: Set<string>, errorSet: Set<string>) {
-  const nodeW = 180;
-  const nodeH = 30;
-  const routerW = 120;
-  const routerH = 44;
-  const nodeGap = 24;
-
-  const count = providers.length;
-
-  // Compute rx so arc spacing between nodes >= nodeW + nodeGap
-  const minRx = ((nodeW + nodeGap) * count) / (2 * Math.PI);
-  const rx = Math.max(320, minRx);
-  const ry = Math.max(200, rx * 0.55); // ellipse ratio ~0.55
-  if (count === 0) {
-    return {
-      nodes: [{ id: "router", type: "router", position: { x: 0, y: 0 }, data: { activeCount: 0 }, draggable: false }],
-      edges: [],
-    };
-  }
-
-  const nodes: Array<{ id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown>; draggable: boolean }> = [];
-  const edges: Array<{ id: string; type: string; source: string; sourceHandle: string; target: string; targetHandle: string; animated: boolean; data: { active: boolean }; style: Record<string, unknown> }> = [];
-
-  nodes.push({
-    id: "router",
-    type: "router",
-    position: { x: -routerW / 2, y: -routerH / 2 },
-    data: { activeCount: activeSet.size },
-    draggable: false,
-  });
-
-  const edgeStyle = (active: boolean, last: boolean, error: boolean) => {
-    if (error) return { stroke: "#ef4444", strokeWidth: 2.5, opacity: 0.9 };
-    if (active) return { stroke: "#22d3ee", strokeWidth: 3.5, opacity: 1 };
-    if (last) return { stroke: "#f59e0b", strokeWidth: 2, opacity: 0.7 };
-    return { stroke: "var(--color-border)", strokeWidth: 1, opacity: 0.3 };
-  };
-
-  providers.forEach((p: TopologyProvider, i: number) => {
-    const config = getProviderConfig(p.provider);
-    const active = activeSet.has(p.provider?.toLowerCase());
-    const last = !active && lastSet.has(p.provider?.toLowerCase());
-    const error = !active && errorSet.has(p.provider?.toLowerCase());
-    const nodeId = `provider-${p.provider}`;
-    const data = {
-      label: (config.name !== p.provider ? config.name : null) || p.nodeName || p.name || p.provider,
-      color: config.color || "#6b7280",
-      imageUrl: getProviderImageUrl(p.provider),
-      textIcon: config.textIcon || (p.provider || "?").slice(0, 2).toUpperCase(),
-      active,
-    };
-
-    // Distribute evenly starting from top (−π/2), clockwise
-    const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
-    const cx = rx * Math.cos(angle);
-    const cy = ry * Math.sin(angle);
-
-    // Pick router handle closest to the node direction
-    let sourceHandle, targetHandle;
-    if (Math.abs(angle + Math.PI / 2) < Math.PI / 4 || Math.abs(angle - 3 * Math.PI / 2) < Math.PI / 4) {
-      sourceHandle = "top"; targetHandle = "bottom";
-    } else if (Math.abs(angle - Math.PI / 2) < Math.PI / 4) {
-      sourceHandle = "bottom"; targetHandle = "top";
-    } else if (cx > 0) {
-      sourceHandle = "right"; targetHandle = "left";
-    } else {
-      sourceHandle = "left"; targetHandle = "right";
-    }
-
-    nodes.push({
-      id: nodeId,
-      type: "provider",
-      position: { x: cx - nodeW / 2, y: cy - nodeH / 2 },
-      data,
-      draggable: false,
-    });
-
-    edges.push({
-      id: `e-${nodeId}`,
-      type: "topology",
-      source: "router",
-      sourceHandle,
-      target: nodeId,
-      targetHandle,
-      // Built-in animated uses stroke-dasharray (CPU-heavy); use particle beam instead
-      animated: false,
-      data: { active },
-      style: edgeStyle(active, last, error),
-    });
-  });
-
-  return { nodes, edges };
-}
+import { FE_ACTIVE_TICK_MS, FE_ACTIVE_TIMEOUT_MS } from "./provider-topology/constants";
+import { edgeTypes, nodeTypes } from "./provider-topology/nodeTypes";
+import { buildLayout } from "./provider-topology/topologyLayout";
 
 interface ProviderTopologyProps {
   providers?: Array<{ id?: string; provider: string; name?: string; nodeName?: string }>;
@@ -377,10 +20,9 @@ interface ProviderTopologyProps {
 }
 
 export default function ProviderTopology({ providers = [], activeRequests = [], lastProvider = "", errorProvider = "" }: ProviderTopologyProps) {
-  // Serialize to stable string keys so useMemo only re-runs when values actually change
   const activeKey = useMemo(
     () => activeRequests.map((r) => r.provider?.toLowerCase()).filter(Boolean).sort().join(","),
-    [activeRequests]
+    [activeRequests],
   );
   const lastKey = lastProvider?.toLowerCase() || "";
   const errorKey = errorProvider?.toLowerCase() || "";
@@ -389,12 +31,11 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   const lastSet = useMemo(() => new Set(lastKey ? [lastKey] : []), [lastKey]);
   const errorSet = useMemo(() => new Set(errorKey ? [errorKey] : []), [errorKey]);
 
-  // Track firstSeen per active provider; drop provider if running too long (BE stuck)
   const firstSeenRef = useRef<Record<string, number>>({});
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const seen = firstSeenRef.current as Record<string, number>;
+    const seen = firstSeenRef.current;
     const now = Date.now();
     for (const p of rawActiveSet) {
       if (!seen[p]) seen[p] = now;
@@ -415,7 +56,7 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     const now = Date.now();
     const filtered = new Set<string>();
     for (const p of rawActiveSet) {
-      const ts = (firstSeenRef.current as Record<string, number>)[p];
+      const ts = firstSeenRef.current[p];
       if (!ts || now - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
     }
     return filtered;
@@ -423,13 +64,12 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
 
   const { nodes, edges } = useMemo(
     () => buildLayout(providers, activeSet, lastSet, errorSet),
-    [providers, activeSet, lastSet, errorSet]
+    [providers, activeSet, lastSet, errorSet],
   );
 
-  // Stable key — only remount when provider list changes
   const providersKey = useMemo(
     () => providers.map((p) => p.provider).sort().join(","),
-    [providers]
+    [providers],
   );
 
   const rfInstance = useRef<{ fitView: (opts?: Record<string, unknown>) => void } | null>(null);
@@ -440,7 +80,6 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     setTimeout(() => instance.fitView(fitOpts as unknown as Record<string, unknown>), 50);
   }, [fitOpts]);
 
-  // Re-fit on container resize
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -451,7 +90,6 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     return () => ro.disconnect();
   }, [fitOpts]);
 
-  // Re-fit when node count/layout changes
   useEffect(() => {
     if (rfInstance.current) {
       const id = setTimeout(() => rfInstance.current?.fitView(fitOpts as unknown as Record<string, unknown>), 50);
@@ -493,5 +131,3 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
     </div>
   );
 }
-
-

@@ -4,7 +4,15 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { translate } from "@/i18n/runtime";
 import { formatRelativeTime } from "../chatFormatUtils";
+import type { RoutingTrace } from "@/shared/observability/routingTrace";
 import type { UseHarnessEventsReturn } from "../hooks/useHarnessEvents";
+import { ROUTING_TRACE_EVENT } from "../hooks/recordRoutingTraceEvent";
+import {
+  readRoutingTrace,
+  routingTraceLines,
+  routingTraceSummary,
+  type RoutingTraceLine,
+} from "../routingTraceLines";
 import {
   classifyEventKind,
   eventColorClass,
@@ -38,11 +46,36 @@ function readEventText(event: HarnessEvent): string {
     const name = typeof event.data?.name === "string" ? event.data.name : "";
     return name;
   }
+  if (event.type === ROUTING_TRACE_EVENT) {
+    const trace = readRoutingTrace(event.data);
+    return trace ? routingTraceSummary(trace) : "";
+  }
   return "";
+}
+
+const TRACE_TONE_CLASS: Record<RoutingTraceLine["tone"], string> = {
+  info: "text-muted-foreground",
+  ok: "text-emerald-600 dark:text-emerald-400",
+  fail: "text-destructive",
+};
+
+/** The gateway's routing steps as a readable list — the raw JSON is unreadable at a glance. */
+function RoutingTraceDetail({ trace }: { trace: RoutingTrace }) {
+  return (
+    <ol className="mb-1 max-h-48 space-y-1 overflow-auto rounded-md bg-muted/50 p-2 text-[11px] leading-relaxed">
+      {routingTraceLines(trace).map((line, index) => (
+        <li key={`${index}:${line.title}`} className="min-w-0">
+          <span className={`font-medium ${TRACE_TONE_CLASS[line.tone]}`}>{line.title}</span>
+          {line.detail && <span className="block break-words text-muted-foreground">{line.detail}</span>}
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 function EventRow({ event, isOpen, onToggle }: { event: HarnessEvent; isOpen: boolean; onToggle: () => void }) {
   const preview = readEventText(event);
+  const trace = event.type === ROUTING_TRACE_EVENT ? readRoutingTrace(event.data) : null;
   return (
     <li className="min-w-0">
       <button
@@ -62,11 +95,13 @@ function EventRow({ event, isOpen, onToggle }: { event: HarnessEvent; isOpen: bo
       {preview && !isOpen && (
         <p className="mb-1 truncate pl-3.5 text-[11px] italic text-muted-foreground">{preview}</p>
       )}
-      {isOpen && (
+      {isOpen && (trace ? (
+        <RoutingTraceDetail trace={trace} />
+      ) : (
         <pre className="mb-1 max-h-48 overflow-auto rounded-md bg-muted/50 p-2 text-[11px] leading-relaxed text-muted-foreground">
           {JSON.stringify(event.data, null, 2)}
         </pre>
-      )}
+      ))}
     </li>
   );
 }

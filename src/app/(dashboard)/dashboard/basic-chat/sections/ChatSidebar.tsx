@@ -7,20 +7,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { translate } from "@/i18n/runtime";
 import {
-  DndContext, closestCenter,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
-  Archive, ArchiveRestore, CheckCircle2, Download, FolderKanban, GripVertical, Pencil, Plus, Search, Trash2, X,
+  Archive, ArchiveRestore, CheckCircle2, Download, FolderKanban, Pencil, Plus, Search, Trash2, X,
 } from "lucide-react";
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { ChatProject, ChatSession } from "../types";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import IconActionButton from "./IconActionButton";
 
-interface SortableSessionItemProps {
+interface SessionItemProps {
   session: ChatSession;
   isActive: boolean;
   isSelected: boolean;
@@ -33,40 +27,20 @@ interface SortableSessionItemProps {
   onCommitRename: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleArchive: (id: string) => void;
+  onCancelRename: () => void;
   onRenameChange: (value: string) => void;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
-function SortableSessionItem({
+function SessionItem({
   session, isActive, isSelected, isRenaming, renameValue, selectedCount,
-  onSelect, onToggleSelect, onStartRename, onCommitRename, onDelete, onToggleArchive, onRenameChange, renameInputRef,
-}: SortableSessionItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: session.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
+  onSelect, onToggleSelect, onStartRename, onCommitRename, onCancelRename, onDelete, onToggleArchive, onRenameChange, renameInputRef,
+}: SessionItemProps) {
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      role="button"
-      tabIndex={0}
-      onClick={() => { if (!isRenaming) onSelect(session.id); }}
-      onKeyDown={(e) => { if (!isRenaming && e.key === "Enter") onSelect(session.id); }}
-      className={`group relative flex w-full cursor-pointer items-center gap-1.5 rounded-lg py-2 pl-3 pr-2 text-left text-sm transition-all hover:bg-muted ${isActive ? "bg-primary/10" : ""} ${isDragging ? "z-50" : ""}`}
+      className={`group relative flex w-full items-center gap-1.5 rounded-lg py-2 pl-3 pr-2 text-left text-sm transition-colors hover:bg-muted ${isActive ? "bg-primary/10" : ""}`}
     >
-      <span className={`absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} />
-      <button
-        type="button"
-        className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="size-3" />
-      </button>
+      <span className={`absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} aria-hidden="true" />
       <button
         type="button"
         onClick={(e) => onToggleSelect(e, session.id)}
@@ -78,16 +52,29 @@ function SortableSessionItem({
       </button>
       <div className="min-w-0 flex-1">
         {isRenaming ? (
-          <input ref={renameInputRef} value={renameValue} onChange={(e) => onRenameChange(e.target.value)} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") onCommitRename(session.id); if (e.key === "Escape") onCommitRename(""); }} onBlur={() => onCommitRename(session.id)} className="h-5 w-full rounded border border-border bg-background px-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+          <input
+            ref={renameInputRef}
+            value={renameValue}
+            aria-label={translate("Rename") || "Rename"}
+            onChange={(e) => onRenameChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); onCommitRename(session.id); }
+              // Escape abandons the edit. The blur it triggers must not sneak
+              // the discarded value back in, so cancel before the field blurs.
+              if (e.key === "Escape") { e.preventDefault(); onCancelRename(); }
+            }}
+            onBlur={() => onCommitRename(session.id)}
+            className="h-5 w-full rounded border border-border bg-background px-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          />
         ) : (
-          <>
-            <p className="truncate text-xs font-medium text-card-foreground">{session.title}</p>
-            <p className="text-[10px] text-muted-foreground">{formatRelativeTime(session.updatedAt)}</p>
-          </>
+          <button type="button" onClick={() => onSelect(session.id)} className="block w-full min-w-0 text-left">
+            <span className="block truncate text-xs font-medium text-card-foreground">{session.title}</span>
+            <span className="block text-[10px] text-muted-foreground">{formatRelativeTime(session.updatedAt)}</span>
+          </button>
         )}
       </div>
       {!isRenaming && (
-        <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex shrink-0 gap-0.5 transition-opacity focus-within:opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
           <IconActionButton tooltip={translate("Rename") || "Rename"} onClick={(e: React.MouseEvent) => onStartRename(e, session)} className="size-5"><Pencil className="size-2.5" /></IconActionButton>
           <IconActionButton
             tooltip={session.isArchived ? (translate("Unarchive") || "Unarchive") : (translate("Archive") || "Archive")}
@@ -114,8 +101,8 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
     setNewProjectName, handleCreateProject, setIsCreatingProject, handleSelectProject, handleRenameProject,
     handleDeleteProject,
     historySearch, setHistorySearch, showArchived, setShowArchived, selectedSessionCount, allVisibleSessionsSelected,
-    toggleAllVisibleSessions, handleBulkDeleteSessions, groupedSessionItems, dndSensors, handleDragEnd,
-    filteredSessionItems, activeSessionId, selectedSessionIds, renamingSessionId, setRenamingSessionId, renameValue,
+    toggleAllVisibleSessions, handleBulkDeleteSessions, groupedSessionItems,
+    activeSessionId, selectedSessionIds, renamingSessionId, setRenamingSessionId, renameValue,
     handleSelectSession, toggleSessionSelected, startRenameSession, commitRenameSession, handleDeleteSession,
     handleToggleArchiveSession, setRenameValue, renameInputRef,
   } = sessionsHook;
@@ -123,8 +110,9 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
   const [projectTitle, setProjectTitle] = useState("");
   const [projectPendingDeletion, setProjectPendingDeletion] = useState<ChatProject | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [sessionPendingDeletion, setSessionPendingDeletion] = useState<ChatSession | null>(null);
+  const [bulkDeletePending, setBulkDeletePending] = useState(false);
 
-  const onDragEnd = (event: DragEndEvent) => handleDragEnd(event);
   const startRenameProject = (event: React.MouseEvent, project: ChatProject) => {
     event.stopPropagation();
     setRenamingProjectId(project.id);
@@ -132,6 +120,10 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
   };
   const commitRenameProject = (projectId: string) => {
     handleRenameProject(projectId, projectTitle);
+    setRenamingProjectId("");
+  };
+  const cancelRenameProject = () => {
+    setProjectTitle("");
     setRenamingProjectId("");
   };
   const projectSessionCount = projectPendingDeletion
@@ -176,10 +168,10 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
                       value={projectTitle}
                       onChange={(event) => setProjectTitle(event.target.value)}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter") commitRenameProject(project.id);
-                        if (event.key === "Escape") setRenamingProjectId("");
+                        if (event.key === "Enter") { event.preventDefault(); commitRenameProject(project.id); }
+                        if (event.key === "Escape") { event.preventDefault(); cancelRenameProject(); }
                       }}
-                      onBlur={() => commitRenameProject(project.id)}
+                      onBlur={() => { if (renamingProjectId === project.id) commitRenameProject(project.id); }}
                       maxLength={80}
                       className="h-6 min-w-0 px-1 text-xs"
                     />
@@ -223,6 +215,37 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
               if (projectPendingDeletion) handleDeleteProject(projectPendingDeletion.id);
               setProjectPendingDeletion(null);
             }}>{translate("Delete project") || "Delete project"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={Boolean(sessionPendingDeletion)} onOpenChange={(open) => { if (!open) setSessionPendingDeletion(null); }}>
+        <DialogContent showCloseButton={false} className="gap-4 p-0">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle>{translate("Delete conversation?") || "Delete conversation?"}</DialogTitle>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {translate("This permanently removes the conversation and all of its messages.") || "This permanently removes the conversation and all of its messages."}
+            </p>
+          </DialogHeader>
+          <DialogFooter className="mx-0 mb-0">
+            <Button variant="outline" type="button" onClick={() => setSessionPendingDeletion(null)}>{translate("Cancel") || "Cancel"}</Button>
+            <Button variant="destructive" type="button" onClick={() => {
+              if (sessionPendingDeletion) handleDeleteSession(sessionPendingDeletion.id);
+              setSessionPendingDeletion(null);
+            }}>{translate("Delete") || "Delete"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={bulkDeletePending} onOpenChange={(open) => { if (!open) setBulkDeletePending(false); }}>
+        <DialogContent showCloseButton={false} className="gap-4 p-0">
+          <DialogHeader className="px-5 pt-5">
+            <DialogTitle>{translate("Delete selected conversations?") || "Delete selected conversations?"}</DialogTitle>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {`${selectedSessionCount} ${translate("conversation(s) will be removed.") || "conversation(s) will be removed."}`}
+            </p>
+          </DialogHeader>
+          <DialogFooter className="mx-0 mb-0">
+            <Button variant="outline" type="button" onClick={() => setBulkDeletePending(false)}>{translate("Cancel") || "Cancel"}</Button>
+            <Button variant="destructive" type="button" onClick={() => { handleBulkDeleteSessions(); setBulkDeletePending(false); }}>{translate("Delete") || "Delete"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -277,7 +300,7 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
             <Checkbox checked={allVisibleSessionsSelected} className="pointer-events-none" />
             {`${selectedSessionCount} ${translate("selected") || "selected"}`}
           </button>
-          <IconActionButton tooltip={translate("Delete selected") || "Delete selected"} onClick={handleBulkDeleteSessions} className="size-6 text-destructive hover:text-destructive">
+          <IconActionButton tooltip={translate("Delete selected") || "Delete selected"} onClick={() => setBulkDeletePending(true)} className="size-6 text-destructive hover:text-destructive">
             <Trash2 className="size-3" />
           </IconActionButton>
         </div>
@@ -293,34 +316,31 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
                 : (translate("No conversations yet.") || "No conversations yet.")}
           </p>
         ) : (
-          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={filteredSessionItems.map((session) => session.id)} strategy={verticalListSortingStrategy}>
-              {groupedSessionItems.map((group) => (
-                <div key={group.label}>
-                  <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-                  {group.items.map((session) => (
-                    <SortableSessionItem
-                      key={session.id}
-                      session={session}
-                      isActive={session.id === activeSessionId}
-                      isSelected={selectedSessionIds.has(session.id)}
-                      isRenaming={renamingSessionId === session.id}
-                      renameValue={renameValue}
-                      selectedCount={selectedSessionCount}
-                      onSelect={handleSelectSession}
-                      onToggleSelect={toggleSessionSelected}
-                      onStartRename={startRenameSession}
-                      onCommitRename={(id) => { if (id) commitRenameSession(id); else setRenamingSessionId(""); }}
-                      onDelete={handleDeleteSession}
-                      onToggleArchive={handleToggleArchiveSession}
-                      onRenameChange={setRenameValue}
-                      renameInputRef={renameInputRef}
-                    />
-                  ))}
-                </div>
+          groupedSessionItems.map((group) => (
+            <div key={group.label}>
+              <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+              {group.items.map((session) => (
+                <SessionItem
+                  key={session.id}
+                  session={session}
+                  isActive={session.id === activeSessionId}
+                  isSelected={selectedSessionIds.has(session.id)}
+                  isRenaming={renamingSessionId === session.id}
+                  renameValue={renameValue}
+                  selectedCount={selectedSessionCount}
+                  onSelect={handleSelectSession}
+                  onToggleSelect={toggleSessionSelected}
+                  onStartRename={startRenameSession}
+                  onCommitRename={commitRenameSession}
+                  onCancelRename={() => setRenamingSessionId("")}
+                  onDelete={(id) => setSessionPendingDeletion(group.items.find((item) => item.id === id) || null)}
+                  onToggleArchive={handleToggleArchiveSession}
+                  onRenameChange={setRenameValue}
+                  renameInputRef={renameInputRef}
+                />
               ))}
-            </SortableContext>
-          </DndContext>
+            </div>
+          ))
         )}
       </div>
     </aside>

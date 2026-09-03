@@ -89,6 +89,7 @@ export default function ApiKeysCard({
                     size="icon-sm"
                     onClick={() => toggleKeyVisibility(key.id)}
                     title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
+                    aria-label={visibleKeys.has(key.id) ? `Hide API key ${key.name}` : `Show API key ${key.name}`}
                   >
                     {visibleKeys.has(key.id) ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </Button>
@@ -96,6 +97,7 @@ export default function ApiKeysCard({
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => copy(key.key, key.id)}
+                    aria-label={`Copy API key ${key.name}`}
                   >
                     {copied === key.id ? <Check className="size-4" /> : <Copy className="size-4" />}
                   </Button>
@@ -131,6 +133,7 @@ export default function ApiKeysCard({
                   variant="destructive"
                   size="icon"
                   onClick={() => handleDeleteKey(key.id)}
+                  aria-label={`Delete API key ${key.name || key.id}`}
                   className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                 >
                   <Trash2 className="size-5" />

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { listHarnessConversations, replaceHarnessConversations, type HarnessConversation } from "@/lib/db/repos/harnessConversationsRepo";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
 
-export const dynamic = "force-dynamic";
 
 function isConversation(value: unknown): value is HarnessConversation {
   if (!value || typeof value !== "object") return false;

@@ -1,4 +1,12 @@
 import { loadState, generateShortId } from "../shared/state";
+import { throwIfCancelled } from "../shared/cancel";
+import {
+  cancelService,
+  createTunnelServiceState,
+  finishEnable,
+  prepareEnable,
+} from "../shared/serviceState";
+import type { DisableResult, TunnelServiceState } from "../shared/types";
 import { startFunnel, stopFunnel, isTailscaleRunning, isTailscaleRunningStrict, isTailscaleLoggedIn, isTailscaleLoggedInStrict, startLogin, startDaemonWithPassword, provisionCert } from "./tailscale";
 import { waitForHealth } from "./healthCheck";
 import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
@@ -6,30 +14,10 @@ import { getCachedPassword, loadEncryptedPassword, initDbHooks } from "@/lib/ele
 
 initDbHooks(getSettings, updateSettings);
 
-interface CancelToken {
-  cancelled: boolean;
-}
+const svc: TunnelServiceState = createTunnelServiceState();
 
-interface TailscaleService {
-  cancelToken: CancelToken;
-  spawnInProgress: boolean;
-  lastRestartAt: number;
-  activeLocalPort: number | null;
-}
-
-const svc: TailscaleService = {
-  cancelToken: { cancelled: false },
-  spawnInProgress: false,
-  lastRestartAt: 0,
-  activeLocalPort: null,
-};
-
-export function getTailscaleService(): TailscaleService { return svc; }
+export function getTailscaleService(): TunnelServiceState { return svc; }
 export function isTailscaleReconnecting(): boolean { return svc.spawnInProgress; }
-
-function throwIfCancelled(token: CancelToken): void {
-  if (token.cancelled) throw new Error("tailscale cancelled");
-}
 
 interface EnableResult {
   success: boolean;
@@ -43,16 +31,13 @@ interface EnableResult {
 
 export async function enableTailscale(localPort: number = 20128): Promise<EnableResult> {
   console.log(`[Tailscale] enable start (port=${localPort})`);
-  svc.cancelToken = { cancelled: false };
-  svc.activeLocalPort = localPort;
-  svc.spawnInProgress = true;
-  const token: CancelToken = svc.cancelToken;
+  const token = prepareEnable(svc, localPort);
 
   try {
     const sudoPass: string = getCachedPassword() || await loadEncryptedPassword() || "";
     await startDaemonWithPassword(sudoPass);
     console.log("[Tailscale] daemon ready");
-    throwIfCancelled(token);
+    throwIfCancelled(token, "tailscale cancelled");
 
     const existing = loadState();
     const shortId: string = existing?.shortId || generateShortId();
@@ -68,7 +53,7 @@ export async function enableTailscale(localPort: number = 20128): Promise<Enable
       }
       console.log("[Tailscale] login resolved alreadyLoggedIn");
     }
-    throwIfCancelled(token);
+    throwIfCancelled(token, "tailscale cancelled");
 
     stopFunnel();
     let result: { tunnelUrl: string; funnelNotEnabled?: boolean; enableUrl?: string };
@@ -84,7 +69,7 @@ export async function enableTailscale(localPort: number = 20128): Promise<Enable
       }
       throw e;
     }
-    throwIfCancelled(token);
+    throwIfCancelled(token, "tailscale cancelled");
 
     if (result.funnelNotEnabled) {
       console.log(`[Tailscale] funnel not enabled, enableUrl=${result.enableUrl}`);
@@ -117,17 +102,13 @@ export async function enableTailscale(localPort: number = 20128): Promise<Enable
     console.error(`[Tailscale] enable error: ${(e as Error).message}`);
     throw e;
   } finally {
-    svc.spawnInProgress = false;
+    finishEnable(svc);
   }
-}
-
-interface DisableResult {
-  success: boolean;
 }
 
 export async function disableTailscale(): Promise<DisableResult> {
   console.log("[Tailscale] disable");
-  svc.cancelToken.cancelled = true;
+  cancelService(svc);
   stopFunnel();
   await updateSettings({ tailscaleEnabled: false, tailscaleUrl: "" });
   return { success: true };

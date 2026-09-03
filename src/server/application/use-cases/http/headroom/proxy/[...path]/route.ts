@@ -2,7 +2,6 @@ import { NextRequest, NextResponse  } from "next/server";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 
-export const dynamic = "force-dynamic";
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",

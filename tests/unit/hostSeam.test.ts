@@ -48,7 +48,7 @@ describe("engine/host seam", () => {
     const adapters = readdirSync(hostDir)
       .filter((f) => f.endsWith(".ts"))
       .sort();
-    expect(adapters).toEqual(["catalog.ts", "oauth.ts", "ssrf.ts", "store.ts", "usage.ts"]);
+    expect(adapters).toEqual(["catalog.ts", "oauth.ts", "routingTrace.ts", "ssrf.ts", "store.ts", "usage.ts"]);
   });
 
   it("engine is self-contained: no imports of removed legacy namespaces", () => {

@@ -196,7 +196,7 @@ export default function BaseUrlSelect({
           </SelectContent>
         </Select>
         {isSaved && (
-          <Button variant="ghost" size="icon-sm" type="button" onClick={handleDeleteSaved} className="text-text-muted hover:text-destructive-foreground shrink-0" title="Delete saved endpoint">
+          <Button variant="ghost" size="icon-sm" type="button" onClick={handleDeleteSaved} className="text-text-muted hover:text-destructive-foreground shrink-0" title="Delete saved endpoint" aria-label="Delete saved endpoint">
             <Trash2 className="size-4" />
           </Button>
         )}

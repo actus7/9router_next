@@ -23,8 +23,18 @@ export default {
   // No models-list endpoint — single search-tool entry, nothing to discover.
   noModelDiscovery: true,
   serviceKinds: ["webSearch"],
-  searchViaChat: {
-    defaultModel: "context7",
-    endpoint: "https://context7.com/api/v1",
+  // Context7 searches library documentation through a plain GET API. Routing
+  // it here means /v1/search serves it directly instead of rejecting it as an
+  // unsupported chat-search provider.
+  searchConfig: {
+    baseUrl: "https://context7.com/api/v1",
+    method: "GET",
+    authType: "none",
+    authHeader: "bearer",
+    costPerQuery: 0,
+    searchTypes: ["web"],
+    defaultMaxResults: 10,
+    maxMaxResults: 30,
+    timeoutMs: 10000,
   },
 };

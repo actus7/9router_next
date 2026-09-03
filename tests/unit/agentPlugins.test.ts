@@ -20,13 +20,16 @@ describe("Harness agent plugin composition", () => {
         "delegate_task",
         "load_skill",
         "create_skill",
+        "memory_add",
+        "search_past_sessions",
+        "toggle_plugin",
       ]),
     );
   });
 
   it("derives a preset's tool schema from its enabled plugins", () => {
     expect(getRuntimeToolDefinitions("research").map((definition) => definition.function.name))
-      .toEqual(["web_search", "web_fetch", "delegate_task", "load_skill"]);
+      .toEqual(["web_search", "web_fetch", "delegate_task", "load_skill", "memory_add", "search_past_sessions"]);
   });
 
   it("layers a session override over its selected preset", () => {

@@ -64,12 +64,24 @@ async function resolveDestination(
 function createPinnedAgent(hostname: string, resolved: ResolvedAddress): Agent {
   return new Agent({
     connect: {
-      lookup: (requestedHostname, _options, callback) => {
-        if (requestedHostname.toLowerCase() !== hostname.toLowerCase()) {
-          callback(new Error("Pinned DNS hostname mismatch"), resolved.address, resolved.family);
+      // `node:net` calls this with `all: true` and then reads `addresses[0].address`,
+      // so the single-address callback form resolves to `undefined` and the socket
+      // fails with `ERR_INVALID_IP_ADDRESS`, surfacing as a bare "fetch failed".
+      // Honour both contracts so the pin works regardless of the caller.
+      lookup: (requestedHostname, options, callback) => {
+        const mismatch =
+          requestedHostname.toLowerCase() !== hostname.toLowerCase()
+            ? new Error("Pinned DNS hostname mismatch")
+            : null;
+        if (options?.all) {
+          const addresses = mismatch ? [] : [{ address: resolved.address, family: resolved.family }];
+          (callback as (err: Error | null, addresses: ResolvedAddress[]) => void)(
+            mismatch,
+            addresses,
+          );
           return;
         }
-        callback(null, resolved.address, resolved.family);
+        callback(mismatch, resolved.address, resolved.family);
       },
     },
   });

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { runHealthCheck } from "@/lib/pxpipe/service";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 
-export const dynamic = "force-dynamic";
 
 export async function POST() {
+  await assertRequestRuntime();
   try {
     const result = await runHealthCheck();
     return NextResponse.json(result);

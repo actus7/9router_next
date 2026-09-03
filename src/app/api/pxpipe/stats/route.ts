@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse  } from "next/server";
 import { getPxpipeStats } from "@/lib/pxpipe/events";
 
-export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {

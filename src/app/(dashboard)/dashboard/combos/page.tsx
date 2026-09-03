@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { getCombos, getProviders, getSettings, getModelAliases } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import CombosClient from "./CombosClient";
 
 async function CombosContent() {
+  await assertRequestRuntime();
   const [combos, providers, settings, aliases] = await Promise.all([
     getCombos(),
     getProviders(),

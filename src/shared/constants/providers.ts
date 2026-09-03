@@ -158,6 +158,61 @@ export function getProviderAvailability(provider: ProviderCatalogEntry): Provide
   return "paid";
 }
 
+export interface ProviderAuthContext {
+  authTypes: ProviderAuthMode[];
+  isOAuth: boolean;
+  supportsApiKeyAuth: boolean;
+  isFreeNoAuth: boolean;
+  hasDualAuthModes: boolean;
+  defaultConnectionAuthType: "oauth" | "apikey" | "cookie" | "none";
+}
+
+function normalizeConnectionAuthType(authType: string | undefined): ProviderAuthMode | undefined {
+  if (!authType) return undefined;
+  if (authType === "api_key") return "apikey";
+  if (["oauth", "apikey", "cookie", "none"].includes(authType)) return authType as ProviderAuthMode;
+  return undefined;
+}
+
+/** Resolve dashboard auth flags from catalog entry (single source of truth). */
+export function resolveProviderAuthContext(
+  providerId: string,
+  provider: ProviderCatalogEntry | undefined,
+  options: { isCompatible?: boolean } = {},
+): ProviderAuthContext {
+  const catalogProvider = provider ?? AI_PROVIDERS[providerId];
+  const authTypes: ProviderAuthMode[] = catalogProvider ? getProviderConnectionAuthTypes(catalogProvider) : ["apikey"];
+  const isOAuth = authTypes.includes("oauth");
+  const supportsApiKeyAuth = authTypes.includes("apikey") || authTypes.includes("api_key");
+  const isFreeNoAuth = authTypes.includes("none");
+  const hasDualAuthModes = !options.isCompatible && isOAuth && supportsApiKeyAuth;
+  const defaultConnectionAuthType: ProviderAuthContext["defaultConnectionAuthType"] =
+    authTypes.includes("oauth") ? "oauth"
+    : authTypes.includes("cookie") ? "cookie"
+    : authTypes.includes("none") ? "none"
+    : "apikey";
+
+  return {
+    authTypes,
+    isOAuth,
+    supportsApiKeyAuth,
+    isFreeNoAuth,
+    hasDualAuthModes,
+    defaultConnectionAuthType,
+  };
+}
+
+/** Connection row auth type with catalog fallback (never guess from isOAuth prop alone). */
+export function resolveConnectionAuthType(
+  providerId: string,
+  connectionAuthType: string | undefined,
+  provider?: ProviderCatalogEntry,
+): ProviderAuthMode {
+  const normalized = normalizeConnectionAuthType(connectionAuthType);
+  if (normalized) return normalized;
+  return resolveProviderAuthContext(providerId, provider).defaultConnectionAuthType;
+}
+
 export function validateProviderCatalog(entries: readonly RegistryEntry[] = REGISTRY as RegistryEntry[]): string[] {
   const errors: string[] = [];
   const ids = new Set<string>();

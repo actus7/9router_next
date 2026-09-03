@@ -5,6 +5,7 @@ import { translate } from "@/i18n/runtime";
 import { getProviderAlias, isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
 import { getStoredModelTestLatencies, sortModelsByTestLatency } from "@/shared/utils/modelTestLatency";
 import { textValue } from "../chatFormatUtils";
+import { parseComboGroups } from "../comboModels";
 import {
   dedupeModels, getProviderLabel, isConfiguredChatModel, isConnectionSelectable,
   isExplicitlyEnabledModel, isModelEnabledForChat, normalizeConfiguredModel, normalizeLiveModel,
@@ -120,14 +121,19 @@ export function useChatModels(): UseChatModelsReturn {
           cache: "no-store",
           signal: AbortSignal.timeout(FREE_MODELS_CLIENT_TIMEOUT_MS),
         }).catch(() => null);
-        const [providersRes, disabledModelsRes, customModelsRes] = await Promise.all([
+        const [providersRes, disabledModelsRes, customModelsRes, combosRes] = await Promise.all([
           fetch("/api/providers", { cache: "no-store" }),
           fetch("/api/models/disabled", { cache: "no-store" }),
           fetch("/api/models/custom", { cache: "no-store" }),
+          fetch("/api/combos", { cache: "no-store" }),
         ]);
         const providersData = await providersRes.json().catch(() => ({})) as Record<string, unknown>;
         const disabledModelsData = await disabledModelsRes.json().catch(() => ({})) as Record<string, unknown>;
         const customModelsData = await customModelsRes.json().catch(() => ({})) as Record<string, unknown>;
+        const combosData = await combosRes.json().catch(() => ({})) as Record<string, unknown>;
+        // Combos route through the gateway by name alone, so they need no
+        // connection of their own and stay listed even when every provider fails.
+        const comboGroups = combosRes.ok ? parseComboGroups(combosData) : [];
         const disabledByProvider = disabledModelsRes.ok && typeof disabledModelsData.disabled === "object" && disabledModelsData.disabled
           ? disabledModelsData.disabled as Record<string, string[]>
           : {};
@@ -145,8 +151,8 @@ export function useChatModels(): UseChatModelsReturn {
             const freeProviderGroups = freeModelsRes?.ok && Array.isArray(freeModelsData.groups)
               ? toFreeProviderGroups(freeModelsData.groups, customModels, disabledByProvider, testLatencies)
               : [];
-            setProviderGroups(freeProviderGroups);
-            if (freeProviderGroups.length === 0) {
+            setProviderGroups([...comboGroups, ...freeProviderGroups]);
+            if (comboGroups.length === 0 && freeProviderGroups.length === 0) {
               setProviderLoadError(translate("No active, configured providers available yet.") || "No active, configured providers available yet.");
             }
           }
@@ -260,7 +266,7 @@ export function useChatModels(): UseChatModelsReturn {
           .sort((a, b) => a.providerName.localeCompare(b.providerName));
 
         if (!cancelled) {
-          setProviderGroups(configuredGroups);
+          setProviderGroups([...comboGroups, ...configuredGroups]);
           setLoadingData(false);
         }
 
@@ -269,8 +275,13 @@ export function useChatModels(): UseChatModelsReturn {
         const freeProviderGroups = freeModelsRes?.ok && Array.isArray(freeModelsData.groups)
           ? toFreeProviderGroups(freeModelsData.groups, customModels, disabledByProvider, testLatencies)
           : [];
-        const normalized = [...freeProviderGroups, ...configuredGroups]
-          .sort((a, b) => a.providerName.localeCompare(b.providerName));
+        // Combos are the routes composed in this router, so they lead the
+        // picker instead of competing alphabetically with upstream providers.
+        const normalized = [
+          ...comboGroups,
+          ...[...freeProviderGroups, ...configuredGroups]
+            .sort((a, b) => a.providerName.localeCompare(b.providerName)),
+        ];
 
         if (!cancelled) {
           setProviderGroups(normalized);

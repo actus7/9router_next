@@ -2,9 +2,11 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getComboById, getSettings, getProviders, getApiKeys, getModelAliases, getUsageLogs } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ComboDetailClient from "./ComboDetailClient";
 
 async function ComboDetailContent({ params }: { params: Promise<{ id: string }> }) {
+  await assertRequestRuntime();
   const { id } = await params;
   const [combo, settings, providers, keys, aliases, logs] = await Promise.all([
     getComboById(id),

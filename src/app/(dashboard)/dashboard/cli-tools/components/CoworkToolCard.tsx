@@ -8,7 +8,9 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, History, Loader2, Save, TriangleAlert, X } from "lucide-react";
-import { McpPluginsSection, ToolsSection, LocalPluginsSection, AddMcpModal } from "./CoworkSections";
+import { McpPluginsSection, ToolsSection, LocalPluginsSection } from "./CoworkSections";
+import { AddMcpModal } from "./ModalsSection";
+import { expandableCardHeaderProps } from "./expandableCardHeader";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; image?: string; requiresExternalUrl?: boolean; }
@@ -244,7 +246,7 @@ export default function CoworkToolCard({
 
   return (
     <Card padding="xs" className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" onClick={onToggle}>
+      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" {...expandableCardHeaderProps(onToggle, isExpanded)}>
         <div className="flex min-w-0 items-center gap-3">
           <div className="size-8 flex items-center justify-center shrink-0">
             <Image src={tool.image!} alt={tool.name} width={32} height={32} className="size-8 object-contain rounded-lg" sizes="32px" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
@@ -323,7 +325,7 @@ export default function CoworkToolCard({
                         selectedModels.map((m) => (
                           <span key={m} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-black/5 dark:bg-white/5 text-text-muted border border-transparent hover:border-border">
                             {m}
-                            <Button variant="ghost" size="sm" onClick={() => handleRemoveModel(m)} className="ml-0.5 hover:text-destructive-foreground p-0 h-auto">
+                            <Button variant="ghost" size="sm" onClick={() => handleRemoveModel(m)} aria-label={`Remove ${m}`} className="ml-0.5 hover:text-destructive-foreground p-0 h-auto">
                               <X className="size-3" />
                             </Button>
                           </span>

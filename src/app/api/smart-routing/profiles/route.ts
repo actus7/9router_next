@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDeterministicSmartProfiles } from "@/server/application/use-cases/smart-routing/getDeterministicProfiles";
 import { refreshDeterministicSmartProfiles } from "@/server/llm-gateway/smart-routing";
 
-export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const profiles = await refreshDeterministicSmartProfiles();
+    const profiles = await getDeterministicSmartProfiles();
     return NextResponse.json({ profiles });
   } catch (error) {
     console.error("Error loading smart model profiles:", error);

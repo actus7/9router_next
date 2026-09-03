@@ -183,19 +183,42 @@ function normalizeYouCom(data: Record<string, unknown>, _query: string, searchTy
   return { results, totalResults: results.length };
 }
 
-function normalizeSearxng(data: Record<string, unknown>, _query: string, _searchType: string) {
+/** AnySearch wraps its rows in { code, message, data: { results: [...] } }; a non-zero code means failure. */
+function normalizeAnysearch(data: Record<string, unknown>, _query: string, _searchType: string) {
   const now = new Date().toISOString();
-  const items = Array.isArray(data.results) ? data.results : [];
-  const results = items.map((item: Record<string, unknown>, idx: number) =>
-    makeResult("searxng", {
+  if (typeof data.code === "number" && data.code !== 0) return { results: [], totalResults: null };
+  const inner = data.data && typeof data.data === "object" && !Array.isArray(data.data)
+    ? (data.data as Record<string, unknown>)
+    : {};
+  const rows = [inner.results, inner.items, data.results, data.items, Array.isArray(data.data) ? data.data : undefined]
+    .find((candidate): candidate is unknown[] => Array.isArray(candidate)) || [];
+  const results = (rows as Record<string, unknown>[])
+    .filter((item) => typeof item?.url === "string" && item.url)
+    .map((item, idx) => makeResult("anysearch", {
       title: item.title,
       url: item.url,
-      snippet: item.content || item.snippet || "",
-      published_at: item.publishedDate || item.published_date || null,
-      source_type: Array.isArray(item.engines) ? (item.engines as string[]).join(", ") : item.engine || item.category || null,
-      image_url: item.thumbnail || item.img_src || null,
-    }, idx, now)
-  );
+      snippet: item.snippet || item.summary || "",
+    }, idx, now));
+  return { results, totalResults: results.length };
+}
+
+// Context7 returns library ids shaped "/owner/repo" rather than URLs. Anything
+// else (an absolute URL, a traversal attempt) is dropped instead of being
+// turned into a link.
+const CONTEXT7_LIBRARY_ID = /^\/[A-Za-z0-9][\w-]*(?:\.[\w-]+)*\/[A-Za-z0-9][\w-]*(?:\.[\w-]+)*$/;
+
+/** Context7 returns { results: [{ id: "/owner/repo", title, description }] }. */
+function normalizeContext7(data: Record<string, unknown>, _query: string, _searchType: string) {
+  const now = new Date().toISOString();
+  const rows = Array.isArray(data.results) ? (data.results as Record<string, unknown>[]) : [];
+  const results = rows
+    .filter((item) => typeof item?.id === "string" && CONTEXT7_LIBRARY_ID.test(item.id as string))
+    .map((item, idx) => makeResult("context7", {
+      title: item.title || item.id,
+      url: `https://context7.com${item.id}`,
+      snippet: item.description || "",
+      published_at: item.lastUpdateDate || null,
+    }, idx, now));
   return { results, totalResults: results.length };
 }
 
@@ -209,7 +232,8 @@ const NORMALIZERS: Record<string, (data: Record<string, unknown>, query: string,
   "linkup": normalizeLinkup,
   "searchapi": normalizeSearchApi,
   "youcom": normalizeYouCom,
-  "searxng": normalizeSearxng,
+  "anysearch": normalizeAnysearch,
+  "context7": normalizeContext7,
 };
 
 /**

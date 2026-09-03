@@ -10,7 +10,6 @@ import { APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { AI_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/providerNormalization";
 
-export const dynamic = "force-dynamic";
 
 interface ProxyConfigResult {
   error?: string;
@@ -65,7 +64,11 @@ export async function GET(): Promise<NextResponse> {
       for (const node of nodes) {
         if (node.id && node.name) nodeNameMap[node.id] = node.name;
       }
-    } catch { }
+    } catch (error) {
+      // Compatible providers then fall back to showing their raw id as the name,
+      // which looks like a data bug unless the real cause is recorded here.
+      console.error("Error in providers GET: node name lookup failed:", error);
+    }
 
     // Hide sensitive fields, enrich name for compatible providers
     const safeConnections = connections.map((c: Record<string, unknown>) => {

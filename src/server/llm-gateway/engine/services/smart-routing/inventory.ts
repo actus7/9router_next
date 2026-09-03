@@ -280,9 +280,40 @@ export async function refreshDeterministicSmartProfiles(persist = false): Promis
   return profiles;
 }
 
-function isEligible(profile: SmartModelProfile, need: RouteNeed, tokenEstimate = 0): boolean {
+// Which service must produce the answer for the endpoint being served. The
+// classified need refines *preference* (search, vision, coding); this is a hard
+// requirement, because a provider that only does webSearch cannot answer a chat
+// turn — it would return a result list where a message is expected.
+export function serviceKindForNeed(endpointNeed: RouteNeed): string {
+  switch (endpointNeed) {
+    case "web_search": return "webSearch";
+    case "web_fetch": return "webFetch";
+    case "image_generation": return "image";
+    case "video_generation": return "video";
+    case "tts": return "tts";
+    case "stt": return "stt";
+    case "embeddings": return "embedding";
+    case "general":
+    case "vision":
+    case "tool_use":
+    case "coding":
+    case "data_analysis":
+    case "email_management":
+    case "calendar_management":
+    case "social_media":
+    case "trading":
+      return "llm";
+    default: {
+      const exhaustive: never = endpointNeed;
+      return exhaustive;
+    }
+  }
+}
+
+function isEligible(profile: SmartModelProfile, need: RouteNeed, tokenEstimate = 0, requiredServiceKind?: string): boolean {
   const caps = profile.capabilities;
   if (tokenEstimate > 0 && caps.contextWindow > 0 && caps.contextWindow < tokenEstimate) return false;
+  if (requiredServiceKind && !caps.serviceKinds.includes(requiredServiceKind)) return false;
   switch (need) {
     case "vision": return caps.vision;
     case "tool_use": return caps.tools;
@@ -322,8 +353,9 @@ export function rankSmartProfiles(
   requestedTier: RoutingTier,
   config: SmartRoutingConfig,
   tokenEstimate = 0,
+  requiredServiceKind?: string,
 ): RankedSmartCandidate[] {
-  const eligible = profiles.filter((profile) => isEligible(profile, need, tokenEstimate));
+  const eligible = profiles.filter((profile) => isEligible(profile, need, tokenEstimate, requiredServiceKind));
   const profileByKey = new Map(eligible.map((profile) => [profile.modelKey, profile]));
   const result: RankedSmartCandidate[] = [];
   const seen = new Set<string>();
@@ -357,6 +389,39 @@ export function rankSmartProfiles(
     }
   }
   return result;
+}
+
+export interface EndpointRankingOptions {
+  profiles: SmartModelProfile[];
+  need: RouteNeed;
+  endpointNeed: RouteNeed;
+  requestedTier: RoutingTier;
+  config: SmartRoutingConfig;
+  tokenEstimate?: number;
+}
+
+export interface EndpointRanking {
+  candidates: RankedSmartCandidate[];
+  need: RouteNeed;
+  fellBackToEndpointNeed: boolean;
+}
+
+// The classified need can be stricter than the inventory can serve — a chat that
+// wants web search when no chat model can search. Answering with a plain chat
+// model is better than answering with nothing, so the need degrades to whatever
+// the endpoint itself requires instead of leaving the caller with no candidates.
+export function rankSmartProfilesForEndpoint(options: EndpointRankingOptions): EndpointRanking {
+  const { profiles, need, endpointNeed, requestedTier, config, tokenEstimate = 0 } = options;
+  const requiredServiceKind = serviceKindForNeed(endpointNeed);
+  const candidates = rankSmartProfiles(profiles, need, requestedTier, config, tokenEstimate, requiredServiceKind);
+  if (candidates.length > 0 || need === endpointNeed) {
+    return { candidates, need, fellBackToEndpointNeed: false };
+  }
+  return {
+    candidates: rankSmartProfiles(profiles, endpointNeed, requestedTier, config, tokenEstimate, requiredServiceKind),
+    need: endpointNeed,
+    fellBackToEndpointNeed: true,
+  };
 }
 
 export function resolveRequestedTier(tier: RoutingTierOrDefault, assessedTier: RoutingTier): RoutingTier {

@@ -50,7 +50,7 @@ describe("executors plugin", () => {
     expect(getExecutor("aihorde")).toBe(override);
   });
 
-  it("opencode resolves through the real opencodePlugin, not a static entry", async () => {
+  it("opencode resolves through its composed executor row, not a static entry", async () => {
     await bootstrap();
     expect(executors).not.toHaveProperty("opencode");
     expect(getExecutor("opencode")).toBeInstanceOf(OpenCodeExecutor);

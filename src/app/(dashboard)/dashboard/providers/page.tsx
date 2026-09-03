@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getProviders, getProviderNodes } from "@/lib/data-access";
 import ProvidersClient from "./ProvidersClient";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { Spinner } from "@/shared/components/Loading";
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 async function ProvidersContent() {
+  await assertRequestRuntime();
   const [providers, nodes] = await Promise.all([
     getProviders(),
     getProviderNodes(),

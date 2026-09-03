@@ -4,7 +4,6 @@ import { getInstallInfo, installPxpipe } from "@/lib/pxpipe/install";
 import { loadPxpipe } from "@/lib/pxpipe/loader";
 import { getPxpipeStatus } from "@/lib/pxpipe/service";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 // "Start" in library mode = warm the in-process transform module.

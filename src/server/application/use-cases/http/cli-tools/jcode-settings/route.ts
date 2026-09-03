@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse  } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { parseTOML, stringifyTOML } from "confbox";
+import { HttpValidationError } from "@/server/application/http/requestBody";
+import { createCliToolHandlers } from "@/server/application/use-cases/http/cli-tools/createCliToolHandlers";
 
 const execAsync = promisify(exec);
 
@@ -105,111 +106,97 @@ const writeProviderEnv = async (env: Record<string, string>) => {
   await fs.writeFile(envPath, content, "utf-8");
 };
 
-export async function GET() {
+async function handleGet() {
   const isInstalled = await checkJcodeInstalled();
 
   if (!isInstalled) {
-    return NextResponse.json({
+    return {
       installed: false,
       message: "jcode not installed. Install via: curl -fsSL https://raw.githubusercontent.com/1jehuang/jcode/master/scripts/install.sh | bash",
-    });
+    };
   }
 
   const config = await readConfig();
   const hasModelHub = hasModelHubConfig(config);
 
-  return NextResponse.json({
+  return {
     installed: true,
     config,
     hasModelHub,
     configPath: getConfigPath(),
-  });
+  };
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const { baseUrl, apiKey, models } = await request.json();
+async function handlePost(body: Record<string, unknown>) {
+  const { baseUrl, apiKey, models } = body;
 
-    if (!baseUrl || !apiKey) {
-      return NextResponse.json(
-        { error: "baseUrl and apiKey are required" },
-        { status: 400 }
-      );
-    }
-
-    const normalizedBaseUrl = baseUrl.endsWith("/v1")
-      ? baseUrl
-      : `${baseUrl}/v1`;
-
-    const config = await readConfig();
-
-    if (!config.providers) {
-      config.providers = {} as Record<string, Record<string, unknown>>;
-    }
-
-    (config.providers as Record<string, Record<string, unknown>>)["modelhub"] = {
-      type: "openai-compatible",
-      base_url: normalizedBaseUrl,
-      auth: "bearer",
-      api_key_env: "JCODE_MODELHUB_API_KEY",
-      env_file: "provider-modelhub.env",
-      default_model: models && models.length > 0 ? models[0] : "cc/claude-opus-4-7",
-      requires_api_key: true,
-    };
-
-    const configDir = getJcodeConfigDir();
-    await fs.mkdir(configDir, { recursive: true });
-
-    await writeConfig(config);
-
-    const xdgConfigDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-    const jcodeConfigDir = path.join(xdgConfigDir, "jcode");
-    await fs.mkdir(jcodeConfigDir, { recursive: true });
-
-    const env = await readProviderEnv();
-    env.JCODE_MODELHUB_API_KEY = apiKey;
-    await writeProviderEnv(env);
-
-    return NextResponse.json({
-      success: true,
-      message: "jcode configured successfully. Use: jcode --provider-profile modelhub",
-      configPath: getConfigPath(),
-    });
-  } catch (error: unknown) {
-    console.error("Error configuring jcode:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
+  if (!baseUrl || !apiKey) {
+    throw new HttpValidationError("baseUrl and apiKey are required", 400);
   }
-}
 
-export async function DELETE() {
-  try {
-    const config = await readConfig();
+  const normalizedBaseUrl = String(baseUrl).endsWith("/v1")
+    ? String(baseUrl)
+    : `${baseUrl}/v1`;
 
-    if (!config.providers) {
-      return NextResponse.json({ success: true, message: "No configuration to remove" });
-    }
+  const config = await readConfig();
 
-    delete (config.providers as Record<string, unknown>)["modelhub"];
-
-    await writeConfig(config);
-
-    const env = await readProviderEnv();
-    delete env.JCODE_MODELHUB_API_KEY;
-    await writeProviderEnv(env);
-
-    return NextResponse.json({
-      success: true,
-      message: "modelhub configuration removed from jcode",
-    });
-  } catch (error: unknown) {
-    console.error("Error removing jcode configuration:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
+  if (!config.providers) {
+    config.providers = {} as Record<string, Record<string, unknown>>;
   }
+
+  (config.providers as Record<string, Record<string, unknown>>)["modelhub"] = {
+    type: "openai-compatible",
+    base_url: normalizedBaseUrl,
+    auth: "bearer",
+    api_key_env: "JCODE_MODELHUB_API_KEY",
+    env_file: "provider-modelhub.env",
+    default_model: Array.isArray(models) && models.length > 0 ? models[0] : "cc/claude-opus-4-7",
+    requires_api_key: true,
+  };
+
+  const configDir = getJcodeConfigDir();
+  await fs.mkdir(configDir, { recursive: true });
+
+  await writeConfig(config);
+
+  const xdgConfigDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
+  const jcodeConfigDir = path.join(xdgConfigDir, "jcode");
+  await fs.mkdir(jcodeConfigDir, { recursive: true });
+
+  const env = await readProviderEnv();
+  env.JCODE_MODELHUB_API_KEY = String(apiKey);
+  await writeProviderEnv(env);
+
+  return {
+    success: true,
+    message: "jcode configured successfully. Use: jcode --provider-profile modelhub",
+    configPath: getConfigPath(),
+  };
 }
-// Application HTTP use case extracted from the Next.js route adapter.
+
+async function handleDelete() {
+  const config = await readConfig();
+
+  if (!config.providers) {
+    return { success: true, message: "No configuration to remove" };
+  }
+
+  delete (config.providers as Record<string, unknown>)["modelhub"];
+
+  await writeConfig(config);
+
+  const env = await readProviderEnv();
+  delete env.JCODE_MODELHUB_API_KEY;
+  await writeProviderEnv(env);
+
+  return {
+    success: true,
+    message: "modelhub configuration removed from jcode",
+  };
+}
+
+export const { GET, POST, DELETE } = createCliToolHandlers("jcode", {
+  get: handleGet,
+  post: handlePost,
+  delete: handleDelete,
+});

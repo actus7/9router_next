@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { getDistinctProviders } from "@/lib/requestDetailsDb";
 import { getProviderNodes } from "@/lib/db/repos/nodesRepo";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 
 /**
  * GET /api/usage/providers
  * Returns list of unique providers from request details
  */
 export async function GET() {
+  await assertRequestRuntime();
   try {
     // Query DISTINCT provider column directly — avoids parsing every row's
     // full JSON blob (can be hundreds of MB), which previously caused OOM.

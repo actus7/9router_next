@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { DragEndEvent } from "@dnd-kit/core";
 import type {
   ChatAttachment,
   ChatProject,
@@ -37,6 +36,8 @@ export interface UseChatSessionsReturn {
   setDraft: React.Dispatch<React.SetStateAction<string>>;
   attachments: ChatAttachment[];
   setAttachments: React.Dispatch<React.SetStateAction<ChatAttachment[]>>;
+  attachmentNotice: string;
+  setAttachmentNotice: React.Dispatch<React.SetStateAction<string>>;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   historyOpen: boolean;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -82,8 +83,6 @@ export interface UseChatSessionsReturn {
   groupedSessionItems: Array<{ label: string; items: ChatSession[] }>;
   selectedSessionCount: number;
   allVisibleSessionsSelected: boolean;
-  dndSensors: ReturnType<typeof import("@dnd-kit/core").useSensors>;
-  handleDragEnd: (event: DragEndEvent) => void;
   updateSession: (
     sessionId: string,
     updater: (session: ChatSession) => ChatSession,
@@ -127,6 +126,7 @@ export function useChatSessions({
   const [draft, setDraft] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [attachmentNotice, setAttachmentNotice] = useState("");
   const [isHydrated, setIsHydrated] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -197,12 +197,11 @@ export function useChatSessions({
     serverSyncTimerRef,
   });
 
-  // Derived: memos, grouping, DnD, UI effects
+  // Derived: memos, grouping, UI effects
   const derived = useSessionDerived({
     providerGroups,
     modelIndex,
     sessions,
-    setSessions,
     projects,
     activeProjectId,
     activeSessionId,
@@ -210,6 +209,7 @@ export function useChatSessions({
     activeModelId,
     historySearch,
     showArchived,
+    historyOpen,
     selectedSessionIds,
     renamingSessionId,
     setHistoryOpen,
@@ -235,10 +235,12 @@ export function useChatSessions({
     setActiveProjectId,
     setDraft,
     setAttachments,
+    setAttachmentNotice,
     setHistoryOpen,
     newProjectName,
     setNewProjectName,
     setIsCreatingProject,
+    renamingSessionId,
     setRenamingSessionId,
     setRenameValue,
     renameValue,
@@ -267,6 +269,8 @@ export function useChatSessions({
     setDraft,
     attachments,
     setAttachments,
+    attachmentNotice,
+    setAttachmentNotice,
     fileInputRef,
     historyOpen,
     setHistoryOpen,

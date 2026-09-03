@@ -1,6 +1,6 @@
-import type { ChatSession } from "../types";
+import type { ChatSession, HarnessEvent } from "../types";
 
-export type HarnessSettingsSection = "general" | "plugins" | "skills" | "mcp" | "presets";
+export type HarnessSettingsSection = "general" | "plugins" | "skills" | "memory" | "mcp" | "presets";
 
 export interface HarnessSettingsDialogProps {
   open: boolean;
@@ -8,6 +8,7 @@ export interface HarnessSettingsDialogProps {
   section: HarnessSettingsSection;
   onSectionChange: (section: HarnessSettingsSection) => void;
   session: ChatSession | null;
+  harnessEvents?: HarnessEvent[];
   updateSession: (
     sessionId: string,
     updater: (session: ChatSession) => ChatSession,

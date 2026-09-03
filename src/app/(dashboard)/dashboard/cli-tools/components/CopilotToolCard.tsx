@@ -9,6 +9,7 @@ import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
 import { useModelAliases } from "./useCliToolCommon";
 import { StatusMessage, ActionButtons } from "./CliToolShared";
+import { expandableCardHeaderProps } from "./expandableCardHeader";
 import { ArrowRight, ChevronDown, Info, Loader2, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
@@ -191,7 +192,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
 
   return (
     <Card padding="xs" className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" onClick={onToggle}>
+      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" {...expandableCardHeaderProps(onToggle, isExpanded)}>
         <div className="flex min-w-0 items-center gap-3">
           <div className="size-8 flex items-center justify-center shrink-0">
             <Image src="/providers/copilot.png" alt={tool.name} width={32} height={32} className="size-8 object-contain rounded-lg" sizes="32px" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
@@ -252,7 +253,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
                         selectedModels.map((model) => (
                           <span key={model} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-black/5 dark:bg-white/5 text-text-muted border border-transparent hover:border-border">
                             {model}
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeModel(model); }} className="ml-0.5 hover:text-destructive-foreground p-0 h-auto">
+                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeModel(model); }} aria-label={`Remove ${model}`} className="ml-0.5 hover:text-destructive-foreground p-0 h-auto">
                               <X className="size-3" />
                             </Button>
                           </span>

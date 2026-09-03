@@ -27,6 +27,10 @@ const TYPED_KINDS = new Set(["image", "tts", "stt", "embedding", "imageToText"])
 const ALLOW_PROVIDER_FALLBACK_KINDS = new Set(["tts", "image", "webFetch"]);
 const PROVIDER_AS_MODEL_KINDS = new Set(["webSearch", "webFetch"]);
 
+function providerSupportsKind(providerInfo: Record<string, unknown> | undefined, kind: string): boolean {
+  return ((providerInfo?.serviceKinds as string[] | undefined) || ["llm"]).includes(kind);
+}
+
 function filterByKind(models: ModelItem[], kindFilter: string | null): ModelItem[] {
   if (!kindFilter) return models.filter((m) => m.isPlaceholder || m.isCustom || !getModelKind(m as unknown as Record<string, unknown>) || getModelKind(m as unknown as Record<string, unknown>) === "llm");
   if (!TYPED_KINDS.has(kindFilter)) return models;
@@ -146,7 +150,13 @@ export function buildGroupedModels(params: {
   const noAuthIds = kindFilter
     ? NO_AUTH_PROVIDER_IDS.filter((id) => { const info = AI_PROVIDERS[id as keyof typeof AI_PROVIDERS] as Record<string, unknown> | undefined; return ((info?.serviceKinds as string[]) || ["llm"]).includes(kindFilter); })
     : NO_AUTH_PROVIDER_IDS;
-  const providerIdsToShow = new Set([...activeConnectionIds, ...noAuthIds]);
+  // No kind filter means a chat picker. Search-only providers list models with no
+  // `kind`, so the per-model filter alone would let them through as LLMs — and a
+  // chat sent to one comes back as a list of links instead of an answer.
+  const providerIdsToShow = new Set(
+    [...activeConnectionIds, ...noAuthIds].filter((id) =>
+      kindFilter ? true : providerSupportsKind(allProviders[id] || AI_PROVIDERS[id as keyof typeof AI_PROVIDERS] as Record<string, unknown> | undefined, "llm")),
+  );
   const sortedProviderIds = [...providerIdsToShow].sort((a, b) => {
     const indexA = PROVIDER_ORDER.indexOf(a); const indexB = PROVIDER_ORDER.indexOf(b);
     return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);

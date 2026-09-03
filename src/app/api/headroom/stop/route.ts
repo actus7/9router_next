@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { stopHeadroomProxy } from "@/lib/headroom/process";
 
-export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {

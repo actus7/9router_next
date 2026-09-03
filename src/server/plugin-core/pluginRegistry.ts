@@ -12,6 +12,11 @@ export function registerExecutor(provider: string, executor: unknown): void {
   pluginExecutors.set(provider, executor);
 }
 
+/** Retires an executor a recomposed tree no longer mounts, so a removed row actually stops taking effect. */
+export function unregisterExecutor(provider: string): void {
+  pluginExecutors.delete(provider);
+}
+
 export function getPluginExecutor(provider: string): unknown {
   return pluginExecutors.get(provider);
 }

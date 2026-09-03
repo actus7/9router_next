@@ -90,10 +90,10 @@ export function GuideModelSelector({
       </Button>
       {modelValue && (
         <>
-          <Button variant="outline" size="icon-sm" onClick={() => onCopy(modelValue, "model")} className="shrink-0">
+          <Button variant="outline" size="icon-sm" onClick={() => onCopy(modelValue, "model")} className="shrink-0" aria-label="Copy model value">
             <span className="text-lg">{copiedField === "model" ? "check" : "content_copy"}</span>
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={() => onModelChange("")} className="text-text-muted hover:text-destructive-foreground" title="Clear">
+          <Button variant="ghost" size="icon-sm" onClick={() => onModelChange("")} className="text-text-muted hover:text-destructive-foreground" title="Clear" aria-label="Clear model selection">
             <span className="text-lg">close</span>
           </Button>
         </>

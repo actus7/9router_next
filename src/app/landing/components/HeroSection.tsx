@@ -1,11 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Code, Rocket } from "lucide-react";
 
 export default function HeroSection() {
+  const router = useRouter();
+
   return (
-    <section className="relative pt-32 pb-20 px-6 min-h-[90vh] flex flex-col items-center justify-center overflow-hidden">
+    <section className="relative pt-32 pb-20 px-6 min-h-[90vh] flex flex-col items-center justify-center overflow-hidden" aria-labelledby="landing-hero-heading">
       {/* Glow effect */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-[#f97815]/10 rounded-full blur-[120px] pointer-events-none"></div>
       
@@ -17,7 +20,7 @@ export default function HeroSection() {
         </div>
 
         {/* Main heading */}
-        <h1 className="text-5xl md:text-7xl font-black leading-[1.1] tracking-tight">
+        <h1 id="landing-hero-heading" className="text-5xl md:text-7xl font-black leading-[1.1] tracking-tight">
           One Endpoint for <br/>
           <span className="text-[#f97815]">All AI Providers</span>
         </h1>
@@ -29,7 +32,11 @@ export default function HeroSection() {
 
         {/* CTA Buttons */}
         <div className="flex flex-wrap items-center justify-center gap-4 w-full">
-          <Button className="h-12 px-8 rounded-lg bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-base font-bold shadow-[0_0_15px_rgba(249,120,21,0.4)]">
+          <Button
+            onClick={() => router.push("/dashboard")}
+            aria-label="Get started with ModelHub dashboard"
+            className="h-12 px-8 rounded-lg bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-base font-bold shadow-[0_0_15px_rgba(249,120,21,0.4)]"
+          >
             <Rocket className="size-4" />
             Get Started
           </Button>

@@ -51,6 +51,8 @@ export default function ChatComposer({
     draft,
     setDraft,
     attachments,
+    attachmentNotice,
+    setAttachmentNotice,
     removeAttachment,
     fileInputRef,
     handleAttachFiles,
@@ -131,6 +133,19 @@ export default function ChatComposer({
   return (
     <div className="shrink-0 border-t border-border bg-background/95 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <ChatQueueBar items={queuedMessages} onCancel={cancelQueuedMessage} onMove={moveQueuedMessage} />
+      {attachmentNotice ? (
+        <div className="mx-auto mb-3 flex w-full max-w-3xl items-center justify-between gap-3 px-6">
+          <p role="status" className="text-xs text-destructive">{attachmentNotice}</p>
+          <button
+            type="button"
+            onClick={() => setAttachmentNotice("")}
+            aria-label={translate("Dismiss") || "Dismiss"}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : null}
       {attachments.length > 0 && (
         <div className="mx-auto mb-4 flex w-full max-w-3xl flex-wrap gap-2 px-6">
           {attachments.map((attachment) => (
@@ -165,19 +180,11 @@ export default function ChatComposer({
             className="resize-none border-0 bg-transparent px-2 text-[15px] leading-7 text-foreground placeholder:text-muted-foreground custom-scrollbar max-h-[25vh] focus-visible:ring-0 focus-visible:ring-offset-0"
           />
 
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/70 pt-3">
-            <div className="flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border/70 pt-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <ChatCommandsMenu
                 disabled={!activeModel || loadingData}
                 onExport={handleExportConversation}
-                onTogglePlanMode={() =>
-                  currentSession &&
-                  updateSession(currentSession.id, (session) => ({
-                    ...session,
-                    mode: session.mode === "plan" ? "agent" : "plan",
-                  }))
-                }
-                isPlanMode={currentSession?.mode === "plan"}
               />
               <Button
                 variant="ghost"
@@ -430,7 +437,7 @@ export default function ChatComposer({
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
               {isSending && (
                 <>
                   <button

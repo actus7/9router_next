@@ -117,6 +117,28 @@ describe("safePublicFetch", () => {
     }
   });
 
+  // The loopback case above passes an IP literal, so `node:net` skips DNS entirely
+  // and never exercises the pin. Going through a hostname is what actually invokes
+  // the pinned connector, which is how a broken callback contract reaches production
+  // as an opaque "fetch failed".
+  it("connects through the pinned connector when the host needs resolution", async () => {
+    const server = createServer((_request, response) => response.end("resolved"));
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("test server did not bind");
+    try {
+      const safeFetch = createSafePublicFetch({
+        resolver: async () => [{ address: "127.0.0.1", family: 4 }],
+      });
+      const response = await safeFetch(`http://localhost:${address.port}/`, {
+        destinationPolicy: "trusted-local",
+      });
+      await expect(response.text()).resolves.toBe("resolved");
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
   it("handles bodyless responses and closes a cancelled response body", async () => {
     const bodyless = createSafePublicFetch({
       resolver: PUBLIC_DNS,

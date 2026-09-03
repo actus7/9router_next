@@ -122,20 +122,22 @@ export default function ChatModelPickerModal({
             ))}
           </div>
         </div>
-        <div className="flex min-h-0 max-h-[60vh]">
-          <aside className="w-52 shrink-0 overflow-y-auto border-r border-border-subtle p-2 custom-scrollbar">
-            <button type="button" onClick={() => setSelectedProviderId(null)} className={cn("flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors", selectedProviderId === null ? "bg-primary text-primary-foreground" : "text-text-main hover:bg-muted")}>
-              <span>{translate("All providers") || "All providers"}</span><span className={cn("text-xs", selectedProviderId === null ? "text-primary-foreground/80" : "text-text-muted")}>{totalModels}</span>
+        <div className="flex min-h-0 max-h-[60vh] flex-col sm:flex-row">
+          {/* Below sm the provider list is a horizontal strip: as a fixed 13rem
+              rail it left almost no width for the model names beside it. */}
+          <aside className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-border-subtle p-2 custom-scrollbar sm:w-52 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r">
+            <button type="button" onClick={() => setSelectedProviderId(null)} className={cn("flex shrink-0 items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors sm:w-full", selectedProviderId === null ? "bg-primary text-primary-foreground" : "text-text-main hover:bg-muted")}>
+              <span className="whitespace-nowrap">{translate("All providers") || "All providers"}</span><span className={cn("text-xs", selectedProviderId === null ? "text-primary-foreground/80" : "text-text-muted")}>{totalModels}</span>
             </button>
             {providerGroups.map((provider) => (
-              <button key={provider.providerId} type="button" onClick={() => setSelectedProviderId(provider.providerId)} className={cn("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors", selectedProviderId === provider.providerId ? "bg-primary text-primary-foreground" : "text-text-main hover:bg-muted")}>
+              <button key={provider.providerId} type="button" onClick={() => setSelectedProviderId(provider.providerId)} className={cn("flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors sm:w-full", selectedProviderId === provider.providerId ? "bg-primary text-primary-foreground" : "text-text-main hover:bg-muted")}>
                 <ProviderIcon providerId={provider.providerId} alt={provider.providerName} size={18} fallbackText={provider.providerName.slice(0, 2).toUpperCase()} />
-                <span className="min-w-0 flex-1 truncate">{provider.providerName}</span><span className={cn("text-xs", selectedProviderId === provider.providerId ? "text-primary-foreground/80" : "text-text-muted")}>{provider.models.length}</span>
+                <span className="min-w-0 flex-1 truncate whitespace-nowrap">{provider.providerName}</span><span className={cn("text-xs", selectedProviderId === provider.providerId ? "text-primary-foreground/80" : "text-text-muted")}>{provider.models.length}</span>
               </button>
             ))}
           </aside>
           <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-            {selectedProviderId
+            {selectedProviderId && visibleGroups[0]
               ? selectedModels.map((model) => renderModel(model, visibleGroups[0]!, false))
               : visibleGroups.map((provider) => (
                 <section key={provider.providerId} className="mb-3">

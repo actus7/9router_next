@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCombos, createCombo, getComboByName } from "@/lib/db/repos/combosRepo";
 import { DEFAULT_SMART_ROUTING_CONFIG, validateSmartRoutingConfig } from "@/server/llm-gateway/smart-routing";
+import { chatComboModelsError } from "./chatComboModels";
 
-export const dynamic = "force-dynamic";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -44,6 +44,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     const routingValidation = validateSmartRoutingConfig(kind === "smart" ? (body.routing || DEFAULT_SMART_ROUTING_CONFIG) : null);
     if (!routingValidation.ok) return NextResponse.json({ error: routingValidation.error }, { status: 400 });
+
+    const modelsError = chatComboModelsError(kind, models, body.routing);
+    if (modelsError) return NextResponse.json({ error: modelsError }, { status: 400 });
 
     const combo = await createCombo({
       name,

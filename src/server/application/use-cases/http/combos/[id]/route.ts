@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/db/repos/combosRepo";
 import { resetComboRotation } from "@/server/llm-gateway/catalog";
 import { DEFAULT_SMART_ROUTING_CONFIG, validateSmartRoutingConfig } from "@/server/llm-gateway/smart-routing";
+import { chatComboModelsError } from "../chatComboModels";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -60,6 +61,13 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
       body.routing = null;
     }
     if (Array.isArray(body.models)) body.models = body.models.filter((model: unknown): model is string => typeof model === "string");
+
+    const modelsError = chatComboModelsError(
+      nextKind,
+      body.models !== undefined ? body.models : prev.models,
+      body.routing !== undefined ? body.routing : prev.routing,
+    );
+    if (modelsError) return NextResponse.json({ error: modelsError }, { status: 400 });
     
     // Capture previous name to invalidate rotation state on rename
     const combo = await updateCombo(id, body);

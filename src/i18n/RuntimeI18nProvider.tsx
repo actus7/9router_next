@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { initRuntimeI18n, reloadTranslations } from "./runtime";
+import { initRuntimeI18n, reloadTranslations, seedRuntimeI18n } from "./runtime";
 import type { Locale } from "./config";
 
 interface RuntimeI18nProviderProps {
@@ -20,6 +20,10 @@ export function RuntimeI18nProvider({
 }: RuntimeI18nProviderProps): React.JSX.Element {
   const pathname: string | null = usePathname();
   const isInitialPathname = useRef(true);
+
+  if (locale) {
+    seedRuntimeI18n(locale, translations ?? {});
+  }
 
   // `initRuntimeI18n` mutates text nodes to translate the already rendered
   // document. A parent effect can run while streamed client boundaries are

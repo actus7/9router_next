@@ -11,6 +11,7 @@ import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
 import { useModelAliases } from "./useCliToolCommon";
 import { StatusMessage, ActionButtons } from "./CliToolShared";
+import { expandableCardHeaderProps } from "./expandableCardHeader";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -242,7 +243,7 @@ export default function ClaudeToolCard({
 
   return (
     <Card padding="xs" className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" onClick={onToggle}>
+      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" {...expandableCardHeaderProps(onToggle, isExpanded)}>
         <div className="flex min-w-0 items-center gap-3">
           <div className="size-8 flex items-center justify-center shrink-0">
             <Image src="/providers/claude.png" alt={tool.name} width={32} height={32} className="size-8 object-contain rounded-lg" sizes="32px" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
@@ -334,7 +335,7 @@ export default function ClaudeToolCard({
                     <ArrowRight className="size-4" />
                     <div className="relative w-full min-w-0">
                       <Input type="text" value={modelMappings[model.alias] || ""} onChange={(e) => onModelMappingChange(model.alias, e.target.value)} placeholder="provider/model-id" className="w-full min-w-0 pl-2 pr-7 py-2 text-xs sm:py-1.5" />
-                      {modelMappings[model.alias] && <Button variant="ghost" size="sm" onClick={() => onModelMappingChange(model.alias, "")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear"><X className="size-4" /></Button>}
+                      {modelMappings[model.alias] && <Button variant="ghost" size="sm" onClick={() => onModelMappingChange(model.alias, "")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-destructive-foreground" title="Clear" aria-label="Clear model selection"><X className="size-4" /></Button>}
                     </div>
                     <Button variant="outline" size="sm" onClick={() => openModelSelector(model.alias)} disabled={!hasActiveProviders} className="w-full sm:w-auto">Select Model</Button>
                   </div>

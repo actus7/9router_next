@@ -103,6 +103,10 @@ export interface RuntimeToolContext {
   webSearchMaxResults?: number;
   webFetchMaxCharacters?: number;
   onSkillEvent?: (type: "skill/load" | "skill/created" | "skill/updated", data: Record<string, unknown>) => void;
+  onMemoryEvent?: (
+    type: "memory/add" | "memory/replace" | "memory/remove",
+    data: Record<string, unknown>,
+  ) => void;
 }
 
 interface AttemptInfo {

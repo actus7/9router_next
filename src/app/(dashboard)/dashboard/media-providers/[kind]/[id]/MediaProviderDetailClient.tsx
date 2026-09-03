@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, notFound, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
 import { AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard, ConfirmModal } from "@/shared/components";
@@ -10,6 +10,7 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
 import ModelsCard from "@/app/(dashboard)/dashboard/providers/components/ModelsCard";
+import { isCombinedWebKind, mediaProviderListingHref } from "../../listingHref";
 import { KIND_EXAMPLE_CONFIG } from "./components/exampleShared";
 import { EmbeddingExampleCard } from "./components/EmbeddingExampleCard";
 import { TtsExampleCard } from "./components/TtsExampleCard";
@@ -44,22 +45,23 @@ interface ProviderInfo {
 }
 
 interface MediaProviderDetailClientProps {
+  kind: string;
+  id: string;
   initialNodes: CustomNode[];
 }
 
 // MediaProviderDetailClient
-export default function MediaProviderDetailClient({ initialNodes }: MediaProviderDetailClientProps) {
-  const { kind, id } = useParams();
+export default function MediaProviderDetailClient({ kind, id, initialNodes }: MediaProviderDetailClientProps) {
   const router = useRouter();
   const kindConfig = MEDIA_PROVIDER_KINDS.find((k: { id: string }) => k.id === kind);
-  const isCustom = isCustomEmbeddingProvider(id as string) && kind === "embedding";
+  const isCustom = isCustomEmbeddingProvider(id) && kind === "embedding";
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleDeleteCustom = async () => {
     try {
       const res = await fetch(`/api/provider-nodes/${id}`, { method: "DELETE" });
-      if (res.ok) router.push(`/dashboard/media-providers/${kind}`);
+      if (res.ok) router.push(mediaProviderListingHref(kind));
     } catch (error) {
       console.error("Error deleting custom embedding node:", error);
     }
@@ -73,31 +75,33 @@ export default function MediaProviderDetailClient({ initialNodes }: MediaProvide
   const [customNode, setCustomNode] = useState<CustomNode | null>(initialCustomNode);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  if (!kindConfig) return notFound();
+  if (!kindConfig) return null;
 
-  const builtInProvider = AI_PROVIDERS[id as string] as unknown as ProviderInfo | undefined;
+  const builtInProvider = AI_PROVIDERS[id] as unknown as ProviderInfo | undefined;
 
   // For custom embedding nodes, build a synthetic provider object
   const provider: ProviderInfo | null = isCustom
-    ? (customNode ? { id: id as string, name: customNode.name || "Custom Embedding", color: "#6366F1", textIcon: "CE" } : null)
+    ? (customNode ? { id, name: customNode.name || "Custom Embedding", color: "#6366F1", textIcon: "CE" } : null)
     : (builtInProvider ?? null);
 
-  if (!isCustom && !builtInProvider) return notFound();
-  if (isCustom && !customNode) return notFound();
+  if (!isCustom && !builtInProvider) return null;
+  if (isCustom && !customNode) return null;
 
   const kinds = isCustom ? ["embedding"] : (provider!.serviceKinds ?? ["llm"]);
-  if (!isCustom && !kinds.includes(kind as string)) return notFound();
+  if (!isCustom && !kinds.includes(kind)) return null;
 
   return (
     <div className="flex flex-col gap-8">
       {/* Back */}
       <div>
         <Link
-          href={`/dashboard/media-providers/${kind}`}
+          href={mediaProviderListingHref(kind)}
           className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
         >
           <ArrowLeft className="size-4" />
-          {kindConfig.label}
+          {isCombinedWebKind(kind as string)
+            ? translate("Web Fetch & Search") || "Web Fetch & Search"
+            : kindConfig.label}
         </Link>
 
         {/* Header */}

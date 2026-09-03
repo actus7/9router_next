@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { getConsoleLogs, getConsoleEmitter, initConsoleLogCapture } from "@/lib/consoleLogBuffer";
 
-export const dynamic = "force-dynamic";
 
 initConsoleLogCapture();
 

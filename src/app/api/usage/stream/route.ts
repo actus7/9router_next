@@ -1,6 +1,5 @@
 import { getUsageStats, statsEmitter, getActiveRequests } from "@/lib/usageDb";
 
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   const encoder = new TextEncoder();

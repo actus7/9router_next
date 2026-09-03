@@ -61,7 +61,16 @@ export default function GetStarted() {
               <div className="p-6 font-mono text-sm leading-relaxed overflow-x-auto">
                 <div 
                   className="flex items-center gap-2 mb-4 group cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Copy install command: npx modelhub"
                   onClick={() => handleCopy("npx modelhub")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleCopy("npx modelhub");
+                    }
+                  }}
                 >
                   <span className="text-green-400">$</span>
                   <span className="text-white">npx modelhub</span>

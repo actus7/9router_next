@@ -41,14 +41,19 @@ async function getTranslations(locale: Locale): Promise<TranslationMap> {
   // Check cache first
   if (cache.has(locale)) return cache.get(locale)!;
 
+  const filePath = join(process.cwd(), "public", "i18n", "literals", `${locale}.json`);
+
   try {
-    const filePath = join(process.cwd(), "public", "i18n", "literals", `${locale}.json`);
     const content = await readFile(filePath, "utf-8");
-    const translations: TranslationMap = JSON.parse(content);
+    // The literal files are authored with a UTF-8 BOM, which `JSON.parse`
+    // rejects even though `Response.json()` in the browser tolerates it.
+    // Without stripping it the server would silently fall back to English and
+    // every translated attribute would mismatch during hydration.
+    const translations: TranslationMap = JSON.parse(content.replace(/^\uFEFF/, ""));
     cache.set(locale, translations);
     return translations;
-  } catch {
-    // File not found or parse error — return empty map
+  } catch (error) {
+    console.error(`[i18n] Failed to load translations for "${locale}" from ${filePath}`, error);
     return {};
   }
 }

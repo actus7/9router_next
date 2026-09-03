@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION: number = 4;
+export const SCHEMA_VERSION: number = 6;
 
 export const PRAGMA_SQL: string = `
 PRAGMA journal_mode = WAL;
@@ -286,6 +286,51 @@ export const TABLES: Record<string, TableDefinition> = {
       updatedAt: "TEXT NOT NULL",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_as_enabled ON agentSkills(enabled)"],
+  },
+  agentSkillFiles: {
+    columns: {
+      skillId: "TEXT NOT NULL",
+      filePath: "TEXT NOT NULL",
+      content: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (skillId, filePath)",
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_asf_skill ON agentSkillFiles(skillId)"],
+  },
+  agentMemoryEntries: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      scope: "TEXT NOT NULL",
+      content: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_ame_scope ON agentMemoryEntries(scope)"],
+  },
+  harnessPendingWrites: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      kind: "TEXT NOT NULL",
+      action: "TEXT NOT NULL",
+      payload: "TEXT NOT NULL",
+      source: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_hpw_kind ON harnessPendingWrites(kind)"],
+  },
+  harnessMessageIndex: {
+    columns: {
+      sessionId: "TEXT NOT NULL",
+      messageId: "TEXT NOT NULL",
+      role: "TEXT NOT NULL",
+      content: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (sessionId, messageId)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_hmi_created ON harnessMessageIndex(createdAt DESC)",
+    ],
   },
 };
 

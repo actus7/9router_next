@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getRecentLogs } from "@/lib/usageDb";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 
 export async function GET() {
+  await assertRequestRuntime();
   try {
     const logs = await getRecentLogs(200);
     return NextResponse.json(logs);

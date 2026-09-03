@@ -169,15 +169,31 @@ function processElement(element: Node): void {
 // Apply server-provided translations synchronously (before render).
 // This sets the module-level variables so translate() returns correct text
 // during the initial client render, preventing hydration mismatches.
-
-// Set translations from server and set up DOM observer (called after mount)
+export function seedRuntimeI18n(
+  locale: Locale,
+  translations: TranslationMap = {},
+): void {
+  currentLocale = locale;
+  translationMap = translations;
+  if (typeof globalThis !== "undefined") {
+    (globalThis as Record<string, unknown>).__I18N_LOCALE__ = locale;
+    (globalThis as Record<string, unknown>).__I18N_TRANSLATIONS__ = translations;
+  }
+}
 
 // Initialize runtime i18n (fallback when server props not available)
 export async function initRuntimeI18n(): Promise<void> {
   if (typeof window === "undefined") return;
 
-  currentLocale = getLocaleFromCookie();
-  await loadTranslations(currentLocale);
+  const cookieLocale = getLocaleFromCookie();
+  const hasSeededTranslations =
+    cookieLocale === currentLocale &&
+    (currentLocale === "en" || Object.keys(translationMap).length > 0);
+
+  if (!hasSeededTranslations) {
+    currentLocale = cookieLocale;
+    await loadTranslations(currentLocale);
+  }
 
   // Process existing DOM
   processElement(document.body);

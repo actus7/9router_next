@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FILTERS } from "./filters";
 
-export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);

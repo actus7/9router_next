@@ -305,25 +305,32 @@ function buildYouComRequest(config: SearchProviderConfig, params: SearchRequestP
   };
 }
 
-function buildSearxngRequest(config: SearchProviderConfig, params: SearchRequestParams): { url: string; init: RequestInit } {
-  const baseUrl = resolveBaseUrl(config, params);
-  const url = baseUrl.endsWith("/search") ? baseUrl : `${baseUrl}/search`;
-  const qp = new URLSearchParams({
-    q: params.query,
-    format: "json",
-    categories: params.searchType === "news" ? "news" : "general",
-  });
-  if (params.language) qp.set("language", params.language);
-  if (params.timeRange && params.timeRange !== "any") qp.set("time_range", params.timeRange);
-
-  const page = toPageNumber(params.offset, params.maxResults);
-  if (page) qp.set("pageno", String(page));
-
+function buildAnysearchRequest(config: SearchProviderConfig, params: SearchRequestParams): { url: string; init: RequestInit } {
   return {
-    url: `${url}?${qp}`,
+    url: resolveBaseUrl(config, params),
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(params.token ? { Authorization: `Bearer ${params.token}` } : {}),
+      },
+      body: JSON.stringify({ query: params.query, max_results: params.maxResults }),
+    },
+  };
+}
+
+function buildContext7Request(config: SearchProviderConfig, params: SearchRequestParams): { url: string; init: RequestInit } {
+  const baseUrl = resolveBaseUrl(config, params).replace(/\/+$/, "");
+  const qp = new URLSearchParams({ query: params.query });
+  return {
+    url: `${baseUrl}/search?${qp}`,
     init: {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        ...(params.token ? { Authorization: `Bearer ${params.token}` } : {}),
+      },
     },
   };
 }
@@ -340,7 +347,8 @@ const BUILDERS: Record<string, (config: SearchProviderConfig, params: SearchRequ
   "linkup": buildLinkupRequest,
   "searchapi": buildSearchApiRequest,
   "youcom": buildYouComRequest,
-  "searxng": buildSearxngRequest,
+  "anysearch": buildAnysearchRequest,
+  "context7": buildContext7Request,
 };
 
 /**

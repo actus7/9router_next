@@ -2,14 +2,21 @@ import {
   buildSessionSystemPrompt,
   getEnabledRuntimeToolNames,
   getMcpRuntimeToolDefinitions,
+  getProposeHarnessCapabilityToolDefinition,
   getRuntimeToolDefinitions,
   resolveSessionPlugins,
 } from "@/shared/harness/agentPlugins";
 import {
   buildSkillsPromptBlock,
-  getUpdateSkillToolDefinition,
+  getSupplementalSkillAuthoringTools,
+  getLoadSkillFileToolDefinition,
   resolveSessionSkills,
 } from "@/shared/harness/agentSkills";
+import { readSkillPreferences } from "@/shared/harness/skillPreferences";
+import {
+  buildMemoryPromptBlock,
+  getSupplementalMemoryToolDefinitions,
+} from "@/shared/harness/agentMemory";
 import {
   isPuterBrowserModel,
   streamPuterChat,
@@ -26,7 +33,8 @@ import {
   buildChatFetchOptions,
   buildRequestMessages,
 } from "./buildChatRequest";
-import { executeChatFetch } from "./consumeSSEStream";
+import { executeChatFetch, readRoutingTraceFromError } from "./consumeSSEStream";
+import { recordRoutingTraceEvent } from "./recordRoutingTraceEvent";
 import {
   finalizeStreamError,
   finalizeStreamSuccess,
@@ -172,6 +180,42 @@ export async function executeSendMessage({
   abortRef.current?.abort();
   abortRef.current = new AbortController();
 
+  const sessionPlugins = resolveSessionPlugins(
+    session.agentPresetId,
+    session.pluginOverrides,
+  );
+
+  let memoryPromptBlock = "";
+  if (sessionPlugins.some((plugin) => plugin.id === "tool-memory")) {
+    try {
+      const memoryResponse = await fetch("/api/harness/memory", {
+        signal: abortRef.current.signal,
+        cache: "no-store",
+      });
+      const memoryPayload = (await memoryResponse.json().catch(() => null)) as {
+        agent?: Parameters<typeof buildMemoryPromptBlock>[0]["agent"];
+        user?: Parameters<typeof buildMemoryPromptBlock>[0]["user"];
+        agentChars?: number;
+        userChars?: number;
+        agentLimit?: number;
+        userLimit?: number;
+      } | null;
+      if (memoryResponse.ok && memoryPayload) {
+        memoryPromptBlock = buildMemoryPromptBlock({
+          revision: 0,
+          agent: memoryPayload.agent ?? [],
+          user: memoryPayload.user ?? [],
+          agentChars: memoryPayload.agentChars ?? 0,
+          userChars: memoryPayload.userChars ?? 0,
+          agentLimit: memoryPayload.agentLimit ?? 2200,
+          userLimit: memoryPayload.userLimit ?? 1375,
+        });
+      }
+    } catch {
+      memoryPromptBlock = "";
+    }
+  }
+
   const effectiveSystemPrompt = [
     buildSessionSystemPrompt(
       session.agentPresetId,
@@ -179,12 +223,12 @@ export async function executeSendMessage({
       systemPrompt,
       session.mode === "plan",
     ),
-    resolveSessionPlugins(
-      session.agentPresetId,
-      session.pluginOverrides,
-    ).some((plugin) => plugin.id === "tool-skills")
-      ? buildSkillsPromptBlock(resolveSessionSkills(session.skillOverrides))
+    sessionPlugins.some((plugin) => plugin.id === "tool-skills")
+      ? buildSkillsPromptBlock(
+          resolveSessionSkills(session.skillOverrides, readSkillPreferences()),
+        )
       : "",
+    memoryPromptBlock,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -210,12 +254,17 @@ export async function executeSendMessage({
       ? getMcpRuntimeToolDefinitions(session.mcpServers)
       : [];
   const supplementalTools: ReturnType<typeof getRuntimeToolDefinitions> = [];
-  const sessionPlugins = resolveSessionPlugins(
-    session.agentPresetId,
-    session.pluginOverrides,
-  );
+  if (sessionPlugins.some((plugin) => plugin.id === "tool-skills")) {
+    supplementalTools.push(getLoadSkillFileToolDefinition());
+  }
   if (sessionPlugins.some((plugin) => plugin.id === "tool-skill-authoring")) {
-    supplementalTools.push(getUpdateSkillToolDefinition());
+    supplementalTools.push(...getSupplementalSkillAuthoringTools());
+  }
+  if (sessionPlugins.some((plugin) => plugin.id === "tool-memory")) {
+    supplementalTools.push(...getSupplementalMemoryToolDefinitions());
+  }
+  if (sessionPlugins.some((plugin) => plugin.id === "tool-harness-governance")) {
+    supplementalTools.push(getProposeHarnessCapabilityToolDefinition());
   }
   const runtimeTools =
     builtinRuntimeTools || mcpRuntimeTools.length || supplementalTools.length
@@ -289,6 +338,7 @@ export async function executeSendMessage({
             reasoning: "",
             usage: null,
             responseSource: null as "synapse" | null,
+            routingTrace: null,
           };
         })()
       : await executeChatFetch(
@@ -296,6 +346,7 @@ export async function executeSendMessage({
           fetchOptions,
           updateStreamingText,
         );
+    recordRoutingTraceEvent(recordHarnessEvent, sessionId, assistantMessageId, result.routingTrace);
     if (result.streamed) {
       const completedAt = Date.now();
       finalizeStreamSuccess(
@@ -390,6 +441,8 @@ export async function executeSendMessage({
           : activity,
       ),
     );
+    // A failed run is exactly when the routing story matters most.
+    recordRoutingTraceEvent(recordHarnessEvent, sessionId, currentRunId, readRoutingTraceFromError(error));
     finalizeStreamError(
       sessionId,
       currentRunId,

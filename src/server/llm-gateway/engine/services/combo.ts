@@ -7,6 +7,8 @@ import { unavailableResponse } from "../utils/error";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
 import { getRoutingDecision } from "./smart-routing/context";
+import { recordRoutingStep } from "./routingTrace";
+import { truncateTraceError } from "../host/routingTrace";
 
 // Hard capabilities = input modalities; missing one drops request data (e.g. image
 // stripped). Must be prioritized. Soft (e.g. search) only degrades a feature.
@@ -345,6 +347,16 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       const errMsg = error instanceof Error ? error.message : String(error);
       lastError = errMsg;
       if (!lastStatus) lastStatus = 500;
+      // A throw skips the per-account step, which would leave a silent gap
+      // between one attempt and the next in the trace.
+      recordRoutingStep(body, {
+        kind: "attempt",
+        model: modelStr,
+        index: i + 1,
+        total: rotatedModels.length,
+        outcome: "aborted",
+        error: truncateTraceError(errMsg),
+      });
       log.warn?.("COMBO", `Model ${modelStr} threw error, trying next`, { error: lastError });
     }
   }

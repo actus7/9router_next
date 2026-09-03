@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { getProxyPoolsWithUsage } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
+import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ProxyPoolsClient, { type ProxyPool } from "./ProxyPoolsClient";
 
 async function ProxyPoolsContent() {
+  await assertRequestRuntime();
   const proxyPools = await getProxyPoolsWithUsage();
 
   return <ProxyPoolsClient initialProxyPools={proxyPools as unknown as ProxyPool[]} />;

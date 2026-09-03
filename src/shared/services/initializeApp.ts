@@ -129,7 +129,7 @@ async function runHeavyStartup(): Promise<void> {
   configureTunnelMonitoring(settings);
 
   if (hasQuotaAutoPingEnabled(settings)) {
-    import("@/shared/services/quotaAutoPing")
+    import("@/server/services/quotaAutoPing")
       .then(({ startQuotaAutoPing }) => startQuotaAutoPing())
       .catch((e: Error) => console.error("[AutoPing] scheduler start failed:", e.message));
   }

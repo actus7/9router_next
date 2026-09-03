@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
-import { getProviderAlias } from "@/shared/constants/providers";
+import { AI_PROVIDERS, getProviderAlias } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { Plus } from "lucide-react";
+import { ListPlus, Plus } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import CardModelRow from "./CardModelRow";
+import DiscoveredModelsModal from "./DiscoveredModelsModal";
+import { useModelDiscovery } from "./useModelDiscovery";
 
 interface BuiltInModel { id: string; name?: string; isFree?: boolean; kinds?: string[]; [key: string]: unknown; }
 interface CustomModel { id: string; name?: string; providerAlias: string; type?: string; kinds?: string[]; [key: string]: unknown; }
@@ -24,6 +26,8 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   const [testError, setTestError] = useState<string>("");
   const [showAddCustomModel, setShowAddCustomModel] = useState<boolean>(false);
   const [newModelId, setNewModelId] = useState<string>("");
+  const [showDiscovered, setShowDiscovered] = useState<boolean>(false);
+  const discovery = useModelDiscovery(providerId);
 
   const providerAlias = providerAliasOverride || getProviderAlias(providerId);
   const effectiveType = kindFilter || "llm";
@@ -50,6 +54,16 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     } catch (e) { console.error("add custom model error:", e); }
   };
 
+  const handleAddDiscoveredModels = async (modelIds: string[]) => {
+    for (const modelId of modelIds) await handleAddCustomModel(modelId);
+  };
+
+  const openDiscovery = () => {
+    discovery.reset();
+    setShowDiscovered(true);
+    void discovery.discover();
+  };
+
   const handleDeleteCustomModel = async (modelId: string) => {
     try {
       const params = new URLSearchParams({ providerAlias, id: modelId, type: effectiveType });
@@ -72,6 +86,9 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
 
   const allBuiltIn = getModelsByProviderId(providerId) as unknown as BuiltInModel[];
   const builtInModels = kindFilter ? allBuiltIn.filter((m) => m.kinds ? m.kinds.includes(kindFilter) : getModelKind(m, "llm") === kindFilter) : allBuiltIn;
+  // Providers with no models endpoint (single-tool search APIs, browser-side
+  // runtimes) have nothing to list, so they do not get the button.
+  const supportsDiscovery = !(AI_PROVIDERS[providerId] as { noModelDiscovery?: boolean } | undefined)?.noModelDiscovery;
   const myCustomModels = customModels.filter((m) => m.providerAlias === providerAlias && getModelKind(m, "llm") === effectiveType && !builtInModels.some((b) => b.id === m.id));
 
   return (
@@ -90,11 +107,25 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
           {myCustomModels.map((model) => (
             <CardModelRow key={`${model.id}-${model.type}`} model={{ id: model.id, name: model.name }} fullModel={`${providerAlias}/${model.id}`} copied={copied ?? undefined} onCopy={copy} onDeleteAlias={() => handleDeleteCustomModel(model.id)} testStatus={modelTestResults[model.id]} onTest={() => handleTestModel(model.id)} isTesting={testingModelId === model.id} isCustom />
           ))}
+          {supportsDiscovery ? (
+            <Button variant="outline" size="sm" onClick={openDiscovery} className="border-dashed border-black/15 dark:border-white/15 text-xs">
+              <ListPlus className="size-4" />{translate("List provider models") || "List provider models"}
+            </Button>
+          ) : null}
           <Button variant="outline" size="sm" onClick={() => setShowAddCustomModel(true)} className="border-dashed border-black/15 dark:border-white/15 text-xs">
             <Plus className="size-4" />{translate("Add Model")}
           </Button>
         </div>
       </Card>
+      <DiscoveredModelsModal
+        isOpen={showDiscovered}
+        onClose={() => setShowDiscovered(false)}
+        models={discovery.models}
+        loading={discovery.loading}
+        error={discovery.error}
+        existingIds={new Set([...builtInModels.map((m) => m.id), ...myCustomModels.map((m) => m.id)])}
+        onAdd={handleAddDiscoveredModels}
+      />
       <Modal isOpen={showAddCustomModel} title={translate("Add Custom Model") || "Add Custom Model"} onClose={() => setShowAddCustomModel(false)}>
         <div className="flex flex-col gap-4">
           <div>

@@ -66,6 +66,8 @@ export default function ChatMessageList({
     handleRetryMessage,
   } = sendHook;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const currentMessagesRef = useRef(currentMessages);
+  currentMessagesRef.current = currentMessages;
   const stickToBottomRef = useRef(true);
   const previousLastMessageIdRef = useRef("");
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
@@ -99,12 +101,15 @@ export default function ChatMessageList({
 
   // A conversation is always opened at its latest message. This is a layout
   // effect so the composer and message list settle before the user sees it.
+  // It depends on the conversation only: re-running it on every message
+  // mutation would drag a reader who scrolled up back down to the bottom.
   useLayoutEffect(() => {
     stickToBottomRef.current = true;
-    previousLastMessageIdRef.current = currentMessages.at(-1)?.id || "";
+    previousLastMessageIdRef.current =
+      currentMessagesRef.current.at(-1)?.id || "";
     const frame = requestAnimationFrame(() => scrollToLatest());
     return () => cancelAnimationFrame(frame);
-  }, [activeSessionId, currentMessages, scrollToLatest]);
+  }, [activeSessionId, scrollToLatest]);
 
   // New turns are an intentional navigation to the latest content. Streaming
   // follows only while the user remains at the bottom; reading older messages
@@ -173,7 +178,7 @@ export default function ChatMessageList({
               message.status === "streaming";
             const isError = message.status === "error";
             const content =
-              textValue(message.content) || (isAssistant ? streamingText : "");
+              textValue(message.content) || (isStreaming ? streamingText : "");
 
             return (
               <div
@@ -215,7 +220,7 @@ export default function ChatMessageList({
                         variant="destructive"
                         className="text-[10px] px-1.5 py-0"
                       >
-                        Error
+                        {translate("Error") || "Error"}
                       </Badge>
                     )}
                   </div>
@@ -241,6 +246,20 @@ export default function ChatMessageList({
                     </div>
                   ) : null}
 
+                  {/* Reasoning trace */}
+                  {isAssistant && message.reasoning && (
+                    <details className="group/think mb-3 rounded-lg border border-border bg-muted/40">
+                      <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+                        <ChevronRight className="size-3.5 shrink-0 transition-transform group-open/think:rotate-90" />
+                        <Lightbulb className="size-3.5 shrink-0" />
+                        {translate("Think") || "Pensamento"}
+                      </summary>
+                      <div className="whitespace-pre-wrap break-words border-t border-border px-3.5 py-2.5 text-xs leading-6 text-muted-foreground">
+                        {message.reasoning}
+                      </div>
+                    </details>
+                  )}
+
                   {/* Message content */}
                   {isAssistant ? (
                     <SafeMarkdown
@@ -260,20 +279,6 @@ export default function ChatMessageList({
                     </span>
                   )}
 
-                  {/* Reasoning trace */}
-                  {isAssistant && message.reasoning && (
-                    <details className="group/think mb-3 rounded-lg border border-border bg-muted/40">
-                      <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
-                        <ChevronRight className="size-3.5 shrink-0 transition-transform group-open/think:rotate-90" />
-                        <Lightbulb className="size-3.5 shrink-0" />
-                        {translate("Think") || "Pensamento"}
-                      </summary>
-                      <div className="whitespace-pre-wrap break-words border-t border-border px-3.5 py-2.5 text-xs leading-6 text-muted-foreground">
-                        {message.reasoning}
-                      </div>
-                    </details>
-                  )}
-
                   {/* Tool calls */}
                   {message.toolCalls && message.toolCalls.length > 0 && (
                     <ToolCallList
@@ -284,7 +289,7 @@ export default function ChatMessageList({
 
                   {/* Message actions */}
                   {isAssistant && !isStreaming && content && (
-                    <div className="mt-3.5 flex items-center gap-1.5 opacity-0 transition-opacity group-focus-within/msg:opacity-100 group-hover/msg:opacity-100">
+                    <div className="mt-3.5 flex flex-wrap items-center gap-1.5 transition-opacity sm:opacity-0 sm:group-focus-within/msg:opacity-100 sm:group-hover/msg:opacity-100">
                       <button
                         type="button"
                         onClick={() => handleCopyMessage(message.id, content)}
@@ -295,11 +300,11 @@ export default function ChatMessageList({
                       >
                         {copiedMessageId === message.id ? (
                           <>
-                            <Check className="size-3.5" /> Copied
+                            <Check className="size-3.5" /> {translate("Copied") || "Copied"}
                           </>
                         ) : (
                           <>
-                            <Copy className="size-3.5" /> Copy
+                            <Copy className="size-3.5" /> {translate("Copy") || "Copy"}
                           </>
                         )}
                       </button>
@@ -339,7 +344,7 @@ export default function ChatMessageList({
                           onClick={() => handleRetryMessage(message.id)}
                           className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                         >
-                          <RefreshCw className="size-3.5" /> Retry
+                          <RefreshCw className="size-3.5" /> {translate("Retry") || "Retry"}
                         </button>
                       )}
                       {/* Token usage */}
@@ -348,7 +353,7 @@ export default function ChatMessageList({
                           <Popover>
                             <PopoverTrigger className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
                               <Hash className="size-2.5" />
-                              Usage{" "}
+                              {translate("Usage") || "Usage"}{" "}
                               {(
                                 (message.tokenUsage.total_tokens ??
                                   (message.tokenUsage.prompt_tokens || 0) +
@@ -363,7 +368,8 @@ export default function ChatMessageList({
                             >
                               <dl className="grid grid-cols-2 gap-y-1.5">
                                 <dt className="text-muted-foreground">
-                                  Provider / model
+                                  {translate("Provider / model") ||
+                                    "Provider / model"}
                                 </dt>
                                 <dd className="text-right font-medium">
                                   {message.providerName ?? "—"}/
@@ -373,7 +379,7 @@ export default function ChatMessageList({
                                 message.tokenUsage.prompt_tokens ? (
                                   <>
                                     <dt className="text-muted-foreground">
-                                      Cache hit
+                                      {translate("Cache hit") || "Cache hit"}
                                     </dt>
                                     <dd className="text-right font-medium">
                                       {(
@@ -386,7 +392,8 @@ export default function ChatMessageList({
                                   </>
                                 ) : null}
                                 <dt className="text-muted-foreground">
-                                  Uncached input
+                                  {translate("Uncached input") ||
+                                    "Uncached input"}
                                 </dt>
                                 <dd className="text-right font-medium">
                                   {(message.tokenUsage.prompt_tokens ?? 0) -
@@ -397,7 +404,8 @@ export default function ChatMessageList({
                                 {message.tokenUsage.cached_tokens != null && (
                                   <>
                                     <dt className="text-muted-foreground">
-                                      Cached input
+                                      {translate("Cached input") ||
+                                        "Cached input"}
                                     </dt>
                                     <dd className="text-right font-medium">
                                       {message.tokenUsage.cached_tokens} tok
@@ -405,7 +413,7 @@ export default function ChatMessageList({
                                   </>
                                 )}
                                 <dt className="text-muted-foreground">
-                                  Output
+                                  {translate("Output") || "Output"}
                                 </dt>
                                 <dd className="text-right font-medium">
                                   {message.tokenUsage.completion_tokens ?? 0}{" "}
@@ -417,7 +425,7 @@ export default function ChatMessageList({
                           {message.timing && (
                             <Popover>
                               <PopoverTrigger className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
-                                Ran for{" "}
+                                {translate("Ran for") || "Ran for"}{" "}
                                 {(message.timing.totalMs / 1000).toFixed(0)}s
                               </PopoverTrigger>
                               <PopoverContent
@@ -426,14 +434,16 @@ export default function ChatMessageList({
                               >
                                 <dl className="grid grid-cols-2 gap-y-1.5">
                                   <dt className="text-muted-foreground">
-                                    Total run time
+                                    {translate("Total run time") ||
+                                      "Total run time"}
                                   </dt>
                                   <dd className="text-right font-medium">
                                     {(message.timing.totalMs / 1000).toFixed(1)}
                                     s
                                   </dd>
                                   <dt className="text-muted-foreground">
-                                    Tokens per second
+                                    {translate("Tokens per second") ||
+                                      "Tokens per second"}
                                   </dt>
                                   <dd className="text-right font-medium">
                                     {message.tokenUsage.completion_tokens
@@ -445,7 +455,8 @@ export default function ChatMessageList({
                                     tok/s
                                   </dd>
                                   <dt className="text-muted-foreground">
-                                    Time to first token
+                                    {translate("Time to first token") ||
+                                      "Time to first token"}
                                   </dt>
                                   <dd className="text-right font-medium">
                                     {(message.timing.ttftMs / 1000).toFixed(1)}s

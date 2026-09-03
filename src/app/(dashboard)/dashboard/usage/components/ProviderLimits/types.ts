@@ -1,4 +1,4 @@
-import type { Connection, QuotaData, QuotaEntry } from "./utils";
+import type { Connection, QuotaData, QuotaEntry } from "./quotaTypes";
 
 export interface ResetConfirmState {
   connection: Connection;
@@ -116,4 +116,4 @@ export interface UseSettingsReturn {
   handleShowQuota: (provider: string, quota: QuotaEntry) => void;
 }
 
-export type { Connection, QuotaData, QuotaEntry } from "./utils";
+export type { Connection, QuotaData, QuotaEntry } from "./quotaTypes";

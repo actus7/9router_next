@@ -1,7 +1,15 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Star, X } from "lucide-react";
+
+function handleModelTagKeyDown(event: KeyboardEvent<HTMLSpanElement>, onActivate: () => void) {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    onActivate();
+  }
+}
 
 interface ModelTagListProps {
   selectedModels: string[];
@@ -27,18 +35,23 @@ export function ModelTagList({
             selectedModels.map((model) => (
               <span
                 key={model}
+                role="button"
+                tabIndex={0}
                 onClick={() => onToggleActive(model)}
+                onKeyDown={(event) => handleModelTagKeyDown(event, () => onToggleActive(model))}
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                   model === activeModel
                     ? "bg-primary/10 text-primary border border-primary"
                     : "bg-black/5 dark:bg-white/5 text-text-muted border border-transparent hover:border-border"
                 }`}
+                aria-label={model === activeModel ? `Clear active model ${model}` : `Set ${model} as active model`}
                 title={model === activeModel ? "Click to clear active model" : "Click to set as active"}
               >
-                {model === activeModel && <Star className="size-3" />}
+                {model === activeModel && <Star className="size-3" aria-hidden="true" />}
                 {model}
                 <Button variant="ghost" size="sm"
                   onClick={(e) => { e.stopPropagation(); onRemoveModel(model); }}
+                  aria-label={`Remove ${model}`}
                   className="ml-0.5 hover:text-destructive-foreground p-0 h-auto"
                 >
                   <X className="size-3" />

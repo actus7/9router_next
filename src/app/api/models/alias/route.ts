@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getModelAliases, setModelAlias, deleteModelAlias } from "@/models";
 
-export const dynamic = "force-dynamic";
 
 // GET /api/models/alias - Get all aliases
 export async function GET(): Promise<NextResponse> {

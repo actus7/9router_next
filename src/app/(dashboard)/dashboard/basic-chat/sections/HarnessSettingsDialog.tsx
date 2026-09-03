@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bot, BookOpen, PlugZap, Server, Settings2 } from "lucide-react";
+import { Bot, BookOpen, Brain, PlugZap, Server, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import { GeneralSection } from "./HarnessGeneralSection";
 import { PluginsSection, PresetsSection } from "./HarnessPluginsSection";
 import McpServersSection from "./McpServersSection";
 import HarnessSkillsSection from "./HarnessSkillsSection";
+import HarnessMemorySection from "./HarnessMemorySection";
 import type {
   HarnessSettingsDialogProps,
   HarnessSettingsSection,
@@ -103,6 +104,12 @@ export default function HarnessSettingsDialog(
               label="Skills"
             />
             <SettingsNavButton
+              active={section === "memory"}
+              onClick={() => onSectionChange("memory")}
+              icon={<Brain />}
+              label="Aprendizado"
+            />
+            <SettingsNavButton
               active={section === "mcp"}
               onClick={() => onSectionChange("mcp")}
               icon={<Server />}
@@ -152,6 +159,9 @@ export default function HarnessSettingsDialog(
               session={session}
               updateSession={updateSession}
             />
+          ) : null}
+          {section === "memory" ? (
+            <HarnessMemorySection harnessEvents={props.harnessEvents ?? []} />
           ) : null}
           {section === "mcp" ? (
             <McpServersSection

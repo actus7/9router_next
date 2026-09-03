@@ -38,6 +38,7 @@ export default function Navigation() {
         <div className="flex items-center gap-4">
           <Button 
             onClick={() => router.push("/dashboard")}
+            aria-label="Get started with ModelHub dashboard"
             className="hidden sm:flex h-9 items-center justify-center rounded-lg px-4 bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-sm font-bold shadow-[0_0_15px_rgba(249,120,21,0.4)] hover:shadow-[0_0_20px_rgba(249,120,21,0.6)]"
           >
             Get Started
@@ -47,6 +48,8 @@ export default function Navigation() {
             size="icon"
             className="md:hidden text-white"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </Button>

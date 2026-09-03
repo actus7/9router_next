@@ -50,10 +50,12 @@ export interface UseSessionHandlersArgs {
   setActiveProjectId: React.Dispatch<React.SetStateAction<string>>;
   setDraft: React.Dispatch<React.SetStateAction<string>>;
   setAttachments: React.Dispatch<React.SetStateAction<ChatAttachment[]>>;
+  setAttachmentNotice: React.Dispatch<React.SetStateAction<string>>;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
   newProjectName: string;
   setNewProjectName: React.Dispatch<React.SetStateAction<string>>;
   setIsCreatingProject: React.Dispatch<React.SetStateAction<boolean>>;
+  renamingSessionId: string;
   setRenamingSessionId: React.Dispatch<React.SetStateAction<string>>;
   setRenameValue: React.Dispatch<React.SetStateAction<string>>;
   renameValue: string;
@@ -91,9 +93,9 @@ export function useSessionHandlers({
   setProjects,
   activeSessionId, setActiveSessionId, activeProviderId, setActiveProviderId,
   activeModelId, setActiveModelId, activeProjectId, setActiveProjectId,
-  setDraft, setAttachments, setHistoryOpen,
+  setDraft, setAttachments, setAttachmentNotice, setHistoryOpen,
   newProjectName, setNewProjectName, setIsCreatingProject,
-  setRenamingSessionId, setRenameValue, renameValue,
+  renamingSessionId, setRenamingSessionId, setRenameValue, renameValue,
   selectedSessionIds, setSelectedSessionIds,
   filteredSessionItems, allVisibleSessionsSelected,
 }: UseSessionHandlersArgs): UseSessionHandlersReturn {
@@ -118,6 +120,16 @@ export function useSessionHandlers({
   }, [activeProjectId]);
 
   const handleNewChat = () => {
+    setDraft("");
+    setAttachments([]);
+    setAttachmentNotice("");
+    setHistoryOpen(false);
+
+    // Repeated clicks used to pile up interchangeable "New conversation"
+    // rows in the history. An empty active conversation already is a new chat.
+    const current = sessions.find((session) => session.id === activeSessionId);
+    if (current && current.messages.length === 0 && !current.isArchived) return;
+
     const model = resolveNewChatModel(getLastSelectedModelId(), modelIndex, providerGroups);
     if (!model) return;
     const session = ensureSessionForModel(model);
@@ -126,8 +138,6 @@ export function useSessionHandlers({
     setActiveSessionId(session.id);
     setActiveProviderId(session.providerId);
     setActiveModelId(session.modelId);
-    setDraft("");
-    setAttachments([]);
   };
 
   const handleSelectSession = (sessionId: string) => {
@@ -259,6 +269,9 @@ export function useSessionHandlers({
   };
 
   const commitRenameSession = (sessionId: string) => {
+    // Escape clears the renaming id before the field blurs. Blur then reaches
+    // here with a value the user already discarded, so ignore it.
+    if (renamingSessionId !== sessionId) return;
     const title = renameValue.trim();
     if (title) {
       setSessions((prev) => prev.map((session) => (session.id === sessionId ? { ...session, title } : session)));
@@ -313,6 +326,12 @@ export function useSessionHandlers({
     if (files.length === 0) return;
 
     const images = files.filter((file) => file.type.startsWith("image/"));
+    const rejected = files.length - images.length;
+    setAttachmentNotice(
+      rejected > 0
+        ? translate("Only image files can be attached.") || "Only image files can be attached."
+        : "",
+    );
     if (images.length === 0) {
       event.target.value = "";
       return;

@@ -10,6 +10,7 @@ import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
 import { useModelAliases } from "./useCliToolCommon";
 import { StatusMessage, ActionButtons } from "./CliToolShared";
+import { expandableCardHeaderProps } from "./expandableCardHeader";
 import { ModelTagList } from "./ModelTagList";
 import { ArrowRight, ChevronDown, ChevronUp, Copy, Info, Loader2, TriangleAlert, X } from "lucide-react";
 
@@ -241,7 +242,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
 
   return (
     <Card padding="xs" className="overflow-hidden">
-      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" onClick={onToggle}>
+      <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" {...expandableCardHeaderProps(onToggle, isExpanded)}>
         <div className="flex min-w-0 items-center gap-3">
           <div className="size-8 flex items-center justify-center shrink-0">
             <Image src="/providers/opencode.png" alt={tool.name} width={32} height={32} className="size-8 object-contain rounded-lg" sizes="32px" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
@@ -344,7 +345,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                     Select Model
                   </Button>
                   {subagentModel && (
-                    <Button variant="ghost" size="sm" onClick={() => setSubagentModel("")} className="p-1 text-text-muted hover:text-destructive-foreground" title="Clear (will use main model)">
+                    <Button variant="ghost" size="sm" onClick={() => setSubagentModel("")} className="p-1 text-text-muted hover:text-destructive-foreground" title="Clear (will use main model)" aria-label="Clear subagent model selection">
                       <X className="size-4" />
                     </Button>
                   )}

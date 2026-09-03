@@ -1,33 +1,17 @@
-import { resolveDns } from "../shared/dnsResolver";
 import { HEALTH_CHECK } from "./config";
-
-interface CancelToken {
-  cancelled: boolean;
-}
+import {
+  probeUrlAlive as probeUrlAliveShared,
+  waitForHealth as waitForHealthShared,
+} from "../shared/healthCheck";
+import type { CancelToken } from "../shared/types";
 
 export async function probeUrlAlive(url: string): Promise<boolean> {
-  if (!url) return false;
-  let hostname: string;
-  try { hostname = new URL(url).hostname; } catch { return false; }
-
-  if (!await resolveDns(hostname, HEALTH_CHECK.dnsTimeoutMs)) return false;
-
-  try {
-    const res: Response = await fetch(`${url}/api/health`, {
-      signal: AbortSignal.timeout(HEALTH_CHECK.fetchTimeoutMs),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+  return probeUrlAliveShared(url, HEALTH_CHECK);
 }
 
-export async function waitForHealth(url: string, cancelToken: CancelToken = { cancelled: false }): Promise<boolean> {
-  const start: number = Date.now();
-  while (Date.now() - start < HEALTH_CHECK.timeoutMs) {
-    if (cancelToken.cancelled) throw new Error("cancelled");
-    if (await probeUrlAlive(url)) return true;
-    await new Promise<void>((r: () => void) => setTimeout(r, HEALTH_CHECK.intervalMs));
-  }
-  throw new Error(`Health check timeout after ${HEALTH_CHECK.timeoutMs}ms`);
+export async function waitForHealth(
+  url: string,
+  cancelToken: CancelToken = { cancelled: false },
+): Promise<boolean> {
+  return waitForHealthShared(url, HEALTH_CHECK, cancelToken);
 }

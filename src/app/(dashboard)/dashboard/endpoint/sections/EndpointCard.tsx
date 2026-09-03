@@ -101,6 +101,7 @@ export default function EndpointCard({
                 variant="ghost"
                 size="icon"
                 onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
+                aria-label="Copy tunnel endpoint URL"
               >
                 {copied === "tunnel_url" ? <Check className="size-4" /> : <Copy className="size-4" />}
               </Button>
@@ -109,6 +110,7 @@ export default function EndpointCard({
                 size="icon"
                 onClick={() => setShowDisableTunnelModal(true)}
                 title={translate("Disable Tunnel") || "Disable Tunnel"}
+                aria-label={translate("Disable Tunnel") || "Disable Tunnel"}
               >
                 <Power className="size-5" />
               </Button>
@@ -124,6 +126,7 @@ export default function EndpointCard({
                 size="icon"
                 onClick={() => setShowDisableTunnelModal(true)}
                 title={translate("Disable Tunnel") || "Disable Tunnel"}
+                aria-label={translate("Disable Tunnel") || "Disable Tunnel"}
               >
                 <Power className="size-5" />
               </Button>
@@ -139,6 +142,7 @@ export default function EndpointCard({
                 size="icon"
                 onClick={() => { setTunnelLoading(false); setTunnelProgress(""); }}
                 title="Stop"
+                aria-label="Stop tunnel setup"
               >
                 <Power className="size-5" />
               </Button>
@@ -162,6 +166,7 @@ export default function EndpointCard({
                 size="icon"
                 onClick={() => setTunnelChecking(false)}
                 title="Stop"
+                aria-label="Stop tunnel check"
               >
                 <Power className="size-5" />
               </Button>
@@ -198,6 +203,7 @@ export default function EndpointCard({
                 variant="ghost"
                 size="icon"
                 onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
+                aria-label="Copy Tailscale endpoint URL"
               >
                 {copied === "ts_url" ? <Check className="size-4" /> : <Copy className="size-4" />}
               </Button>
@@ -206,6 +212,7 @@ export default function EndpointCard({
                 size="icon"
                 onClick={() => setShowDisableTsModal(true)}
                 title={translate("Disable Tailscale") || "Disable Tailscale"}
+                aria-label={translate("Disable Tailscale") || "Disable Tailscale"}
               >
                 <Power className="size-5" />
               </Button>
@@ -221,6 +228,7 @@ export default function EndpointCard({
                 size="icon"
                 onClick={() => setShowDisableTsModal(true)}
                 title={translate("Disable Tailscale") || "Disable Tailscale"}
+                aria-label={translate("Disable Tailscale") || "Disable Tailscale"}
               >
                 <Power className="size-5" />
               </Button>
@@ -245,6 +253,7 @@ export default function EndpointCard({
                 size="icon"
                 onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
                 title="Stop"
+                aria-label="Stop Tailscale connection"
               >
                 <Power className="size-5" />
               </Button>

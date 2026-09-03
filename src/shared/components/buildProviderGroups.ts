@@ -57,6 +57,9 @@ export function buildProviderGroups(params: {
   sortedProviderIds.forEach((providerId) => {
     const alias = getProviderAlias(providerId);
     const providerInfo = allProviders[providerId] || { name: providerId, color: "#666" };
+    // This picker only ever fills chat tiers, so providers that cannot answer a
+    // chat turn (search, tts, image) have no business appearing here.
+    if (!((providerInfo.serviceKinds as string[] | undefined) || ["llm"]).includes("llm")) return;
     const isCustom = isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
     let group: PickerGroup | null = null;
     if (providerInfo.passthroughModels) group = buildPassthroughGroup(alias, providerId, providerInfo, modelAliases, customModels, providerNodes);

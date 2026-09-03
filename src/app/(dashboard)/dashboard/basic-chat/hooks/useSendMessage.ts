@@ -1,44 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { textValue } from "../chatFormatUtils";
-import {
-  buildSessionSystemPrompt,
-  getEnabledRuntimeToolNames,
-  getMcpRuntimeToolDefinitions,
-  getRuntimeToolDefinitions,
-} from "@/shared/harness/agentPlugins";
-import {
-  isPuterBrowserModel,
-  streamPuterChat,
-  toPuterMessages,
-} from "../puterBrowser";
 import type { SendMessageOptions } from "../types";
-import {
-  buildChatFetchOptions,
-  buildRequestMessages,
-} from "./buildChatRequest";
-import { executeChatFetch } from "./consumeSSEStream";
-import { exportConversation } from "./exportConversation";
-import {
-  finalizeStreamError,
-  finalizeStreamSuccess,
-} from "./finalizeStreamResult";
-import {
-  applyNewMessages,
-  createAssistantMessage,
-  createUserMessage,
-  ensureChatSession,
-} from "./prepareChatMessages";
-import { prepareRetryMessage } from "./prepareRetryMessage";
-import { runToolCallLoop } from "./runToolCallLoop";
+import { executeSendMessage } from "./executeSendMessage";
+import { useSendMessageActions } from "./useSendMessageActions";
+import { useSendMessageQueue } from "./useSendMessageQueue";
 import type {
   AgentActivity,
-  QueuedMessage,
   UseSendMessageArgs,
   UseSendMessageReturn,
 } from "./useSendMessageTypes";
+
 export type { UseSendMessageReturn } from "./useSendMessageTypes";
+
 // Owns the streaming chat request lifecycle: building the request, reading
 // the SSE stream into the active session's assistant message, retry/stop/
 // feedback/export actions, and the transient error/streaming UI state.
@@ -67,20 +41,24 @@ export function useSendMessage({
   const [streamingMessageId, setStreamingMessageId] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [liveActivities, setLiveActivities] = useState<AgentActivity[]>([]);
-  const [copiedMessageId, setCopiedMessageId] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const sessionsRef = useRef(sessions);
   const activityClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const queuedReplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
-  const queuedMessagesRef = useRef<QueuedMessage[]>([]);
-  useEffect(() => {
-    queuedMessagesRef.current = queuedMessages;
-  }, [queuedMessages]);
+  const sendMessageRef = useRef<
+    ((options?: SendMessageOptions) => Promise<void>) | null
+  >(null);
+
+  const queue = useSendMessageQueue({
+    isSending,
+    draft,
+    attachments,
+    setDraft,
+    setAttachments,
+    abortRef,
+  });
+  const { queuedReplayTimerRef } = queue;
 
   useEffect(() => {
     sessionsRef.current = sessions;
@@ -89,315 +67,78 @@ export function useSendMessage({
   // Navigating away mid-stream must not leave the request running or keep
   // updating state on an unmounted component.
   useEffect(() => {
+    const abort = abortRef;
+    const activityTimer = activityClearTimerRef;
+    const queueTimer = queuedReplayTimerRef;
     return () => {
-      abortRef.current?.abort();
-      if (activityClearTimerRef.current)
-        clearTimeout(activityClearTimerRef.current);
-      if (queuedReplayTimerRef.current)
-        clearTimeout(queuedReplayTimerRef.current);
+      abort.current?.abort();
+      if (activityTimer.current) clearTimeout(activityTimer.current);
+      if (queueTimer.current) clearTimeout(queueTimer.current);
     };
-  }, []);
+  }, [queuedReplayTimerRef]);
 
   const canSend =
     !isSending &&
     !!activeModel &&
     (draft.trim().length > 0 || attachments.length > 0);
-  const canQueue =
-    isSending &&
-    (draft.trim().length > 0 || attachments.length > 0);
+
   const resetStream = useCallback(() => {
     if (activityClearTimerRef.current)
       clearTimeout(activityClearTimerRef.current);
     activityClearTimerRef.current = null;
-    queuedMessagesRef.current = [];
-    setQueuedMessages([]);
+    queue.clearQueue();
     setStreamingMessageId("");
     setStreamingText("");
     setLiveActivities([]);
-  }, []);
-  const handleStop = () => {
+  }, [queue]);
+
+  const handleStop = useCallback(() => {
     abortRef.current?.abort();
-  };
+  }, []);
+
+  const replayQueuedMessage = useCallback(
+    (item: { text: string; attachments: typeof attachments }) => {
+      queuedReplayTimerRef.current = setTimeout(() => {
+        void sendMessageRef.current?.({
+          text: item.text,
+          attachments: item.attachments,
+        });
+      }, 0);
+    },
+    [queuedReplayTimerRef],
+  );
 
   const sendMessage = useCallback(
     async (options?: SendMessageOptions) => {
-      const model = activeModel || activeProviderGroup?.models?.[0] || null;
-      if (!model) return;
-      const userText = (options?.text ?? draft).trim();
-      const messageAttachments = options?.attachments ?? attachments;
-      if (!userText && messageAttachments.length === 0) return;
-
-      const sessionResult = ensureChatSession(
+      await executeSendMessage({
+        options,
+        activeModel,
+        activeProviderGroup,
         activeSessionId,
-        sessionsRef.current,
-        model,
-        ensureSessionForModel,
-        setSessions,
         setActiveSessionId,
-      );
-      if (!sessionResult) return;
-      const { sessionId, session } = sessionResult;
-
-      const userMessage = createUserMessage(userText, messageAttachments);
-      const assistantMessage = createAssistantMessage(model);
-      const assistantMessageId = assistantMessage.id;
-      let currentRunId = assistantMessageId;
-      const nextMessages = [
-        ...(options?.baseMessages ?? session.messages ?? []),
-        userMessage,
-        assistantMessage,
-      ];
-
-      recordHarnessEvent(sessionId, "user/message", {
-        messageId: userMessage.id,
-        content: userText,
-      });
-      recordHarnessEvent(sessionId, "run/start", {
-        runId: assistantMessageId,
-        modelId: model.id,
-        providerId: model.providerId,
-      });
-      applyNewMessages(sessionId, model, nextMessages, userText, setSessions);
-      if (!options) {
-        setDraft("");
-        setAttachments([]);
-      }
-      setChatError("");
-      setIsSending(true);
-      if (activityClearTimerRef.current)
-        clearTimeout(activityClearTimerRef.current);
-      activityClearTimerRef.current = null;
-      setStreamingMessageId(assistantMessageId);
-      setStreamingText("");
-      setLiveActivities([
-        {
-          id: assistantMessageId,
-          label: "Pensando",
-          detail: model.name,
-          state: "running",
-        },
-      ]);
-      abortRef.current?.abort();
-      abortRef.current = new AbortController();
-
-      const effectiveSystemPrompt = buildSessionSystemPrompt(
-        session.agentPresetId,
-        session.pluginOverrides,
+        sessionsRef,
+        setSessions,
+        ensureSessionForModel,
+        draft,
+        setDraft,
+        attachments,
+        setAttachments,
         systemPrompt,
-        session.mode === "plan",
-      );
-      const requestMessages = buildRequestMessages(
-        nextMessages,
-        assistantMessageId,
-        effectiveSystemPrompt,
-      );
-      const signal = abortRef.current.signal;
-      const builtinRuntimeTools =
-        session.mode !== "plan" &&
-        !isPuterBrowserModel(model) &&
-        model.caps?.tools !== false
-          ? getRuntimeToolDefinitions(
-              session.agentPresetId,
-              session.pluginOverrides,
-            )
-          : undefined;
-      const mcpRuntimeTools =
-        session.mode !== "plan" &&
-        !isPuterBrowserModel(model) &&
-        model.caps?.tools !== false
-          ? getMcpRuntimeToolDefinitions(session.mcpServers)
-          : [];
-      const runtimeTools =
-        builtinRuntimeTools || mcpRuntimeTools.length
-          ? [...(builtinRuntimeTools ?? []), ...mcpRuntimeTools]
-          : undefined;
-      const enabledToolNames = getEnabledRuntimeToolNames(
-        session.agentPresetId,
-        session.pluginOverrides,
-      );
-      for (const tool of mcpRuntimeTools)
-        enabledToolNames.add(tool.function.name);
-      const fetchOptions = buildChatFetchOptions(
-        model,
-        requestMessages,
         temperature,
-        apiKey,
-        signal,
-        runtimeTools,
         reasoningEffort,
-      );
-
-      const requestStartedAt = Date.now();
-      let firstTokenAt: number | null = null;
-
-      try {
-        const updateStreamingText = (text: string) => {
-          if (firstTokenAt === null && text) firstTokenAt = Date.now();
-          setStreamingText(text);
-          setLiveActivities((activities) =>
-            activities.map((activity) =>
-              activity.id === assistantMessageId
-                ? { ...activity, label: "Respondendo", state: "streaming" }
-                : activity,
-            ),
-          );
-          updateSession(sessionId, (s) => ({
-            ...s,
-            messages: s.messages.map((m) =>
-              m.id === assistantMessageId
-                ? { ...m, content: text, status: "streaming" as const }
-                : m,
-            ),
-            updatedAt: new Date().toISOString(),
-          }));
-        };
-        const result = isPuterBrowserModel(model)
-          ? await (async () => {
-              let text = "";
-              const finalText = await streamPuterChat({
-                messages: toPuterMessages(
-                  nextMessages,
-                  assistantMessageId,
-                  effectiveSystemPrompt,
-                ),
-                signal,
-                onTextDelta: (delta) => {
-                  text += delta;
-                  updateStreamingText(text);
-                },
-              });
-              return {
-                streamed: true,
-                text: finalText || text,
-                toolCalls: [],
-                reasoning: "",
-                usage: null,
-                responseSource: null as "synapse" | null,
-              };
-            })()
-          : await executeChatFetch(
-              "/api/v1/chat/completions",
-              fetchOptions,
-              updateStreamingText,
-            );
-        if (result.streamed) {
-          const completedAt = Date.now();
-          finalizeStreamSuccess(
-            sessionId,
-            assistantMessageId,
-            result.text,
-            userText,
-            updateSession,
-            recordHarnessEvent,
-            {
-              reasoning: result.reasoning,
-              usage: result.usage,
-              responseSource: result.responseSource,
-              timing: { ttftMs: (firstTokenAt ?? completedAt) - requestStartedAt, totalMs: completedAt - requestStartedAt },
-            },
-          );
-        } else {
-          updateSession(sessionId, (s) => ({
-            ...s,
-            messages: s.messages.map((m) =>
-              m.id === assistantMessageId
-                ? {
-                    ...m,
-                    content: result.text,
-                    status: "done" as const,
-                    responseSource: result.responseSource,
-                  }
-                : m,
-            ),
-            updatedAt: new Date().toISOString(),
-          }));
-        }
-        if (result.toolCalls.length > 0) {
-          setLiveActivities(
-            result.toolCalls.map((toolCall) => ({
-              id: toolCall.id,
-              label: toolCall.name,
-              detail: "Em execução",
-              state: "running" as const,
-            })),
-          );
-          updateSession(sessionId, (s) => ({
-            ...s,
-            messages: s.messages.map((m) =>
-              m.id === assistantMessageId
-                ? { ...m, toolCalls: result.toolCalls }
-                : m,
-            ),
-            updatedAt: new Date().toISOString(),
-          }));
-          for (const toolCall of result.toolCalls) {
-            recordHarnessEvent(sessionId, "tool/call", {
-              runId: assistantMessageId,
-              toolCallId: toolCall.id,
-              name: toolCall.name,
-              arguments: toolCall.arguments,
-            });
-          }
-          if (runtimeTools) {
-            currentRunId = await runToolCallLoop({
-              sessionId,
-              model,
-              session,
-              assistantMessage,
-              assistantMessageId,
-              nextMessages,
-              resultText: result.text,
-              initialToolCalls: result.toolCalls,
-              effectiveSystemPrompt,
-              temperature,
-              reasoningEffort,
-              apiKey,
-              signal,
-              runtimeTools,
-              enabledToolNames,
-              updateSession,
-              recordHarnessEvent,
-              setLiveActivities,
-              setStreamingMessageId,
-              setStreamingText,
-            });
-          }
-        }
-      } catch (error: unknown) {
-        setLiveActivities((activities) =>
-          activities.map((activity) =>
-            activity.id === currentRunId
-              ? { ...activity, detail: "Interrompida", state: "error" }
-              : activity,
-          ),
-        );
-        finalizeStreamError(
-          sessionId,
-          currentRunId,
-          error,
-          updateSession,
-          recordHarnessEvent,
-          setChatError,
-        );
-      } finally {
-        setIsSending(false);
-        setStreamingMessageId("");
-        setStreamingText("");
-        abortRef.current = null;
-        const [next, ...rest] = queuedMessagesRef.current;
-        if (next) {
-          queuedMessagesRef.current = rest;
-          setQueuedMessages(rest);
-          queuedReplayTimerRef.current = setTimeout(() => {
-            void sendMessage({ text: next.text, attachments: next.attachments });
-          }, 0);
-        } else {
-          activityClearTimerRef.current = setTimeout(() => {
-            setLiveActivities([]);
-            activityClearTimerRef.current = null;
-          }, 900);
-        }
-      }
+        apiKey,
+        recordHarnessEvent,
+        updateSession,
+        abortRef,
+        setChatError,
+        setIsSending,
+        setStreamingMessageId,
+        setStreamingText,
+        setLiveActivities,
+        activityClearTimerRef,
+        dequeueNext: queue.dequeueNext,
+        replayQueuedMessage,
+      });
     },
     [
       activeModel,
@@ -416,101 +157,25 @@ export function useSendMessage({
       reasoningEffort,
       apiKey,
       updateSession,
+      queue.dequeueNext,
+      replayQueuedMessage,
     ],
   );
 
-  const queueMessage = useCallback(() => {
-    if (!canQueue) return;
-    const text = draft.trim();
-    const item: QueuedMessage = { id: crypto.randomUUID(), text, attachments };
-    const next = [...queuedMessagesRef.current, item];
-    queuedMessagesRef.current = next;
-    setQueuedMessages(next);
-    setDraft("");
-    setAttachments([]);
-  }, [attachments, canQueue, draft, setAttachments, setDraft]);
+  sendMessageRef.current = sendMessage;
 
-  const cancelQueuedMessage = useCallback((id: string) => {
-    const next = queuedMessagesRef.current.filter((item) => item.id !== id);
-    queuedMessagesRef.current = next;
-    setQueuedMessages(next);
-  }, []);
-
-  const moveQueuedMessage = useCallback((id: string, direction: "up" | "down") => {
-    const current = queuedMessagesRef.current;
-    const index = current.findIndex((item) => item.id === id);
-    if (index === -1) return;
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= current.length) return;
-    const next = [...current];
-    [next[index], next[targetIndex]] = [next[targetIndex]!, next[index]!];
-    queuedMessagesRef.current = next;
-    setQueuedMessages(next);
-  }, []);
-
-  const steerMessage = useCallback(() => {
-    if (!canQueue) return;
-    queueMessage();
-    abortRef.current?.abort();
-  }, [canQueue, queueMessage]);
-
-  const handleCopyMessage = useCallback(
-    async (messageId: string, content: string) => {
-      try {
-        await navigator.clipboard.writeText(textValue(content));
-        setCopiedMessageId(messageId);
-        setTimeout(() => setCopiedMessageId(""), 2000);
-      } catch {
-        /* Ignore clipboard errors */
-      }
-    },
-    [],
-  );
-
-  const handleRetryMessage = useCallback(
-    (messageId: string) => {
-      const opts = prepareRetryMessage(
-        sessions,
-        activeSessionId,
-        activeModel,
-        messageId,
-      );
-      if (opts) void sendMessage(opts);
-    },
-    [sessions, activeSessionId, activeModel, sendMessage],
-  );
-
-  const handleFeedback = useCallback(
-    (messageId: string, feedback: "up" | "down") => {
-      updateSession(activeSessionId, (session) => ({
-        ...session,
-        messages: session.messages.map((m) =>
-          m.id === messageId
-            ? { ...m, feedback: m.feedback === feedback ? null : feedback }
-            : m,
-        ),
-      }));
-    },
-    [activeSessionId, updateSession],
-  );
-
-  const handleExportConversation = useCallback(
-    (format: "json" | "markdown") => {
-      exportConversation(sessions, activeSessionId, format);
-    },
-    [sessions, activeSessionId],
-  );
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter" || event.shiftKey) return;
-    event.preventDefault();
-    if (isSending) {
-      if (enterBehavior === "steer") steerMessage();
-      else queueMessage();
-      return;
-    }
-    if (canSend) void sendMessage();
-  };
+  const actions = useSendMessageActions({
+    sessions,
+    activeSessionId,
+    activeModel,
+    updateSession,
+    sendMessage,
+    isSending,
+    canSend,
+    enterBehavior,
+    queueMessage: queue.queueMessage,
+    steerMessage: queue.steerMessage,
+  });
 
   return {
     chatError,
@@ -519,21 +184,21 @@ export function useSendMessage({
     streamingMessageId,
     streamingText,
     liveActivities,
-    copiedMessageId,
+    copiedMessageId: actions.copiedMessageId,
     canSend,
-    canQueue,
-    queuedMessages,
+    canQueue: queue.canQueue,
+    queuedMessages: queue.queuedMessages,
     sendMessage,
-    queueMessage,
-    steerMessage,
-    cancelQueuedMessage,
-    moveQueuedMessage,
+    queueMessage: queue.queueMessage,
+    steerMessage: queue.steerMessage,
+    cancelQueuedMessage: queue.cancelQueuedMessage,
+    moveQueuedMessage: queue.moveQueuedMessage,
     handleStop,
     resetStream,
-    handleCopyMessage,
-    handleRetryMessage,
-    handleFeedback,
-    handleExportConversation,
-    handleKeyDown,
+    handleCopyMessage: actions.handleCopyMessage,
+    handleRetryMessage: actions.handleRetryMessage,
+    handleFeedback: actions.handleFeedback,
+    handleExportConversation: actions.handleExportConversation,
+    handleKeyDown: actions.handleKeyDown,
   };
 }
