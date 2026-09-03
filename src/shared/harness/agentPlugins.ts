@@ -43,8 +43,9 @@ export const MODELHUB_AGENT_CONTEXT = [
   "You are operating inside the ModelHub Chat Harness.",
   "ModelHub is the product name; never present this application as an upstream or reference harness.",
   "Do not invent or import unpublished ModelHub or vendor-specific plugin SDK packages.",
-  "ModelHub session capabilities are declared as HarnessPluginDefinition objects in the exact file src/shared/harness/agentPlugins.ts.",
-  "Provider plugins implement CorePlugin under the exact directory src/server/plugin-core/plugins (spell plugin-core literally) and use the repository's cordis dependency; CorePlugin is declared in src/server/plugin-core/plugins/registry.ts.",
+  "ModelHub composes its plugins from rows: bundles declare default rows in code and the pluginRows database table is a patch layer over them, so an empty table reproduces the defaults exactly.",
+  "A row names a factory and carries a config. The harness-capability factory takes a HarnessPluginDefinition, declared in the exact file src/shared/harness/agentPlugins.ts; the provider-executor factory takes a provider id. Both are declared in src/server/plugin-core/factories.ts and composed by src/server/plugin-core/composition.ts.",
+  "Adding a capability row through the database changes the running catalogue without a rebuild. Adding a new factory, or code a factory mounts, is a repository change that needs a build.",
   "When asked to create or modify a plugin, target these real ModelHub contracts. If no filesystem editing tool is available, say so and provide a compatible patch without claiming it was installed.",
 ].join(" ");
 
@@ -223,6 +224,46 @@ export const HARNESS_PLUGINS: readonly HarnessPluginDefinition[] = [
       ["task"],
     ),
   },
+  {
+    id: "tool-skills",
+    title: "Agent Skills",
+    description:
+      "Loads Agent Skill instructions on demand from the session skill catalog.",
+    module: "@modelhub/harness-tool-skills",
+    kind: "tool",
+    tool: tool(
+      "load_skill",
+      "Load the full instructions for an Agent Skill by id. Call this before applying a skill listed in the system prompt.",
+      {
+        name: {
+          type: "string",
+          description: "Skill id (kebab-case slug from the available skills list).",
+        },
+      },
+      ["name"],
+    ),
+  },
+  {
+    id: "tool-skill-authoring",
+    title: "Skill authoring",
+    description:
+      "Creates and updates Agent Skills stored in ModelHub via create_skill and update_skill.",
+    module: "@modelhub/harness-tool-skill-authoring",
+    kind: "tool",
+    tool: tool(
+      "create_skill",
+      "Create a new Agent Skill. Prefer loading skill-creator first for format guidance.",
+      {
+        name: { type: "string", description: "Unique skill id (kebab-case)." },
+        description: {
+          type: "string",
+          description: "Short description shown before load_skill.",
+        },
+        body: { type: "string", description: "Markdown instructions." },
+      },
+      ["name", "description", "body"],
+    ),
+  },
 ];
 
 export const AGENT_PRESETS: readonly AgentPresetDefinition[] = [
@@ -245,6 +286,7 @@ export const AGENT_PRESETS: readonly AgentPresetDefinition[] = [
       "tool-web-search",
       "tool-web-fetch",
       "tool-subagent",
+      "tool-skills",
     ],
   },
   {
@@ -271,20 +313,86 @@ export const AGENT_PRESETS: readonly AgentPresetDefinition[] = [
 
 export const DEFAULT_AGENT_PRESET_ID = "standard";
 
+/**
+ * The set of capabilities a session can compose from. It defaults to the rows
+ * the bundle declares in this file; the server replaces it after boot with the
+ * catalogue composed from the plugin patch layer, and the client fetches that
+ * same composed catalogue. Resolution is a projection over whichever catalogue
+ * is active, which is what lets a conversation vary without a per-session
+ * runtime. See docs/superpowers/specs/2026-09-02-db-plugin-system-design.md.
+ */
+export interface HarnessCatalog {
+  plugins: readonly HarnessPluginDefinition[];
+  presets: readonly AgentPresetDefinition[];
+}
+
+export const BUNDLE_CATALOG: HarnessCatalog = {
+  plugins: HARNESS_PLUGINS,
+  presets: AGENT_PRESETS,
+};
+
+/**
+ * Pairs a plugin list with presets that make sense for it: "standard" always
+ * means every plugin present, and a curated preset is narrowed to the plugins
+ * that actually exist, so a preset can never name a capability the catalogue
+ * no longer has.
+ */
+export function buildHarnessCatalog(
+  plugins: readonly HarnessPluginDefinition[],
+): HarnessCatalog {
+  const available = new Set(plugins.map((plugin) => plugin.id));
+  const presets = AGENT_PRESETS.map((preset) =>
+    preset.id === DEFAULT_AGENT_PRESET_ID
+      ? { ...preset, pluginIds: plugins.map((plugin) => plugin.id) }
+      : { ...preset, pluginIds: preset.pluginIds.filter((id) => available.has(id)) },
+  );
+  return { plugins, presets };
+}
+
+let activeCatalog: HarnessCatalog = BUNDLE_CATALOG;
+
+export function setActiveHarnessCatalog(catalog: HarnessCatalog): void {
+  activeCatalog = catalog;
+}
+
+export function getActiveHarnessCatalog(): HarnessCatalog {
+  return activeCatalog;
+}
+
+/** Restores the bundle defaults. Used by tests and by a failed composition. */
+export function resetActiveHarnessCatalog(): void {
+  activeCatalog = BUNDLE_CATALOG;
+}
+
+export function getAgentPresetFrom(
+  catalog: HarnessCatalog,
+  id?: string,
+): AgentPresetDefinition {
+  return catalog.presets.find((preset) => preset.id === id) ?? catalog.presets[0]!;
+}
+
+export function resolveSessionPluginsFrom(
+  catalog: HarnessCatalog,
+  presetId?: string,
+  overrides?: Record<string, boolean>,
+): HarnessPluginDefinition[] {
+  const enabled = new Set(getAgentPresetFrom(catalog, presetId).pluginIds);
+  for (const [pluginId, isEnabled] of Object.entries(overrides ?? {})) {
+    if (isEnabled) enabled.add(pluginId);
+    else enabled.delete(pluginId);
+  }
+  return catalog.plugins.filter((plugin) => enabled.has(plugin.id));
+}
+
 export function getAgentPreset(id?: string): AgentPresetDefinition {
-  return AGENT_PRESETS.find((preset) => preset.id === id) ?? AGENT_PRESETS[0]!;
+  return getAgentPresetFrom(activeCatalog, id);
 }
 
 export function resolveSessionPlugins(
   presetId?: string,
   overrides?: Record<string, boolean>,
 ): HarnessPluginDefinition[] {
-  const enabled = new Set(getAgentPreset(presetId).pluginIds);
-  for (const [pluginId, isEnabled] of Object.entries(overrides ?? {})) {
-    if (isEnabled) enabled.add(pluginId);
-    else enabled.delete(pluginId);
-  }
-  return HARNESS_PLUGINS.filter((plugin) => enabled.has(plugin.id));
+  return resolveSessionPluginsFrom(activeCatalog, presetId, overrides);
 }
 
 export function buildSessionSystemPrompt(

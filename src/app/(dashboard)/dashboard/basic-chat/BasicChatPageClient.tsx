@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { useChatModels } from "./hooks/useChatModels";
+import { useHarnessCatalog } from "./hooks/useHarnessCatalog";
+import { useSkillsCatalog } from "./hooks/useSkillsCatalog";
 import {
   useChatSessions,
   type UseChatSessionsReturn,
@@ -24,6 +26,10 @@ export default function BasicChatPageClient() {
   const [harnessSettingsOpen, setHarnessSettingsOpen] = useState(false);
   const [harnessSettingsSection, setHarnessSettingsSection] =
     useState<HarnessSettingsSection>("general");
+  // Adopts the server's composed plugin catalogue. Until it arrives the bundle
+  // defaults are active, so the chat is usable from the first paint.
+  useHarnessCatalog();
+  useSkillsCatalog();
   const modelsHook = useChatModels();
   const sessionsHook = useChatSessions({
     providerGroups: modelsHook.providerGroups,
@@ -91,13 +97,13 @@ export default function BasicChatPageClient() {
         ) : null}
 
         <div className="flex flex-1 flex-col min-h-0">
-          <ChatMessageList sessionsHook={sessionsHook} sendHook={sendHook} />
+          <ChatMessageList sessionsHook={chatSessions} sendHook={sendHook} />
           <ChatLiveRunStatus
             active={sendHook.isSending}
             activities={sendHook.liveActivities}
           />
           <ChatComposer
-            sessionsHook={sessionsHook}
+            sessionsHook={chatSessions}
             sendHook={sendHook}
             loadingData={modelsHook.loadingData}
           />

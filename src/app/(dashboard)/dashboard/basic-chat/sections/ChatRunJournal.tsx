@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { translate } from "@/i18n/runtime";
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { UseHarnessEventsReturn } from "../hooks/useHarnessEvents";
 import {
@@ -32,6 +33,10 @@ function readEventText(event: HarnessEvent): string {
   }
   if (event.type === "tool/result") {
     return typeof event.data?.content === "string" ? event.data.content.slice(0, 500) : "";
+  }
+  if (event.type === "skill/load" || event.type === "skill/created" || event.type === "skill/updated") {
+    const name = typeof event.data?.name === "string" ? event.data.name : "";
+    return name;
   }
   return "";
 }
@@ -91,17 +96,17 @@ export default function ChatRunJournal({ harnessHook }: ChatRunJournalProps) {
   const groups = groupHarnessEvents(harnessEvents);
 
   return (
-    <section className="shrink-0 border-b border-border bg-card/50 px-4 py-3" aria-label="Run journal">
+    <section className="shrink-0 border-b border-border bg-card/50 px-4 py-3" aria-label={translate("Run journal") || "Run journal"}>
       <div className="mx-auto max-w-3xl">
         <div className="mb-2 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-foreground">Run journal</h2>
-            <p className="text-xs text-muted-foreground">Step-by-step activity for this conversation — click a row for details.</p>
+            <h2 className="text-sm font-semibold text-foreground">{translate("Run journal") || "Run journal"}</h2>
+            <p className="text-xs text-muted-foreground">{translate("Step-by-step activity for this conversation — click a row for details.") || "Step-by-step activity for this conversation — click a row for details."}</p>
           </div>
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{harnessEvents.length} events</span>
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{harnessEvents.length} {translate("events") || "events"}</span>
         </div>
         {groups.length === 0 ? (
-          <p className="py-2 text-xs text-muted-foreground">The next message will open a recorded run.</p>
+          <p className="py-2 text-xs text-muted-foreground">{translate("The next message will open a recorded run.") || "The next message will open a recorded run."}</p>
         ) : (
           <div className="max-h-96 overflow-y-auto custom-scrollbar">
             {groups.map((group) => (

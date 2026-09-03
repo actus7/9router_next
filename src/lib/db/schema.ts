@@ -256,6 +256,37 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_he_type ON harnessEvents(type)",
     ],
   },
+  // Patch layer over the plugin rows each bundle declares in code. An empty
+  // table reproduces the bundle defaults exactly, so this ships inert.
+  // See docs/superpowers/specs/2026-09-02-db-plugin-system-design.md.
+  pluginRows: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      plugin: "TEXT NOT NULL",
+      config: "TEXT NOT NULL",
+      position: "INTEGER NOT NULL",
+      enabled: "INTEGER NOT NULL DEFAULT 1",
+      source: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_pr_position ON pluginRows(position)"],
+  },
+  // User and override layer for bundled agent skills. Empty table = bundle defaults.
+  agentSkills: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT NOT NULL",
+      description: "TEXT NOT NULL",
+      body: "TEXT NOT NULL",
+      enabled: "INTEGER NOT NULL DEFAULT 1",
+      source: "TEXT NOT NULL",
+      origin: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_as_enabled ON agentSkills(enabled)"],
+  },
 };
 
 export function buildCreateTableSql(name: string, def: TableDefinition): string {

@@ -7,6 +7,7 @@ export function classifyEventKind(event: HarnessEvent): EventKind {
   if (event.type.startsWith("user/")) return "user";
   if (event.type.startsWith("assistant/")) return "assistant";
   if (event.type.startsWith("tool/")) return "tool";
+  if (event.type.startsWith("skill/")) return "context";
   if (event.type.startsWith("run/")) return "system";
   return "context";
 }
@@ -66,6 +67,9 @@ const EVENT_LABELS: Record<string, string> = {
   "run/end": "Run end",
   "tool/call": "Tool call",
   "tool/result": "Tool result",
+  "skill/load": "Skill loaded",
+  "skill/created": "Skill created",
+  "skill/updated": "Skill updated",
   "assistant/message": "Assistant",
   "assistant/reasoning": "Reasoning",
 };
@@ -77,6 +81,9 @@ const EVENT_COLORS: Record<string, string> = {
   "run/end": "bg-emerald-500",
   "tool/call": "bg-amber-500",
   "tool/result": "bg-amber-600",
+  "skill/load": "bg-teal-500",
+  "skill/created": "bg-teal-600",
+  "skill/updated": "bg-teal-400",
   "assistant/message": "bg-violet-500",
   "assistant/reasoning": "bg-fuchsia-500",
 };

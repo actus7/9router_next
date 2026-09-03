@@ -5,6 +5,7 @@ import {
 import { executeChatFetch } from "./consumeSSEStream";
 import { executeRuntimeToolCall } from "./executeRuntimeToolCall";
 import { createAssistantMessage } from "./prepareChatMessages";
+import { getEnabledSkillIds } from "@/shared/harness/agentSkills";
 import type { AgentActivity } from "./useSendMessageTypes";
 import type {
   ChatMessage,
@@ -97,6 +98,7 @@ export async function runToolCallLoop(
     Math.min(4, pluginSettings.maxSubagentCalls ?? 2),
   );
   let usedSubagentCalls = 0;
+  const enabledSkillIds = getEnabledSkillIds(session.skillOverrides);
   for (
     let step = 0;
     step < maxToolSteps && pendingCalls.length > 0;
@@ -141,10 +143,13 @@ export async function runToolCallLoop(
             model,
             signal,
             enabledToolNames,
+            enabledSkillIds,
             mcpServers: session.mcpServers,
             sessionId: session.id,
             webSearchMaxResults: pluginSettings.webSearchMaxResults,
             webFetchMaxCharacters: pluginSettings.webFetchMaxCharacters,
+            onSkillEvent: (type, data) =>
+              recordHarnessEvent(sessionId, type, { runId, ...data }),
           });
           const failed = content.includes('"ok":false');
           setLiveActivities((activities) =>

@@ -1,0 +1,25 @@
+import type { ChatSession } from "../types";
+
+export type HarnessSettingsSection = "general" | "plugins" | "skills" | "mcp" | "presets";
+
+export interface HarnessSettingsDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  section: HarnessSettingsSection;
+  onSectionChange: (section: HarnessSettingsSection) => void;
+  session: ChatSession | null;
+  updateSession: (
+    sessionId: string,
+    updater: (session: ChatSession) => ChatSession,
+  ) => void;
+  systemPrompt: string;
+  setSystemPrompt: React.Dispatch<React.SetStateAction<string>>;
+  temperature: number;
+  setTemperature: React.Dispatch<React.SetStateAction<number>>;
+  conversationDisplay: "normal" | "compact";
+  setConversationDisplay: React.Dispatch<
+    React.SetStateAction<"normal" | "compact">
+  >;
+  enterBehavior: "queue" | "steer";
+  setEnterBehavior: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
+}

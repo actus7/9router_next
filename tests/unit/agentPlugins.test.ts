@@ -10,12 +10,23 @@ import {
 describe("Harness agent plugin composition", () => {
   it("keeps Standard mode as the complete ModelHub capability composition", () => {
     const names = getEnabledRuntimeToolNames("standard");
-    expect(names).toEqual(new Set(["web_search", "web_fetch", "generate_image", "text_to_speech", "generate_video", "delegate_task"]));
+    expect(names).toEqual(
+      new Set([
+        "web_search",
+        "web_fetch",
+        "generate_image",
+        "text_to_speech",
+        "generate_video",
+        "delegate_task",
+        "load_skill",
+        "create_skill",
+      ]),
+    );
   });
 
   it("derives a preset's tool schema from its enabled plugins", () => {
     expect(getRuntimeToolDefinitions("research").map((definition) => definition.function.name))
-      .toEqual(["web_search", "web_fetch", "delegate_task"]);
+      .toEqual(["web_search", "web_fetch", "delegate_task", "load_skill"]);
   });
 
   it("layers a session override over its selected preset", () => {
@@ -26,7 +37,8 @@ describe("Harness agent plugin composition", () => {
   it("grounds the agent in ModelHub's real plugin contracts", () => {
     expect(MODELHUB_AGENT_CONTEXT).toContain("ModelHub Chat Harness");
     expect(MODELHUB_AGENT_CONTEXT).toContain("HarnessPluginDefinition");
-    expect(MODELHUB_AGENT_CONTEXT).toContain("CorePlugin");
+    expect(MODELHUB_AGENT_CONTEXT).toContain("pluginRows");
+    expect(MODELHUB_AGENT_CONTEXT).toContain("src/server/plugin-core/factories.ts");
     expect(MODELHUB_AGENT_CONTEXT).toContain("without claiming it was installed");
   });
 

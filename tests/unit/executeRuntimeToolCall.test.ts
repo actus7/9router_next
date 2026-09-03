@@ -527,4 +527,56 @@ describe("executeRuntimeToolCall", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toContain("non-empty prompt");
   });
+
+  it("load_skill rejects disabled skill ids", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = {
+      id: "call",
+      name: "load_skill",
+      arguments: '{"name":"skill-creator"}',
+    };
+
+    const result = JSON.parse(
+      await executeRuntimeToolCall(call, {
+        ...context(),
+        enabledToolNames: new Set(["load_skill"]),
+        enabledSkillIds: new Set(["other-skill"]),
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("not enabled");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("load_skill fetches skill body from API", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      ok(
+        JSON.stringify({
+          ok: true,
+          skill: { id: "skill-creator", body: "# Creator", description: "Meta" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const call: ToolCall = {
+      id: "call",
+      name: "load_skill",
+      arguments: '{"name":"skill-creator"}',
+    };
+
+    const result = JSON.parse(
+      await executeRuntimeToolCall(call, {
+        ...context(),
+        enabledToolNames: new Set(["load_skill"]),
+        enabledSkillIds: new Set(["skill-creator"]),
+      }),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.body).toContain("Creator");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/harness/skills?id=skill-creator",
+      expect.any(Object),
+    );
+  });
 });

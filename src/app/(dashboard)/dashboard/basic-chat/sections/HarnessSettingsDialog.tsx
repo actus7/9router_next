@@ -1,16 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  Bot,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  PlugZap,
-  Search,
-  Server,
-  Settings2,
-} from "lucide-react";
+import { Bot, BookOpen, PlugZap, Server, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,51 +9,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  AGENT_PRESETS,
   DEFAULT_AGENT_PRESET_ID,
   getAgentPreset,
   HARNESS_PLUGINS,
   resolveSessionPlugins,
 } from "@/shared/harness/agentPlugins";
-import type { ChatSession } from "../types";
 import { useMcpServers } from "../hooks/useMcpServers";
+import { GeneralSection } from "./HarnessGeneralSection";
+import { PluginsSection, PresetsSection } from "./HarnessPluginsSection";
 import McpServersSection from "./McpServersSection";
-import { PluginConfiguration } from "./PluginConfiguration";
+import HarnessSkillsSection from "./HarnessSkillsSection";
+import type {
+  HarnessSettingsDialogProps,
+  HarnessSettingsSection,
+} from "./harnessSettingsTypes";
 
-export type HarnessSettingsSection = "general" | "plugins" | "mcp" | "presets";
+export type { HarnessSettingsSection };
 
-interface HarnessSettingsDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  section: HarnessSettingsSection;
-  onSectionChange: (section: HarnessSettingsSection) => void;
-  session: ChatSession | null;
-  updateSession: (
-    sessionId: string,
-    updater: (session: ChatSession) => ChatSession,
-  ) => void;
-  systemPrompt: string;
-  setSystemPrompt: React.Dispatch<React.SetStateAction<string>>;
-  temperature: number;
-  setTemperature: React.Dispatch<React.SetStateAction<number>>;
-  conversationDisplay: "normal" | "compact";
-  setConversationDisplay: React.Dispatch<
-    React.SetStateAction<"normal" | "compact">
-  >;
-  enterBehavior: "queue" | "steer";
-  setEnterBehavior: React.Dispatch<React.SetStateAction<"queue" | "steer">>;
-}
 
 export default function HarnessSettingsDialog(
   props: HarnessSettingsDialogProps,
@@ -112,13 +77,13 @@ export default function HarnessSettingsDialog(
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent
         showCloseButton
-        className="h-[min(780px,calc(100dvh-2rem))] max-w-[min(1080px,calc(100%-2rem))] grid-cols-[15rem_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[min(1080px,calc(100%-2rem))]"
+        className="h-[min(780px,calc(100dvh-2rem))] max-w-[min(1080px,calc(100%-2rem))] grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-[min(1080px,calc(100%-2rem))] sm:grid-cols-[15rem_minmax(0,1fr)] sm:grid-rows-1"
       >
-        <aside className="flex min-h-0 flex-col border-r border-border bg-muted/30 p-4 pt-5">
-          <DialogHeader className="mb-7 px-2 pr-8">
+        <aside className="flex min-h-0 flex-col border-b border-border bg-muted/30 p-4 sm:border-b-0 sm:border-r sm:pt-5">
+          <DialogHeader className="mb-3 px-2 pr-8 sm:mb-7">
             <DialogTitle className="text-lg">Configurações</DialogTitle>
           </DialogHeader>
-          <nav aria-label="Configurações do Harness" className="grid gap-1">
+          <nav aria-label="Configurações do Harness" className="flex gap-1 overflow-x-auto sm:grid">
             <SettingsNavButton
               active={section === "general"}
               onClick={() => onSectionChange("general")}
@@ -130,6 +95,12 @@ export default function HarnessSettingsDialog(
               onClick={() => onSectionChange("plugins")}
               icon={<PlugZap />}
               label="Plugins"
+            />
+            <SettingsNavButton
+              active={section === "skills"}
+              onClick={() => onSectionChange("skills")}
+              icon={<BookOpen />}
+              label="Skills"
             />
             <SettingsNavButton
               active={section === "mcp"}
@@ -144,12 +115,12 @@ export default function HarnessSettingsDialog(
               label="Agent Presets"
             />
           </nav>
-          <p className="mt-auto px-2 text-xs leading-5 text-muted-foreground">
+          <p className="mt-auto hidden px-2 text-xs leading-5 text-muted-foreground sm:block">
             As preferências do chat ficam salvas neste navegador. Gateway,
             catálogo e credenciais permanecem no ModelHub.
           </p>
         </aside>
-        <div className="min-h-0 overflow-y-auto p-6 pr-11 sm:p-8 sm:pr-14">
+        <div className="min-h-0 overflow-y-auto p-4 sm:p-8 sm:pr-14">
           {section === "general" ? <GeneralSection {...props} /> : null}
           {section === "plugins" ? (
             <PluginsSection
@@ -174,6 +145,12 @@ export default function HarnessSettingsDialog(
                 )
               }
               onTogglePlugin={togglePlugin}
+            />
+          ) : null}
+          {section === "skills" ? (
+            <HarnessSkillsSection
+              session={session}
+              updateSession={updateSession}
             />
           ) : null}
           {section === "mcp" ? (
@@ -220,7 +197,7 @@ function SettingsNavButton({
     <Button
       variant="ghost"
       className={cn(
-        "h-11 justify-start gap-3 px-3 text-base",
+        "h-11 shrink-0 justify-start gap-3 px-3 text-sm sm:text-base",
         active && "bg-accent text-accent-foreground",
       )}
       onClick={onClick}
@@ -229,412 +206,5 @@ function SettingsNavButton({
       {icon}
       {label}
     </Button>
-  );
-}
-
-function GeneralSection({
-  systemPrompt,
-  setSystemPrompt,
-  temperature,
-  setTemperature,
-  conversationDisplay,
-  setConversationDisplay,
-  enterBehavior,
-  setEnterBehavior,
-}: HarnessSettingsDialogProps) {
-  return (
-    <section aria-labelledby="general-heading" className="max-w-3xl">
-      <h2
-        id="general-heading"
-        className="text-2xl font-semibold tracking-tight"
-      >
-        Geral
-      </h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        Preferências que definem como o chat exibe e conduz uma conversa.
-      </p>
-      <div className="mt-7 divide-y divide-border border-y border-border">
-        <SettingRow
-          title="Conversation display"
-          description="Controla como o conteúdo de processo aparece em turnos concluídos."
-        >
-          <Select
-            value={conversationDisplay}
-            onValueChange={(value) =>
-              setConversationDisplay(value as "normal" | "compact")
-            }
-          >
-            <SelectTrigger aria-label="Conversation display" className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="compact">Compact</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingRow>
-        <SettingRow
-          title="Enter behavior while busy"
-          description="Enquanto o agente executa: Queue aguarda; Steer interrompe e envia a nova instrução."
-        >
-          <Select
-            value={enterBehavior}
-            onValueChange={(value) =>
-              setEnterBehavior(value as "queue" | "steer")
-            }
-          >
-            <SelectTrigger
-              aria-label="Enter behavior while busy"
-              className="w-36"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              <SelectItem value="queue">Queue</SelectItem>
-              <SelectItem value="steer">Steer</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingRow>
-      </div>
-      <section className="mt-8" aria-labelledby="agent-settings-heading">
-        <h3 id="agent-settings-heading" className="text-base font-semibold">
-          Instruções do agente
-        </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Aplicadas à próxima execução quando o plugin Agent instructions
-          estiver ativo.
-        </p>
-        <label
-          className="mt-4 block text-sm font-medium"
-          htmlFor="chat-system-prompt"
-        >
-          System prompt
-        </label>
-        <Textarea
-          id="chat-system-prompt"
-          value={systemPrompt}
-          onChange={(event) => setSystemPrompt(event.target.value)}
-          placeholder="You are a helpful assistant..."
-          rows={4}
-          className="mt-2 resize-y"
-        />
-        <div className="mt-6 flex flex-wrap items-center gap-4">
-          <label htmlFor="chat-temperature" className="text-sm font-medium">
-            Temperature{" "}
-            <span className="text-muted-foreground">
-              {temperature.toFixed(1)}
-            </span>
-          </label>
-          <input
-            id="chat-temperature"
-            type="range"
-            min={0}
-            max={2}
-            step={0.1}
-            value={temperature}
-            onChange={(event) => setTemperature(Number(event.target.value))}
-            className="h-1.5 min-w-48 flex-1 accent-primary"
-          />
-          <span className="w-8 text-right text-xs text-muted-foreground">
-            {temperature.toFixed(1)}
-          </span>
-        </div>
-      </section>
-    </section>
-  );
-}
-
-function SettingRow({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-h-24 flex-col justify-center gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h3 className="font-medium">{title}</h3>
-        <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
-          {description}
-        </p>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function PluginsSection({
-  presetTitle,
-  pluginCount,
-  query,
-  onQueryChange,
-  plugins,
-  enabledPluginIds,
-  expandedPluginId,
-  onToggleExpanded,
-  onTogglePlugin,
-  session,
-  onUpdatePluginSettings,
-}: {
-  presetTitle: string;
-  pluginCount: number;
-  query: string;
-  onQueryChange: (value: string) => void;
-  plugins: readonly (typeof HARNESS_PLUGINS)[number][];
-  enabledPluginIds: Set<string>;
-  expandedPluginId: string | null;
-  onToggleExpanded: (id: string) => void;
-  onTogglePlugin: (id: string) => void;
-  session: ChatSession | null;
-  onUpdatePluginSettings: (
-    settings: NonNullable<ChatSession["pluginSettings"]>,
-  ) => void;
-}) {
-  const [tab, setTab] = useState<"configuration" | "list">("configuration");
-  const tabs = (
-    <div
-      role="tablist"
-      aria-label="Plugins"
-      className="mt-7 flex gap-6 border-b border-border"
-    >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === "configuration"}
-        onClick={() => setTab("configuration")}
-        className={cn(
-          "min-h-10 border-b-2 px-0 text-sm font-medium",
-          tab === "configuration"
-            ? "border-foreground text-foreground"
-            : "border-transparent text-muted-foreground hover:text-foreground",
-        )}
-      >
-        Configuração de plugins
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === "list"}
-        onClick={() => setTab("list")}
-        className={cn(
-          "min-h-10 border-b-2 px-0 text-sm font-medium",
-          tab === "list"
-            ? "border-foreground text-foreground"
-            : "border-transparent text-muted-foreground hover:text-foreground",
-        )}
-      >
-        Lista de plugins
-      </button>
-    </div>
-  );
-  if (tab === "configuration") {
-    return (
-      <section aria-labelledby="plugins-heading">
-        <h2
-          id="plugins-heading"
-          className="text-2xl font-semibold tracking-tight"
-        >
-          Plugins
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Configure os limites e padrões das capacidades instaladas nesta
-          sessão.
-        </p>
-        {tabs}
-        <PluginConfiguration
-          session={session}
-          onUpdate={onUpdatePluginSettings}
-        />
-      </section>
-    );
-  }
-  return (
-    <section aria-labelledby="plugins-heading">
-      <h2
-        id="plugins-heading"
-        className="text-2xl font-semibold tracking-tight"
-      >
-        Plugins
-      </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Inspecione as capacidades instaladas e ajuste a composição da sessão
-        atual.
-      </p>
-      {tabs}
-      <label className="relative mt-5 block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <span className="sr-only">Buscar plugins</span>
-        <Input
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          className="h-10 pl-9"
-          placeholder="Buscar plugins"
-          type="search"
-        />
-      </label>
-      <div className="mt-6">
-        <h3 className="font-medium">Plugins da sessão</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Compostos pelo preset {presetTitle} · {pluginCount} plugins
-        </p>
-      </div>
-      <p className="mt-4 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        As alterações valem para as próximas execuções deste chat. As mensagens
-        e tool calls anteriores permanecem no histórico.
-      </p>
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-        {plugins.map((plugin) => {
-          const enabled = enabledPluginIds.has(plugin.id);
-          const expanded = expandedPluginId === plugin.id;
-          return (
-            <li
-              key={plugin.id}
-              className="overflow-hidden rounded-xl border border-border bg-card"
-            >
-              <div className="flex min-h-20 items-center gap-3 p-4">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() => onToggleExpanded(plugin.id)}
-                  aria-expanded={expanded}
-                  aria-controls={`plugin-${plugin.id}`}
-                >
-                  <p className="truncate font-medium">{plugin.title}</p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                    {plugin.description}
-                  </p>
-                </button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={enabled ? "secondary" : "outline"}
-                  className={cn(
-                    "shrink-0",
-                    enabled && "text-emerald-700 dark:text-emerald-400",
-                  )}
-                  onClick={() => onTogglePlugin(plugin.id)}
-                  aria-pressed={enabled}
-                >
-                  {enabled ? "Ativo" : "Inativo"}
-                </Button>
-                <button
-                  type="button"
-                  className="rounded-md p-1 text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() => onToggleExpanded(plugin.id)}
-                  aria-label={`${expanded ? "Ocultar" : "Ver"} detalhes de ${plugin.title}`}
-                >
-                  {expanded ? (
-                    <ChevronUp className="size-4" />
-                  ) : (
-                    <ChevronDown className="size-4" />
-                  )}
-                </button>
-              </div>
-              {expanded ? (
-                <div
-                  id={`plugin-${plugin.id}`}
-                  className="border-t border-border bg-muted/30 px-4 py-3 text-xs leading-5 text-muted-foreground"
-                >
-                  <dl className="grid grid-cols-[5.5rem_1fr] gap-x-2 gap-y-1">
-                    <dt>Módulo</dt>
-                    <dd className="break-all font-mono text-foreground">
-                      {plugin.module}
-                    </dd>
-                    <dt>Tipo</dt>
-                    <dd>{plugin.kind}</dd>
-                    <dt>Estado</dt>
-                    <dd>
-                      {enabled ? "Ativo nesta sessão" : "Inativo nesta sessão"}
-                    </dd>
-                  </dl>
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-      {plugins.length === 0 ? (
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          Nenhum plugin encontrado.
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
-function PresetsSection({
-  selectedPresetId,
-  onSelect,
-}: {
-  selectedPresetId: string;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <section aria-labelledby="presets-heading">
-      <h2
-        id="presets-heading"
-        className="text-2xl font-semibold tracking-tight"
-      >
-        Agent Presets
-      </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Um preset define a composição de plugins, ferramentas e capacidades com
-        que o agente desta sessão opera.
-      </p>
-      <p className="mt-5 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        A troca vale para as próximas execuções. O histórico anterior continua
-        associado às ferramentas que já foram usadas.
-      </p>
-      <h3 className="mt-7 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        Integrados
-      </h3>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        {AGENT_PRESETS.map((preset) => {
-          const selected = preset.id === selectedPresetId;
-          return (
-            <article
-              key={preset.id}
-              className={cn(
-                "flex min-h-52 flex-col rounded-xl border p-5 transition-colors",
-                selected
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-card",
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h4 className="text-lg font-semibold">{preset.title}</h4>
-                {selected ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
-                    <Check className="size-3" />
-                    Em uso
-                  </span>
-                ) : (
-                  <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                    Integrado
-                  </span>
-                )}
-              </div>
-              <p className="mt-3 flex-1 text-sm leading-6 text-muted-foreground">
-                {preset.description}
-              </p>
-              <p className="mt-5 font-mono text-xs text-muted-foreground">
-                {preset.pluginIds.length} plugins · {preset.id}
-              </p>
-              <Button
-                className="mt-4 w-full"
-                variant={selected ? "secondary" : "outline"}
-                disabled={selected}
-                onClick={() => onSelect(preset.id)}
-              >
-                {selected ? "Preset atual" : "Usar neste chat"}
-              </Button>
-            </article>
-          );
-        })}
-      </div>
-    </section>
   );
 }

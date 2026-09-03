@@ -64,6 +64,8 @@ export interface ChatSession {
   agentPresetId?: string;
   /** Explicit enablement changes layered over the selected preset. */
   pluginOverrides?: Record<string, boolean>;
+  /** Per-session skill enablement layered over global skill catalog. */
+  skillOverrides?: Record<string, boolean>;
   /** Runtime options managed from Plugin configuration. */
   pluginSettings?: HarnessPluginSettings;
   /** Remote, unauthenticated MCP servers composed into this chat session. */
