@@ -18,7 +18,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:contract": "vitest run tests/contracts",
-    "check": "npm run lint && npm run typecheck && npm run contract:check && npm run test:coverage && npm run build && npm run check:static-routes && git diff --check",
+    "check": "npm run lint && npm run contract:check && npm run build && npm run typecheck && npm run test:coverage && npm run check:static-routes && git diff --check",
     "check:static-routes": "node scripts/check-static-api-routes.mjs",
     "postinstall": "prisma skills sync || exit 0",
     "contract:emit": "prisma contract emit",

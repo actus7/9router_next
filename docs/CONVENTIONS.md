@@ -60,7 +60,16 @@ saber a diferença.
 
 ## Definição de pronto
 
-Antes de reportar qualquer tarefa como concluída, rodar `npm run check` (lint + typecheck + contract:check + test:coverage + build + git diff --check) e confirmar que sai verde. Para mudanças em `server/llm-gateway`, `shared/llm-catalog` ou `app/api`, isso já roda automaticamente via o hook em `.claude/settings.json`.
+Antes de reportar qualquer tarefa como concluída, rodar `npm run check` (lint + contract:check + build + typecheck + test:coverage + check:static-routes + git diff --check) e confirmar que sai verde.
+
+**A ordem não é arbitrária: `build` tem que vir antes de `typecheck`.** O Next gera
+`RouteContext` e `PageProps` como tipos globais em `.next/types`, que o
+`tsconfig.json` inclui, e é o `next build` que os escreve. Com `typecheck` antes,
+um checkout limpo — sem `.next` — falha com ~25 erros `TS2304: Cannot find name
+'RouteContext'`. Localmente isso passava despercebido porque um `next dev`
+anterior já tinha deixado os tipos no disco; no CI, que sempre começa limpo,
+o `check` falhava sempre. `next typegen` existe mas não produziu os diretórios
+que o `tsconfig` inclui nesta versão. Para mudanças em `server/llm-gateway`, `shared/llm-catalog` ou `app/api`, isso já roda automaticamente via o hook em `.claude/settings.json`.
 
 Ao corrigir um bug: escreva um teste que reproduza o bug primeiro, confirme que ele falha pelo motivo esperado, e só então corrija a implementação — sem editar o teste.
 
