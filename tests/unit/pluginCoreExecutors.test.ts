@@ -1,4 +1,17 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// Same reason as tests/unit/pluginCoreContext.test.ts: `bootstrap()` reads the
+// patch layer through getAdapter(), which ran the real migration chain against
+// the operator's own database. An empty patch layer is what the production code
+// falls back to when the database is unreachable, so executor composition is
+// unchanged.
+vi.mock("@/lib/db/repos/pluginRowsRepo", () => ({
+  listPluginRows: vi.fn(async () => []),
+  getPluginTreeRevision: vi.fn(async () => 0),
+  upsertPluginRow: vi.fn(async () => {}),
+  deletePluginRow: vi.fn(async () => {}),
+}));
+
 import { bootstrap, resetContext } from "@/server/plugin-core/context";
 import {
   executors,
