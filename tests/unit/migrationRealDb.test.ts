@@ -17,14 +17,16 @@ import {
  *
  * Uses better-sqlite3 in-memory, the same driver the app prefers.
  */
+type Stmt = {
+  run(...params: unknown[]): unknown;
+  all(...params: unknown[]): unknown[];
+  get(...params: unknown[]): unknown;
+};
 type Db = {
-  prepare(sql: string): {
-    run(...params: unknown[]): unknown;
-    all(...params: unknown[]): unknown[];
-    get(...params: unknown[]): unknown;
-  };
+  prepare(sql: string): Stmt;
   exec(sql: string): unknown;
-  transaction(fn: () => void): () => void;
+  /** better-sqlite3 only; node:sqlite gets SAVEPOINT nesting instead. */
+  transaction?(fn: () => void): () => void;
   close(): void;
 };
 
@@ -52,13 +54,27 @@ function adapterFor(database: Db): Adapter {
     exec: (sql) => {
       database.exec(sql);
     },
-    // Exactly what betterSqliteAdapter does. Matters here: migration 005 opens
-    // its own transaction inside an `up()` that the runner has already wrapped,
-    // and better-sqlite3 handles that nesting with a SAVEPOINT. A hand-rolled
-    // BEGIN/COMMIT harness would fail on the nesting and report a bug that
+    // Mirrors whichever adapter the app would use. Nesting matters here:
+    // migration 005 opens its own transaction inside an `up()` that the runner
+    // has already wrapped. better-sqlite3 handles that itself; node:sqlite has
+    // no wrapper, so nodeSqliteAdapter uses SAVEPOINT and so does this. A
+    // hand-rolled BEGIN/COMMIT would fail on the nesting and report a bug
     // production does not have.
     transaction: (fn) => {
-      database.transaction(fn)();
+      if (database.transaction) {
+        database.transaction(fn)();
+        return;
+      }
+      const sp = `sp_${Math.random().toString(36).slice(2)}`;
+      database.exec(`SAVEPOINT ${sp}`);
+      try {
+        fn();
+        database.exec(`RELEASE ${sp}`);
+      } catch (error) {
+        database.exec(`ROLLBACK TO ${sp}`);
+        database.exec(`RELEASE ${sp}`);
+        throw error;
+      }
     },
   };
 }
@@ -69,9 +85,33 @@ function migration(version: number) {
   return found;
 }
 
+/**
+ * The app prefers better-sqlite3 and falls back to node:sqlite, so the test
+ * does the same. better-sqlite3 is an optionalDependency — an install that
+ * cannot build the native module still runs the app, so a test that hard-required
+ * it would fail CI for an environment the app supports.
+ */
+async function openMemoryDb(): Promise<Db | null> {
+  try {
+    const { default: Database } = await import("better-sqlite3");
+    return new Database(":memory:") as unknown as Db;
+  } catch {
+    /* fall through to the built-in driver */
+  }
+  try {
+    const { DatabaseSync } = await import("node:sqlite");
+    return new DatabaseSync(":memory:") as unknown as Db;
+  } catch {
+    return null;
+  }
+}
+
 beforeEach(async () => {
-  const { default: Database } = await import("better-sqlite3");
-  db = new Database(":memory:") as unknown as Db;
+  const opened = await openMemoryDb();
+  // Neither driver available means the verification is not running, which must
+  // be loud rather than a silently green suite.
+  if (!opened) throw new Error("no SQLite driver available (better-sqlite3 or node:sqlite required)");
+  db = opened;
   for (const [name, def] of Object.entries(TABLES)) {
     db.exec(buildCreateTableSql(name, def));
   }
