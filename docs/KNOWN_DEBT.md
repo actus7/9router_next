@@ -34,7 +34,42 @@ inteira desse problema — o npm só resolve a subárvore da plataforma onde rod
 
    **A ressalva:** sem `CREDENTIAL_KEY` definida o app roda em claro, avisando a cada boot e expondo o estado em `GET /api/settings` (`credentialEncryptionEnabled`). Isso é deliberado — recusar o boot brickaria instalações que nunca optaram. Onde plaintext não é aceitável, `CREDENTIAL_ENCRYPTION_REQUIRED=true` faz o app recusar subir sem a chave; a política é configuração, não decisão de código. Ver `docs/OPERATIONS.md`.
 2. ~~**Secrets padrão previsíveis**~~ — **reclassificado, não era risco.** Ver as duas seções abaixo.
-3. **CORS permissivo em `/v1`** — rotas do gateway ainda emitem `Access-Control-Allow-Origin: *` para compatibilidade com CLIs e health checks. **O próximo entregável é a auditoria de clientes, não a mudança**: Claude Code, Codex, as 18 ferramentas de CLI, o browser do dashboard, os probes de túnel e os containers na Render. Apertar a allowlist antes de enumerar quem chama quebra clientes em campo, e o modo de falha do CORS é dos piores de diagnosticar — o request simplesmente não chega, sem erro do lado do servidor.
+3. **CORS permissivo em `/v1`** — **auditoria de clientes concluída** (seção abaixo). Resta uma decisão de produto, não uma investigação.
+
+## CORS permissivo — auditoria de clientes concluída
+
+O item pedia a auditoria antes de qualquer mudança, porque apertar a allowlist
+sem enumerar quem chama quebra cliente em campo, e o modo de falha do CORS é dos
+piores de diagnosticar: o request simplesmente não chega, sem erro no servidor.
+
+**O fato que decide quase tudo:** CORS só se aplica a request iniciado por
+browser. Um cliente server-side (Node, Go, curl) não envia `Origin` e não impõe
+CORS, então `Access-Control-Allow-Origin` é irrelevante para ele.
+
+| Cliente | Tipo | Envia `Origin`? | Precisa de ACAO? |
+|---|---|---|---|
+| As 18 ferramentas de CLI (Claude Code, Codex, Cline…) | processo server-side | não | **não** |
+| Containers na Render/Railway | server-side | não | **não** |
+| Probes de túnel (cloudflared, worker do abc-tunnel) | server-side | não | **não** |
+| `basic-chat` → `/api/v1/chat/completions` | browser, **mesma origem** (caminho relativo, `executeSendMessage.ts:345`) | sim | **não** — mesma origem não passa por CORS |
+| Exemplos "try it" de media providers | browser, mesma origem | sim | **não** |
+| `endpointPing.ts:10` e `useTunnel.ts:73` → `${tunnelUrl}/api/health` | browser, **cross-origin** | sim | **sim** |
+
+Conclusão: **nenhum cliente deste repositório precisa de `*` nas rotas
+`/v1/*`.** O único caso legítimo de browser cross-origin é o dashboard sondando
+`/api/health` através do túnel, e uma allowlist com loopback +
+`settings.tunnelUrl` + `settings.tailscaleUrl` cobre isso inteiramente.
+
+**A decisão de produto que sobra:** o `*` em `/v1/*` só serve a aplicações web de
+terceiros apontando para o gateway do usuário. Isso é um caso de uso plausível
+para um produto que se chama gateway, e é o que se perde ao apertar. Não é uma
+pergunta técnica — é definição de escopo do produto, e por isso não foi decidida
+aqui.
+
+Se a resposta for "não suportamos browser de terceiros", a mudança segura é:
+sem `Origin` no request, não emitir ACAO (todo cliente server-side segue
+intacto); com `Origin`, refletir apenas se estiver na allowlist. Sem `*` em
+nenhum caminho.
 
 ## `API_KEY_SECRET` — reclassificado de risco para código morto (removido)
 
