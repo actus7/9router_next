@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import Modal from "@/shared/components/Modal";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -135,6 +135,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo: _initial
           updateComboStrategy={profileSettings.updateComboStrategy}
           updateStickyLimit={profileSettings.updateStickyLimit}
           updateComboStickyLimit={profileSettings.updateComboStickyLimit}
+          updateFreeFallbackEnabled={profileSettings.updateFreeFallbackEnabled}
         />
 
         <NetworkCard

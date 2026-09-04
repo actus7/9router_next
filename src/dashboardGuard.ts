@@ -23,7 +23,6 @@ async function hasValidCliToken(request: Request): Promise<boolean> {
 
 const PUBLIC_API_PATHS: string[] = [
   "/api/health",
-  "/api/init",
   "/api/locale",
   "/api/auth/login",
   "/api/auth/logout",
@@ -34,7 +33,10 @@ const PUBLIC_API_PATHS: string[] = [
   "/api/settings/require-login",
 ];
 
-const PUBLIC_PREFIXES: string[] = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex"];
+// Every rewrite in next.config.ts that targets /api/v1* must appear here: the
+// proxy matches the pre-rewrite path, so a missing prefix skips the API-key
+// check entirely. tests/unit/dashboardGuard.test.ts enforces the pairing.
+const PUBLIC_PREFIXES: string[] = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "/responses"];
 
 const ALWAYS_PROTECTED: string[] = [
   "/api/settings/database",

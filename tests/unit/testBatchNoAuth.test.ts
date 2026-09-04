@@ -43,7 +43,7 @@ describe("POST /api/providers/test-batch (free mode, noAuth)", () => {
     vi.mocked(getProviderConnections).mockResolvedValue([
       { id: "conn-1", provider: "no-auth-provider", name: "stored-conn", authType: "apikey", isActive: true },
     ] as never);
-    vi.mocked(testNoAuthProvider).mockResolvedValue({ valid: true, error: null, latencyMs: 42 });
+    vi.mocked(testNoAuthProvider).mockResolvedValue({ ok: true, error: null, latencyMs: 42 });
 
     const res = await POST(req({ mode: "free" }) as never);
     const data = await res.json();
@@ -67,7 +67,7 @@ describe("POST /api/providers/test-batch (free mode, noAuth)", () => {
     vi.mocked(getProviderConnections).mockResolvedValue([
       { id: "conn-1", provider: "no-auth-provider", name: "stored-conn", authType: "apikey", isActive: true },
     ] as never);
-    vi.mocked(testNoAuthProvider).mockResolvedValue({ valid: true, error: null, latencyMs: 10 });
+    vi.mocked(testNoAuthProvider).mockResolvedValue({ ok: true, error: null, latencyMs: 10 });
 
     await POST(req({ mode: "free" }) as never);
 
@@ -79,7 +79,7 @@ describe("POST /api/providers/test-batch (free mode, noAuth)", () => {
 
   it("tests noAuth providers via testNoAuthProvider when no stored connection exists", async () => {
     vi.mocked(getProviderConnections).mockResolvedValue([] as never);
-    vi.mocked(testNoAuthProvider).mockResolvedValue({ valid: false, error: "timeout", latencyMs: 5000 });
+    vi.mocked(testNoAuthProvider).mockResolvedValue({ ok: false, error: "timeout", latencyMs: 5000 });
 
     const res = await POST(req({ mode: "free" }) as never);
     const data = await res.json();
@@ -97,8 +97,8 @@ describe("POST /api/providers/test-batch (free mode, noAuth)", () => {
     vi.mocked(getProviderConnections).mockResolvedValue([
       { id: "conn-2", provider: "free-with-auth", name: "my-key", authType: "apikey", isActive: true },
     ] as never);
-    vi.mocked(testSingleConnection).mockResolvedValue({ valid: true, error: null, refreshed: false, latencyMs: 100, testedAt: new Date().toISOString() });
-    vi.mocked(testNoAuthProvider).mockResolvedValue({ valid: true, error: null, latencyMs: 10 });
+    vi.mocked(testSingleConnection).mockResolvedValue({ ok: true, error: null, refreshed: false, latencyMs: 100, testedAt: new Date().toISOString() });
+    vi.mocked(testNoAuthProvider).mockResolvedValue({ ok: true, error: null, latencyMs: 10 });
 
     const res = await POST(req({ mode: "free" }) as never);
     const data = await res.json();

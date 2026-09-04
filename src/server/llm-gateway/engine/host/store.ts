@@ -11,3 +11,4 @@ export {
   upsertSmartModelProfiles,
 } from "@/lib/db/repos/smartModelProfilesRepo";
 export { getDisabledModels } from "@/lib/disabledModelsDb";
+export { getPricingOverrides } from "@/lib/db/repos/pricingRepo";

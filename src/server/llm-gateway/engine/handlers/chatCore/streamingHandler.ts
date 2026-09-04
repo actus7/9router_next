@@ -7,10 +7,12 @@ import { STREAM_FIRST_CHUNK_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../../co
 import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail";
 import { saveRequestDetail } from "../../host/usage";
+import { summarizeRoutingTrace } from "../../host/routingTrace";
+import { getRoutingTrace } from "../../services/routingTrace";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants";
-import type { StreamingHandlerContext, OnStreamCompleteContext } from "./types";
+import type { StreamingHandlerContext, OnStreamCompleteContext, TransformStreamContext } from "./types";
 
-// Codex returns Responses API SSE â†’ which client format to translate INTO, by request sourceFormat.
+// Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
 const CODEX_SOURCE_TO_TARGET: Record<string, string> = {
   [FORMATS.OPENAI_RESPONSES]: FORMATS.OPENAI_RESPONSES,
   [FORMATS.CLAUDE]: FORMATS.CLAUDE,
@@ -22,48 +24,38 @@ const CODEX_SOURCE_TO_TARGET: Record<string, string> = {
 /**
  * Determine which SSE transform stream to use based on provider/format.
  */
-function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey }: {
-  provider: string;
-  sourceFormat: string;
-  targetFormat: string;
-  userAgent?: string;
-  reqLogger: Record<string, unknown>;
-  toolNameMap?: Record<string, string>;
-  customToolNames?: Set<string>;
-  model: string;
-  connectionId: string;
-  body: Record<string, unknown>;
-  onStreamComplete: (contentObj: Record<string, unknown>, usage: Record<string, unknown> | null, ttftAt: number | null) => void;
-  apiKey?: string;
-}) {
+function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey }: TransformStreamContext) {
   const isDroidCLI = userAgent?.toLowerCase().includes("droid") || userAgent?.toLowerCase().includes("codex-cli");
   const isResponsesProvider = (PROVIDERS[provider] as Record<string, unknown>)?.format === FORMATS.OPENAI_RESPONSES;
   const needsCodexTranslation = isResponsesProvider && targetFormat === FORMATS.OPENAI_RESPONSES && !isDroidCLI;
 
-  // reqLogger/toolNameMap/customToolNames have genuinely mismatched shapes across this call
-  // chain (see chatCore/types.ts RequestLogger vs the real createRequestLogger() return type,
-  // and toolNameMap's Map<string,string> runtime shape vs its Record<string,string> param type)
-  // â€” cast narrowly to each function's own parameter type instead of blanket-casting every
-  // argument to `null`, which used to erase real type-checking on the other positions too.
-  const loggerArg = reqLogger as unknown as Parameters<typeof createSSETransformStreamWithLogger>[3];
-  const toolMapArg = toolNameMap as unknown as Parameters<typeof createSSETransformStreamWithLogger>[4];
-  const customToolNamesArg = customToolNames as unknown as Parameters<typeof createSSETransformStreamWithLogger>[10];
 
   if (needsCodexTranslation) {
     const codexTarget = CODEX_SOURCE_TO_TARGET[sourceFormat] || FORMATS.OPENAI;
-    return createSSETransformStreamWithLogger(FORMATS.OPENAI_RESPONSES, codexTarget, provider, loggerArg, toolMapArg, model, connectionId, body, onStreamComplete, apiKey, customToolNamesArg);
+    return createSSETransformStreamWithLogger(FORMATS.OPENAI_RESPONSES, codexTarget, provider, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames);
   }
 
   if (needsTranslation(targetFormat, sourceFormat)) {
-    return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, loggerArg, toolMapArg, model, connectionId, body, onStreamComplete, apiKey, customToolNamesArg);
+    return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames);
   }
 
-  return createPassthroughStreamWithLogger(provider, loggerArg as unknown as Parameters<typeof createPassthroughStreamWithLogger>[1], model, connectionId, body, onStreamComplete, apiKey);
+  return createPassthroughStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey);
 }
 
 /**
- * Handle streaming response â€” pipe provider SSE through transform stream to client.
+ * Handle streaming response — pipe provider SSE through transform stream to client.
  */
+/**
+ * The routing summary for this request, read off the trace that rides the body.
+ * Stored on the always-written usage row because the full trace only travels on
+ * a response header and `requestDetails` is opt-in — so with observability off,
+ * nothing recorded why a request routed where it did.
+ */
+function routingMeta(body: unknown): Record<string, unknown> | undefined {
+  const summary = summarizeRoutingTrace(getRoutingTrace(body as Record<string, unknown>));
+  return summary ? { routing: summary } : undefined;
+}
+
 export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }: StreamingHandlerContext) {
   if (onRequestSuccess) {
     Promise.resolve()
@@ -81,7 +73,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     const shortMsg = sanitizedTitle
       || (bodyText.length < 200 ? bodyText.replace(/<[^>]*>/g, '').trim().slice(0, 160) : `Upstream returned non-SSE response (${upstreamContentType})`);
     const status = providerResponse.status || 502;
-    if (log?.errorLine) log.errorLine(reqTag, "âœ—", `BLOCKED ${status} Â· ${provider}/${model} Â· non-SSE (${upstreamContentType})\n    ${shortMsg}`);
+    if (log?.errorLine) log.errorLine(reqTag, "✗", `BLOCKED ${status} · ${provider}/${model} · non-SSE (${upstreamContentType})\n    ${shortMsg}`);
     else console.warn(`[STREAM] ${provider} | ${model} | blocked pipe: ${shortMsg} [${status}]`);
     streamController?.handleError?.(new Error(`upstream non-SSE: ${status}`));
     return {
@@ -93,13 +85,13 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     };
   }
 
-  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger: reqLogger as unknown as Record<string, unknown>, toolNameMap: toolNameMap as Record<string, string> | undefined, customToolNames: customToolNames as Set<string> | undefined, model, connectionId, body, onStreamComplete, apiKey });
+  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey });
 
   const isResponsesPassthrough = sourceFormat === FORMATS.OPENAI_RESPONSES && targetFormat === FORMATS.OPENAI_RESPONSES;
   const onAbortTerminal = isResponsesPassthrough ? buildAbortedResponsesTerminalBytes : null;
   const stallTimeoutMs = ((PROVIDERS[provider] as Record<string, unknown>)?.stallTimeoutMs as number) || STREAM_STALL_TIMEOUT_MS;
   const firstChunkTimeoutMs = ((PROVIDERS[provider] as Record<string, unknown>)?.firstChunkTimeoutMs as number) || STREAM_FIRST_CHUNK_TIMEOUT_MS;
-  const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController as unknown as Parameters<typeof pipeWithDisconnect>[2], onAbortTerminal as unknown as Parameters<typeof pipeWithDisconnect>[3], stallTimeoutMs, firstChunkTimeoutMs);
+  const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal as unknown as Parameters<typeof pipeWithDisconnect>[3], stallTimeoutMs, firstChunkTimeoutMs);
 
   saveRequestDetail(buildRequestDetail({
     provider, model, connectionId,
@@ -149,8 +141,8 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       console.error("[RequestDetail] Failed to update streaming content:", (err as Error).message);
     });
 
-    saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true });
-    if (log?.line) log.line(reqTag, "ðŸ“Š", formatDoneLine({ usage, latency }));
+    saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true, meta: routingMeta(body) });
+    if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
   };
 
   return { onStreamComplete, streamDetailId };

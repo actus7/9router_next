@@ -4,6 +4,7 @@ import {
   applyPluginToggle,
   proposeHarnessCapability,
 } from "@/server/harness/governance/applyPluginWrite";
+import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -11,6 +12,8 @@ function badRequest(message: string) {
 
 export async function POST(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const action = body.action;
   if (action === "toggle") {
@@ -32,7 +35,6 @@ export async function POST(request: NextRequest) {
       title: typeof body.title === "string" ? body.title : "",
       description: typeof body.description === "string" ? body.description : "",
       toolName: typeof body.tool_name === "string" ? body.tool_name : "",
-      source: body.source === "ui" ? "ui" : "agent",
     });
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });

@@ -62,8 +62,8 @@ function normalizeMiniMaxVoices(data: Record<string, unknown>) {
  * Returns { languages, byLang } grouped for the shared TTS voice picker.
  */
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider") === "minimax-cn" ? "minimax-cn" : "minimax";
     const voiceType = searchParams.get("voice_type") || "all";
     const langFilter = searchParams.get("lang");

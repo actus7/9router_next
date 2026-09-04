@@ -12,7 +12,7 @@ export async function OPTIONS() {
 }
 
 /** GET /v1/videos/{request_id} - poll async video job status (xAI Grok Imagine) */
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: RouteContext<"/api/v1/videos/[id]">) {
   const { id } = await params;
   return await handleVideoGet(request, id);
 }

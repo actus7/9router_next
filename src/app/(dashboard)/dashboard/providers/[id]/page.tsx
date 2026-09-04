@@ -17,9 +17,7 @@ import { notFound } from "next/navigation";
 
 async function ProviderDetailContent({
   params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+}: Pick<PageProps<"/dashboard/providers/[id]">, "params">) {
   await assertRequestRuntime();
   const { id } = await params;
 
@@ -65,6 +63,6 @@ async function ProviderDetailContent({
   );
 }
 
-export default function ProviderDetailPage(props: { params: Promise<{ id: string }> }) {
+export default function ProviderDetailPage(props: PageProps<"/dashboard/providers/[id]">) {
   return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProviderDetailContent {...props} /></Suspense>;
 }

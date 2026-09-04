@@ -99,7 +99,7 @@ export interface UsageStats {
 interface RefMaps {
   connectionMap: Record<string, string>;
   providerNodeNameMap: Record<string, string>;
-  apiKeyMap: Record<string, { name: string | null; id: string; createdAt: string }>;
+  apiKeyMap: Record<string, { name: string | null; id: string; createdAt: string; key: string }>;
 }
 
 export async function getUsageStatsForState(
@@ -141,8 +141,15 @@ async function loadReferenceMaps(): Promise<RefMaps> {
   for (const n of nodes) if (n.id && n.name) providerNodeNameMap[n.id] = n.name!;
 
   const allApiKeys: Array<{ key: string; name: string | null; id: string; createdAt: string }> = await getApiKeys();
-  const apiKeyMap: Record<string, { name: string | null; id: string; createdAt: string }> = {};
-  for (const k of allApiKeys) apiKeyMap[k.key] = { name: k.name, id: k.id, createdAt: k.createdAt };
+  const apiKeyMap: Record<string, { name: string | null; id: string; createdAt: string; key: string }> = {};
+  // Indexed under both the id and the raw key. Usage rows now store the id so
+  // the secret is not kept in a table that is never pruned, but rows written
+  // before migration 009 still hold the raw key and have to keep resolving.
+  for (const k of allApiKeys) {
+    const entry = { name: k.name, id: k.id, createdAt: k.createdAt, key: k.key };
+    apiKeyMap[k.id] = entry;
+    apiKeyMap[k.key] = entry;
+  }
 
   return { connectionMap, providerNodeNameMap, apiKeyMap };
 }
@@ -295,7 +302,10 @@ function aggregateDailySummary(db: DbLike, period: string, stats: UsageStats, ma
       const apiKeyVal: string = ak.apiKey as string;
       const keyInfo = apiKeyVal ? apiKeyMap[apiKeyVal] : null;
       const keyName: string = keyInfo?.name || (apiKeyVal ? apiKeyVal.slice(0, 8) + "..." : "Local (No API Key)");
-      const apiKeyMasked: string | null = maskApiKey(apiKeyVal);
+      // Mask the real key when the row resolves to one — a stored keyId is a
+      // uuid, and masking a uuid would show the operator something they cannot
+      // match against the key they hold.
+      const apiKeyMasked: string | null = maskApiKey(keyInfo?.key ?? apiKeyVal);
       const apiKeyKey: string = apiKeyMasked || "local-no-key";
       if (!stats.byApiKey[akKey]) {
         stats.byApiKey[akKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, apiKeyMasked, keyName, apiKeyKey, lastUsed: dateKey };

@@ -8,11 +8,7 @@ import {
   isValidMediaProviderKind,
 } from "../../validateDetailRoute";
 
-interface PageProps {
-  params: Promise<{ kind: string; id: string }>;
-}
-
-export default async function MediaProviderDetailPage({ params }: PageProps) {
+export default async function MediaProviderDetailPage({ params }: PageProps<"/dashboard/media-providers/[kind]/[id]">) {
   await assertRequestRuntime();
   const { kind, id } = await params;
 

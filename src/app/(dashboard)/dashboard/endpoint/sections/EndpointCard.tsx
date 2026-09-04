@@ -1,7 +1,7 @@
 "use client";
 
 import { Card } from "@/shared/components";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import EndpointRow from "../components/EndpointRow";

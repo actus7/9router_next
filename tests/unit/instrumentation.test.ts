@@ -4,11 +4,20 @@ const startupMocks = vi.hoisted(() => ({
   capture: vi.fn(),
   outboundProxy: vi.fn(async () => true),
   initializeApp: vi.fn(async () => undefined),
+  bootstrap: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/consoleLogBuffer", () => ({ initConsoleLogCapture: startupMocks.capture }));
 vi.mock("@/lib/network/initOutboundProxy", () => ({ ensureOutboundProxyInitialized: startupMocks.outboundProxy }));
 vi.mock("@/shared/services/initializeApp", () => ({ initializeApp: startupMocks.initializeApp }));
+// `register()` loads four modules, and this fourth one was the only unmocked
+// import. `bootstrap()` reaches pluginRowsRepo -> getAdapter(), which ran the
+// real migration chain against the operator's own database in
+// %APPDATA%/modelhub (or ~/.modelhub) every time the suite ran. That is why this
+// test intermittently blew its 15s timeout, and it also meant `npm test` wrote
+// to live data — harmless while the migrations were additive, not harmless once
+// 009 rewrites usageHistory and 010 encrypts credentials in place.
+vi.mock("@/server/plugin-core/context", () => ({ bootstrap: startupMocks.bootstrap }));
 
 import { register, onRequestError } from "@/instrumentation";
 
@@ -82,5 +91,8 @@ describe("instrumentation (FASE 5)", () => {
     expect(startupMocks.capture).toHaveBeenCalledOnce();
     expect(startupMocks.outboundProxy).toHaveBeenCalledOnce();
     expect(startupMocks.initializeApp).toHaveBeenCalledOnce();
+    // The fourth startup step, previously unmocked and therefore hitting the
+    // real database.
+    expect(startupMocks.bootstrap).toHaveBeenCalledOnce();
   });
 });

@@ -3,9 +3,7 @@ import { getCloudDeploymentById, getCloudConnectionById, updateCloudDeployment }
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { isCloudProviderError, formatCloudProviderError } from "@/server/cloud/providers/driver";
 
-type Params = { params: Promise<{ id: string }> };
-
-export async function POST(_request: NextRequest, { params }: Params) {
+export async function POST(_request: NextRequest, { params }: RouteContext<"/api/cloud/deployments/[id]/refresh">) {
   const { id } = await params;
   const deployment = await getCloudDeploymentById(id);
   if (!deployment) return NextResponse.json({ error: "Deployment não encontrado" }, { status: 404 });

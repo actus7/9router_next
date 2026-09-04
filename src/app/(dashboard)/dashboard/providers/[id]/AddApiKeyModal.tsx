@@ -83,7 +83,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         const res = await fetch("/api/providers/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, apiKey: formData.apiKey, providerSpecificData: buildProviderSpecificData() }) });
         const data = await res.json(); isValid = !!data.valid; setValidationResult(isValid ? "success" : "failed");
       } catch { setValidationResult("failed"); } finally { setValidating(false); }
-      await onSave({ name: formData.name, apiKey: formData.apiKey, defaultModel: isCompatible ? formData.defaultModel.trim() : undefined, priority: formData.priority, proxyPoolId: formData.proxyPoolId === NONE_PROXY_POOL_VALUE ? null : formData.proxyPoolId, testStatus: isValid ? "active" : "unknown", providerSpecificData: buildProviderSpecificData() });
+      await onSave({ name: formData.name, apiKey: formData.apiKey, defaultModel: isCompatible ? formData.defaultModel.trim() : undefined, priority: formData.priority, proxyPoolId: formData.proxyPoolId === NONE_PROXY_POOL_VALUE ? null : formData.proxyPoolId, validated: isValid, providerSpecificData: buildProviderSpecificData() });
     } finally { setSaving(false); }
   };
 

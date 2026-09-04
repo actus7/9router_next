@@ -1,18 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCustomModels, addCustomModel, deleteCustomModel } from "@/models";
-
-
-const DISCOVERED_MODEL_METADATA_KEYS = new Set([
-  "description", "context_length", "contextLength", "contextWindow", "max_output_tokens", "maxOutputTokens",
-  "capabilities", "modalities", "input_modalities", "output_modalities", "owned_by", "provider",
-  "upstreamModelId", "quotaFamily", "version",
-]);
-
-function pickDiscoveredMetadata(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
-    .filter(([key]) => DISCOVERED_MODEL_METADATA_KEYS.has(key)));
-}
+import { getCustomModels, addCustomModel, deleteCustomModel, pickDiscoveredMetadata } from "@/models";
 
 // GET /api/models/custom - List all custom models
 export async function GET(): Promise<NextResponse> {
@@ -49,8 +36,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 // DELETE /api/models/custom?providerAlias=xxx&id=yyy&type=zzz
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const providerAlias = searchParams.get("providerAlias");
     const id = searchParams.get("id");
     const type = searchParams.get("type") || "llm";

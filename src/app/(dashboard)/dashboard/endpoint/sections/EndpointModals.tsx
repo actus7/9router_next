@@ -1,7 +1,7 @@
 "use client";
 
 import { Modal, ConfirmModal } from "@/shared/components";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import StatusAlert from "../components/StatusAlert";
 import { Check, CheckCircle2, CloudUpload, Copy, Loader2 } from "lucide-react";

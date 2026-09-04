@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   DynamicMedia,
   isSupportedMediaSource,
-} from "@/components/ui/dynamic-media";
+} from "@/shared/components/DynamicMedia";
 import { ChevronRight, Wrench } from "lucide-react";
 import type { ToolCall } from "../types";
 

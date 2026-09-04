@@ -1,5 +1,6 @@
 "use client";
 
+import { probeModel } from "../../probeModel";
 import { translate } from "@/i18n/runtime";
 import type { ModelDiagnostic } from "../types";
 
@@ -19,24 +20,14 @@ export async function pingModelWithRetry(
     if (signal?.aborted) return { modelId, ok: false, state: "cancelled", error: "Test cancelled", attempts: attemptsMade, status: lastStatus };
     attemptsMade = attempt + 1;
     onProgress({ modelId, ok: false, state: attempt === 0 ? "testing" : "retrying", attempts: attemptsMade });
-    try {
-      const res = await fetch("/api/models/test", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}`, timeoutMs: timeoutSchedule[attempt] }),
-        signal,
-      });
-      const data = await res.json();
-      if (data.ok) return { modelId, ok: true, state: "passed", attempts: attemptsMade, latencyMs: data.latencyMs, status: data.status };
-      lastError = data.error || lastError;
-      lastStatus = data.status;
-      if (data.isTimeout) onProgress({ modelId, ok: false, state: "retrying", attempts: attemptsMade, status: lastStatus, error: lastError });
-      if (data.status === 429 || Number(data.status) >= 500) { onProgress({ modelId, ok: false, state: "retrying", attempts: attemptsMade, status: lastStatus, error: lastError }); continue; }
-      if (!data.isTimeout) break;
-    } catch {
-      if (signal?.aborted) return { modelId, ok: false, state: "cancelled", error: "Test cancelled", attempts: attemptsMade, status: lastStatus };
-      lastError = translate("Network error") || "Network error";
-      onProgress({ modelId, ok: false, state: "retrying", attempts: attemptsMade, error: lastError });
-    }
+    const result = await probeModel(`${providerStorageAlias}/${modelId}`, { timeoutMs: timeoutSchedule[attempt], signal });
+    if (result.cancelled) return { modelId, ok: false, state: "cancelled", error: "Test cancelled", attempts: attemptsMade, status: lastStatus };
+    if (result.status === "ok") return { modelId, ok: true, state: "passed", attempts: attemptsMade, latencyMs: result.latencyMs, status: result.httpStatus };
+    lastError = result.error || lastError;
+    lastStatus = result.httpStatus;
+    if (result.isTimeout) onProgress({ modelId, ok: false, state: "retrying", attempts: attemptsMade, status: lastStatus, error: lastError });
+    if (result.httpStatus === 429 || Number(result.httpStatus) >= 500) { onProgress({ modelId, ok: false, state: "retrying", attempts: attemptsMade, status: lastStatus, error: lastError }); continue; }
+    if (!result.isTimeout) break;
   }
   return { modelId, ok: false, state: "failed", error: lastError, attempts: attemptsMade, status: lastStatus };
 }

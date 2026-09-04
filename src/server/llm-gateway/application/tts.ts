@@ -1,9 +1,10 @@
+import { requireGatewayApiKey } from "./gatewayApiKey";
 import {
-  extractApiKey, isValidApiKey,
+  extractApiKey,
   getProviderCredentials, markAccountUnavailable,
 } from "../auth/accountSelection";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
-import { getModelInfo, getComboModels } from "./modelResolution";
+import { getModelInfo, getComboModels, assertModelEnabled } from "./modelResolution";
 import { handleTtsCore } from "@/server/llm-gateway/engine/handlers/ttsCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
@@ -37,11 +38,8 @@ export async function handleTts(request: Request): Promise<Response> {
 
   const settings = await getSettings();
   const apiKey: string | null = extractApiKey(request);
-  if (settings.requireApiKey) {
-    if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    const valid: boolean = await isValidApiKey(apiKey);
-    if (!valid) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
+  const authError = await requireGatewayApiKey(apiKey);
+  if (authError) return authError;
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!body.input) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: input");
@@ -99,6 +97,9 @@ async function handleSingleModelTts(body: Record<string, unknown>, modelStr: str
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
+
+  const disabledResponse = await assertModelEnabled(provider, model);
+  if (disabledResponse) return disabledResponse;
   log.info("ROUTING", `Provider: ${provider}, Voice: ${model}`);
 
   if (!CREDENTIALED_PROVIDERS.has(provider)) {

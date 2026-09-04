@@ -1,5 +1,6 @@
 "use client";
 
+import { probeModel } from "../probeModel";
 import { translate } from "@/i18n/runtime";
 
 export async function importModelsFromEndpoint(
@@ -39,13 +40,7 @@ export async function testCompatibleModel(
   modelId: string,
 ): Promise<"ok" | "error"> {
   try {
-    const res = await fetch("/api/models/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}` }),
-    });
-    const data = await res.json();
-    return data.ok ? "ok" : "error";
+    return (await probeModel(`${providerStorageAlias}/${modelId}`)).status;
   } catch {
     return "error";
   }

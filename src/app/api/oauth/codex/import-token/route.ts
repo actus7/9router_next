@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
 import { extractCodexAccountInfo } from "@/lib/oauth/providers";
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       name: connectionName,
       email: email,
       providerSpecificData,
-      testStatus: "active",
+      testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
     });
 
     return NextResponse.json({

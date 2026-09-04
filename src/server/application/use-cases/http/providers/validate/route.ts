@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { normalizeProviderId } from "@/lib/providerNormalization";
+import { probeOk, type MaybeProbeResult, type ProbeResult } from "@/server/llm-gateway/probe/types";
 import { probeMediaProvider, probeWebProvider } from "./validateProbes";
 import {
   handleAnthropicCompatibleNode,
@@ -13,7 +14,48 @@ import { validateProviderKey } from "./validateProviderKey";
 
 type ValidateBody = { apiKey?: string; providerSpecificData?: Record<string, unknown> };
 
-// POST /api/providers/validate - Validate API key with provider
+/**
+ * Ordered probe chain: the first stage that owns the provider answers.
+ * Node-backed providers are matched by id prefix, two providers need
+ * account-specific config, then the config-driven web and media probes get a
+ * chance, and finally the per-provider table with its generic fallback.
+ */
+async function runProbeChain(
+  provider: string,
+  apiKey: string,
+  providerSpecificData: Record<string, unknown> | undefined,
+): Promise<ProbeResult> {
+  if (isOpenAICompatibleProvider(provider)) return handleOpenAiCompatibleNode(provider, apiKey);
+  if (isCustomEmbeddingProvider(provider)) return handleCustomEmbeddingNode(provider, apiKey);
+  if (isAnthropicCompatibleProvider(provider)) return handleAnthropicCompatibleNode(provider, apiKey);
+  if (provider === "cloudflare-ai") return handleCloudflareAi(apiKey, providerSpecificData);
+  if (provider === "azure") return handleAzure(apiKey, providerSpecificData);
+
+  const web: MaybeProbeResult = await probeWebProvider(provider, apiKey);
+  if (web) return web;
+
+  const media: MaybeProbeResult = await probeMediaProvider(provider, apiKey);
+  if (media) return media;
+
+  return validateProviderKey(provider, apiKey, providerSpecificData);
+}
+
+/** The one place a probe verdict becomes an HTTP response. */
+function toResponse(result: ProbeResult): NextResponse {
+  if (result.configError === "missing-node") {
+    return NextResponse.json({ error: result.error }, { status: 404 });
+  }
+  if (result.configError === "missing-config") {
+    return NextResponse.json({ valid: false, error: result.error }, { status: 400 });
+  }
+  return NextResponse.json({
+    valid: result.ok,
+    error: result.ok ? null : (result.error || "Invalid API key"),
+    ...(result.warning ? { warning: result.warning } : {}),
+  });
+}
+
+// POST /api/providers/validate - Validate a credential with its provider
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
@@ -24,56 +66,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!provider || (!apiKey && !isNoAuth)) {
       return NextResponse.json({ error: "Provider and API key required" }, { status: 400 });
     }
+    if (isNoAuth && !apiKey) return toResponse(probeOk());
 
-    // Validate with each provider
     try {
-      // Node-backed special cases return their own response
-      if (isOpenAICompatibleProvider(provider)) {
-        return (await handleOpenAiCompatibleNode(provider, apiKey!))!;
-      }
-
-      // Custom Embedding nodes: probe /models (most embedding APIs are OpenAI-compatible)
-      if (isCustomEmbeddingProvider(provider)) {
-        return (await handleCustomEmbeddingNode(provider, apiKey!))!;
-      }
-
-      if (isAnthropicCompatibleProvider(provider)) {
-        return (await handleAnthropicCompatibleNode(provider, apiKey!))!;
-      }
-
-      if (provider === "cloudflare-ai") {
-        return await handleCloudflareAi(apiKey!, providerSpecificData);
-      }
-
-      if (provider === "azure") {
-        return await handleAzure(apiKey!, providerSpecificData);
-      }
-
-      // Generic probe for webSearch/webFetch providers (config-driven)
-      const webResult = await probeWebProvider(provider, apiKey!);
-      if (webResult !== null) {
-        return NextResponse.json({
-          valid: webResult,
-          error: webResult ? null : "Invalid API key",
-        });
-      }
-
-      // Generic probe for tts/embedding providers (config-driven)
-      const mediaResult = await probeMediaProvider(provider, apiKey!);
-      if (mediaResult !== null) {
-        return NextResponse.json({
-          valid: mediaResult,
-          error: mediaResult ? null : "Invalid API key",
-        });
-      }
-
-      const result = await validateProviderKey(provider, apiKey!, providerSpecificData);
-      if (result instanceof NextResponse) return result;
-      return NextResponse.json({
-        valid: result.isValid,
-        error: result.isValid ? null : (result.error || "Invalid API key"),
-      });
+      return toResponse(await runProbeChain(provider, apiKey!, providerSpecificData));
     } catch (err) {
+      // A thrown probe is inconclusive, not a hard failure of the endpoint.
       return NextResponse.json({
         valid: false,
         error: (err as Error).message || "Invalid API key",

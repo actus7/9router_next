@@ -7,6 +7,10 @@ import m003 from "./003-harness-conversations";
 import m004 from "./004-model-availability";
 import m005 from "./005-harness-message-fts";
 import m006 from "./006-agent-skill-files";
+import m007 from "./007-harness-pending-decisions";
+import m008 from "./008-connection-test-status";
+import m009 from "./009-usage-api-key-id";
+import m010 from "./010-cipher-connection-blob";
 
 interface Migration {
   version: number;
@@ -14,7 +18,7 @@ interface Migration {
   up(db: unknown): void;
 }
 
-export const MIGRATIONS: Migration[] = [m001 as Migration, m002 as Migration, m003 as Migration, m004 as Migration, m005 as Migration, m006 as Migration].sort((a: Migration, b: Migration) => a.version - b.version);
+export const MIGRATIONS: Migration[] = [m001 as Migration, m002 as Migration, m003 as Migration, m004 as Migration, m005 as Migration, m006 as Migration, m007 as Migration, m008 as Migration, m009 as Migration, m010 as Migration].sort((a: Migration, b: Migration) => a.version - b.version);
 
 export function latestVersion(): number {
   return MIGRATIONS.length ? MIGRATIONS[MIGRATIONS.length - 1].version : 0;

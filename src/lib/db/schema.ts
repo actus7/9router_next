@@ -3,7 +3,12 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION: number = 6;
+// Bumped to 10 for migration 010, which rewrites providerConnections.data to
+// encrypt the credential fields in place. 9 covered the api-key sink columns
+// below plus migration 009 (usageHistory.apiKey -> keyId). Every one of these
+// touches a table that holds or held credential material, so the pre-change
+// backup has to run first.
+export const SCHEMA_VERSION: number = 10;
 
 export const PRAGMA_SQL: string = `
 PRAGMA journal_mode = WAL;
@@ -81,6 +86,11 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_pp_status ON proxyPools(testStatus)",
     ],
   },
+  // One key per destination. The same key used to be written to every CLI
+  // config file, pushed as a cloud env var and handed to the user, with no
+  // record of where it went — so there was no way to rotate one without
+  // breaking the rest. `sink` names the destination and `sinkRef` locates it,
+  // which makes the inventory a query and revocation per-destination.
   apiKeys: {
     columns: {
       id: "TEXT PRIMARY KEY",
@@ -89,8 +99,19 @@ export const TABLES: Record<string, TableDefinition> = {
       machineId: "TEXT",
       isActive: "INTEGER DEFAULT 1",
       createdAt: "TEXT NOT NULL",
+      // "manual" | "dashboard" | "cli:<toolId>" | "cloud:<provider>".
+      // NULL on rows that predate this column, read as "manual".
+      sink: "TEXT",
+      // Where the key landed: a config file path, or a deployment id.
+      sinkRef: "TEXT",
+      // Audit timestamp. `isActive` stays the gate `validateApiKey` reads, so a
+      // revoked row keeps its usage history resolvable instead of vanishing.
+      revokedAt: "TEXT",
     },
-    indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",
+      "CREATE INDEX IF NOT EXISTS idx_ak_sink ON apiKeys(sink)",
+    ],
   },
   combos: {
     columns: {
@@ -121,6 +142,14 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_smp_updated ON smartModelProfiles(updatedAt DESC)",
     ],
   },
+  // Do NOT add a FOREIGN KEY on connectionId. noAuth providers have no
+  // connection row and store their provider-wide cooldown here under the
+  // synthetic id `noauth:<provider>` (see application/noAuthCooldown.ts), so a
+  // constraint would reject those inserts — and adding one to an existing table
+  // means a rebuild that any pre-existing orphan makes fail at boot.
+  // `deleteProviderConnection` clears its children explicitly instead; the
+  // policy for every parent/child pair is asserted in
+  // tests/unit/childRowDeletePolicy.test.ts.
   modelAvailability: {
     columns: {
       connectionId: "TEXT NOT NULL",
@@ -315,9 +344,15 @@ export const TABLES: Record<string, TableDefinition> = {
       action: "TEXT NOT NULL",
       payload: "TEXT NOT NULL",
       source: "TEXT NOT NULL",
+      status: "TEXT NOT NULL DEFAULT 'pending'",
+      reviewedAt: "TEXT",
+      result: "TEXT",
       createdAt: "TEXT NOT NULL",
     },
-    indexes: ["CREATE INDEX IF NOT EXISTS idx_hpw_kind ON harnessPendingWrites(kind)"],
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_hpw_kind ON harnessPendingWrites(kind)",
+      "CREATE INDEX IF NOT EXISTS idx_hpw_status_created ON harnessPendingWrites(status, createdAt)",
+    ],
   },
   harnessMessageIndex: {
     columns: {

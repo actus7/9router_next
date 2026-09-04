@@ -11,19 +11,19 @@ interface CompatibleModelRowProps {
   onCopy: (text: string, id: string) => void;
   onDeleteAlias: () => void;
   onTest?: () => void;
-  testStatus?: "ok" | "error";
+  probeStatus?: "ok" | "error";
   isTesting?: boolean;
 }
 
-export default function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, testStatus, isTesting }: CompatibleModelRowProps) {
-  const borderColor = testStatus === "ok" ? "border-success-border" : testStatus === "error" ? "border-destructive-border" : "border-border";
-  const statusTint = testStatus === "ok" ? "bg-success/5" : testStatus === "error" ? "bg-destructive/5" : "";
-  const iconColorClass = testStatus === "ok" ? "text-success" : testStatus === "error" ? "text-destructive" : "text-text-muted";
+export default function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, probeStatus, isTesting }: CompatibleModelRowProps) {
+  const borderColor = probeStatus === "ok" ? "border-success-border" : probeStatus === "error" ? "border-destructive-border" : "border-border";
+  const statusTint = probeStatus === "ok" ? "bg-success/5" : probeStatus === "error" ? "bg-destructive/5" : "";
+  const iconColorClass = probeStatus === "ok" ? "text-success" : probeStatus === "error" ? "text-destructive" : "text-text-muted";
 
   return (
     <div className={`flex items-center gap-3 p-3 rounded-lg border ${borderColor} ${statusTint} hover:bg-sidebar/50`}>
       <span className={`flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60 ${iconColorClass}`}>
-        {testStatus === "ok" ? <CheckCircle2 className="size-4" /> : testStatus === "error" ? <X className="size-4" /> : <Bot className="size-4" />}
+        {probeStatus === "ok" ? <CheckCircle2 className="size-4" /> : probeStatus === "error" ? <X className="size-4" /> : <Bot className="size-4" />}
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{modelId}</p>

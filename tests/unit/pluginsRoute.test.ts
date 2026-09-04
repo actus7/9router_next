@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// These suites cover route logic, not the auth gate; tests/unit/dashboardAccess.test.ts
+// and tests/unit/harnessRouteAuth.test.ts cover the gate itself.
+vi.mock("@/server/application/http/requireDashboardAccess", () => ({
+  requireDashboardAccess: vi.fn(async () => null),
+}));
+
 // Route handlers mark themselves request-time dynamic, and Next's connection()
 // throws when called outside a request scope, which is where a unit test lives.
 vi.mock("@/server/application/http/requestRuntime", () => ({

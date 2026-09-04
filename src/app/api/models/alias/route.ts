@@ -34,8 +34,8 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
 // DELETE /api/models/alias?alias=xxx - Delete alias
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const alias = searchParams.get("alias");
 
     if (!alias) {

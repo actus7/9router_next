@@ -10,6 +10,9 @@ type ProxyClientMaxBodySize = NonNullable<NextConfig["experimental"]>["proxyClie
 const proxyClientMaxBodySize = (process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE || "128mb") as ProxyClientMaxBodySize;
 
 const nextConfig: NextConfig = {
+  // Next's dev server rejects cross-origin RSC/data requests by default; accessing
+  // via a LAN IP (e.g. from another device) otherwise hangs on the initial data fetch.
+  allowedDevOrigins: ["192.168.68.64", "192.168.68.0/24"],
   cacheComponents: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // `standalone` is for the project's self-hosted runtime. Vercel already
@@ -34,10 +37,6 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "*": ["./gitbook/**/*"]
   },
-  images: {
-    unoptimized: false,
-  },
-  env: {},
   experimental: {
     proxyClientMaxBodySize: proxyClientMaxBodySize,
     optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable"],

@@ -28,6 +28,22 @@ export async function getCustomModels(): Promise<unknown[]> {
   return Object.values(all);
 }
 
+// Metadata fields a discovery snapshot is allowed to persist on a custom model.
+// Owned here because both /api/models/custom and /api/models/discovered write
+// through this repo; keeping one copy stops the two routes from drifting.
+const DISCOVERED_MODEL_METADATA_KEYS: ReadonlySet<string> = new Set([
+  "description", "context_length", "contextLength", "contextWindow", "max_output_tokens", "maxOutputTokens",
+  "capabilities", "modalities", "input_modalities", "output_modalities", "owned_by", "provider",
+  "upstreamModelId", "quotaFamily", "version",
+]);
+
+/** Keep only the metadata keys a discovered model may carry. */
+export function pickDiscoveredMetadata(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => DISCOVERED_MODEL_METADATA_KEYS.has(key)));
+}
+
 export interface CustomModelInput {
   providerAlias: string;
   id: string;

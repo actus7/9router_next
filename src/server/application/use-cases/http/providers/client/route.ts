@@ -76,10 +76,10 @@ function sortConnections(connections: Record<string, unknown>[], sort: string): 
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const { searchParams } = new URL(request.url);
   try {
     await backfillCodexEmails();
 
-    const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider") || "all";
     const accountStatus = searchParams.get("accountStatus") || "all";
     const sort = searchParams.get("sort") || "priority";
@@ -98,7 +98,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         name: "Observed usage",
         isActive: true,
         authType: "usage",
-        testStatus: "usage",
+        // No testStatus: these are synthetic rows for providers seen only in
+        // usage history, never tested. The card keys off `usageOnly`.
         usageOnly: true,
       }));
     const eligibleConnections = [...quotaConnections, ...observedConnections];

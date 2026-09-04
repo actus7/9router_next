@@ -92,14 +92,16 @@ export default function ChatModelPickerModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent showCloseButton={false} className="max-w-3xl gap-0 overflow-hidden rounded-[14px] border border-border-subtle bg-surface p-0 shadow-[var(--shadow-elev)] ring-0">
-        <div className="flex items-start justify-between gap-3 border-b border-border-subtle p-4">
+        <div className="flex min-w-0 items-start justify-between gap-3 border-b border-border-subtle p-3 sm:p-4">
           <div className="min-w-0">
-            <DialogTitle className="text-lg font-semibold text-text-main">{translate("Choose model") || "Choose model"}</DialogTitle>
-            <p className="mt-0.5 text-sm text-text-muted">{translate("Select an active provider and model for this conversation.") || "Select an active provider and model for this conversation."}</p>
+            <DialogTitle className="text-base font-semibold text-text-main sm:text-lg">{translate("Choose model") || "Choose model"}</DialogTitle>
+            {/* The subtitle only restates the dialog's purpose; on a phone that row
+                costs more list rows than it explains. */}
+            <p className="mt-0.5 hidden text-sm text-text-muted sm:block">{translate("Select an active provider and model for this conversation.") || "Select an active provider and model for this conversation."}</p>
           </div>
           <Button type="button" onClick={onClose} aria-label={translate("Close") || "Close"} variant="ghost" size="icon-sm" className="shrink-0"><X className="size-5" /></Button>
         </div>
-        <div className="flex flex-col gap-2 border-b border-border-subtle p-4">
+        <div className="flex min-w-0 flex-col gap-2 border-b border-border-subtle p-3 sm:p-4">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
             <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={translate("Search by model or provider...") || "Search by model or provider..."} className="pl-9" autoFocus />
@@ -122,10 +124,14 @@ export default function ChatModelPickerModal({
             ))}
           </div>
         </div>
-        <div className="flex min-h-0 max-h-[60vh] flex-col sm:flex-row">
+        {/* min-w-0 is load-bearing: DialogContent is a grid, so without it these
+            tracks size to the provider strip's max-content (~1500px with a dozen
+            providers). The dialog's overflow-hidden then clipped everything to the
+            right — including the close button — instead of the strip scrolling. */}
+        <div className="flex min-h-0 min-w-0 max-h-[70dvh] flex-col sm:max-h-[60vh] sm:flex-row">
           {/* Below sm the provider list is a horizontal strip: as a fixed 13rem
               rail it left almost no width for the model names beside it. */}
-          <aside className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-border-subtle p-2 custom-scrollbar sm:w-52 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r">
+          <aside className="flex w-full min-w-0 shrink-0 gap-1 overflow-x-auto border-b border-border-subtle p-2 custom-scrollbar sm:w-52 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r">
             <button type="button" onClick={() => setSelectedProviderId(null)} className={cn("flex shrink-0 items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors sm:w-full", selectedProviderId === null ? "bg-primary text-primary-foreground" : "text-text-main hover:bg-muted")}>
               <span className="whitespace-nowrap">{translate("All providers") || "All providers"}</span><span className={cn("text-xs", selectedProviderId === null ? "text-primary-foreground/80" : "text-text-muted")}>{totalModels}</span>
             </button>
@@ -136,7 +142,7 @@ export default function ChatModelPickerModal({
               </button>
             ))}
           </aside>
-          <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-2 custom-scrollbar">
             {selectedProviderId && visibleGroups[0]
               ? selectedModels.map((model) => renderModel(model, visibleGroups[0]!, false))
               : visibleGroups.map((provider) => (

@@ -143,6 +143,20 @@ export async function runBackgroundTokenRefreshTick(deps: TickDeps = {}): Promis
   }
 }
 
+/** Drop expired model cooldown rows. Fail-open: GC never breaks the tick. */
+function sweepExpiredModelAvailability(): void {
+  void import("@/lib/db/repos/modelAvailabilityRepo")
+    .then(({ cleanupExpiredModelAvailability }) => cleanupExpiredModelAvailability())
+    .then((removed: number) => {
+      if (removed > 0) log.debug("BG_TOKEN_REFRESH", `Cleared ${removed} expired model cooldown(s)`);
+    })
+    .catch((err: unknown) => {
+      log.warn("BG_TOKEN_REFRESH", "Model availability sweep failed (swallowed)", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+}
+
 interface StartOptions {
   intervalMs?: number;
 }
@@ -171,6 +185,10 @@ export function startBackgroundTokenRefresh({ intervalMs }: StartOptions = {}): 
         error: err?.message ?? String(err),
       });
     });
+    // Expired model cooldowns are already ignored by the reader, but without a
+    // sweep they accumulate forever. This is the only always-on timer in the
+    // server runtime, so the GC rides along instead of adding a second one.
+    sweepExpiredModelAvailability();
   };
 
   initialTimeoutHandle = setTimeout(safeTick, INITIAL_DELAY_MS);

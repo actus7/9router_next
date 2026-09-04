@@ -8,6 +8,8 @@ import { HTTP_STATUS } from "../../config/runtimeConfig";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail";
 import { saveRequestDetail } from "../../host/usage";
+import { summarizeRoutingTrace } from "../../host/routingTrace";
+import { getRoutingTrace } from "../../services/routingTrace";
 import { decloakToolNames } from "../../utils/claudeCloaking";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index";
 import type { NonStreamingHandlerContext } from "./types";
@@ -68,7 +70,7 @@ function openAICompletionToClaudeMessage(responseBody: JsonObject): JsonObject {
 /**
  * Convert an OpenAI Chat Completions non-streaming response body into the
  * OpenAI Responses API shape. Used when a Responses-format client (e.g. Codex)
- * is routed to a Chat Completions upstream and `stream:false` â€” the streaming
+ * is routed to a Chat Completions upstream and `stream:false` — the streaming
  * path already emits Responses events, but the JSON path returned a raw
  * `chat.completion` body, so tool_calls were invisible to Responses clients.
  */
@@ -81,14 +83,14 @@ function extractCustomToolInput(argumentsValue: unknown): string {
   return argumentsText;
 }
 
-function openAICompletionToResponses(responseBody: JsonObject, customToolNames: Set<string> | null = null): JsonObject {
+function openAICompletionToResponses(responseBody: JsonObject, customToolNames: string[] | null = null): JsonObject {
   const choice = (responseBody.choices as JsonObject[])?.[0];
   if (!choice) return responseBody;
 
   const message = (choice.message as JsonObject) || {};
   const output: JsonObject[] = [];
 
-  // Reasoning â†’ a reasoning item (summary text), mirroring the streaming path.
+  // Reasoning → a reasoning item (summary text), mirroring the streaming path.
   const reasoning = (message.reasoning_content as string) || (message.reasoning as string);
   if (typeof reasoning === "string" && reasoning.length > 0) {
     output.push({
@@ -97,7 +99,7 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
     });
   }
 
-  // Assistant text â†’ a message item with output_text content.
+  // Assistant text → a message item with output_text content.
   const text = typeof message.content === "string" ? message.content : "";
   if (text.length > 0) {
     output.push({
@@ -107,10 +109,10 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
     });
   }
 
-  // tool_calls â†’ function_call/custom_tool_call items (Responses-native tool shape).
+  // tool_calls → function_call/custom_tool_call items (Responses-native tool shape).
   for (const tc of (message.tool_calls as JsonObject[]) || []) {
     const fn = (tc.function as JsonObject) || {};
-    const custom = customToolNames?.has(fn.name as string);
+    const custom = customToolNames?.includes(fn.name as string);
     output.push({
       type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
       id: `${custom ? "ctc" : "fc"}_${tc.id || ""}`,
@@ -143,12 +145,12 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
 }
 
 /**
- * Translate non-streaming response body from provider format â†’ OpenAI format.
+ * Translate non-streaming response body from provider format → OpenAI format.
  */
-function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: string, sourceFormat: string, customToolNames: Set<string> | null = null): JsonObject {
+function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: string, sourceFormat: string, customToolNames: string[] | null = null): JsonObject {
   if (targetFormat === sourceFormat) return responseBody;
   // Provider responded in OpenAI Chat Completions shape but the client speaks
-  // Responses API â€” convert so tool_calls/text surface as Responses `output`.
+  // Responses API — convert so tool_calls/text surface as Responses `output`.
   if (targetFormat === FORMATS.OPENAI && sourceFormat === FORMATS.OPENAI_RESPONSES) {
     return openAICompletionToResponses(responseBody, customToolNames);
   }
@@ -228,7 +230,7 @@ function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: s
     // Early return if the response is already in OpenAI format (has choices array)
     // or if it has content as a non-array value (likely a different non-Claude format).
     // Some providers (e.g. xiaomi-tokenplan) return OpenAI-format responses even when
-    // the request was translated to Claude format â€” the targetFormat is Claude but the
+    // the request was translated to Claude format — the targetFormat is Claude but the
     // actual response is OpenAI-native and needs no further translation.
     if (responseBody.choices || (responseBody.content && !Array.isArray(responseBody.content))) return responseBody;
 
@@ -287,6 +289,17 @@ function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: s
 /**
  * Handle non-streaming response from provider.
  */
+/**
+ * The routing summary for this request, read off the trace that rides the body.
+ * Stored on the always-written usage row because the full trace only travels on
+ * a response header and `requestDetails` is opt-in — so with observability off,
+ * nothing recorded why a request routed where it did.
+ */
+function routingMeta(body: unknown): Record<string, unknown> | undefined {
+  const summary = summarizeRoutingTrace(getRoutingTrace(body as Record<string, unknown>));
+  return summary ? { routing: summary } : undefined;
+}
+
 export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, appendLog, pxpipe, reqTag, log }: NonStreamingHandlerContext) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
@@ -320,12 +333,12 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   }
 
   // Decloak tool_use names once on raw Claude body, before any translation (INPUT side)
-  responseBody = decloakToolNames(responseBody, toolNameMap as unknown as Map<string, string>) as JsonObject;
+  responseBody = decloakToolNames(responseBody, toolNameMap as Map<string, string>) as JsonObject;
 
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });
-  saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
-  if (log?.line) log.line(reqTag, "ðŸ“Š", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
+  saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true, meta: routingMeta(body) });
+  if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
   const translatedResponse = needsTranslation(targetFormat, sourceFormat)
     ? translateNonStreamingResponse(responseBody, targetFormat, sourceFormat, customToolNames)

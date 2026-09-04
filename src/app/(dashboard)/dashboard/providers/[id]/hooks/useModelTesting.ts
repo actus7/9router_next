@@ -1,5 +1,6 @@
 "use client";
 
+import { probeModel } from "../../probeModel";
 import { useRef, useState } from "react";
 import { getModelKind } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
@@ -85,11 +86,10 @@ export function useModelTesting({
     if (testingModelIds.has(modelId)) return;
     setTestingModelIds((prev) => new Set(prev).add(modelId));
     try {
-      const res = await fetch("/api/models/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}` }) });
-      const data = await res.json();
-      if (data.ok) saveModelTestLatency(providerStorageAlias, modelId, data.latencyMs);
-      setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
-      setModelsTestError(data.ok ? "" : (data.error || translate("Model is not reachable")));
+      const result = await probeModel(`${providerStorageAlias}/${modelId}`);
+      if (result.status === "ok") saveModelTestLatency(providerStorageAlias, modelId, result.latencyMs);
+      setModelTestResults((prev) => ({ ...prev, [modelId]: result.status }));
+      setModelsTestError(result.status === "ok" ? "" : (result.error || translate("Model is not reachable") || "Model is not reachable"));
     } catch {
       setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
       setModelsTestError(translate("Network error") || "Network error");

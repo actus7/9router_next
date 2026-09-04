@@ -88,8 +88,27 @@ function maskSensitiveHeaders(headers: Record<string, string> | null | undefined
   // return masked;
 }
 
+/**
+ * What a request logger offers its callers. Declared with method syntax on
+ * purpose: bivariant parameters let the real logger keep its narrower argument
+ * types without every call site needing a cast.
+ */
+export interface RequestLogger {
+  readonly sessionPath: string | null;
+  logClientRawRequest(endpoint?: string, body?: unknown, headers?: Record<string, string>): void;
+  logRawRequest(body?: unknown, headers?: Record<string, string>): void;
+  logOpenAIRequest(body?: unknown): void;
+  logTargetRequest(url?: string, headers?: Record<string, string>, body?: unknown): void;
+  logProviderResponse(status?: unknown, statusText?: unknown, headers?: unknown, body?: unknown): void;
+  appendProviderChunk(chunk?: string): void;
+  appendOpenAIChunk(chunk?: string): void;
+  logConvertedResponse(body?: unknown): void;
+  appendConvertedChunk(chunk?: string): void;
+  logError(error?: unknown, requestBody?: unknown): void;
+}
+
 // No-op logger when logging is disabled
-function createNoOpLogger() {
+function createNoOpLogger(): RequestLogger {
   return {
     sessionPath: null,
     logClientRawRequest() {},
@@ -112,7 +131,7 @@ function createNoOpLogger() {
  * @param {string} model - Model name
  * @returns {Promise<object>} Promise that resolves to logger object with methods to log each stage
  */
-export async function createRequestLogger(sourceFormat: string, targetFormat: string, model: string) {
+export async function createRequestLogger(sourceFormat: string, targetFormat: string, model: string): Promise<RequestLogger> {
   // Return no-op logger if logging is disabled
   if (!LOGGING_ENABLED) {
     return createNoOpLogger();

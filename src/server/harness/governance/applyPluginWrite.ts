@@ -1,7 +1,6 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
 import {
   insertHarnessPendingWrite,
 } from "@/lib/db/repos/harnessPendingWritesRepo";
@@ -46,11 +45,13 @@ export async function applyPluginToggle(input: {
   return { ok: true };
 }
 
+// A proposal always lands in the review queue, whoever raised it, so the stored
+// source stays "agent" — the pending-write table only distinguishes a write that
+// still needs review from one the review flow itself produced.
 export async function proposeHarnessCapability(input: {
   title: string;
   description: string;
   toolName: string;
-  source: "agent" | "ui";
 }): Promise<{ ok: boolean; pendingId?: string; error?: string }> {
   if (!input.title.trim() || !input.description.trim() || !input.toolName.trim()) {
     return { ok: false, error: "title, description, and toolName are required" };
@@ -65,7 +66,7 @@ export async function proposeHarnessCapability(input: {
       description: input.description,
       toolName: input.toolName,
     },
-    source: input.source === "ui" ? "agent" : "agent",
+    source: "agent",
   });
   return { ok: true, pendingId };
 }

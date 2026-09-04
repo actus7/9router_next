@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/lib/db/repos/connectionsRepo";
 import http from "http";
 import { URL } from "url";
 import { TRAE_CONFIG, WINDSURF_CONFIG, ZED_HOSTED_CONFIG } from "../constants/oauth";
@@ -77,7 +78,7 @@ export function startTraeProxy(): Promise<TraeProxyResult> {
           expiresAt: (tokenData as Record<string, number>).expiresIn
             ? new Date(Date.now() + (tokenData as Record<string, number>).expiresIn * 1000).toISOString()
             : null,
-          testStatus: "active",
+          testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
         });
         session.status = "done";
         session.connectionId = (connection as Record<string, string>).id;
@@ -174,7 +175,7 @@ export function startWindsurfProxy(): Promise<TraeProxyResult> {
           provider: "windsurf",
           authType: "api_key",
           ...tokenData,
-          testStatus: "active",
+          testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
         });
         session.status = "done";
         session.connectionId = (connection as Record<string, string>).id;
@@ -267,7 +268,7 @@ export function startZedProxy(preferredPort: number = 0): Promise<TraeProxyResul
           provider: "zed",
           authType: "oauth",
           ...tokenData,
-          testStatus: "active",
+          testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
         });
         session.status = "done";
         session.connectionId = (connection as Record<string, string>).id;

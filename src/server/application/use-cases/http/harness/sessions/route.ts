@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listHarnessConversations, replaceHarnessConversations, type HarnessConversation } from "@/lib/db/repos/harnessConversationsRepo";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
+import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 
 function isConversation(value: unknown): value is HarnessConversation {
@@ -29,10 +30,14 @@ function hasOnlyPublicMcpUrls(conversation: HarnessConversation): boolean {
 }
 
 export async function GET() {
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   return NextResponse.json({ sessions: await listHarnessConversations() });
 }
 
 export async function PUT(request: NextRequest) {
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   if (!Array.isArray(body.sessions) || !body.sessions.every(isConversation)) {
     return NextResponse.json({ error: "sessions must be an array of valid conversations" }, { status: 400 });

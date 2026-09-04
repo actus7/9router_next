@@ -5,15 +5,7 @@ import type { HarnessLearningConfigView } from "@/shared/harness/agentMemory";
 import type {
   AgentMemorySnapshot,
 } from "@/shared/harness/agentMemory";
-
-interface PendingWrite {
-  id: string;
-  kind: string;
-  action: string;
-  payload: Record<string, unknown>;
-  source: string;
-  createdAt: string;
-}
+import type { HarnessPendingWrite } from "@/shared/harness/pendingWrites";
 
 interface MemoryApiResponse extends AgentMemorySnapshot {
   ok?: boolean;
@@ -23,7 +15,7 @@ interface MemoryApiResponse extends AgentMemorySnapshot {
 export interface UseAgentMemoryReturn {
   snapshot: AgentMemorySnapshot | null;
   config: HarnessLearningConfigView | null;
-  pending: PendingWrite[];
+  pending: HarnessPendingWrite[];
   loading: boolean;
   busy: boolean;
   error: string;
@@ -49,7 +41,7 @@ const EMPTY_SNAPSHOT: AgentMemorySnapshot = {
 export function useAgentMemory(open: boolean): UseAgentMemoryReturn {
   const [snapshot, setSnapshot] = useState<AgentMemorySnapshot | null>(null);
   const [config, setConfig] = useState<HarnessLearningConfigView | null>(null);
-  const [pending, setPending] = useState<PendingWrite[]>([]);
+  const [pending, setPending] = useState<HarnessPendingWrite[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -64,7 +56,7 @@ export function useAgentMemory(open: boolean): UseAgentMemoryReturn {
       ]);
       const memoryPayload = (await memoryResp.json().catch(() => null)) as MemoryApiResponse | null;
       const pendingPayload = (await pendingResp.json().catch(() => null)) as {
-        pending?: PendingWrite[];
+        pending?: HarnessPendingWrite[];
       } | null;
       if (!memoryResp.ok || !memoryPayload) {
         setError("Não foi possível carregar a memória.");

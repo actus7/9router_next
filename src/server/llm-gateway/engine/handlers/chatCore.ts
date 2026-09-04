@@ -246,7 +246,10 @@ export async function handleChatCore({
   );
 
   const streamController = createStreamController({
-    onDisconnect: (reason: string) => {
+    // The controller reports { reason, duration }; the caller's callback takes
+    // the reason alone. Forwarding the object here used to pass the type check
+    // only because the options object was cast.
+    onDisconnect: ({ reason }) => {
       trackPendingRequest(model, provider, connectionId, false);
       if (onDisconnect) onDisconnect(reason);
     },
@@ -255,7 +258,7 @@ export async function handleChatCore({
     provider,
     model,
     reqTag,
-  } as unknown as Parameters<typeof createStreamController>[0]);
+  });
 
   const proxyOptions = {
     connectionProxyEnabled:
@@ -354,9 +357,7 @@ export async function handleChatCore({
       pxpipeSummary,
       reqTag,
       log,
-      reqLogger: reqLogger as unknown as Parameters<
-        typeof handleUpstreamError
-      >[0]["reqLogger"],
+      reqLogger,
     });
   }
 
@@ -382,13 +383,14 @@ export async function handleChatCore({
     trackPendingRequest(model, provider, connectionId, false);
 
   // Provider forced streaming but client wants JSON
+  let serveAsJson = !stream;
   if (!clientRequestedStreaming && providerRequiresStreaming) {
     const result = await handleForcedSSEToJson({
       ...sharedCtx,
       providerResponse,
       sourceFormat,
       targetFormat: providerResponseFormat,
-      customToolNames: customToolNames as unknown as Set<string> | undefined,
+      customToolNames,
       trackDone,
       appendLog,
     });
@@ -396,20 +398,23 @@ export async function handleChatCore({
       streamController.handleComplete();
       return result;
     }
+    // handleForcedSSEToJson only declines when the upstream answered with a
+    // non-SSE content type, and it does that before reading the body. The
+    // client never asked for SSE, so serve the payload as JSON instead of
+    // piping it through the SSE transform.
+    serveAsJson = true;
   }
 
   // True non-streaming response
-  if (!stream) {
+  if (serveAsJson) {
     const result = await handleNonStreamingResponse({
       ...sharedCtx,
       providerResponse,
       sourceFormat,
       targetFormat: providerResponseFormat,
-      reqLogger: reqLogger as unknown as Parameters<
-        typeof handleNonStreamingResponse
-      >[0]["reqLogger"],
-      toolNameMap: toolNameMap as unknown as Record<string, string> | undefined,
-      customToolNames: customToolNames as unknown as Set<string> | undefined,
+      reqLogger,
+      toolNameMap,
+      customToolNames,
       trackDone,
       appendLog,
     });
@@ -427,11 +432,9 @@ export async function handleChatCore({
     sourceFormat,
     targetFormat: providerResponseFormat,
     userAgent,
-    reqLogger: reqLogger as unknown as Parameters<
-      typeof handleStreamingResponse
-    >[0]["reqLogger"],
-    toolNameMap: toolNameMap as unknown as Record<string, string> | undefined,
-    customToolNames: customToolNames as unknown as Set<string> | undefined,
+    reqLogger,
+    toolNameMap,
+    customToolNames,
     streamController,
     onStreamComplete,
     streamDetailId,

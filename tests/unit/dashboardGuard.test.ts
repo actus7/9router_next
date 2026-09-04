@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { __test__ } from "@/dashboardGuard";
+import nextConfig from "../../next.config";
 
 const originalPeerToken = process.env.NINEROUTER_PEER_TOKEN;
 
@@ -16,6 +17,22 @@ function requestFrom(peerIp: string, token = "test-peer-token"): Request {
 afterEach(() => {
   if (originalPeerToken === undefined) delete process.env.NINEROUTER_PEER_TOKEN;
   else process.env.NINEROUTER_PEER_TOKEN = originalPeerToken;
+});
+
+describe("gateway edge allowlist", () => {
+  it("treats every rewrite into the gateway as a public LLM path", async () => {
+    const rewrites = await nextConfig.rewrites?.();
+    const rules = Array.isArray(rewrites) ? rewrites : (rewrites?.afterFiles ?? []);
+    const gatewayRules = rules.filter((rule) => rule.destination.startsWith("/api/v1"));
+
+    expect(gatewayRules.length).toBeGreaterThan(0);
+    // The proxy sees the pre-rewrite path, so a rewrite source missing from
+    // PUBLIC_PREFIXES reaches the gateway without the API-key check.
+    for (const rule of gatewayRules) {
+      const incomingPath = rule.source.replace(/\/:[^/]+$/, "");
+      expect(__test__.isPublicLlmApi(incomingPath), `rewrite source ${rule.source}`).toBe(true);
+    }
+  });
 });
 
 describe("unauthenticated dashboard mode", () => {

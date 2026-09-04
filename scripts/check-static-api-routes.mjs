@@ -16,10 +16,12 @@ import { join, relative } from "node:path";
 const distDir = process.env.NEXT_DIST_DIR || ".next";
 const apiDir = join(distDir, "server", "app", "api");
 
-const ALLOWED_STATIC = new Set([
-  // Returns the literal string "Initialized" and reads nothing.
-  "/api/init",
-]);
+// Empty on purpose: no route currently has a genuinely constant response.
+// `/api/init` used to be listed here and was deleted — it returned the literal
+// "Initialized", had no callers, and its name misled readers into thinking it
+// held the bootstrap logic (which lives in src/instrumentation.ts and the lazy
+// getAdapter()).
+const ALLOWED_STATIC = new Set([]);
 
 async function collectBodies(dir, found = []) {
   let entries;

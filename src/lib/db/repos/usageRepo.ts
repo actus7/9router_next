@@ -134,6 +134,13 @@ interface UsageEntry {
   cost?: number;
   status?: string;
   tokens?: Record<string, unknown>;
+  /**
+   * Durable per-request context. Used for the routing summary: the full trace
+   * only rides the response header, and requestDetails is opt-in and pruned, so
+   * without this nothing recorded WHY a request routed where it did. Keep it
+   * small — usageHistory is never pruned.
+   */
+  meta?: Record<string, unknown>;
 }
 
 interface DayData {
@@ -349,12 +356,53 @@ export async function getActiveRequests(): Promise<ActiveRequestsResult> {
   return { activeRequests, recentRequests, errorProvider };
 }
 
+// Resolving the api key to its row id happens on every usage write, so it must
+// not be a query per request. Mirrors getConnectionMapCached below (dynamic
+// import + TTL), with one difference that matters: a cache miss forces a
+// refresh instead of giving up. A key minted seconds ago has to resolve
+// immediately — otherwise its first requests would store the raw secret in
+// usageHistory, which has no pruning, and migration 009 has already run.
+const KEY_CACHE_TTL_MS: number = 30 * 1000;
+const KEY_CACHE_MIN_REFRESH_MS: number = 5 * 1000;
+const apiKeyIdCache: { map: Record<string, string>; ts: number } = { map: {}, ts: 0 };
+
+async function refreshApiKeyIdCache(): Promise<void> {
+  const { getApiKeys } = await import("./apiKeysRepo");
+  const map: Record<string, string> = {};
+  for (const k of await getApiKeys()) map[k.key] = k.id;
+  apiKeyIdCache.map = map;
+  apiKeyIdCache.ts = Date.now();
+}
+
+async function resolveApiKeyId(key: string): Promise<string | null> {
+  const age = Date.now() - apiKeyIdCache.ts;
+  if (age < KEY_CACHE_TTL_MS) {
+    const hit = apiKeyIdCache.map[key];
+    if (hit) return hit;
+    // Unknown key with a warm cache: refresh, but not on every request — a key
+    // that is not ours at all would otherwise re-read the table each time.
+    if (age < KEY_CACHE_MIN_REFRESH_MS) return null;
+  }
+  await refreshApiKeyIdCache();
+  return apiKeyIdCache.map[key] ?? null;
+}
+
 export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
   try {
     const db = await getAdapter();
 
     if (!entry.timestamp) entry.timestamp = new Date().toISOString();
     entry.cost = await calculateCost(entry.provider!, entry.model!, entry.tokens || {});
+
+    // Accounting records WHICH key spent, not the key itself. usageHistory has
+    // no pruning, so a raw key stored here outlives every rotation — and it is
+    // also embedded in the usageDaily aggregate below, both as a map key and in
+    // its meta. Resolving to the row id once here covers both tables. An
+    // unrecognised key is kept verbatim: it is not one of ours to resolve, and
+    // dropping it would lose the attribution entirely.
+    if (entry.apiKey && typeof entry.apiKey === "string") {
+      entry.apiKey = (await resolveApiKeyId(entry.apiKey)) ?? entry.apiKey;
+    }
 
     const tokens: Record<string, unknown> = entry.tokens || {};
     const promptTokens: number = (tokens.prompt_tokens as number) || (tokens.input_tokens as number) || 0;
@@ -393,7 +441,7 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
           entry.timestamp, entry.provider || null, entry.model || null,
           entry.connectionId || null, entry.apiKey || null, entry.endpoint || null,
           promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
-          stringifyJson(tokens), stringifyJson({}),
+          stringifyJson(tokens), stringifyJson(entry.meta || {}),
         ]
       );
 

@@ -4,14 +4,32 @@ import { getProxyPools } from "@/lib/db/repos/proxyPoolsRepo";
 import { validateApiKey } from "@/lib/db/repos/apiKeysRepo";
 import { getActiveModelAvailability, setModelAvailability, clearModelAvailability } from "@/lib/db/repos/modelAvailabilityRepo";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
-import { formatRetryAfter, checkFallbackError } from "@/server/llm-gateway/engine/services/accountFallback";
+import { formatRetryAfter, checkFallbackError, isClientRequestError } from "@/server/llm-gateway/engine/services/accountFallback";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/server/llm-gateway/engine/config/errorConfig";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
 import type { Connection, Settings } from "@/lib/data-access";
 
-// Mutex to prevent race conditions during account selection
-let selectionMutex: Promise<void> = Promise.resolve();
+// Account selection mutates round-robin bookkeeping (lastUsedAt,
+// consecutiveUseCount), so concurrent picks for the same provider must
+// serialize. Keyed by provider: two providers have no shared state, and a
+// single global lock made every request queue behind an unrelated one.
+const selectionLocks = new Map<string, Promise<void>>();
+
+async function acquireSelectionLock(providerId: string): Promise<() => void> {
+  const previous: Promise<void> = selectionLocks.get(providerId) ?? Promise.resolve();
+  let release!: () => void;
+  const current: Promise<void> = new Promise<void>((resolve) => { release = resolve; });
+  selectionLocks.set(providerId, current);
+  await previous;
+  return (): void => {
+    release();
+    // Only the last waiter clears the slot, so the map does not grow per call.
+    if (selectionLocks.get(providerId) === current) selectionLocks.delete(providerId);
+  };
+}
+
+export const __test__ = { acquireSelectionLock };
 
 const GITHUB_MONTHLY_USAGE_LIMIT: string = "you've reached your additional usage limit for your plan";
 
@@ -108,15 +126,10 @@ export async function getProviderCredentials(
     ? excludeConnectionIds
     : (excludeConnectionIds ? new Set([excludeConnectionIds]) : new Set());
   const preferredConnectionId: string | null = options?.preferredConnectionId || null;
-  const currentMutex: Promise<void> = selectionMutex;
-  let resolveMutex: (() => void) | undefined;
-  selectionMutex = new Promise<void>(resolve => { resolveMutex = resolve; });
+  const providerId: string = resolveProviderId(provider);
+  const releaseSelectionLock: () => void = await acquireSelectionLock(providerId);
 
   try {
-    await currentMutex;
-
-    const providerId: string = resolveProviderId(provider);
-
     if (FREE_PROVIDERS[providerId]?.noAuth) {
       const settings = await getSettings() as AuthSettings;
       const override: ProviderStrategy = settings.providerStrategies[providerId] || {};
@@ -175,7 +188,11 @@ export async function getProviderCredentials(
       const expiries = lockedConns.map((connection) => availabilityByConnection.get(connection.id)?.until).filter((expiry): expiry is string => Boolean(expiry));
       const earliest: string | null = expiries.sort()[0] || null;
       if (earliest) {
-        const earliestConn = lockedConns[0];
+        // Report the error of the account that unlocks first, not of whichever
+        // account happened to sort first in the connection list.
+        const earliestConn = lockedConns.find(
+          (connection) => availabilityByConnection.get(connection.id)?.until === earliest
+        ) ?? lockedConns[0];
         log.warn("AUTH", `${provider} | all ${connections.length} accounts locked for ${model || "all"} (${formatRetryAfter(earliest)}) | lastError=${earliestConn?.lastError?.slice(0, 50)}`);
         return {
           allRateLimited: true,
@@ -268,7 +285,7 @@ export async function getProviderCredentials(
       _connection: connection
     };
   } finally {
-    if (resolveMutex) resolveMutex();
+    releaseSelectionLock();
   }
 }
 
@@ -289,6 +306,13 @@ export async function markAccountUnavailable(
   resetsAtMs: number | null = null
 ): Promise<MarkUnavailableResult> {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
+  // A malformed request fails identically on every account. Rotating would burn
+  // one upstream call per account and hide the real 400 behind "all accounts
+  // unavailable", so the error goes straight back to the caller.
+  if (isClientRequestError(status)) {
+    log.warn("AUTH", `client error ${status} — not rotating accounts for ${provider ?? "unknown"}`);
+    return { shouldFallback: false, cooldownMs: 0 };
+  }
   const connections = await getProviderConnections({ provider: provider ?? undefined }) as AuthConnection[];
   const conn = connections.find((connection) => connection.id === connectionId);
   const backoffLevel: number = conn?.backoffLevel || 0;
@@ -329,10 +353,10 @@ export async function markAccountUnavailable(
   });
 
   await updateProviderConnection(connectionId, {
-    // A fallback failure is scoped to this model and cooldown. It is not a
-    // failed connection test: persisting `unavailable` here makes an expired
-    // model lock look like every model in the provider is broken.
-    ...(conn?.testStatus === "unavailable" ? { testStatus: "active" } : {}),
+    // A fallback failure is scoped to this model and cooldown, so it never
+    // touches testStatus: that column is the connection test's result and the
+    // test route is its only writer. The legacy repair that used to live here
+    // is gone; migration 008 normalized the rows it was patching at runtime.
     lastError,
     errorCode: status,
     lastErrorAt: new Date().toISOString(),
@@ -357,17 +381,19 @@ export async function clearAccountError(connectionId: string, currentConnection:
   const conn = (currentConnection._connection || currentConnection) as Record<string, unknown>;
   await clearModelAvailability(connectionId, model);
 
-  // Old fallback versions persisted model failures as connection failures.
-  // Keep genuine connection-test results intact; only recover that legacy state.
-  if (conn.testStatus === "unavailable") {
-    await updateProviderConnection(connectionId, {
-      testStatus: "active",
-      lastError: null,
-      errorCode: null,
-      lastErrorAt: null,
-      backoffLevel: 0,
-    });
-  }
+  // A request that succeeded is proof the penalty no longer applies, so clear
+  // it. This used to run only for the legacy `unavailable` status, which meant
+  // an ordinary connection kept its backoffLevel forever once it earned one.
+  // testStatus is deliberately absent: the test route owns that column.
+  const hasPenalty = Boolean(conn.lastError) || Boolean(conn.errorCode) || Number(conn.backoffLevel) > 0;
+  if (!hasPenalty) return;
+
+  await updateProviderConnection(connectionId, {
+    lastError: null,
+    errorCode: null,
+    lastErrorAt: null,
+    backoffLevel: 0,
+  });
 }
 
 /**

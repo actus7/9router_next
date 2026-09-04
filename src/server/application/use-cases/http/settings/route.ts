@@ -3,6 +3,7 @@ import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "@/server/llm-gateway/catalog";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
+import { isCredentialEncryptionEnabled } from "@/lib/db/helpers/credentialCipher";
 import bcrypt from "bcryptjs";
 
 
@@ -27,6 +28,10 @@ export async function GET(): Promise<NextResponse> {
       ...safeSettings, 
       enableRequestLogs,
       enableTranslator,
+      // Derived, never stored: whether CREDENTIAL_KEY is configured. Surfaced so
+      // "credentials are encrypted at rest" is a thing the operator can see
+      // rather than assume — an install that never set the env runs in clear.
+      credentialEncryptionEnabled: isCredentialEncryptionEnabled(),
       hasPassword: !!password
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {

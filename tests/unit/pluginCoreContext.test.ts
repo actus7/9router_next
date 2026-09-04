@@ -1,4 +1,18 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// `bootstrap()` reads the stored patch layer, which reaches getAdapter() and so
+// ran the real migration chain against the operator's own database in
+// %APPDATA%/modelhub (or ~/.modelhub) on every run of the suite. The empty
+// patch layer mocked here is the same thing `readPatchLayer` falls back to when
+// the database is unreachable, so the composition under test is unchanged —
+// bundle defaults with no patch — while the test stops writing to live data.
+vi.mock("@/lib/db/repos/pluginRowsRepo", () => ({
+  listPluginRows: vi.fn(async () => []),
+  getPluginTreeRevision: vi.fn(async () => 0),
+  upsertPluginRow: vi.fn(async () => {}),
+  deletePluginRow: vi.fn(async () => {}),
+}));
+
 import { bootstrap, getContext, resetContext } from "@/server/plugin-core/context";
 
 describe("plugin-core context bootstrap", () => {

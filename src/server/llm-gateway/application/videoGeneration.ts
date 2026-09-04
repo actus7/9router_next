@@ -1,12 +1,11 @@
+import { requireGatewayApiKey } from "./gatewayApiKey";
 import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
   type CredentialsResult,
 } from "../auth/accountSelection";
-import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getModelInfo } from "./modelResolution";
 import { handleVideoProxyCore, getVideoConfig, sanitizeSecrets } from "@/server/llm-gateway/engine/handlers/videoCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
@@ -28,12 +27,8 @@ const CREATE_ROTATION_STATUSES: Set<number> = new Set([
 
 async function requireValidApiKey(request: Request): Promise<Response | null> {
   const apiKey: string | null = extractApiKey(request);
-  const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    const valid: boolean = await isValidApiKey(apiKey);
-    if (!valid) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
+  const authError = await requireGatewayApiKey(apiKey);
+  if (authError) return authError;
   return null;
 }
 
@@ -192,7 +187,6 @@ export async function handleVideoCreate(request: Request, action: string): Promi
           accessToken: typeof newCreds.accessToken === "string" ? newCreds.accessToken : undefined,
           refreshToken: typeof newCreds.refreshToken === "string" ? newCreds.refreshToken : undefined,
           providerSpecificData: newCreds.providerSpecificData as Record<string, unknown> | undefined,
-          testStatus: "active",
         });
       },
     } as unknown as Parameters<typeof handleVideoProxyCore>[0]) as VideoCoreResult;
@@ -249,7 +243,6 @@ export async function handleVideoGet(request: Request, requestId: string): Promi
         accessToken: typeof newCreds.accessToken === "string" ? newCreds.accessToken : undefined,
         refreshToken: typeof newCreds.refreshToken === "string" ? newCreds.refreshToken : undefined,
         providerSpecificData: newCreds.providerSpecificData as Record<string, unknown> | undefined,
-        testStatus: "active",
       });
     },
   } as unknown as Parameters<typeof handleVideoProxyCore>[0]) as VideoCoreResult;

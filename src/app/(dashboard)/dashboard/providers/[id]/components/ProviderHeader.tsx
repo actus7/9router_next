@@ -80,7 +80,7 @@ export default function ProviderHeader({
                 className="text-xs text-primary hover:underline inline-flex items-center gap-1"
               >
                 <ExternalLink className="size-4" />
-                {providerInfo.notice?.apiKeyUrl ? "Get API Key" : "Sign up / Learn more"}
+                {providerInfo.notice?.apiKeyUrl ? translate("Get API Key") : translate("Sign up / Learn more")}
               </a>
             )}
           </div>

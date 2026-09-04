@@ -76,7 +76,7 @@ export default function ModelsList({
             if (model.source === "custom") onDeleteCustomModel(model.id, "llm", providerStorageAlias);
             else onDeleteAlias(model.alias!);
           }}
-          testStatus={getTestStatus(model.id)}
+          probeStatus={getTestStatus(model.id)}
           onTest={connectionCount > 0 || isFreeNoAuth ? () => onTestModel(model.id) : undefined}
           isTesting={testingModelIds.has(model.id)}
           isCustom
@@ -98,7 +98,7 @@ export default function ModelsList({
             copied={copied ?? undefined}
             onCopy={copy}
             onDeleteAlias={() => onDeleteAlias(existingAlias!)}
-            testStatus={getTestStatus(model.id)}
+            probeStatus={getTestStatus(model.id)}
             onTest={connectionCount > 0 || isFreeNoAuth ? () => onTestModel(model.id) : undefined}
             isTesting={testingModelIds.has(model.id)}
             isFree={(model as Record<string, unknown>).isFree as boolean}

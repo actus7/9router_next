@@ -4,6 +4,11 @@ import { getComboByName } from "@/lib/db/repos/combosRepo";
 import { getModelAliases } from "@/lib/db/repos/aliasRepo";
 import { parseModel as parseModelCore, getModelInfoCore } from "@/server/llm-gateway/engine/services/model";
 import REGISTRY from "@/server/llm-gateway/engine/providers/registry/index";
+import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { getProviderAlias } from "@/shared/constants/providers";
+import { errorResponse } from "@/server/llm-gateway/engine/utils/error";
+import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
+import * as log from "../utils/logger";
 
 interface ParsedModel {
   provider?: string | null;
@@ -91,6 +96,42 @@ export async function getModelInfo(modelStr: string): Promise<ModelInfo> {
   }
 
   return getModelInfoCore(modelStr, getModelAliases as unknown as Parameters<typeof getModelInfoCore>[1]) as unknown as ModelInfo;
+}
+
+/**
+ * A disabled model is hidden from every listing, so routing honours that too:
+ * an operator who switches a model off should not have it answer a direct call.
+ * Reads both the provider alias and the raw id, because rows exist under both.
+ *
+ * Fails open. The store being unreachable must not take routing down with it.
+ * "Disabled" here is an operator display preference — the list lives in `kv`
+ * under one scope, with no per-key scoping, no audit trail and no validity
+ * window — so availability wins over enforcement. The failure is logged rather
+ * than swallowed: an accepted risk has to be a visible one, otherwise a store
+ * blip silently makes disabled models callable again with nothing to show for it.
+ */
+export async function isModelDisabled(provider: string, model: string): Promise<boolean> {
+  if (!provider || !model) return false;
+  try {
+    const disabled = await getDisabledModels();
+    const alias: string = getProviderAlias(provider) || provider;
+    const list: string[] = disabled[alias] || disabled[provider] || [];
+    return list.includes(model);
+  } catch (error) {
+    log.warn(
+      "ROUTING",
+      `Disabled-model list unreadable for ${provider}/${model} — failing open, the model stays callable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return false;
+  }
+}
+
+/** Guard for the request path: error Response when the model is off, else null. */
+export async function assertModelEnabled(provider: string, model: string): Promise<Response | null> {
+  if (!(await isModelDisabled(provider, model))) return null;
+  return errorResponse(HTTP_STATUS.NOT_FOUND, `Model ${provider}/${model} is disabled`);
 }
 
 /**

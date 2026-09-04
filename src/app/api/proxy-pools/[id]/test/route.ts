@@ -34,7 +34,7 @@ async function testVercelRelay(relayUrl: string, timeoutMs = 10000) {
 }
 
 // POST /api/proxy-pools/[id]/test - Test proxy pool entry
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]/test">) {
   try {
     const { id } = await params;
     const proxyPool = await getProxyPoolById(id);

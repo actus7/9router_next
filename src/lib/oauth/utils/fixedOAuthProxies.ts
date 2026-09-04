@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/lib/db/repos/connectionsRepo";
 import http from "http";
 import { URL } from "url";
 import { CODEX_CONFIG } from "../constants/oauth";
@@ -91,7 +92,7 @@ export function startCodexProxy(appPort: number): Promise<ProxyResult> {
             expiresAt: (tokenData as Record<string, number>).expiresIn
               ? new Date(Date.now() + (tokenData as Record<string, number>).expiresIn * 1000).toISOString()
               : null,
-            testStatus: "active",
+            testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
           }) as Record<string, unknown>;
 
           session.status = "done";
@@ -221,7 +222,7 @@ export function startXaiProxy(appPort: number): Promise<ProxyResult> {
             expiresAt: (tokenData as Record<string, number>).expiresIn
               ? new Date(Date.now() + (tokenData as Record<string, number>).expiresIn * 1000).toISOString()
               : null,
-            testStatus: "active",
+            testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
           });
 
           session.status = "done";

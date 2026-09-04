@@ -1,0 +1,1723 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModelHub · Mapa de ponta a ponta</title>
+<style>
+:root{
+  --ink:#e8e4dc; --ink-dim:#9a938a; --ink-faint:#6b655d;
+  --bg:#12100e; --bg-2:#191612; --bg-3:#211d18; --line:#302a23;
+  --hot:#f97815; --cool:#5aa9e6; --good:#7fbf7f; --warn:#e0b341; --bad:#e06c5a;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --rail:290px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:1.5rem}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 var(--sans);
+  -webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.45;
+  background:radial-gradient(1100px 600px at 82% -12%,rgba(249,120,21,.10),transparent 62%),
+             radial-gradient(800px 500px at 8% 108%,rgba(90,169,230,.07),transparent 60%)}
+
+.shell{position:relative;z-index:1;display:grid;grid-template-columns:var(--rail) minmax(0,1fr);
+  max-width:1580px;margin:0 auto}
+nav.rail{position:sticky;top:0;height:100vh;overflow-y:auto;padding:2rem 1.1rem 3rem;
+  border-right:1px solid var(--line);background:linear-gradient(180deg,var(--bg-2),var(--bg))}
+nav.rail .brand{font:600 13px/1.2 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--hot);margin:0 0 .3rem}
+nav.rail .sub{font:11px/1.5 var(--mono);color:var(--ink-faint);margin:0 0 1.6rem}
+nav.rail ol{list-style:none;margin:0;padding:0;counter-reset:n}
+nav.rail ol li{counter-increment:n}
+nav.rail a{display:block;padding:.36rem .5rem .36rem 2.2rem;position:relative;
+  color:var(--ink-dim);text-decoration:none;font-size:13px;border-radius:5px;
+  transition:background .14s,color .14s}
+nav.rail a::before{content:counter(n,decimal-leading-zero);position:absolute;left:.5rem;
+  font:10px/1.7 var(--mono);color:var(--ink-faint)}
+nav.rail a:hover{background:var(--bg-3);color:var(--ink)}
+nav.rail a.acc{color:var(--warn)}
+nav.rail a.acc:hover{color:#ffd873}
+main{padding:2.4rem clamp(1.2rem,3.4vw,3.4rem) 8rem;min-width:0}
+
+h1{font:400 clamp(2.1rem,4.4vw,3.4rem)/1.03 var(--serif);letter-spacing:-.02em;margin:.2rem 0 .5rem}
+h1 em{font-style:italic;color:var(--hot)}
+.lede{font:400 clamp(1rem,1.5vw,1.16rem)/1.6 var(--serif);color:var(--ink-dim);max-width:64ch;margin:0 0 2rem}
+h2{font:600 1.5rem/1.2 var(--sans);letter-spacing:-.015em;margin:4.2rem 0 .2rem;
+  padding-top:1.6rem;border-top:1px solid var(--line)}
+h2 .num{font:11px/1 var(--mono);color:var(--hot);display:block;letter-spacing:.18em;margin-bottom:.7rem}
+h3{font:600 1.03rem/1.3 var(--sans);margin:2.3rem 0 .6rem;color:var(--ink)}
+h4{font:600 .8rem/1.3 var(--mono);letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-faint);margin:1.7rem 0 .5rem}
+p{margin:.7rem 0;max-width:80ch}
+a{color:var(--cool)}
+code,.p{font-family:var(--mono);font-size:.855em;background:var(--bg-3);
+  border:1px solid var(--line);border-radius:4px;padding:.09em .38em;color:#d7cfc3;
+  word-break:break-word}
+code.t{color:var(--good);border-color:#2c3a2c;background:#161c16}
+code.f{color:var(--cool);border-color:#243040;background:#141a20}
+strong{color:#fff;font-weight:600}
+ul,ol.body{margin:.6rem 0;padding-left:1.3rem;max-width:80ch}
+li{margin:.32rem 0}
+.note{border-left:2px solid var(--hot);background:linear-gradient(90deg,rgba(249,120,21,.07),transparent 70%);
+  padding:.75rem 1rem;margin:1.2rem 0;font-size:14px;max-width:82ch}
+.note.w{border-color:var(--warn);background:linear-gradient(90deg,rgba(224,179,65,.07),transparent 70%)}
+.note.b{border-color:var(--bad);background:linear-gradient(90deg,rgba(224,108,90,.08),transparent 70%)}
+.note.g{border-color:var(--good);background:linear-gradient(90deg,rgba(127,191,127,.07),transparent 70%)}
+.note p{max-width:none}
+
+.tw{overflow-x:auto;margin:1rem 0;border:1px solid var(--line);border-radius:8px;background:var(--bg-2)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13px}
+th{text-align:left;font:600 10px/1.3 var(--mono);letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-faint);padding:.65rem .8rem;border-bottom:1px solid var(--line);
+  background:var(--bg-3);position:sticky;top:0;white-space:nowrap}
+td{padding:.6rem .8rem;border-bottom:1px solid #241f1a;vertical-align:top;color:var(--ink-dim)}
+tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:#1c1813;color:var(--ink)}
+td.k{color:var(--ink);font-family:var(--mono);font-size:12px;white-space:nowrap}
+td.kw{color:var(--ink);font-family:var(--mono);font-size:12px}
+
+.flow{margin:1.4rem 0;padding:1.3rem;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg-2);overflow-x:auto}
+.flow pre{margin:0;font:12px/1.62 var(--mono);color:var(--ink-dim);white-space:pre}
+.flow pre b{color:var(--hot);font-weight:400}
+.flow pre i{color:var(--cool);font-style:normal}
+.flow pre u{color:var(--good);text-decoration:none}
+.flow pre s{color:var(--bad);text-decoration:none}
+.flow pre q{color:var(--warn);quotes:none}
+.flow-cap{font:10px/1.3 var(--mono);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-faint);margin:0 0 .9rem}
+
+.steps{counter-reset:s;list-style:none;padding:0;margin:1.3rem 0;max-width:90ch}
+.steps>li{counter-increment:s;position:relative;padding:0 0 1.2rem 3rem;
+  border-left:1px solid var(--line);margin-left:.85rem}
+.steps>li:last-child{border-left-color:transparent;padding-bottom:0}
+.steps>li::before{content:counter(s);position:absolute;left:-.85rem;top:0;
+  width:1.7rem;height:1.7rem;border-radius:50%;background:var(--bg-3);
+  border:1px solid var(--line);color:var(--hot);
+  font:600 11px/1.62rem var(--mono);text-align:center}
+.steps>li>.h{color:#fff;font-weight:600;display:block;margin-bottom:.1rem}
+.steps>li p{margin:.2rem 0}
+
+.grid{display:grid;gap:.85rem;margin:1.2rem 0;
+  grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
+.card{border:1px solid var(--line);border-radius:8px;padding:.95rem 1rem;background:var(--bg-2)}
+.card h5{margin:0 0 .4rem;font:600 .82rem/1.3 var(--mono);letter-spacing:.05em;color:var(--hot)}
+.card p{margin:.25rem 0;font-size:12.5px;max-width:none}
+.card.k h5{color:var(--cool)}
+.card.o h5{color:var(--good)}
+.card.x h5{color:var(--bad)}
+
+.b{display:inline-block;font:600 9.5px/1.5 var(--mono);letter-spacing:.09em;text-transform:uppercase;
+  padding:.1rem .42rem;border-radius:3px;border:1px solid;vertical-align:middle;white-space:nowrap}
+.b.w{color:var(--good);border-color:#31502f;background:#16200f}
+.b.r{color:var(--cool);border-color:#26384c;background:#101821}
+.b.rw{color:var(--warn);border-color:#4d3f19;background:#1f1a0d}
+.b.x{color:var(--bad);border-color:#4d2b24;background:#1f110e}
+.b.n{color:var(--ink-faint);border-color:var(--line);background:var(--bg-3)}
+
+.find{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:8px;
+  background:var(--bg-2);padding:1rem 1.15rem;margin:1.1rem 0}
+.find.hi{border-left-color:var(--bad)}
+.find.lo{border-left-color:var(--cool)}
+.find h4{margin:0 0 .5rem;color:var(--ink);font:600 .95rem/1.35 var(--sans);
+  letter-spacing:normal;text-transform:none}
+.find .meta{font:10px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-faint);margin:0 0 .55rem}
+.find p{font-size:13.5px;margin:.4rem 0;max-width:none}
+
+hr.soft{border:0;border-top:1px solid var(--line);margin:2.5rem 0}
+.foot{margin-top:5rem;padding-top:1.4rem;border-top:1px solid var(--line);
+  font:11px/1.75 var(--mono);color:var(--ink-faint);max-width:80ch}
+
+@media (max-width:980px){
+  .shell{grid-template-columns:1fr}
+  nav.rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+  nav.rail ol{columns:2;column-gap:1rem}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="rail">
+  <p class="brand">ModelHub 2.0.0</p>
+  <p class="sub">mapa ponta a ponta<br>commit 47ec69b8<br>schema v8</p>
+  <ol>
+    <li><a href="#s1">Como ler este mapa</a></li>
+    <li><a href="#s2">Camadas e limites</a></li>
+    <li><a href="#s3">Persistência: driver e boot</a></li>
+    <li><a href="#s4">Schema SQL completo</a></li>
+    <li><a href="#s5">Migrations e backup</a></li>
+    <li><a href="#s6">Primeira entrada de dados</a></li>
+    <li><a href="#s7">Telas &rarr; API &rarr; tabela</a></li>
+    <li><a href="#s8">Portaria: auth em camadas</a></li>
+    <li><a href="#s9">O caminho quente</a></li>
+    <li><a href="#s10">Resolução de modelo</a></li>
+    <li><a href="#s11">Seleção de conta e fallback</a></li>
+    <li><a href="#s12">Tradução de protocolo</a></li>
+    <li><a href="#s13">Contabilidade e trace</a></li>
+    <li><a href="#s14">Saídas do sistema</a></li>
+    <li><a href="#s15">Harness (chat agêntico)</a></li>
+    <li><a href="#s16" class="acc">Onde os dados NÃO conectam</a></li>
+  </ol>
+</nav>
+<main>
+
+<h1>ModelHub — mapa de <em>ponta a ponta</em></h1>
+<p class="lede">
+  Onde cada dado entra, o que o transforma, e por onde sai. Tudo abaixo foi lido
+  no código em <code>47ec69b8</code>, não inferido de nome de arquivo. Caminhos
+  são relativos à raiz do repositório.
+</p>
+
+<h2 id="s1"><span class="num">SEÇÃO 01</span>Como ler este mapa</h2>
+<p>
+  O sistema tem <strong>duas superfícies de entrada completamente distintas</strong>,
+  e confundi-las é o erro de leitura mais comum:
+</p>
+<div class="grid">
+  <div class="card">
+    <h5>Plano de controle</h5>
+    <p><code class="f">/dashboard/*</code> + <code class="f">/api/*</code></p>
+    <p>Onde o operador <strong>cria</strong> dados: credenciais, combos, chaves, aliases, settings. Autenticado por cookie de sessão JWT.</p>
+  </div>
+  <div class="card k">
+    <h5>Plano de dados</h5>
+    <p><code class="f">/v1/*</code>, <code class="f">/v1beta/*</code></p>
+    <p>Onde o dado <strong>é consumido</strong>: um cliente LLM manda um prompt e recebe resposta. Autenticado por API key da tabela <code>apiKeys</code>.</p>
+  </div>
+  <div class="card o">
+    <h5>O elo entre os dois</h5>
+    <p>A tabela <code>providerConnections</code></p>
+    <p>O plano de controle a escreve; o plano de dados a lê para escolher com qual conta falar upstream. <strong>Nada mais liga os dois planos.</strong></p>
+  </div>
+</div>
+
+<h4>Convenções de notação</h4>
+<ul>
+  <li><span class="b w">escreve</span> cria ou altera linhas — é uma <em>entrada de dados</em>.</li>
+  <li><span class="b r">lê</span> apenas consulta.</li>
+  <li><span class="b rw">lê+escreve</span> os dois no mesmo fluxo.</li>
+  <li><span class="b x">sai</span> o dado deixa o processo: rede, disco fora do app, serviço externo.</li>
+  <li><span class="b n">blob</span> coluna <code>TEXT</code> com JSON, não colunas relacionais.</li>
+</ul>
+
+<div class="note">
+  <p><strong>O fato estrutural mais importante do schema.</strong> Este banco é
+  deliberadamente <em>semi-relacional</em>. Quase toda tabela tem colunas indexáveis
+  (as que aparecem em <code>WHERE</code>) mais uma coluna <code>data TEXT</code> com
+  um blob JSON para o resto.</p>
+  <p>E não existe <strong>nenhuma</strong> <code>FOREIGN KEY</code> declarada em
+  <code>src/lib/db/schema.ts</code>, apesar de <code>PRAGMA foreign_keys = ON</code>
+  estar ligado. As relações existem por convenção de código
+  (<code>connectionId</code>, <code>skillId</code>, <code>sessionId</code>,
+  <code>toolId</code>), não por constraint.</p>
+  <p>Isso responde direto à sua pergunta: <strong>o banco não impede nenhuma
+  inconsistência referencial</strong>. Quem garante integridade são os repos, e
+  onde eles não garantem, ela não é garantida — ver seção 16.</p>
+</div>
+
+<h2 id="s2"><span class="num">SEÇÃO 02</span>Camadas e limites de dependência</h2>
+<p>
+  Cinco camadas, com regras de importação declaradas em
+  <code>docs/ARCHITECTURE.md</code> e verificadas por testes:
+</p>
+<div class="flow">
+<p class="flow-cap">direção da dependência — de cima para baixo</p>
+<pre>
+  <b>src/app/api/**</b>                        adapta HTTP e nada mais
+  <b>src/app/(dashboard)/**</b>                React: telas, hooks, seções
+        │   valida entrada, serializa o contrato público
+        │   <s>proibido: route handler importar @/lib/db/repos/* direto</s>
+        ▼
+  <b>src/server/llm-gateway/application/*</b>   orquestra um caso de uso
+        │   chat · embeddings · tts · stt · imageGeneration
+        │   videoGeneration · search · fetch · modelResolution
+        ▼
+  <b>src/server/llm-gateway/engine/**</b>       isolado do Next.js  (629 arquivos)
+        │   handlers/ · translator/ · executors/ · providers/registry/ · services/
+        │   toca o host SÓ por <i>engine/host/*</i>  — 6 seams, lista fechada
+        ▼
+  <b>src/lib/db/repos/*</b>                     persistência  (24 repos)
+        │
+        ▼
+  <b>src/lib/db/driver.ts</b>                   SQLite  (4 adapters, cadeia de fallback)
+
+  ─── projeções laterais ──────────────────────────────────────────────────────
+  <i>src/shared/llm-catalog/</i>            projeção do registry para o servidor
+  <i>src/shared/constants/providers.ts</i>  projeção typada e client-safe p/ a UI
+  <i>src/lib/data-access.ts</i>             atalho <q>server-only</q>: um Server Component
+                                       lê o repo direto, sem passar por HTTP
+</pre>
+</div>
+
+<h3>Os 6 <em>host seams</em> — a única porta do engine para o mundo</h3>
+<p>
+  <code>engine/host/</code> existe para o engine não conhecer nem Next.js nem SQLite.
+  São exatamente seis arquivos, cada um um re-export explícito:
+</p>
+<div class="tw"><table>
+<thead><tr><th>Seam</th><th>O que abstrai</th><th>Aponta para</th></tr></thead>
+<tbody>
+<tr><td class="k">host/store.ts</td><td>Estado local do operador</td><td><code>aliasRepo</code>, <code>connectionsRepo</code>, <code>combosRepo</code>, <code>smartModelProfilesRepo</code>, <code>disabledModelsDb</code>, <code>pricingRepo</code></td></tr>
+<tr><td class="k">host/usage.ts</td><td>Contabilidade — <em>única</em> via sancionada</td><td><code>@/lib/usageDb</code>: <code>trackPendingRequest</code>, <code>appendRequestLog</code>, <code>saveRequestDetail</code>, <code>saveRequestUsage</code></td></tr>
+<tr><td class="k">host/catalog.ts</td><td>Catálogo de providers</td><td>projeção de <code>shared/llm-catalog</code></td></tr>
+<tr><td class="k">host/oauth.ts</td><td>Refresh e persistência de token</td><td>camada <code>auth/</code></td></tr>
+<tr><td class="k">host/ssrf.ts</td><td>Guarda de destino de saída</td><td>validação de URL pública</td></tr>
+<tr><td class="k">host/routingTrace.ts</td><td>Tipos do trace de roteamento</td><td><code>shared/observability/routingTrace</code></td></tr>
+</tbody></table></div>
+<div class="note g">
+  <p><strong>Por que isso importa para o mapa:</strong> se você quer saber tudo que o
+  motor de inferência consegue tocar no banco, a resposta é <em>fechada</em> e cabe
+  nos seis arquivos acima. <code>tests/unit/hostSeam.test.ts</code> troca esses
+  módulos por fakes exatamente para provar que a lista está completa — um acesso
+  fora dela quebra o teste.</p>
+</div>
+
+<h2 id="s3"><span class="num">SEÇÃO 03</span>Persistência: onde o banco vive e como ele sobe</h2>
+
+<h4>Localização do arquivo</h4>
+<div class="tw"><table>
+<thead><tr><th>Caminho</th><th>Resolução</th></tr></thead>
+<tbody>
+<tr><td class="k">DATA_DIR</td><td><code>process.env.DATA_DIR</code>, senão Windows <code>%APPDATA%/modelhub</code>, senão <code>~/.modelhub</code> — <code>src/lib/dataDir.ts</code></td></tr>
+<tr><td class="k">DATA_FILE</td><td><code>&lt;DATA_DIR&gt;/db/data.sqlite</code> — <code>src/lib/db/paths.ts</code></td></tr>
+<tr><td class="k">BACKUPS_DIR</td><td><code>&lt;DATA_DIR&gt;/db/backups</code></td></tr>
+<tr><td class="k">LEGACY_FILES</td><td><code>db.json</code>, <code>usage.json</code>, <code>disabledModels.json</code>, <code>request-details.json</code> — importados uma vez na migração de JSON para SQLite</td></tr>
+</tbody></table></div>
+<p>
+  <code>dataDir.ts</code> tem uma defesa específica de plataforma: no Windows um
+  <code>DATA_DIR</code> em formato Unix (<code>/var/lib/...</code>, vindo de um
+  <code>.env</code> pensado para Docker) é <strong>ignorado com aviso</strong> em vez
+  de virar um caminho inválido.
+</p>
+
+<h4>Cadeia de drivers — <code>src/lib/db/driver.ts:76</code></h4>
+<div class="flow">
+<pre>
+  runtime Bun  :  <b>bun:sqlite</b>          → sql.js
+  runtime Node :  <b>better-sqlite3</b>      → node:sqlite (≥22.5) → sql.js
+
+  nenhum funciona → throw "[DB] No SQLite driver available"
+</pre>
+</div>
+<p>
+  Quatro adapters em <code>src/lib/db/adapters/</code>. O primeiro que carrega vence,
+  e o driver escolhido é logado uma vez. <code>better-sqlite3</code> é pulado no Bun
+  (bindings nativos incompatíveis).
+</p>
+
+<h4>Boot: uma inicialização, uma migração</h4>
+<p>
+  <code>getAdapter()</code> memoiza tanto a instância quanto a <em>promise</em> de
+  inicialização, então concorrência no primeiro request não dispara duas migrações.
+  <code>initAdapter()</code> chama <code>ensureDirs()</code>, escolhe o driver e só
+  então <code>runMigrationOnce(adapter)</code>.
+</p>
+
+<h4>PRAGMAs aplicados — <code>schema.ts:11</code></h4>
+<div class="tw"><table>
+<thead><tr><th>PRAGMA</th><th>Valor</th><th>Efeito</th></tr></thead>
+<tbody>
+<tr><td class="k">journal_mode</td><td>WAL</td><td>leitor não bloqueia escritor</td></tr>
+<tr><td class="k">synchronous</td><td>NORMAL</td><td>troca fsync por velocidade</td></tr>
+<tr><td class="k">temp_store</td><td>MEMORY</td><td>tabelas temporárias em RAM</td></tr>
+<tr><td class="k">mmap_size</td><td>30 MB</td><td>leitura por mapeamento de memória</td></tr>
+<tr><td class="k">cache_size</td><td>−64000 (~64 MB)</td><td>cache de páginas</td></tr>
+<tr><td class="k">foreign_keys</td><td>ON</td><td><strong>ligado, mas sem nenhuma FK declarada</strong></td></tr>
+<tr><td class="k">busy_timeout</td><td>5000 ms</td><td>espera em lock antes de erro</td></tr>
+</tbody></table></div>
+
+<h2 id="s4"><span class="num">SEÇÃO 04</span>Schema SQL completo — 23 tabelas</h2>
+<p>
+  Fonte única: <code>src/lib/db/schema.ts</code>, constante <code>TABLES</code>.
+  <code>SCHEMA_VERSION = 8</code>. O runner usa <code>TABLES</code> de forma
+  <em>declarativa</em>: <code>syncSchemaFromTables()</code> adiciona tabelas, colunas e
+  índices faltantes automaticamente a cada boot. Mudanças destrutivas
+  (drop / rename / troca de tipo) exigem um arquivo de migration.
+</p>
+
+<h3>Domínio A — Credenciais e roteamento <span class="b w">o coração</span></h3>
+
+<h4><code>providerConnections</code> — a tabela mais importante do sistema</h4>
+<div class="tw"><table>
+<thead><tr><th>Coluna</th><th>Tipo</th><th>Papel</th></tr></thead>
+<tbody>
+<tr><td class="k">id</td><td>TEXT PK</td><td>uuid v4 gerado no repo</td></tr>
+<tr><td class="k">provider</td><td>TEXT NOT NULL</td><td>id canônico do registry (<code>anthropic</code>, <code>codex</code>, …)</td></tr>
+<tr><td class="k">authType</td><td>TEXT NOT NULL</td><td><code>apikey</code> | <code>oauth</code> | variantes por provider</td></tr>
+<tr><td class="k">name</td><td>TEXT</td><td>rótulo do operador</td></tr>
+<tr><td class="k">email</td><td>TEXT</td><td>conta identificada no OAuth</td></tr>
+<tr><td class="k">priority</td><td>INTEGER</td><td>ordem de desempate em <code>fill-first</code></td></tr>
+<tr><td class="k">isActive</td><td>INTEGER DEFAULT 1</td><td>filtro obrigatório na seleção de conta</td></tr>
+<tr><td class="k">data</td><td>TEXT NOT NULL <span class="b n">blob</span></td><td><strong>as credenciais e todo o estado de saúde</strong> — ver abaixo</td></tr>
+<tr><td class="k">createdAt / updatedAt</td><td>TEXT NOT NULL</td><td>ISO 8601</td></tr>
+</tbody></table></div>
+<p>Índices: <code>(provider)</code>, <code>(provider, isActive)</code>, <code>(provider, priority)</code> — exatamente os três predicados que a seleção de conta usa.</p>
+
+<p>O blob <code>data</code> carrega 22 chaves opcionais (<code>connectionsRepo.ts:5</code>, <code>OPTIONAL_FIELDS</code>):</p>
+<div class="tw"><table>
+<thead><tr><th>Grupo</th><th>Chaves</th></tr></thead>
+<tbody>
+<tr><td class="k">Segredos</td><td><code>apiKey</code>, <code>accessToken</code>, <code>refreshToken</code>, <code>idToken</code>, <code>tokenType</code>, <code>scope</code>, <code>expiresAt</code>, <code>expiresIn</code>, <code>lastRefreshAt</code></td></tr>
+<tr><td class="k">Identidade</td><td><code>displayName</code>, <code>email</code>, <code>projectId</code>, <code>defaultModel</code>, <code>globalPriority</code></td></tr>
+<tr><td class="k">Saúde</td><td><code>testStatus</code>, <code>lastTested</code>, <code>lastError</code>, <code>lastErrorAt</code>, <code>errorCode</code>, <code>rateLimitedUntil</code></td></tr>
+<tr><td class="k">Rotação</td><td><code>consecutiveUseCount</code> (+ <code>lastUsedAt</code>, gravado pelo round-robin)</td></tr>
+<tr><td class="k">Livre</td><td><code>providerSpecificData</code> — sub-blob por provider: <code>copilotToken</code>, <code>chatgptAccountId</code>, <code>username</code>, config de proxy por conexão…</td></tr>
+</tbody></table></div>
+<div class="note b">
+  <p><strong>Este é o ponto de concentração de risco do sistema.</strong> Todo segredo de
+  todo provider — chaves de API, access tokens, refresh tokens — vive em texto plano
+  dentro de uma coluna <code>TEXT</code>. Sem cifragem em repouso. Já registrado em
+  <code>docs/KNOWN_DEBT.md</code> como dívida de segurança real.</p>
+  <p>Consequência prática que o mapa expõe: o backup automático pré-migration
+  (<code>src/lib/db/backup.ts</code>) copia esta tabela <strong>sem redação</strong> para
+  <code>&lt;DATA_DIR&gt;/db/backups</code>. Um backup é uma segunda cópia dos segredos.</p>
+</div>
+<div class="note">
+  <p><strong><code>testStatus</code> tem semântica fechada</strong> e um dono único.
+  Conjunto: <code>active</code> | <code>error</code> | <code>unknown</code>
+  (<code>connectionsRepo.ts:67</code>, <code>normalizeConnectionTestStatus</code>).
+  Significa <em>o resultado de um teste de conexão</em> e nada mais.</p>
+  <p><code>markAccountUnavailable()</code> — que roda a cada falha upstream —
+  deliberadamente <strong>não</strong> escreve <code>testStatus</code>; ela grava
+  <code>lastError</code>, <code>errorCode</code>, <code>backoffLevel</code> e uma linha em
+  <code>modelAvailability</code>. Uma falha de rate limit não é um teste reprovado.
+  A migration 008 normalizou o vocabulário legado
+  (<code>success</code>→<code>active</code>, <code>expired</code>/<code>unavailable</code>→<code>error</code>).</p>
+</div>
+
+<h4><code>modelAvailability</code> — cooldown por (conta × modelo)</h4>
+<div class="tw"><table>
+<thead><tr><th>Coluna</th><th>Papel</th></tr></thead>
+<tbody>
+<tr><td class="k">connectionId + modelId</td><td><strong>PK composta.</strong> <code>modelId</code> pode ser <code>__all</code> para travar a conta inteira</td></tr>
+<tr><td class="k">status</td><td><code>cooldown</code> | <code>unavailable</code></td></tr>
+<tr><td class="k">reason</td><td><code>quota</code> | <code>rate_limit</code> | <code>billing</code> | <code>model</code> | <code>transient</code> | <code>legacy</code></td></tr>
+<tr><td class="k">errorCode</td><td>status HTTP upstream (402, 429, 502, 503…)</td></tr>
+<tr><td class="k">lastError</td><td>texto do erro, sanitizado</td></tr>
+<tr><td class="k">until</td><td>fim do cooldown em ISO. <code>NULL</code> = indefinido</td></tr>
+</tbody></table></div>
+<p>Índices: <code>(connectionId, until)</code> e <code>(until)</code>. Esta é a tabela que implementa a decisão arquitetural central de <code>ARCHITECTURE.md</code>: <strong>uma falha por modelo nunca marca a conexão inteira como indisponível.</strong></p>
+
+<h4>Restante do domínio A</h4>
+<div class="tw"><table>
+<thead><tr><th>Tabela</th><th>Colunas indexáveis</th><th>Blob</th><th>Para que serve</th></tr></thead>
+<tbody>
+<tr><td class="k">providerNodes</td><td>id, type, name</td><td>data: <code>prefix</code>, <code>apiType</code>, <code>baseUrl</code></td><td>Endpoints custom que o operador registra: <code>openai-compatible</code>, <code>anthropic-compatible</code>, <code>custom-embedding</code>. O <code>prefix</code> vira prefixo de modelo no gateway</td></tr>
+<tr><td class="k">proxyPools</td><td>id, isActive, testStatus</td><td>data: <code>name</code>, <code>proxyUrl</code>, <code>noProxy</code>, <code>type</code>, <code>strictProxy</code>, <code>lastTestedAt</code>, <code>lastError</code></td><td>Pools de proxy de saída, rotacionáveis por provider</td></tr>
+<tr><td class="k">apiKeys</td><td>id, key UNIQUE, name, machineId, isActive</td><td>—</td><td><strong>As chaves que autenticam clientes no plano de dados.</strong> Sem blob: totalmente relacional</td></tr>
+<tr><td class="k">combos</td><td>id, name UNIQUE, kind</td><td>models (array), routing (objeto de estratégia)</td><td>Um nome que resolve para uma lista ordenada de modelos com estratégia de fallback/fusão</td></tr>
+<tr><td class="k">smartModelProfiles</td><td>modelKey PK, inventoryFingerprint, source, classifierModel, researchedAt</td><td>profile (objeto), sources (array)</td><td>Perfil de capacidade/custo por modelo, usado pelo smart routing para ranquear candidatos</td></tr>
+</tbody></table></div>
+
+<h3>Domínio B — Configuração e chave-valor</h3>
+<div class="tw"><table>
+<thead><tr><th>Tabela</th><th>Forma</th><th>Quem escreve</th></tr></thead>
+<tbody>
+<tr><td class="k">settings</td><td><strong>Uma única linha</strong>, <code>id INTEGER PK CHECK (id = 1)</code>, coluna <code>data</code></td><td>Só <code>settingsRepo.ts</code>. ~55 chaves — ver seção 07</td></tr>
+<tr><td class="k">_meta</td><td>key / value</td><td><strong>Cinco repos compartilham</strong>: <code>agentMemoryRepo</code> (<code>agentMemoryRevision</code>), <code>agentSkillsRepo</code> (<code>agentSkillsRevision</code>), <code>pluginRowsRepo</code> (<code>pluginTreeRevision</code>), <code>harnessLearningConfigRepo</code> (7 chaves <code>harness.*</code>), <code>usageRepo</code> (<code>totalRequestsLifetime</code>), + o runner (<code>backupSchemaVersion</code>, <code>schemaVersion</code>)</td></tr>
+<tr><td class="k">kv</td><td>PK composta <code>(scope, key)</code> + value</td><td><strong>Três repos, três escopos disjuntos</strong> — ver abaixo</td></tr>
+</tbody></table></div>
+<div class="tw"><table>
+<thead><tr><th>scope</th><th>key</th><th>value</th><th>Repo dono</th></tr></thead>
+<tbody>
+<tr><td class="k">modelAliases</td><td>alias</td><td>string do modelo destino</td><td><code>aliasRepo.ts</code></td></tr>
+<tr><td class="k">customModels</td><td><code>${providerAlias}|${id}|${type}</code></td><td>objeto com metadados whitelistados (<code>contextLength</code>, <code>capabilities</code>, <code>modalities</code>, <code>upstreamModelId</code>, <code>quotaFamily</code>…)</td><td><code>aliasRepo.ts</code></td></tr>
+<tr><td class="k">pricing</td><td>provider</td><td><code>{ modelId: pricingOverride }</code></td><td><code>pricingRepo.ts</code></td></tr>
+<tr><td class="k">disabledModels</td><td>providerAlias</td><td><code>string[]</code> de ids de modelo</td><td><code>disabledModelsRepo.ts</code></td></tr>
+</tbody></table></div>
+<div class="note w">
+  <p><strong>Aqui há um acoplamento fácil de perder de vista.</strong> Quatro conceitos
+  distintos do produto — alias de modelo, modelo custom, override de preço e modelo
+  desabilitado — não têm tabela própria. Todos moram na <em>mesma</em> tabela
+  <code>kv</code>, separados apenas pelo valor da coluna <code>scope</code>.</p>
+  <p>Isso funciona e é enxuto, mas significa que o único índice existente
+  (<code>idx_kv_scope</code>) é compartilhado, e que um bug de escopo em qualquer um dos
+  três repos escreve dentro do namespace dos outros. Não há constraint que impeça.</p>
+</div>
+
+<h3>Domínio C — Contabilidade e observabilidade</h3>
+<div class="tw"><table>
+<thead><tr><th>Tabela</th><th>Granularidade</th><th>Opt-in?</th><th>Conteúdo</th></tr></thead>
+<tbody>
+<tr><td class="k">usageHistory</td><td>Uma linha por request</td><td><strong>Não</strong> — sempre grava</td><td><code>timestamp</code>, <code>provider</code>, <code>model</code>, <code>connectionId</code>, <code>apiKey</code>, <code>endpoint</code>, <code>promptTokens</code>, <code>completionTokens</code>, <code>cost REAL</code>, <code>status</code>, <code>tokens</code> (blob bruto), <code>meta</code></td></tr>
+<tr><td class="k">usageDaily</td><td>Uma linha por dia local</td><td>Não</td><td><code>dateKey</code> PK + blob agregado: <code>requests</code>, <code>promptTokens</code>, <code>completionTokens</code>, <code>cachedTokens</code>, <code>cost</code>, <code>byProvider</code>, <code>byModel</code>, <code>byAccount</code>, <code>byApiKey</code>, <code>byEndpoint</code></td></tr>
+<tr><td class="k">requestDetails</td><td>Uma linha por request, com corpos</td><td><strong>Sim</strong> — só se <code>settings.enableObservability</code></td><td>blob com <code>latency</code>, <code>tokens</code>, <code>request</code>, <code>providerRequest</code>, <code>providerResponse</code>, <code>response</code>, <code>pxpipe</code></td></tr>
+</tbody></table></div>
+<div class="note g">
+  <p><strong>Sanitização verificada.</strong> <code>requestDetailsRepo.ts</code> remove
+  <code>authorization</code>, <code>x-api-key</code>, <code>cookie</code>,
+  <code>token</code> e <code>api-key</code> dos headers antes de gravar, e trunca cada
+  campo grande conforme <code>observabilityMaxJsonSize</code> (5 KB por padrão).
+  Linhas antigas são podadas quando a tabela passa de <code>observabilityMaxRecords</code>
+  (1000). Esta é a única tabela do sistema com poda automática.</p>
+</div>
+<div class="note w">
+  <p><code>usageHistory.meta</code> é <strong>sempre gravado como <code>{}</code></strong>
+  por <code>usageRepo.ts</code>. Coluna reservada, hoje morta. E
+  <code>usageHistory.apiKey</code> guarda a chave do cliente que fez a chamada — em
+  claro, em uma tabela que nunca é podada.</p>
+</div>
+
+<h3>Domínio D — Harness (o chat agêntico do dashboard)</h3>
+<div class="tw"><table>
+<thead><tr><th>Tabela</th><th>Chave</th><th>Papel</th></tr></thead>
+<tbody>
+<tr><td class="k">harnessConversations</td><td>id PK</td><td>Snapshot inteiro da sessão. Colunas <code>title</code>, <code>projectId</code>, <code>providerId</code>, <code>modelId</code> + blob com o resto</td></tr>
+<tr><td class="k">harnessEvents</td><td><code>(sessionId, seq)</code> PK</td><td>Diário append-only da execução: <code>user/message</code>, <code>run/start</code>, <code>tool/call</code>, <code>tool/result</code>, <code>run/complete</code>. Blob por tipo</td></tr>
+<tr><td class="k">harnessMessageIndex</td><td><code>(sessionId, messageId)</code> PK</td><td>Índice de busca. Texto truncado em 12.000 chars</td></tr>
+<tr><td class="k">harnessMessageFts</td><td>— <span class="b n">FTS5</span></td><td>Tabela-sombra virtual criada pela migration 005. <strong>Não está em <code>TABLES</code></strong> porque o sync declarativo não sabe criar FTS5</td></tr>
+<tr><td class="k">agentSkills</td><td>id PK</td><td>Skills como <em>linhas</em>, não arquivos: <code>name</code>, <code>description</code>, <code>body</code> (markdown), <code>enabled</code>, <code>source</code>, <code>origin</code></td></tr>
+<tr><td class="k">agentSkillFiles</td><td><code>(skillId, filePath)</code> PK</td><td>Arquivos auxiliares de uma skill, conteúdo em texto</td></tr>
+<tr><td class="k">agentMemoryEntries</td><td>id PK</td><td>Memória do agente: <code>scope</code> + <code>content</code> (texto puro, sem blob)</td></tr>
+<tr><td class="k">harnessPendingWrites</td><td>id PK</td><td><strong>A fila de aprovação.</strong> <code>kind</code>, <code>action</code>, <code>payload</code>, <code>source</code>, <code>status</code> (default <code>pending</code>), <code>reviewedAt</code>, <code>result</code></td></tr>
+<tr><td class="k">pluginRows</td><td>id PK</td><td>Camada de <em>patch</em> sobre os plugins que os bundles declaram em código. Tabela vazia reproduz os defaults exatamente — embarca inerte</td></tr>
+</tbody></table></div>
+
+<h3>Domínio E — Deploy em nuvem</h3>
+<div class="tw"><table>
+<thead><tr><th>Tabela</th><th>Papel</th><th>Blob</th></tr></thead>
+<tbody>
+<tr><td class="k">cloudConnections</td><td>Uma conexão por provedor de nuvem. <strong>Índice UNIQUE em <code>(provider)</code></strong></td><td>data: <code>token</code>, <code>externalUserEmail</code>, <code>externalOrgId</code>, <code>externalOrgName</code></td></tr>
+<tr><td class="k">cloudDeployments</td><td>Um deploy por (ferramenta × provedor)</td><td>data: <code>image</code>, <code>region</code>, <code>instanceType</code>, <code>port</code>, <code>externalServiceId</code>, <code>externalDeployId</code>, <code>gatewayToken</code>, <code>config</code>, <code>error</code></td></tr>
+</tbody></table></div>
+<div class="note">
+  <p><code>cloudDeployments</code> tem o <strong>único índice parcial do schema</strong>, e ele
+  codifica uma regra de negócio real:</p>
+  <p><code>CREATE UNIQUE INDEX idx_cd_tool_provider_active ON cloudDeployments(toolId, provider) WHERE status != 'failed'</code></p>
+  <p>Ou seja: uma ferramenta pode ter no máximo um deploy vivo por provedor, mas
+  quantos deploys falhados quiser. É a única constraint declarativa de integridade
+  de negócio em todo o banco.</p>
+</div>
+
+<h2 id="s5"><span class="num">SEÇÃO 05</span>Migrations, sync declarativo e backup</h2>
+<p>
+  Dois mecanismos coexistem, e a divisão entre eles é a parte que costuma confundir:
+</p>
+<div class="grid">
+  <div class="card o">
+    <h5>1 · Sync declarativo</h5>
+    <p><code>syncSchemaFromTables()</code>, <code>migrate.ts:273</code></p>
+    <p>Roda <strong>a cada boot</strong>. Lê <code>TABLES</code> e adiciona o que falta: tabela, coluna, índice. Aditivo apenas — nunca remove nem altera.</p>
+  </div>
+  <div class="card">
+    <h5>2 · Migrations versionadas</h5>
+    <p><code>src/lib/db/migrations/001..008</code></p>
+    <p>Para o que o sync não faz: transformar dados existentes, criar FTS5, dropar, renomear. Registro em <code>migrations/index.ts</code>, ordenado por <code>version</code>.</p>
+  </div>
+</div>
+
+<h4>Ordem exata do boot — <code>src/lib/db/migrate.ts:239</code></h4>
+<ol class="steps">
+  <li><span class="h">Poda de backups antigos</span><p><code>pruneOldBackups()</code> — mantém os 3 mais recentes.</p></li>
+  <li><span class="h">Bootstrap de <code>_meta</code></span><p>Necessário para conseguir ler <code>backupSchemaVersion</code>.</p></li>
+  <li><span class="h">Detecta mudança de schema pendente</span><p><code>storedSchemaVer &lt; SCHEMA_VERSION</code> e o banco não é novo → <code>pendingSchemaChange = true</code>.</p></li>
+  <li><span class="h">Backup ANTES de qualquer mutação</span><p><code>backupDbLite(adapter, "schema-{de}-to-{para}")</code>. Falha no backup é logada, não aborta.</p></li>
+  <li><span class="h">Aplica migrations pendentes</span><p>Cada <code>up()</code> roda dentro de <code>adapter.transaction</code> — ou aplica inteira, ou nada.</p></li>
+  <li><span class="h">Sync declarativo</span><p>Depois das migrations, para que uma migration possa criar a base que o sync depois completa.</p></li>
+  <li><span class="h">Estampa a versão alcançada</span><p><code>setMetaSync("backupSchemaVersion", SCHEMA_VERSION)</code> — o próximo boot pula o backup.</p></li>
+</ol>
+
+<div class="tw"><table>
+<thead><tr><th>#</th><th>Nome</th><th>O que faz</th></tr></thead>
+<tbody>
+<tr><td class="k">001</td><td>initial</td><td>Base</td></tr>
+<tr><td class="k">002</td><td>smart-routing</td><td>Tabela de perfis de modelo</td></tr>
+<tr><td class="k">003</td><td>harness-conversations</td><td>Sessões e eventos do chat</td></tr>
+<tr><td class="k">004</td><td>model-availability</td><td>Cooldown por conta × modelo</td></tr>
+<tr><td class="k">005</td><td>harness-message-fts</td><td><strong>Cria a FTS5</strong> — o sync declarativo não sabe fazer isso</td></tr>
+<tr><td class="k">006</td><td>agent-skill-files</td><td>Arquivos auxiliares de skill</td></tr>
+<tr><td class="k">007</td><td>harness-pending-decisions</td><td>Fila de aprovação. Idempotente: <code>CREATE TABLE IF NOT EXISTS</code>, <code>addColumnIfMissing</code>, <code>CREATE INDEX IF NOT EXISTS</code></td></tr>
+<tr><td class="k">008</td><td>connection-test-status</td><td>Reescreve <code>providerConnections.data.testStatus</code> para o conjunto fechado. Preserva credenciais no mesmo blob</td></tr>
+</tbody></table></div>
+
+<div class="note g">
+  <p><strong>Por que o <code>SCHEMA_VERSION</code> foi para 8 mesmo sem mudança em
+  <code>TABLES</code>.</strong> A migration 008 reescreve o blob onde as credenciais
+  vivem. O bump existe só para forçar o backup pré-mudança a rodar antes disso —
+  está comentado no próprio <code>schema.ts:1-9</code>. Esquecer o bump não quebra o
+  sync aditivo; só pula o backup.</p>
+</div>
+<div class="note">
+  <p><strong>O modo de falha que a revisão desta semana fechou.</strong> A 008 lia
+  <code>data.testStatus</code> direto do <code>JSON.parse</code>. Mas
+  <code>JSON.parse("null")</code> <em>tem sucesso</em> e devolve <code>null</code>, então o
+  <code>try/catch</code> de parse não pegava — ler uma propriedade de <code>null</code>
+  lançava <code>TypeError</code>. Dentro da transação, isso dava rollback de <em>todas</em>
+  as linhas e prendia a instalação em <code>schemaVersion=7</code>, falhando de novo a
+  cada boot. Corrigido com guarda de não-objeto; <code>tests/unit/connectionTestStatusMigration.test.ts</code>
+  protege a regressão.</p>
+</div>
+
+<h4>Backup — <code>src/lib/db/backup.ts</code></h4>
+<ul>
+  <li>Dispara <strong>apenas</strong> antes de migrations de schema. Nenhuma rota de API o aciona.</li>
+  <li>Copia todas as tabelas <strong>exceto <code>requestDetails</code></strong> (a maior e a menos crítica).</li>
+  <li>Destino: <code>&lt;DATA_DIR&gt;/db/backups</code>, os 3 mais recentes.</li>
+  <li><span class="b x">sai</span> Fica local, nunca é transmitido — mas é SQLite em claro, <strong>com os tokens dentro</strong>.</li>
+</ul>
+
+<h2 id="s6"><span class="num">SEÇÃO 06</span>A primeira entrada de dados — instalação nova</h2>
+<p>
+  Esta é a pergunta que você fez primeiro, e a resposta tem uma nuance que muda
+  como se lê o resto do mapa: <strong>a criação do banco não é um passo de UI.</strong>
+</p>
+
+<div class="note b">
+  <p><strong>Cuidado com <code>src/app/api/init/route.ts</code>.</strong> O nome sugere
+  bootstrap, mas o arquivo inteiro é:</p>
+  <p><code>export async function GET() { return new Response("Initialized", { status: 200 }) }</code></p>
+  <p>É um <em>no-op</em>. Nenhuma lógica de inicialização vive ali. Quem procurar o
+  ponto de partida pelo nome da rota vai para o lugar errado.</p>
+</div>
+
+<h4>O que realmente acontece, em ordem</h4>
+<ol class="steps">
+  <li><span class="h">Processo sobe</span>
+    <p><code>src/instrumentation.ts</code> → <code>register()</code> chama
+    <code>initializeApp()</code> e <code>bootstrap()</code>. Também instala a captura de
+    console (<code>initConsoleLogCapture()</code>) que alimenta a tela Console Log.</p></li>
+  <li><span class="h">Banco nasce <em>lazy</em>, no primeiro acesso</span>
+    <p>A primeira chamada a <code>getAdapter()</code> de qualquer lugar
+    (<code>driver.ts:92</code>) dispara <code>runMigrationOnce()</code>. Tabelas, colunas
+    e índices de <code>TABLES</code> passam a existir. <strong>Antes de qualquer tela
+    abrir.</strong></p></li>
+  <li><span class="h"><code>/login</code> — a porta</span>
+    <p>A linha de <code>settings</code> é criada preguiçosamente a partir de
+    <code>DEFAULT_SETTINGS</code> na primeira leitura. Vem com
+    <code>requireLogin: true</code>, <code>authMode: "password"</code> e a senha padrão
+    <code>123456</code> (<code>src/lib/auth/dashboardSession.ts:8</code>).</p></li>
+  <li><span class="h"><code>/dashboard/providers/[id]</code> — <strong>a primeira entrada de dados de verdade</strong></span>
+    <p>É a primeira tela onde o operador cria uma linha que ele controla. Adicionar
+    uma chave de API ou concluir um OAuth insere em <code>providerConnections</code>.
+    <strong>Nada a jusante funciona sem pelo menos uma linha aqui.</strong></p></li>
+  <li><span class="h"><code>/dashboard/endpoint</code> — semeia sozinho</span>
+    <p><code>endpoint/hooks/useApiKeys.ts:27-36</code> cria uma <code>"Default Key"</code>
+    <em>no momento em que a página carrega com zero chaves</em>. Sem clique. Só visitar
+    a tela já grava em <code>apiKeys</code>.</p></li>
+  <li><span class="h">Só então o resto ganha sentido</span>
+    <p>Combos referenciam modelos que vêm das conexões. Usage e Quota ficam vazios
+    até um request bater em <code>/api/v1/*</code>.</p></li>
+</ol>
+
+<div class="note w">
+  <p><strong>Um efeito colateral que vale saber:</strong> visitar
+  <code>/dashboard/endpoint</code> ou <code>/dashboard/basic-chat</code> é uma
+  <em>escrita</em>, não uma leitura. Ambos aplicam o mesmo padrão de auto-provisionar a
+  primeira chave de API. Uma tela que grava ao renderizar não é o que se espera de uma
+  tela de consulta.</p>
+</div>
+
+<h4>Caminho completo da credencial: formulário → coluna</h4>
+<div class="flow">
+<p class="flow-cap">via chave de API</p>
+<pre>
+  <b>AddApiKeyModal.tsx</b>                    providers/[id]/
+        │  valida antes de salvar: <i>POST /api/providers/validate</i>
+        ▼
+  <b>connectionModalActions.ts:6</b>            saveApiKey()
+        ▼
+  <i>POST /api/providers</i>
+        │  re-export → server/application/use-cases/http/providers/route.ts
+        ▼
+  <b>createProviderConnection()</b>             src/models/index.ts
+        ▼
+  <b>connectionsRepo.ts:186</b>
+        ▼
+  <u>INSERT INTO providerConnections</u>
+     authType = 'apikey' | 'cookie'
+     data     = { apiKey, providerSpecificData, testStatus, proxy… }
+</pre>
+</div>
+<div class="flow">
+<p class="flow-cap">via OAuth — mesmo destino, caminho diferente</p>
+<pre>
+  <b>oauthFlowActions.ts</b>                    shared/components/
+        │  passos: authorize → device-code → poll → exchange
+        ▼
+  <i>GET|POST /api/oauth/[provider]/[action]</i>
+        │  + rotas dedicadas: codex/bulk-import, cursor/auto-import,
+        │    kiro/social-exchange, gitlab/pat, iflow/cookie …
+        ▼
+  <b>createProviderConnection()</b>             chamada em 5 pontos do fluxo
+        ▼
+  <u>INSERT INTO providerConnections</u>
+     authType = 'oauth'
+     email    = do perfil devolvido pelo provider
+     data     = { accessToken, refreshToken, idToken, expiresAt, … }
+
+  <q>dedupe:</q> connectionsRepo.ts:194-219 casa por <i>email</i> +
+  <i>chatgptAccountId</i>/<i>username</i> e ATUALIZA a linha existente
+  em vez de duplicar a conta.
+</pre>
+</div>
+
+<h2 id="s7"><span class="num">SEÇÃO 07</span>Telas → API → repo → tabela</h2>
+<p>
+  Navegação definida em <code>src/shared/components/sidebarData.tsx</code>, renderizada
+  por <code>Sidebar.tsx</code>. Três grupos:
+</p>
+<div class="flow">
+<pre>
+  <b>grupo principal</b>
+     Chat                     → /dashboard/basic-chat
+     Usage                    → /dashboard/usage
+     Endpoint &amp; Key           → /dashboard/endpoint
+     Providers                → /dashboard/providers
+     Combo &amp; Vision Adapter   → /dashboard/combos
+     Quota Tracker            → /dashboard/quota
+     Token Saver              → /dashboard/token-saver
+     CLI Tools                → /dashboard/cli-tools
+     Cloud Deploy             → /dashboard/cloud
+
+  <b>grupo "System"</b>
+     Media Providers  (expansível, SidebarMediaProviders.tsx)
+        → /dashboard/media-providers/{embedding,image,video,tts,stt}
+        → Web Fetch &amp; Search → /dashboard/media-providers/web
+     Proxy Pools              → /dashboard/proxy-pools
+     Skills                   → /dashboard/skills
+     Console Log              → /dashboard/console-log
+     Translator               → /dashboard/translator   <q>só se settings.enableTranslator</q>
+     Settings                 → /dashboard/profile      <q>link manual, fora das listas</q>
+
+  <s>/dashboard/pxpipe  —  NÃO está na navegação. Só por URL direta.</s>
+</pre>
+</div>
+
+<h3>Tabela mestra</h3>
+<div class="tw"><table>
+<thead><tr><th>Tela</th><th>Papel</th><th>Rotas principais</th><th>Repo → tabela</th><th>I/O</th></tr></thead>
+<tbody>
+<tr>
+  <td class="k">dashboard/</td><td>Home = a própria tela de Usage (<code>page.tsx:3</code> renderiza <code>UsageClient</code>)</td>
+  <td>idem Usage</td><td>idem Usage</td><td><span class="b r">lê</span></td>
+</tr>
+<tr>
+  <td class="k">providers/<br>providers/[id]</td><td>Conexões de provider e seus modelos</td>
+  <td><code>GET/POST /api/providers</code>, <code>PUT/DELETE /api/providers/[id]</code>, <code>/[id]/test</code>, <code>/validate</code>, <code>/[id]/models</code>, <code>/api/provider-nodes*</code>, <code>/api/models/custom|disabled|discovered</code>, toda a família <code>/api/oauth/*</code></td>
+  <td><code>connectionsRepo</code> → <strong>providerConnections</strong><br><code>nodesRepo</code> → providerNodes<br><code>aliasRepo</code>, <code>disabledModelsRepo</code> → kv<br><code>modelAvailabilityRepo</code> → modelAvailability</td>
+  <td><span class="b w">escreve</span></td>
+</tr>
+<tr>
+  <td class="k">combos/<br>combos/[id]</td><td>Grupos de modelos nomeados + perfis de smart routing</td>
+  <td><code>GET/POST /api/combos</code>, <code>PUT/DELETE /api/combos/[id]</code>, <code>PATCH /api/settings</code>, <code>/api/smart-routing/{profiles,suggest,profiles/confirm}</code></td>
+  <td><code>combosRepo</code> → combos<br><code>smartModelProfilesRepo</code> → smartModelProfiles<br><code>settingsRepo</code> → settings</td>
+  <td><span class="b w">escreve</span></td>
+</tr>
+<tr>
+  <td class="k">endpoint/</td><td>URL do gateway, chaves de API, exposição por túnel</td>
+  <td><code>GET/POST/PUT/DELETE /api/keys[/[id]]</code>, <code>GET/PATCH /api/settings</code>, <code>/api/tunnel/*</code>, <code>/api/tunnel/tailscale-*</code></td>
+  <td><code>apiKeysRepo</code> → <strong>apiKeys</strong><br><code>settingsRepo</code> → settings</td>
+  <td><span class="b w">escreve</span></td>
+</tr>
+<tr>
+  <td class="k">usage/</td><td>Estatísticas, log ao vivo, drill-down por request</td>
+  <td><code>GET /api/usage/stats</code>, SSE <code>/api/usage/stream</code>, <code>/api/usage/chart</code>, <code>/api/usage/request-logs</code>, <code>/api/usage/providers</code>, <code>/api/usage/request-details</code></td>
+  <td><code>usageRepo</code> → usageHistory, usageDaily, _meta<br><code>requestDetailsRepo</code> → requestDetails</td>
+  <td><span class="b r">lê</span></td>
+</tr>
+<tr>
+  <td class="k">quota/</td><td>Cota e rate limit por conexão (chama a API de cota de cada provider)</td>
+  <td><code>GET /api/providers</code>, <code>GET /api/settings</code>, <code>GET /api/usage/[connectionId]?force=1</code>, <code>POST .../codex-reset-credits</code></td>
+  <td><code>connectionsRepo</code> → <strong>escreve cache de cota de volta em providerConnections.data</strong><br><code>usageRepo</code> → usageHistory</td>
+  <td><span class="b rw">lê+escreve</span></td>
+</tr>
+<tr>
+  <td class="k">basic-chat/</td><td>Console do chat agêntico: tools, MCP, memória, skills, plugins</td>
+  <td><strong><code>POST /api/v1/chat/completions</code></strong> (inferência real) + <code>/api/harness/{sessions,memory,pending,skills,plugins,mcp,governance,learning,search}</code> + leituras de providers/models/combos/keys</td>
+  <td><code>harnessConversationsRepo</code> → harnessConversations, harnessEvents<br><code>agentMemoryRepo</code> → agentMemoryEntries<br><code>harnessPendingWritesRepo</code> → harnessPendingWrites<br><code>agentSkills(Files)Repo</code> → agentSkills, agentSkillFiles<br><code>pluginRowsRepo</code> → pluginRows<br><code>harnessMessageIndexRepo</code> → harnessMessageIndex + FTS<br><em>indiretamente:</em> usageHistory, usageDaily, requestDetails</td>
+  <td><span class="b w">escreve</span></td>
+</tr>
+<tr>
+  <td class="k">skills/</td><td>Página de referência estática: URL de um repo externo de skills</td>
+  <td><strong>nenhuma</strong> — Server Component puro, renderiza <code>src/shared/constants/skills.ts</code></td>
+  <td>—</td><td><span class="b n">nada</span></td>
+</tr>
+<tr>
+  <td class="k">cli-tools/<br>cli-tools/[toolId]</td><td>Aponta CLIs de terceiros para este gateway escrevendo os arquivos de config nativos deles</td>
+  <td><code>GET /api/cli-tools/all-statuses</code>, <code>GET/POST/DELETE /api/cli-tools/&lt;tool&gt;-settings</code> (×18), + leituras de providers/settings/tunnel/keys/alias</td>
+  <td><strong>Nenhuma tabela.</strong> Escreve no <em>filesystem</em> via <code>fs/promises</code></td>
+  <td><span class="b x">sai</span></td>
+</tr>
+<tr>
+  <td class="k">cloud/</td><td>Faz deploy do ferramental em provedores de nuvem</td>
+  <td><code>/api/cloud/connections[/[provider]]</code>, <code>/api/cloud/deployments[/[id][/refresh]]</code></td>
+  <td><code>cloudConnectionsRepo</code> → cloudConnections<br><code>cloudDeploymentsRepo</code> → cloudDeployments</td>
+  <td><span class="b w">escreve</span> <span class="b x">sai</span></td>
+</tr>
+<tr>
+  <td class="k">proxy-pools/</td><td>Pools de proxy de saída</td>
+  <td><code>GET/POST /api/proxy-pools</code>, <code>PUT/PATCH/DELETE /api/proxy-pools/[id]</code>, <code>/[id]/test</code>, <code>/{vercel,cloudflare,deno}-deploy</code></td>
+  <td><code>proxyPoolsRepo</code> → proxyPools<br><code>connectionsRepo</code> → providerConnections (só contagem de uso)</td>
+  <td><span class="b w">escreve</span> <span class="b x">sai</span></td>
+</tr>
+<tr>
+  <td class="k">media-providers/<br>[kind][/[id]]</td><td>Listagem e detalhe por tipo de mídia; permite conectar e testar ao vivo</td>
+  <td>Reusa <strong>os mesmos</strong> <code>ConnectionsCard</code>/<code>ModelsCard</code> de <code>providers/[id]</code>. Exemplos chamam o gateway ao vivo: <code>/api/v1/embeddings</code>, <code>/api/v1/audio/transcriptions</code></td>
+  <td><code>connectionsRepo</code> → providerConnections<br><code>nodesRepo</code> → providerNodes</td>
+  <td><span class="b w">escreve</span></td>
+</tr>
+<tr>
+  <td class="k">profile/</td><td>Senha, SSO (OIDC/SAML), proxy de saída, cor de destaque, locale, backup do banco</td>
+  <td>Quase tudo <code>GET/PATCH /api/settings</code>, + <code>/api/settings/database</code>, <code>/api/settings/proxy-test</code>, <code>/api/auth/{oidc,saml}/test</code>, <code>/api/auth/logout</code></td>
+  <td><code>settingsRepo</code> → settings (linha única)<br><code>db/backup.ts</code> → arquivo</td>
+  <td><span class="b w">escreve</span></td>
+</tr>
+<tr>
+  <td class="k">translator/</td><td>Ferramenta de debug: mostra e edita o JSON cru em cada estágio da tradução</td>
+  <td><code>/api/translator/{load,save,translate,send}</code></td>
+  <td><strong>Nenhuma tabela.</strong> <code>fs</code>/<code>path</code> direto contra <code>logs/translator/*.json|.txt</code></td>
+  <td><span class="b x">sai</span></td>
+</tr>
+<tr>
+  <td class="k">console-log/</td><td>Tail ao vivo do console do servidor</td>
+  <td>SSE <code>/api/translator/console-logs/stream</code>, <code>DELETE /api/translator/console-logs</code></td>
+  <td><strong>Nenhuma.</strong> Ring buffer em memória: <code>src/lib/consoleLogBuffer.ts</code></td>
+  <td><span class="b r">lê</span></td>
+</tr>
+<tr>
+  <td class="k">token-saver/</td><td>Configura o pxpipe e seu ciclo de vida</td>
+  <td><code>GET/PATCH /api/settings</code>, <code>/api/pxpipe/{status,health,start,stop,restart}</code></td>
+  <td><code>settingsRepo</code> → settings. Estado do processo não é persistido</td>
+  <td><span class="b w">escreve</span></td>
+</tr>
+<tr>
+  <td class="k">pxpipe/</td><td>Status/stats/logs detalhados do pxpipe</td>
+  <td><code>/api/pxpipe/{status,stats,logs,health}</code></td>
+  <td>Nenhuma — <code>src/lib/pxpipe/service.ts</code></td>
+  <td><span class="b r">lê</span></td>
+</tr>
+<tr>
+  <td class="k">/login</td><td>Portão: senha / OIDC / SAML</td>
+  <td><code>GET /api/auth/status</code>, <code>POST /api/auth/login</code>, <code>PATCH /api/settings</code> (troca forçada), navegação para <code>/api/auth/{oidc,saml}/start</code></td>
+  <td><code>settingsRepo</code> → settings (hash da senha e <code>authMode</code> moram lá)</td>
+  <td><span class="b rw">lê+escreve</span></td>
+</tr>
+<tr>
+  <td class="k">/callback</td><td>Landing do popup de OAuth: repassa <code>code</code>/<code>state</code> ao opener por <code>postMessage</code>/<code>BroadcastChannel</code>/<code>localStorage</code> e se fecha</td>
+  <td><strong>nenhuma</strong></td><td>—</td><td><span class="b n">nada</span></td>
+</tr>
+<tr>
+  <td class="k">/</td><td><code>redirect('/dashboard')</code></td><td>—</td><td>—</td><td><span class="b n">nada</span></td>
+</tr>
+</tbody></table></div>
+
+<h3>A linha <code>settings</code> — 55 chaves, uma linha, agrupadas por dono</h3>
+<div class="tw"><table>
+<thead><tr><th>Grupo</th><th>Chaves (default)</th><th>Tela que edita</th></tr></thead>
+<tbody>
+<tr><td class="k">Nuvem / túnel</td><td><code>cloudEnabled</code>(false), <code>tunnelEnabled</code>(false), <code>tunnelUrl</code>(""), <code>tunnelProvider</code>("cloudflare"), <code>tailscaleEnabled</code>(false), <code>tailscaleUrl</code>("")</td><td><code>cloud/</code>, <code>endpoint/</code> + <code>useTunnel.ts</code>, <code>useTailscale.ts</code>. <strong><code>tunnelProvider</code> sem UI</strong></td></tr>
+<tr><td class="k">Roteamento</td><td><code>stickyRoundRobinLimit</code>(3), <code>providerStrategies</code>({}), <code>quotaVisibility</code>({}), <code>comboStrategy</code>("fallback"), <code>comboStickyRoundRobinLimit</code>(1), <code>comboStrategies</code>({}), <code>capacityAdapter</code>(vision on, pdf off, audioInput on, videoInput off)</td><td><code>profile/sections/RoutingCard.tsx</code>, <code>providers/*</code>, <code>combos/*</code></td></tr>
+<tr><td class="k">Acesso</td><td><code>requireLogin</code>(true), <code>requireApiKey</code>(true), <code>tunnelDashboardAccess</code>(true), <code>authMode</code>("password"), <code>ssoType</code>("oidc"), 5 chaves OIDC, 6 chaves SAML</td><td><code>profile/sections/{SecurityCard,SsoModeSelector,SsoCard,OidcPanel,SamlPanel}.tsx</code></td></tr>
+<tr><td class="k">Observabilidade</td><td><code>enableObservability</code>(false), <code>observabilityMaxRecords</code>(1000), <code>observabilityBatchSize</code>(20), <code>observabilityFlushIntervalMs</code>(5000), <code>observabilityMaxJsonSize</code>(5)</td><td><strong>só <code>enableObservability</code> tem UI.</strong> As outras 4 são API/env</td></tr>
+<tr><td class="k">Rede</td><td><code>outboundProxyEnabled</code>, <code>outboundProxyUrl</code>, <code>outboundNoProxy</code></td><td><code>profile/sections/NetworkCard.tsx</code></td></tr>
+<tr><td class="k">Token saver</td><td><code>rtkEnabled</code>(true), <code>cavemanEnabled/Level</code>, <code>ponytailEnabled/Level</code>, <code>synapseEnabled/Level</code>, <code>pxpipeEnabled</code>(false), <code>pxpipeAutoInstall</code>(true), <code>pxpipeMinChars</code>(25000), <code>pxpipeTimeoutMs</code>(15000)</td><td><code>token-saver/</code>. <strong><code>pxpipeAutoInstall</code> e <code>pxpipeTimeoutMs</code> sem UI</strong></td></tr>
+<tr><td class="k">Headroom</td><td><code>headroomEnabled</code>, <code>headroomUrl</code>, <code>headroomCompressUserMessages</code></td><td><strong>nenhuma UI.</strong> Só rotas <code>/api/headroom/*</code></td></tr>
+<tr><td class="k">Fallback grátis</td><td><code>freeFallbackEnabled</code>(true)</td><td><strong>nenhuma UI.</strong> Lido só em <code>application/chat.ts:425</code></td></tr>
+</tbody></table></div>
+<div class="note w">
+  <p><code>getCloudUrl()</code> lê uma chave <code>cloudUrl</code> que <strong>não existe em
+  <code>DEFAULT_SETTINGS</code></strong>, caindo para <code>CLOUD_URL</code> /
+  <code>NEXT_PUBLIC_CLOUD_URL</code> do ambiente. É a única chave lida do blob sem
+  declaração no default.</p>
+</div>
+<div class="note g">
+  <p><strong>Escrita segura de settings.</strong> <code>updateSettings()</code> faz
+  read-merge-write <em>dentro</em> de <code>db.transaction</code>
+  (<code>settingsRepo.ts</code>), então dois <code>PATCH /api/settings</code> concorrentes
+  não perdem um ao outro. Como quase toda tela do dashboard escreve nesse mesmo blob
+  único, sem isso o último write venceria e apagaria o resto.</p>
+</div>
+
+<h2 id="s8"><span class="num">SEÇÃO 08</span>Portaria: autorização em camadas</h2>
+<p>
+  Três camadas independentes, e a ordem importa. A primeira é o <em>proxy</em> do Next,
+  que vê <strong>todo</strong> request antes de qualquer handler.
+</p>
+
+<h4>Camada 1 — <code>src/proxy.ts</code> → <code>src/dashboardGuard.ts</code></h4>
+<p>
+  Matcher: <code>/((?!_next/static|_next/image|favicon\.ico).*)</code> — ou seja, tudo.
+  A ordem de avaliação dentro de <code>proxy()</code>:
+</p>
+<div class="flow">
+<pre>
+  1. <b>LOCAL_ONLY_PATHS</b>   → exige token de CLI <i>ou</i> (loopback + sessão)
+        /api/cli-tools/cowork-settings · /api/mcp/ · /api/tunnel/tailscale-*
+        /api/tunnel/{enable,disable} · /api/oauth/{cursor,kiro}/auto-import
+        /api/auth/reset-password · /api/headroom/{start,stop,proxy}
+        falha → <s>403 "Local only: CLI token required"</s>
+
+  2. <b>ALWAYS_PROTECTED</b>   → só token de CLI ou cookie válido. Sem modo local.
+        /api/settings/database · /api/version/update
+        /api/oauth/{cursor,kiro}/auto-import
+        falha → <s>401</s>
+
+  3. <b>isPublicLlmApi</b>     → o plano de dados
+        prefixos: /v1 · /v1beta · /api/v1 · /api/v1beta · /codex · /responses
+        aceita: loopback  OU  token de CLI  OU  API key válida
+        falha → <s>401 "API key required for remote API access"</s>
+
+  4. <b>/api/*</b> restante    → PUBLIC_API_PATHS livres (health, init, locale,
+        auth/*, version, settings/require-login); o resto exige sessão
+        falha → <s>401</s>
+
+  5. <b>/dashboard/*</b>       → cookie <i>auth_token</i> verificado, ou
+        (requireLogin=false E request local). Se tunnelDashboardAccess=false
+        e o Host casa com o host do túnel → <q>redirect /login</q>
+
+  6. <b>/</b>                  → redirect /dashboard
+</pre>
+</div>
+<div class="note g">
+  <p><strong>Um acoplamento explícito e testado.</strong> Todo rewrite em
+  <code>next.config.ts</code> que aponta para <code>/api/v1*</code> precisa aparecer em
+  <code>PUBLIC_PREFIXES</code>, porque o proxy casa o path <em>antes</em> do rewrite —
+  um prefixo faltando pularia a checagem de API key por completo.
+  <code>tests/unit/dashboardGuard.test.ts</code> força esse pareamento. Os rewrites
+  atuais: <code>/v1/*</code>, <code>/v1/v1/*</code>, <code>/v1beta/*</code>,
+  <code>/codex/*</code>, <code>/responses</code>.</p>
+</div>
+<div class="note">
+  <p><strong>O que "local" significa</strong> — <code>isLocalRequest()</code>,
+  <code>dashboardGuard.ts:90</code>. Não basta o Host ser loopback:</p>
+  <ul>
+    <li>Header <code>x-9r-via-proxy</code> presente → <strong>nunca</strong> é local.</li>
+    <li>Com <code>hasTrustedPeerHeaders()</code>, o peer é lido de <code>x-9r-real-ip</code>.</li>
+    <li><strong>Fora de <code>NODE_ENV=development</code>, o Host sozinho não conta.</strong> Em produção, sem headers de peer confiável, nada é local.</li>
+    <li>Se há <code>Origin</code>, o hostname dele também precisa ser loopback.</li>
+    <li>Normaliza IPv6: <code>[::1]</code>, <code>::ffff:127.0.0.1</code>.</li>
+  </ul>
+</div>
+
+<h4>Camada 2 — <code>requireDashboardAccess()</code> nos handlers</h4>
+<p>
+  Segunda linha para handlers que agem com <em>autoridade do dono</em>: rodar código em
+  sandbox, editar memória do agente, ligar/desligar plugin, abrir sessão MCP.
+  <code>src/lib/auth/dashboardAccess.ts</code> reusa <code>isLocalRequest</code>
+  deliberadamente, para as duas camadas não divergirem — <strong>desligar login é um modo
+  local single-user, não pode dar autoridade a um chamador remoto</strong>. Settings
+  ilegível cai para "exige sessão verificada" (fail-closed).
+</p>
+<p>As 14 rotas do harness passam por esse gate; <code>tests/unit/harnessRouteAuth.test.ts</code> protege <code>sandbox/eval</code> e <code>mcp/discover</code>.</p>
+
+<h4>Camada 3 — <code>requireGatewayApiKey()</code> no plano de dados</h4>
+<p>
+  <code>application/gatewayApiKey.ts:16</code>. Curto-circuita se
+  <code>settings.requireApiKey === false</code>. Senão extrai a chave
+  (<code>Authorization: Bearer</code>, <code>x-api-key</code>, <code>x-goog-api-key</code>,
+  <code>?key=</code>) e valida com <code>SELECT isActive FROM apiKeys WHERE key = ?</code>.
+  Falha → 401.
+</p>
+<div class="note">
+  <p><strong>Não confunda as duas chaves.</strong> A <em>gateway API key</em>
+  (tabela <code>apiKeys</code>) autentica o cliente <em>entrando</em>. As credenciais de
+  provider (blob de <code>providerConnections</code>) autenticam o ModelHub
+  <em>saindo</em> para o upstream. São conceitos diferentes resolvidos por código
+  diferente, e o mapa fica ilegível se forem misturados.</p>
+</div>
+
+<h2 id="s9"><span class="num">SEÇÃO 09</span>O caminho quente: um prompt de ponta a ponta</h2>
+<p>
+  Cinco portas de entrada convergem em <strong>dois</strong> núcleos. Este é o fluxo que
+  define o produto.
+</p>
+<div class="tw"><table>
+<thead><tr><th>Entrada</th><th>Arquivo</th><th>Converge em</th></tr></thead>
+<tbody>
+<tr><td class="k">POST /v1/chat/completions</td><td><code>api/v1/chat/completions/route.ts:30</code></td><td><code>handleChat()</code></td></tr>
+<tr><td class="k">POST /v1/messages</td><td><code>api/v1/messages/route.ts:33</code></td><td><code>handleChat()</code></td></tr>
+<tr><td class="k">POST /v1/responses</td><td><code>api/v1/responses/route.ts:28</code></td><td><code>handleChat()</code></td></tr>
+<tr><td class="k">POST /v1beta/models/{m}:action</td><td><code>api/v1beta/models/[...path]/route.ts</code> → re-export</td><td>converte Gemini→interno (<code>convertGeminiToInternal:379</code>), chama <code>handleChat()</code> na linha 107, converte de volta (<code>convertOpenAIResponseToGemini:531</code> ou <code>transformOpenAISSEToGeminiSSE:434</code>)</td></tr>
+<tr><td class="k">POST /v1/embeddings</td><td><code>api/v1/embeddings/route.ts:20</code></td><td><code>handleEmbeddings()</code> — <strong>pipeline separado</strong>, sem translator nem executor</td></tr>
+</tbody></table></div>
+<div class="note w">
+  <p><strong>Uma exceção importante no caminho Gemini:</strong> requests de TTS nativo do
+  Gemini <em>não passam</em> por <code>handleChat</code>. Vão por
+  <code>forwardGeminiNativeRequest</code> (linhas 243-370), um loop de fetch/fallback
+  autocontido, com seu <em>próprio</em> gate de API key
+  (<code>validateGeminiNativeClientKey:182</code>) e seu próprio loop de
+  <code>excludeConnectionIds</code>. É uma terceira implementação do mesmo padrão.</p>
+</div>
+
+<h3>O fluxo completo, em ordem de execução</h3>
+<div class="flow">
+<p class="flow-cap">handleChat — application/chat.ts:339</p>
+<pre>
+  <b>1. Inicializa translators uma vez</b>          route.ts, flag de módulo
+       ensureInitialized() → initTranslators()
+
+  <b>2. Parse do corpo</b>                          chat.ts:342
+       falha → <s>400 "Invalid JSON body"</s>
+
+  <b>3. Monta clientRawRequest</b>                  endpoint + body + headers
+       preserva o pedido original para o translator e o requestDetails
+
+  <b>4. Gate de API key</b>                         chat.ts:366
+       requireGatewayApiKey(extractApiKey(request))
+       falha → <s>401</s>
+
+  <b>5. Modelo obrigatório</b>                      chat.ts:369
+       falta → <s>400 "Missing model"</s>
+
+  <b>6. Bypass handler</b>                          engine/utils/bypassHandler
+       intercepta pings de CLI e sondagens de nomenclatura
+       (settings.ccFilterNaming) — responde sem tocar upstream
+
+  <b>7. startRoutingTrace(body, modelStr)</b>       trace viaja no Symbol do body
+
+  <b>8. routeChatRequest</b>  ─────────────────►    4 camadas, primeira que responde vence
+                                                    (seção 10)
+
+  <b>9. withRoutingTraceHeader(response)</b>        reembrulha a Response com
+                                                    X-ModelHub-Routing
+</pre>
+</div>
+
+<h2 id="s10"><span class="num">SEÇÃO 10</span>Resolução de modelo — 4 camadas de roteamento</h2>
+<p><code>routeChatRequest()</code>, <code>application/chat.ts:386</code>. Ordem estrita:</p>
+<div class="flow">
+<pre>
+  detectRequiredCapabilities(body)    ← o corpo pede visão? PDF? áudio?
+        │
+        ├─<b>1 · SMART COMBO</b>  trySmartComboRouting        chat.ts:65
+        │    getSmartCombo(modelStr) casou?
+        │      resolveSmartRouting() → tier/need
+        │      pode CHAMAR UM MODELO CLASSIFICADOR (buildClassifierCallback)
+        │      ranqueia candidatos por <i>smartModelProfiles</i>
+        │      → handleComboChat
+        │
+        ├─<b>2 · COMBO EXPLÍCITO</b>  tryComboRouting          chat.ts:136
+        │    nome sem prefixo de provider → getComboByName()
+        │      estratégia: fallback | fusão (comboFusion.ts)
+        │
+        ├─<b>3 · CAPACITY ADAPTER</b>  tryCapacityAdapterRouting  chat.ts:185
+        │    o modelo pedido não tem a capacidade que o corpo exige
+        │      → augmentModelsWithCapacityAdapter() acrescenta modelos que têm
+        │      → withCapacityAdapterStripping() remove o extra da resposta
+        │
+        └─<b>4 · MODELO ÚNICO</b>  handleSingleModelChat       chat.ts:444
+</pre>
+</div>
+
+<h3><code>getModelInfo()</code> — como a string vira (provider, modelo)</h3>
+<p><code>application/modelResolution.ts:63</code>:</p>
+<ol class="body">
+  <li><code>parseModel()</code> divide em <code>provider/modelo</code> e resolve o alias do provider. Overrides locais em <code>LOCAL_PROVIDER_ALIASES</code> (<code>xmtp</code> → <code>xiaomi-tokenplan</code>).</li>
+  <li>Se <strong>não</strong> é alias e o prefixo <strong>não</strong> está em <code>RESERVED_PROVIDER_PREFIXES</code> (montado de todo <code>id</code>, <code>alias</code> e <code>aliases[]</code> do registry), procura em <code>providerNodes</code> nos três tipos: <code>openai-compatible</code>, <code>anthropic-compatible</code>, <code>custom-embedding</code>. Casou o <code>prefix</code> → o <code>id</code> do nó vira o provider.</li>
+  <li>Se <strong>é</strong> alias, checa combo primeiro (<code>getComboByName</code>). Combo → devolve <code>provider: null</code>, que faz o chamador cair em <code>resolveComboForModel</code>.</li>
+  <li>Senão, <code>getModelInfoCore()</code>: aliases do usuário (<code>kv</code> scope <code>modelAliases</code>) → <code>BUILTIN_MODEL_ALIASES</code> → inferência pelo prefixo do nome do modelo.</li>
+</ol>
+
+<h3>As guardas antes de tentar qualquer conta</h3>
+<div class="tw"><table>
+<thead><tr><th>Guarda</th><th>Onde</th><th>Estado</th><th>Resposta</th></tr></thead>
+<tbody>
+<tr><td class="k">assertModelEnabled</td><td><code>modelResolution.ts:120</code></td><td><code>kv</code> scope <code>disabledModels</code></td><td>404 <code>"Model X/Y is disabled"</code></td></tr>
+<tr><td class="k">checkNoAuthCooldown</td><td><code>application/noAuthCooldown.ts:29</code></td><td><strong><code>Map</code> em memória</strong>, só para providers sem credencial</td><td>cooldown ativo → resposta de indisponível</td></tr>
+<tr><td class="k">getActiveModelAvailability</td><td><code>modelAvailabilityRepo.ts:34</code></td><td>tabela <code>modelAvailability</code></td><td>filtra a conexão da lista de candidatas</td></tr>
+</tbody></table></div>
+<div class="note w">
+  <p><strong>Dois mecanismos de cooldown coexistem e não se falam.</strong> Providers com
+  credencial usam <code>modelAvailability</code>, que é durável e por (conta × modelo).
+  Providers <code>noAuth</code> usam um <code>Map</code> em memória de processo, por
+  provider inteiro. O segundo <strong>se perde a cada restart</strong> e não aparece em
+  nenhuma tela. Como o fallback grátis (<code>opencode/big-pickle</code>) é justamente
+  um provider <code>noAuth</code>, o cooldown do caminho de último recurso é o mais
+  frágil dos dois.</p>
+</div>
+<div class="note b">
+  <p><strong><code>isModelDisabled</code> falha aberto — por decisão explícita.</strong>
+  <code>modelResolution.ts:107</code> termina com <code>catch { return false }</code>, e o
+  comentário no código defende: uma falha de leitura não deve derrubar o roteamento.</p>
+  <p>O efeito prático é que <strong>uma intermitência de banco torna modelos
+  desabilitados chamáveis de novo, em silêncio</strong>. Aceitável se "desabilitado"
+  for preferência de UI. Errado se for controle de custo ou compliance. A decisão de
+  qual dos dois é o caso não foi tomada — está registrada em
+  <code>docs/KNOWN_DEBT.md</code>.</p>
+</div>
+
+<h2 id="s11"><span class="num">SEÇÃO 11</span>Seleção de conta, mutex e fallback</h2>
+<p>
+  <code>getProviderCredentials()</code>,
+  <code>src/server/llm-gateway/auth/accountSelection.ts:119</code>. É aqui que o dado
+  criado no dashboard finalmente é <em>usado</em>.
+</p>
+
+<h4>O mutex — <code>accountSelection.ts:17</code></h4>
+<p>
+  A seleção <em>muta</em> a escrita do round-robin (<code>lastUsedAt</code>,
+  <code>consecutiveUseCount</code>), então picks concorrentes do mesmo provider precisam
+  serializar. O lock é uma cadeia de promises em
+  <code>Map&lt;providerId, Promise&lt;void&gt;&gt;</code>, <strong>por provider</strong> —
+  dois providers não têm estado compartilhado, e um lock global fazia todo request
+  enfileirar atrás de um alheio.
+</p>
+<div class="note g">
+  <p>O <code>release()</code> limpa a entrada do Map <strong>só se ela ainda for a
+  sua</strong> (<code>if (selectionLocks.get(providerId) === current)</code>), então o
+  Map não cresce por chamada. E o release inteiro está em <code>finally</code>
+  (<code>accountSelection.ts:288</code>) — uma exceção no meio da seleção não deixa o
+  provider travado para sempre.</p>
+</div>
+
+<h4>O algoritmo, em ordem</h4>
+<ol class="steps">
+  <li><span class="h">Provider <code>noAuth</code>? Curto-circuito</span>
+    <p><code>FREE_PROVIDERS[id].noAuth</code> → devolve credencial sintética
+    <code>{ id: "noauth", accessToken: "public" }</code>, opcionalmente com um proxy pool
+    escolhido por <code>pickProxyPoolId()</code>. <strong>Nunca toca
+    <code>providerConnections</code>.</strong></p></li>
+  <li><span class="h">Carrega candidatas</span>
+    <p><code>getProviderConnections({ provider, isActive: true })</code>. Zero → devolve
+    <code>null</code>.</p></li>
+  <li><span class="h">Filtra por exclusão e cooldown</span>
+    <p>Fora as que estão em <code>excludeConnectionIds</code> e as que têm linha ativa em
+    <code>modelAvailability</code> para <em>este</em> modelo (ou <code>__all</code>).</p></li>
+  <li><span class="h">Todas travadas? Reporta a que destrava primeiro</span>
+    <p>Devolve <code>{ allRateLimited: true, retryAfter, retryAfterHuman, lastError, lastErrorCode }</code>
+    com o erro da conta de <code>until</code> <em>mais próximo</em> — não da que por acaso
+    ficou primeira na lista.</p></li>
+  <li><span class="h">Escolhe pela estratégia</span>
+    <p><code>preferredConnectionId</code> fixa a sessão. Senão
+    <code>settings.providerStrategies[id].fallbackStrategy</code> ou o global:</p>
+    <p><code>round-robin</code> — ordena por recência de <code>lastUsedAt</code>, mantém a
+    mais recente por até <code>stickyRoundRobinLimit</code> (3) usos consecutivos, depois
+    rotaciona para a mais antiga. Grava <code>lastUsedAt</code> e
+    <code>consecutiveUseCount</code>.</p>
+    <p><code>fill-first</code> (default) — <code>availableConnections[0]</code>, com
+    <code>priority || 999</code> como desempate entre contas nunca usadas.</p></li>
+  <li><span class="h">Resolve o proxy</span>
+    <p><code>resolveConnectionProxyConfig(connection.providerSpecificData)</code>, e o
+    resultado é anexado ao <code>providerSpecificData</code> devolvido.</p></li>
+</ol>
+
+<h4>O loop de fallback — <code>chat.ts:471</code></h4>
+<div class="flow">
+<pre>
+  while (true) {
+     credentials = getProviderCredentials(provider, <b>excludeConnectionIds</b>, model)
+
+     não tem / todas limitadas ─┬─► trace: account/exhausted
+                                ├─► <b>tryFreeFallbackChat()</b>   ← último recurso
+                                │      settings.freeFallbackEnabled &amp;&amp;
+                                │      allowFreeFallback (não recursa)
+                                │      → FREE_DEFAULT_MODEL_KEY = "oc/big-pickle"
+                                ├─► allRateLimited → <s>503 + Retry-After</s>
+                                ├─► nunca excluiu nada → <s>404 sem credenciais</s>
+                                └─► <s>503 "All accounts unavailable"</s>
+
+     checkAndRefreshToken(provider, credentials)         refresh de OAuth se perto de expirar
+     antigravity|gemini-cli sem projectId → getProjectIdForConnection() e persiste
+
+     result = <b>handleChatCore(coreOptions)</b>                    ← executa
+
+     sucesso ─► trace: account/selected · setRoutingTraceSelection · return
+
+     falha   ─► handleNoAuthCooldownResult()
+                <b>markAccountUnavailable(connectionId, status, error, provider, model, resetsAtMs)</b>
+                     ├─ isClientRequestError(400|413|422) → shouldFallback = <s>false</s>
+                     │     "client error — not rotating accounts"
+                     └─ senão → grava modelAvailability + lastError/errorCode/backoffLevel
+                shouldFallback ? excludeConnectionIds.add(id); continue
+                               : return result.response      ← saída de falha dura
+  }
+</pre>
+</div>
+
+<h4>Classificação de erro — <code>engine/services/accountFallback.ts</code> + <code>engine/config/errorConfig.ts</code></h4>
+<div class="tw"><table>
+<thead><tr><th>Gatilho</th><th>Classificação</th><th>Ação</th></tr></thead>
+<tbody>
+<tr><td class="k">400 · 413 · 422</td><td>Request malformado</td><td><strong>Nunca rotaciona conta.</strong> Trocar de conta não conserta um corpo inválido</td></tr>
+<tr><td class="k">texto: "rate limit", "too many requests", "quota exceeded", "capacity", "overloaded"</td><td>Saturação</td><td>Backoff exponencial</td></tr>
+<tr><td class="k">texto: "no credentials", "request not allowed", "improperly formed request"</td><td>Config</td><td>Cooldown fixo</td></tr>
+<tr><td class="k">401 · 402 · 403 · 404</td><td>Auth/billing</td><td>Cooldown de 2 min</td></tr>
+<tr><td class="k">429</td><td>Rate limit</td><td>Backoff exponencial</td></tr>
+<tr><td class="k">402 do GitHub com "additional usage limit"</td><td>Cota mensal</td><td><code>githubMonthlyResetMs()</code> — cooldown até o dia 1º do mês seguinte em UTC</td></tr>
+<tr><td class="k"><code>resetsAtMs</code> vindo de header</td><td>Reset informado</td><td>Sobrepõe o backoff genérico</td></tr>
+<tr><td class="k">sem regra casada</td><td>Transiente</td><td><code>TRANSIENT_COOLDOWN_MS</code> = 30 s</td></tr>
+</tbody></table></div>
+<p>Todo cooldown é limitado por <code>MAX_RATE_LIMIT_COOLDOWN_MS</code> = 30 min. Sucesso limpa via <code>clearAccountError()</code> → <code>clearModelAvailability()</code>.</p>
+<div class="note">
+  <p><strong>Duas camadas de fallback, com políticas opostas — e isso é intencional.</strong></p>
+  <p>A camada de <em>conta</em> nunca retenta um 400/413/422: o mesmo corpo em outra
+  conta do mesmo provider falha igual. A camada de <em>combo</em>
+  (<code>engine/services/combo.ts</code>) <strong>retenta sim</strong> esses status, porque
+  ali a troca é de <em>modelo</em>, e um modelo diferente pode aceitar um corpo que o
+  anterior rejeitou. Duas políticas contrárias no mesmo sistema, cada uma correta no
+  seu nível.</p>
+</div>
+
+<h4>Execução — <code>engine/executors/</code></h4>
+<div class="flow">
+<pre>
+  <b>getExecutor(provider)</b>                    executors/index.ts:124
+     1. plugin registrado?   hasPluginExecutor / getPluginExecutor
+     2. mapa estático        ~60 classes por provider
+     3. <b>DefaultExecutor(provider)</b>          instanciado e cacheado
+
+  <b>BaseExecutor.execute()</b>                   executors/base.ts:136
+     buildUrl → transformRequest → buildHeaders
+        │
+        ▼
+     <b>proxyAwareFetch(url, opts, proxyOptions)</b>   engine/utils/proxyFetch.ts:206
+        prioridade de proxy:
+           1. relay Vercel por header
+           2. proxy da conexão (providerSpecificData.connectionProxy*)
+           3. proxy do ambiente (HTTP_PROXY / HTTPS_PROXY / ALL_PROXY)
+        dispatcher: undici ProxyAgent, cacheado por URL de proxy,
+                    limitado por MEMORY_CONFIG.proxyDispatchersMaxSize
+
+     retry por URL (resolveRetryEntry / DEFAULT_RETRY_CONFIG)
+     fallback entre múltiplas baseUrl — hoje só em <b>429</b>
+
+  <q>fetch global é monkey-patched</q>            proxyFetch.ts:248
+     application/chat.ts:2 importa proxyFetch PRIMEIRO, de propósito,
+     para o patch existir antes de qualquer chamada upstream.
+</pre>
+</div>
+
+<h2 id="s12"><span class="num">SEÇÃO 12</span>Tradução de protocolo</h2>
+<p>
+  O formato canônico interno é o <strong>OpenAI Chat Completions</strong>
+  (<code>FORMATS.OPENAI = "openai"</code>, <code>engine/translator/formats.ts:3</code>).
+  Todo tradutor pivota por ele. O tipo canônico é a interface
+  <code>RequestBody</code>, <code>engine/services/types.ts:161</code> — um superconjunto
+  com <code>messages</code>, <code>input</code>, <code>contents</code>,
+  <code>system</code>, <code>tools</code>, <code>thinking</code>, <code>stream</code>.
+</p>
+<div class="flow">
+<pre>
+  <b>formato de origem</b> ──► openai ──► <b>formato de destino</b>
+                        pivô canônico
+
+  detecção:
+     1. por URL      detectFormatByEndpoint()      translator/formats.ts:22
+                     /v1/responses → openai-responses
+                     /v1/messages  → claude
+                     /v1/chat/completions com body.input[] → openai
+                        <q>(o Cursor CLI manda corpo de Responses no endpoint de chat)</q>
+     2. por corpo    detectFormat()                engine/services/provider.ts:35
+
+  <b>translateRequest()</b>   translator/index.ts:45
+     atalhos diretos registrados (ex.: claude:kiro) evitam a perda do duplo hop
+
+  <b>13 tradutores de request</b>   claude↔openai · gemini↔openai · openai→vertex
+     antigravity→openai · openai-responses · openai→kiro · openai→cursor
+     openai→ollama · openai→commandcode · claude→kiro
+
+  <b>10 tradutores de response</b>  claude→openai · openai→claude · gemini→openai
+     openai→antigravity · openai-responses · kiro→openai · cursor→openai
+     ollama→openai · commandcode→openai · kiro→claude
+
+  <b>passthrough</b>   isNativePassthrough()      engine/utils/clientDetector.ts
+     cliente e upstream do mesmo ecossistema → tradução <u>pulada por completo</u>,
+     só troca o id do modelo e o bearer token
+</pre>
+</div>
+
+<h4>Saída: streaming e não-streaming</h4>
+<div class="tw"><table>
+<thead><tr><th>Caminho</th><th>Handler</th><th>Notas</th></tr></thead>
+<tbody>
+<tr><td class="k">JSON</td><td><code>nonStreamingHandler.ts</code></td><td>Parseia, extrai uso, traduz se <code>needsTranslation()</code>, limpa o formato OpenAI (<code>finish_reason</code> de tool_calls, defaults de <code>object</code>/<code>created</code>, remove campos do Azure), persiste</td></tr>
+<tr><td class="k">SSE</td><td><code>streamingHandler.ts:46</code></td><td><code>buildTransformStream()</code>: mapeamento Codex/Responses, transform cross-format, ou <code>createPassthroughStreamWithLogger</code> quando origem = destino</td></tr>
+<tr><td class="k">SSE → JSON</td><td><code>sseToJsonHandler.ts</code></td><td>Provider só faz stream, cliente quer JSON. Despachado de <code>chatCore.ts:387</code></td></tr>
+<tr><td class="k">Gemini</td><td><code>[...path]/route.ts:434</code> e <code>:531</code></td><td>Reembrulha o SSE OpenAI em <code>candidates[].content.parts</code>, ou monta um <code>GenerateContentResponse</code> completo com <code>usageMetadata</code></td></tr>
+</tbody></table></div>
+<div class="note g">
+  <p><strong>Uma guarda que vale destacar</strong> — <code>streamingHandler.ts:55</code>:
+  se o Content-Type do upstream não é <code>text/event-stream</code> nem
+  <code>application/json</code>, o stream é abortado e devolve um erro JSON classe 502,
+  em vez de canalizar HTML ou binário cru para o cliente. É a diferença entre um erro
+  legível e um parser do cliente engasgando com uma página de erro de CDN.</p>
+</div>
+
+<h2 id="s13"><span class="num">SEÇÃO 13</span>Contabilidade e observabilidade — a saída final do dado</h2>
+<p>
+  Cada request produz até <strong>três</strong> escritas, por caminhos diferentes e com
+  garantias diferentes. Tudo passa pelo seam <code>engine/host/usage.ts</code>.
+</p>
+<div class="flow">
+<pre>
+  <b>engine/host/usage.ts</b>                única via sancionada
+        ▼
+  <b>@/lib/usageDb</b>                      shim de re-export
+        ├──► usageRepo.ts          saveRequestUsage, getUsageHistory, getUsageStats
+        └──► requestDetailsRepo.ts saveRequestDetail, getRequestDetails
+
+  ── quem chama o quê ──────────────────────────────────────────────────────
+
+  não-stream    nonStreamingHandler.ts:325   extractUsageFromResponse → saveUsageStats
+                nonStreamingHandler.ts:381   saveRequestDetail
+  stream        streamingHandler.ts:131      onStreamComplete → saveUsageStats
+                streamingHandler.ts:83,117   saveRequestDetail
+  sse→json      sseToJsonHandler.ts:218,303  saveRequestDetail
+  erro          upstreamErrors.ts:33,136     trackPendingRequest + appendRequestLog
+                                             + saveRequestDetail(status:"error")
+  pendente      phases.ts:243                trackPendingRequest
+  embeddings    application/embeddings.ts:181 saveRequestUsage <u>direto</u>
+</pre>
+</div>
+
+<h4>Como o custo é calculado — <code>usageRepo.ts:352</code></h4>
+<ol class="body">
+  <li><code>saveUsageStats()</code> (<code>chatCore/requestDetail.ts:102</code>) normaliza tokens com <code>canonicalizeUsage()</code>, dobrando tokens de cache e de criação de cache numa convenção única.</li>
+  <li><code>saveRequestUsage()</code> chama <code>calculateCost(provider, model, tokens)</code>.</li>
+  <li><code>getPricingForModel()</code> checa <strong>primeiro</strong> os overrides do operador (<code>kv</code> scope <code>pricing</code>), depois a tabela canônica <code>MODEL_PRICING</code>, depois <code>PATTERN_PRICING</code> por regex.</li>
+  <li><code>calculateCostFromTokens()</code> (<code>engine/providers/pricing.ts:409</code>) aplica taxas por milhão de tokens para input / cached / output / reasoning, <strong>subtraindo cached e cache-creation do input bruto</strong> antes de cobrar a taxa cheia.</li>
+  <li>Deduplica linhas idênticas (mesmo timestamp/provider/model/conexão/apiKey/tokens) antes de inserir.</li>
+  <li><code>INSERT INTO usageHistory(...)</code> e <code>usageDaily</code> por <code>ON CONFLICT(dateKey) DO UPDATE</code> com o blob agregado via <code>aggregateEntryToDay()</code>.</li>
+  <li>Incrementa <code>totalRequestsLifetime</code> em <code>_meta</code>.</li>
+</ol>
+
+<h4><code>requestDetails</code> — buffer, batch e poda</h4>
+<p>
+  <code>saveRequestDetail()</code> (<code>requestDetailsRepo.ts:169</code>) empurra para um
+  <code>writeBuffer</code> em memória. O flush acontece quando o buffer atinge
+  <code>batchSize</code> (20) <em>ou</em> depois de <code>flushIntervalMs</code> (5 s).
+  Se <code>enableObservability</code> é false, a função é <strong>no-op</strong> — esta
+  tabela é 100% opt-in, ao contrário de <code>usageHistory</code>.
+</p>
+<div class="note w">
+  <p><strong>O buffer em memória é a janela de perda.</strong> Até 20 requests ou 5
+  segundos de <code>requestDetails</code> vivem só em RAM. Um crash ou restart nessa
+  janela perde esses registros. Para observabilidade de debug é uma troca defensável —
+  e o seam documenta a garantia como <em>best-effort / at-least-once</em>, não
+  exactly-once. Vale saber que é assim de propósito antes de investigar um "request que
+  não apareceu".</p>
+</div>
+<div class="note w">
+  <p><strong>Embeddings não gravam <code>requestDetails</code>.</strong> A rota
+  <code>/v1/embeddings</code> chama <code>saveRequestUsage()</code> direto
+  (<code>embeddings.ts:181</code>), sem passar por <code>saveUsageStats</code>, e
+  <strong>nenhuma</strong> chamada a <code>saveRequestDetail</code> existe em
+  <code>embeddings.ts</code> nem em <code>engine/handlers/embeddingsCore.ts</code>.
+  Consequência concreta no produto: um embedding aparece nos totais de Usage mas
+  <strong>nunca</strong> na aba de detalhes de request. Além disso o registro é
+  condicionado a <code>exactEmbeddingUsage()</code>, que rejeita objetos de uso
+  estimados — um provider que não devolve contagem exata não contabiliza nada.</p>
+</div>
+
+<h4>Trace de roteamento — <code>shared/observability/routingTrace.ts</code></h4>
+<p>
+  Independente da persistência. Registra o que o gateway <em>fez</em> para responder:
+  combo resolvido, decisão do smart routing, cada modelo tentado e por que falhou, e
+  qual conta finalmente respondeu.
+</p>
+<ul>
+  <li>Viaja em um <code>Symbol.for("routerx.routing.trace")</code> <strong>no próprio corpo do request</strong> — toda camada de roteamento já recebe o mesmo objeto, então não precisa de storage por request nem de passar por doze assinaturas.</li>
+  <li>Sai no header <code>X-ModelHub-Routing</code>, anexado por <code>withRoutingTraceHeader()</code> reembrulhando a Response finalizada (inclusive corpos SSE).</li>
+  <li>Limites: 24 passos, 3.500 chars de header, 160 chars por erro. Estourar marca <code>truncated: true</code> em vez de perder o trace inteiro.</li>
+  <li>Cinco tipos de passo: <code>combo</code>, <code>smart</code>, <code>adapter</code>, <code>attempt</code>, <code>account</code>.</li>
+</ul>
+<div class="note g">
+  <p>Este é o mecanismo que responde "por que essa resposta veio desse modelo?" sem
+  precisar de <code>enableObservability</code> ligado — é o que a tela de Chat usa para
+  mostrar a linha de decisão.</p>
+</div>
+
+<h2 id="s14"><span class="num">SEÇÃO 14</span>Saídas do sistema — tudo que deixa o processo</h2>
+<p>
+  Cinco categorias. Esta é a lista exaustiva verificada — nenhuma outra rota de egresso
+  foi encontrada.
+</p>
+
+<h3>1 · O gateway público <span class="b x">sai</span></h3>
+<div class="tw"><table>
+<thead><tr><th>Endpoint</th><th>Protocolo de resposta</th></tr></thead>
+<tbody>
+<tr><td class="k">/v1/chat/completions</td><td>OpenAI chat — JSON ou SSE</td></tr>
+<tr><td class="k">/v1/messages<br>/v1/messages/count_tokens</td><td>Anthropic</td></tr>
+<tr><td class="k">/v1/responses<br>/v1/responses/compact</td><td>OpenAI Responses</td></tr>
+<tr><td class="k">/v1/api/chat</td><td>Compatível com Ollama</td></tr>
+<tr><td class="k">/v1/embeddings</td><td>OpenAI embeddings</td></tr>
+<tr><td class="k">/v1/images/generations</td><td>OpenAI images</td></tr>
+<tr><td class="k">/v1/audio/speech<br>/v1/audio/transcriptions<br>/v1/audio/voices</td><td>OpenAI audio</td></tr>
+<tr><td class="k">/v1/videos/{generations,edits,extensions,[id]}</td><td>Jobs assíncronos (Grok Imagine)</td></tr>
+<tr><td class="k">/v1/search<br>/v1/web/fetch</td><td>Busca e fetch web</td></tr>
+<tr><td class="k">/v1/models<br>/v1/models/[kind]<br>/v1/models/info</td><td>Listagem de modelos</td></tr>
+<tr><td class="k">/v1beta/models<br>/v1beta/models/[...path]</td><td>Gemini <code>generateContent</code> / <code>streamGenerateContent</code></td></tr>
+</tbody></table></div>
+<div class="note w">
+  <p><strong>CORS permissivo em todas.</strong> <code>Access-Control-Allow-Origin: *</code>
+  por compatibilidade com CLIs e health checks de túnel. Endurecer exige auditar cada
+  cliente (Claude Code, Codex, browser do dashboard, probes de túnel) e está registrado
+  como adiado em <code>docs/KNOWN_DEBT.md</code>.</p>
+</div>
+
+<h3>2 · Geração de config de CLI <span class="b x">sai</span> — escreve no disco do servidor</h3>
+<div class="note b">
+  <p><strong>Esta é a saída mais fácil de subestimar.</strong> As 18 rotas
+  <code>/api/cli-tools/*-settings</code> não geram um download para o browser. Elas usam
+  <code>fs/promises</code> (via <code>cliToolIo.ts</code>) e escrevem
+  <strong>diretamente no filesystem da máquina que roda o servidor Next.js</strong>.</p>
+  <p>Destinos: <code>~/.claude/settings.json</code> + <code>~/.claude.json</code>,
+  <code>~/.codex/</code>, <code>~/.cline/data</code>, <code>~/.config/opencode</code>,
+  <code>~/.openclaw</code>, <code>~/.local/share/kilo</code> + settings do VS Code,
+  <code>~/.deepseek</code>, <code>~/.jcode</code>, <code>~/.factory</code>,
+  <code>~/.grok</code>, <code>~/.hermes</code>, e diretórios de config do Claude Desktop.</p>
+  <p>Cada arquivo recebe a URL base do ModelHub <strong>mais uma chave de API / token
+  em texto plano</strong>. Ou seja: uma ação no dashboard espalha o segredo para uma
+  dúzia de arquivos fora do banco, fora do backup e fora de qualquer rotação.</p>
+</div>
+
+<h3>3 · Exposição remota <span class="b x">sai</span></h3>
+<div class="tw"><table>
+<thead><tr><th>Mecanismo</th><th>Como funciona</th><th>O que fica público</th></tr></thead>
+<tbody>
+<tr><td class="k">Cloudflare Quick Tunnel</td><td><code>src/lib/tunnel/cloudflare/manager.ts</code> spawna <code>cloudflared</code> e registra num Worker externo em <code>https://abc-tunnel.us/api/tunnel/register</code></td><td>URL <code>https://r{shortId}.abc-tunnel.us</code> → <strong>o app inteiro na porta 20128</strong></td></tr>
+<tr><td class="k">Tailscale Funnel</td><td><code>src/lib/tunnel/tailscale/tailscaleFunnel.ts</code> chama o binário local <code>tailscale funnel --bg</code></td><td>idem, via hostname do tailnet</td></tr>
+</tbody></table></div>
+<p>
+  Os dois persistem estado em <code>settings.tunnelEnabled</code> / <code>tunnelUrl</code>.
+  O acesso ao dashboard <em>pelo</em> túnel é controlado por
+  <code>settings.tunnelDashboardAccess</code>: se false, o
+  <code>dashboardGuard</code> compara o <code>Host</code> com o hostname do túnel e
+  redireciona para <code>/login</code>.
+</p>
+<div class="note g">
+  <p><strong>Correção de um mal-entendido comum:</strong> <code>headroom</code> e
+  <code>pxpipe</code> <em>não são</em> mecanismos de exposição. São ferramental local de
+  compressão de prompt — um processo em <code>localhost:8787</code> e uma transformação
+  JS em processo. Não abrem endpoint público nenhum.</p>
+</div>
+
+<h3>4 · Deploys em nuvem <span class="b x">sai</span></h3>
+<div class="grid">
+  <div class="card o">
+    <h5>Proxy pools — seguro</h5>
+    <p><code>/api/proxy-pools/{cloudflare,deno,vercel}-deploy</code></p>
+    <p>Empurra um worker de relay <strong>genérico e sem segredo</strong> usando um token da plataforma fornecido pelo usuário. Nenhum segredo do ModelHub vai no código publicado.</p>
+  </div>
+  <div class="card x">
+    <h5>Cloud deployments — expõe segredo</h5>
+    <p><code>/api/cloud/{connections,deployments}</code> → Render / Railway</p>
+    <p><code>src/server/cloud/providers/{render,railway}.ts</code> faz deploy de containers de ferramenta e empurra variáveis de ambiente que incluem um <code>gatewayToken</code> gerado <strong>e uma chave de API real do ModelHub em texto plano</strong>.</p>
+  </div>
+</div>
+<div class="note b">
+  <p>A chave é removida da resposta da API, mas fica armazenada no
+  <code>cloudDeployments.data</code> <em>e</em> como variável de ambiente na plataforma
+  externa. É um ponto de vazamento de segredo genuíno, para fora da máquina do
+  operador. Não foi corrigido — o escopo desta varredura é leitura.</p>
+</div>
+
+<h3>5 · Backup e export</h3>
+<ul>
+  <li><strong>Backup do banco</strong> — <code>src/lib/db/backup.ts</code>. Só automático, antes de migration de schema. Copia tudo <em>exceto</em> <code>requestDetails</code> para <code>&lt;DATA_DIR&gt;/db/backups</code>, 3 mais recentes. Fica local, nunca transmitido. <strong>Sem redação de chaves e tokens.</strong> Há também <code>/api/settings/database</code> (protegido por <code>ALWAYS_PROTECTED</code>) para backup/restore manual pela tela de Profile.</li>
+  <li><strong>Não existe</strong> API de export de settings/config.</li>
+  <li>Único export client-side: download JSON das definições de skill em <code>basic-chat/sections/HarnessSkillsSection.tsx</code> — sem segredos.</li>
+</ul>
+<div class="note g">
+  <p><strong>Varredura de telemetria: limpa.</strong> Nenhum SDK de analytics, telemetria
+  ou error reporting em nenhum lugar do código — Sentry, PostHog, Segment, todos
+  ausentes. Nenhuma outra rota de egresso não contabilizada.</p>
+</div>
+
+<h2 id="s15"><span class="num">SEÇÃO 15</span>Harness — o chat agêntico</h2>
+<p>
+  A tela <code>basic-chat</code> é, ao mesmo tempo, a superfície de escrita mais rica
+  do dashboard e o cliente que exercita o gateway ao vivo. Ela chama
+  <strong>a própria API pública</strong>, <code>POST /api/v1/chat/completions</code>,
+  não um caminho interno.
+</p>
+<div class="flow">
+<p class="flow-cap">o loop de tool call</p>
+<pre>
+  <b>ChatComposer.tsx</b>
+        ▼
+  <b>useSendMessage.ts</b> → <b>executeSendMessage.ts</b>
+        │  registra eventos <i>user/message</i> e <i>run/start</i>
+        │  monta o system prompt: base + bloco de skills + bloco de memória
+        │  monta a lista de tools
+        ▼
+  <i>POST /api/v1/chat/completions</i>  (SSE, consumeSSEStream.ts)
+        ▼
+  <b>runToolCallLoop.ts</b>
+        │  limite: maxToolSteps  default 8, clamp 1..8
+        │  delegate_task tem cap próprio: maxSubagentCalls default 2, máx 4
+        │
+        ├─ roda as tool calls pendentes EM PARALELO (executeRuntimeToolCall)
+        ├─ registra <i>tool/call</i> e <i>tool/result</i>
+        ├─ anexa mensagens role:tool e faz novo POST
+        │
+        └─ termina em: zero tool calls (<i>run/complete</i>)
+                     | teto de passos
+                     | AbortController (cancelamento do usuário)
+</pre>
+</div>
+
+<h4>As tools e o que cada uma alcança</h4>
+<div class="tw"><table>
+<thead><tr><th>Tool</th><th>Alcance</th><th>Gate</th></tr></thead>
+<tbody>
+<tr><td class="k">web_search · web_fetch</td><td>Rede externa via <code>/api/v1/search</code>, <code>/api/v1/web/fetch</code></td><td><code>assertPublicUrl</code> (host/ssrf)</td></tr>
+<tr><td class="k">generate_image · text_to_speech · generate_video</td><td>APIs de media provider</td><td>—</td></tr>
+<tr><td class="k">delegate_task</td><td>Sub-agente efêmero, <strong>sem</strong> poder delegar de novo</td><td>cap de chamadas</td></tr>
+<tr><td class="k">tools MCP dinâmicas</td><td><code>mcpServers</code> por sessão, via <code>/api/harness/mcp/call</code></td><td><code>requireDashboardAccess</code> + HTTPS + IP pinado</td></tr>
+<tr><td class="k">load_skill · load_skill_file</td><td>Leitura de <code>agentSkills</code>/<code>agentSkillFiles</code></td><td>leitura</td></tr>
+<tr><td class="k">create_skill · update_skill<br>patch_skill · learn_skill</td><td><strong>Escreve <code>agentSkills</code> e <code>agentSkillFiles</code> direto</strong></td><td><span class="b x">nenhum</span></td></tr>
+<tr><td class="k">memory_add · memory_replace<br>memory_remove</td><td><code>agentMemoryEntries</code></td><td>fila <code>harnessPendingWrites</code> se <code>memoryWriteApproval</code>; conteúdo passa por filtro de segurança</td></tr>
+<tr><td class="k">search_past_sessions</td><td>FTS5 sobre <code>harnessMessageIndex</code></td><td>somente leitura</td></tr>
+<tr><td class="k">toggle_plugin<br>propose_harness_capability</td><td><code>pluginRows</code></td><td><strong>sempre</strong> na fila, quando iniciado pelo agente</td></tr>
+</tbody></table></div>
+
+<h4>Persistência da sessão — três tabelas com papéis distintos</h4>
+<ol class="body">
+  <li><strong><code>harnessConversations</code></strong> — snapshot inteiro. <code>useSessionPersistence.ts</code> → <code>PUT /api/harness/sessions</code> → <code>replaceHarnessConversations</code>, que <em>cascade-deleta</em> linhas órfãs de FTS, index e eventos.</li>
+  <li><strong><code>harnessEvents</code></strong> — diário append-only por sessão, escrito por <code>recordHarnessEvent</code> → <code>POST /api/harness/sessions/{id}/events</code>, renderizado por <code>ChatRunJournal.tsx</code>. <em>Não existe</em> <code>harnessEventsRepo.ts</code>: os eventos moram dentro de <code>harnessConversationsRepo.ts</code>.</li>
+  <li><strong><code>harnessMessageIndex</code> + <code>harnessMessageFts</code></strong> — índice-sombra de busca, atualizado a cada evento <code>user/message</code> ou <code>assistant/message</code> por <code>src/server/harness/search/indexHarnessEvent.ts</code>.</li>
+</ol>
+
+<h4>Memória e skills</h4>
+<p>
+  <strong>Memória</strong> — <code>useAgentMemory.ts</code> sobre
+  <code>agentMemoryRepo</code> e <code>server/harness/memory/applyMemoryWrite.ts</code>.
+  Uma varredura de segurança bloqueia conteúdo vazio, grande demais, com cara de
+  injection ou com cara de segredo. Memória aprovada volta para o system prompt via
+  <code>buildMemoryPromptBlock</code>.
+</p>
+<p>
+  <strong>Skills</strong> — são <em>linhas</em>, não arquivos.
+  <code>agentSkillsRepo</code>/<code>agentSkillFilesRepo</code>. Carregadas no prompt
+  como bloco, ou sob demanda por <code>load_skill</code>. Podem ser criadas e editadas
+  em runtime, e importadas de uma URL por
+  <code>server/harness/skills/installSkillFromLibrary.ts</code>.
+</p>
+<div class="note g">
+  <p><strong>A fila de governança</strong> — <code>harnessPendingWrites</code>. Fluxo:
+  tool call → <code>insertHarnessPendingWrite</code> com <code>status: pending</code> →
+  <code>HarnessMemorySection.tsx</code> lista via <code>GET /api/harness/pending</code> →
+  operador aprova ou rejeita → <code>POST /api/harness/pending</code> aplica a escrita
+  diferida.</p>
+</div>
+
+<h2 id="s16"><span class="num">SEÇÃO 16</span>Onde os dados <em>não</em> conectam</h2>
+<p class="lede" style="margin-top:.6rem">
+  O objetivo declarado do mapa. Cada item foi verificado no código, ordenado por
+  consequência real, não por gravidade teórica. Onde a resposta certa depende de uma
+  decisão de produto, isso está dito em vez de escondido.
+</p>
+
+<div class="find hi">
+  <p class="meta">Alto · Segredos · verificado</p>
+  <h4>Um segredo escrito no dashboard se espalha para quatro lugares sem cifragem</h4>
+  <p>Adicionar uma credencial grava em <code>providerConnections.data</code> em texto
+  plano. A partir daí, sem nenhuma ação extra do operador, o mesmo material pode chegar a:</p>
+  <p><strong>(1)</strong> o backup pré-migration em <code>&lt;DATA_DIR&gt;/db/backups</code>,
+  SQLite em claro, sem redação;
+  <strong>(2)</strong> uma dúzia de arquivos de config de CLI sob <code>~/</code>, escritos
+  por <code>/api/cli-tools/*-settings</code> com a chave de API embutida;
+  <strong>(3)</strong> variáveis de ambiente em Render/Railway, com uma
+  <code>gatewayApiKey</code> real, via <code>/api/cloud/deployments</code>;
+  <strong>(4)</strong> <code>usageHistory.apiKey</code>, em claro, numa tabela sem poda.</p>
+  <p>Nenhum desses quatro está errado individualmente. O que o mapa mostra é que
+  <strong>não existe um inventário de onde o segredo foi</strong> — então rotacionar uma
+  chave não tem procedimento fechado. É a maior lacuna estrutural do sistema.</p>
+</div>
+
+<div class="find hi">
+  <p class="meta">Alto · Decisão pendente · <code>modelResolution.ts:107</code></p>
+  <h4><code>isModelDisabled</code> falha aberto e não alarma</h4>
+  <p><code>catch { return false }</code> por decisão explícita, documentada no próprio
+  código. Uma intermitência de leitura torna modelos desabilitados chamáveis de novo,
+  em silêncio, sem log e sem sinal na UI.</p>
+  <p>Está certo se "desabilitado" for preferência de UI. Está errado se for controle de
+  custo ou de compliance. <strong>Essa definição não existe no repositório</strong>, e
+  mudar para fail-closed sem ela troca um risco silencioso por uma indisponibilidade.
+  Requer decisão sua, não uma correção técnica.</p>
+</div>
+
+<div class="find">
+  <p class="meta">Médio · Consistência de dados · verificado</p>
+  <h4>Embeddings aparecem nos totais mas nunca nos detalhes</h4>
+  <p><code>/v1/embeddings</code> chama <code>saveRequestUsage()</code> direto
+  (<code>embeddings.ts:181</code>) e <strong>nunca</strong>
+  <code>saveRequestDetail()</code> — a chamada não existe em <code>embeddings.ts</code>
+  nem em <code>embeddingsCore.ts</code>.</p>
+  <p>Efeito visível: um embedding entra em <code>usageHistory</code> e no gráfico de
+  Usage, mas a aba de detalhes de request nunca o mostra. Quem for depurar um embedding
+  não acha o registro e conclui que a chamada não aconteceu.</p>
+  <p>Agrava: o registro é condicionado a <code>exactEmbeddingUsage()</code>, que rejeita
+  uso estimado. Um provider que não devolve contagem exata <strong>não contabiliza
+  nada</strong> — nem custo, nem tokens.</p>
+</div>
+
+<div class="find">
+  <p class="meta">Médio · Durabilidade · verificado</p>
+  <h4>O cooldown do caminho de último recurso vive só em memória</h4>
+  <p>Dois mecanismos de cooldown coexistem e não se falam. Providers com credencial usam
+  <code>modelAvailability</code> — durável, por (conta × modelo), visível na UI.
+  Providers <code>noAuth</code> usam <code>noAuthCooldowns</code>, um <code>Map</code> de
+  processo, por provider inteiro (<code>application/noAuthCooldown.ts:12</code>).</p>
+  <p>O <code>Map</code> se perde a cada restart e não aparece em tela nenhuma. E como o
+  fallback grátis (<code>oc/big-pickle</code>) é justamente um provider
+  <code>noAuth</code>, <strong>o cooldown do caminho de último recurso é o mais frágil
+  dos dois</strong> — exatamente onde se quer o comportamento mais previsível.</p>
+</div>
+
+<div class="find">
+  <p class="meta">Médio · Limite arquitetural · <code>auth/accountSelection.ts</code></p>
+  <h4>O <em>host seam</em> não é exaustivo como a documentação afirma</h4>
+  <p><code>ARCHITECTURE.md</code> diz que o engine é isolado do host por
+  <code>engine/host/*</code>, e <code>tests/unit/hostSeam.test.ts</code> prova isso para
+  o que está sob <code>engine/</code>.</p>
+  <p>Mas <code>accountSelection.ts</code> — o módulo central de seleção de conta, mutex e
+  fallback — importa <code>connectionsRepo</code>, <code>proxyPoolsRepo</code>,
+  <code>apiKeysRepo</code>, <code>modelAvailabilityRepo</code> e <code>settingsRepo</code>
+  <strong>direto</strong>. Ele vive em <code>llm-gateway/auth/</code>, não em
+  <code>engine/</code>, então está tecnicamente fora do limite — mas é código de caminho
+  quente que toca cinco repos sem passar pelo seam.</p>
+  <p>Não é um bug. É uma discrepância entre o que a arquitetura documentada promete e
+  onde a fronteira realmente está. Quem confiar na frase "tudo que o gateway toca está
+  em host/" vai subestimar a superfície em cinco repos.</p>
+</div>
+
+<div class="find">
+  <p class="meta">Médio · Integridade referencial · verificado</p>
+  <h4>Zero <code>FOREIGN KEY</code> no schema, com <code>foreign_keys = ON</code> ligado</h4>
+  <p>O PRAGMA está ativo mas não há nenhuma FK declarada em <code>schema.ts</code>. Todas
+  as relações — <code>connectionId</code>, <code>skillId</code>, <code>sessionId</code>,
+  <code>toolId</code> — são convenção de código.</p>
+  <p><strong>Caso concreto verificado:</strong>
+  <code>deleteProviderConnection()</code> (<code>connectionsRepo.ts:280</code>) apaga
+  <em>só</em> de <code>providerConnections</code> e reordena prioridades. As linhas de
+  <code>modelAvailability</code> daquele <code>connectionId</code> ficam. A limpeza
+  periódica (<code>cleanupExpiredModelAvailability</code>, chamada por
+  <code>/api/models/availability</code> e <code>backgroundTokenRefresh.ts:149</code>)
+  só remove linhas com <code>until</code> vencido — uma órfã com
+  <code>until IS NULL</code> fica para sempre.</p>
+  <p>Não corrompe comportamento: as leituras filtram por <code>connectionId IN (...)</code>,
+  então órfãs nunca são lidas. É crescimento de armazenamento, não erro de resultado.
+  Mas é o padrão que se repete: nada no banco impede o órfão, e o cleanup existente não
+  cobre esse caso.</p>
+</div>
+
+<div class="find">
+  <p class="meta">Médio · Governança inconsistente · verificado</p>
+  <h4>Skills escapam da fila de aprovação; memória e plugins não</h4>
+  <p><code>harnessPendingWrites</code> gera exatamente dois tipos:
+  <code>kind:"memory"</code> (quando a config exige aprovação) e
+  <code>kind:"plugin"</code> (<em>sempre</em>, quando iniciado pelo agente).</p>
+  <p><code>create_skill</code>, <code>update_skill</code>, <code>patch_skill</code> e
+  <code>learn_skill</code> escrevem em <code>agentSkills</code> e
+  <code>agentSkillFiles</code> <strong>direto, sem gate nenhum</strong>. E skills entram
+  no system prompt das execuções seguintes.</p>
+  <p>Ou seja: o agente não pode ligar um plugin sem sua aprovação, mas pode escrever
+  instrução persistente que ele mesmo vai ler depois. O modelo de governança está
+  aplicado a dois dos três caminhos de escrita persistente.</p>
+</div>
+
+<div class="find lo">
+  <p class="meta">Baixo · Duplicação · verificado</p>
+  <h4>O loop de fallback de conta existe em três implementações independentes</h4>
+  <p>O mesmo padrão <code>while(true)</code> + <code>excludeConnectionIds</code> aparece em
+  <code>application/chat.ts:471</code>, <code>application/embeddings.ts:135</code> e
+  <code>v1beta/models/[...path]/route.ts:256</code> (o forwarder de TTS nativo do Gemini,
+  que também tem seu <em>próprio</em> gate de API key em
+  <code>validateGeminiNativeClientKey:182</code>).</p>
+  <p>Três cópias derivam. Já derivaram: "sem credenciais para o provider" devolve
+  <strong>404</strong> no chat (<code>chat.ts:495</code>) e <strong>400</strong> em
+  embeddings (<code>embeddings.ts:147</code>) — mesma condição, códigos diferentes,
+  contrato público inconsistente.</p>
+</div>
+
+<div class="find lo">
+  <p class="meta">Baixo · Colunas e chaves sem dono · verificado</p>
+  <h4>Configuração e colunas que ninguém alcança</h4>
+  <ul>
+    <li><code>usageHistory.meta</code> é <strong>sempre</strong> gravado como <code>{}</code>. Coluna reservada, hoje morta.</li>
+    <li><code>freeFallbackEnabled</code> (default <code>true</code>) muda para onde o prompt do usuário vai quando as contas esgotam, e <strong>não tem UI</strong>. Só é lido em <code>chat.ts:425</code>. Editável apenas por <code>PATCH /api/settings</code> direto.</li>
+    <li>Sem UI também: as três chaves <code>headroom*</code>, <code>tunnelProvider</code>, <code>pxpipeAutoInstall</code>, <code>pxpipeTimeoutMs</code> e 4 das 5 chaves <code>observability*</code>.</li>
+    <li><code>getCloudUrl()</code> lê <code>cloudUrl</code>, que <strong>não existe em <code>DEFAULT_SETTINGS</code></strong> — única chave lida sem declaração.</li>
+  </ul>
+</div>
+
+<div class="find lo">
+  <p class="meta">Baixo · Namespace compartilhado · verificado</p>
+  <h4>Quatro conceitos de produto dividem a tabela <code>kv</code></h4>
+  <p>Alias de modelo, modelo custom, override de preço e modelo desabilitado não têm
+  tabela própria: moram na mesma <code>kv</code>, separados só pelo valor de
+  <code>scope</code>, com um único índice compartilhado
+  (<code>idx_kv_scope</code>). Enxuto e funcional — mas um bug de escopo em qualquer um
+  dos três repos escreve dentro do namespace dos outros, e nada no banco impede.</p>
+</div>
+
+<div class="find lo">
+  <p class="meta">Baixo · Perda de janela · por decisão</p>
+  <h4><code>requestDetails</code> tem até 5 s ou 20 registros só em RAM</h4>
+  <p>O <code>writeBuffer</code> de <code>requestDetailsRepo.ts:169</code> só descarrega ao
+  atingir <code>batchSize</code> (20) ou <code>flushIntervalMs</code> (5000). Um crash
+  nessa janela perde os registros. O seam documenta a garantia como
+  <em>best-effort / at-least-once</em>, não exactly-once — é troca deliberada. Vale
+  saber antes de investigar um "request que não apareceu".</p>
+</div>
+
+<div class="find lo">
+  <p class="meta">Baixo · Descoberta · verificado</p>
+  <h4>Duas armadilhas de navegação no próprio código</h4>
+  <p><code>src/app/api/init/route.ts</code> tem nome de bootstrap e é um
+  <strong>no-op</strong> de uma linha. A inicialização real está em
+  <code>src/instrumentation.ts</code> e no <code>getAdapter()</code> lazy.</p>
+  <p><code>/dashboard/pxpipe</code> <strong>não está na navegação</strong>
+  (<code>sidebarData.tsx</code>). Só é alcançável por URL direta, apesar de ser a tela
+  detalhada de um subsistema que tem entrada no menu (Token Saver).</p>
+</div>
+
+<h3>O que foi verificado e está correto</h3>
+<div class="grid">
+  <div class="card o">
+    <h5>Sem path traversal no Translator</h5>
+    <p><code>/api/translator/load</code> usa <strong>allowlist estrita</strong> de 8 nomes de arquivo antes do <code>path.join</code>. O parâmetro <code>?file=</code> não é explorável.</p>
+  </div>
+  <div class="card o">
+    <h5>Headers sanitizados na observabilidade</h5>
+    <p><code>requestDetailsRepo</code> remove <code>authorization</code>, <code>x-api-key</code>, <code>cookie</code>, <code>token</code>, <code>api-key</code> antes de gravar.</p>
+  </div>
+  <div class="card o">
+    <h5>Settings à prova de concorrência</h5>
+    <p><code>updateSettings()</code> faz read-merge-write dentro de transação. Essencial, já que quase toda tela grava no mesmo blob único.</p>
+  </div>
+  <div class="card o">
+    <h5>Mutex sem vazamento</h5>
+    <p>Release em <code>finally</code>, e a entrada do Map só é limpa pelo último waiter. Uma exceção no meio da seleção não trava o provider.</p>
+  </div>
+  <div class="card o">
+    <h5>Nenhuma telemetria</h5>
+    <p>Varredura completa: sem Sentry, PostHog, Segment ou qualquer SDK de analytics. Nenhum egresso não contabilizado.</p>
+  </div>
+  <div class="card o">
+    <h5>Deploy de proxy pool sem segredo</h5>
+    <p>O worker de relay publicado é genérico. Nenhum segredo do ModelHub vai no código — ao contrário do caminho de cloud deployments.</p>
+  </div>
+</div>
+
+<div class="note">
+  <p><strong>Veredito sobre a pergunta que motivou o mapa.</strong> O caminho principal
+  — dashboard grava credencial → gateway seleciona conta → traduz → executa → contabiliza
+  — <strong>está conectado corretamente e é rastreável de ponta a ponta</strong>. O trace
+  de roteamento fecha o ciclo: dá para provar, por request, qual conta respondeu e por quê.</p>
+  <p>As desconexões reais são de <em>três</em> tipos, e nenhuma está no caminho principal:
+  <strong>(1)</strong> caminhos secundários que não recebem o mesmo tratamento do
+  principal — embeddings sem <code>requestDetails</code>, TTS do Gemini com pipeline
+  próprio, cooldown <code>noAuth</code> só em memória;
+  <strong>(2)</strong> ausência de constraint no banco, com a integridade dependendo
+  inteiramente da disciplina dos repos;
+  <strong>(3)</strong> segredos sem inventário — o dado <em>conecta</em>, e é justamente
+  por isso que ele chega a quatro lugares sem cifragem.</p>
+</div>
+
+<p class="foot">
+  ModelHub 2.0.0 · commit <code>47ec69b8</code> · SCHEMA_VERSION 8 · 8 migrations · 23 tabelas declaradas + 1 FTS5<br>
+  284 arquivos no registry de providers · 600 arquivos no engine · 24 repos · 172 route handlers · 27 páginas<br>
+  Gerado a partir de leitura do código-fonte. Nenhuma afirmação neste documento foi inferida de nome de arquivo.
+</p>
+
+</main>
+</div>
+</body>
+</html>

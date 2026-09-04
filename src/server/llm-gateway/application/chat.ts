@@ -6,11 +6,11 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
   type CredentialsResult,
 } from "../auth/accountSelection";
+import { requireGatewayApiKey } from "./gatewayApiKey";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
-import { getModelInfo, getComboModels } from "./modelResolution";
+import { getModelInfo, getComboModels, assertModelEnabled } from "./modelResolution";
 import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 import { getTransform as getPxpipeTransform } from "@/lib/pxpipe/loader";
@@ -20,6 +20,7 @@ import { handleComboChat, handleFusionChat, detectRequiredCapabilities } from "@
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/server/llm-gateway/engine/services/capacityAdapter";
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
+import { resolveAccountExhaustion } from "@/server/llm-gateway/engine/services/accountFallback";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
@@ -32,6 +33,7 @@ import {
   withRoutingTraceHeader,
 } from "@/server/llm-gateway/engine/services/routingTrace";
 import { truncateTraceError } from "@/shared/observability/routingTrace";
+import { FREE_DEFAULT_MODEL_KEY, isFreeDefaultProvider } from "@/shared/constants/freeDefault";
 import {
   deriveRoutingSessionKey,
   getSmartCombo,
@@ -56,27 +58,6 @@ interface ComboStrategyConfig {
   fallbackStrategy?: string;
   judgeModel?: string;
   fusionTuning?: Parameters<typeof handleFusionChat>[0]["tuning"];
-}
-
-// ── Validation helpers ──────────────────────────────────────────────────────
-
-/** Validate API key if required by settings. Returns error Response or null. */
-async function validateApiKey(
-  request: Request,
-  apiKey: string | null,
-): Promise<Response | null> {
-  const settings = await getSettings();
-  if (!settings.requireApiKey) return null;
-  if (!apiKey) {
-    log.warn("AUTH", "Missing API key (requireApiKey=true)");
-    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-  }
-  const valid = await isValidApiKey(apiKey);
-  if (!valid) {
-    log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
-  return null;
 }
 
 // ── Routing helpers ─────────────────────────────────────────────────────────
@@ -193,7 +174,7 @@ async function tryComboRouting(
     handleSingleModel: withCapacityAdapterStripping(
       (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
       adapterAdded
-    ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
+    ),
     log,
     comboName: modelStr,
     comboStrategy,
@@ -229,7 +210,7 @@ async function tryCapacityAdapterRouting(
     handleSingleModel: withCapacityAdapterStripping(
       (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
       adapterAdded
-    ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
+    ),
     log,
     comboName: modelStr,
     comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings)
@@ -291,7 +272,7 @@ async function resolveComboForModel(
     handleSingleModel: withCapacityAdapterStripping(
       (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
       adapterAdded
-    ) as unknown as (body: Record<string, unknown>, modelStr: string) => Promise<Response>,
+    ),
     log,
     comboName: modelStr,
     comboStrategy,
@@ -345,7 +326,6 @@ async function buildChatCoreOptions(
       await updateProviderCredentials(connectionId, {
         ...newCreds,
         existingProviderSpecificData: credentials.providerSpecificData,
-        testStatus: "active"
       });
     },
     onRequestSuccess: async () => {
@@ -384,7 +364,7 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  const authError = await validateApiKey(request, apiKey);
+  const authError = await requireGatewayApiKey(apiKey);
   if (authError) return authError;
 
   if (!modelStr) {
@@ -427,6 +407,39 @@ async function routeChatRequest(
 }
 
 /**
+ * Last resort when the requested provider has no usable account left: the
+ * credential-free default needs no account, so it can still answer instead of
+ * the caller getting an error. Reached only after the normal per-connection
+ * fallback has exhausted every account for the requested provider, never in
+ * place of it.
+ */
+async function tryFreeFallbackChat(
+  provider: string,
+  body: ChatBody,
+  clientRawRequest: ClientRawRequest | null,
+  request: Request | null,
+  apiKey: string | null,
+): Promise<Response | null> {
+  // Already on the free provider: it has nowhere left to fall to.
+  if (isFreeDefaultProvider(provider)) return null;
+  const settings = await getSettings();
+  if (settings.freeFallbackEnabled === false) return null;
+  log.warn("CHAT", `[${provider}] no account left, falling back to ${FREE_DEFAULT_MODEL_KEY}`);
+  const response = await handleSingleModelChat(
+    { ...body, model: FREE_DEFAULT_MODEL_KEY },
+    FREE_DEFAULT_MODEL_KEY,
+    clientRawRequest,
+    request,
+    apiKey,
+    false,
+  );
+  // A failing fallback must not stand in for the real error. The caller needs
+  // to know why their own provider failed, not why the free one also did, so
+  // returning null here hands control back to the original error path.
+  return response.ok ? response : null;
+}
+
+/**
  * Handle single model chat request
  */
 export async function handleSingleModelChat(
@@ -434,7 +447,9 @@ export async function handleSingleModelChat(
   modelStr: string,
   clientRawRequest: ClientRawRequest | null = null,
   request: Request | null = null,
-  apiKey: string | null = null
+  apiKey: string | null = null,
+  /** False on the free-fallback attempt itself, so it cannot recurse. */
+  allowFreeFallback = true
 ): Promise<Response> {
   const modelInfo: { provider: string | null; model: string } = await getModelInfo(modelStr);
 
@@ -444,7 +459,10 @@ export async function handleSingleModelChat(
 
   const { provider, model } = modelInfo;
 
-  const cooldownResponse = checkNoAuthCooldownResponse(provider, model);
+  const disabledResponse = await assertModelEnabled(provider, model);
+  if (disabledResponse) return disabledResponse;
+
+  const cooldownResponse = await checkNoAuthCooldownResponse(provider, model);
   if (cooldownResponse) return cooldownResponse;
 
     const excludeConnectionIds: Set<string> = new Set();
@@ -463,18 +481,21 @@ export async function handleSingleModelChat(
         ...(lastStatus ? { status: lastStatus } : {}),
         ...(truncateTraceError(lastError || credentials?.lastError) ? { error: truncateTraceError(lastError || credentials?.lastError) } : {}),
       });
-      if (credentials?.allRateLimited) {
-        const errorMsg: string = lastError || credentials.lastError || "Unavailable";
-        const status: number = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
-        log.warn("CHAT", `[${provider}/${model}] ${errorMsg} (${credentials.retryAfterHuman})`);
-        return unavailableResponse(status, `[${provider}/${model}] ${errorMsg}`, String(credentials.retryAfter ?? ""), credentials.retryAfterHuman ?? "");
+      if (allowFreeFallback) {
+        const freeResponse = await tryFreeFallbackChat(provider, body, clientRawRequest, request, apiKey);
+        if (freeResponse) return freeResponse;
       }
-      if (excludeConnectionIds.size === 0) {
-        log.warn("AUTH", `No active credentials for provider: ${provider}`);
-        return errorResponse(HTTP_STATUS.NOT_FOUND, `No active credentials for provider: ${provider}`);
+      // Shared with the embeddings path so the three outcomes cannot drift
+      // apart again the way 404-vs-400 did.
+      const exhaustion = resolveAccountExhaustion(
+        provider, model, credentials, excludeConnectionIds.size, lastError, lastStatus,
+      );
+      if (exhaustion.kind === "rate-limited") {
+        log.warn("CHAT", `${exhaustion.message} (${exhaustion.retryAfterHuman})`);
+        return unavailableResponse(exhaustion.status, exhaustion.message, exhaustion.retryAfter, exhaustion.retryAfterHuman);
       }
-      log.warn("CHAT", "No more accounts available", { provider });
-      return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
+      log.warn(exhaustion.kind === "no-accounts" ? "AUTH" : "CHAT", exhaustion.message, { provider });
+      return errorResponse(exhaustion.status, exhaustion.message);
     }
 
     const connectionId: string = credentials.connectionId || "";
@@ -505,7 +526,7 @@ export async function handleSingleModelChat(
       return result.response;
     }
 
-    const noAuthResponse = handleNoAuthCooldownResult(result, provider, model);
+    const noAuthResponse = await handleNoAuthCooldownResult(result, provider, model);
     if (noAuthResponse) return noAuthResponse;
 
     const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null);

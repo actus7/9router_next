@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { translate } from "@/i18n/runtime";
 import { useNotificationStore } from "@/store/notificationStore";
 import { ensureBuiltinMcpServers } from "@/shared/harness/builtinMcpServers";
+import { FREE_DEFAULT_MODEL_KEY } from "@/shared/constants/freeDefault";
 import { createId } from "../chatFormatUtils";
 import type {
   ChatProject,
@@ -237,7 +238,13 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
       providerGroups.find((group) => group.providerId === activeProviderId) ||
       providerGroups[0] ||
       null;
+    // No stored choice at all means a first run: start on the credential-free
+    // default so a fresh install can chat before any provider is configured.
+    // When a stored model merely went away, keep the old behaviour and stay
+    // near the provider the user was already on.
+    const firstRun = !activeModelId;
     const fallback =
+      (firstRun ? modelIndex.get(FREE_DEFAULT_MODEL_KEY) : undefined) ||
       activeProviderGroup?.models[0] || providerGroups[0]?.models[0];
     if (!fallback) return;
     setActiveProviderId(fallback.providerId);

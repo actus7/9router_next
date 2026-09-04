@@ -24,6 +24,12 @@ interface StreamControllerOptions {
   reqTag?: string;
 }
 
+/**
+ * What createStreamController hands back. Declared once, here, so the chat
+ * pipeline does not have to keep a second copy of it in sync.
+ */
+export type StreamController = ReturnType<typeof createStreamController>;
+
 export function createStreamController({ onDisconnect, onError, log, provider = "", model = "", reqTag = "" }: StreamControllerOptions = {}) {
   const abortController = new AbortController();
   const startTime = Date.now();

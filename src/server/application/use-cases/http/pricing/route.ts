@@ -96,8 +96,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
  * Query params: ?provider=xxx&model=yyy (optional)
  */
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider");
     const model = searchParams.get("model");
 

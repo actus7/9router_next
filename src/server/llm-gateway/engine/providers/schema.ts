@@ -1,28 +1,13 @@
 // Provider transport schema: shared defaults + endpoint defaults + resolver (skeleton, not wired)
 import { DEFAULT_RETRY_CONFIG, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig";
+import { MEDIA_ENTRY_KEYS } from "./mediaKeys";
 
 /**
- * RegistryEntry shape — full contract for registry/{id}.js. See REGISTRY_TEMPLATE.js for a worked example.
- * Only `id` + `category` are strictly required; everything else is optional/derived.
- *
- * @typedef {Object} RegistryEntry
- * @property {string}   id            Unique provider id (kebab-case). REQUIRED.
- * @property {string}  [alias]        Short key for PROVIDER_MODELS (defaults to id).
- * @property {string[]}[aliases]      Extra lookup tokens resolving to this provider.
- * @property {string}  [uiAlias]      Token shown in UI badges.
- * @property {string}   category      "apikey"|"oauth"|"freeTier"|... drives UI grouping. REQUIRED.
- * @property {string}  [authType]     "apikey"|"oauth" auth hint.
- * @property {string[]}[authModes]    Allowed auth modes when provider supports both.
- * @property {boolean} [hasOAuth]     Provider exposes an OAuth flow.
- * @property {boolean} [noAuth]       Provider needs no credentials (local/free).
- * @property {Object}  [display]      UI: {name,icon,color,textIcon,website,notice,deprecated,deprecationNotice,kindNotice,mediaPriority}.
- * @property {Object}  [transport]    Runtime HTTP config (see TransportConfig below). Builds PROVIDERS[id].
- * @property {Object}  [oauth]        OAuth flow config (see OAuthConfig). Builds PROVIDER_OAUTH[id].
- * @property {Object}  [media]        Non-LLM services (see MediaConfig). Builds PROVIDER_MEDIA[id].
- * @property {Array}   [models]       Model list; omit = no model key, [] = explicit empty.
- * @property {Object}  [features]     Feature flags, e.g. {usage:true}.
- * @property {Object}  [thinkingConfig] Reasoning UI: {options:[...],defaultMode}.
- * @property {boolean} [passthroughModels] Forward client model id untouched.
+ * Registry entry contract for registry/{id}.ts. The top level is the
+ * `RegistryEntry` interface below; see REGISTRY_TEMPLATE.ts for a worked
+ * example. Only `id` and `category` are required. The nested blocks stay
+ * untyped because their shape varies by transport format, so they are
+ * documented here instead.
  *
  * TransportConfig: { baseUrl, format, headers, auth, forceStream, urlSuffix, quirks, retry, timeoutMs,
  *   executor, clientId, clientSecret, tokenUrl, refreshUrl, usage, cliVersion, apiClient, regions,
@@ -33,10 +18,80 @@ import { DEFAULT_RETRY_CONFIG, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtim
  *   callbackPath, fixedPort, codeChallengeMethod, extraParams, refresh:{encoding,scope}, refreshLeadMs,
  *   userInfoUrl }.
  *
- * MediaConfig: { serviceKinds:[...], ttsConfig, sttConfig, embeddingConfig, imageConfig,
- *   searchViaChat:{defaultModel,pricingUrl}, hiddenKinds } — each *Config: {baseUrl,authType,authHeader,
- *   format,defaultModel,models:[{id,name,dimensions?}]}.
+ * Media fields sit at the entry root, not in a nested block: serviceKinds,
+ *   ttsConfig, sttConfig, embeddingConfig, imageConfig, searchViaChat:
+ *   {defaultModel,pricingUrl}, hiddenKinds — see MEDIA_ENTRY_KEYS for the full
+ *   list. Each *Config: {baseUrl,authType,authHeader,format,defaultModel,
+ *   models:[{id,name,dimensions?}]}.
  */
+
+/**
+ * The contract above, as a type the compiler can hold you to. Nested blocks stay
+ * loose on purpose: their shape varies per provider and per transport format.
+ * `REGISTRY_TOP_LEVEL_KEYS` below is the same list at runtime, so a mistyped
+ * field name is caught by tests/unit/providerCatalog.test.ts rather than by
+ * silently having no effect.
+ */
+export interface RegistryEntry extends Record<string, unknown> {
+  // Identity
+  id: string;
+  category: string;
+  alias?: string;
+  aliases?: string[];
+  uiAlias?: string;
+  priority?: number;
+  // Auth
+  authType?: string;
+  authHint?: string;
+  authModes?: string[];
+  hasOAuth?: boolean;
+  hasFree?: boolean;
+  noAuth?: boolean;
+  hasProviderSpecificData?: boolean;
+  oauth?: Record<string, unknown>;
+  // Presentation
+  display?: Record<string, unknown>;
+  notice?: unknown;
+  hidden?: boolean;
+  // Transport
+  transport?: Record<string, unknown>;
+  transports?: unknown;
+  regions?: unknown;
+  defaultRegion?: string;
+  passthroughModels?: boolean;
+  // Models
+  models?: unknown[];
+  modelsFetcher?: unknown;
+  noModelDiscovery?: boolean;
+  features?: Record<string, unknown>;
+  thinkingConfig?: Record<string, unknown>;
+  // Media and search surface (see MEDIA_ENTRY_KEYS — these sit at the entry
+  // root, not under a nested block)
+  serviceKinds?: string[];
+  ttsConfig?: Record<string, unknown>;
+  sttConfig?: Record<string, unknown>;
+  embeddingConfig?: Record<string, unknown>;
+  imageConfig?: Record<string, unknown>;
+  imageToTextConfig?: Record<string, unknown>;
+  videoConfig?: Record<string, unknown>;
+  musicConfig?: Record<string, unknown>;
+  searchViaChat?: Record<string, unknown>;
+  searchConfig?: Record<string, unknown>;
+  fetchConfig?: Record<string, unknown>;
+  mediaPriority?: unknown;
+  hiddenKinds?: string[];
+}
+
+/** Runtime mirror of RegistryEntry's keys, for the unknown-field guard. */
+export const REGISTRY_TOP_LEVEL_KEYS: readonly string[] = [
+  "id", "category", "alias", "aliases", "uiAlias", "priority",
+  "authType", "authHint", "authModes", "hasOAuth", "hasFree", "noAuth",
+  "hasProviderSpecificData", "oauth",
+  "display", "notice", "hidden",
+  "transport", "transports", "regions", "defaultRegion", "passthroughModels",
+  "models", "noModelDiscovery", "features", "thinkingConfig",
+  ...MEDIA_ENTRY_KEYS,
+];
 
 // Shared transport defaults — provider only overrides fields that differ.
 // NOTE: runtime (index.js buildTransport) only re-applies `format`; the rest documents the contract

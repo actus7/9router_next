@@ -121,9 +121,9 @@ export async function refreshAndUpdateCredentials(connection: Record<string, unk
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ connectionId: string }> }) {
   let connection;
+  const force = new URL(request.url).searchParams.get("force") === "1";
   try {
     const { connectionId } = await params;
-    const force = new URL(request.url).searchParams.get("force") === "1";
 
     if (connectionId.startsWith("usage:")) {
       const provider = connectionId.slice("usage:".length);

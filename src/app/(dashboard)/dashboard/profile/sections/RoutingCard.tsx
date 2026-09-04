@@ -1,10 +1,11 @@
 "use client";
 
 import { Card } from "@/shared/components";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { Switch } from "@/components/ui/switch";
 import { Route } from "lucide-react";
 import { translate } from "@/i18n/runtime";
+import { FREE_DEFAULT_MODEL_KEY } from "@/shared/constants/freeDefault";
 import type { Settings } from "../types";
 
 interface RoutingCardProps {
@@ -14,11 +15,13 @@ interface RoutingCardProps {
   updateComboStrategy: (strategy: string) => Promise<void>;
   updateStickyLimit: (limit: string) => Promise<void>;
   updateComboStickyLimit: (limit: string) => Promise<void>;
+  updateFreeFallbackEnabled: (enabled: boolean) => Promise<void>;
 }
 
 export default function RoutingCard({
   settings, loading,
   updateFallbackStrategy, updateComboStrategy, updateStickyLimit, updateComboStickyLimit,
+  updateFreeFallbackEnabled,
 }: RoutingCardProps) {
   return (
     <Card>
@@ -39,6 +42,28 @@ export default function RoutingCard({
           <Switch
             checked={settings.fallbackStrategy === "round-robin"}
             onCheckedChange={() => updateFallbackStrategy(settings.fallbackStrategy === "round-robin" ? "fill-first" : "round-robin")}
+            disabled={loading}
+          />
+        </div>
+
+        {/*
+          Changes WHERE the user's prompt goes: when every account of the
+          requested provider is exhausted, the request is answered by a provider
+          the operator never configured. Defensible as a default, but the
+          operator has a right to find that out without reading the source.
+        */}
+        <div className="flex items-start sm:items-center justify-between gap-4 pt-2 border-t border-border/50">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm sm:text-base">{translate("Free provider fallback")}</p>
+            <p className="text-xs sm:text-sm text-text-muted">
+              {translate("When every account of the requested provider is exhausted, answer with the credential-free default")}
+              {" "}(<code className="font-mono">{FREE_DEFAULT_MODEL_KEY}</code>){" "}
+              {translate("instead of failing the request.")}
+            </p>
+          </div>
+          <Switch
+            checked={settings.freeFallbackEnabled !== false}
+            onCheckedChange={() => updateFreeFallbackEnabled(settings.freeFallbackEnabled === false)}
             disabled={loading}
           />
         </div>

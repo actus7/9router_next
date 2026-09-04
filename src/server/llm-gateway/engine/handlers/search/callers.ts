@@ -6,7 +6,7 @@
 
 import { assertPublicUrl } from "../../host/ssrf";
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Types ─────────────────────────────────────────────────────────────
 
 interface SearchProviderConfig {
   id: string;
@@ -30,7 +30,7 @@ interface SearchRequestParams {
   providerSpecificData?: Record<string, unknown>;
 }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ─────────────────────────────────────────────────────────────
 
 /**
  * Split domain filter into includes / excludes (excludes prefixed with "-").
@@ -85,7 +85,7 @@ function toPageNumber(offset: number | undefined, maxResults: number): number | 
   return Math.floor(offset / maxResults) + 1;
 }
 
-// â”€â”€ Provider Request Builders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Provider Request Builders ───────────────────────────────────────────
 
 function buildSerperRequest(config: SearchProviderConfig, params: SearchRequestParams): { url: string; init: RequestInit } {
   const endpoint = params.searchType === "news" ? "/news" : "/search";
@@ -335,7 +335,7 @@ function buildContext7Request(config: SearchProviderConfig, params: SearchReques
   };
 }
 
-// â”€â”€ Dispatcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Dispatcher ──────────────────────────────────────────────────────────
 
 const BUILDERS: Record<string, (config: SearchProviderConfig, params: SearchRequestParams) => { url: string; init: RequestInit }> = {
   "serper": buildSerperRequest,

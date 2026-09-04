@@ -70,25 +70,14 @@ export interface PxpipeSummary {
   [key: string]: unknown;
 }
 
-/** Stream controller returned by createStreamController. */
-export interface StreamController {
-  signal: AbortSignal;
-  startTime: number;
-  isConnected: () => boolean;
-  handleDisconnect: (reason?: string) => void;
-  handleComplete: () => void;
-  handleError: (error: Error) => void;
-}
+// Same story as RequestLogger: the controller's own module owns this type.
+import type { StreamController } from "../../utils/streamHandler";
+export type { StreamController };
 
-/** Request logger returned by createRequestLogger. */
-export interface RequestLogger {
-  logClientRawRequest: (endpoint: string | undefined, body: unknown, headers: unknown) => void;
-  logRawRequest: (body: unknown) => void;
-  logTargetRequest: (url: string | undefined, headers: unknown, body: unknown) => void;
-  logProviderResponse: (status: number, statusText: string, headers: unknown, body: unknown) => void;
-  logConvertedResponse: (body: unknown) => void;
-  logError: (error: Error, body: unknown) => void;
-}
+// The logger's own module owns this contract; a second declaration here is how
+// the two drifted apart and forced a cast at every hand-off.
+import type { RequestLogger } from "../../utils/requestLogger";
+export type { RequestLogger };
 
 // ---------------------------------------------------------------------------
 // Options / parameter shapes
@@ -155,8 +144,8 @@ export interface NonStreamingHandlerContext extends SharedChatContext {
   sourceFormat: string;
   targetFormat: string;
   reqLogger: RequestLogger;
-  toolNameMap: Record<string, string> | undefined;
-  customToolNames: Set<string> | undefined;
+  toolNameMap: Map<string, string> | undefined;
+  customToolNames: string[] | undefined;
   trackDone: () => void;
   appendLog: (extra: Record<string, unknown>) => void;
 }
@@ -168,8 +157,8 @@ export interface StreamingHandlerContext extends SharedChatContext {
   targetFormat: string;
   userAgent: string | undefined;
   reqLogger: RequestLogger;
-  toolNameMap: Record<string, string> | undefined;
-  customToolNames: Set<string> | undefined;
+  toolNameMap: Map<string, string> | undefined;
+  customToolNames: string[] | undefined;
   streamController: StreamController;
   onStreamComplete: (contentObj: Record<string, unknown>, usage: Record<string, unknown> | null, ttftAt: number | null) => void;
   streamDetailId: string;
@@ -180,7 +169,7 @@ export interface ForcedSSEToJsonContext extends SharedChatContext {
   providerResponse: Response;
   sourceFormat: string;
   targetFormat: string;
-  customToolNames: Set<string> | undefined;
+  customToolNames: string[] | undefined;
   trackDone: () => void;
   appendLog: (extra: Record<string, unknown>) => void;
 }
@@ -209,8 +198,8 @@ export interface TransformStreamContext {
   targetFormat: string;
   userAgent: string | undefined;
   reqLogger: RequestLogger;
-  toolNameMap: Record<string, string> | undefined;
-  customToolNames: Set<string> | undefined;
+  toolNameMap: Map<string, string> | undefined;
+  customToolNames: string[] | undefined;
   model: string;
   connectionId: string;
   body: Record<string, unknown>;
@@ -274,4 +263,6 @@ export interface SaveUsageStatsOptions {
   endpoint?: string;
   label?: string;
   silent?: boolean;
+  /** Compact routing summary stored on the usage row; see summarizeRoutingTrace. */
+  meta?: Record<string, unknown>;
 }

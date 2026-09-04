@@ -5,6 +5,7 @@ import { reloadSkillTree } from "@/server/harness/skills/context";
 import { searchSkillLibrary } from "@/server/harness/skills/skillLibrarySearch";
 import { BUNDLE_SKILL_IDS } from "@/shared/harness/bundleSkills";
 import { SKILL_LIBRARIES } from "@/shared/harness/skillLibraries";
+import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -12,6 +13,8 @@ function badRequest(message: string) {
 
 export async function GET(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const params = new URL(request.url).searchParams;
   const query = params.get("q") ?? "";
   const libraryId = params.get("library") ?? "all";
@@ -34,6 +37,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const source = typeof body.source === "string" ? body.source.trim() : "";
   const skillId = typeof body.skillId === "string" ? body.skillId.trim() : "";

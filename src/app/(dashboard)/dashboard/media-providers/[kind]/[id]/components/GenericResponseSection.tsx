@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { DynamicMedia } from "@/components/ui/dynamic-media";
+import { DynamicMedia } from "@/shared/components/DynamicMedia";
 import { Check, CheckCircle2, Copy, Download, Loader2, Play } from "lucide-react";
 import type { useGenericExampleState } from "./useGenericExampleState";
 

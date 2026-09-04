@@ -2,6 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { LEGACY_FILES, DB_DIR } from "./paths";
 import { TABLES, buildCreateTableSql, SCHEMA_VERSION } from "./schema";
+import {
+  assertCredentialEncryptionPolicy,
+  isCredentialEncryptionEnabled,
+} from "./helpers/credentialCipher";
 import { MIGRATIONS, latestVersion } from "./migrations/index";
 import { getMetaSync, setMetaSync } from "./helpers/metaStore";
 import { makeBackupDir, backupFile, backupDbLite, pruneOldBackups } from "./backup";
@@ -274,6 +278,19 @@ export async function runMigrationOnce(adapter: DbAdapter): Promise<void> {
 
   // Stamp the schema version we just reached so future boots skip re-backup.
   setMetaSync(adapter, "backupSchemaVersion", SCHEMA_VERSION);
+
+  // Say it out loud on every boot when provider credentials are stored in the
+  // clear. Running unencrypted is a supported mode — refusing to boot would
+  // brick installs that never opted in — but it must not be silent, or an
+  // operator has no way to tell the two states apart.
+  // Refuses to continue when the operator declared encryption mandatory,
+  // BEFORE the legacy JSON import below writes any credential to disk.
+  assertCredentialEncryptionPolicy();
+  if (!isCredentialEncryptionEnabled()) {
+    console.warn(
+      "[DB] Provider credentials are stored UNENCRYPTED. Set CREDENTIAL_KEY to encrypt them at rest (existing rows are encrypted on the next boot), or CREDENTIAL_ENCRYPTION_REQUIRED=true to refuse to start without it.",
+    );
+  }
 
   // 3. One-time legacy JSON import (only if DB was fresh on entry)
   const alreadyImported: boolean = fs.existsSync(MIGRATED_MARKER);

@@ -1,3 +1,5 @@
+import { MAX_MEMORY_ENTRY_CHARS } from "@/shared/harness/agentMemory";
+
 export interface MemorySecurityIssue {
   code: string;
   message: string;
@@ -24,8 +26,11 @@ export function scanMemoryContent(content: string): MemorySecurityIssue[] {
     issues.push({ code: "empty", message: "Content cannot be empty" });
     return issues;
   }
-  if (trimmed.length > 800) {
-    issues.push({ code: "too_long", message: "Entry exceeds 800 characters" });
+  if (trimmed.length > MAX_MEMORY_ENTRY_CHARS) {
+    issues.push({
+      code: "too_long",
+      message: `Entry exceeds ${MAX_MEMORY_ENTRY_CHARS} characters`,
+    });
   }
   for (const pattern of INJECTION_PATTERNS) {
     if (pattern.test(trimmed)) {

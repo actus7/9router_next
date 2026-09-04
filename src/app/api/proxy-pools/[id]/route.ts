@@ -50,7 +50,7 @@ function countBoundConnections(connections: Record<string, unknown>[] = [], prox
 }
 
 // GET /api/proxy-pools/[id] - Get proxy pool
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
   try {
     const { id } = await params;
     const proxyPool = await getProxyPoolById(id);
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 // PUT /api/proxy-pools/[id] - Update proxy pool
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
   try {
     const { id } = await params;
     const existing = await getProxyPoolById(id);
@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 // DELETE /api/proxy-pools/[id] - Delete proxy pool
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
   try {
     const { id } = await params;
     const existing = await getProxyPoolById(id);

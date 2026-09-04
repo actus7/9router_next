@@ -1,7 +1,7 @@
 "use client";
 
 import { Handle, Position } from "@xyflow/react";
-import { DynamicMedia } from "@/components/ui/dynamic-media";
+import { DynamicMedia } from "@/shared/components/DynamicMedia";
 
 export interface RouterNodeData {
   activeCount?: number;

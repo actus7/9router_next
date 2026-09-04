@@ -1,4 +1,7 @@
-// Auto-generated: static imports for all registry entries
+// Auto-generated: static imports for all registry entries.
+// tests/unit/providerCatalog.test.ts checks that every entry file is either
+// imported here or explicitly parked with a commented-out import.
+import type { RegistryEntry } from "../schema";
 import p0 from "./alicode-intl";
 import p1 from "./alicode";
 import p2 from "./anthropic";
@@ -285,7 +288,7 @@ import p310 from "./zenmux-free";
 import p311 from "./theoldllm";
 import p312 from "./puter";
 
-export default [
+const REGISTRY: RegistryEntry[] = [
   p0,
   p1,
   p2,
@@ -570,3 +573,5 @@ export default [
   p311,
   p312,
 ];
+
+export default REGISTRY;

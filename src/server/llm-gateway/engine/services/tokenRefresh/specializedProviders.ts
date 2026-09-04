@@ -2,7 +2,7 @@ import { PROVIDER_OAUTH } from "../../config/providers";
 import { dedupRefresh } from "./dedup";
 import type { Credentials, RefreshResult, Logger, OAuthProviderConfig } from "../types";
 
-// CodeBuddy (Tencent) refresh â€” POST /v2/plugin/auth/token/refresh with the
+// CodeBuddy (Tencent) refresh — POST /v2/plugin/auth/token/refresh with the
 // refresh token carried in the X-Refresh-Token header (not a form body),
 // matching the official CodeBuddy CLI. Response: { code: 0, data: <token> }.
 export async function refreshCodebuddyToken(refreshToken: string, log?: Logger): Promise<RefreshResult | null> {
@@ -109,7 +109,7 @@ export async function refreshCodebuddyIntlToken(refreshToken: string, log?: Logg
   }, log);
 }
 
-// Trae refresh â€” POST ExchangeToken with JSON body {ClientID, RefreshToken, ClientSecret, UserID}.
+// Trae refresh — POST ExchangeToken with JSON body {ClientID, RefreshToken, ClientSecret, UserID}.
 // Response: {Result: {AccessToken, RefreshToken, TokenType, ExpiresAt}}.
 export async function refreshTraeToken(refreshToken: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   if (!refreshToken) return null;
@@ -183,7 +183,7 @@ export async function refreshTraeToken(refreshToken: string, credentials: Creden
 }
 
 // Zed access_token is long-lived; auth flow returns no refresh_token.
-// No refresh possible â€” re-login required when token expires/revoked.
+// No refresh possible — re-login required when token expires/revoked.
 // Mirrors cursor/kilocode null-refresh pattern.
 export function refreshZedToken(): null {
   return null;
@@ -196,7 +196,7 @@ export function refreshZedToken(): null {
 export async function refreshWindsurfToken(credentials: Credentials, log?: Logger): Promise<null> {
   log?.info?.(
     "TOKEN_REFRESH",
-    "windsurf: apiKey is long-lived (no refresh_token flow) â€” skipping"
+    "windsurf: apiKey is long-lived (no refresh_token flow) — skipping"
   );
   return null;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Modal, Select } from "@/shared/components";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { translate } from "@/i18n/runtime";

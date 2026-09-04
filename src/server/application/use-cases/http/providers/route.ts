@@ -1,3 +1,4 @@
+import { testStatusForValidation } from "@/lib/db/repos/connectionsRepo";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getProviderConnections,
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Dashboard forms send the canonical ID explicitly. Keep `provider` as a
     // backwards-compatible alias input for older clients and integrations.
     const provider = normalizeProviderId(typeof body.providerId === "string" ? body.providerId : body.provider);
-    const { apiKey, name, displayName, priority, globalPriority, defaultModel, testStatus } = body;
+    const { apiKey, name, displayName, priority, globalPriority, defaultModel } = body;
     const proxyConfig = normalizeProxyConfig(body);
     if (proxyConfig.error) {
       return NextResponse.json({ error: proxyConfig.error }, { status: 400 });
@@ -198,7 +199,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       defaultModel: defaultModel || null,
       providerSpecificData: mergedProviderSpecificData,
       isActive: true,
-      testStatus: testStatus || "unknown",
+      // The browser reports whether it validated the key; the server turns that
+      // fact into a stored status. It cannot name the value itself.
+      testStatus: testStatusForValidation(body.validated === true),
     });
 
     // Hide sensitive fields

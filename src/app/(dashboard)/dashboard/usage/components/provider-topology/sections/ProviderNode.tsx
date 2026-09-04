@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Handle, Position } from "@xyflow/react";
-import { DynamicMedia } from "@/components/ui/dynamic-media";
+import { DynamicMedia } from "@/shared/components/DynamicMedia";
 import { markProviderIconMissing } from "@/shared/utils/providerIcon";
 
 export interface ProviderNodeData {

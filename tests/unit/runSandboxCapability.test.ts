@@ -14,6 +14,26 @@ describe("runSandboxCapability", () => {
     expect(result.result).toEqual({ message: "hello" });
   });
 
+  it("resolves a tool that returns a promise", async () => {
+    const result = await runSandboxCapability({
+      source: `registerTool("later", async (input) => ({ doubled: input.n * 2 }));`,
+      toolName: "later",
+      input: { n: 21 },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.result).toEqual({ doubled: 42 });
+  });
+
+  it("reports a rejected promise as a failure", async () => {
+    const result = await runSandboxCapability({
+      source: `registerTool("nope", async () => { throw new Error("boom"); });`,
+      toolName: "nope",
+      input: {},
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("boom");
+  });
+
   it("rejects empty source", async () => {
     const result = await runSandboxCapability({ source: "  ", input: {} });
     expect(result.ok).toBe(false);

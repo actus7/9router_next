@@ -102,7 +102,10 @@ export interface RuntimeToolContext {
   sessionId?: string;
   webSearchMaxResults?: number;
   webFetchMaxCharacters?: number;
-  onSkillEvent?: (type: "skill/load" | "skill/created" | "skill/updated", data: Record<string, unknown>) => void;
+  // "skill/queued" means the write is sitting in the approval queue and the
+  // skill does not exist yet — distinct from created/updated on purpose, so the
+  // run journal does not claim a skill landed when it did not.
+  onSkillEvent?: (type: "skill/load" | "skill/created" | "skill/updated" | "skill/queued", data: Record<string, unknown>) => void;
   onMemoryEvent?: (
     type: "memory/add" | "memory/replace" | "memory/remove",
     data: Record<string, unknown>,

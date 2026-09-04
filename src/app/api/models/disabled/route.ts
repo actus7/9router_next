@@ -4,8 +4,8 @@ import { getDisabledModels, disableModels, enableModels } from "@/lib/disabledMo
 
 // GET /api/models/disabled?providerAlias=xxx
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const providerAlias = searchParams.get("providerAlias");
     const all = await getDisabledModels();
     if (providerAlias) return NextResponse.json({ ids: all[providerAlias] || [] });
@@ -34,8 +34,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 // DELETE /api/models/disabled?providerAlias=xxx[&id=yyy][&id=zzz]
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const providerAlias = searchParams.get("providerAlias");
     const ids = searchParams.getAll("id").filter(Boolean);
     if (!providerAlias) {

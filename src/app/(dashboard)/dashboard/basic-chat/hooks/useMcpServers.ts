@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ChatSession, HarnessMcpServer, HarnessMcpTool } from "../types";
+import { createId } from "../chatFormatUtils";
 
 interface DiscoverPayload {
   tools?: Array<{ name?: unknown; description?: unknown; inputSchema?: unknown }>;
@@ -82,7 +83,7 @@ export function useMcpServers({ session, updateSession }: UseMcpServersArgs): Us
     setConnecting(true);
     setError("");
     try {
-      const id = crypto.randomUUID();
+      const id = createId();
       const payload = await discoverTools(url.trim());
       const tools = normalizeDiscoveredTools(payload, id);
       if (!tools.length) throw new Error("O servidor MCP não disponibilizou ferramentas compatíveis.");

@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { KiroService } from "@/lib/oauth/services/kiro";
 import { createProviderConnection } from "@/models";
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
         authMethod: provider, // "google" or "github"
         provider: provider.charAt(0).toUpperCase() + provider.slice(1),
       },
-      testStatus: "active",
+      testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
     });
 
     return NextResponse.json({

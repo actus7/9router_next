@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/lib/db/repos/connectionsRepo";
 import { NextRequest, NextResponse  } from "next/server";
 import {
   getProvider,
@@ -59,7 +60,7 @@ async function completeXaiManualCode(code: string, state: string) {
       expiresAt: tokenData.expiresIn
         ? new Date(Date.now() + (tokenData.expiresIn as number) * 1000).toISOString()
         : null,
-      testStatus: "active",
+      testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
     });
     clearXaiSession(state);
     stopXaiProxy();
@@ -84,9 +85,9 @@ async function completeXaiManualCode(code: string, state: string) {
 // GET /api/oauth/[provider]/authorize - Generate auth URL
 // GET /api/oauth/[provider]/device-code - Request device code (for device_code flow)
 export async function GET(request: NextRequest, { params }: { params: Promise<{ provider: string; action: string }> }) {
+  const { searchParams } = new URL(request.url);
   try {
     const { provider, action } = await params;
-    const { searchParams } = new URL(request.url);
 
     if (action === "authorize") {
       const redirectUri = searchParams.get("redirect_uri") || "http://localhost:8080/callback";
@@ -242,6 +243,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 // POST /api/oauth/[provider]/exchange - Exchange code for tokens and save
 // POST /api/oauth/[provider]/poll - Poll for token (device_code flow)
 export async function POST(request: NextRequest, { params }: { params: Promise<{ provider: string; action: string }> }) {
+  const searchParams = new URL(request.url).searchParams;
   try {
     const { provider, action } = await params;
     let body;
@@ -254,7 +256,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (action === "register-session") {
       // Register proxy session out of URL query (state) + body (codeVerifier).
       // Zed's codeVerifier encodes the RSA private key — must stay out of URL/logs.
-      const searchParams = new URL(request.url).searchParams;
       const state = searchParams.get("state") || body?.state;
       if (!state) return NextResponse.json({ error: "Missing state" }, { status: 400 });
       let ok = false;
@@ -284,7 +285,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             expiresAt: tokenData.expiresIn
               ? new Date(Date.now() + (tokenData.expiresIn as number) * 1000).toISOString()
               : null,
-            testStatus: "active",
+            testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
           });
           return NextResponse.json({
             success: true,
@@ -328,7 +329,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           accessToken: code,
           email: (email as string) ?? undefined,
           providerSpecificData,
-          testStatus: "active",
+          testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
         });
 
         return NextResponse.json({
@@ -359,7 +360,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         expiresAt: tokenData.expiresIn 
           ? new Date(Date.now() + (tokenData.expiresIn as number) * 1000).toISOString() 
           : null,
-        testStatus: "active",
+        testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
       });
 
       return NextResponse.json({ 
@@ -416,7 +417,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           expiresAt: tokens.expiresIn 
             ? new Date(Date.now() + (tokens.expiresIn as number) * 1000).toISOString() 
             : null,
-          testStatus: "active",
+          testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
         });
 
         return NextResponse.json({ 

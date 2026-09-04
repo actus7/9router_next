@@ -43,12 +43,16 @@ export async function replaceHarnessConversations(conversations: HarnessConversa
   db.transaction(() => {
     const ids = conversations.map((conversation) => conversation.id).filter(Boolean);
     if (ids.length === 0) {
+      db.run("DELETE FROM harnessMessageFts");
+      db.run("DELETE FROM harnessMessageIndex");
       db.run("DELETE FROM harnessEvents");
       db.run("DELETE FROM harnessConversations");
       return;
     }
 
     const placeholders = ids.map(() => "?").join(", ");
+    db.run(`DELETE FROM harnessMessageFts WHERE sessionId NOT IN (${placeholders})`, ids);
+    db.run(`DELETE FROM harnessMessageIndex WHERE sessionId NOT IN (${placeholders})`, ids);
     db.run(`DELETE FROM harnessEvents WHERE sessionId NOT IN (${placeholders})`, ids);
     db.run(`DELETE FROM harnessConversations WHERE id NOT IN (${placeholders})`, ids);
     for (const conversation of conversations) {

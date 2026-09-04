@@ -29,7 +29,7 @@ interface OAuthTestConfig {
 }
 
 interface ProbeResult {
-  valid: boolean;
+  ok: boolean;
   error: string | null;
   soft: boolean;
 }
@@ -135,27 +135,27 @@ const OAUTH_TEST_CONFIG: Record<string, OAuthTestConfig> = {
  * Classify an OAuth probe response as success / soft-success / hard-fail.
  * Soft success (e.g. 402 spending-limit on Grok CLI) means auth works but the
  * account cannot spend — keep connection active and surface a warning.
- * Exported for unit tests.
+ * Reachable from tests through the `__test__` export at the bottom of this file.
  */
 function classifyOAuthProbeResult(res: Response | null, config: OAuthTestConfig | null, _bodyText = ""): ProbeResult {
-  if (!res) return { valid: false, error: "No response", soft: false };
+  if (!res) return { ok: false, error: "No response", soft: false };
   const status = res.status;
   const accepted = res.ok || (config?.acceptStatuses && config.acceptStatuses.includes(status));
   if (!accepted) {
-    if (status === 401) return { valid: false, error: "Token invalid or revoked", soft: false };
-    if (status === 403) return { valid: false, error: "Access denied", soft: false };
-    return { valid: false, error: `API returned ${status}`, soft: false };
+    if (status === 401) return { ok: false, error: "Token invalid or revoked", soft: false };
+    if (status === 403) return { ok: false, error: "Access denied", soft: false };
+    return { ok: false, error: `API returned ${status}`, soft: false };
   }
 
   if (!res.ok && config?.acceptStatuses?.includes(status)) {
     const softMap = config.softFailMessage || {};
     if (softMap[status]) {
-      return { valid: true, error: softMap[status], soft: true };
+      return { ok: true, error: softMap[status], soft: true };
     }
-    return { valid: true, error: null, soft: false };
+    return { ok: true, error: null, soft: false };
   }
 
-  return { valid: true, error: null, soft: false };
+  return { ok: true, error: null, soft: false };
 }
 
 async function probeClineAccessToken(accessToken: string): Promise<Response> {
@@ -191,7 +191,7 @@ function parseProviderErrorMessage(bodyText: string, fallback: string): string {
   return bodyText.trim() || fallback;
 }
 
-async function probeCloudCodeAssistAccess(connection: Record<string, unknown>, accessToken: string, effectiveProxy: ConnectionProxyConfig | null = null): Promise<{ valid: boolean; error: string | null; status?: number }> {
+async function probeCloudCodeAssistAccess(connection: Record<string, unknown>, accessToken: string, effectiveProxy: ConnectionProxyConfig | null = null): Promise<{ ok: boolean; error: string | null; status?: number }> {
   const userAgent = connection.provider === "antigravity"
     ? "google-api-nodejs-client/9.15.1 vscode-antigravity/1.107.0"
     : "google-api-nodejs-client/9.15.1 gemini-cli/0.34.0";
@@ -206,11 +206,11 @@ async function probeCloudCodeAssistAccess(connection: Record<string, unknown>, a
     body: CLOUD_CODE_ASSIST_TEST_BODY,
   }, effectiveProxy);
 
-  if (res.ok) return { valid: true, error: null };
+  if (res.ok) return { ok: true, error: null };
 
   const bodyText = await res.text().catch(() => "");
   return {
-    valid: false,
+    ok: false,
     error: parseProviderErrorMessage(bodyText, `API returned ${res.status}`),
     status: res.status,
   };
@@ -320,11 +320,11 @@ function isTokenExpired(connection: Record<string, unknown>): boolean {
 
 export async function testOAuthConnection(connection: Record<string, unknown>, effectiveProxy: ConnectionProxyConfig | null = null): Promise<TestResult> {
   const config = OAUTH_TEST_CONFIG[connection.provider as string];
-  if (!config) return { valid: false, error: "Provider test not supported", refreshed: false };
-  if (!connection.accessToken) return { valid: false, error: "No access token", refreshed: false };
+  if (!config) return { ok: false, error: "Provider test not supported", refreshed: false };
+  if (!connection.accessToken) return { ok: false, error: "No access token", refreshed: false };
 
   if (config.tokenExists) {
-    return { valid: true, error: null, refreshed: false, newTokens: null };
+    return { ok: true, error: null, refreshed: false, newTokens: null };
   }
 
   let accessToken = connection.accessToken as string;
@@ -339,50 +339,50 @@ export async function testOAuthConnection(connection: Record<string, unknown>, e
       refreshed = true;
       newTokens = tokens;
     } else {
-      return { valid: false, error: "Token expired and refresh failed", refreshed: false };
+      return { ok: false, error: "Token expired and refresh failed", refreshed: false };
     }
   }
 
   if (config.checkExpiry) {
-    if (refreshed) return { valid: true, error: null, refreshed, newTokens };
-    if (tokenExpired) return { valid: false, error: "Token expired", refreshed: false };
-    return { valid: true, error: null, refreshed: false, newTokens: null };
+    if (refreshed) return { ok: true, error: null, refreshed, newTokens };
+    if (tokenExpired) return { ok: false, error: "Token expired", refreshed: false };
+    return { ok: true, error: null, refreshed: false, newTokens: null };
   }
 
   if (connection.provider === "gemini-cli" || connection.provider === "antigravity") {
     const initial = await probeCloudCodeAssistAccess(connection, accessToken, effectiveProxy);
-    if (initial.valid) return { valid: true, error: null, refreshed, newTokens };
+    if (initial.ok) return { ok: true, error: null, refreshed, newTokens };
 
     if (initial.status === 401 && config.refreshable && !refreshed && connection.refreshToken) {
       const tokens = await refreshOAuthToken(connection);
       if (tokens?.accessToken) {
         const retry = await probeCloudCodeAssistAccess(connection, tokens.accessToken as string, effectiveProxy);
-        if (retry.valid) return { valid: true, error: null, refreshed: true, newTokens: tokens };
-        return { valid: false, error: retry.error, refreshed: true, newTokens: tokens };
+        if (retry.ok) return { ok: true, error: null, refreshed: true, newTokens: tokens };
+        return { ok: false, error: retry.error, refreshed: true, newTokens: tokens };
       }
-      return { valid: false, error: "Token invalid or revoked", refreshed: false };
+      return { ok: false, error: "Token invalid or revoked", refreshed: false };
     }
 
-    return { valid: false, error: initial.error, refreshed };
+    return { ok: false, error: initial.error, refreshed };
   }
 
   if (connection.provider === "cline") {
     const tryProbe = async (token: string): Promise<TestResult> => {
       const res = await probeClineAccessToken(token);
-      if (res.ok) return { valid: true, error: null, refreshed, newTokens };
-      if (res.status === 401) return { valid: false, error: "Token invalid or revoked", refreshed };
-      if (res.status === 403) return { valid: false, error: "Access denied", refreshed };
-      return { valid: false, error: `API returned ${res.status}`, refreshed };
+      if (res.ok) return { ok: true, error: null, refreshed, newTokens };
+      if (res.status === 401) return { ok: false, error: "Token invalid or revoked", refreshed };
+      if (res.status === 403) return { ok: false, error: "Access denied", refreshed };
+      return { ok: false, error: `API returned ${res.status}`, refreshed };
     };
 
     const initial = await tryProbe(accessToken);
-    if (initial.valid || initial.error !== "Token invalid or revoked" || !connection.refreshToken) {
+    if (initial.ok || initial.error !== "Token invalid or revoked" || !connection.refreshToken) {
       return initial;
     }
 
     const tokens = await refreshOAuthToken(connection);
     if (!tokens?.accessToken) {
-      return { valid: false, error: "Token invalid or revoked", refreshed: false };
+      return { ok: false, error: "Token invalid or revoked", refreshed: false };
     }
 
     refreshed = true;
@@ -402,9 +402,9 @@ export async function testOAuthConnection(connection: Record<string, unknown>, e
     const bodyText = !res.ok ? await res.text().catch(() => "") : "";
 
     const classified = classifyOAuthProbeResult(res, config, bodyText);
-    if (classified.valid) {
+    if (classified.ok) {
       return {
-        valid: true,
+        ok: true,
         error: classified.soft ? classified.error : null,
         warning: classified.soft ? classified.error : null,
         refreshed,
@@ -424,9 +424,9 @@ export async function testOAuthConnection(connection: Record<string, unknown>, e
         const retryRes = await fetchWithConnectionProxy(retryUrl, retryOpts, effectiveProxy);
         const retryBody = !retryRes.ok ? await retryRes.text().catch(() => "") : "";
         const retryClassified = classifyOAuthProbeResult(retryRes, config, retryBody);
-        if (retryClassified.valid) {
+        if (retryClassified.ok) {
           return {
-            valid: true,
+            ok: true,
             error: retryClassified.soft ? retryClassified.error : null,
             warning: retryClassified.soft ? retryClassified.error : null,
             refreshed: true,
@@ -434,11 +434,15 @@ export async function testOAuthConnection(connection: Record<string, unknown>, e
           };
         }
       }
-      return { valid: false, error: "Token invalid or revoked", refreshed: false };
+      return { ok: false, error: "Token invalid or revoked", refreshed: false };
     }
 
-    return { valid: false, error: classified.error, refreshed };
+    return { ok: false, error: classified.error, refreshed };
   } catch (err) {
-    return { valid: false, error: (err as Error).message, refreshed };
+    return { ok: false, error: (err as Error).message, refreshed };
   }
 }
+
+// Status classification and expiry are the two decisions worth pinning without
+// standing up a whole OAuth probe.
+export const __test__ = { classifyOAuthProbeResult, isTokenExpired };

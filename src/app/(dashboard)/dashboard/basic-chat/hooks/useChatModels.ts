@@ -7,7 +7,7 @@ import { getStoredModelTestLatencies, sortModelsByTestLatency } from "@/shared/u
 import { textValue } from "../chatFormatUtils";
 import { parseComboGroups } from "../comboModels";
 import {
-  dedupeModels, getProviderLabel, isConfiguredChatModel, isConnectionSelectable,
+  dedupeModels, getProviderLabel, isChatKindModel, isConfiguredChatModel, isConnectionSelectable,
   isExplicitlyEnabledModel, isModelEnabledForChat, normalizeConfiguredModel, normalizeLiveModel,
   normalizeStaticModel, parseProviderModelsPayload, selectableConfiguredModelIds,
 } from "../chatModelUtils";
@@ -19,7 +19,12 @@ interface FreeModelGroupPayload {
   models: Array<{ id: string; name: string }>;
 }
 
-const FREE_MODELS_CLIENT_TIMEOUT_MS = 3_000;
+// Server-side discovery allows each free provider up to 2.5s (FREE_MODEL_DISCOVERY_TIMEOUT_MS
+// in api/models/free/route.ts), running in parallel across ~7 providers. 3s left too thin a
+// margin for the response body to finish streaming past that ceiling, so AbortSignal.timeout
+// fired mid-.json() and silently dropped every free provider (OpenCode, Duck.ai, etc.) from
+// the chat picker even though the server had already responded with full data.
+const FREE_MODELS_CLIENT_TIMEOUT_MS = 8_000;
 
 export function isFreeModelEnabledForChat(
   providerId: string,
@@ -260,7 +265,9 @@ export function useChatModels(): UseChatModelsReturn {
         const configuredGroups = Array.from(providerMap.values())
           .map((group) => ({
             ...group,
-            models: sortModelsByTestLatency(dedupeModels(group.models), testLatencies),
+            // Filter here rather than per source: configured ids, custom models,
+            // live discovery and the static fallback all land in group.models.
+            models: sortModelsByTestLatency(dedupeModels(group.models.filter(isChatKindModel)), testLatencies),
           }))
           .filter((group) => group.models.length > 0)
           .sort((a, b) => a.providerName.localeCompare(b.providerName));

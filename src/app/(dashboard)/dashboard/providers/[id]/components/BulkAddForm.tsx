@@ -57,7 +57,7 @@ export default function BulkAddForm({
             apiKey: entry.apiKey,
             name: entry.name,
             priority: 1,
-            testStatus: isValid ? "active" : "unknown",
+            validated: isValid,
             ...(entry.providerSpecificData ? { providerSpecificData: entry.providerSpecificData } : {}),
           }),
         });

@@ -43,8 +43,8 @@ function buildUsageMap(connections: Record<string, unknown>[] = []) {
 
 // GET /api/proxy-pools - List proxy pools
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const isActive = toBoolean(searchParams.get("isActive"));
     const includeUsage = searchParams.get("includeUsage") === "true";
 

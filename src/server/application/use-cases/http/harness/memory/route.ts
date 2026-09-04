@@ -11,6 +11,7 @@ import {
   updateHarnessLearningConfig,
 } from "@/lib/db/repos/harnessLearningConfigRepo";
 import type { MemoryScope } from "@/shared/harness/agentMemory";
+import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -18,6 +19,8 @@ function badRequest(message: string) {
 
 export async function GET() {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const [snapshot, config] = await Promise.all([
     buildMemorySnapshot(),
     getHarnessLearningConfig(),
@@ -27,6 +30,8 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
   if (body.config && typeof body.config === "object") {
@@ -81,6 +86,8 @@ export async function PUT(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const action = body.action as MemoryApplyAction | undefined;
   if (!action || !["add", "replace", "remove"].includes(action)) {

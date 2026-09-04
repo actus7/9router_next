@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
   // Opt out before the try block: reading `request.url` inside it makes Next throw
   // to interrupt the prerender, and the catch would turn that signal into a 500.
   await assertRequestRuntime();
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     
     const pageRaw = parseInt(searchParams.get("page") ?? "");
     const page = Number.isNaN(pageRaw) ? 1 : pageRaw;

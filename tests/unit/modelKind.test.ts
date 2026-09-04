@@ -6,6 +6,9 @@ describe("model kind inference", () => {
     expect(getModelKind({ id: "llama-3.3-70b-instruct:free" })).toBeNull();
     expect(getModelKind({ id: "eleven-multilingual-v2:free" })).toBe("tts");
     expect(getModelKind({ id: "whisper-large-v3:free" })).toBe("stt");
+    // Xiaomi (and other Chinese providers) label speech recognition "asr", which
+    // let mimo-v2.5-asr through as a chat model in the picker.
+    expect(getModelKind({ id: "mimo-v2.5-asr" })).toBe("stt");
     expect(getModelKind({ id: "flux-1-schnell:free" })).toBe("image");
     expect(getModelKind({ id: "text-embedding-3-small" })).toBe("embedding");
   });

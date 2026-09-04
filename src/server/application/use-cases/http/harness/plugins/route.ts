@@ -11,6 +11,7 @@ import {
   reloadPluginTree,
   type PluginTreeState,
 } from "@/server/plugin-core/context";
+import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 // Reads and edits the plugin patch layer. Every write recomposes the tree in
 // this process so the response already reflects what the chat will resolve
@@ -61,12 +62,16 @@ function serialize(state: PluginTreeState) {
 
 export async function GET() {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   await bootstrap();
   return NextResponse.json(serialize(getPluginTreeState()));
 }
 
 export async function PUT(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const row = readPatchRow(body);
   if (typeof row === "string") return badRequest(row);
@@ -78,6 +83,8 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return badRequest("id is required");
 

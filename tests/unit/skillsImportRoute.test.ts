@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+// These suites cover route logic, not the auth gate; tests/unit/dashboardAccess.test.ts
+// and tests/unit/harnessRouteAuth.test.ts cover the gate itself.
+vi.mock("@/server/application/http/requireDashboardAccess", () => ({
+  requireDashboardAccess: vi.fn(async () => null),
+}));
+
 vi.mock("@/server/application/http/requestRuntime", () => ({
   assertRequestRuntime: vi.fn(async () => {}),
 }));

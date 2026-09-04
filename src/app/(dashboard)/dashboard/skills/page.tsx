@@ -59,7 +59,7 @@ function SkillRow({ skill }: { skill: Skill }) {
           )}
           {skill.endpoint && (
             <Badge variant="secondary" >
-              <code className="text-[10px]">{skill.endpoint}</code>
+              <code className="text-xs">{skill.endpoint}</code>
             </Badge>
           )}
         </div>
@@ -68,7 +68,7 @@ function SkillRow({ skill }: { skill: Skill }) {
           href={getSkillBlobUrl(skill.id)}
           target="_blank"
           rel="noreferrer"
-          className="text-[11px] text-text-muted hover:text-primary mt-1 inline-flex items-center gap-1 break-all"
+          className="text-xs text-text-muted hover:text-primary mt-1 inline-flex items-center gap-1 break-all"
         >
           {url}
           <ExternalLink className="size-3" />
