@@ -54,7 +54,11 @@ const sliceGates = {
 } as const;
 
 function sliceRoots(relativePaths: readonly string[]): string[] {
-  return relativePaths.map((entry) => join(sourceRoot, entry.replaceAll("/", "\\")));
+  // `join` already normalizes "/" to the platform separator. Converting to "\"
+  // first made every one of these paths a literal directory name on Linux, so
+  // the slices resolved to nothing and the gates below reported "slice root
+  // missing or empty" — they only ever ran on Windows.
+  return relativePaths.map((entry) => join(sourceRoot, entry));
 }
 
 function collectSliceViolations(
@@ -157,7 +161,8 @@ describe("architecture gates", () => {
 
   it("enforces slice gates for route loading and error boundaries when enabled", () => {
     const violations = sliceGates.requireRouteBoundaries.flatMap((relativeRouteDir) => {
-      const routeDir = join(sourceRoot, relativeRouteDir.replaceAll("/", "\\"));
+      // Same Windows-only conversion as sliceRoots had; `join` handles "/".
+      const routeDir = join(sourceRoot, relativeRouteDir);
       if (!existsSync(routeDir)) return [`${relativeRouteDir}: directory missing`];
 
       const hasPage = listSourceFiles(routeDir).some((path) => /page\.tsx$/.test(path));
