@@ -4,27 +4,29 @@ Itens intencionalmente adiados das fatias de refatoração. Rastrear aqui antes 
 
 A auditoria do core do gateway está concluída e não deixou dívida aberta: endpoint operacional, gerenciamento de modelos e os fluxos de validação e teste de provider. O registro dos trinta achados, das correções e das três decisões de comportamento está em [AUDITORIA-CORE.md](AUDITORIA-CORE.md).
 
-## `package-lock.json` insatisfazível — CI usa `npm install` em vez de `npm ci`
+## `package-lock.json` insatisfazível — resolvido
 
-`@tailwindcss/oxide-wasm32-wasi` e `@img/sharp-wasm32` declaram
-`@emnapi/core@^1.11.1` e `@emnapi/runtime@^1.11.1`, e o lock **não tem entrada
-nenhuma** resolvendo esses dois nesses caminhos. O lock está insatisfazível como
-escrito, para qualquer plataforma.
+Ficava registrado aqui que o lock não tinha entrada resolvendo
+`@emnapi/core@^1.11.1` nem `@emnapi/runtime@^1.11.1`, ambos declarados por
+`@tailwindcss/oxide-wasm32-wasi` e `@img/sharp-wasm32`. O lock estava
+insatisfazível como escrito, e foi o que deixou o job `check` vermelho em todo
+PR — inclusive no #1.
 
 Por que passou despercebido: o npm no Windows nunca instala esses pacotes de
 plataforma, então nunca valida a subárvore deles e reporta o lock como
 `up to date`. O `npm ci` no Linux valida a árvore inteira e recusa com
-`Missing: @emnapi/runtime@1.11.3 from lock file`. Foi assim que o job `check`
-ficou vermelho em todo PR antes de a gente notar — inclusive no #1.
+`Missing: @emnapi/runtime@1.11.3 from lock file`.
 
-Mitigação atual: o CI roda `npm install --no-audit --no-fund`. Instala
-corretamente, mas perde a garantia de versão exata que o `npm ci` dá — um pacote
-transitivo pode resolver mais novo no CI do que o lock registra.
+Resolvido acrescentando as duas entradas ao lock com metadados do registry
+(versão, `resolved`, `integrity` e dependências), hoisted para o topo porque não
+havia conflito naquela posição: `@emnapi/wasi-threads@1.2.3` já estava lá e
+satisfaz a exigência exata do `core`, e `tslib@2.8.1` satisfaz `^2.4.0`. O CI
+voltou para `npm ci`, então nenhuma build pode resolver uma versão que o lock não
+registra.
 
-**Correção:** regenerar `package-lock.json` no Linux (ou num container
-descartável), commitar, e voltar o CI para `npm ci`. Tentativas de regenerar do
-Windows com `--os=linux --cpu=x64 --libc=glibc --force` não acrescentam as
-variantes de plataforma; o npm só resolve a subárvore da plataforma em que roda.
+Regenerar o lock no Linux continua sendo a forma mais robusta de evitar a classe
+inteira desse problema — o npm só resolve a subárvore da plataforma onde roda, e
+`--os=linux --cpu=x64 --force` do Windows não acrescenta as variantes.
 
 ## Riscos de segurança (fora de escopo desta revisão)
 
