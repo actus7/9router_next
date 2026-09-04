@@ -6,6 +6,36 @@ Run the normal application startup or migration workflow; schema changes trigger
 
 `modelAvailability` is disposable operational state: expired rows are cleaned automatically. Connection test status is durable diagnostic state and must be changed only by an explicit connection test or user action.
 
+## Upgrading to credential encryption at rest
+
+Provider credentials (`apiKey`, `accessToken`, `refreshToken`, `idToken` inside
+`providerConnections.data`) are encrypted with AES-256-GCM when `CREDENTIAL_KEY`
+is set. Three states, chosen by configuration rather than by code:
+
+| Configuration | Behaviour |
+|---|---|
+| `CREDENTIAL_KEY` unset | Plaintext. Boots, warns on every boot, and reports `credentialEncryptionEnabled: false` from `GET /api/settings`. |
+| `CREDENTIAL_KEY` set | Encrypted. Existing rows are encrypted by migration 010 on the next boot. |
+| `CREDENTIAL_ENCRYPTION_REQUIRED=true` with no key | **Refuses to start**, naming both variables in the error. |
+
+Plaintext is the default on purpose: an upgrade must not stop an install that
+never opted in. Turn on `CREDENTIAL_ENCRYPTION_REQUIRED` where that trade is not
+acceptable — it then fails at boot instead of degrading quietly, and it is
+checked before the legacy JSON import writes any credential.
+
+**Losing the key makes encrypted credentials unrecoverable.** They are dropped
+on read with an error in the log, and every affected provider has to be
+reconnected. Keep it wherever you keep secrets, not beside the database file.
+
+Encrypted and plaintext rows coexist — a value without the `v1:` prefix is read
+as-is — so introducing the key needs no flag day, and migration 010 is
+idempotent.
+
+One thing the migration cannot fix: `backup.ts` copies the stored bytes, so a
+backup taken *after* encryption is encrypted, but one taken *before* is not.
+Prune or re-take the backups under `<DATA_DIR>/db/backups` if plaintext copies
+there matter to you.
+
 ## Rotating a gateway API key
 
 Every key carries the destination it was issued for. `apiKeys.sink` is one of

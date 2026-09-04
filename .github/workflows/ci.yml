@@ -2,8 +2,12 @@ name: CI
 on:
   push:
     branches: [main]
+  # Every pull request, not only those targeting main. The `branches` filter
+  # here meant a stacked PR — one based on another feature branch — got no CI at
+  # all, so work could reach main through a chain where only the last link was
+  # ever validated. The job name stays `check`, which is what main's branch
+  # protection requires.
   pull_request:
-    branches: [main]
 jobs:
   check:
     runs-on: ubuntu-latest

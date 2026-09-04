@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   __resetCredentialKeyCache,
+  assertCredentialEncryptionPolicy,
   decryptConnectionSecrets,
   encryptConnectionSecrets,
   encryptSecret,
@@ -35,8 +36,19 @@ const BLOB = {
   consecutiveUseCount: 3,
 };
 
-beforeEach(() => withKey("unit-test-key"));
-afterEach(() => withKey(undefined));
+function withRequired(required: boolean): void {
+  if (required) process.env.CREDENTIAL_ENCRYPTION_REQUIRED = "true";
+  else delete process.env.CREDENTIAL_ENCRYPTION_REQUIRED;
+}
+
+beforeEach(() => {
+  withKey("unit-test-key");
+  withRequired(false);
+});
+afterEach(() => {
+  withKey(undefined);
+  withRequired(false);
+});
 
 describe("credential cipher", () => {
   it("round-trips every secret field and leaves the rest untouched", () => {
@@ -90,6 +102,41 @@ describe("credential cipher", () => {
     expect(read).not.toHaveProperty("apiKey");
     expect(error).toHaveBeenCalled();
     error.mockRestore();
+  });
+});
+
+/**
+ * Running unencrypted stays supported — refusing to boot by default would brick
+ * installs that never opted in. But an operator with a compliance requirement
+ * needs to make it mandatory without editing source, and needs it to fail at
+ * boot rather than degrade quietly. So the policy is configuration, and both
+ * paths are asserted here.
+ */
+describe("encryption policy", () => {
+  it("allows plaintext by default, so an existing install still boots", () => {
+    withKey(undefined);
+    withRequired(false);
+    expect(() => assertCredentialEncryptionPolicy()).not.toThrow();
+  });
+
+  it("refuses to start when required but no key is configured", () => {
+    withKey(undefined);
+    withRequired(true);
+    expect(() => assertCredentialEncryptionPolicy()).toThrow(/CREDENTIAL_KEY is not set/);
+  });
+
+  it("starts when required and the key is present", () => {
+    withKey("unit-test-key");
+    withRequired(true);
+    expect(() => assertCredentialEncryptionPolicy()).not.toThrow();
+  });
+
+  it("ignores the flag unless it is exactly true", () => {
+    withKey(undefined);
+    process.env.CREDENTIAL_ENCRYPTION_REQUIRED = "1";
+    expect(() => assertCredentialEncryptionPolicy()).not.toThrow();
+    process.env.CREDENTIAL_ENCRYPTION_REQUIRED = "yes";
+    expect(() => assertCredentialEncryptionPolicy()).not.toThrow();
   });
 });
 

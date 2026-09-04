@@ -48,6 +48,36 @@ export function isCredentialEncryptionEnabled(): boolean {
   return resolveKey() !== null;
 }
 
+/** Whether the operator has declared encryption mandatory for this install. */
+export function isCredentialEncryptionRequired(): boolean {
+  return process.env.CREDENTIAL_ENCRYPTION_REQUIRED?.trim().toLowerCase() === "true";
+}
+
+/**
+ * Enforce the operator's encryption policy at startup.
+ *
+ * Running unencrypted is a supported mode — refusing to boot by default would
+ * brick installs that never opted in, which is why the key is optional. But
+ * "supported" is not the same as "acceptable everywhere": an operator with a
+ * compliance requirement needs a way to make it mandatory that does not involve
+ * editing this file, and needs it to fail at boot rather than silently degrade.
+ *
+ * So the policy is configuration, not a code decision:
+ *   CREDENTIAL_KEY unset                              -> plaintext, warned every boot
+ *   CREDENTIAL_KEY set                                -> encrypted
+ *   CREDENTIAL_ENCRYPTION_REQUIRED=true, key missing   -> refuse to start
+ *
+ * @throws when encryption is required but no key is configured
+ */
+export function assertCredentialEncryptionPolicy(): void {
+  if (!isCredentialEncryptionRequired() || isCredentialEncryptionEnabled()) return;
+  throw new Error(
+    "CREDENTIAL_ENCRYPTION_REQUIRED=true but CREDENTIAL_KEY is not set. " +
+      "Set CREDENTIAL_KEY to encrypt provider credentials at rest, or unset " +
+      "CREDENTIAL_ENCRYPTION_REQUIRED to allow plaintext storage.",
+  );
+}
+
 export function isEncryptedValue(value: unknown): boolean {
   return typeof value === "string" && value.startsWith(PREFIX);
 }
