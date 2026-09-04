@@ -6,23 +6,61 @@ A auditoria do core do gateway está concluída e não deixou dívida aberta: en
 
 ## Riscos de segurança (fora de escopo desta revisão)
 
-Estes três itens são **dívida real de segurança** e devem ser tratados em migração dedicada:
+1. ~~**Credenciais em plaintext no SQLite**~~ — **resolvido, com uma ressalva.** `apiKey`, `accessToken`, `refreshToken` e `idToken` dentro de `providerConnections.data` agora são cifrados com AES-256-GCM por campo (`src/lib/db/helpers/credentialCipher.ts`), chave derivada de `CREDENTIAL_KEY` com scrypt, linhas existentes migradas pela 010. O backup herda de graça, porque copia os bytes já cifrados. A propagação para fora do banco também fechou: cada destino recebe chave própria registrada em `apiKeys.sink`, e `usageHistory.apiKey` guarda o id da linha (migration 009) — rotação em `docs/OPERATIONS.md`.
 
-1. **Credenciais em plaintext no SQLite** — `apiKey`, `accessToken` e `refreshToken` de providers ainda são persistidos sem cifragem em `src/lib/db/repos/connectionsRepo.ts`.
-2. **Secrets padrão previsíveis** — senha `"123456"` em `src/lib/auth/dashboardSession.ts` e fallback `API_KEY_SECRET || "endpoint-proxy-api-key-secret"` em `src/shared/utils/apiKey.ts`.
-3. **CORS permissivo em `/v1`** — rotas do gateway ainda emitem `Access-Control-Allow-Origin: *` para compatibilidade com CLIs e health checks; endurecer exige auditoria de todos os clientes.
+   **A ressalva:** sem `CREDENTIAL_KEY` definida o app roda em claro, avisando a cada boot e expondo o estado em `GET /api/settings` (`credentialEncryptionEnabled`). Isso é deliberado — recusar o boot brickaria instalações que nunca optaram — mas significa que a proteção é *opt-in*, não automática.
+2. ~~**Secrets padrão previsíveis**~~ — **reclassificado, não era risco.** Ver as duas seções abaixo.
+3. **CORS permissivo em `/v1`** — rotas do gateway ainda emitem `Access-Control-Allow-Origin: *` para compatibilidade com CLIs e health checks. **O próximo entregável é a auditoria de clientes, não a mudança**: Claude Code, Codex, as 18 ferramentas de CLI, o browser do dashboard, os probes de túnel e os containers na Render. Apertar a allowlist antes de enumerar quem chama quebra clientes em campo, e o modo de falha do CORS é dos piores de diagnosticar — o request simplesmente não chega, sem erro do lado do servidor.
 
-## Plaintext credentials (detalhe)
+## `API_KEY_SECRET` — reclassificado de risco para código morto (removido)
 
-Provider connection credentials e alguns tokens OAuth ainda são armazenados ou transmitidos em plaintext em partes da stack (campos de banco, exports de config local, paths de debug). Uma passagem completa de cifragem-at-rest e redação de secrets está fora do escopo das fatias de dashboard/rotas.
+O registro dizia que o fallback `API_KEY_SECRET || "endpoint-proxy-api-key-secret"`
+era um secret padrão previsível. A verificação mostrou que **não era explorável**:
+o secret alimentava um único HMAC (`generateCrc`) usado só na *geração* da chave,
+e nada nunca verificava esse CRC. A validação é
+`SELECT isActive FROM apiKeys WHERE key = ?` — igualdade exata contra o banco, que
+é a fronteira de confiança real. Com o secret conhecido dava para fabricar uma
+chave bem-formada que não autenticava nada.
 
-## Default secrets (detalhe)
+A correção certa era a oposta da registrada: **deletar o CRC**, não rotacionar o
+secret. Feito — `src/shared/utils/apiKey.ts` agora usa bytes aleatórios no sufixo,
+mesmo formato (`sk-{machineId}-{keyId}-{8}`), sem secret para vazar ou rotacionar.
+Um digest com chave que nenhum leitor confere é complexidade que *parece*
+segurança, o que é pior do que não ter.
 
-A senha admin padrão (`123456`) e o fallback `INITIAL_PASSWORD` permanecem para onboarding local-first. Caminhos de login remoto forçam troca de senha, mas o default ainda é documentado na página de login. Rotacionar defaults e remover fallbacks hard-coded exige migração de auth coordenada.
+## Senha padrão — residual local, por escolha
 
-## Permissive CORS (`Access-Control-Allow-Origin: *`)
+O registro tratava a senha `123456` (`src/lib/auth/dashboardSession.ts`) como
+exposição. O acesso remoto **já está fechado**:
+`use-cases/http/auth/login/route.ts:67` calcula
+`mustChangePassword = !storedHash && !INITIAL_PASSWORD && !isLocalRequest(request)`
+e devolve **403 sem emitir token de sessão**, com o raciocínio documentado no
+próprio código — emitir um JWT com senha pública permitiria a um atacante remoto
+dar `PATCH /api/settings` e desligar a autenticação.
 
-Health checks, SSE streams e algumas rotas de API ainda emitem headers CORS wildcard para CLI e tunnel probing. Restringir allowlists de origem exige auditar cada cliente (Claude Code, Codex, dashboard browser, tunnel health checks) e foi adiado.
+O residual é: na máquina local, `123456` abre sessão. Para um app local-first
+single-user isso é postura defensável, equivalente a um SQLite sem senha no
+diretório do usuário. **Nenhuma ação pendente** — a entrada anterior descrevia um
+risco que não existe, e uma dívida assim custa atenção em toda revisão.
+
+## Custódia da chave de cifragem (detalhe do item 1)
+
+A custódia é uma env var, `CREDENTIAL_KEY`. As alternativas foram consideradas e
+recusadas: o keychain do SO adiciona dependência nativa e quebra Docker headless,
+o que contradiz a cadeia de 4 drivers SQLite que existe justamente para não
+depender de binário nativo; e derivar do `machineId` protege contra quase nada,
+já que quem tem o arquivo do banco tipicamente tem a máquina — seria cifragem
+que só *parece* cifragem, pior que nenhuma porque cria confiança que não
+corresponde à proteção.
+
+Só o subconjunto de segredos é cifrado, não o blob inteiro: `email`,
+`testStatus`, `lastError` e `consecutiveUseCount` moram no mesmo JSON e são
+escritos no caminho quente (o round-robin atualiza a cada request), então cifrar
+o blob poria cripto dentro da seleção de conta.
+
+Se a definição do produto virar compliance, o correto passa a ser fail-closed
+(recusar o boot sem a chave), e aí o release precisa de nota de migração
+destacada — é quebra intencional.
 
 ## Rotas de harness sem autorização — resolvido
 
@@ -32,11 +70,13 @@ Ficava registrado aqui que `/api/harness/sandbox/eval` executava o `source` rece
 
 `isModelDisabled` (`src/server/llm-gateway/application/modelResolution.ts:108`) faz `catch { return false }` de propósito, com o argumento de que uma falha de leitura não deve derrubar o roteamento. O efeito prático é que uma intermitência de banco torna modelos desabilitados chamáveis de novo, sem alarme.
 
-Isso é aceitável se "desabilitado" for só preferência de UI. Se for controle de custo ou de compliance, o comportamento correto é falhar fechado ou pelo menos alertar. A decisão de qual dos dois é o caso não foi tomada, e mudar para fail-closed sem essa decisão trocaria um risco silencioso por uma indisponibilidade.
+**Decidido: preferência de UI.** O armazenamento é `kv` scope `disabledModels` — uma lista por alias de provider, sem escopo por chave de API, sem trilha de auditoria e sem data de vigência. Essa não é a forma de um controle de compliance; é a forma de uma preferência. O fail-open fica, e o silêncio saiu: `isModelDisabled` agora loga em `warn` com provider e modelo antes de devolver `false`. Um risco aceito tem que ser visível.
+
+Se a definição do produto mudar para controle de custo ou compliance, o correto passa a ser fail-closed com um caminho de erro distinto — "controle indisponível" (503) não é "modelo desabilitado" (404), e o cliente precisa distinguir para saber se vale retentar.
 
 ## Validação de chave Deepgram sem probe dedicado
 
-`validateProviderKey.ts` perdeu o `case "deepgram"` (que batia em `/v1/projects` com auth `Token`) e agora cai no caminho genérico `probeMediaProvider`, que usa o `sttConfig` do registry — ou seja, faz POST de um corpo JSON em `/v1/listen`, endpoint que espera áudio binário. Deve continuar distinguindo chave válida de inválida pelo 401 vs não-401, mas isso não foi verificado contra uma chave real e não há teste cobrindo. Confirmar antes de confiar nessa validação.
+`validateProviderKey.ts` perdeu o `case "deepgram"` (que batia em `/v1/projects` com auth `Token`) e agora cai no caminho genérico `probeMediaProvider`, que usa o `sttConfig` do registry — ou seja, faz POST de um corpo JSON em `/v1/listen`, endpoint que espera áudio binário. Deve continuar distinguindo chave válida de inválida pelo 401 vs não-401, mas isso não foi verificado contra uma chave real e não há teste cobrindo. **Bloqueado por falta de credencial** — não dá para verificar sem uma chave Deepgram real, e um mock só confirmaria o mock. Registrado assim para não voltar a ser discutido a cada revisão.
 
 ## Estado de i18n global no módulo (risco de concorrência no SSR)
 

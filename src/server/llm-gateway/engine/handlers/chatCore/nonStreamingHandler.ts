@@ -8,6 +8,8 @@ import { HTTP_STATUS } from "../../config/runtimeConfig";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail";
 import { saveRequestDetail } from "../../host/usage";
+import { summarizeRoutingTrace } from "../../host/routingTrace";
+import { getRoutingTrace } from "../../services/routingTrace";
 import { decloakToolNames } from "../../utils/claudeCloaking";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index";
 import type { NonStreamingHandlerContext } from "./types";
@@ -287,6 +289,17 @@ function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: s
 /**
  * Handle non-streaming response from provider.
  */
+/**
+ * The routing summary for this request, read off the trace that rides the body.
+ * Stored on the always-written usage row because the full trace only travels on
+ * a response header and `requestDetails` is opt-in — so with observability off,
+ * nothing recorded why a request routed where it did.
+ */
+function routingMeta(body: unknown): Record<string, unknown> | undefined {
+  const summary = summarizeRoutingTrace(getRoutingTrace(body as Record<string, unknown>));
+  return summary ? { routing: summary } : undefined;
+}
+
 export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, appendLog, pxpipe, reqTag, log }: NonStreamingHandlerContext) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
@@ -324,7 +337,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
 
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });
-  saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
+  saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true, meta: routingMeta(body) });
   if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
   const translatedResponse = needsTranslation(targetFormat, sourceFormat)

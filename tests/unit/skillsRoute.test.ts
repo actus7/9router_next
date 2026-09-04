@@ -11,14 +11,14 @@ vi.mock("@/server/application/http/requestRuntime", () => ({
 }));
 vi.mock("@/lib/db/repos/agentSkillsRepo", () => ({
   upsertAgentSkillRow: vi.fn(),
-  deleteAgentSkillRow: vi.fn(),
+  deleteAgentSkillWithFiles: vi.fn(),
   listAgentSkillRows: vi.fn(async () => []),
   getAgentSkillsRevision: vi.fn(async () => 0),
 }));
 
 import { NextRequest } from "next/server";
 import { GET, PUT, DELETE } from "@/server/application/use-cases/http/harness/skills/route";
-import { upsertAgentSkillRow, deleteAgentSkillRow } from "@/lib/db/repos/agentSkillsRepo";
+import { upsertAgentSkillRow, deleteAgentSkillWithFiles } from "@/lib/db/repos/agentSkillsRepo";
 
 const url = "http://localhost/api/harness/skills";
 
@@ -80,11 +80,13 @@ describe("PUT /api/harness/skills", () => {
 });
 
 describe("DELETE /api/harness/skills", () => {
-  it("deletes override row by id", async () => {
+  // The row and its auxiliary files go together in one transaction — two
+  // separate repo calls left a skill listed whose files had already vanished.
+  it("deletes the override row and its files by id", async () => {
     const response = await DELETE(
       new NextRequest(`${url}?id=skill-creator`),
     );
     expect(response.status).toBe(200);
-    expect(deleteAgentSkillRow).toHaveBeenCalledWith("skill-creator");
+    expect(deleteAgentSkillWithFiles).toHaveBeenCalledWith("skill-creator");
   });
 });

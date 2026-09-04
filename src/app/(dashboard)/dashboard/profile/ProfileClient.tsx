@@ -135,6 +135,7 @@ export default function ProfileClient({ initialSettings, initialDbInfo: _initial
           updateComboStrategy={profileSettings.updateComboStrategy}
           updateStickyLimit={profileSettings.updateStickyLimit}
           updateComboStickyLimit={profileSettings.updateComboStickyLimit}
+          updateFreeFallbackEnabled={profileSettings.updateFreeFallbackEnabled}
         />
 
         <NetworkCard

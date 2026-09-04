@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serializeHttpError } from "@/server/application/http/httpError";
 import { parseJsonBody } from "@/server/application/http/requestBody";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
+import { revokeApiKeysForSink, type ApiKeySink } from "@/lib/db/repos/apiKeysRepo";
 
 type JsonBody = Record<string, unknown>;
 
@@ -67,7 +68,19 @@ export function createCliToolHandlers(name: string, handlers: CliToolRouteHandle
         return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
       }
       try {
-        return toResponse(await handlers.delete(request));
+        const result = toResponse(await handlers.delete(request));
+        // Un-configuring the tool and revoking its key are the same operation
+        // from the operator's point of view: the key exists only because this
+        // tool's config file needed one. Leaving it live would put a usable
+        // credential in the inventory with nothing pointing at it.
+        //
+        // After the handler, and deliberately not fatal: the config file is
+        // already rewritten by then, and failing the reset because the
+        // bookkeeping write failed would leave the worse of the two states.
+        await revokeApiKeysForSink(`cli:${name}` as ApiKeySink).catch((error: unknown) => {
+          console.error(`Error revoking ${logLabel} api key:`, error);
+        });
+        return result;
       } catch (error) {
         console.error(`Error in ${logLabel} DELETE:`, error);
         return serializeHttpError(error, `Failed to reset ${name} settings`);

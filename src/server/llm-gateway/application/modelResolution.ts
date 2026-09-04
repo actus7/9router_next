@@ -8,6 +8,7 @@ import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { errorResponse } from "@/server/llm-gateway/engine/utils/error";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
+import * as log from "../utils/logger";
 
 interface ParsedModel {
   provider?: string | null;
@@ -103,6 +104,11 @@ export async function getModelInfo(modelStr: string): Promise<ModelInfo> {
  * Reads both the provider alias and the raw id, because rows exist under both.
  *
  * Fails open. The store being unreachable must not take routing down with it.
+ * "Disabled" here is an operator display preference — the list lives in `kv`
+ * under one scope, with no per-key scoping, no audit trail and no validity
+ * window — so availability wins over enforcement. The failure is logged rather
+ * than swallowed: an accepted risk has to be a visible one, otherwise a store
+ * blip silently makes disabled models callable again with nothing to show for it.
  */
 export async function isModelDisabled(provider: string, model: string): Promise<boolean> {
   if (!provider || !model) return false;
@@ -111,7 +117,13 @@ export async function isModelDisabled(provider: string, model: string): Promise<
     const alias: string = getProviderAlias(provider) || provider;
     const list: string[] = disabled[alias] || disabled[provider] || [];
     return list.includes(model);
-  } catch {
+  } catch (error) {
+    log.warn(
+      "ROUTING",
+      `Disabled-model list unreadable for ${provider}/${model} — failing open, the model stays callable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
     return false;
   }
 }

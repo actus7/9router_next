@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createCloudDeployment, getCloudConnectionByProvider, getCloudDeployments } from "@/models";
+import { createCloudDeployment, getCloudConnectionByProvider, getCloudDeployments, issueApiKeyForSink, type ApiKeySink } from "@/models";
 import { getCloudTool } from "@/server/cloud/tools/registry";
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { generateResourceName, isCloudProviderError, formatCloudProviderError } from "@/server/cloud/providers/driver";
 import { resolveGatewayConfig } from "@/server/cloud/gatewayConfig";
+import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { randomBytes } from "node:crypto";
 
 function serializeDeployment(d: Awaited<ReturnType<typeof getCloudDeployments>>[number]) {
@@ -25,7 +26,6 @@ export async function POST(request: NextRequest) {
   const toolId = typeof body?.toolId === "string" ? body.toolId : "";
   const model = typeof body?.model === "string" ? body.model : "";
   const modelProvider = typeof body?.modelProvider === "string" ? body.modelProvider : "";
-  const gatewayApiKey = typeof body?.gatewayApiKey === "string" ? body.gatewayApiKey : "";
 
   const driver = getCloudProviderDriver(provider);
   const tool = getCloudTool(toolId);
@@ -46,10 +46,27 @@ export async function POST(request: NextRequest) {
 
   const { gatewayApiUrl } = await resolveGatewayConfig();
   if (!gatewayApiUrl) return NextResponse.json({ error: "Configure a URL pública do squid (Cloud/Tunnel) antes de fazer deploy" }, { status: 400 });
-  if (!gatewayApiKey) return NextResponse.json({ error: "gatewayApiKey é obrigatório" }, { status: 400 });
 
   const resourceName = generateResourceName(toolId);
   const gatewayToken = randomBytes(32).toString("hex");
+
+  // The gateway key used to come from the request body, which meant whichever
+  // key the operator had selected — typically the one already written to every
+  // CLI config file — was pushed as a plaintext env var onto a third-party
+  // platform. It still has to leave the machine for the container to work, but
+  // now it is a key issued for this destination alone, recorded against it, and
+  // revoked by the teardown path. Rotating it no longer touches anything else.
+  // tool AND provider: the unique index is (toolId, provider), so two tools can
+  // hold deployments on the same platform. Keying the sink on provider alone
+  // would make tearing one down revoke the key the other is still using.
+  const sink = `cloud:${provider}.${toolId}` as ApiKeySink;
+  const gatewayKey = await issueApiKeyForSink(
+    `Cloud deploy · ${toolId} · ${provider}`,
+    await getConsistentMachineId(),
+    sink,
+    resourceName,
+  );
+  const gatewayApiKey = gatewayKey.key;
 
   try {
     const result = await driver.createDeployment(connection.token, resourceName, tool, {

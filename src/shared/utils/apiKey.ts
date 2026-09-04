@@ -1,8 +1,5 @@
 import crypto from "crypto";
 
-const API_KEY_SECRET: string = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
-
-
 export interface GeneratedApiKey {
   key: string;
   keyId: string;
@@ -21,38 +18,19 @@ function generateKeyId(): string {
 }
 
 /**
- * Generate CRC (8-char HMAC)
- */
-function generateCrc(machineId: string, keyId: string): string {
-  return crypto
-    .createHmac("sha256", API_KEY_SECRET)
-    .update(machineId + keyId)
-    .digest("hex")
-    .slice(0, 8);
-}
-
-/**
- * Generate API key with machineId embedded
- * Format: sk-{machineId}-{keyId}-{crc8}
+ * Generate API key with machineId embedded.
+ * Format: sk-{machineId}-{keyId}-{suffix8}
+ *
+ * The suffix used to be an HMAC over machineId+keyId keyed by an API_KEY_SECRET
+ * env var that fell back to a hard-coded string. Nothing ever verified it:
+ * `validateApiKey` is a `WHERE key = ?` equality check against the apiKeys
+ * table, so the trust boundary is the stored row, never the suffix. A keyed
+ * digest no reader checks is complexity that looks like security, so the suffix
+ * is now just random bytes — same format, no secret to leak or rotate.
  */
 export function generateApiKeyWithMachine(machineId: string): GeneratedApiKey {
   const keyId = generateKeyId();
-  const crc = generateCrc(machineId, keyId);
-  const key = `sk-${machineId}-${keyId}-${crc}`;
+  const suffix = crypto.randomBytes(4).toString("hex");
+  const key = `sk-${machineId}-${keyId}-${suffix}`;
   return { key, keyId };
 }
-
-/**
- * Parse API key and extract machineId + keyId
- * Supports both formats:
- * - New: sk-{machineId}-{keyId}-{crc8}
- * - Old: sk-{random8}
- */
-
-/**
- * Verify API key CRC (only for new format)
- */
-
-/**
- * Check if API key is new format (contains machineId)
- */

@@ -1,5 +1,6 @@
 export interface Settings {
   fallbackStrategy?: string;
+  freeFallbackEnabled?: boolean;
   comboStrategy?: string;
   stickyRoundRobinLimit?: number;
   comboStickyRoundRobinLimit?: number;

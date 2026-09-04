@@ -18,6 +18,21 @@ export function useProfileSettings(initialSettings: Settings) {
     }
   };
 
+const updateFreeFallbackEnabled = async (enabled: boolean) => {
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ freeFallbackEnabled: enabled }),
+      });
+      if (res.ok) {
+        setSettings(prev => ({ ...prev, freeFallbackEnabled: enabled }));
+      }
+    } catch (err) {
+      console.error("Falha ao atualizar configurações:", err);
+    }
+  };
+
   const updateFallbackStrategy = async (strategy: string) => {
     try {
       const res = await fetch("/api/settings", {
@@ -123,6 +138,7 @@ export function useProfileSettings(initialSettings: Settings) {
     setLoading,
     reloadSettings,
     updateFallbackStrategy,
+    updateFreeFallbackEnabled,
     updateComboStrategy,
     updateStickyLimit,
     updateComboStickyLimit,

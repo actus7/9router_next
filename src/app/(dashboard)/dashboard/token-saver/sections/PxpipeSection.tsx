@@ -3,6 +3,17 @@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
+/**
+ * PXPIPE is experimental and deliberately not exposed to users yet, so this
+ * whole section is gated off. That is also why `/dashboard/pxpipe` has no
+ * sidebar entry — it is reachable only from the "Dashboard" link below, which
+ * this flag hides. Flipping this to `true` is what surfaces the feature; do not
+ * add a sidebar item instead, or the screen ships while its controls stay
+ * hidden. Named rather than an inline `false` so both halves of the gate are
+ * greppable from one place.
+ */
+const PXPIPE_UI_ENABLED = false;
+
 interface PxpipeSectionProps {
   pxpipeEnabled: boolean;
   pxpipeStatus: { installed: boolean };
@@ -17,8 +28,7 @@ export default function PxpipeSection({
   setShowPxpipeModal, handlePxpipeEnabled,
 }: PxpipeSectionProps) {
   return (
-    /* PXPIPE hidden from UI — experimental, not exposed to users yet */
-    <>{false && (
+    <>{PXPIPE_UI_ENABLED && (
       <div className="flex items-center justify-between pt-4 mt-4 border-t border-border gap-4 flex-wrap">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3 flex-wrap">

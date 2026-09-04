@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
+import { decryptConnectionSecrets, encryptConnectionSecrets } from "../helpers/credentialCipher";
 
 const OPTIONAL_FIELDS: string[] = [
   "displayName", "email", "globalPriority", "defaultModel",
@@ -72,7 +73,9 @@ export function normalizeConnectionTestStatus(value: unknown): ConnectionTestSta
 
 function rowToConn(row: ConnectionRow | undefined): ProviderConnection | null {
   if (!row) return null;
-  const extra: Record<string, unknown> = parseJson(row.data, {}) as Record<string, unknown>;
+  const extra: Record<string, unknown> = decryptConnectionSecrets(
+    parseJson(row.data, {}) as Record<string, unknown>,
+  );
   return {
     ...extra,
     testStatus: normalizeConnectionTestStatus(extra.testStatus),
@@ -98,7 +101,10 @@ function connToRow(c: ProviderConnection): Record<string, unknown> {
     email: email ?? null,
     priority: priority ?? null,
     isActive: isActive === false ? 0 : 1,
-    data: stringifyJson(rest),
+    // The two chokepoints for credential encryption are here and in
+    // `rowToConn`. Only the secret fields are transformed; the rest of the blob
+    // stays readable so account selection does no cipher work.
+    data: stringifyJson(encryptConnectionSecrets(rest as Record<string, unknown>)),
     createdAt,
     updatedAt,
   };
@@ -284,6 +290,14 @@ export async function deleteProviderConnection(id: string): Promise<boolean> {
     const row = db.get(`SELECT provider FROM providerConnections WHERE id = ?`, [id]) as { provider: string } | undefined;
     if (!row) return;
     db.run(`DELETE FROM providerConnections WHERE id = ?`, [id]);
+    // No FOREIGN KEY exists anywhere in the schema, so the child rows keyed on
+    // this connection have to go explicitly. `cleanupExpiredModelAvailability`
+    // does not cover them: it only deletes rows whose `until` has passed, and a
+    // cooldown written with `until IS NULL` would outlive its connection
+    // forever. Done here rather than in the callers because there are two of
+    // them (the DELETE route and the server action) and a guard in one leaves
+    // the other leaking.
+    db.run(`DELETE FROM modelAvailability WHERE connectionId = ?`, [id]);
     reorderInTx(db, row.provider);
     ok = true;
   });

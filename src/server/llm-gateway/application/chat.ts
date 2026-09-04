@@ -20,6 +20,7 @@ import { handleComboChat, handleFusionChat, detectRequiredCapabilities } from "@
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/server/llm-gateway/engine/services/capacityAdapter";
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
+import { resolveAccountExhaustion } from "@/server/llm-gateway/engine/services/accountFallback";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
@@ -461,7 +462,7 @@ export async function handleSingleModelChat(
   const disabledResponse = await assertModelEnabled(provider, model);
   if (disabledResponse) return disabledResponse;
 
-  const cooldownResponse = checkNoAuthCooldownResponse(provider, model);
+  const cooldownResponse = await checkNoAuthCooldownResponse(provider, model);
   if (cooldownResponse) return cooldownResponse;
 
     const excludeConnectionIds: Set<string> = new Set();
@@ -484,18 +485,17 @@ export async function handleSingleModelChat(
         const freeResponse = await tryFreeFallbackChat(provider, body, clientRawRequest, request, apiKey);
         if (freeResponse) return freeResponse;
       }
-      if (credentials?.allRateLimited) {
-        const errorMsg: string = lastError || credentials.lastError || "Unavailable";
-        const status: number = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
-        log.warn("CHAT", `[${provider}/${model}] ${errorMsg} (${credentials.retryAfterHuman})`);
-        return unavailableResponse(status, `[${provider}/${model}] ${errorMsg}`, String(credentials.retryAfter ?? ""), credentials.retryAfterHuman ?? "");
+      // Shared with the embeddings path so the three outcomes cannot drift
+      // apart again the way 404-vs-400 did.
+      const exhaustion = resolveAccountExhaustion(
+        provider, model, credentials, excludeConnectionIds.size, lastError, lastStatus,
+      );
+      if (exhaustion.kind === "rate-limited") {
+        log.warn("CHAT", `${exhaustion.message} (${exhaustion.retryAfterHuman})`);
+        return unavailableResponse(exhaustion.status, exhaustion.message, exhaustion.retryAfter, exhaustion.retryAfterHuman);
       }
-      if (excludeConnectionIds.size === 0) {
-        log.warn("AUTH", `No active credentials for provider: ${provider}`);
-        return errorResponse(HTTP_STATUS.NOT_FOUND, `No active credentials for provider: ${provider}`);
-      }
-      log.warn("CHAT", "No more accounts available", { provider });
-      return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
+      log.warn(exhaustion.kind === "no-accounts" ? "AUTH" : "CHAT", exhaustion.message, { provider });
+      return errorResponse(exhaustion.status, exhaustion.message);
     }
 
     const connectionId: string = credentials.connectionId || "";
@@ -526,7 +526,7 @@ export async function handleSingleModelChat(
       return result.response;
     }
 
-    const noAuthResponse = handleNoAuthCooldownResult(result, provider, model);
+    const noAuthResponse = await handleNoAuthCooldownResult(result, provider, model);
     if (noAuthResponse) return noAuthResponse;
 
     const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null);

@@ -1,4 +1,29 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * noAuth cooldowns are stored in `modelAvailability` under a synthetic
+ * connection id, the same table credentialed accounts use. They used to live in
+ * a module-level Map, which meant they vanished on every restart and appeared
+ * in no UI — and since the free default provider is a noAuth provider, the
+ * last-resort routing path had the weakest cooldown of the two.
+ *
+ * This fake stands in for the table and, crucially, OUTLIVES a module reset, so
+ * the restart-survival test below is meaningful rather than tautological.
+ */
+const availabilityStore = vi.hoisted(() => new Map<string, { until: string | null }>());
+
+vi.mock("@/lib/db/repos/modelAvailabilityRepo", () => ({
+  getActiveModelAvailability: vi.fn(async (connectionIds?: string[]) => {
+    const now = Date.now();
+    return (connectionIds ?? [])
+      .map((id) => ({ id, row: availabilityStore.get(id) }))
+      .filter((entry) => entry.row && (!entry.row.until || Date.parse(entry.row.until) > now))
+      .map((entry) => ({ connectionId: entry.id, modelId: "__all", until: entry.row!.until }));
+  }),
+  setModelAvailability: vi.fn(async (input: { connectionId: string; until: string | null }) => {
+    availabilityStore.set(input.connectionId, { until: input.until });
+  }),
+}));
 
 import {
   checkFallbackError,
@@ -20,9 +45,7 @@ const NOAUTH_PROVIDER = "duckai";
 const { acquireSelectionLock } = __test__;
 
 beforeEach(() => {
-  // Cooldowns live in a module-level Map; expire both providers between tests.
-  setNoAuthCooldown(CREDENTIALED_PROVIDER, -1);
-  setNoAuthCooldown(NOAUTH_PROVIDER, -1);
+  availabilityStore.clear();
 });
 
 describe("isClientRequestError", () => {
@@ -76,8 +99,8 @@ describe("account selection lock", () => {
 });
 
 describe("noAuth cooldown scope", () => {
-  it("does not put a credentialed provider on a process-wide cooldown", () => {
-    const response = handleNoAuthCooldownResult(
+  it("does not put a credentialed provider on a process-wide cooldown", async () => {
+    const response = await handleNoAuthCooldownResult(
       { status: 429, error: "Too Many Requests" },
       CREDENTIALED_PROVIDER,
       "claude-sonnet-4.5",
@@ -86,24 +109,43 @@ describe("noAuth cooldown scope", () => {
     // A 429 on one account must fall through to account rotation instead of
     // ending the request and freezing every other account of the provider.
     expect(response).toBeNull();
-    expect(isNoAuthOnCooldown(CREDENTIALED_PROVIDER)).toBe(0);
-    expect(checkNoAuthCooldownResponse(CREDENTIALED_PROVIDER, "claude-sonnet-4.5")).toBeNull();
+    expect(await isNoAuthOnCooldown(CREDENTIALED_PROVIDER)).toBe(0);
+    expect(await checkNoAuthCooldownResponse(CREDENTIALED_PROVIDER, "claude-sonnet-4.5")).toBeNull();
   });
 
-  it("keeps the cooldown for noAuth providers", () => {
-    const response = handleNoAuthCooldownResult(
+  it("keeps the cooldown for noAuth providers", async () => {
+    const response = await handleNoAuthCooldownResult(
       { status: 429, error: "Too Many Requests" },
       NOAUTH_PROVIDER,
       "gpt-4o-mini",
     );
 
     expect(response?.status).toBe(429);
-    expect(isNoAuthOnCooldown(NOAUTH_PROVIDER)).toBeGreaterThan(0);
-    expect(checkNoAuthCooldownResponse(NOAUTH_PROVIDER, "gpt-4o-mini")?.status).toBe(429);
+    expect(await isNoAuthOnCooldown(NOAUTH_PROVIDER)).toBeGreaterThan(0);
+    expect((await checkNoAuthCooldownResponse(NOAUTH_PROVIDER, "gpt-4o-mini"))?.status).toBe(429);
   });
 
-  it("ignores a stale cooldown recorded for a credentialed provider", () => {
-    setNoAuthCooldown(CREDENTIALED_PROVIDER, 60_000);
-    expect(checkNoAuthCooldownResponse(CREDENTIALED_PROVIDER, "claude-sonnet-4.5")).toBeNull();
+  it("ignores a stale cooldown recorded for a credentialed provider", async () => {
+    await setNoAuthCooldown(CREDENTIALED_PROVIDER, 60_000);
+    expect(await checkNoAuthCooldownResponse(CREDENTIALED_PROVIDER, "claude-sonnet-4.5")).toBeNull();
+  });
+
+  it("survives a restart, because the cooldown is in the store and not in module state", async () => {
+    await setNoAuthCooldown(NOAUTH_PROVIDER, 60_000, 429, "Too Many Requests");
+
+    // Drop and re-import the module: a Map held at module scope would come back
+    // empty here, which is exactly how the old implementation lost every
+    // cooldown on restart.
+    vi.resetModules();
+    const reloaded = await import("@/server/llm-gateway/application/noAuthCooldown");
+
+    expect(await reloaded.isNoAuthOnCooldown(NOAUTH_PROVIDER)).toBeGreaterThan(0);
+    expect((await reloaded.checkNoAuthCooldownResponse(NOAUTH_PROVIDER, "gpt-4o-mini"))?.status).toBe(429);
+  });
+
+  it("expires on its own once `until` has passed", async () => {
+    await setNoAuthCooldown(NOAUTH_PROVIDER, -1);
+    expect(await isNoAuthOnCooldown(NOAUTH_PROVIDER)).toBe(0);
+    expect(await checkNoAuthCooldownResponse(NOAUTH_PROVIDER, "gpt-4o-mini")).toBeNull();
   });
 });

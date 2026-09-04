@@ -232,6 +232,28 @@ export async function approvePendingWrite(id: string): Promise<MemoryApplyResult
     }
     return { ok: result.ok, error: result.error, kind: "plugin", action: "toggle", outcome: result.ok ? "applied" : undefined };
   }
+  if (pending.kind === "skill") {
+    // Applied here rather than by re-POSTing the skills route, so approval
+    // writes exactly the payload that was reviewed — re-running the request
+    // would re-read config and could take a different branch.
+    const payload = pending.payload as {
+      row?: Record<string, unknown>;
+      files?: Array<{ filePath: string; content: string }>;
+    };
+    const row = payload.row;
+    if (!row || typeof row.id !== "string") {
+      return { ok: false, error: "Pending skill write has no usable payload" };
+    }
+    const { upsertAgentSkillRow } = await import("@/lib/db/repos/agentSkillsRepo");
+    const { replaceAgentSkillFiles } = await import("@/lib/db/repos/agentSkillFilesRepo");
+    await upsertAgentSkillRow(row as unknown as Parameters<typeof upsertAgentSkillRow>[0]);
+    const files = Array.isArray(payload.files) ? payload.files : [];
+    if (files.length > 0 && row.source !== "override") {
+      await replaceAgentSkillFiles(row.id, files);
+    }
+    await resolveHarnessPendingWrite(id, "applied", { outcome: "applied" });
+    return { ok: true, kind: "skill", action: pending.action, outcome: "applied" };
+  }
   if (pending.kind === "plugin" && pending.action === "propose") {
     await resolveHarnessPendingWrite(id, "accepted", {
       outcome: "accepted_for_implementation",

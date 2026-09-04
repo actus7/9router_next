@@ -5,6 +5,8 @@ const DEFAULT_HEADROOM_URL: string = process.env.HEADROOM_URL || "http://localho
 
 interface Settings {
   cloudEnabled: boolean;
+  /** Read by `getCloudUrl()`, which falls back to CLOUD_URL / NEXT_PUBLIC_CLOUD_URL. */
+  cloudUrl: string;
   tunnelEnabled: boolean;
   tunnelUrl: string;
   tunnelProvider: string;
@@ -67,6 +69,7 @@ interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
   cloudEnabled: false,
+  cloudUrl: "",
   tunnelEnabled: false,
   tunnelUrl: "",
   tunnelProvider: "cloudflare",
@@ -179,7 +182,7 @@ export async function isCloudEnabled(): Promise<boolean> {
 export async function getCloudUrl(): Promise<string> {
   const settings: Settings = await getSettings();
   return (
-    (settings.cloudUrl as string) ||
+    settings.cloudUrl ||
     process.env.CLOUD_URL ||
     process.env.NEXT_PUBLIC_CLOUD_URL ||
     ""

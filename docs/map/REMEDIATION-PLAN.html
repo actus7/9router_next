@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ModelHub · Plano de remediação</title>
+<style>
+:root{
+  --ink:#e8e4dc; --ink-dim:#9a938a; --ink-faint:#6b655d;
+  --bg:#12100e; --bg-2:#191612; --bg-3:#211d18; --line:#302a23;
+  --hot:#f97815; --cool:#5aa9e6; --good:#7fbf7f; --warn:#e0b341; --bad:#e06c5a;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --rail:290px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:1.5rem}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 var(--sans);
+  -webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.45;
+  background:radial-gradient(1100px 600px at 82% -12%,rgba(249,120,21,.10),transparent 62%),
+             radial-gradient(800px 500px at 8% 108%,rgba(90,169,230,.07),transparent 60%)}
+.shell{position:relative;z-index:1;display:grid;grid-template-columns:var(--rail) minmax(0,1fr);
+  max-width:1580px;margin:0 auto}
+nav.rail{position:sticky;top:0;height:100vh;overflow-y:auto;padding:2rem 1.1rem 3rem;
+  border-right:1px solid var(--line);background:linear-gradient(180deg,var(--bg-2),var(--bg))}
+nav.rail .brand{font:600 13px/1.2 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--hot);margin:0 0 .3rem}
+nav.rail .sub{font:11px/1.5 var(--mono);color:var(--ink-faint);margin:0 0 1.6rem}
+nav.rail ol{list-style:none;margin:0;padding:0}
+nav.rail a{display:block;padding:.36rem .5rem;color:var(--ink-dim);text-decoration:none;
+  font-size:13px;border-radius:5px;transition:background .14s,color .14s}
+nav.rail a:hover{background:var(--bg-3);color:var(--ink)}
+nav.rail a .t{font:10px/1.6 var(--mono);color:var(--hot);margin-right:.5rem}
+nav.rail a.acc .t{color:var(--warn)}
+nav.rail a.neg .t{color:var(--bad)}
+nav.rail .sep{list-style:none;margin:1rem 0 .4rem;font:9.5px/1.4 var(--mono);letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-faint);padding-left:.5rem}
+main{padding:2.4rem clamp(1.2rem,3.4vw,3.4rem) 8rem;min-width:0}
+h1{font:400 clamp(2.1rem,4.4vw,3.4rem)/1.03 var(--serif);letter-spacing:-.02em;margin:.2rem 0 .5rem}
+h1 em{font-style:italic;color:var(--hot)}
+.lede{font:400 clamp(1rem,1.5vw,1.16rem)/1.6 var(--serif);color:var(--ink-dim);max-width:66ch;margin:0 0 2rem}
+h2{font:600 1.5rem/1.2 var(--sans);letter-spacing:-.015em;margin:4.2rem 0 .2rem;
+  padding-top:1.6rem;border-top:1px solid var(--line)}
+h2 .num{font:11px/1 var(--mono);color:var(--hot);display:block;letter-spacing:.18em;margin-bottom:.7rem}
+h2.neg .num{color:var(--bad)}
+h2.acc .num{color:var(--warn)}
+h3{font:600 1.05rem/1.3 var(--sans);margin:2.3rem 0 .6rem;color:var(--ink)}
+h4{font:600 .8rem/1.3 var(--mono);letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-faint);margin:1.7rem 0 .5rem}
+p{margin:.7rem 0;max-width:82ch}
+a{color:var(--cool)}
+code{font-family:var(--mono);font-size:.855em;background:var(--bg-3);
+  border:1px solid var(--line);border-radius:4px;padding:.09em .38em;color:#d7cfc3;word-break:break-word}
+strong{color:#fff;font-weight:600}
+ul,ol.body{margin:.6rem 0;padding-left:1.3rem;max-width:82ch}
+li{margin:.34rem 0}
+.note{border-left:2px solid var(--hot);background:linear-gradient(90deg,rgba(249,120,21,.07),transparent 70%);
+  padding:.75rem 1rem;margin:1.2rem 0;font-size:14px;max-width:84ch}
+.note.w{border-color:var(--warn);background:linear-gradient(90deg,rgba(224,179,65,.07),transparent 70%)}
+.note.b{border-color:var(--bad);background:linear-gradient(90deg,rgba(224,108,90,.08),transparent 70%)}
+.note.g{border-color:var(--good);background:linear-gradient(90deg,rgba(127,191,127,.07),transparent 70%)}
+.note p{max-width:none}
+.tw{overflow-x:auto;margin:1rem 0;border:1px solid var(--line);border-radius:8px;background:var(--bg-2)}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:13px}
+th{text-align:left;font:600 10px/1.3 var(--mono);letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-faint);padding:.65rem .8rem;border-bottom:1px solid var(--line);
+  background:var(--bg-3);white-space:nowrap}
+td{padding:.6rem .8rem;border-bottom:1px solid #241f1a;vertical-align:top;color:var(--ink-dim)}
+tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:#1c1813;color:var(--ink)}
+td.k{color:var(--ink);font-family:var(--mono);font-size:12px;white-space:nowrap}
+.flow{margin:1.4rem 0;padding:1.3rem;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg-2);overflow-x:auto}
+.flow pre{margin:0;font:12px/1.62 var(--mono);color:var(--ink-dim);white-space:pre}
+.flow pre b{color:var(--hot);font-weight:400}
+.flow pre i{color:var(--cool);font-style:normal}
+.flow pre u{color:var(--good);text-decoration:none}
+.flow pre s{color:var(--bad);text-decoration:none}
+.flow pre q{color:var(--warn);quotes:none}
+.flow-cap{font:10px/1.3 var(--mono);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-faint);margin:0 0 .9rem}
+.item{border:1px solid var(--line);border-left:3px solid var(--cool);border-radius:8px;
+  background:var(--bg-2);padding:1rem 1.15rem;margin:1rem 0}
+.item.hi{border-left-color:var(--bad)}
+.item.md{border-left-color:var(--warn)}
+.item.lo{border-left-color:var(--ink-faint)}
+.item>h4{margin:0 0 .45rem;color:var(--ink);font:600 .97rem/1.35 var(--sans);
+  letter-spacing:normal;text-transform:none}
+.item .id{font:600 10px/1.4 var(--mono);letter-spacing:.1em;color:var(--hot);
+  display:inline-block;margin-right:.55rem;vertical-align:1px}
+.item p{font-size:13.5px;margin:.42rem 0;max-width:none}
+.item ul{font-size:13.5px;max-width:none}
+.dod{margin-top:.7rem;padding-top:.6rem;border-top:1px dashed var(--line);
+  font:12px/1.6 var(--mono);color:var(--ink-faint)}
+.dod b{color:var(--good);font-weight:400}
+.grid{display:grid;gap:.85rem;margin:1.2rem 0;grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
+.card{border:1px solid var(--line);border-radius:8px;padding:.95rem 1rem;background:var(--bg-2)}
+.card h5{margin:0 0 .4rem;font:600 .82rem/1.3 var(--mono);letter-spacing:.05em;color:var(--hot)}
+.card p{margin:.25rem 0;font-size:12.5px;max-width:none}
+.card.k h5{color:var(--cool)} .card.o h5{color:var(--good)} .card.x h5{color:var(--bad)}
+.b{display:inline-block;font:600 9.5px/1.5 var(--mono);letter-spacing:.09em;text-transform:uppercase;
+  padding:.1rem .42rem;border-radius:3px;border:1px solid;vertical-align:middle;white-space:nowrap}
+.b.s{color:var(--good);border-color:#31502f;background:#16200f}
+.b.m{color:var(--warn);border-color:#4d3f19;background:#1f1a0d}
+.b.l{color:var(--bad);border-color:#4d2b24;background:#1f110e}
+.b.n{color:var(--ink-faint);border-color:var(--line);background:var(--bg-3)}
+.b.d{color:var(--cool);border-color:#26384c;background:#101821}
+.foot{margin-top:5rem;padding-top:1.4rem;border-top:1px solid var(--line);
+  font:11px/1.75 var(--mono);color:var(--ink-faint);max-width:82ch}
+@media (max-width:980px){
+  .shell{grid-template-columns:1fr}
+  nav.rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="rail">
+  <p class="brand">Plano de remediação</p>
+  <p class="sub">ModelHub 2.0.0<br>base: APPLICATION-MAP.html</p>
+  <ol>
+    <li><a href="#c0"><span class="t">§0</span>Como este plano foi ordenado</a></li>
+    <li><a href="#c1" class="acc"><span class="t">§1</span>Correções ao registro de dívida</a></li>
+    <li><a href="#c2" class="acc"><span class="t">§2</span>Duas decisões suas</a></li>
+    <li><a href="#c3"><span class="t">§3</span>A ideia central do plano</a></li>
+    <li class="sep">Execução</li>
+    <li><a href="#f1"><span class="t">F1</span>Baratas, sem decisão</a></li>
+    <li><a href="#f2"><span class="t">F2</span>Órfãos e cascatas</a></li>
+    <li><a href="#f3"><span class="t">F3</span>Uma chave por destino</a></li>
+    <li><a href="#f4"><span class="t">F4</span>Cifragem em repouso</a></li>
+    <li><a href="#f5"><span class="t">F5</span>Paridade dos caminhos</a></li>
+    <li><a href="#f6"><span class="t">F6</span>Durabilidade do cooldown</a></li>
+    <li><a href="#f7"><span class="t">F7</span>Governança das skills</a></li>
+    <li><a href="#f8"><span class="t">F8</span>Documentação e config</a></li>
+    <li class="sep">Fechamento</li>
+    <li><a href="#c9" class="neg"><span class="t">§9</span>O que NÃO fazer</a></li>
+    <li><a href="#c10"><span class="t">§10</span>Sequência e esforço</a></li>
+  </ol>
+</nav>
+<main>
+
+<h1>Plano de remediação <em>ponta a ponta</em></h1>
+<p class="lede">
+  Fecha os 12 gaps do mapa mais os itens de <code>KNOWN_DEBT.md</code> que a varredura
+  tornou concretos. Ordenado por dependência e risco de retrabalho — não por
+  severidade.
+</p>
+
+<h2 id="c0"><span class="num">SEÇÃO 0</span>Como este plano foi ordenado</h2>
+<p>
+  Severidade é a ordem errada para executar. Corrigir o item mais grave primeiro
+  costuma significar refazê-lo depois, quando um item "menor" muda a forma da solução.
+  Este plano usa três critérios, nesta ordem:
+</p>
+<ol class="body">
+  <li><strong>Decisão antes de código.</strong> Dois gaps não têm resposta técnica — têm resposta de produto. Estão isolados na seção 2 com recomendação, para não travarem o resto.</li>
+  <li><strong>O que reduz o escopo do que vem depois.</strong> A Fase 3 (uma chave por destino) encolhe a Fase 4 (cifragem): depois dela, há menos segredo a cifrar e existe um inventário para <em>verificar</em> a cobertura. Cifrar primeiro seria trabalhar às cegas.</li>
+  <li><strong>Semântica antes de refatoração.</strong> A Fase 1 decide o código de erro; a Fase 5 unifica os três loops que hoje discordam dele. Unificar antes seria escolher a semântica dentro de um refactor — o pior lugar para escolher.</li>
+</ol>
+
+<h4>Regras do projeto que cada fase respeita</h4>
+<div class="tw"><table>
+<thead><tr><th>Regra</th><th>Fonte</th><th>Aplicação aqui</th></tr></thead>
+<tbody>
+<tr><td class="k">Teste primeiro em bug</td><td><code>docs/CONVENTIONS.md</code></td><td>Todo item marcado <span class="b d">bug</span> começa por um teste que reproduz, confirmado falhando pelo motivo esperado, <em>antes</em> de tocar a implementação. Sem editar o teste depois.</td></tr>
+<tr><td class="k"><code>npm run check</code> verde</td><td>Definição de pronto</td><td>Critério de fechamento de toda fase. Não é opcional nem "depois".</td></tr>
+<tr><td class="k">Bump de <code>SCHEMA_VERSION</code></td><td><code>schema.ts:1</code></td><td>Fases 3 e 4 mexem no blob de credenciais → bump obrigatório para o backup pré-mudança rodar antes.</td></tr>
+<tr><td class="k">Migration idempotente e transacional</td><td><code>migrate.ts</code></td><td>Toda nova migration segue o padrão da 007: <code>IF NOT EXISTS</code>, <code>addColumnIfMissing</code>, e guarda de não-objeto no estilo da 008.</td></tr>
+<tr><td class="k">200-400 linhas por arquivo</td><td><code>docs/CONVENTIONS.md</code></td><td>A Fase 5 extrai o loop compartilhado; nenhum arquivo cresce além do alvo.</td></tr>
+</tbody></table></div>
+
+<h2 id="c1" class="acc"><span class="num">SEÇÃO 1</span>Correções ao registro de dívida — trabalho que <em>não</em> precisa ser feito</h2>
+<p>
+  Antes de somar tarefas, duas subtrações. <code>docs/KNOWN_DEBT.md</code> classifica
+  dois itens como dívida de segurança real. A verificação no código mostra que os dois
+  estão superestimados, e um deles pede a correção oposta à registrada.
+</p>
+
+<div class="item">
+  <h4><span class="id">DÍVIDA 1</span>O fallback de <code>API_KEY_SECRET</code> não é explorável</h4>
+  <p><strong>O registro diz:</strong> "secret padrão previsível — fallback
+  <code>API_KEY_SECRET || "endpoint-proxy-api-key-secret"</code> em
+  <code>src/shared/utils/apiKey.ts</code>".</p>
+  <p><strong>O que o código faz:</strong> esse secret alimenta um único HMAC,
+  <code>generateCrc(machineId, keyId)</code> (<code>apiKey.ts:26</code>), usado
+  <em>somente</em> na geração da chave (<code>apiKey.ts:40</code>) para compor um
+  checksum embutido. <strong>Nada nunca verifica esse CRC.</strong> A validação é
+  <code>validateApiKey()</code> (<code>apiKeysRepo.ts:88</code>):
+  <code>SELECT isActive FROM apiKeys WHERE key = ?</code> — igualdade exata contra o
+  banco.</p>
+  <p><strong>Consequência:</strong> com o secret conhecido dá para <em>fabricar uma
+  chave bem-formada</em>, mas ela não está no banco, então não autentica nada. A
+  fronteira de confiança é a linha no banco, não o CRC.</p>
+  <p><strong>A correção certa é a oposta da registrada:</strong> não vale rotacionar o
+  secret nem exigir a env. Vale <strong>deletar o CRC</strong>, a função
+  <code>generateCrc</code> e a env <code>API_KEY_SECRET</code>. É um HMAC que ninguém
+  confere — complexidade que parece segurança e não é, o que é pior do que não ter.</p>
+  <div class="dod"><b>Reclassificar</b> de risco de segurança para código morto. Executado em F1.5.</div>
+</div>
+
+<div class="item">
+  <h4><span class="id">DÍVIDA 2</span>A senha padrão já está tratada onde importa</h4>
+  <p><strong>O registro diz:</strong> "senha <code>123456</code> em
+  <code>dashboardSession.ts</code>" como secret padrão previsível.</p>
+  <p><strong>O que o código faz:</strong>
+  <code>use-cases/http/auth/login/route.ts:67</code> calcula
+  <code>mustChangePassword = !storedHash &amp;&amp; !INITIAL_PASSWORD &amp;&amp; !isLocalRequest(request)</code>
+  e, quando verdadeiro, devolve <strong>403 sem emitir token de sessão</strong>. O
+  comentário no local documenta o raciocínio: emitir um JWT com senha padrão pública
+  permitiria a um atacante remoto dar <code>PATCH /api/settings</code> e desligar a
+  autenticação — e explicitamente aceita não haver auto-atendimento remoto de troca de
+  senha como o preço disso.</p>
+  <p><strong>O resíduo real:</strong> na máquina local, <code>123456</code> ainda abre
+  sessão. Para um app local-first single-user isso é postura defensável, não
+  vulnerabilidade — é a mesma escolha de um SQLite sem senha no diretório do usuário.</p>
+  <p><strong>Recomendação:</strong> manter como está e <strong>reescrever a entrada do
+  <code>KNOWN_DEBT</code></strong> para descrever o resíduo local em vez de sugerir uma
+  exposição remota que já está fechada. Uma entrada de dívida que descreve um risco
+  inexistente custa atenção em toda revisão futura.</p>
+  <div class="dod"><b>Sem código.</b> Só correção de documentação. Executado em F8.</div>
+</div>
+
+<div class="note g">
+  <p><strong>Saldo desta seção:</strong> um item de segurança vira exclusão de código
+  morto, outro vira correção de texto. Dois dos três "riscos de segurança fora de
+  escopo" do registro saem da fila de remediação. O terceiro — CORS permissivo —
+  permanece, e a Fase 9 explica por que o entregável dele é uma auditoria, não uma
+  mudança.</p>
+</div>
+
+<h2 id="c2" class="acc"><span class="num">SEÇÃO 2</span>Duas decisões suas — com recomendação</h2>
+<p>
+  Estas duas não têm resposta no repositório. Cada uma vem com a recomendação e com o
+  que muda se você escolher o contrário, para nenhuma delas travar a execução.
+</p>
+
+<div class="item hi">
+  <h4><span class="id">DECISÃO A</span>"Modelo desabilitado" é preferência de UI ou controle de custo?</h4>
+  <p>Gap correspondente: <code>isModelDisabled</code> em
+  <code>modelResolution.ts:107</code> termina com <code>catch { return false }</code>.
+  Uma intermitência de leitura torna modelos desabilitados chamáveis outra vez, em
+  silêncio.</p>
+  <p><strong>Se for preferência de UI</strong> — o operador só não quer ver aquele modelo
+  na lista — o fail-open atual está correto e o gap se resolve <em>sem mudar
+  comportamento</em>: basta observabilidade. Logar em nível <code>warn</code> quando o
+  catch dispara e contar a ocorrência.</p>
+  <p><strong>Se for controle de custo ou compliance</strong> — desabilitar significa
+  "esse modelo não pode ser cobrado / não pode processar este dado" — então o fail-open
+  é uma falha de controle, e o correto é fail-closed com erro explícito.</p>
+  <p><strong>Recomendação: preferência de UI, com o log.</strong> Dois motivos no próprio
+  código. Primeiro, o mecanismo de armazenamento é <code>kv</code> scope
+  <code>disabledModels</code> — uma lista por alias de provider, sem escopo por chave de
+  API, sem trilha de auditoria, sem data de vigência. Não é a forma de um controle de
+  compliance; é a forma de uma preferência. Segundo, o comentário no código já defende o
+  fail-open com o argumento de disponibilidade, o que indica intenção original de
+  preferência.</p>
+  <p><strong>Se você escolher compliance</strong>, a Fase 1 ganha um item: fail-closed em
+  <code>isModelDisabled</code> mais um caminho de erro distinto ("controle indisponível"
+  ≠ "modelo desabilitado"), e o item de log continua valendo. É meio dia de trabalho a
+  mais, não um replanejamento.</p>
+  <div class="dod"><b>Bloqueia:</b> F1.6 apenas. Nada mais no plano depende desta resposta.</div>
+</div>
+
+<div class="item hi">
+  <h4><span class="id">DECISÃO B</span>Cifragem em repouso entra no escopo? E quem guarda a chave?</h4>
+  <p>Gap correspondente: o item de maior consequência do mapa — segredo em texto plano
+  em <code>providerConnections.data</code>, propagado para backup, arquivos de CLI,
+  variáveis de ambiente na Render/Railway e <code>usageHistory.apiKey</code>.</p>
+  <p><strong>O ponto que muda a decisão:</strong> a Fase 3 resolve a parte que
+  <em>mais</em> dói — a ausência de inventário e de procedimento de rotação — <strong>sem
+  cifrar nada</strong>. Cifragem em repouso protege contra um atacante que já tem o
+  arquivo do banco. Inventário e revogação protegem contra a situação muito mais comum:
+  um segredo vazou e você precisa saber para onde ele foi e cortá-lo.</p>
+  <p><strong>Recomendação: fazer a Fase 3 primeiro e tratar a Fase 4 como opcional
+  subsequente.</strong> Se você fizer só a Fase 3, o ganho de segurança por hora
+  investida é muito maior, e a Fase 4 fica mais fácil depois — não mais difícil.</p>
+  <p><strong>Se a Fase 4 entrar, a subdecisão é a custódia da chave.</strong> Três opções,
+  em ordem de recomendação:</p>
+  <ul>
+    <li><strong>Env <code>CREDENTIAL_KEY</code>, derivada com scrypt</strong> — simples, funciona em Docker e em desktop, e o operador controla. Custo: a chave vive no ambiente do processo.</li>
+    <li><strong>Keychain do SO</strong> — mais forte, mas adiciona dependência nativa e quebra o Docker headless. Contradiz a cadeia de 4 drivers SQLite que existe justamente para não depender de binário nativo.</li>
+    <li><strong>Derivar do <code>machineId</code></strong> — zero configuração, e por isso mesmo protege contra quase nada: quem tem o arquivo do banco tipicamente tem a máquina. <strong>Não recomendado</strong> — é a opção que <em>parece</em> cifragem.</li>
+  </ul>
+  <div class="dod"><b>Bloqueia:</b> F4 inteira. F1–F3 e F5–F8 não dependem desta resposta.</div>
+</div>
+
+<h2 id="c3"><span class="num">SEÇÃO 3</span>A ideia central: uma chave por destino</h2>
+<p>
+  Se o plano tivesse um único item, seria este. Ele transforma o gap mais grave do mapa
+  de "problema estrutural sem solução fechada" em "consulta ao banco".
+</p>
+
+<h4>O problema, dito com precisão</h4>
+<p>
+  O mapa mostrou que um segredo criado no dashboard chega a quatro destinos sem
+  cifragem. Mas a formulação útil não é "há segredo em claro em quatro lugares" — é
+  esta:
+</p>
+<div class="note b">
+  <p><strong>Hoje a <em>mesma</em> chave de API é reusada em todos os destinos.</strong>
+  A "Default Key" auto-provisionada por <code>useApiKeys.ts:27</code> vai para os
+  arquivos de config de CLI, para as variáveis de ambiente da Render, para o cliente do
+  usuário. Uma chave, N destinos, nenhum registro de quais.</p>
+  <p>Por isso não existe procedimento de rotação: revogar a chave quebra tudo ao mesmo
+  tempo, e não há como saber o que reconfigurar. A ausência de inventário não é um
+  descuido de documentação — é consequência direta do reuso.</p>
+</div>
+
+<h4>A inversão</h4>
+<div class="flow">
+<p class="flow-cap">hoje — uma chave, destinos desconhecidos</p>
+<pre>
+                    ┌─────────────► ~/.claude/settings.json
+                    ├─────────────► ~/.codex/
+   <b>"Default Key"</b> ──┼─────────────► ~/.cline/data      ... ×18 ferramentas
+                    ├─────────────► env da Render / Railway
+                    └─────────────► o cliente do usuário
+
+   <s>rotação: revogar quebra tudo. reconfigurar o quê? não se sabe.</s>
+</pre>
+</div>
+<div class="flow">
+<p class="flow-cap">proposto — uma chave por destino, o destino gravado na própria linha</p>
+<pre>
+   apiKeys
+   ┌──────────────────────────────────────────────────────────────┐
+   │ id  key  name  machineId  isActive  <b>sink</b>  <b>sinkRef</b>  <b>revokedAt</b> │
+   └──────────────────────────────────────────────────────────────┘
+        │
+        ├─ sink="cli:claude"   sinkRef="~/.claude/settings.json"  ──► arquivo
+        ├─ sink="cli:codex"    sinkRef="~/.codex/config.toml"     ──► arquivo
+        ├─ sink="cloud:render" sinkRef="&lt;deploymentId&gt;"           ──► env externo
+        └─ sink="manual"       sinkRef=null                       ──► o usuário
+
+   <u>inventário  = SELECT sink, sinkRef FROM apiKeys WHERE isActive = 1</u>
+   <u>rotação     = revoga a chave daquele destino, remita, reescreve o destino</u>
+   <u>blast radius = um destino, nunca todos</u>
+</pre>
+</div>
+
+<h4>Por que isto é mais barato que cifrar</h4>
+<div class="grid">
+  <div class="card o">
+    <h5>Custo de schema</h5>
+    <p>Três colunas em <code>apiKeys</code>. O sync declarativo é aditivo, então <strong>nenhuma migration</strong> é necessária para criá-las.</p>
+  </div>
+  <div class="card o">
+    <h5>Custo de compatibilidade</h5>
+    <p>Zero. Chaves existentes ficam com <code>sink = "manual"</code> e continuam funcionando. A validação não muda: segue <code>WHERE key = ?</code>.</p>
+  </div>
+  <div class="card k">
+    <h5>O que passa a ser possível</h5>
+    <p>Revogar um destino sem tocar nos outros. Ver, numa tela, onde cada chave foi propagada. Derrubar um deploy e ter sua chave morta junto.</p>
+  </div>
+  <div class="card k">
+    <h5>Efeito na Fase 4</h5>
+    <p>Reduz o que precisa ser cifrado e dá o inventário para <em>verificar</em> se a cifragem cobriu tudo. Sem ele, a Fase 4 não tem critério de completude.</p>
+  </div>
+</div>
+<div class="note g">
+  <p><strong>O teste que fecha o gap.</strong> Um teste que enumera cada destino de
+  propagação de segredo do sistema e afirma que cada um mints uma chave própria com
+  <code>sink</code> preenchido. Ele falha quando alguém adicionar um destino novo sem
+  registrá-lo — que é exatamente como o problema atual nasceu.</p>
+</div>
+
+<h2 id="f1"><span class="num">FASE 1</span>Correções baratas, sem decisão <span class="b s">1 PR</span></h2>
+<p>
+  Primeiro porque não dependem de nada, e porque a F5 refatora justamente o código cujo
+  contrato a F1.1 define. Fazer na ordem inversa seria decidir semântica dentro de um
+  refactor.
+</p>
+
+<div class="item md">
+  <h4><span class="id">F1.1</span>Padronizar "sem credenciais" em 404 <span class="b d">bug</span></h4>
+  <p>Mesma condição, dois códigos: <strong>404</strong> em <code>chat.ts:495</code> e
+  <strong>400</strong> em <code>embeddings.ts:147</code>. Contrato público
+  inconsistente.</p>
+  <p><strong>Escolher 404</strong>, por dois motivos: é o que o caminho dominante já
+  devolve (menos clientes afetados pela mudança), e 400 é semanticamente errado — o
+  request do cliente está perfeito, é a configuração do servidor que não tem conta.
+  Alinha com a convenção OpenAI de 404 para modelo desconhecido.</p>
+  <div class="dod">
+    <b>Teste primeiro:</b> teste de contrato de erro por endpoint, afirmando 404 em ambos. Confirmar que falha em embeddings com <code>expected 400 to be 404</code>.<br>
+    <b>Pronto quando:</b> os dois endpoints devolvem 404 · o teste cobre os dois · <code>npm run check</code> verde.
+  </div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F1.2</span>Deletar <code>/api/init</code> — rota morta com nome enganoso</h4>
+  <p>Verificado: o arquivo inteiro é <code>return new Response("Initialized")</code>, e
+  as <strong>únicas</strong> referências no repositório são as duas allowlists que a
+  isentam de autenticação — <code>dashboardGuard.ts:26</code> e
+  <code>scripts/check-static-api-routes.mjs:21</code>. Nenhum chamador.</p>
+  <p>Deletar os três: a rota e as duas entradas. Ganho duplo — some uma rota pública sem
+  função e some a armadilha de navegação em que quem procura o bootstrap pelo nome cai.</p>
+  <div class="dod"><b>Pronto quando:</b> rota removida · allowlists limpas · <code>npm run check</code> verde (o script de rotas estáticas valida a consistência).</div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F1.3</span>Declarar <code>cloudUrl</code> em <code>DEFAULT_SETTINGS</code></h4>
+  <p><code>getCloudUrl()</code> lê <code>settings.cloudUrl</code>, que não existe em
+  <code>DEFAULT_SETTINGS</code> — única chave lida sem declaração. Acrescentar com
+  default <code>""</code> mantém o fallback para <code>CLOUD_URL</code> /
+  <code>NEXT_PUBLIC_CLOUD_URL</code> e torna a chave visível para quem lê o tipo.</p>
+  <div class="dod"><b>Pronto quando:</b> chave declarada · comportamento de fallback inalterado.</div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F1.4</span>Resolver o órfão de navegação do pxpipe</h4>
+  <p><code>/dashboard/pxpipe</code> não está em <code>sidebarData.tsx</code> — só é
+  alcançável por URL direta, apesar de ser a tela detalhada de um subsistema que já tem
+  entrada no menu.</p>
+  <p><strong>Preferir o link a partir do Token Saver</strong> em vez de somar um item de
+  sidebar. É a relação real (detalhe de um subsistema), e o menu já tem 9 itens no grupo
+  principal.</p>
+  <div class="dod"><b>Pronto quando:</b> a tela é alcançável pela UI sem digitar URL.</div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F1.5</span>Deletar o CRC de <code>apiKey.ts</code> — ver Dívida 1</h4>
+  <p>Remover <code>generateCrc()</code>, seu uso em
+  <code>generateApiKeyWithMachine()</code> e a env <code>API_KEY_SECRET</code>. Um HMAC
+  que nada verifica.</p>
+  <div class="note w">
+    <p><strong>Cuidado com o formato da chave.</strong> O CRC compõe a string da chave
+    gerada. Removê-lo <strong>muda o formato de chaves novas</strong>. Chaves existentes
+    continuam válidas — a validação é igualdade contra o banco, não parsing —, mas
+    confirmar antes que nenhum cliente ou script faz validação de formato do lado dele.
+    Se algum fizer, manter o sufixo como bytes aleatórios em vez de HMAC: mesmo formato,
+    sem o secret.</p>
+  </div>
+  <div class="dod"><b>Verificar antes:</b> nenhum consumidor valida formato de chave.<br><b>Pronto quando:</b> <code>API_KEY_SECRET</code> não aparece mais no código nem em <code>.env.example</code> · chaves antigas seguem autenticando (teste) · entrada do <code>KNOWN_DEBT</code> reclassificada.</div>
+</div>
+
+<div class="item md">
+  <h4><span class="id">F1.6</span>Observabilidade no fail-open de <code>isModelDisabled</code> <span class="b n">depende da Decisão A</span></h4>
+  <p><strong>Na recomendação (preferência de UI):</strong> trocar
+  <code>catch { return false }</code> por um catch que loga em <code>warn</code> com o
+  provider e o modelo antes de devolver <code>false</code>. Comportamento idêntico,
+  silêncio eliminado. É a diferença entre um risco aceito e um risco invisível.</p>
+  <p><strong>Se a Decisão A for compliance:</strong> fail-closed, mais um caminho de erro
+  distinto — "controle de disponibilidade indisponível" (503) não é "modelo desabilitado"
+  (404). O cliente precisa distinguir para saber se vale retentar.</p>
+  <div class="dod"><b>Pronto quando:</b> o catch não é mais silencioso, qualquer que seja a decisão.</div>
+</div>
+
+<h2 id="f2"><span class="num">FASE 2</span>Órfãos e cascatas <span class="b s">1 PR</span></h2>
+<p>
+  O mapa mostrou que não há nenhuma <code>FOREIGN KEY</code> no schema, apesar de
+  <code>foreign_keys = ON</code>. A resposta deste plano <strong>não</strong> é adicionar
+  FKs — é a Seção 9 que explica por quê. É garantir que cada caminho de exclusão trate
+  seus filhos, e ter um teste que verifique isso para <em>todas</em> as relações.
+</p>
+
+<div class="item hi">
+  <h4><span class="id">F2.1</span><code>deleteCloudConnection</code> deixa deploy externo vivo e órfão <span class="b d">bug</span></h4>
+  <p><strong>Este é o pior órfão do sistema, e não estava no mapa original — apareceu na
+  verificação para este plano.</strong></p>
+  <p><code>deleteCloudConnection()</code> (<code>cloudConnectionsRepo.ts:124</code>) apaga
+  só de <code>cloudConnections</code>. As linhas de <code>cloudDeployments</code> daquela
+  conexão ficam. E essas linhas carregam <code>externalServiceId</code>,
+  <code>externalDeployId</code>, <code>gatewayToken</code> e uma chave de API real.</p>
+  <p><strong>Consequência concreta:</strong> o operador remove a conexão da Render pela
+  UI e fica com um container rodando e sendo cobrado na Render, com uma chave válida do
+  gateway nas variáveis de ambiente, e sem nenhum registro na UI para gerenciá-lo ou
+  derrubá-lo. Perda de dinheiro <em>e</em> segredo ativo fora de alcance.</p>
+  <p><strong>Recomendação: bloquear a exclusão com 409</strong> enquanto houver deployment
+  não-<code>failed</code>, com mensagem dizendo quais derrubar primeiro. Não fazer cascade
+  delete: apagar o registro local não apaga o recurso pago na plataforma externa —
+  cascade transformaria "órfão visível" em "órfão invisível", que é pior.</p>
+  <div class="dod">
+    <b>Teste primeiro:</b> criar conexão + deployment ativo, tentar deletar a conexão, afirmar 409 e que as duas linhas sobrevivem.<br>
+    <b>Pronto quando:</b> exclusão bloqueada com 409 e mensagem acionável · exclusão permitida quando só há deployments <code>failed</code> · o caminho de teardown do deployment revoga a chave (liga com F3.3).
+  </div>
+</div>
+
+<div class="item md">
+  <h4><span class="id">F2.2</span><code>deleteProviderConnection</code> deixa órfãos em <code>modelAvailability</code></h4>
+  <p><code>connectionsRepo.ts:280</code> apaga da <code>providerConnections</code> e
+  reordena prioridades, dentro de uma transação. Não limpa
+  <code>modelAvailability</code>. A limpeza periódica
+  (<code>cleanupExpiredModelAvailability</code>, chamada por
+  <code>/api/models/availability</code> e <code>backgroundTokenRefresh.ts:149</code>) só
+  remove linhas com <code>until</code> vencido — uma órfã com <code>until IS NULL</code>
+  fica para sempre.</p>
+  <p><strong>Severidade honesta:</strong> não corrompe resultado. As leituras filtram por
+  <code>connectionId IN (...)</code>, então órfãs nunca são lidas. É crescimento de
+  armazenamento. Vale corrigir porque a correção é uma linha e porque o padrão se repete
+  — não porque quebra algo hoje.</p>
+  <p><strong>A correção:</strong> chamar <code>clearModelAvailability(id)</code>
+  <em>dentro</em> da transação existente, junto do <code>DELETE</code> e do
+  <code>reorderInTx</code>.</p>
+  <div class="dod"><b>Teste primeiro:</b> conexão com linha de <code>modelAvailability</code> e <code>until = NULL</code>; deletar; afirmar zero linhas restantes.<br><b>Pronto quando:</b> limpeza na mesma transação · teste cobre o caso <code>until IS NULL</code>.</div>
+</div>
+
+<div class="item md">
+  <h4><span class="id">F2.3</span>Exclusão de skill não é transacional</h4>
+  <p><code>use-cases/http/harness/skills/route.ts:180-181</code> chama
+  <code>deleteAgentSkillFilesForSkill(id)</code> e depois
+  <code>deleteAgentSkillRow(id)</code> — dois <code>await</code> sequenciais, <strong>sem
+  transação</strong>. Se o segundo falhar, sobra uma skill cujos arquivos
+  desapareceram: a linha existe, <code>load_skill_file</code> não acha nada.</p>
+  <p>Envolver os dois numa transação única, ou mover a exclusão para uma função de repo
+  que já abra a transação — preferível, porque mantém a regra de que o route handler não
+  orquestra persistência.</p>
+  <div class="dod"><b>Pronto quando:</b> exclusão é atômica · teste com falha injetada no segundo passo afirma que nada foi apagado.</div>
+</div>
+
+<div class="item">
+  <h4><span class="id">F2.4</span>O teste-guarda que substitui as FKs</h4>
+  <p>Em vez de migrar o schema para FKs, um único teste que enumera <strong>toda</strong>
+  relação pai→filho e afirma, para cada uma, que o caminho de exclusão do pai tem
+  comportamento <em>declarado</em>: limpa o filho, ou preserva deliberadamente por
+  histórico, ou bloqueia a exclusão.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Pai</th><th>Filho</th><th>Comportamento declarado</th></tr></thead>
+  <tbody>
+  <tr><td class="k">providerConnections.id</td><td>modelAvailability.connectionId</td><td>limpa (F2.2)</td></tr>
+  <tr><td class="k">providerConnections.id</td><td>usageHistory.connectionId</td><td><strong>preserva</strong> — registro histórico é o produto</td></tr>
+  <tr><td class="k">providerConnections.id</td><td>requestDetails.connectionId</td><td><strong>preserva</strong> — idem, com poda própria por <code>maxRecords</code></td></tr>
+  <tr><td class="k">cloudConnections.id</td><td>cloudDeployments.connectionId</td><td>bloqueia com 409 (F2.1)</td></tr>
+  <tr><td class="k">agentSkills.id</td><td>agentSkillFiles.skillId</td><td>limpa, atomicamente (F2.3)</td></tr>
+  <tr><td class="k">harnessConversations.id</td><td>harnessEvents.sessionId</td><td>limpa — já feito por <code>replaceHarnessConversations</code></td></tr>
+  <tr><td class="k">harnessEvents.sessionId</td><td>harnessMessageIndex + FTS</td><td>limpa — já na mesma cascata</td></tr>
+  <tr><td class="k">apiKeys.key</td><td>usageHistory.apiKey</td><td><strong>muda na F3.5</strong> — passa a guardar <code>keyId</code> + prefixo</td></tr>
+  </tbody></table></div>
+  <p><strong>Por que isto é melhor que FKs aqui:</strong> metade das relações
+  <em>deve</em> sobreviver ao pai — a contabilidade histórica é o produto, não lixo. Uma
+  FK com <code>ON DELETE CASCADE</code> apagaria o histórico de uso ao remover uma conta,
+  e uma com <code>RESTRICT</code> impediria remover qualquer conta já usada. O
+  comportamento correto <em>varia por relação</em>, e é isso que um teste expressa e uma
+  constraint não.</p>
+  <div class="dod"><b>Pronto quando:</b> a tabela acima existe como teste executável · adicionar uma tabela filha nova sem declarar comportamento faz o teste falhar.</div>
+</div>
+
+<h2 id="f3"><span class="num">FASE 3</span>Uma chave por destino <span class="b m">2 PRs</span></h2>
+<p>
+  A espinha dorsal do plano — Seção 3 explica o raciocínio. Divide-se em dois PRs porque
+  o primeiro é infraestrutura sem mudança de comportamento, e o segundo muda o que os
+  destinos recebem.
+</p>
+
+<div class="item">
+  <h4><span class="id">F3.1</span>PR 1 — colunas de destino em <code>apiKeys</code></h4>
+  <p>Três colunas novas, criadas pelo sync declarativo (aditivo, <strong>sem
+  migration</strong>):</p>
+  <div class="tw"><table>
+  <thead><tr><th>Coluna</th><th>Tipo</th><th>Conteúdo</th></tr></thead>
+  <tbody>
+  <tr><td class="k">sink</td><td>TEXT</td><td><code>manual</code> | <code>dashboard</code> | <code>cli:&lt;toolId&gt;</code> | <code>cloud:&lt;provider&gt;</code></td></tr>
+  <tr><td class="k">sinkRef</td><td>TEXT</td><td>caminho do arquivo, ou <code>deploymentId</code>, ou <code>NULL</code></td></tr>
+  <tr><td class="k">revokedAt</td><td>TEXT</td><td>ISO. Distingue "revogada" de "deletada" — a linha sobrevive para o histórico de uso continuar resolvendo o <code>keyId</code></td></tr>
+  </tbody></table></div>
+  <p>Índice em <code>(sink)</code>. Chaves existentes ficam com <code>sink = NULL</code>,
+  lido como <code>manual</code> — <strong>nenhuma quebra</strong>, a validação segue
+  <code>WHERE key = ?</code>.</p>
+  <p>Mais <code>GET /api/keys/inventory</code>: agrupa por <code>sink</code> e devolve
+  onde cada chave ativa foi propagada. <strong>Este endpoint é o inventário que não
+  existe</strong>, e é o que torna a rotação um procedimento em vez de uma investigação.</p>
+  <div class="dod"><b>Pronto quando:</b> colunas presentes · inventário responde · chaves antigas seguem autenticando (teste) · <code>SCHEMA_VERSION</code> bumped (mexe em tabela de credencial).</div>
+</div>
+
+<div class="item hi">
+  <h4><span class="id">F3.2</span>PR 2 — CLI tools mintam chave própria</h4>
+  <p>Hoje as 18 rotas <code>/api/cli-tools/*-settings</code> escrevem a chave existente
+  no arquivo de config da ferramenta. Passar a mintar uma chave dedicada com
+  <code>sink = "cli:&lt;toolId&gt;"</code> e <code>sinkRef = &lt;caminho&gt;</code>.</p>
+  <p>O <code>DELETE</code> de cada rota — que já existe para desconfigurar a ferramenta —
+  passa a <strong>revogar</strong> a chave daquele destino. Desconfigurar e revogar viram
+  a mesma operação, que é o que o operador já esperava que fosse.</p>
+  <p><strong>Idempotência:</strong> reconfigurar a mesma ferramenta reusa a chave daquele
+  <code>sink</code> se ela existir e estiver ativa; não acumula uma chave por clique.</p>
+  <div class="dod"><b>Teste primeiro:</b> configurar ferramenta → afirmar chave nova com <code>sink</code> correto; reconfigurar → afirmar que não criou segunda; desconfigurar → afirmar <code>revokedAt</code> preenchido e que a chave não autentica mais.<br><b>Pronto quando:</b> as 18 rotas usam o padrão · nenhuma escreve a chave default.</div>
+</div>
+
+<div class="item hi">
+  <h4><span class="id">F3.3</span>PR 2 — cloud deployments mintam chave própria</h4>
+  <p>Fecha o ponto de vazamento mais externo do sistema: hoje
+  <code>src/server/cloud/providers/{render,railway}.ts</code> empurra uma
+  <strong>chave de API real do ModelHub</strong> como variável de ambiente em texto plano
+  numa plataforma de terceiro.</p>
+  <p>Passar a mintar chave por deployment: <code>sink = "cloud:render"</code>,
+  <code>sinkRef = &lt;deploymentId&gt;</code>, e gravar o <code>keyId</code> em
+  <code>cloudDeployments.data</code> em vez da chave. O teardown revoga.</p>
+  <p><strong>Isso não elimina o vazamento</strong> — a plataforma externa ainda recebe uma
+  chave válida em claro; é requisito do container funcionar. O que muda é o raio: um
+  segredo com um destino conhecido e revogável, em vez da chave que também está em 18
+  arquivos locais e no cliente do usuário.</p>
+  <p>Liga com F2.1: bloquear a exclusão da conexão enquanto houver deploy ativo garante
+  que o teardown — e portanto a revogação — sempre aconteça.</p>
+  <div class="dod"><b>Pronto quando:</b> nenhum deploy recebe a chave default · <code>cloudDeployments.data</code> guarda <code>keyId</code>, não a chave · teardown revoga · teste cobre o ciclo criar→derrubar.</div>
+</div>
+
+<div class="item md">
+  <h4><span class="id">F3.4</span>PR 2 — <code>usageHistory.apiKey</code> deixa de guardar o segredo <span class="b d">migration</span></h4>
+  <p>Hoje a coluna guarda a chave em claro, numa tabela <strong>sem poda</strong> — cresce
+  para sempre. As telas de Usage agrupam por ela para mostrar consumo por chave, então
+  não dá para simplesmente parar de gravar.</p>
+  <p>Gravar <code>keyId</code> mais um prefixo de exibição (primeiros caracteres), nunca o
+  segredo. <strong>Migration 009</strong> reescreve as linhas existentes casando o valor
+  pelo <code>apiKeys.key</code> onde a chave ainda existir; onde não existir mais, mantém
+  só o prefixo e <code>keyId = NULL</code>.</p>
+  <p>A migration <strong>tem que</strong> seguir a lição da 008: guarda de não-objeto e
+  tolerância a linha malformada. Ela roda em transação sobre a maior tabela do banco — um
+  <code>throw</code> numa linha prende a instalação na versão anterior e falha a cada
+  boot.</p>
+  <div class="dod"><b>Teste primeiro:</b> linhas com chave existente, chave já deletada, e valor nulo/malformado; afirmar que nenhuma lança e que as boas migram.<br><b>Pronto quando:</b> nenhuma chave em claro em <code>usageHistory</code> · telas de Usage seguem agrupando corretamente · <code>SCHEMA_VERSION</code> bumped.</div>
+</div>
+
+<div class="item">
+  <h4><span class="id">F3.5</span>PR 2 — o procedimento de rotação, escrito</h4>
+  <p>O entregável final da fase não é código: é uma seção em
+  <code>docs/</code> dizendo, em passos, o que fazer quando uma chave vaza. Ela só pode
+  ser escrita <em>depois</em> de F3.1–F3.4, porque só então existe.</p>
+  <div class="flow">
+<pre>
+  1. <i>GET /api/keys/inventory</i>           → onde a chave foi propagada
+  2. revogar a chave daquele destino          → DELETE /api/keys/&lt;id&gt;
+  3. remitar e reescrever o destino           → POST /api/cli-tools/&lt;tool&gt;-settings
+                                                 ou redeploy do cloud target
+  4. conferir que nenhum outro destino usa a mesma chave
+     <u>garantido por construção depois da F3.2/F3.3</u>
+</pre>
+  </div>
+  <div class="dod"><b>Pronto quando:</b> o procedimento existe e foi executado uma vez de verdade num destino, não só documentado.</div>
+</div>
+
+<h2 id="f4"><span class="num">FASE 4</span>Cifragem em repouso <span class="b m">1–2 PRs</span> <span class="b n">depende da Decisão B</span></h2>
+<div class="note w">
+  <p><strong>Opcional, e deliberadamente depois da F3.</strong> Cifragem protege contra
+  quem já tem o arquivo do banco. Inventário e revogação protegem contra o cenário muito
+  mais provável — um segredo vazou e é preciso cortá-lo. Se você fizer só uma das duas
+  fases, faça a 3.</p>
+</div>
+
+<div class="item">
+  <h4><span class="id">F4.1</span>AES-256-GCM por campo sobre o subconjunto de credenciais</h4>
+  <p>Cifrar <em>só</em> as chaves de segredo do blob <code>providerConnections.data</code>
+  — <code>apiKey</code>, <code>accessToken</code>, <code>refreshToken</code>,
+  <code>idToken</code> — não o blob inteiro. Motivo: <code>email</code>,
+  <code>testStatus</code>, <code>lastError</code> e <code>consecutiveUseCount</code> são
+  lidos e escritos no caminho quente, inclusive pelo round-robin a cada request. Cifrar
+  o blob todo poria cripto no caminho de seleção de conta.</p>
+  <p>Chave derivada de <code>CREDENTIAL_KEY</code> com scrypt. IV por campo, tag GCM
+  guardada junto. Prefixo de versão no valor (<code>v1:</code>) para permitir rotação de
+  algoritmo depois sem uma segunda migration adivinhando formato.</p>
+  <div class="dod"><b>Pronto quando:</b> segredos cifrados em repouso · campos de caminho quente seguem em claro · round-robin sem custo de cripto.</div>
+</div>
+
+<div class="item md">
+  <h4><span class="id">F4.2</span>Migration 010 — cifrar linhas existentes</h4>
+  <p>Mesmas exigências da 008 e da 009: idempotente (uma linha já cifrada é reconhecida
+  pelo prefixo <code>v1:</code> e pulada), guarda de não-objeto, tolerante a linha
+  malformada. Roda dentro de transação, então uma exceção prende a instalação.</p>
+  <div class="dod"><b>Teste primeiro:</b> rodar duas vezes seguidas e afirmar o mesmo resultado; blob <code>"null"</code>, <code>"42"</code>, array e JSON quebrado não lançam.</div>
+</div>
+
+<div class="item hi">
+  <h4><span class="id">F4.3</span>O que fazer quando a chave não está presente</h4>
+  <p><strong>A decisão que mais importa nesta fase, e a que mais fácil se erra.</strong>
+  Uma instalação existente que atualiza sem definir <code>CREDENTIAL_KEY</code> não pode
+  deixar de subir — isso brickaria instalações em campo por uma melhoria de segurança.</p>
+  <p><strong>Recomendação:</strong> sem a env, rodar em claro, com aviso no log a cada
+  boot <em>e</em> um indicador explícito na UI dizendo que credenciais não estão
+  cifradas. Definir a env depois dispara a migration no boot seguinte.</p>
+  <p><strong>Se a Decisão B foi compliance</strong>, então fail-closed: sem a chave o app
+  recusa subir. Nesse caso o release <strong>tem que</strong> vir com nota de migração
+  destacada, porque é uma quebra intencional.</p>
+  <p><strong>Não</strong> derivar a chave do <code>machineId</code> como default
+  "conveniente": quem tem o arquivo do banco tipicamente tem a máquina. Seria cifragem
+  aparente, que é pior que nenhuma — cria confiança que não corresponde à proteção.</p>
+  <div class="dod"><b>Pronto quando:</b> instalação sem a env sobe e avisa (ou recusa e documenta) · a UI mostra o estado real da cifragem.</div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F4.4</span>O backup herda de graça</h4>
+  <p><strong>Nenhuma mudança em <code>backup.ts</code>.</strong> Ele copia as tabelas como
+  estão; com F4.1 os segredos já estão cifrados na origem, então a cópia sai cifrada.</p>
+  <p>Vale registrar por que <em>não</em> se redige o backup: um backup redigido não
+  restaura. Cifrar na origem é a única correção que preserva a função do backup.</p>
+  <div class="dod"><b>Pronto quando:</b> teste afirma que um backup novo não contém nenhum segredo legível.</div>
+</div>
+
+<h2 id="f5"><span class="num">FASE 5</span>Paridade dos caminhos secundários <span class="b m">2 PRs</span></h2>
+<p>
+  O mapa mostrou que o caminho principal está correto e que os gaps estão nos caminhos
+  que não receberam o mesmo tratamento. Esta fase os iguala — e a ordem interna importa:
+  unificar primeiro, depois corrigir uma vez em vez de três.
+</p>
+
+<div class="item md">
+  <h4><span class="id">F5.1</span>PR 1 — unificar os três loops de fallback de conta</h4>
+  <p>O mesmo <code>while(true)</code> + <code>excludeConnectionIds</code> existe em
+  <code>application/chat.ts:471</code>, <code>application/embeddings.ts:135</code> e
+  <code>v1beta/models/[...path]/route.ts:256</code>.</p>
+  <p>Extrair para uma função — algo como
+  <code>withAccountFallback(provider, model, attemptFn)</code> — em
+  <code>llm-gateway/auth/</code>, ao lado de <code>accountSelection.ts</code>. Os três
+  passam a chamá-la. A semântica já foi acordada na F1.1, então o refactor codifica uma
+  decisão em vez de tomá-la.</p>
+  <p><strong>A evidência de que vale:</strong> a deriva já aconteceu — 404 contra 400 na
+  mesma condição. Três cópias de um loop de retry sobre credenciais é exatamente o código
+  que apodrece.</p>
+  <p><strong>Ganho extra:</strong> o gate de API key próprio do TTS nativo do Gemini
+  (<code>validateGeminiNativeClientKey:182</code>) desaparece junto — uma terceira
+  implementação de autenticação a menos.</p>
+  <div class="dod"><b>Pronto quando:</b> uma função, três chamadores · comportamento idêntico nos três (testes de contrato de erro cobrindo cada endpoint) · nenhum arquivo acima do alvo de linhas.</div>
+</div>
+
+<div class="item md">
+  <h4><span class="id">F5.2</span>PR 2 — embeddings passam a gravar <code>requestDetails</code> <span class="b d">bug</span></h4>
+  <p><code>/v1/embeddings</code> chama <code>saveRequestUsage()</code> direto e
+  <strong>nunca</strong> <code>saveRequestDetail()</code>. Efeito visível: o embedding
+  entra no total de Usage mas a aba de detalhes nunca o mostra, e quem for depurar
+  conclui que a chamada não aconteceu.</p>
+  <p>Depois da F5.1 o ponto de inserção é único.</p>
+  <div class="dod"><b>Teste primeiro:</b> chamar embeddings com observabilidade ligada e afirmar que existe linha em <code>requestDetails</code>. Confirmar que falha hoje.<br><b>Pronto quando:</b> embedding aparece na aba de detalhes.</div>
+</div>
+
+<div class="item md">
+  <h4><span class="id">F5.3</span>PR 2 — <code>exactEmbeddingUsage()</code> não deve descartar em silêncio</h4>
+  <p>Hoje <code>embeddings.ts:30</code> rejeita objetos de uso estimados, então um
+  provider que não devolve contagem exata <strong>não contabiliza nada</strong> — nem
+  tokens, nem custo. O consumo existe e o registro diz zero.</p>
+  <p>Gravar o uso estimado com uma marca <code>estimated: true</code> no blob
+  <code>tokens</code>, e a UI mostrar como aproximado. Um número aproximado sinalizado é
+  muito melhor que um zero falso — o zero falso não é conservador, é errado numa direção
+  que o operador não percebe.</p>
+  <div class="dod"><b>Pronto quando:</b> uso estimado é gravado e marcado · a UI distingue exato de aproximado · o total deixa de subcontar.</div>
+</div>
+
+<h2 id="f6"><span class="num">FASE 6</span>Durabilidade do cooldown <span class="b s">1 PR</span></h2>
+
+<div class="item md">
+  <h4><span class="id">F6.1</span>Deletar o <code>Map</code> em memória e usar <code>modelAvailability</code></h4>
+  <p>Dois mecanismos de cooldown coexistem e não se falam: providers com credencial usam
+  <code>modelAvailability</code> (durável, por conta × modelo, visível na UI); providers
+  <code>noAuth</code> usam <code>noAuthCooldowns</code>, um <code>Map</code> de processo
+  (<code>application/noAuthCooldown.ts:12</code>) que se perde no restart e não aparece em
+  tela nenhuma.</p>
+  <p>Como o fallback grátis (<code>oc/big-pickle</code>) é um provider <code>noAuth</code>,
+  <strong>o caminho de último recurso tem o cooldown mais frágil</strong> — exatamente
+  onde se quer o comportamento mais previsível.</p>
+  <p><strong>A correção é uma deleção.</strong> Gravar em
+  <code>modelAvailability</code> com <code>connectionId = "noauth:&lt;provider&gt;"</code>.
+  A PK é <code>(connectionId, modelId)</code> em <code>TEXT</code>, então um id sintético
+  funciona com <strong>zero mudança de schema</strong>. O <code>Map</code>, o arquivo e
+  as duas funções de checagem saem.</p>
+  <p>Ganho: um mecanismo em vez de dois, sobrevive a restart, e aparece na UI de
+  disponibilidade junto com todo o resto.</p>
+  <div class="dod"><b>Teste primeiro:</b> provocar cooldown de provider <code>noAuth</code>, afirmar linha em <code>modelAvailability</code> e que ela é respeitada por um processo novo (simular restart recriando o adapter).<br><b>Pronto quando:</b> <code>noAuthCooldown.ts</code> deletado · cooldown sobrevive a restart · aparece na UI.</div>
+</div>
+
+<div class="note b">
+  <p><strong>Colisão que precisa ficar registrada no código.</strong> O
+  <code>connectionId</code> sintético <code>"noauth:&lt;provider&gt;"</code>
+  <strong>impede</strong> uma <code>FOREIGN KEY</code> em
+  <code>modelAvailability.connectionId → providerConnections.id</code>: não existe linha
+  pai para ele.</p>
+  <p>Isso é de propósito, e é parte de por que a F2 escolheu limpeza transacional em vez
+  de FK. Sem um comentário no lugar certo, alguém vai tentar adicionar essa FK em seis
+  meses, a migration vai falhar em produção, e o motivo não estará em nenhum lugar.
+  <strong>Deixar o comentário em <code>schema.ts</code>, na definição de
+  <code>modelAvailability</code>, é parte da definição de pronto desta fase.</strong></p>
+</div>
+
+<h2 id="f7"><span class="num">FASE 7</span>Governança das skills <span class="b s">1 PR</span></h2>
+
+<div class="item md">
+  <h4><span class="id">F7.1</span>Skills iniciadas pelo agente passam pela fila de aprovação</h4>
+  <p>Hoje <code>harnessPendingWrites</code> gera dois tipos: <code>kind:"memory"</code>
+  (quando a config exige) e <code>kind:"plugin"</code> (sempre, quando iniciado pelo
+  agente). Mas <code>create_skill</code>, <code>update_skill</code>,
+  <code>patch_skill</code> e <code>learn_skill</code> escrevem em
+  <code>agentSkills</code>/<code>agentSkillFiles</code> <strong>direto, sem gate</strong>.</p>
+  <p>O resultado é uma assimetria difícil de defender: <strong>o agente não pode ligar um
+  plugin sem sua aprovação, mas pode escrever instrução persistente que ele mesmo vai ler
+  no próximo turno.</strong> Uma skill entra no system prompt das execuções seguintes —
+  é estritamente mais poderosa que uma entrada de memória, que já é gated.</p>
+  <p>Acrescentar <code>kind:"skill"</code> e rotear os quatro handlers pelo mesmo caminho
+  que a memória usa. O campo <code>source</code> já distingue agente de operador, então
+  <strong>edição iniciada pelo operador segue sem gate</strong> — o operador é a
+  autoridade, não o sujeito do controle.</p>
+  <p><strong>Config <code>skillWriteApproval</code></strong> ao lado de
+  <code>memoryWriteApproval</code>, em <code>_meta</code> via
+  <code>harnessLearningConfigRepo</code>, seguindo o padrão das 7 chaves
+  <code>harness.*</code> que já existem.</p>
+  <p><strong>Default recomendado: ligado.</strong> É o inverso do default da memória, e de
+  propósito — a memória é dado que o agente lembra, a skill é instrução que o agente
+  segue. Se apenas um dos dois for gated por padrão, deve ser o mais poderoso.</p>
+  <div class="dod"><b>Teste primeiro:</b> <code>create_skill</code> com <code>source</code> de agente e aprovação ligada → afirmar linha <code>pending</code> e <strong>nenhuma</strong> linha em <code>agentSkills</code>; aprovar → afirmar que a skill existe.<br><b>Pronto quando:</b> os 4 tools passam pela fila quando iniciados pelo agente · operador segue sem gate · a fila da UI mostra o novo tipo.</div>
+</div>
+
+<h2 id="f8"><span class="num">FASE 8</span>Documentação honesta e config sem dono <span class="b s">1 PR</span></h2>
+
+<div class="item md">
+  <h4><span class="id">F8.1</span><code>usageHistory.meta</code>: matar a coluna morta dando a ela o trabalho que falta</h4>
+  <p>Dois gaps que se resolvem um ao outro.</p>
+  <p><strong>Gap 1:</strong> <code>usageHistory.meta</code> é sempre gravado como
+  <code>{}</code>. Coluna reservada, hoje morta.</p>
+  <p><strong>Gap 2:</strong> o trace de roteamento — a única resposta para "por que essa
+  resposta veio desse modelo?" — vive apenas no header
+  <code>X-ModelHub-Routing</code>. Ele é <em>efêmero</em>. O
+  <code>requestDetails</code>, que poderia guardá-lo, é opt-in e podado por
+  <code>maxRecords</code>. Ou seja: <strong>com observabilidade desligada, não existe
+  registro durável de por que uma requisição foi para onde foi</strong> — e
+  observabilidade vem desligada por padrão.</p>
+  <p><strong>A correção única:</strong> gravar um resumo compacto do trace em
+  <code>meta</code> — modelo pedido, modelo selecionado, contagem de tentativas, motivo
+  do desvio. <code>usageHistory</code> é <em>sempre</em> escrita, então a atribuição de
+  roteamento passa a ser durável de graça, sem coluna nova e sem ligar observabilidade.</p>
+  <p><strong>Manter compacto de propósito.</strong> O trace completo já tem limites
+  (24 passos, 3.500 chars) porque viaja em header; o resumo em <code>meta</code> deve ser
+  menor ainda — <code>usageHistory</code> nunca é podada e ganha uma linha por request.
+  Guardar o trace inteiro aqui trocaria uma coluna morta por uma tabela inflada.</p>
+  <div class="dod"><b>Pronto quando:</b> <code>meta</code> carrega o resumo · teste afirma um teto de tamanho · dá para responder "por que esse modelo?" com observabilidade desligada.</div>
+</div>
+
+<div class="item md">
+  <h4><span class="id">F8.2</span>UI para <code>freeFallbackEnabled</code></h4>
+  <p>Default <code>true</code>, nenhuma UI, lido só em <code>chat.ts:425</code>. Editável
+  apenas por <code>PATCH /api/settings</code> direto.</p>
+  <p><strong>Por que esta merece UI e as outras não:</strong> ela muda <em>para onde o
+  prompt do usuário vai</em>. Quando as contas do provider pedido esgotam, o prompt é
+  enviado para um provider que o operador nunca configurou. É um comportamento
+  defensável e o default está certo — mas é o tipo de comportamento que o operador tem o
+  direito de descobrir sem ler o código, e de desligar sem chamar API na mão.</p>
+  <p>Vai em <code>profile/sections/RoutingCard.tsx</code>, junto das outras decisões de
+  roteamento, com texto dizendo qual provider responde no fallback.</p>
+  <div class="dod"><b>Pronto quando:</b> switch existe · o texto nomeia o provider do fallback · default segue <code>true</code>.</div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F8.3</span>Separar "env-only por decisão" de "falta UI por omissão"</h4>
+  <p>O mapa listou 9 chaves de settings sem UI. Elas não são todas o mesmo problema, e
+  tratá-las como um bloco produz ou 9 controles inúteis ou 9 omissões perpetuadas.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Chave</th><th>Classificação</th><th>Ação</th></tr></thead>
+  <tbody>
+  <tr><td class="k">freeFallbackEnabled</td><td>Falta UI — muda destino do prompt</td><td>F8.2</td></tr>
+  <tr><td class="k">observabilityMaxRecords<br>observabilityBatchSize<br>observabilityFlushIntervalMs<br>observabilityMaxJsonSize</td><td><strong>Env-only por decisão</strong> — tuning de performance, não escolha de produto</td><td>Documentar em <code>.env.example</code></td></tr>
+  <tr><td class="k">headroomEnabled<br>headroomUrl<br>headroomCompressUserMessages</td><td><strong>Env-only por decisão</strong> — depende de um processo externo em <code>localhost:8787</code></td><td>Documentar</td></tr>
+  <tr><td class="k">pxpipeTimeoutMs<br>pxpipeAutoInstall</td><td><strong>Env-only</strong> — tuning, e o resto do pxpipe já tem UI</td><td>Documentar</td></tr>
+  <tr><td class="k">tunnelProvider</td><td>Falta UI — mas só há um provider implementado</td><td>Deixar quando houver o segundo</td></tr>
+  </tbody></table></div>
+  <p>O entregável é uma seção em <code>.env.example</code> ou
+  <code>docs/CONVENTIONS.md</code> declarando quais chaves são intencionalmente env-only.
+  <strong>Uma chave sem UI documentada como decisão deixa de ser um gap</strong> — o gap
+  era não saber a diferença.</p>
+  <div class="dod"><b>Pronto quando:</b> cada uma das 9 está classificada por escrito.</div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F8.4</span><code>ARCHITECTURE.md</code>: declarar a fronteira com precisão</h4>
+  <p>O documento diz que o engine é isolado do host por <code>engine/host/*</code>, e
+  <code>tests/unit/hostSeam.test.ts</code> prova isso para o que está sob
+  <code>engine/</code>. Mas <code>auth/accountSelection.ts</code> — seleção de conta,
+  mutex e fallback, código de caminho quente — importa <code>connectionsRepo</code>,
+  <code>proxyPoolsRepo</code>, <code>apiKeysRepo</code>,
+  <code>modelAvailabilityRepo</code> e <code>settingsRepo</code> <strong>direto</strong>.</p>
+  <p>A frase não está tecnicamente errada — <code>auth/</code> não é <code>engine/</code>.
+  O risco é a inferência: quem ler "tudo que o gateway toca está em <code>host/</code>"
+  vai subestimar a superfície em cinco repos.</p>
+  <p><strong>A correção é de texto, não de código.</strong> Adicionar
+  <code>llm-gateway/auth/</code> ao diagrama como par do <code>engine/</code>, que fala
+  com repos direto e por quê.</p>
+  <div class="note g">
+    <p><strong>Explicitamente não refatorar <code>accountSelection.ts</code> para passar
+    pelo seam.</strong> Seria mover cinco imports para satisfazer uma frase de
+    documentação. O seam existe para testabilidade, e <code>accountSelection</code> já é
+    testável mockando os repos — <code>tests/unit</code> já faz isso. Refatorar aqui é
+    trabalho que produz risco sem produzir capacidade.</p>
+  </div>
+  <div class="dod"><b>Pronto quando:</b> o diagrama reflete a fronteira real · zero linhas de código alteradas.</div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F8.5</span>Teste de isolamento de escopo do <code>kv</code></h4>
+  <p>Quatro conceitos de produto — alias de modelo, modelo custom, override de preço,
+  modelo desabilitado — dividem a tabela <code>kv</code>, separados só pelo valor de
+  <code>scope</code>, com um índice compartilhado. Funciona, é enxuto, e nada no banco
+  impede que um bug de escopo em um repo escreva no namespace de outro.</p>
+  <p><strong>Não separar em quatro tabelas</strong> — ver Seção 9. Um teste que escreve
+  pelos quatro repos e afirma que cada um só lê o próprio escopo cobre o risco real a
+  uma fração do custo.</p>
+  <div class="dod"><b>Pronto quando:</b> teste cobre os 4 escopos · um repo escrevendo no escopo alheio faz o teste falhar.</div>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">F8.6</span>Reescrever as duas entradas do <code>KNOWN_DEBT</code></h4>
+  <p>Executa as conclusões da Seção 1: reclassificar <code>API_KEY_SECRET</code> de risco
+  de segurança para código morto removido, e reescrever a entrada da senha padrão para
+  descrever o resíduo local em vez de uma exposição remota já fechada.</p>
+  <p>Mais o item do Deepgram: manter, e anotar que precisa de uma chave real para
+  verificar. Uma dívida bloqueada por falta de credencial deve dizer isso, senão volta a
+  ser discutida em toda revisão.</p>
+  <div class="dod"><b>Pronto quando:</b> nenhuma entrada do registro descreve um risco que a verificação mostrou não existir.</div>
+</div>
+
+<h2 id="c9" class="neg"><span class="num">SEÇÃO 9</span>O que <em>não</em> fazer — e por quê</h2>
+<p>
+  Um plano que só acrescenta trabalho não é um plano. Estes seis itens apareceram no
+  mapa ou seriam a reação natural a ele, e a recomendação é <strong>não fazer</strong>.
+  Cada um com o motivo, para a decisão não ser reaberta a cada revisão.
+</p>
+
+<div class="item lo">
+  <h4><span class="id">NÃO 1</span>Não adicionar <code>FOREIGN KEY</code> em massa</h4>
+  <p>Metade das relações <em>deve</em> sobreviver ao pai: <code>usageHistory</code> e
+  <code>requestDetails</code> guardam contabilidade histórica, que é o produto. Uma FK
+  com <code>ON DELETE CASCADE</code> apagaria o histórico de consumo ao remover uma
+  conta; com <code>RESTRICT</code> impediria remover qualquer conta já usada. As duas
+  estão erradas.</p>
+  <p>O comportamento correto <strong>varia por relação</strong>, e é isso que o teste da
+  F2.4 expressa e uma constraint não. Somado: adicionar constraint a tabela existente no
+  SQLite exige rebuild, e com <code>foreign_keys = ON</code> qualquer órfã pré-existente
+  faz o rebuild falhar em produção.</p>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">NÃO 2</span>Não separar o <code>kv</code> em quatro tabelas</h4>
+  <p>O acoplamento é real mas o risco é baixo: quatro escopos disjuntos, três repos
+  disciplinados, um índice que serve a todos. Separar custa quatro tabelas, uma
+  migration de rebuild, quatro repos reescritos e o risco de deixar dado atrás — para
+  comprar uma garantia que o teste da F8.5 dá por muito menos.</p>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">NÃO 3</span>Não "consertar" o buffer do <code>requestDetails</code></h4>
+  <p>Até 20 registros ou 5 segundos de <code>requestDetails</code> vivem só em RAM e se
+  perdem num crash. É troca deliberada, e o seam documenta a garantia como
+  <em>best-effort / at-least-once</em>.</p>
+  <p>Fazer fsync por request poria I/O sincrônico no caminho quente de cada chamada de
+  inferência para proteger uma tabela de <em>debug</em>, opt-in e auto-podada. O
+  entregável correto é documentação — que a F8.3 cobre —, não código.</p>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">NÃO 4</span>Não refatorar <code>accountSelection.ts</code> pelo seam</h4>
+  <p>Ver F8.4. Mover cinco imports para satisfazer uma frase de documentação, num arquivo
+  que já é testável mockando os repos. Risco sem capacidade nova.</p>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">NÃO 5</span>Não endurecer o CORS ainda — auditar primeiro</h4>
+  <p>Todas as rotas <code>/v1</code> emitem <code>Access-Control-Allow-Origin: *</code>.
+  É dívida real, mas o entregável do próximo passo é <strong>a auditoria de clientes</strong>,
+  não a mudança: Claude Code, Codex, as 18 ferramentas de CLI, o browser do dashboard, os
+  health checks de túnel, os containers na Render.</p>
+  <p>Apertar a allowlist antes de enumerar quem chama quebra clientes em campo sem
+  aviso, e o modo de falha do CORS é particularmente ruim de diagnosticar — o request
+  simplesmente não chega, sem erro do lado do servidor. <strong>Escopo desta rodada: a
+  lista de clientes. A mudança vem na rodada seguinte, com a lista na mão.</strong></p>
+</div>
+
+<div class="item lo">
+  <h4><span class="id">NÃO 6</span>Não mexer no residual da senha padrão</h4>
+  <p>Ver Dívida 2. O caminho remoto já está fechado com raciocínio documentado no
+  código. O resíduo — <code>123456</code> abre sessão na máquina local — é postura
+  defensável para um app local-first single-user, equivalente a um SQLite sem senha no
+  diretório do usuário. A ação é corrigir o texto do registro, não o comportamento.</p>
+</div>
+
+<h2 id="c10"><span class="num">SEÇÃO 10</span>Sequência, dependências e esforço</h2>
+
+<h4>Grafo de dependência</h4>
+<div class="flow">
+<pre>
+  <b>DECISÃO A</b> ──────► F1.6
+
+  <b>F1</b>  baratas ──┬──► <b>F5</b>  paridade      <q>F1.1 define a semântica que F5.1 codifica</q>
+                   │
+  <b>F2</b>  órfãos ───┼──► <b>F3</b>  chave/destino <q>F2.1 garante que o teardown revogue</q>
+                   │
+                   └──► <b>F6</b>  cooldown      <q>independente, pode ir em paralelo</q>
+
+  <b>F3</b>  chave/destino ──► <b>F4</b>  cifragem   <q>F3 encolhe o escopo e dá o critério
+                                              de completude para F4</q>
+  <b>DECISÃO B</b> ─────────► <b>F4</b>
+
+  <b>F7</b>  skills      <q>independente de tudo</q>
+  <b>F8</b>  docs        <q>último — F8.1 depende do trace, F8.6 das conclusões da §1</q>
+</pre>
+</div>
+
+<h4>Caminhos paralelos</h4>
+<p>
+  Três frentes que não se tocam e podem correr ao mesmo tempo:
+  <strong>(1)</strong> F1 → F5 (contrato e caminhos secundários);
+  <strong>(2)</strong> F2 → F3 → F4 (integridade e segredos);
+  <strong>(3)</strong> F6 e F7 (durabilidade e governança, isolados).
+  A F8 fecha, porque F8.1 depende do trace estar no lugar e F8.6 depende das conclusões
+  da Seção 1.
+</p>
+
+<h4>Tabela de esforço</h4>
+<div class="tw"><table>
+<thead><tr><th>Fase</th><th>PRs</th><th>Migration</th><th>Bump schema</th><th>Tamanho</th><th>Fecha</th></tr></thead>
+<tbody>
+<tr><td class="k">F1 · baratas</td><td>1</td><td>—</td><td>não</td><td><span class="b s">P</span></td><td>404/400 · rota morta · <code>cloudUrl</code> · nav pxpipe · CRC · log do fail-open</td></tr>
+<tr><td class="k">F2 · órfãos</td><td>1</td><td>—</td><td>não</td><td><span class="b m">M</span></td><td>deploy órfão (409) · <code>modelAvailability</code> · skill atômica · teste-guarda</td></tr>
+<tr><td class="k">F3 · chave/destino</td><td>2</td><td>009</td><td><strong>sim</strong></td><td><span class="b l">G</span></td><td><strong>inventário e rotação</strong> · CLI · cloud · <code>usageHistory.apiKey</code></td></tr>
+<tr><td class="k">F4 · cifragem</td><td>1–2</td><td>010</td><td><strong>sim</strong></td><td><span class="b l">G</span></td><td>segredo em repouso · backup por herança</td></tr>
+<tr><td class="k">F5 · paridade</td><td>2</td><td>—</td><td>não</td><td><span class="b m">M</span></td><td>3 loops → 1 · embeddings em <code>requestDetails</code> · uso estimado</td></tr>
+<tr><td class="k">F6 · cooldown</td><td>1</td><td>—</td><td>não</td><td><span class="b s">P</span></td><td>cooldown durável e visível · deleta um mecanismo</td></tr>
+<tr><td class="k">F7 · skills</td><td>1</td><td>—</td><td>não</td><td><span class="b s">P</span></td><td>governança nos 3 caminhos de escrita</td></tr>
+<tr><td class="k">F8 · docs</td><td>1</td><td>—</td><td>não</td><td><span class="b s">P</span></td><td>coluna morta · UI do fallback · 9 chaves classificadas · registro corrigido</td></tr>
+</tbody></table></div>
+
+<h4>Se você só puder fazer três coisas</h4>
+<div class="grid">
+  <div class="card o">
+    <h5>1 · Fase 3</h5>
+    <p>Uma chave por destino. Converte o gap mais grave — segredo sem inventário nem rotação — em consulta ao banco. Maior ganho de segurança por hora do plano.</p>
+  </div>
+  <div class="card o">
+    <h5>2 · F2.1</h5>
+    <p>O deploy órfão. É o único item do plano que hoje custa <em>dinheiro</em> (container cobrando na Render) e deixa segredo ativo fora de alcance. Correção pequena.</p>
+  </div>
+  <div class="card o">
+    <h5>3 · Fase 6</h5>
+    <p>Cooldown durável. Uma deleção que remove um mecanismo inteiro e torna previsível justamente o caminho de último recurso.</p>
+  </div>
+</div>
+
+<div class="note">
+  <p><strong>Por que estas três e não as de severidade mais alta.</strong> A Decisão A
+  (fail-open) é a de maior severidade nominal, mas a recomendação é que o comportamento
+  atual está <em>correto</em> e só falta log — F1.6 é meia hora. E a cifragem em repouso
+  (F4) protege contra um atacante que já tem o arquivo do banco, enquanto a F3 protege
+  contra o cenário que realmente acontece: um segredo vazou e é preciso saber para onde
+  foi e cortá-lo.</p>
+  <p>As três acima são as que mais reduzem risco real por unidade de trabalho, e as três
+  cabem em quatro PRs.</p>
+</div>
+
+<p class="foot">
+  Plano derivado de <code>docs/map/APPLICATION-MAP.html</code> · base commit <code>47ec69b8</code><br>
+  12 gaps do mapa + 3 itens do <code>KNOWN_DEBT</code> · 2 reclassificados como não-riscos · 6 não-objetivos declarados<br>
+  10 PRs · 2 migrations (009, 010) · 2 bumps de <code>SCHEMA_VERSION</code> · 1 achado novo (F2.1, deploy órfão)<br>
+  Toda afirmação sobre o código foi verificada na fonte. Nenhuma estimativa de prazo — só tamanho relativo e dependência.
+</p>
+
+</main>
+</div>
+</body>
+</html>

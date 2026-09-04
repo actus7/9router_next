@@ -7,6 +7,8 @@ import { STREAM_FIRST_CHUNK_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../../co
 import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail";
 import { saveRequestDetail } from "../../host/usage";
+import { summarizeRoutingTrace } from "../../host/routingTrace";
+import { getRoutingTrace } from "../../services/routingTrace";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants";
 import type { StreamingHandlerContext, OnStreamCompleteContext, TransformStreamContext } from "./types";
 
@@ -43,6 +45,17 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
 /**
  * Handle streaming response — pipe provider SSE through transform stream to client.
  */
+/**
+ * The routing summary for this request, read off the trace that rides the body.
+ * Stored on the always-written usage row because the full trace only travels on
+ * a response header and `requestDetails` is opt-in — so with observability off,
+ * nothing recorded why a request routed where it did.
+ */
+function routingMeta(body: unknown): Record<string, unknown> | undefined {
+  const summary = summarizeRoutingTrace(getRoutingTrace(body as Record<string, unknown>));
+  return summary ? { routing: summary } : undefined;
+}
+
 export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }: StreamingHandlerContext) {
   if (onRequestSuccess) {
     Promise.resolve()
@@ -128,7 +141,7 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       console.error("[RequestDetail] Failed to update streaming content:", (err as Error).message);
     });
 
-    saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true });
+    saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true, meta: routingMeta(body) });
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
   };
 

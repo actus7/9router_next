@@ -48,3 +48,11 @@ export {
   updateCloudDeployment,
   deleteCloudDeployment,
 } from "@/lib/db/repos/cloudDeploymentsRepo";
+// Cloud deploy mints and revokes its own gateway key, so the deployment routes
+// need these. Exposed through this barrel because route handlers must not
+// import @/lib/db/repos directly — tests/unit/architectureGates.test.ts.
+export {
+  issueApiKeyForSink,
+  revokeApiKeysForSink,
+  type ApiKeySink,
+} from "@/lib/db/repos/apiKeysRepo";
