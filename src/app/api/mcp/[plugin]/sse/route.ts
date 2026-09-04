@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { registerSession, unregisterSession, findPlugin } from "@/lib/mcp/stdioSseBridge";
 
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ plugin: string }> }) {
+export async function GET(request: NextRequest, { params }: RouteContext<"/api/mcp/[plugin]/sse">) {
   const { plugin } = await params;
   if (!findPlugin(plugin)) {
     return new Response(`Unknown plugin: ${plugin}`, { status: 404 });

@@ -36,7 +36,9 @@ const sliceGates = {
     "app/(dashboard)/dashboard/providers",
     "app/(dashboard)/dashboard/providers/[id]",
   ],
-  noUnknownAsCasts: [] as string[],
+  // The probe engine was written after the ProbeResult consolidation, so it
+  // starts clean and stays that way.
+  noUnknownAsCasts: ["server/llm-gateway/probe"] as string[],
   // An empty list makes the gate below pass without inspecting anything, so a
   // directory only counts as protected once it is listed here.
   noEmptyCatch: [

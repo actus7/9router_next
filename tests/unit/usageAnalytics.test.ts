@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface HistoryRow {
   id?: number;
@@ -91,10 +91,20 @@ import { getAdapter } from "@/lib/db/driver";
 import { getChartData, getUsageStatsForState } from "@/lib/db/repos/usageAnalytics";
 
 describe("usageAnalytics", () => {
+  // The 24h and 7d windows are derived from Date.now(), so a fixture timestamp
+  // only stays inside them while "now" is pinned. Without this the suite passes
+  // on the day it is written and starts failing the next one.
+  const now = new Date("2026-09-02T18:00:00.000Z");
   const recentIso = "2026-09-02T12:00:00.000Z";
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("aggregates 24h usage from history rows", async () => {

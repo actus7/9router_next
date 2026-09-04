@@ -6,7 +6,7 @@
  */
 import { PROVIDERS } from "@/server/llm-gateway/engine/providers/index";
 
-// xAI client_id for OAuth (PKCE public client) â€” single source: registry xai.transport
+// xAI client_id for OAuth (PKCE public client) — single source: registry xai.transport
 const XAI_CLIENT_ID: string | undefined = (PROVIDERS as Record<string, { clientId?: string }>)["xai"]?.clientId;
 
 // OAuth issuer + endpoints
@@ -32,11 +32,11 @@ export const XAI_PKCE_VERIFIER_BYTES: number = 96;
 // Refresh tokens this many seconds before expiry
 const XAI_REFRESH_LEAD_SECONDS: number = 5 * 60;
 
-// User-Agent â€” mirror Go grok-cli UA. Version is best-effort; xAI does not pin a specific version.
+// User-Agent — mirror Go grok-cli UA. Version is best-effort; xAI does not pin a specific version.
 const XAI_USER_AGENT: string = "grok-cli/modelhub";
 
 /**
- * Aggregated config object â€” mirrors the shape of CLAUDE_CONFIG/CODEX_CONFIG in oauth.js.
+ * Aggregated config object — mirrors the shape of CLAUDE_CONFIG/CODEX_CONFIG in oauth.js.
  * Includes both the discovery-derived defaults and the static fallbacks used when
  * discovery is unavailable. Discovery results override authorizeUrl/tokenUrl at runtime.
  */

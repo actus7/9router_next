@@ -6,8 +6,8 @@ const VALID_PERIODS = new Set(["today", "24h", "7d", "30d", "60d"]);
 
 export async function GET(request: NextRequest) {
   await assertRequestRuntime();
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "7d";
 
     if (!VALID_PERIODS.has(period)) {

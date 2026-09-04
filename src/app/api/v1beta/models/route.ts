@@ -1,4 +1,6 @@
 import { PROVIDER_MODELS } from "@/shared/constants/models";
+import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { getProviderAlias } from "@/shared/constants/providers";
 
 /**
  * Handle CORS preflight
@@ -40,8 +42,17 @@ export async function GET() {
       });
     }
     
+    // A disabled model is hidden from /v1/models, so it stays hidden here too.
+    // Read once: this loop covers every provider in the catalog.
+    const disabled: Record<string, string[]> = await getDisabledModels().catch(() => ({}));
+    const isDisabled = (provider: string, modelId: string): boolean => {
+      const alias: string = getProviderAlias(provider) || provider;
+      return (disabled[alias] || disabled[provider] || []).includes(modelId);
+    };
+
     for (const [provider, providerModels] of Object.entries(PROVIDER_MODELS)) {
       for (const model of providerModels as Array<Record<string, unknown>>) {
+        if (isDisabled(provider, String(model.id))) continue;
         addModel({
           name: `models/${provider}/${model.id}`,
           displayName: (model.name || model.id) as string,

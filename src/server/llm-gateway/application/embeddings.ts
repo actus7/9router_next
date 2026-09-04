@@ -1,12 +1,11 @@
+import { requireGatewayApiKey } from "./gatewayApiKey";
 import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
 } from "../auth/accountSelection";
-import { getSettings } from "@/lib/db/repos/settingsRepo";
-import { getModelInfo } from "./modelResolution";
+import { getModelInfo, assertModelEnabled } from "./modelResolution";
 import { handleEmbeddingsCore } from "@/server/llm-gateway/engine/handlers/embeddingsCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
@@ -66,18 +65,8 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    }
-    const valid: boolean = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-    }
-  }
+  const authError = await requireGatewayApiKey(apiKey);
+  if (authError) return authError;
 
   if (!modelStr) {
     log.warn("EMBEDDINGS", "Missing model");
@@ -130,6 +119,9 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
 
   const { provider, model } = modelInfo;
 
+  const disabledResponse = await assertModelEnabled(provider, model);
+  if (disabledResponse) return disabledResponse;
+
   if (modelStr !== `${provider}/${model}`) {
     log.info("ROUTING", `${modelStr} → ${provider}/${model}`);
   } else {
@@ -176,7 +168,6 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
         await updateProviderCredentials(connectionId, {
           ...newCreds,
           existingProviderSpecificData: credentials.providerSpecificData,
-          testStatus: "active"
         });
       },
       onRequestSuccess: async () => {

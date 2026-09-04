@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import Modal from "@/shared/components/Modal";
 import { useTheme } from "@/shared/hooks/useTheme";

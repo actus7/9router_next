@@ -12,10 +12,11 @@ import {
   type MemoryScope,
 } from "@/lib/db/repos/agentMemoryRepo";
 import {
-  deleteHarnessPendingWrite,
   getHarnessPendingWrite,
   insertHarnessPendingWrite,
   listHarnessPendingWrites,
+  resolveHarnessPendingWrite,
+  type PendingWriteKind,
 } from "@/lib/db/repos/harnessPendingWritesRepo";
 import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
 import {
@@ -44,6 +45,9 @@ export interface MemoryApplyResult {
   entry?: MemoryEntryView;
   error?: string;
   issues?: ReturnType<typeof scanMemoryContent>;
+  kind?: PendingWriteKind;
+  action?: string;
+  outcome?: "applied" | "accepted_for_implementation" | "rejected";
 }
 
 function toView(entry: AgentMemoryEntry): MemoryEntryView {
@@ -141,7 +145,14 @@ export async function applyMemoryWrite(
   request: MemoryApplyRequest,
 ): Promise<MemoryApplyResult> {
   const config = await getHarnessLearningConfig();
-  const scope = request.scope ?? "agent";
+  let scope = request.scope ?? "agent";
+  if (request.action !== "add") {
+    const id = request.id?.trim();
+    if (!id) return { ok: false, error: "id is required" };
+    const existing = (await listAgentMemoryEntries()).find((entry) => entry.id === id);
+    if (!existing) return { ok: false, error: "Memory entry not found" };
+    scope = existing.scope;
+  }
   if (scope === "agent" && !config.memoryAgentEnabled) {
     return { ok: false, error: "Agent memory is disabled" };
   }
@@ -165,7 +176,7 @@ export async function applyMemoryWrite(
       kind: "memory",
       action: request.action,
       payload: {
-        scope: request.scope,
+        scope,
         id: request.id,
         content: request.content,
       },
@@ -184,50 +195,69 @@ export async function applyMemoryWrite(
       id: pendingId,
       kind: "memory",
       action: "remove",
-      payload: { id: request.id },
+      payload: { scope, id: request.id },
       source: "agent",
     });
     return { ok: true, pending: true, pendingId };
   }
 
-  return applyDirect(request);
+  return applyDirect({ ...request, scope });
 }
 
 export async function approvePendingWrite(id: string): Promise<MemoryApplyResult> {
   const pending = await getHarnessPendingWrite(id);
   if (!pending) return { ok: false, error: "Pending write not found" };
+  if (pending.status !== "pending") return { ok: false, error: "Pending write already resolved" };
   if (pending.kind === "memory") {
     const payload = pending.payload;
-    const result = await applyDirect({
+    const result = await applyMemoryWrite({
       action: pending.action as MemoryApplyAction,
       scope: payload.scope === "user" ? "user" : "agent",
       id: typeof payload.id === "string" ? payload.id : undefined,
       content: typeof payload.content === "string" ? payload.content : undefined,
       source: "ui",
     });
-    if (result.ok) await deleteHarnessPendingWrite(id);
-    return result;
+    if (result.ok) {
+      await resolveHarnessPendingWrite(id, "applied", { outcome: "applied" });
+    }
+    return { ...result, kind: "memory", action: pending.action, outcome: result.ok ? "applied" : undefined };
   }
   if (pending.kind === "plugin" && pending.action === "toggle") {
     const pluginId = typeof pending.payload.pluginId === "string" ? pending.payload.pluginId : "";
     const enabled = pending.payload.enabled !== false;
     const { applyPluginToggle } = await import("@/server/harness/governance/applyPluginWrite");
     const result = await applyPluginToggle({ pluginId, enabled, source: "ui" });
-    if (result.ok) await deleteHarnessPendingWrite(id);
-    return { ok: result.ok, error: result.error };
+    if (result.ok) {
+      await resolveHarnessPendingWrite(id, "applied", { outcome: "applied" });
+    }
+    return { ok: result.ok, error: result.error, kind: "plugin", action: "toggle", outcome: result.ok ? "applied" : undefined };
+  }
+  if (pending.kind === "plugin" && pending.action === "propose") {
+    await resolveHarnessPendingWrite(id, "accepted", {
+      outcome: "accepted_for_implementation",
+      title: pending.payload.title,
+      toolName: pending.payload.toolName,
+    });
+    return {
+      ok: true,
+      kind: "plugin",
+      action: "propose",
+      outcome: "accepted_for_implementation",
+    };
   }
   return { ok: false, error: "Unsupported pending kind" };
 }
 
-export async function rejectPendingWrite(id: string): Promise<{ ok: boolean }> {
+export async function rejectPendingWrite(id: string): Promise<MemoryApplyResult> {
   const pending = await getHarnessPendingWrite(id);
   if (!pending) return { ok: false };
-  await deleteHarnessPendingWrite(id);
-  return { ok: true };
+  if (pending.status !== "pending") return { ok: false, error: "Pending write already resolved" };
+  await resolveHarnessPendingWrite(id, "rejected", { outcome: "rejected" });
+  return { ok: true, kind: pending.kind, action: pending.action, outcome: "rejected" };
 }
 
-export async function listPendingMemoryWrites() {
-  return listHarnessPendingWrites("memory");
+export async function listPendingWrites() {
+  return listHarnessPendingWrites(undefined, "pending");
 }
 
 export { scanMemoryContent, MAX_MEMORY_ENTRY_CHARS };

@@ -56,9 +56,9 @@ function rewriteDashboardHtml(html: string) {
 }
 
 async function proxy(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const { search } = new URL(request.url);
   try {
     const base = await getTargetBase();
-    const { search } = new URL(request.url);
     const path = (await params).path || [];
     const target = buildTargetUrl(base, path, search);
     const method = request.method;

@@ -1,6 +1,7 @@
 ﻿import { translateResponse, initState } from "../translator/index";
 import { FORMATS } from "../translator/formats";
 import { trackPendingRequest, appendRequestLog } from "../host/usage";
+import type { RequestLogger } from "./requestLogger";
 import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers";
@@ -30,7 +31,7 @@ interface SSEStreamOptions {
   targetFormat?: string;
   sourceFormat?: string;
   provider?: string | null;
-  reqLogger?: Record<string, ((chunk: string) => void) | (() => void)> | null;
+  reqLogger?: RequestLogger | null;
   toolNameMap?: Map<string, string> | null;
   customToolNames?: string[] | null;
   model?: string | null;

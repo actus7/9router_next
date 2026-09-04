@@ -9,7 +9,7 @@ interface ModelRowProps {
   alias?: string;
   copied?: string;
   onCopy: (text: string, id: string) => void;
-  testStatus?: "ok" | "error";
+  probeStatus?: "ok" | "error";
   isCustom?: boolean;
   isFree?: boolean;
   onDeleteAlias?: () => void;
@@ -20,23 +20,23 @@ interface ModelRowProps {
   thinkingSuffix?: string | null;
 }
 
-export default function ModelRow({ model, fullModel, alias: _alias, copied, onCopy, testStatus, isCustom, isFree: _isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }: ModelRowProps) {
+export default function ModelRow({ model, fullModel, alias: _alias, copied, onCopy, probeStatus, isCustom, isFree: _isFree, onDeleteAlias, onTest, isTesting, onDisable, caps, thinkingSuffix }: ModelRowProps) {
   const displayModel = thinkingSuffix ? `${fullModel}(${thinkingSuffix})` : fullModel;
-  const borderColor = testStatus === "ok"
+  const borderColor = probeStatus === "ok"
     ? "border-success-border"
-    : testStatus === "error"
+    : probeStatus === "error"
     ? "border-destructive-border"
     : "border-border";
 
-  const statusTint = testStatus === "ok"
+  const statusTint = probeStatus === "ok"
     ? "bg-success/5"
-    : testStatus === "error"
+    : probeStatus === "error"
     ? "bg-destructive/5"
     : "";
 
-  const iconColorClass = testStatus === "ok"
+  const iconColorClass = probeStatus === "ok"
     ? "text-success"
-    : testStatus === "error"
+    : probeStatus === "error"
     ? "text-destructive"
     : "text-text-muted";
 
@@ -44,7 +44,7 @@ export default function ModelRow({ model, fullModel, alias: _alias, copied, onCo
     <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 transition-colors ${borderColor} ${statusTint} hover:bg-sidebar/50`}>
       <div className="flex min-w-0 items-start gap-2.5 sm:items-center">
         <span className={`flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/60 ${iconColorClass}`}>
-          {testStatus === "ok" ? <CheckCircle2 className="size-3.5" /> : testStatus === "error" ? <X className="size-3.5" /> : <Bot className="size-3.5" />}
+          {probeStatus === "ok" ? <CheckCircle2 className="size-3.5" /> : probeStatus === "error" ? <X className="size-3.5" /> : <Bot className="size-3.5" />}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <code className="max-w-[52vw] truncate font-mono text-xs font-medium text-text-main sm:max-w-[260px]">{displayModel}</code>

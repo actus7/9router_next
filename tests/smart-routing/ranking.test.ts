@@ -1,5 +1,6 @@
 ﻿import { describe, expect, it } from "vitest";
 import {
+  __test__ as inventoryInternals,
   getSmartTierOrder,
   rankSmartProfiles,
   rankSmartProfilesForEndpoint,
@@ -151,6 +152,28 @@ describe("routing metadata transport", () => {
     const spread = { ...body, model: "p/model" };
     expect(getRoutingDecision(spread)?.comboName).toBe("smart");
     expect(JSON.stringify(spread)).not.toContain("comboName");
+  });
+});
+
+describe("smart routing price resolution", () => {
+  // Routing must price a model the way usage billing prices it, or it picks a
+  // model the invoice disagrees with.
+  it("prefers the operator override over the static table", () => {
+    const overrides = { openrouter: { "some-model": { input: 1, output: 2 } } };
+    expect(inventoryInternals.resolvePricing("openrouter", "some-model", overrides))
+      .toEqual({ input: 1, output: 2 });
+  });
+
+  it("falls back to the static table when there is no override", () => {
+    const fromTable = inventoryInternals.resolvePricing("openai", "gpt-4o", {});
+    const withUnrelatedOverride = inventoryInternals.resolvePricing("openai", "gpt-4o", {
+      openrouter: { "some-model": { input: 1, output: 2 } },
+    });
+    expect(withUnrelatedOverride).toEqual(fromTable);
+  });
+
+  it("returns null for a model no source prices", () => {
+    expect(inventoryInternals.resolvePricing("nope", "nope-model", {})).toBeNull();
   });
 });
 

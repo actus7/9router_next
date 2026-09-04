@@ -3,8 +3,8 @@ import fs from "fs";
 import path from "path";
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const file = searchParams.get("file");
 
     if (!file) {

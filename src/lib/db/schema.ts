@@ -3,7 +3,10 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION: number = 6;
+// Bumped to 8 alongside migration 008, which rewrites providerConnections.data.
+// TABLES is unchanged; the bump is here so the pre-change backup runs before a
+// migration that edits the same blob credentials live in.
+export const SCHEMA_VERSION: number = 8;
 
 export const PRAGMA_SQL: string = `
 PRAGMA journal_mode = WAL;
@@ -315,9 +318,15 @@ export const TABLES: Record<string, TableDefinition> = {
       action: "TEXT NOT NULL",
       payload: "TEXT NOT NULL",
       source: "TEXT NOT NULL",
+      status: "TEXT NOT NULL DEFAULT 'pending'",
+      reviewedAt: "TEXT",
+      result: "TEXT",
       createdAt: "TEXT NOT NULL",
     },
-    indexes: ["CREATE INDEX IF NOT EXISTS idx_hpw_kind ON harnessPendingWrites(kind)"],
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_hpw_kind ON harnessPendingWrites(kind)",
+      "CREATE INDEX IF NOT EXISTS idx_hpw_status_created ON harnessPendingWrites(status, createdAt)",
+    ],
   },
   harnessMessageIndex: {
     columns: {

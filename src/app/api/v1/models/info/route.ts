@@ -1,17 +1,14 @@
 import { NextRequest } from "next/server";
 import { PROVIDER_MODELS } from "@/server/llm-gateway/catalog";
-import { AI_PROVIDERS, ALIAS_TO_ID } from "@/shared/constants/providers";
+import { AI_PROVIDERS, ALIAS_TO_ID, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { getModelKind } from "@/shared/constants/models";
+import { isModelDisabled } from "@/server/llm-gateway/application/modelResolution";
 
-const KIND_ENDPOINT = {
+// Derived from the catalog so this route cannot advertise a path the dashboard
+// contradicts. `llm` is not a media kind, so it is the one entry added here.
+const KIND_ENDPOINT: Record<string, string> = {
   llm: "/v1/chat/completions",
-  image: "/v1/images/generations",
-  tts: "/v1/audio/speech",
-  stt: "/v1/audio/transcriptions",
-  embedding: "/v1/embeddings",
-  imageToText: "/v1/chat/completions",
-  webSearch: "/v1/search",
-  webFetch: "/v1/fetch",
+  ...Object.fromEntries(MEDIA_PROVIDER_KINDS.map((kind) => [kind.id, kind.endpoint.path])),
 };
 
 const TTS_VOICES_API = new Set(["elevenlabs", "edge-tts", "deepgram", "inworld", "local-device"]);
@@ -101,6 +98,14 @@ export async function GET(request: NextRequest) {
     );
   }
   const info = lookup(id, kind);
+  // A model the operator switched off is not advertised anywhere else, so it
+  // must not be described here either.
+  if (info && await isModelDisabled(String(info.owned_by), String(info.id).split("/").slice(1).join("/"))) {
+    return Response.json(
+      { error: { message: `Model not found: ${id}`, type: "not_found" } },
+      { status: 404, headers: { "Access-Control-Allow-Origin": "*" } },
+    );
+  }
   if (!info) {
     return Response.json(
       { error: { message: `Model not found: ${id}`, type: "not_found" } },

@@ -55,6 +55,13 @@ interface Settings {
   pxpipeAutoInstall: boolean;
   pxpipeMinChars: number;
   pxpipeTimeoutMs: number;
+  /**
+   * Answer through the credential-free default provider when the requested one
+   * has no usable account left, instead of failing the request. On by default
+   * so a fresh install works, and an off switch because it does send the
+   * prompt to a provider the operator did not configure.
+   */
+  freeFallbackEnabled: boolean;
   [key: string]: unknown;
 }
 
@@ -115,6 +122,7 @@ const DEFAULT_SETTINGS: Settings = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
+  freeFallbackEnabled: true,
 };
 
 async function readRaw(): Promise<Record<string, unknown>> {

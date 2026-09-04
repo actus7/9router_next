@@ -1,12 +1,12 @@
+import { requireGatewayApiKey } from "./gatewayApiKey";
 import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
 } from "../auth/accountSelection";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
-import { getModelInfo, getComboModels } from "./modelResolution";
+import { getModelInfo, getComboModels, assertModelEnabled } from "./modelResolution";
 import { handleImageGenerationCore } from "@/server/llm-gateway/engine/handlers/imageGenerationCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
@@ -44,11 +44,8 @@ export async function handleImageGeneration(request: Request): Promise<Response>
 
   const apiKey: string | null = extractApiKey(request);
   const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    const valid: boolean = await isValidApiKey(apiKey);
-    if (!valid) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
+  const authError = await requireGatewayApiKey(apiKey);
+  if (authError) return authError;
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!body.prompt) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: prompt");
@@ -107,6 +104,9 @@ async function handleSingleModelImage(body: Record<string, unknown>, modelStr: s
 
   const { provider, model } = modelInfo;
 
+  const disabledResponse = await assertModelEnabled(provider, model);
+  if (disabledResponse) return disabledResponse;
+
   if (NO_AUTH_PROVIDERS.has(provider)) {
     const result = await handleImageGenerationCore({
       body,
@@ -154,7 +154,6 @@ async function handleSingleModelImage(body: Record<string, unknown>, modelStr: s
           accessToken: newCreds.accessToken as string | undefined,
           refreshToken: newCreds.refreshToken as string | undefined,
           providerSpecificData: newCreds.providerSpecificData as Record<string, unknown> | undefined,
-          testStatus: "active"
         });
       },
       onRequestSuccess: async () => {

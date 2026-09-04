@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { DynamicMedia } from "@/components/ui/dynamic-media";
+import { DynamicMedia } from "@/shared/components/DynamicMedia";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Row } from "./exampleShared";
 import { Wifi, X } from "lucide-react";

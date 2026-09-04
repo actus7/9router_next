@@ -86,7 +86,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       {allModels.length > 0 && (
         <div className="flex flex-col gap-3">
           {allModels.map(({ id, alias, source }: { id: string; alias?: string; source: string }) => (
-            <CompatibleModelRow key={`${source}-${providerStorageAlias}/${id}`} modelId={id} fullModel={`${providerDisplayAlias}/${id}`} copied={copied} onCopy={onCopy} onDeleteAlias={() => source === "custom" ? onDeleteCustomModel(id) : onDeleteAlias(alias!)} onTest={connections.length > 0 ? () => handleTestModel(id) : undefined} testStatus={modelTestResults[id]} isTesting={testingModelId === id} />
+            <CompatibleModelRow key={`${source}-${providerStorageAlias}/${id}`} modelId={id} fullModel={`${providerDisplayAlias}/${id}`} copied={copied} onCopy={onCopy} onDeleteAlias={() => source === "custom" ? onDeleteCustomModel(id) : onDeleteAlias(alias!)} onTest={connections.length > 0 ? () => handleTestModel(id) : undefined} probeStatus={modelTestResults[id]} isTesting={testingModelId === id} />
           ))}
         </div>
       )}

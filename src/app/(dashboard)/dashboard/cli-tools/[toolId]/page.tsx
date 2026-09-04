@@ -5,11 +5,7 @@ import { getMachineId } from "@/shared/utils/machine";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ToolDetailClient from "./ToolDetailClient";
 
-interface ToolDetailPageProps {
-  params: Promise<{ toolId: string }>;
-}
-
-export async function generateMetadata({ params }: ToolDetailPageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps<"/dashboard/cli-tools/[toolId]">): Promise<Metadata> {
   const { toolId } = await params;
   const tool = (CLI_TOOLS as Record<string, { name: string }>)[toolId];
   if (!tool) return { title: "Tool Not Found | ModelHub" };
@@ -19,7 +15,7 @@ export async function generateMetadata({ params }: ToolDetailPageProps): Promise
   };
 }
 
-export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
+export default async function ToolDetailPage({ params }: PageProps<"/dashboard/cli-tools/[toolId]">) {
   await assertRequestRuntime();
   const { toolId } = await params;
   if (!(CLI_TOOLS as Record<string, unknown>)[toolId]) notFound();

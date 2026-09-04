@@ -8,8 +8,8 @@ const langNames = new Intl.DisplayNames(["en"], { type: "language" });
  * Each Deepgram voice = one model (canonical_name like "aura-2-thalia-en")
  */
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const langFilter = searchParams.get("lang");
 
     const connections = await getProviderConnections({ provider: "deepgram", isActive: true });

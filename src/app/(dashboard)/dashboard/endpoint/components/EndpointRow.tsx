@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { Check, Copy } from "lucide-react";
 

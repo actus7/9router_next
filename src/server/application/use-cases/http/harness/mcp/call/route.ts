@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callMcpTool } from "@/server/harness/mcpClient";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { listHarnessConversations } from "@/lib/db/repos/harnessConversationsRepo";
+import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 interface StoredMcpServer {
   id?: unknown;
@@ -13,6 +14,8 @@ interface StoredMcpServer {
 
 export async function POST(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   try {
     const { sessionId, serverId, runtimeName, arguments: args } = await request.json();
     if (

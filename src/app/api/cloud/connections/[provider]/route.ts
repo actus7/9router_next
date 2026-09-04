@@ -3,9 +3,7 @@ import { createCloudConnection, deleteCloudConnection, getCloudConnectionByProvi
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { isCloudProviderError, formatCloudProviderError } from "@/server/cloud/providers/driver";
 
-type Params = { params: Promise<{ provider: string }> };
-
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(request: NextRequest, { params }: RouteContext<"/api/cloud/connections/[provider]">) {
   const { provider } = await params;
   const driver = getCloudProviderDriver(provider);
   if (!driver) {
@@ -48,7 +46,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: Params) {
+export async function DELETE(_request: NextRequest, { params }: RouteContext<"/api/cloud/connections/[provider]">) {
   const { provider } = await params;
   const existing = await getCloudConnectionByProvider(provider);
   if (!existing) {

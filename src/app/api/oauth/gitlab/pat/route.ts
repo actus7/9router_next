@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
 import { isLocalRequest } from "@/dashboardGuard";
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       expiresAt: null,
       email,
       displayName: user.name || user.username || email,
-      testStatus: "active",
+      testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
       providerSpecificData: {
         username: user.username || "",
         email,

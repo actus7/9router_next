@@ -4,8 +4,8 @@ import { readPxpipeEvents } from "@/lib/pxpipe/events";
 
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const limit = Math.min(Number(searchParams.get("limit")) || 100, 500);
     return NextResponse.json({
       installLog: getInstallLogTail(),

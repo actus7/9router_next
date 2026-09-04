@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteProviderConnectionsByProvider, deleteProviderNode, getProviderConnections, getProviderNodeById, updateProviderConnection, updateProviderNode } from "@/models";
 
-interface RouteContext {
-  params: Promise<{ id: string }>;
-}
-
 // PUT /api/provider-nodes/[id] - Update provider node
-export async function PUT(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
+export async function PUT(request: NextRequest, { params }: RouteContext<"/api/provider-nodes/[id]">): Promise<NextResponse> {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -85,7 +81,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
 }
 
 // DELETE /api/provider-nodes/[id] - Delete provider node and its connections
-export async function DELETE(request: NextRequest, { params }: RouteContext): Promise<NextResponse> {
+export async function DELETE(request: NextRequest, { params }: RouteContext<"/api/provider-nodes/[id]">): Promise<NextResponse> {
   try {
     const { id } = await params;
     const node = await getProviderNodeById(id);

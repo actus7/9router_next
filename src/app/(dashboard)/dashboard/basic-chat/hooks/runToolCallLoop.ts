@@ -15,6 +15,7 @@ import type {
   NormalizedModel,
   ToolCall,
 } from "../types";
+import { createId } from "../chatFormatUtils";
 
 interface RunToolCallLoopParams {
   sessionId: string;
@@ -132,7 +133,7 @@ export async function runToolCallLoop(
             usedSubagentCalls++ >= maxSubagentCalls
           ) {
             return {
-              id: crypto.randomUUID(),
+              id: createId(),
               role: "tool",
               toolCallId: call.id,
               content: JSON.stringify({
@@ -197,7 +198,7 @@ export async function runToolCallLoop(
             content,
           });
           return {
-            id: crypto.randomUUID(),
+            id: createId(),
             role: "tool",
             toolCallId: call.id,
             content,
@@ -224,7 +225,7 @@ export async function runToolCallLoop(
             content,
           });
           return {
-            id: crypto.randomUUID(),
+            id: createId(),
             role: "tool",
             toolCallId: call.id,
             content,

@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { Badge } from "@/components/ui/badge";
-import { DynamicMedia } from "@/components/ui/dynamic-media";
+import { DynamicMedia } from "@/shared/components/DynamicMedia";
 import {
   Popover,
   PopoverContent,

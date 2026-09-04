@@ -1,10 +1,11 @@
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { getDefaultModel } from "@/server/llm-gateway/catalog";
+import { probeOk, probeFailed, type MaybeProbeResult } from "@/server/llm-gateway/probe/types";
 import { providerValidateFetch } from "./providerValidateFetch";
 
 // Probe a webSearch/webFetch provider using its searchConfig/fetchConfig.
 // Returns true if API key is accepted (status !== 401 && !== 403).
-export async function probeWebProvider(provider: string, apiKey: string): Promise<boolean | null> {
+export async function probeWebProvider(provider: string, apiKey: string): Promise<MaybeProbeResult> {
   const p = AI_PROVIDERS[provider];
   if (!p) return null;
   // Skip if provider has dual-purpose (LLM + search), let LLM validate handle it
@@ -13,7 +14,7 @@ export async function probeWebProvider(provider: string, apiKey: string): Promis
   if (!isWebOnly) return null;
   const cfg = (p.searchConfig || p.fetchConfig) as Record<string, unknown> | undefined;
   if (!cfg) return null;
-  if (cfg.authType === "none") return true; // no-auth (e.g. searxng)
+  if (cfg.authType === "none") return probeOk(); // no-auth (e.g. searxng)
 
   let url = cfg.baseUrl as string;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -34,12 +35,14 @@ export async function probeWebProvider(provider: string, apiKey: string): Promis
   }
 
   const res = await providerValidateFetch(url, { method: cfg.method as string, headers, body, signal: AbortSignal.timeout(8000) }, { providerId: provider });
-  return res.status !== 401 && res.status !== 403;
+  return res.status === 401 || res.status === 403
+    ? probeFailed("Invalid API key", { status: res.status })
+    : probeOk({ status: res.status });
 }
 
 // Probe a media provider (tts/embedding/stt/image/video) using *Config.
 // Returns true if API key is accepted; null to skip (let default handler decide).
-export async function probeMediaProvider(provider: string, apiKey: string): Promise<boolean | null> {
+export async function probeMediaProvider(provider: string, apiKey: string): Promise<MaybeProbeResult> {
   const p = AI_PROVIDERS[provider];
   if (!p) return null;
   const MEDIA_KINDS = new Set(["tts", "embedding", "stt", "image", "video", "music", "imageToText"]);
@@ -48,10 +51,10 @@ export async function probeMediaProvider(provider: string, apiKey: string): Prom
   if (!isMediaOnly) return null;
   const cfg = (p.ttsConfig || p.sttConfig || p.embeddingConfig || p.imageConfig || p.videoConfig || p.musicConfig) as Record<string, unknown> | undefined;
   // No probe config → best-effort accept (validate at usage time)
-  if (!cfg) return true;
-  if (p.noAuth || cfg.authType === "none") return true;
+  if (!cfg) return probeOk();
+  if (p.noAuth || cfg.authType === "none") return probeOk();
   // Skip auth schemes that need provider-specific data
-  if (cfg.authHeader === "playht" || cfg.authHeader === "aws-sigv4") return true;
+  if (cfg.authHeader === "playht" || cfg.authHeader === "aws-sigv4") return probeOk();
 
   const headers: Record<string, string> = { "Content-Type": "application/json", ...((cfg.extraHeaders as Record<string, string>) || {}) };
 
@@ -73,5 +76,7 @@ export async function probeMediaProvider(provider: string, apiKey: string): Prom
     body: method === "GET" ? undefined : JSON.stringify({ input: "ping", text: "ping", prompt: "ping", model: getDefaultModel(provider) || "test" }),
     signal: AbortSignal.timeout(8000),
   }, { providerId: provider });
-  return res.status !== 401 && res.status !== 403;
+  return res.status === 401 || res.status === 403
+    ? probeFailed("Invalid API key", { status: res.status })
+    : probeOk({ status: res.status });
 }

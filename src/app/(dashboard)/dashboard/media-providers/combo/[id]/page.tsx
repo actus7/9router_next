@@ -5,7 +5,7 @@ import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ComboDetailClient from "./ComboDetailClient";
 
-async function ComboDetailContent({ params }: { params: Promise<{ id: string }> }) {
+async function ComboDetailContent({ params }: Pick<PageProps<"/dashboard/media-providers/combo/[id]">, "params">) {
   await assertRequestRuntime();
   const { id } = await params;
   const [combo, settings, providers, keys, aliases, logs] = await Promise.all([
@@ -34,6 +34,6 @@ async function ComboDetailContent({ params }: { params: Promise<{ id: string }> 
   );
 }
 
-export default function ComboDetailPage(props: { params: Promise<{ id: string }> }) {
+export default function ComboDetailPage(props: PageProps<"/dashboard/media-providers/combo/[id]">) {
   return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ComboDetailContent {...props} /></Suspense>;
 }

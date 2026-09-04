@@ -20,6 +20,7 @@ import {
 } from "@/server/harness/skills/parseSkillMarkdown";
 import { BUNDLE_SKILLS, BUNDLE_SKILL_IDS } from "@/shared/harness/bundleSkills";
 import type { AgentSkillRow } from "@/lib/db/repos/agentSkillsRepo";
+import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -111,6 +112,8 @@ function serialize(state: Awaited<ReturnType<typeof reloadSkillTree>>) {
 
 export async function GET(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const state = await reloadSkillTree();
   const id = new URL(request.url).searchParams.get("id");
   const filePath = new URL(request.url).searchParams.get("file");
@@ -145,6 +148,8 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<
     string,
     unknown
@@ -167,6 +172,8 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return badRequest("id is required");
   const normalized = normalizeSkillId(id);

@@ -176,7 +176,15 @@ function stripContinuityFields(body: Record<string, unknown>): Record<string, un
 
 export type PreparedBody =
   | { error: ReturnType<typeof createErrorResult>; passthrough: false }
-  | { passthrough: boolean; clientTool: string | null; translatedBody: Record<string, unknown>; toolNameMap: unknown; customToolNames: unknown };
+  | {
+      passthrough: boolean;
+      clientTool: string | null;
+      translatedBody: Record<string, unknown>;
+      // The translator smuggles these two back on the body under `_`-prefixed
+      // keys; naming them here spares every response handler a cast.
+      toolNameMap: Map<string, string> | undefined;
+      customToolNames: string[] | undefined;
+    };
 
 export async function prepareTranslatedBody(params: {
   body: Record<string, unknown>;
@@ -210,8 +218,8 @@ export async function prepareTranslatedBody(params: {
   }
 
   let translatedBody: Record<string, unknown>;
-  let toolNameMap: unknown;
-  let customToolNames: unknown;
+  let toolNameMap: Map<string, string> | undefined;
+  let customToolNames: string[] | undefined;
   if (passthrough) {
     log?.debug?.("PASSTHROUGH", `${clientTool} → ${provider} | native lossless`);
     translatedBody = { ...body, model: stripThinkingSuffix(upstreamModel) };
@@ -235,9 +243,9 @@ export async function prepareTranslatedBody(params: {
       trackPendingRequest(params.model, provider, connectionId, false, true);
       return { error: createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`, undefined), passthrough: false };
     }
-    toolNameMap = translatedBody._toolNameMap;
+    toolNameMap = translatedBody._toolNameMap as Map<string, string> | undefined;
     delete translatedBody._toolNameMap;
-    customToolNames = translatedBody._customToolNames;
+    customToolNames = translatedBody._customToolNames as string[] | undefined;
     delete translatedBody._customToolNames;
     translatedBody.model = stripThinkingSuffix(upstreamModel);
     stripContinuityFields(translatedBody);

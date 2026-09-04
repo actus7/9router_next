@@ -1,7 +1,7 @@
 "use client";
 
 import { Card } from "@/shared/components";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { Switch } from "@/components/ui/switch";
 import { Route } from "lucide-react";
 import { translate } from "@/i18n/runtime";

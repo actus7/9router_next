@@ -4,6 +4,7 @@ import variant from "@jitl/quickjs-singlefile-cjs-release-sync";
 import {
   newQuickJSWASMModuleFromVariant,
   type QuickJSContext,
+  type QuickJSHandle,
   type QuickJSRuntime,
 } from "quickjs-emscripten-core";
 
@@ -35,6 +36,47 @@ async function getQuickJsModule() {
     quickJsModulePromise = newQuickJSWASMModuleFromVariant(variant);
   }
   return quickJsModulePromise;
+}
+
+/** QuickJS dumps a thrown Error to a plain object; String() on it loses the message. */
+function describeError(dumped: unknown): string {
+  if (typeof dumped === "string") return dumped;
+  if (dumped && typeof dumped === "object") {
+    const message = (dumped as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return String(dumped);
+}
+
+/**
+ * Reads the value a tool returned, settling it first when it is a promise.
+ *
+ * The sync runtime exposes no host I/O, so a promise can only be waiting on a
+ * job already queued inside the VM: drain those, then read the settled state.
+ * Anything still pending is a tool that cannot finish in this sandbox — a
+ * failure, rather than the empty object `dump` would otherwise hand back.
+ */
+function unwrapToolResult(
+  runtime: QuickJSRuntime,
+  context: QuickJSContext,
+  value: QuickJSHandle,
+): SandboxEvalResult {
+  runtime.executePendingJobs();
+  // A non-promise comes back as fulfilled with the original handle and
+  // notAPromise: true, so this covers both shapes without sniffing for `then`.
+  const state = context.getPromiseState(value);
+
+  if (state.type === "pending") {
+    return { ok: false, error: "Sandbox tool returned a promise that never settled" };
+  }
+  if (state.type === "rejected") {
+    const error = describeError(context.dump(state.error));
+    state.error.dispose();
+    return { ok: false, error };
+  }
+  const result = context.dump(state.value);
+  if (!state.notAPromise) state.value.dispose();
+  return { ok: true, result };
 }
 
 export async function runSandboxCapability(
@@ -78,13 +120,15 @@ export async function runSandboxCapability(
     ].join("\n");
     const evalResult = context.evalCode(wrapped);
     if (evalResult.error) {
-      const message = context.dump(evalResult.error);
+      const message = describeError(context.dump(evalResult.error));
       evalResult.error.dispose();
-      return { ok: false, error: String(message) };
+      return { ok: false, error: message };
     }
-    const dumped = context.dump(evalResult.value);
-    evalResult.value.dispose();
-    return { ok: true, result: dumped };
+    try {
+      return unwrapToolResult(runtime, context, evalResult.value);
+    } finally {
+      evalResult.value.dispose();
+    }
   } catch (error) {
     return {
       ok: false,

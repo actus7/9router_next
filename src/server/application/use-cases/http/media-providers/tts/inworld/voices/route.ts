@@ -7,8 +7,8 @@ const langNames = new Intl.DisplayNames(["en"], { type: "language" });
  * Returns { languages, byLang } grouped by language code (same shape as edge-tts/elevenlabs)
  */
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const langFilter = searchParams.get("lang");
 
     const connections = await getProviderConnections({ provider: "inworld", isActive: true });

@@ -12,6 +12,20 @@ function getQuotaCooldown(backoffLevel = 0) {
   return Math.min(cooldown, BACKOFF_CONFIG.max);
 }
 
+// Statuses that mean "this request is malformed", not "this account is spent".
+// Retrying the identical body on another account reproduces the same failure,
+// so account rotation must not treat them as a reason to cool an account down.
+const CLIENT_REQUEST_ERROR_STATUSES: ReadonlySet<number> = new Set([400, 413, 422]);
+
+/**
+ * True when the upstream rejected the request itself rather than the credential.
+ * Scoped to account fallback: model-level fallback (combos) still retries these,
+ * because a different model may accept a body the previous one rejected.
+ */
+export function isClientRequestError(status: number): boolean {
+  return CLIENT_REQUEST_ERROR_STATUSES.has(Number(status));
+}
+
 /**
  * Check if error should trigger account fallback (switch to next account)
  * Config-driven: matches ERROR_RULES top-to-bottom (text rules first, then status)

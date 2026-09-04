@@ -2,6 +2,7 @@
 import REGISTRY from "./registry/index";
 import { PROVIDER_DEFAULTS } from "./schema";
 import { normalizeModel } from "./models/schema";
+import { MEDIA_ENTRY_KEYS } from "./mediaKeys";
 import { buildTtsProviderModels } from "../config/ttsModels";
 
 // oauth block is canonical for these fields; inject into transport so executors reading
@@ -20,12 +21,7 @@ function buildTransport(transport: Record<string, unknown>, oauth?: Record<strin
   return t;
 }
 
-const MEDIA_KEYS = new Set([
-  "serviceKinds", "ttsConfig", "sttConfig", "embeddingConfig",
-  "imageConfig", "imageToTextConfig", "videoConfig", "musicConfig",
-  "searchViaChat", "searchConfig", "fetchConfig",
-  "modelsFetcher", "mediaPriority", "hiddenKinds",
-]);
+const MEDIA_KEYS: Set<string> = new Set(MEDIA_ENTRY_KEYS);
 
 export const PROVIDERS: Record<string, Record<string, unknown>> = {};
 export const PROVIDER_MODELS: Record<string, Record<string, unknown>[]> = {};

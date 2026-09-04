@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { CursorService } from "@/lib/oauth/services/cursor";
 import { createProviderConnection } from "@/models";
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
         provider: "Imported",
         userId: userInfo?.userId,
       },
-      testStatus: "active",
+      testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
     });
 
     return NextResponse.json({

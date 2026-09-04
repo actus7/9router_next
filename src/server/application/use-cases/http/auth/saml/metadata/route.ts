@@ -3,9 +3,9 @@ import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { generateSamlMetadata } from "@/lib/auth/saml";
 
 export async function GET(request: NextRequest): Promise<Response> {
+  const origin = new URL(request.url).origin;
   try {
     const settings = await getSettings();
-    const origin = new URL(request.url).origin;
     const metadataXml = generateSamlMetadata(origin, settings);
 
     return new Response(metadataXml, {

@@ -1,9 +1,9 @@
+import { requireGatewayApiKey } from "./gatewayApiKey";
 import {
   getProviderCredentials,
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
 } from "../auth/accountSelection";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getCombos } from "@/lib/db/repos/combosRepo";
@@ -47,17 +47,8 @@ export async function handleFetch(request: Request): Promise<Response> {
   }
 
   const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    }
-    const valid: boolean = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-    }
-  }
+  const authError = await requireGatewayApiKey(apiKey);
+  if (authError) return authError;
 
   if (!providerInput || typeof providerInput !== "string") {
     log.warn("FETCH", "Missing provider/model");
@@ -217,7 +208,6 @@ async function handleSingleProviderFetch(body: Record<string, unknown>, provider
           accessToken: newCreds.accessToken as string | undefined,
           refreshToken: newCreds.refreshToken as string | undefined,
           providerSpecificData: newCreds.providerSpecificData as Record<string, unknown> | undefined,
-          testStatus: "active"
         });
       }
     } as unknown as Parameters<typeof handleFetchCore>[0]) as unknown as Record<string, unknown>;

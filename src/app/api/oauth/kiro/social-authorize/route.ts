@@ -8,8 +8,8 @@ import { KiroService } from "@/lib/oauth/services/kiro";
  * Uses kiro:// custom protocol as required by AWS Cognito
  */
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider"); // "google" or "github"
 
     if (!provider || !["google", "github"].includes(provider)) {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { ChatAttachment } from "../types";
 import type { QueuedMessage } from "./useSendMessageTypes";
+import { createId } from "../chatFormatUtils";
 
 export interface UseSendMessageQueueArgs {
   isSending: boolean;
@@ -34,13 +35,11 @@ export function useSendMessageQueue({
   setAttachments,
   abortRef,
 }: UseSendMessageQueueArgs): UseSendMessageQueueReturn {
+  // The ref is what the send loop reads mid-flight, when a re-render has not
+  // happened yet; every mutation below writes both, so nothing syncs them after.
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const queuedMessagesRef = useRef<QueuedMessage[]>([]);
   const queuedReplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    queuedMessagesRef.current = queuedMessages;
-  }, [queuedMessages]);
 
   const canQueue =
     isSending && (draft.trim().length > 0 || attachments.length > 0);
@@ -53,7 +52,7 @@ export function useSendMessageQueue({
   const queueMessage = useCallback(() => {
     if (!canQueue) return;
     const text = draft.trim();
-    const item: QueuedMessage = { id: crypto.randomUUID(), text, attachments };
+    const item: QueuedMessage = { id: createId(), text, attachments };
     const next = [...queuedMessagesRef.current, item];
     queuedMessagesRef.current = next;
     setQueuedMessages(next);

@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { AlertCircle, Check, CheckCircle2, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { PASTE_TOKEN_PROVIDERS, type ProviderInfo } from "./useOAuthFlow";

@@ -2,12 +2,7 @@
 import { REGISTRY } from "@/shared/llm-catalog";
 import { RISK_NOTICE } from "@/shared/constants/providersDisplay";
 
-const MEDIA_ENTRY_KEYS = [
-  "serviceKinds", "ttsConfig", "sttConfig", "embeddingConfig",
-  "imageConfig", "imageToTextConfig", "videoConfig", "musicConfig",
-  "searchViaChat", "searchConfig", "fetchConfig",
-  "modelsFetcher", "mediaPriority", "hiddenKinds",
-] as const;
+import { MEDIA_ENTRY_KEYS, type RegistryEntry } from "@/shared/llm-catalog";
 
 export const PROVIDER_CATEGORIES = ["free", "freeTier", "oauth", "apikey", "webCookie"] as const;
 export type ProviderCategory = typeof PROVIDER_CATEGORIES[number];
@@ -31,7 +26,7 @@ export interface ProviderCatalogEntry extends Record<string, unknown> {
   serviceKinds?: string[];
 }
 
-type RegistryEntry = Record<string, unknown>;
+// The registry's own contract, so a field renamed there breaks here loudly.
 
 function isProviderCategory(value: unknown): value is ProviderCategory {
   return typeof value === "string" && (PROVIDER_CATEGORIES as readonly string[]).includes(value);
@@ -39,8 +34,9 @@ function isProviderCategory(value: unknown): value is ProviderCategory {
 
 // Build provider UI object from registry entry
 function buildProviderEntry(r: RegistryEntry): ProviderCatalogEntry {
+  // Media config sits at the entry root; the nested `media` block the old
+  // JSDoc described was never used by any entry.
   const mediaFields: Record<string, unknown> = {};
-  if (r.media) Object.assign(mediaFields, r.media as Record<string, unknown>);
   for (const k of MEDIA_ENTRY_KEYS) {
     if (r[k] !== undefined) mediaFields[k] = r[k];
   }
@@ -110,7 +106,9 @@ interface MediaProviderKind {
 export const MEDIA_PROVIDER_KINDS: readonly MediaProviderKind[] = [
   { id: "embedding",   label: "Embedding",      icon: "data_array",        endpoint: { method: "POST", path: "/v1/embeddings" } },
   { id: "image",       label: "Text to Image",  icon: "brush",             endpoint: { method: "POST", path: "/v1/images/generations" } },
-  { id: "imageToText", label: "Image to Text",  icon: "image_search",      endpoint: { method: "POST", path: "/v1/images/understanding" } },
+  // Vision models read an image from a chat message; there is no separate
+  // understanding endpoint, and /v1/models/info has always said so.
+  { id: "imageToText", label: "Image to Text",  icon: "image_search",      endpoint: { method: "POST", path: "/v1/chat/completions" } },
   { id: "tts",         label: "Text To Speech", icon: "record_voice_over", endpoint: { method: "POST", path: "/v1/audio/speech" } },
   { id: "stt",         label: "Speech To Text", icon: "mic",               endpoint: { method: "POST", path: "/v1/audio/transcriptions" } },
   { id: "webSearch",   label: "Web Search",     icon: "travel_explore",    endpoint: { method: "POST", path: "/v1/search" } },
@@ -299,9 +297,9 @@ export function getProvidersByKind(kind: string): ProviderCatalogEntry[] {
 
 // Derive từ registry features flags
 export const USAGE_SUPPORTED_PROVIDERS: string[] = REGISTRY
-  .filter((r: Record<string, unknown>) => (r.features as Record<string, unknown>)?.usage)
-  .map((r: Record<string, unknown>) => r.id as string);
+  .filter((r) => (r.features as Record<string, unknown>)?.usage)
+  .map((r) => r.id);
 
 export const USAGE_APIKEY_PROVIDERS: string[] = REGISTRY
-  .filter((r: Record<string, unknown>) => (r.features as Record<string, unknown>)?.usageApikey)
-  .map((r: Record<string, unknown>) => r.id as string);
+  .filter((r) => (r.features as Record<string, unknown>)?.usageApikey)
+  .map((r) => r.id);

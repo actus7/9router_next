@@ -20,6 +20,15 @@ async function getUserPricing(): Promise<Record<string, Record<string, unknown>>
   return await pricingKv.getAll() as Record<string, Record<string, unknown>>;
 }
 
+/**
+ * The operator's price overrides, keyed exactly as `getPricingForModel` reads
+ * them. Exposed so a caller resolving many models at once does one read
+ * instead of one per model, and still prices them the way billing does.
+ */
+export async function getPricingOverrides(): Promise<Record<string, Record<string, unknown>>> {
+  return await getUserPricing();
+}
+
 export async function getPricing(): Promise<Record<string, Record<string, unknown>>> {
   const now: number = Date.now();
   if (cache.value && cache.expiresAt > now) return cache.value;

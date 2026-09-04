@@ -8,5 +8,5 @@ const resolveDisplay = (d: Record<string, unknown>): Record<string, unknown> =>
   d.deprecationNotice === "RISK_NOTICE" ? { ...d, deprecationNotice: RISK_NOTICE } : d;
 
 void (Object.fromEntries(
-  REGISTRY.filter((r: Record<string, unknown>) => r.display).map((r: Record<string, unknown>) => [r.id, resolveDisplay(r.display as Record<string, unknown>)]),
+  REGISTRY.filter((r) => r.display).map((r) => [r.id, resolveDisplay(r.display as Record<string, unknown>)]),
 ));

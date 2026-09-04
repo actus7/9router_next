@@ -61,7 +61,7 @@ export default function CardAddApiKeyModal({ isOpen, provider, providerName, pro
         apiKey: formData.apiKey,
         priority: formData.priority,
         proxyPoolId: formData.proxyPoolId === NONE ? null : formData.proxyPoolId,
-        testStatus: isValid ? "active" : "unknown",
+        validated: isValid,
       });
     } finally { setSaving(false); }
   };

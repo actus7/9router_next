@@ -83,7 +83,7 @@ export { extractCodexAccountInfo };
  * Get provider handler
  */
 export function getProvider(name: string): ProviderHandler {
-  // Legacy kimi-coding â†’ kimi (dual-auth merge)
+  // Legacy kimi-coding → kimi (dual-auth merge)
   const key: string = name === "kimi-coding" ? "kimi" : name;
   const provider: ProviderHandler | undefined = PROVIDERS[key];
   if (!provider) {

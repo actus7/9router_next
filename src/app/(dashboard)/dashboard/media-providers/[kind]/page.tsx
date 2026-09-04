@@ -23,7 +23,7 @@ async function MediaProviderKindContent() {
   );
 }
 
-export default async function MediaProviderKindPage({ params }: { params: Promise<{ kind: string }> }) {
+export default async function MediaProviderKindPage({ params }: PageProps<"/dashboard/media-providers/[kind]">) {
   await assertRequestRuntime();
   const { kind } = await params;
   // webSearch and webFetch share the combined /web listing. Redirecting here

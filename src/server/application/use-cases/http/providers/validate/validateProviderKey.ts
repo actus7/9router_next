@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import type { ProbeResult } from "@/server/llm-gateway/probe/types";
 import { getDefaultModel, PROVIDERS, resolveQoderCredentials, resolveQoderModels } from "@/server/llm-gateway/catalog";
 import { openaiToCommandCodeRequest } from "@/server/llm-gateway/translator";
 import { providerValidateFetch } from "./providerValidateFetch";
@@ -13,20 +13,20 @@ export async function validateProviderKey(
   provider: string,
   apiKey: string,
   providerSpecificData: Record<string, unknown> | undefined,
-): Promise<{ isValid: boolean; error: string | null } | NextResponse> {
+): Promise<ProbeResult> {
   switch (provider) {
     case "openai": {
       const openaiRes = await providerValidateFetch("https://api.openai.com/v1/models", {
         headers: { "Authorization": `Bearer ${apiKey}` },
       }, { providerId: provider });
-      return { isValid: openaiRes.ok, error: null };
+      return { ok: openaiRes.ok, error: null };
     }
 
     case "vercel-ai-gateway": {
       const vercelAiGatewayRes = await providerValidateFetch("https://ai-gateway.vercel.sh/v1/models", {
         headers: { "Authorization": `Bearer ${apiKey}` },
       }, { providerId: provider });
-      return { isValid: vercelAiGatewayRes.ok, error: null };
+      return { ok: vercelAiGatewayRes.ok, error: null };
     }
 
     case "anthropic": {
@@ -43,19 +43,19 @@ export async function validateProviderKey(
           messages: [{ role: "user", content: "test" }],
         }),
       }, { providerId: provider });
-      return { isValid: anthropicRes.status !== 401, error: null };
+      return { ok: anthropicRes.status !== 401, error: null };
     }
 
     case "gemini": {
       const geminiRes = await providerValidateFetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`, {}, { providerId: provider });
-      return { isValid: geminiRes.ok, error: null };
+      return { ok: geminiRes.ok, error: null };
     }
 
     case "openrouter": {
       const openrouterRes = await providerValidateFetch("https://openrouter.ai/api/v1/models", {
         headers: { "Authorization": `Bearer ${apiKey}` },
       }, { providerId: provider });
-      return { isValid: openrouterRes.ok, error: null };
+      return { ok: openrouterRes.ok, error: null };
     }
 
     case "glm":
@@ -67,7 +67,7 @@ export async function validateProviderKey(
     case "alims-intl":
     case "alicode":
     case "agentrouter":
-      return { isValid: await validateGlmFamily(provider, apiKey), error: null };
+      return validateGlmFamily(provider, apiKey);
 
     case "volcengine-ark":
     case "byteplus": {
@@ -83,7 +83,7 @@ export async function validateProviderKey(
           messages: [{ role: "user", content: "test" }],
         }),
       }, { providerId: provider });
-      return { isValid: res.status !== 401 && res.status !== 403, error: null };
+      return { ok: res.status !== 401 && res.status !== 403, error: null };
     }
 
     case "deepseek":
@@ -105,7 +105,7 @@ export async function validateProviderKey(
     case "xiaomi-mimo":
     case "xiaomi-tokenplan":
     case "nvidia":
-      return { isValid: await validateByConfigUrl(provider, apiKey, providerSpecificData), error: null };
+      return validateByConfigUrl(provider, apiKey, providerSpecificData);
 
     case "opencode-go": {
       const res = await providerValidateFetch("https://opencode.ai/zen/go/v1/chat/completions", {
@@ -118,7 +118,7 @@ export async function validateProviderKey(
           stream: false,
         }),
       }, { providerId: provider });
-      return { isValid: res.status !== 401 && res.status !== 403, error: null };
+      return { ok: res.status !== 401 && res.status !== 403, error: null };
     }
 
     case "commandcode": {
@@ -139,14 +139,7 @@ export async function validateProviderKey(
         },
         body: JSON.stringify(payload),
       }, { providerId: provider });
-      return { isValid: res.status !== 401 && res.status !== 403, error: null };
-    }
-
-    case "deepgram": {
-      const res = await providerValidateFetch("https://api.deepgram.com/v1/projects", {
-        headers: { "Authorization": `Token ${apiKey}` },
-      }, { providerId: provider });
-      return { isValid: res.ok, error: null };
+      return { ok: res.status !== 401 && res.status !== 403, error: null };
     }
 
     case "blackbox": {
@@ -163,12 +156,12 @@ export async function validateProviderKey(
         }),
       }, { providerId: provider });
       // Returns 401 for invalid key, 200 for valid, 400 for malformed
-      return { isValid: res.status === 200 || res.status === 400, error: null };
+      return { ok: res.status === 200 || res.status === 400, error: null };
     }
 
     case "vertex":
     case "vertex-partner":
-      return { isValid: await validateVertexKey(apiKey), error: null };
+      return validateVertexKey(apiKey);
 
     case "qoder": {
       // PAT (pt-...) needs the job-token exchange before it can sign
@@ -176,16 +169,14 @@ export async function validateProviderKey(
       try {
         const resolved = await resolveQoderCredentials({ apiKey, providerSpecificData }, null, AbortSignal.timeout(8000));
         const result = await resolveQoderModels(resolved, { forceRefresh: true });
-        return { isValid: !!result?.models?.length, error: null };
+        return { ok: !!result?.models?.length, error: null };
       } catch (err) {
-        return { isValid: false, error: (err as Error).message };
+        return { ok: false, error: (err as Error).message };
       }
     }
 
     default: {
-      const generic = await validateGenericOpenAiCompatible(provider, apiKey);
-      if (generic instanceof NextResponse) return generic;
-      return { isValid: generic, error: null };
+      return validateGenericOpenAiCompatible(provider, apiKey);
     }
   }
 }

@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
 
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
         cookie: cookieToSave,
         expireTime: refreshedKey.expireTime,
       },
-      testStatus: "active",
+      testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
       isActive: true,
     });
 

@@ -1,108 +1,130 @@
-import { NextResponse } from "next/server";
 import { getDefaultModel, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from "@/server/llm-gateway/catalog";
+import {
+  CREDENTIAL_REJECTED_STATUSES,
+  probeFailed,
+  probeOk,
+  verdictFromStatus,
+  type ProbeResult,
+} from "@/server/llm-gateway/probe/types";
 import { providerValidateFetch } from "./providerValidateFetch";
 
-export async function validateGlmFamily(provider: string, apiKey: string): Promise<boolean> {
-  // Use baseUrl from PROVIDERS (DRY); separate openai-format vs claude-format flow
+const REJECTED_KEY = "Invalid API key";
+
+export async function validateGlmFamily(provider: string, apiKey: string): Promise<ProbeResult> {
+  // baseUrl comes from PROVIDERS; only the wire format differs per provider.
   const cfg = PROVIDERS[provider];
   const isOpenAiFormat = provider === "glm-cn" || provider === "alicode" || provider === "alicode-intl" || provider === "alims-intl";
 
   if (isOpenAiFormat) {
-    const testModel = getDefaultModel(provider);
     const res = await providerValidateFetch(cfg.baseUrl as string, {
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ model: testModel, max_tokens: 1, messages: [{ role: "user", content: "test" }] }),
+      body: JSON.stringify({ model: getDefaultModel(provider), max_tokens: 1, messages: [{ role: "user", content: "test" }] }),
     }, { providerId: provider });
-    return res.status !== 401 && res.status !== 403;
-  } else {
-    const testModel = getDefaultModel(provider) || "claude-sonnet-4-20250514";
-    const res = await providerValidateFetch(cfg.baseUrl as string, {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-        ...(cfg.headers || {}),
-      },
-      body: JSON.stringify({ model: testModel, max_tokens: 1, messages: [{ role: "user", content: "test" }] }),
-    }, { providerId: provider });
-    // 400 = model resolution error but auth passed (e.g. agentrouter "no available channel")
-    return res.status !== 401 && res.status !== 403;
+    return verdictFromStatus(res.status, REJECTED_KEY);
   }
+
+  const res = await providerValidateFetch(cfg.baseUrl as string, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      ...(cfg.headers || {}),
+    },
+    body: JSON.stringify({
+      model: getDefaultModel(provider) || "claude-sonnet-4-20250514",
+      max_tokens: 1,
+      messages: [{ role: "user", content: "test" }],
+    }),
+  }, { providerId: provider });
+  // A 400 is a model resolution error with auth already passed, such as
+  // agentrouter answering "no available channel".
+  return verdictFromStatus(res.status, REJECTED_KEY);
 }
 
-export async function validateByConfigUrl(provider: string, apiKey: string, providerSpecificData: Record<string, unknown> | undefined): Promise<boolean> {
+export async function validateByConfigUrl(
+  provider: string,
+  apiKey: string,
+  providerSpecificData: Record<string, unknown> | undefined,
+): Promise<ProbeResult> {
   const endpoints: Record<string, string> = {
     ...Object.fromEntries(
-      Object.entries(PROVIDERS).filter(([, t]) => t.validateUrl).map(([id, t]) => [id, t.validateUrl])
+      Object.entries(PROVIDERS).filter(([, t]) => t.validateUrl).map(([id, t]) => [id, t.validateUrl]),
     ),
-    // dynamic URLs (depend on providerSpecificData) — kept inline
+    // Dynamic URL: depends on providerSpecificData, so it cannot live in the registry.
     "xiaomi-tokenplan": `${resolveXiaomiTokenplanBaseUrl({ providerSpecificData })}/models`,
   };
   const headers: Record<string, string> = {};
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
   const res = await providerValidateFetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) }, { providerId: provider });
-  // xai returns 400 for bad key, 403 for valid-but-no-credit. Other providers use 401.
+
+  // Two providers answer off the common pattern and need their own reading.
   if (provider === "xai") {
-    return res.status === 200 || res.status === 403;
-  } else if (provider === "xiaomi-tokenplan") {
-    // /models returns 403 for valid keys lacking list permission; only 401 means invalid
-    return res.status !== 401;
-  } else {
-    return res.ok;
+    // 400 means a bad key; 403 means a valid key with no credit.
+    const accepted = res.status === 200 || res.status === 403;
+    return accepted ? probeOk({ status: res.status }) : probeFailed(REJECTED_KEY, { status: res.status });
   }
+  if (provider === "xiaomi-tokenplan") {
+    // /models answers 403 for a valid key without list permission.
+    return res.status === 401
+      ? probeFailed(REJECTED_KEY, { status: res.status })
+      : probeOk({ status: res.status });
+  }
+  return res.ok ? probeOk({ status: res.status }) : probeFailed(REJECTED_KEY, { status: res.status });
 }
 
-export async function validateVertexKey(apiKey: string): Promise<boolean> {
-  // Raw key: probe global endpoint (always 404 for unknown model, never 401)
-  // SA JSON: attempt token mint via JWT assertion
-  const saJson = (() => { try { const p = JSON.parse(apiKey); return p.type === "service_account" ? p : null; } catch { return null; } })();
+export async function validateVertexKey(apiKey: string): Promise<ProbeResult> {
+  const saJson = (() => {
+    try {
+      const parsed = JSON.parse(apiKey);
+      return parsed.type === "service_account" ? parsed : null;
+    } catch {
+      return null;
+    }
+  })();
+
   if (saJson) {
-    // Validate SA JSON has required fields
-    return !!(saJson.client_email && saJson.private_key && saJson.project_id);
-  } else {
-    // Raw key: probe Vertex — 404 means key is valid (model just doesn't exist), 401 means invalid key
-    const probeRes = await providerValidateFetch(
-      `https://aiplatform.googleapis.com/v1/publishers/google/models/__probe__:generateContent?key=${apiKey}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
-      { providerId: "vertex" },
-    );
-    return probeRes.status !== 401 && probeRes.status !== 403;
+    // A service-account JSON is checked for shape only: minting a token here
+    // would cost a round trip for no extra certainty at save time.
+    const complete = Boolean(saJson.client_email && saJson.private_key && saJson.project_id);
+    return complete ? probeOk() : probeFailed("Service account JSON is missing required fields");
   }
+
+  // Raw key: a 404 for the deliberately unknown model proves the key works.
+  const res = await providerValidateFetch(
+    `https://aiplatform.googleapis.com/v1/publishers/google/models/__probe__:generateContent?key=${apiKey}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+    { providerId: "vertex" },
+  );
+  return verdictFromStatus(res.status, REJECTED_KEY);
 }
 
-export async function validateGenericOpenAiCompatible(provider: string, apiKey: string): Promise<boolean | NextResponse> {
-  // Generic probe for OpenAI-compatible providers (config-driven from PROVIDERS)
+export async function validateGenericOpenAiCompatible(provider: string, apiKey: string): Promise<ProbeResult> {
   const cfg = PROVIDERS[provider] as Record<string, unknown> | undefined;
   if (!cfg || cfg.format !== "openai" || !cfg.baseUrl) {
-    return NextResponse.json({ error: "Provider validation not supported" }, { status: 400 });
+    return probeFailed("Provider validation not supported", { configError: "missing-config" });
   }
-  if (cfg.noAuth) {
-    return true;
-  }
-  // Build auth headers based on cfg.authHeader (default: bearer)
+  if (cfg.noAuth) return probeOk();
+
   const headers: Record<string, string> = { "Content-Type": "application/json", ...((cfg.headers as Record<string, string>) || {}) };
   if (cfg.authHeader === "x-api-key") headers["X-API-Key"] = apiKey;
   else headers["Authorization"] = `Bearer ${apiKey}`;
-  // Try /models first (fast GET), fallback to chat probe on ambiguous response
+
+  // A GET on /models is cheaper, so try it first and only fall back to a
+  // minimal chat call when the answer is inconclusive.
   const modelsUrl = (cfg.baseUrl as string).replace(/\/chat\/completions$/, "/models").replace(/\/chatbot$/, "/models");
-  let probeOk: boolean | null = null;
   try {
-    const probeRes = await providerValidateFetch(modelsUrl, { headers, signal: AbortSignal.timeout(8000) }, { providerId: provider });
-    if (probeRes.status === 401 || probeRes.status === 403) probeOk = false;
-    else if (probeRes.ok) probeOk = true;
-  } catch { /* fallback to chat */ }
-  if (probeOk !== null) {
-    return probeOk;
-  }
-  // Fallback: minimal chat probe
-  const defaultModel = getDefaultModel(provider) || "test";
+    const res = await providerValidateFetch(modelsUrl, { headers, signal: AbortSignal.timeout(8000) }, { providerId: provider });
+    if (CREDENTIAL_REJECTED_STATUSES.has(res.status)) return probeFailed(REJECTED_KEY, { status: res.status });
+    if (res.ok) return probeOk({ status: res.status });
+  } catch { /* inconclusive: fall through to the chat probe */ }
+
   const chatRes = await providerValidateFetch(cfg.baseUrl as string, {
     method: "POST",
     headers,
-    body: JSON.stringify({ model: defaultModel, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
+    body: JSON.stringify({ model: getDefaultModel(provider) || "test", messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
     signal: AbortSignal.timeout(10000),
   }, { providerId: provider });
-  return chatRes.status !== 401 && chatRes.status !== 403;
+  return verdictFromStatus(chatRes.status, REJECTED_KEY);
 }

@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Select from "@/shared/components/Select";
@@ -52,7 +52,7 @@ export default function EditConnectionModal({ isOpen, connection, onSave, onClos
           providerRegions: f.providerRegions, regionData: f.buildRegionSpecificData(),
           setValidationResult: f.setValidationResult, setValidating: f.setValidating,
         });
-        if (isValid) { updates.testStatus = "active"; updates.lastError = null; updates.lastErrorAt = null; }
+        updates.validated = isValid;
       }
       if (f.isAzure) updates.providerSpecificData = { azureEndpoint: f.azureData.azureEndpoint, apiVersion: f.azureData.apiVersion, deployment: f.azureData.deployment, organization: f.azureData.organization };
       if (f.isCloudflareAi) updates.providerSpecificData = { accountId: f.cloudflareData.accountId };

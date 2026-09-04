@@ -1,3 +1,4 @@
+import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
 import { normalizeKiroExternalIdpAuth } from "@/lib/oauth/kiroExternalIdp";
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
       expiresAt: tokenData.expiresAt,
       email: tokenData.email ?? undefined,
       providerSpecificData: tokenData.providerSpecificData,
-      testStatus: "active",
+      testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
     });
 
     return NextResponse.json({

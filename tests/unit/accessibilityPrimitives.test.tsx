@@ -3,8 +3,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { axe, toHaveNoViolations } from "jest-axe";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FormInput } from "@/components/ui/form-input";
-import { DynamicMedia, isSupportedMediaSource } from "@/components/ui/dynamic-media";
+import { FormInput } from "@/shared/components/FormInput";
+import { DynamicMedia, isSupportedMediaSource } from "@/shared/components/DynamicMedia";
 import { ConfirmModal } from "@/shared/components/Modal";
 
 expect.extend(toHaveNoViolations);

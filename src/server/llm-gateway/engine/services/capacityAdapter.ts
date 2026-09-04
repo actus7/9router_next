@@ -164,7 +164,9 @@ function stripHistoryForContext(body: Record<string, unknown>, contextWindow: nu
 
 // Wrap a handleSingleModel callback so calls to a capacity-adapter model strip
 // history to fit its context window first. No-op passthrough when the pool is empty.
-export function withCapacityAdapterStripping(handleSingleModel: (body: Record<string, unknown>, modelStr: string, ...rest: unknown[]) => unknown, adapterModels: string[]): (body: Record<string, unknown>, modelStr: string, ...rest: unknown[]) => unknown {
+// Generic in the wrapped handler's return type: returning `unknown` forced
+// every caller to cast the wrapper back to the shape it already had.
+export function withCapacityAdapterStripping<R>(handleSingleModel: (body: Record<string, unknown>, modelStr: string, ...rest: unknown[]) => R, adapterModels: string[]): (body: Record<string, unknown>, modelStr: string, ...rest: unknown[]) => R {
   const adapterSet = new Set(adapterModels);
   if (adapterSet.size === 0) return handleSingleModel;
   return (body: Record<string, unknown>, modelStr: string, ...rest: unknown[]) => {

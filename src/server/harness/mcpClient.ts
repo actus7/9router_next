@@ -1,11 +1,19 @@
 import "server-only";
 import { lookup } from "node:dns/promises";
-import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
+import {
+  Agent,
+  fetch as undiciFetch,
+  type Dispatcher,
+  type Response as UndiciResponse,
+} from "undici";
 import { assertPublicUrl, isBlockedIpAddress } from "@/shared/utils/ssrfGuard";
 
 const MCP_PROTOCOL_VERSION = "2025-06-18";
 const MCP_TIMEOUT_MS = 12_000;
 const MAX_TOOLS = 64;
+// A remote MCP server is untrusted: without a cap its response body is read
+// into memory in full before any of the per-field limits below can apply.
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 export interface DiscoveredMcpTool {
   name: string;
@@ -53,6 +61,45 @@ async function resolvePinnedDispatcher(url: string): Promise<Dispatcher> {
       },
     },
   });
+}
+
+/** Reads a response body, aborting past `MAX_RESPONSE_BYTES` instead of buffering it all. */
+async function readCappedText(response: UndiciResponse): Promise<string> {
+  if (!response.body) return response.text();
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESPONSE_BYTES) {
+        throw new Error(
+          `Resposta MCP excede ${MAX_RESPONSE_BYTES} bytes`,
+        );
+      }
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  const joined = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    joined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8", { fatal: false }).decode(joined);
+}
+
+/**
+ * Each operation pins its own Agent, so each operation owns a connection pool
+ * that nothing else will ever reuse. Closing it is what keeps a discover/call
+ * loop from accumulating sockets for the lifetime of the process.
+ */
+async function closeDispatcher(dispatcher: Dispatcher): Promise<void> {
+  await dispatcher.close().catch(() => undefined);
 }
 
 function parseRpc(text: string, expectedId: number): McpRpcResponse | null {
@@ -110,7 +157,7 @@ async function rpc(
     }
     return {
       payload: parseRpc(
-        await response.text(),
+        await readCappedText(response),
         typeof body.id === "number" ? body.id : -1,
       ),
       sessionId: response.headers.get("mcp-session-id") ?? sessionId,
@@ -123,22 +170,34 @@ async function rpc(
 async function openSession(url: string, authToken?: string): Promise<{ sessionId: string | undefined; dispatcher: Dispatcher }> {
   assertSafeMcpUrl(url);
   const dispatcher = await resolvePinnedDispatcher(url);
-  const initialized = await rpc(url, {
-    jsonrpc: "2.0",
-    id: 1,
-    method: "initialize",
-    params: {
-      protocolVersion: MCP_PROTOCOL_VERSION,
-      capabilities: {},
-      clientInfo: { name: "modelhub-harness", version: "1" },
-    },
-  }, dispatcher, undefined, authToken);
-  if (!initialized.payload?.result)
-    throw new Error(
-      initialized.payload?.error?.message
-        ? String(initialized.payload.error.message)
-        : "Resposta MCP inválida no initialize",
+  let initialized;
+  try {
+    initialized = await rpc(
+      url,
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: MCP_PROTOCOL_VERSION,
+          capabilities: {},
+          clientInfo: { name: "modelhub-harness", version: "1" },
+        },
+      },
+      dispatcher,
+      undefined,
+      authToken,
     );
+    if (!initialized.payload?.result)
+      throw new Error(
+        initialized.payload?.error?.message
+          ? String(initialized.payload.error.message)
+          : "Resposta MCP inválida no initialize",
+      );
+  } catch (error) {
+    await closeDispatcher(dispatcher);
+    throw error;
+  }
   await rpc(
     url,
     { jsonrpc: "2.0", method: "notifications/initialized", params: {} },
@@ -182,20 +241,24 @@ export async function discoverMcpTools(
   authToken?: string,
 ): Promise<DiscoveredMcpTool[]> {
   const { sessionId, dispatcher } = await openSession(url, authToken);
-  const listed = await rpc(
-    url,
-    { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
-    dispatcher,
-    sessionId,
-    authToken,
-  );
-  if (!listed.payload?.result)
-    throw new Error(
-      listed.payload?.error?.message
-        ? String(listed.payload.error.message)
-        : "Resposta MCP inválida no tools/list",
+  try {
+    const listed = await rpc(
+      url,
+      { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
+      dispatcher,
+      sessionId,
+      authToken,
     );
-  return normalizeTools(listed.payload.result.tools);
+    if (!listed.payload?.result)
+      throw new Error(
+        listed.payload?.error?.message
+          ? String(listed.payload.error.message)
+          : "Resposta MCP inválida no tools/list",
+      );
+    return normalizeTools(listed.payload.result.tools);
+  } finally {
+    await closeDispatcher(dispatcher);
+  }
 }
 
 export async function callMcpTool(
@@ -205,23 +268,27 @@ export async function callMcpTool(
   authToken?: string,
 ): Promise<unknown> {
   const { sessionId, dispatcher } = await openSession(url, authToken);
-  const result = await rpc(
-    url,
-    {
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: toolName, arguments: args },
-    },
-    dispatcher,
-    sessionId,
-    authToken,
-  );
-  if (!result.payload?.result)
-    throw new Error(
-      result.payload?.error?.message
-        ? String(result.payload.error.message)
-        : "Resposta MCP inválida no tools/call",
+  try {
+    const result = await rpc(
+      url,
+      {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: toolName, arguments: args },
+      },
+      dispatcher,
+      sessionId,
+      authToken,
     );
-  return result.payload.result;
+    if (!result.payload?.result)
+      throw new Error(
+        result.payload?.error?.message
+          ? String(result.payload.error.message)
+          : "Resposta MCP inválida no tools/call",
+      );
+    return result.payload.result;
+  } finally {
+    await closeDispatcher(dispatcher);
+  }
 }

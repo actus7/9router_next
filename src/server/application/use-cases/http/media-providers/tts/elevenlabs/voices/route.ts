@@ -10,8 +10,8 @@ const langNames = new Intl.DisplayNames(["en"], { type: "language" });
  * Uses direct DB read (no mutex) to avoid blocking on concurrent TTS requests
  */
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const langFilter = searchParams.get("lang");
 
     // Direct DB read - bypass auth mutex used for TTS inference

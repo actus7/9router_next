@@ -9,7 +9,7 @@ interface CardModelRowProps {
   fullModel: string;
   copied?: string;
   onCopy: (text: string, id: string) => void;
-  testStatus?: "ok" | "error";
+  probeStatus?: "ok" | "error";
   isCustom?: boolean;
   isFree?: boolean;
   onDeleteAlias?: () => void;
@@ -17,16 +17,16 @@ interface CardModelRowProps {
   isTesting?: boolean;
 }
 
-export default function CardModelRow({ model, fullModel, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting }: CardModelRowProps) {
-  const borderColor = testStatus === "ok" ? "border-success-border" : testStatus === "error" ? "border-destructive-border" : "border-border";
-  const statusTint = testStatus === "ok" ? "bg-success/5" : testStatus === "error" ? "bg-destructive/5" : "";
-  const iconColorClass = testStatus === "ok" ? "text-success" : testStatus === "error" ? "text-destructive" : "text-text-muted";
+export default function CardModelRow({ model, fullModel, copied, onCopy, probeStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting }: CardModelRowProps) {
+  const borderColor = probeStatus === "ok" ? "border-success-border" : probeStatus === "error" ? "border-destructive-border" : "border-border";
+  const statusTint = probeStatus === "ok" ? "bg-success/5" : probeStatus === "error" ? "bg-destructive/5" : "";
+  const iconColorClass = probeStatus === "ok" ? "text-success" : probeStatus === "error" ? "text-destructive" : "text-text-muted";
 
   return (
     <div className={`group px-3 py-2 rounded-lg border ${borderColor} ${statusTint} hover:bg-sidebar/50`}>
       <div className="flex items-center gap-2">
         <span className={`flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/60 ${iconColorClass}`}>
-          {testStatus === "ok" ? <CheckCircle2 className="size-3.5" /> : testStatus === "error" ? <X className="size-3.5" /> : <Bot className="size-3.5" />}
+          {probeStatus === "ok" ? <CheckCircle2 className="size-3.5" /> : probeStatus === "error" ? <X className="size-3.5" /> : <Bot className="size-3.5" />}
         </span>
         <div className="flex flex-col gap-1">
           <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>

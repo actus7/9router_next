@@ -1,5 +1,6 @@
 "use client";
 
+import { probeModel } from "../probeModel";
 import { useState, useCallback, useEffect } from "react";
 import { Card, Modal } from "@/shared/components";
 import { Button } from "@/components/ui/button";
@@ -76,10 +77,9 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     if (testingModelId) return;
     setTestingModelId(modelId);
     try {
-      const res = await fetch("/api/models/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: `${providerAlias}/${modelId}`, kind: kindFilter }) });
-      const data = await res.json();
-      setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
-      setTestError(data.ok ? "" : (data.error || "Model not reachable"));
+      const result = await probeModel(`${providerAlias}/${modelId}`, { kind: kindFilter });
+      setModelTestResults((prev) => ({ ...prev, [modelId]: result.status }));
+      setTestError(result.status === "ok" ? "" : (result.error || "Model not reachable"));
     } catch { setModelTestResults((prev) => ({ ...prev, [modelId]: "error" })); setTestError("Network error"); }
     finally { setTestingModelId(null); }
   };
@@ -102,10 +102,10 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
           {builtInModels.map((model) => {
             const fullModel = `${providerAlias}/${model.id}`;
             const existingAlias = Object.entries(modelAliases).find(([, m]) => m === fullModel)?.[0];
-            return <CardModelRow key={model.id} model={model} fullModel={fullModel} copied={copied ?? undefined} onCopy={copy} onDeleteAlias={() => handleDeleteAlias(existingAlias!)} testStatus={modelTestResults[model.id]} onTest={() => handleTestModel(model.id)} isTesting={testingModelId === model.id} isFree={model.isFree} />;
+            return <CardModelRow key={model.id} model={model} fullModel={fullModel} copied={copied ?? undefined} onCopy={copy} onDeleteAlias={() => handleDeleteAlias(existingAlias!)} probeStatus={modelTestResults[model.id]} onTest={() => handleTestModel(model.id)} isTesting={testingModelId === model.id} isFree={model.isFree} />;
           })}
           {myCustomModels.map((model) => (
-            <CardModelRow key={`${model.id}-${model.type}`} model={{ id: model.id, name: model.name }} fullModel={`${providerAlias}/${model.id}`} copied={copied ?? undefined} onCopy={copy} onDeleteAlias={() => handleDeleteCustomModel(model.id)} testStatus={modelTestResults[model.id]} onTest={() => handleTestModel(model.id)} isTesting={testingModelId === model.id} isCustom />
+            <CardModelRow key={`${model.id}-${model.type}`} model={{ id: model.id, name: model.name }} fullModel={`${providerAlias}/${model.id}`} copied={copied ?? undefined} onCopy={copy} onDeleteAlias={() => handleDeleteCustomModel(model.id)} probeStatus={modelTestResults[model.id]} onTest={() => handleTestModel(model.id)} isTesting={testingModelId === model.id} isCustom />
           ))}
           {supportsDiscovery ? (
             <Button variant="outline" size="sm" onClick={openDiscovery} className="border-dashed border-black/15 dark:border-white/15 text-xs">

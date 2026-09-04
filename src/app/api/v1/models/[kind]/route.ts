@@ -26,7 +26,7 @@ export async function OPTIONS() {
  * GET /v1/models/{kind} - OpenAI-compatible models list filtered by capability.
  * Supported kinds: image, tts, stt, embedding, image-to-text, web, video.
  */
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ kind: string }> }) {
+export async function GET(_request: NextRequest, { params }: RouteContext<"/api/v1/models/[kind]">) {
   try {
     const { kind } = await params;
     const kindFilter = KIND_SLUG_MAP[kind];

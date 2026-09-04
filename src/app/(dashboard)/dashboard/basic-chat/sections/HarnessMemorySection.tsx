@@ -8,9 +8,43 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { MemoryEntryView } from "@/shared/harness/agentMemory";
+import type { HarnessPendingWrite } from "@/shared/harness/pendingWrites";
 import type { HarnessEvent } from "../types";
 import { eventLabel } from "../runJournalHelpers";
 import { useAgentMemory } from "../hooks/useAgentMemory";
+
+function pendingCopy(item: HarnessPendingWrite): {
+  title: string;
+  detail: string;
+  approveLabel: string;
+} {
+  if (item.kind === "plugin" && item.action === "toggle") {
+    return {
+      title: `${item.payload.enabled ? "Ativar" : "Desativar"} plugin`,
+      detail: item.payload.pluginId,
+      approveLabel: "Aplicar",
+    };
+  }
+  if (item.kind === "plugin" && item.action === "propose") {
+    return {
+      title: item.payload.title,
+      detail: `${item.payload.description}\nTool proposta: ${item.payload.toolName}. A aceitação registra a proposta, mas não instala código executável.`,
+      approveLabel: "Aceitar proposta",
+    };
+  }
+  if (item.kind === "memory") {
+    return {
+      title: `${item.action} · ${item.payload.scope ?? item.payload.id ?? "memória"}`,
+      detail: item.payload.content ?? "",
+      approveLabel: "Aprovar",
+    };
+  }
+  return {
+    title: `${item.action} · skill`,
+    detail: String(item.payload.id ?? item.payload.name ?? ""),
+    approveLabel: "Aprovar",
+  };
+}
 
 function MemoryScopeSection({
   title,
@@ -216,18 +250,16 @@ export default function HarnessMemorySection({
       {memory.pending.length > 0 ? (
         <div className="mt-6 space-y-3">
           <h3 className="font-medium">Pendentes de aprovação</h3>
-          {memory.pending.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-lg border border-border bg-muted/40 p-3 text-sm"
-            >
-              <p className="font-medium">
-                {item.action} · {String(item.payload.scope ?? item.payload.id ?? "")}
-              </p>
-              {typeof item.payload.content === "string" ? (
-                <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
-                  {item.payload.content}
-                </p>
+          {memory.pending.map((item) => {
+            const copy = pendingCopy(item);
+            return (
+              <div
+                key={item.id}
+                className="rounded-lg border border-border bg-muted/40 p-3 text-sm"
+              >
+              <p className="font-medium">{copy.title}</p>
+              {copy.detail ? (
+                <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{copy.detail}</p>
               ) : null}
               <div className="mt-2 flex gap-2">
                 <Button
@@ -235,7 +267,7 @@ export default function HarnessMemorySection({
                   disabled={memory.busy}
                   onClick={() => void memory.approvePending(item.id)}
                 >
-                  Aprovar
+                  {copy.approveLabel}
                 </Button>
                 <Button
                   size="sm"
@@ -246,8 +278,9 @@ export default function HarnessMemorySection({
                   Rejeitar
                 </Button>
               </div>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       ) : null}
 

@@ -20,8 +20,8 @@ function langName(code: string) {
  *   ?apiKey=xxx  (required for elevenlabs)
  */
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const provider   = searchParams.get("provider") || "edge-tts";
     const langFilter = searchParams.get("lang");
     const apiKey     = searchParams.get("apiKey");

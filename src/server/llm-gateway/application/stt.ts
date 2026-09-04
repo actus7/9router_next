@@ -1,9 +1,9 @@
+import { requireGatewayApiKey } from "./gatewayApiKey";
 import {
-  extractApiKey, isValidApiKey,
+  extractApiKey,
   getProviderCredentials, markAccountUnavailable,
 } from "../auth/accountSelection";
-import { getSettings } from "@/lib/db/repos/settingsRepo";
-import { getModelInfo } from "./modelResolution";
+import { getModelInfo, assertModelEnabled } from "./modelResolution";
 import { handleSttCore } from "@/server/llm-gateway/engine/handlers/sttCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
@@ -31,13 +31,9 @@ export async function handleStt(request: Request): Promise<Response> {
   const modelStr: string | null = formData.get("model") as string | null;
   log.request("POST", `/v1/audio/transcriptions | ${modelStr}`);
 
-  const settings = await getSettings();
   const apiKey: string | null = extractApiKey(request);
-  if (settings.requireApiKey) {
-    if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    const valid: boolean = await isValidApiKey(apiKey);
-    if (!valid) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
+  const authError = await requireGatewayApiKey(apiKey);
+  if (authError) return authError;
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!formData.get("file")) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: file");
@@ -89,6 +85,9 @@ export async function handleStt(request: Request): Promise<Response> {
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
+
+  const disabledResponse = await assertModelEnabled(provider, model);
+  if (disabledResponse) return disabledResponse;
   log.info("ROUTING", `Provider: ${provider}, Model: ${model}`);
 
   if (!CREDENTIALED_PROVIDERS.has(provider)) {

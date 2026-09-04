@@ -4,7 +4,7 @@
   getSmartModelProfiles,
   upsertSmartModelProfiles,
 } from "../../host/store";
-import { getDisabledModels } from "../../host/store";
+import { getDisabledModels, getPricingOverrides } from "../../host/store";
 import { getModelsByProviderId } from "../../config/providerModels";
 import { getCapabilitiesForModel } from "../../providers/capabilities";
 import { getPricingForModel } from "../../providers/pricing";
@@ -201,7 +201,28 @@ function buildNeedScores(model: string, caps: SmartModelCapabilities, kinds: str
   };
 }
 
-function deterministicProfile(item: InventoryModel): SmartModelProfile {
+/**
+ * Price for one model, resolved the same way usage billing resolves it: the
+ * operator's override from the pricing store wins, then the static table.
+ * Routing that scored on stale numbers would pick a model the invoice
+ * disagrees with.
+ */
+function resolvePricing(
+  providerAlias: string,
+  model: string,
+  overrides: Record<string, Record<string, unknown>>,
+): Record<string, unknown> | null {
+  const override = overrides[providerAlias]?.[model];
+  if (override) return override as Record<string, unknown>;
+  return getPricingForModel(providerAlias, model) as Record<string, unknown> | null;
+}
+
+export const __test__ = { resolvePricing };
+
+function deterministicProfile(
+  item: InventoryModel,
+  pricingOverrides: Record<string, Record<string, unknown>> = {},
+): SmartModelProfile {
   const rawCaps = getCapabilitiesForModel(item.providerAlias, item.model) as Record<string, unknown>;
   const capabilities: SmartModelCapabilities = {
     serviceKinds: item.serviceKinds,
@@ -217,7 +238,7 @@ function deterministicProfile(item: InventoryModel): SmartModelProfile {
     contextWindow: Number(rawCaps.contextWindow) || 0,
     maxOutput: Number(rawCaps.maxOutput) || 0,
   };
-  const pricing = getPricingForModel(item.providerAlias, item.model) as Record<string, unknown> | null;
+  const pricing = resolvePricing(item.providerAlias, item.model, pricingOverrides);
   const quality = profileQuality(item.model, capabilities);
   const fingerprint = stableFingerprint(JSON.stringify({
     provider: item.providerId,
@@ -262,7 +283,9 @@ export async function refreshDeterministicSmartProfiles(persist = false): Promis
     return profileCache.profiles;
   }
   const inventory = await loadInventory();
-  const deterministic = inventory.map(deterministicProfile);
+  // One read for the whole inventory; the store caches for a few seconds.
+  const pricingOverrides = await getPricingOverrides().catch(() => ({}));
+  const deterministic = inventory.map((item) => deterministicProfile(item, pricingOverrides));
   const persisted = await getSmartModelProfiles();
   const storedByKey = new Map(persisted.map((profile) => [profile.modelKey, profile]));
   const profiles = deterministic.map((base) => {

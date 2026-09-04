@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { FormInput as Input } from "@/components/ui/form-input";
+import { FormInput as Input } from "@/shared/components/FormInput";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Select } from "@/shared/components";
 import { CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
@@ -63,7 +63,7 @@ export default function NameSaveStep({
     setValidationResult(null);
 
     // Validate credential via the same endpoint as API key flow
-    let testStatus: string = "unknown";
+    let validated = false;
     try {
       setValidating(true);
       const res = await fetch("/api/providers/validate", {
@@ -73,7 +73,7 @@ export default function NameSaveStep({
       });
       const data = await res.json().catch(() => ({}));
       if (data.valid) {
-        testStatus = "active";
+        validated = true;
         setValidationResult("success");
       } else {
         setValidationResult("failed");
@@ -90,7 +90,7 @@ export default function NameSaveStep({
         apiKey: credential,
         priority,
         proxyPoolId: proxyPoolId === NONE_PROXY_POOL_VALUE ? null : proxyPoolId,
-        testStatus,
+        validated,
       });
     } finally {
       setSaving(false);

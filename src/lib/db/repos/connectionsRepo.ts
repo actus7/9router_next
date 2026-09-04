@@ -37,11 +37,45 @@ interface ProviderConnection {
   [key: string]: unknown;
 }
 
+/**
+ * The result of a connection test, and nothing else. Earlier versions wrote
+ * `success`, `expired` and `unavailable` from several subsystems; the dashboard
+ * already bucketed those into connected/error, so normalizing on read keeps
+ * every existing row rendering the same while closing the value set.
+ * Migration 008 rewrites the stored blobs; this is the safety net.
+ */
+export type ConnectionTestStatus = "active" | "error" | "unknown";
+
+/**
+ * What to record when a credential was just acquired, by OAuth callback, token
+ * import or cookie capture. A successful token exchange proves the auth
+ * endpoint accepted the grant, not that the provider will serve this account,
+ * so it is explicitly not a test result. Those routes use this constant instead
+ * of naming a status, which keeps the vocabulary in one place.
+ */
+export const TEST_STATUS_ON_CREDENTIAL_ACQUIRED: ConnectionTestStatus = "unknown";
+
+/**
+ * Status for a key the operator validated in the form before saving. A passing
+ * validation really did probe the credential, so it counts as a test result;
+ * a failing or skipped one records nothing. Callers pass the fact, not a value.
+ */
+export function testStatusForValidation(validated: boolean): ConnectionTestStatus {
+  return validated ? "active" : TEST_STATUS_ON_CREDENTIAL_ACQUIRED;
+}
+
+export function normalizeConnectionTestStatus(value: unknown): ConnectionTestStatus {
+  if (value === "active" || value === "success") return "active";
+  if (value === "error" || value === "expired" || value === "unavailable") return "error";
+  return "unknown";
+}
+
 function rowToConn(row: ConnectionRow | undefined): ProviderConnection | null {
   if (!row) return null;
   const extra: Record<string, unknown> = parseJson(row.data, {}) as Record<string, unknown>;
   return {
     ...extra,
+    testStatus: normalizeConnectionTestStatus(extra.testStatus),
     id: row.id,
     provider: row.provider,
     authType: row.authType,

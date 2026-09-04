@@ -1,17 +1,17 @@
 import { getAdapter } from "../driver";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
+import type {
+  HarnessPendingWrite,
+  NewHarnessPendingWrite,
+  PendingWriteKind,
+  PendingWriteStatus,
+} from "@/shared/harness/pendingWrites";
 
-export type PendingWriteKind = "memory" | "skill" | "plugin";
-export type PendingWriteSource = "agent" | "review";
-
-export interface HarnessPendingWrite {
-  id: string;
-  kind: PendingWriteKind;
-  action: string;
-  payload: Record<string, unknown>;
-  source: PendingWriteSource;
-  createdAt: string;
-}
+export type {
+  HarnessPendingWrite,
+  PendingWriteKind,
+  PendingWriteStatus,
+} from "@/shared/harness/pendingWrites";
 
 function rowToPending(row: Record<string, unknown>): HarnessPendingWrite {
   return {
@@ -20,33 +20,40 @@ function rowToPending(row: Record<string, unknown>): HarnessPendingWrite {
     action: String(row.action),
     payload: parseJson<Record<string, unknown>>(row.payload, {}) || {},
     source: row.source === "review" ? "review" : "agent",
+    status: (row.status || "pending") as PendingWriteStatus,
+    ...(row.reviewedAt ? { reviewedAt: String(row.reviewedAt) } : {}),
+    ...(row.result
+      ? { result: parseJson<Record<string, unknown>>(row.result, {}) || {} }
+      : {}),
     createdAt: String(row.createdAt),
-  };
+  } as HarnessPendingWrite;
 }
 
 export async function listHarnessPendingWrites(
   kind?: PendingWriteKind,
+  status: PendingWriteStatus = "pending",
 ): Promise<HarnessPendingWrite[]> {
   const db = await getAdapter();
   const rows = kind
     ? db.all(
-        "SELECT id, kind, action, payload, source, createdAt FROM harnessPendingWrites WHERE kind = ? ORDER BY createdAt",
-        [kind],
+        "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE kind = ? AND status = ? ORDER BY createdAt",
+        [kind, status],
       )
     : db.all(
-        "SELECT id, kind, action, payload, source, createdAt FROM harnessPendingWrites ORDER BY createdAt",
+        "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE status = ? ORDER BY createdAt",
+        [status],
       );
   return rows.map(rowToPending);
 }
 
 export async function insertHarnessPendingWrite(
-  write: Omit<HarnessPendingWrite, "createdAt">,
+  write: NewHarnessPendingWrite,
 ): Promise<HarnessPendingWrite> {
   const db = await getAdapter();
   const now = new Date().toISOString();
   db.run(
-    `INSERT INTO harnessPendingWrites(id, kind, action, payload, source, createdAt)
-     VALUES(?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO harnessPendingWrites(id, kind, action, payload, source, status, createdAt)
+     VALUES(?, ?, ?, ?, ?, 'pending', ?)`,
     [
       write.id,
       write.kind,
@@ -56,12 +63,19 @@ export async function insertHarnessPendingWrite(
       now,
     ],
   );
-  return { ...write, createdAt: now };
+  return { ...write, status: "pending", createdAt: now };
 }
 
-export async function deleteHarnessPendingWrite(id: string): Promise<void> {
+export async function resolveHarnessPendingWrite(
+  id: string,
+  status: Exclude<PendingWriteStatus, "pending">,
+  result: Record<string, unknown>,
+): Promise<void> {
   const db = await getAdapter();
-  db.run("DELETE FROM harnessPendingWrites WHERE id = ?", [id]);
+  db.run(
+    "UPDATE harnessPendingWrites SET status = ?, reviewedAt = ?, result = ? WHERE id = ? AND status = 'pending'",
+    [status, new Date().toISOString(), stringifyJson(result), id],
+  );
 }
 
 export async function getHarnessPendingWrite(
@@ -69,7 +83,7 @@ export async function getHarnessPendingWrite(
 ): Promise<HarnessPendingWrite | null> {
   const db = await getAdapter();
   const row = db.get(
-    "SELECT id, kind, action, payload, source, createdAt FROM harnessPendingWrites WHERE id = ?",
+    "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE id = ?",
     [id],
   );
   return row ? rowToPending(row) : null;

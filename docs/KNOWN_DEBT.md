@@ -2,6 +2,8 @@
 
 Itens intencionalmente adiados das fatias de refatoração. Rastrear aqui antes de abordar em trabalho dedicado.
 
+A auditoria do core do gateway está concluída e não deixou dívida aberta: endpoint operacional, gerenciamento de modelos e os fluxos de validação e teste de provider. O registro dos trinta achados, das correções e das três decisões de comportamento está em [AUDITORIA-CORE.md](AUDITORIA-CORE.md).
+
 ## Riscos de segurança (fora de escopo desta revisão)
 
 Estes três itens são **dívida real de segurança** e devem ser tratados em migração dedicada:
@@ -22,11 +24,19 @@ A senha admin padrão (`123456`) e o fallback `INITIAL_PASSWORD` permanecem para
 
 Health checks, SSE streams e algumas rotas de API ainda emitem headers CORS wildcard para CLI e tunnel probing. Restringir allowlists de origem exige auditar cada cliente (Claude Code, Codex, dashboard browser, tunnel health checks) e foi adiado.
 
-## `/api/harness/sandbox/eval` aceita código sem autorização
+## Rotas de harness sem autorização — resolvido
 
-A rota executa o `source` recebido no QuickJS-WASM. O sandbox não expõe rede, filesystem nem `require`, e limita memória (8 MB), stack, tamanho de fonte (64 KB) e tempo (interrupt handler), então o pior caso é consumo de CPU do processo local.
+Ficava registrado aqui que `/api/harness/sandbox/eval` executava o `source` recebido sem guarda de autorização, porque `assertRequestRuntime()` é opt-out de prerender e não autentica nada. Isso foi fechado: as 14 rotas do harness passam por `requireDashboardAccess()` (`src/server/application/http/requireDashboardAccess.ts`), que falha fechado se as settings não puderem ser lidas. `tests/unit/harnessRouteAuth.test.ts` protege a regressão em `sandbox/eval` e em `mcp/discover`.
 
-Como todas as rotas do harness, ela só chama `assertRequestRuntime()`, que é opt-out de prerender e **não** é uma guarda de autorização: a proteção efetiva hoje é o app ser local-first. Expor a instância na rede sem autenticação no proxy torna esse endpoint um vetor de DoS. Uma guarda de sessão de dashboard para as rotas de harness que aceitam código é trabalho separado.
+## Modelo desabilitado volta a ser chamável se o banco falhar
+
+`isModelDisabled` (`src/server/llm-gateway/application/modelResolution.ts:108`) faz `catch { return false }` de propósito, com o argumento de que uma falha de leitura não deve derrubar o roteamento. O efeito prático é que uma intermitência de banco torna modelos desabilitados chamáveis de novo, sem alarme.
+
+Isso é aceitável se "desabilitado" for só preferência de UI. Se for controle de custo ou de compliance, o comportamento correto é falhar fechado ou pelo menos alertar. A decisão de qual dos dois é o caso não foi tomada, e mudar para fail-closed sem essa decisão trocaria um risco silencioso por uma indisponibilidade.
+
+## Validação de chave Deepgram sem probe dedicado
+
+`validateProviderKey.ts` perdeu o `case "deepgram"` (que batia em `/v1/projects` com auth `Token`) e agora cai no caminho genérico `probeMediaProvider`, que usa o `sttConfig` do registry — ou seja, faz POST de um corpo JSON em `/v1/listen`, endpoint que espera áudio binário. Deve continuar distinguindo chave válida de inválida pelo 401 vs não-401, mas isso não foi verificado contra uma chave real e não há teste cobrindo. Confirmar antes de confiar nessa validação.
 
 ## Estado de i18n global no módulo (risco de concorrência no SSR)
 

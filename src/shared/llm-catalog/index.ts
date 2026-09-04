@@ -1,6 +1,6 @@
 ﻿// Client-safe LLM catalog surface: pure types/metadata shared by server and
 // client components. MUST NOT import node:*, database, secrets, executors,
-// OAuth services or `server-only` â€” anything server-side belongs behind
+// OAuth services or `server-only` — anything server-side belongs behind
 // @/server/llm-gateway/*.
 //
 // Re-export point only: the engine still lives at @/server/llm-gateway/engine until the
@@ -30,6 +30,8 @@ export {
 
 // Provider registry display metadata (pure data definitions)
 export { default as REGISTRY } from "@/server/llm-gateway/engine/providers/registry/index";
+export { MEDIA_ENTRY_KEYS } from "@/server/llm-gateway/engine/providers/mediaKeys";
+export type { RegistryEntry } from "@/server/llm-gateway/engine/providers/schema";
 
 // Thinking levels (pure lookup)
 export { getThinkingLevels } from "@/server/llm-gateway/engine/providers/thinkingLevels";

@@ -1,5 +1,5 @@
 ﻿/**
- * OAuth Configuration Constants â€” static data lives in registry, re-exported here for consumers.
+ * OAuth Configuration Constants — static data lives in registry, re-exported here for consumers.
  */
 import { platform, arch } from "os";
 import { ANTIGRAVITY_OAUTH_CLIENT, GOOGLE_OAUTH_CLIENT } from "@/server/llm-gateway/engine/providers/shared";
@@ -55,7 +55,7 @@ export const GITHUB_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Re
 // Kiro OAuth Configuration (multi-method: AWS Builder ID / IDC / Social / Import Token)
 export const KIRO_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["kiro"] };
 
-// AWS region allowlist pattern â€” prevents SSRF via region injection into upstream URLs
+// AWS region allowlist pattern — prevents SSRF via region injection into upstream URLs
 const AWS_REGION_PATTERN: RegExp = /^[a-z]{2}-[a-z]+-\d{1,2}$/;
 
 // Reject any region that is not a valid AWS region before interpolating it into a URL
@@ -174,7 +174,7 @@ export const AGY_CONFIG: Record<string, unknown> = {
 // Openference OAuth Configuration (Authorization Code PKCE)
 export const OPENFERENCE_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["openference"] };
 
-// Zed hosted LLM aggregator â€” RSA keypair native-app auth (NOT OAuth).
+// Zed hosted LLM aggregator — RSA keypair native-app auth (NOT OAuth).
 export const ZED_HOSTED_CONFIG: Record<string, unknown> = {
   webBaseUrl: "https://zed.dev",
   cloudBaseUrl: "https://cloud.zed.dev",

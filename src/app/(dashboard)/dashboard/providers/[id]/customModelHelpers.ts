@@ -1,17 +1,13 @@
 "use client";
+import { probeModel } from "../probeModel";
 
 export async function testCustomModel(
   providerAlias: string,
   modelId: string,
 ): Promise<{ status: "ok" | "error"; error: string }> {
   try {
-    const res = await fetch("/api/models/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: `${providerAlias}/${modelId}` }),
-    });
-    const data = await res.json();
-    return { status: data.ok ? "ok" : "error", error: data.error || "" };
+    const result = await probeModel(`${providerAlias}/${modelId}`);
+    return { status: result.status, error: result.error };
   } catch (err: unknown) {
     return { status: "error", error: err instanceof Error ? err.message : "Unknown error" };
   }

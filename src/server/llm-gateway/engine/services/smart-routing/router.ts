@@ -1,4 +1,5 @@
-﻿import { getComboByName } from "../../host/store";
+﻿import { FREE_DEFAULT_MODEL_KEY } from "../../host/catalog";
+import { getComboByName } from "../../host/store";
 import { ROUTE_NEEDS, ROUTING_TIERS, DEFAULT_SMART_ROUTING_CONFIG } from "./types";
 import { rankSmartProfilesForEndpoint, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
 import { recordRoutingTier, scoreRoutingRequest } from "./scoring";
@@ -120,8 +121,19 @@ function chooseClassifierModel(config: SmartRoutingConfig, profiles: Awaited<Ret
       ? config.classifier.model
       : null;
   }
-  return profiles
-    .filter((profile) => profile.capabilities.serviceKinds.includes("llm"))
+  const llmProfiles = profiles.filter((profile) => profile.capabilities.serviceKinds.includes("llm"));
+
+  // "auto" used to mean "the best model available", which is backwards for a
+  // classifier: it runs on every ambiguous request, only has to pick a tier
+  // from a fixed list, and spending the strongest (usually most expensive)
+  // model on that is waste. The credential-free default is cheap and needs no
+  // account, so it is also the only candidate on a fresh install — without it
+  // an unconfigured instance had no classifier at all, and every ambiguous
+  // request fell through as "ambiguous".
+  const freeDefault = llmProfiles.find((profile) => profile.modelKey === FREE_DEFAULT_MODEL_KEY);
+  if (freeDefault) return freeDefault.modelKey;
+
+  return llmProfiles
     .sort((a, b) => {
       const aScore = a.quality * 0.65 + a.reliabilityScore * 0.2 + a.latencyScore * 0.15;
       const bScore = b.quality * 0.65 + b.reliabilityScore * 0.2 + b.latencyScore * 0.15;
@@ -240,6 +252,8 @@ export async function getSmartCombo(modelStr: string): Promise<SmartComboEntry |
     routing: normalizeSmartRoutingConfig(combo.routing),
   };
 }
+
+export const __test__ = { chooseClassifierModel };
 
 export function deriveRoutingSessionKey(headers: Headers, body: Record<string, unknown>): string | undefined {
   const candidates = [

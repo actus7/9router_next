@@ -14,6 +14,7 @@ async function canAccessTestRoute(): Promise<boolean> {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const origin = new URL(request.url).origin;
   try {
     if (!(await canAccessTestRoute())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,7 +54,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Invalid IdP X.509 Certificate format" }, { status: 400 });
     }
 
-    const origin = new URL(request.url).origin;
     const acsUrl = `${origin}/api/auth/saml/acs`;
     const metadataUrl = `${origin}/api/auth/saml/metadata`;
 

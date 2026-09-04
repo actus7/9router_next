@@ -5,11 +5,7 @@ import { getDeterministicSmartProfiles } from "@/server/application/use-cases/sm
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import SmartComboClient from "./SmartComboClient";
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default async function SmartComboPage({ params }: PageProps) {
+export default async function SmartComboPage({ params }: PageProps<"/dashboard/combos/[id]">) {
   await assertRequestRuntime();
   const { id } = await params;
   const [combo, providers, aliases, profiles] = await Promise.all([

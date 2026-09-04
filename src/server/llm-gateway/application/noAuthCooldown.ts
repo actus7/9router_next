@@ -3,12 +3,22 @@
 // gateway remembers the penalty per provider instead of forwarding the storm.
 
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
+import { FREE_PROVIDERS, resolveProviderId } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
 
 const RATE_LIMIT_COOLDOWN_MS = 15000;
 const BILLING_COOLDOWN_MS = 30000;
 
 const noAuthCooldowns = new Map<string, number>();
+
+/**
+ * The cooldown substitutes for account rotation, which noAuth providers do not
+ * have. A credentialed provider must keep rotating instead: freezing it
+ * process-wide would strand every other account behind one 429.
+ */
+function isNoAuthProvider(provider: string): boolean {
+  return FREE_PROVIDERS[resolveProviderId(provider)]?.noAuth === true;
+}
 
 /** The part of a chat result that decides whether a cooldown starts. */
 export interface CooldownTriggerResult {
@@ -53,6 +63,7 @@ function cooldownResponse(
 
 /** Check noAuth cooldown. Returns error Response or null. */
 export function checkNoAuthCooldownResponse(provider: string, model: string): Response | null {
+  if (!isNoAuthProvider(provider)) return null;
   const cooldownRemaining = isNoAuthOnCooldown(provider);
   if (cooldownRemaining <= 0) return null;
   const retryAfterSec = Math.ceil(cooldownRemaining / 1000);
@@ -72,6 +83,7 @@ export function handleNoAuthCooldownResult(
   provider: string,
   model: string,
 ): Response | null {
+  if (!isNoAuthProvider(provider)) return null;
   if (!("status" in result) || (result.status !== 429 && result.status !== 402)) return null;
   const cooldownMs = result.status === 429 ? RATE_LIMIT_COOLDOWN_MS : BILLING_COOLDOWN_MS;
   setNoAuthCooldown(provider, cooldownMs);

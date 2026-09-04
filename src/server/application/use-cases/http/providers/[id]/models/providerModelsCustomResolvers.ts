@@ -9,13 +9,16 @@ import {
   resolveCursorModels,
 } from "@/server/llm-gateway/catalog";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
+import { resolveXiaomiTokenplanBaseUrl } from "@/server/llm-gateway/engine/config/providers";
 import { buildOAuthResolver } from "./providerModelsOAuth";
 import {
   CODEX_MODELS_URL,
   GEMINI_CLI_MODELS_URL,
   parseCodexModels,
   parseGeminiCliModels,
+  parseOpenAIStyleModels,
 } from "./providerModelsParsers";
+import { fetchWithConnectionProxy } from "./providerModelsProxy";
 
 const getStaticProviderModels = (providerId: string) =>
   getModelsByProviderId(providerId).map((model: Record<string, unknown>) => ({
@@ -203,5 +206,37 @@ export const PROVIDER_MODELS_CUSTOM_RESOLVERS: Record<string, Record<string, unk
   },
   theoldllm: {
     customResolver: async () => ({ models: getStaticProviderModels("theoldllm") })
+  },
+  "xiaomi-tokenplan": {
+    customResolver: async (connection: Record<string, unknown>) => {
+      const providerSpecificData = (connection.providerSpecificData || {}) as Record<string, unknown>;
+      const baseUrl = resolveXiaomiTokenplanBaseUrl({ providerSpecificData });
+      const token = connection.apiKey as string | undefined;
+      if (!baseUrl) return { error: "No region configured for Xiaomi Token Plan", status: 400 };
+      if (!token) return { error: "No valid token found", status: 401 };
+      const response = await fetchWithConnectionProxy(`${baseUrl}/models`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      }, providerSpecificData);
+      if (!response.ok) {
+        return { error: `Failed to fetch models: ${response.status}`, status: response.status };
+      }
+      return { models: parseOpenAIStyleModels(await response.json()) };
+    },
+  },
+  "xiaomi-mimo": {
+    customResolver: async (connection: Record<string, unknown>) => {
+      const providerSpecificData = (connection.providerSpecificData || {}) as Record<string, unknown>;
+      const token = connection.apiKey as string | undefined;
+      if (!token) return { error: "No valid token found", status: 401 };
+      const response = await fetchWithConnectionProxy("https://api.xiaomimimo.com/v1/models", {
+        method: "GET",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      }, providerSpecificData);
+      if (!response.ok) {
+        return { error: `Failed to fetch models: ${response.status}`, status: response.status };
+      }
+      return { models: parseOpenAIStyleModels(await response.json()) };
+    },
   },
 };

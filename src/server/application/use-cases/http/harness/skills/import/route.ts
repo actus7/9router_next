@@ -5,6 +5,7 @@ import {
   parseSkillMarkdown,
   validateSkillFields,
 } from "@/server/harness/skills/parseSkillMarkdown";
+import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 const MAX_IMPORT_BYTES = 128 * 1024;
 
@@ -14,6 +15,8 @@ function badRequest(message: string) {
 
 export async function POST(request: NextRequest) {
   await assertRequestRuntime();
+  const denied = await requireDashboardAccess();
+  if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<
     string,
     unknown
@@ -21,7 +24,12 @@ export async function POST(request: NextRequest) {
   const url = typeof body.url === "string" ? body.url.trim() : "";
   if (!url) return badRequest("url is required");
 
-  const parsedUrl = new URL(url);
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return badRequest("url is not a valid URL");
+  }
   if (parsedUrl.protocol !== "https:") {
     return badRequest("import URL must use HTTPS");
   }

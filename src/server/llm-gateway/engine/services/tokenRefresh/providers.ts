@@ -143,7 +143,7 @@ export async function refreshAccessToken(provider: string, refreshToken: string,
 }
 
 // CLIProxyAPI DeviceFlowClient.RefreshToken: form body (no client_secret) + X-Msh-* headers
-// Delegate to refreshAccessToken("kimi", ...) â€” profile carries the X-Msh headers.
+// Delegate to refreshAccessToken("kimi", ...) — profile carries the X-Msh headers.
 export async function refreshKimiToken(refreshToken: string, credentials: Credentials, log?: Logger): Promise<RefreshResult | null> {
   return refreshAccessToken("kimi", refreshToken, credentials, log);
 }

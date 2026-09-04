@@ -23,7 +23,7 @@ export const AI_MODELS = Object.entries(MODELS as Record<string, { id: string; n
 
 const KIND_PATTERNS: Array<[string, RegExp]> = [
   ["embedding", /(?:^|[-_/])(?:embed|embedding)(?:[-_/]|$)/i],
-  ["stt", /(?:^|[-_/])(?:whisper|transcri(?:be|ption)|stt)(?:[-_/]|$)/i],
+  ["stt", /(?:^|[-_/])(?:whisper|transcri(?:be|ption)|stt|asr)(?:[-_/]|$)/i],
   ["tts", /(?:^|[-_/])(?:tts|eleven|speech)(?:[-_/]|$)/i],
   ["image", /(?:^|[-_/])(?:flux|imagen|seedream|dall-e|gpt-image|stable-diffusion|sdxl|image)(?:[-_/]|$)/i],
 ];

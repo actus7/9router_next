@@ -1,6 +1,17 @@
-import { getModelsByProviderId, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
+import { getModelKind, getModelsByProviderId, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import { humanize } from "./chatFormatUtils";
 import type { NormalizedModel } from "./types";
+
+/**
+ * A provider's catalogue and its `/models` discovery both mix chat models with
+ * speech/image/embedding ones (xiaomi-tokenplan returns mimo-v2.5-tts and
+ * -asr alongside the chat models). Only chat models belong in the chat picker;
+ * the provider screen's toolbar already applies this same rule.
+ */
+export function isChatKindModel(model: NormalizedModel): boolean {
+  const kind = getModelKind(model as unknown as Record<string, unknown>);
+  return !kind || kind === "llm";
+}
 
 export function getProviderLabel(connection: Record<string, unknown>): string {
   return (connection?.name as string) || humanize((connection?.provider as string) || (connection?.id as string) || "provider");

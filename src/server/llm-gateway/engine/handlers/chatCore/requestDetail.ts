@@ -91,12 +91,12 @@ export function formatDoneLine({ usage, latency }: { usage: Record<string, unkno
   let inStr = `IN ${inTok}`;
   if (cacheRead || cacheCreate) {
     const parts: string[] = [];
-    if (cacheRead) parts.push(`â†»${cacheRead}`);
+    if (cacheRead) parts.push(`↻${cacheRead}`);
     if (cacheCreate) parts.push(`+${cacheCreate}`);
     inStr += ` (CACHE ${parts.join(" ")})`;
   }
-  const ttftStr = latency?.ttft ? ` Â· TTFT ${latency.ttft}ms` : "";
-  return `DONE ${latency?.total ?? 0}ms${ttftStr} Â· ${inStr} Â· OUT ${outTok}`;
+  const ttftStr = latency?.ttft ? ` · TTFT ${latency.ttft}ms` : "";
+  return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
 }
 
 export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false }: SaveUsageStatsOptions): void {
@@ -110,7 +110,7 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
   if (!silent) {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const accountSuffix = connectionId ? ` | account=${connectionId.slice(0, 8)}...` : "";
-    console.log(`${COLORS.green}[${time}] ðŸ“Š [${label}] ${provider.toUpperCase()} | in=${inTokens} | out=${outTokens}${accountSuffix}${COLORS.reset}`);
+    console.log(`${COLORS.green}[${time}] 📊 [${label}] ${provider.toUpperCase()} | in=${inTokens} | out=${outTokens}${accountSuffix}${COLORS.reset}`);
   }
 
   // Canonicalize to one storage convention (prompt_tokens cache-inclusive) so
