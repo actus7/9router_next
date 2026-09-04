@@ -4,13 +4,22 @@ vi.mock("@/models", () => ({
   createCloudDeployment: vi.fn(),
   getCloudConnectionByProvider: vi.fn(),
   getCloudDeployments: vi.fn(),
+  issueApiKeyForSink: vi.fn(async () => ({
+    id: "key-1",
+    key: "sk-minted-for-this-deployment",
+    sink: "cloud:render",
+    sinkRef: "svc1",
+  })),
 }));
 vi.mock("@/server/cloud/tools/registry", () => ({ getCloudTool: vi.fn() }));
 vi.mock("@/server/cloud/providers/registry", () => ({ getCloudProviderDriver: vi.fn() }));
 vi.mock("@/server/cloud/gatewayConfig", () => ({ resolveGatewayConfig: vi.fn() }));
+vi.mock("@/shared/utils/machineId", () => ({
+  getConsistentMachineId: vi.fn(async () => "machine-1"),
+}));
 
 import { POST } from "@/app/api/cloud/deployments/route";
-import { createCloudDeployment, getCloudConnectionByProvider, getCloudDeployments } from "@/models";
+import { createCloudDeployment, getCloudConnectionByProvider, getCloudDeployments, issueApiKeyForSink } from "@/models";
 import { getCloudTool } from "@/server/cloud/tools/registry";
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { resolveGatewayConfig } from "@/server/cloud/gatewayConfig";
@@ -56,11 +65,33 @@ describe("POST /api/cloud/deployments", () => {
       externalServiceId: "svc1", externalDeployId: "dep1", gatewayToken: "gw", config: {}, error: null,
     } as never);
 
-    const res = await POST(req({ provider: "render", toolId: "openclaw", model: "gpt-4o", modelProvider: "openai", gatewayApiKey: "sk-x" }) as never);
+    const driver = { createDeployment: vi.fn().mockResolvedValue({
+      externalServiceId: "svc1", externalDeployId: "dep1", publicUrl: "https://svc1.onrender.com", status: "provisioning", gatewayToken: "gw",
+    }) };
+    vi.mocked(getCloudProviderDriver).mockReturnValue(driver as never);
+
+    const res = await POST(req({ provider: "render", toolId: "openclaw", model: "gpt-4o", modelProvider: "openai", gatewayApiKey: "sk-shared-everywhere" }) as never);
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.deployment.id).toBe("d1");
     expect(json.deployment.gatewayToken).toBeUndefined();
+
+    // The key pushed to the third-party platform is issued for this deployment
+    // alone, not whatever the caller sent. A body-supplied key was typically the
+    // one already written into every CLI config file, so a leak there meant a
+    // leak everywhere and there was nothing to revoke per destination.
+    // Keyed on tool AND provider: two tools can deploy to the same platform
+    // (the unique index is (toolId, provider)), so a provider-only sink would
+    // make tearing one down revoke the other's live key.
+    expect(issueApiKeyForSink).toHaveBeenCalledWith(
+      expect.stringContaining("openclaw"),
+      "machine-1",
+      "cloud:render.openclaw",
+      expect.any(String),
+    );
+    const env = driver.createDeployment.mock.calls[0]![3] as { gatewayApiKey: string };
+    expect(env.gatewayApiKey).toBe("sk-minted-for-this-deployment");
+    expect(env.gatewayApiKey).not.toBe("sk-shared-everywhere");
   });
 
   it("rejects a duplicate deploy for the same tool+provider", async () => {

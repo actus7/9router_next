@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  deleteAgentSkillRow,
+  deleteAgentSkillWithFiles,
   upsertAgentSkillRow,
 } from "@/lib/db/repos/agentSkillsRepo";
 import {
-  deleteAgentSkillFilesForSkill,
   isValidSkillFilePath,
   listAgentSkillFiles,
   replaceAgentSkillFiles,
 } from "@/lib/db/repos/agentSkillFilesRepo";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
+import { randomUUID } from "node:crypto";
+import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
+import { insertHarnessPendingWrite } from "@/lib/db/repos/harnessPendingWritesRepo";
 import {
   invalidateSkillTreeCache,
   reloadSkillTree,
@@ -159,6 +161,32 @@ export async function PUT(request: NextRequest) {
   const files = readSkillFiles(body);
   if (typeof files === "string") return badRequest(files);
 
+  // A skill is a standing instruction that re-enters the system prompt of every
+  // later run, so an agent writing one is a bigger grant than an agent toggling
+  // a plugin — which already requires approval. `initiator` is distinct from
+  // `row.source`, which describes the skill's provenance (bundle/override/user)
+  // rather than who asked for the write. An operator editing a skill is the
+  // authority here and is never gated.
+  const initiator = body.initiator === "agent" ? "agent" : "user";
+  if (initiator === "agent") {
+    const { skillWriteApproval } = await getHarnessLearningConfig();
+    if (skillWriteApproval) {
+      const pending = await insertHarnessPendingWrite({
+        id: randomUUID(),
+        kind: "skill",
+        action: typeof body.action === "string" ? body.action : "upsert",
+        source: "agent",
+        payload: { row, files },
+      });
+      return NextResponse.json({
+        ok: true,
+        pending: true,
+        pendingId: pending.id,
+        message: "Skill write queued for user approval",
+      });
+    }
+  }
+
   await upsertAgentSkillRow(row);
   if (files.length > 0 && row.source !== "override") {
     await replaceAgentSkillFiles(row.id, files.map((file) => ({
@@ -177,7 +205,6 @@ export async function DELETE(request: NextRequest) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return badRequest("id is required");
   const normalized = normalizeSkillId(id);
-  await deleteAgentSkillFilesForSkill(normalized);
-  await deleteAgentSkillRow(normalized);
+  await deleteAgentSkillWithFiles(normalized);
   return NextResponse.json(serialize(await invalidateSkillTreeCache()));
 }

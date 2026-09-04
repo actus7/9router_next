@@ -41,6 +41,59 @@ export interface RoutingTrace {
 
 const STEP_KINDS = new Set<string>(["combo", "smart", "adapter", "attempt", "account"]);
 
+/**
+ * A compact summary of what routing did, small enough to store on every request.
+ *
+ * The full trace only ever rode the response header, which is ephemeral, and
+ * `requestDetails` — the one table that could keep it — is opt-in and pruned by
+ * `observabilityMaxRecords`. So with observability off, which is the default,
+ * nothing durably recorded WHY a request went where it went. `usageHistory` is
+ * always written, so this goes in its `meta` column (previously written as a
+ * constant `{}`).
+ *
+ * Deliberately much smaller than the header trace: `usageHistory` is never
+ * pruned and gains a row per request, so storing the full step list would trade
+ * a dead column for a bloated table. Counts and outcomes, not the narrative.
+ */
+export interface RoutingTraceSummary {
+  requested: string;
+  selected?: string;
+  /** Number of steps recorded, before any truncation. */
+  steps: number;
+  /** Accounts that failed or were switched away from before one answered. */
+  switched?: number;
+  /** Model-level attempts that failed. */
+  failed?: number;
+  combo?: string;
+  tier?: string;
+  truncated?: true;
+}
+
+export function summarizeRoutingTrace(trace: RoutingTrace | null | undefined): RoutingTraceSummary | null {
+  if (!trace) return null;
+  const summary: RoutingTraceSummary = {
+    requested: trace.requestedModel,
+    steps: trace.steps.length,
+  };
+  if (trace.selectedModel) summary.selected = trace.selectedModel;
+  if (trace.truncated) summary.truncated = true;
+
+  let switched = 0;
+  let failed = 0;
+  for (const step of trace.steps) {
+    if (step.kind === "account" && (step.outcome === "switched" || step.outcome === "failed")) switched += 1;
+    if (step.kind === "attempt" && step.outcome === "failed") failed += 1;
+    if (step.kind === "combo" && !summary.combo) summary.combo = step.name;
+    if (step.kind === "smart") {
+      if (!summary.combo) summary.combo = step.name;
+      if (!summary.tier) summary.tier = step.tier;
+    }
+  }
+  if (switched > 0) summary.switched = switched;
+  if (failed > 0) summary.failed = failed;
+  return summary;
+}
+
 export function truncateTraceError(error: unknown): string | undefined {
   const text = typeof error === "string" ? error.trim() : error instanceof Error ? error.message.trim() : "";
   if (!text) return undefined;

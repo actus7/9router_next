@@ -98,3 +98,24 @@ export async function deleteAgentSkillRow(id: string): Promise<void> {
     bumpRevision(db);
   });
 }
+
+/**
+ * Delete a skill together with its auxiliary files.
+ *
+ * `agentSkillFiles` rows are keyed on `skillId` with no FOREIGN KEY behind
+ * them, so the two tables have to be cleared together. Doing it as two repo
+ * calls means two transactions, and a failure between them leaves a skill row
+ * whose files have vanished — listed in the UI, but `load_skill_file` finds
+ * nothing. Reaching into `agentSkillFiles` from here follows the same
+ * one-repo-owns-the-cascade shape `harnessConversationsRepo` already uses for
+ * its events and search rows; it is the only way to get both deletes under one
+ * transaction with this adapter API.
+ */
+export async function deleteAgentSkillWithFiles(id: string): Promise<void> {
+  const db = await getAdapter();
+  db.transaction(() => {
+    db.run("DELETE FROM agentSkillFiles WHERE skillId = ?", [id]);
+    db.run("DELETE FROM agentSkills WHERE id = ?", [id]);
+    bumpRevision(db);
+  });
+}

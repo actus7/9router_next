@@ -95,7 +95,37 @@ export default function ToolDetailClient({ toolId, machineId: _machineId }: Tool
         }
         if (keysRes.ok) {
           const data = await keysRes.json();
-          setApiKeys(data.keys || []);
+          const existing: ApiKey[] = data.keys || [];
+          // Issue the key for THIS tool and offer it first, so the default
+          // selection is a per-destination key instead of whichever key
+          // happened to be created first. `POST /api/keys` with a sink reuses
+          // the live key for that destination, so revisiting this page cannot
+          // accumulate keys — at most one per tool ever exists.
+          //
+          // Why it matters: one shared key used to be written into every CLI
+          // config file on disk, which made rotation all-or-nothing and left no
+          // record of where it went. Per-tool keys make revoking one tool's key
+          // a contained operation (see docs/OPERATIONS.md).
+          const issued = await fetch("/api/keys", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: `${tool?.name || toolId} (CLI)`,
+              sink: `cli:${toolId}`,
+            }),
+          })
+            .then((res) => (res.ok ? res.json() : null))
+            .catch(() => null);
+          if (!mounted) return;
+          const toolKey: ApiKey | null =
+            issued && typeof issued.key === "string"
+              ? { id: String(issued.id), key: issued.key, name: issued.name ?? undefined }
+              : null;
+          setApiKeys(
+            toolKey
+              ? [toolKey, ...existing.filter((k) => k.key !== toolKey.key)]
+              : existing,
+          );
         }
       } catch (error) {
         console.error("Error loading tool data:", error);
@@ -104,7 +134,10 @@ export default function ToolDetailClient({ toolId, machineId: _machineId }: Tool
       }
     })();
     return () => { mounted = false; };
-  }, []);
+    // Keyed on the tool: this loads that tool's data and issues its key, so
+    // navigating to a different tool has to re-run rather than reuse the
+    // previous tool's key. `tool?.name` only ever changes with `toolId`.
+  }, [toolId, tool?.name]);
 
   const getActiveProviders = () => connections.filter(c => c.isActive !== false);
 

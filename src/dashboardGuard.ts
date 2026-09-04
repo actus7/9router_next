@@ -23,7 +23,6 @@ async function hasValidCliToken(request: Request): Promise<boolean> {
 
 const PUBLIC_API_PATHS: string[] = [
   "/api/health",
-  "/api/init",
   "/api/locale",
   "/api/auth/login",
   "/api/auth/logout",

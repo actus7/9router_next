@@ -2,6 +2,17 @@ import { getAdapter } from "../driver";
 
 export interface HarnessLearningConfig {
   memoryWriteApproval: boolean;
+  /**
+   * Gate agent-initiated skill writes behind operator approval.
+   *
+   * Defaults ON, unlike memory. A memory entry is something the agent
+   * remembers; a skill is an instruction the agent then follows, injected into
+   * the system prompt of every later run. If only one of the two is gated by
+   * default it has to be the more powerful one — and the agent already cannot
+   * toggle a plugin without approval, so letting it write its own standing
+   * instructions unchecked was the inconsistent case.
+   */
+  skillWriteApproval: boolean;
   memoryAgentEnabled: boolean;
   memoryUserEnabled: boolean;
   learningReviewEnabled: boolean;
@@ -12,6 +23,7 @@ export interface HarnessLearningConfig {
 
 const KEYS = {
   memoryWriteApproval: "harness.memory.writeApproval",
+  skillWriteApproval: "harness.skill.writeApproval",
   memoryAgentEnabled: "harness.memory.agentEnabled",
   memoryUserEnabled: "harness.memory.userEnabled",
   learningReviewEnabled: "harness.learning.reviewEnabled",
@@ -22,6 +34,7 @@ const KEYS = {
 
 const DEFAULTS: HarnessLearningConfig = {
   memoryWriteApproval: false,
+  skillWriteApproval: true,
   memoryAgentEnabled: true,
   memoryUserEnabled: true,
   learningReviewEnabled: false,
@@ -41,6 +54,7 @@ export async function getHarnessLearningConfig(): Promise<HarnessLearningConfig>
   const read = (key: string) => db.get("SELECT value FROM _meta WHERE key = ?", [key])?.value;
   return {
     memoryWriteApproval: readBool(read(KEYS.memoryWriteApproval), DEFAULTS.memoryWriteApproval),
+    skillWriteApproval: readBool(read(KEYS.skillWriteApproval), DEFAULTS.skillWriteApproval),
     memoryAgentEnabled: readBool(read(KEYS.memoryAgentEnabled), DEFAULTS.memoryAgentEnabled),
     memoryUserEnabled: readBool(read(KEYS.memoryUserEnabled), DEFAULTS.memoryUserEnabled),
     learningReviewEnabled: readBool(read(KEYS.learningReviewEnabled), DEFAULTS.learningReviewEnabled),
@@ -66,6 +80,7 @@ export async function updateHarnessLearningConfig(
       );
     };
     set(KEYS.memoryWriteApproval, String(next.memoryWriteApproval));
+    set(KEYS.skillWriteApproval, String(next.skillWriteApproval));
     set(KEYS.memoryAgentEnabled, String(next.memoryAgentEnabled));
     set(KEYS.memoryUserEnabled, String(next.memoryUserEnabled));
     set(KEYS.learningReviewEnabled, String(next.learningReviewEnabled));

@@ -99,7 +99,7 @@ export function formatDoneLine({ usage, latency }: { usage: Record<string, unkno
   return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
 }
 
-export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false }: SaveUsageStatsOptions): void {
+export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false, meta }: SaveUsageStatsOptions): void {
   if (!tokens || typeof tokens !== "object") return;
 
   const inTokens = (tokens as Record<string, unknown>).input_tokens ?? (tokens as Record<string, unknown>).prompt_tokens ?? 0;
@@ -127,6 +127,7 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     timestamp: new Date().toISOString(),
     connectionId: connectionId || undefined,
     apiKey: apiKey || undefined,
-    endpoint: endpoint || undefined
+    endpoint: endpoint || undefined,
+    meta
   }).catch(() => {});
 }

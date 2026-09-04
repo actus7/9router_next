@@ -9,9 +9,10 @@ import { getModelInfo, assertModelEnabled } from "./modelResolution";
 import { handleEmbeddingsCore } from "@/server/llm-gateway/engine/handlers/embeddingsCore";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
+import { resolveAccountExhaustion } from "@/server/llm-gateway/engine/services/accountFallback";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
-import { saveRequestUsage } from "@/lib/usageDb";
+import { saveRequestDetail, saveRequestUsage } from "@/lib/usageDb";
 import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
@@ -27,14 +28,41 @@ type EmbeddingsCoreResult =
   | { success: true; usage: unknown; response: Response }
   | { success: false; status: number; error: string; resetsAtMs?: number; response: Response };
 
-function exactEmbeddingUsage(raw: unknown): EmbeddingUsage | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw) || (raw as Record<string, unknown>).estimated === true) return null;
+/**
+ * Normalize an embedding provider's usage report.
+ *
+ * `estimated` marks a count the provider did not actually give us. It used to
+ * be a reason to record nothing at all, which meant a provider without exact
+ * accounting produced a silent zero — the request happened, the tokens were
+ * spent, and the ledger said nothing. A flagged approximation is strictly
+ * better than a confident zero: the zero is not conservative, it is wrong in a
+ * direction the operator cannot see.
+ */
+function normalizeEmbeddingUsage(
+  raw: unknown,
+): (EmbeddingUsage & { estimated?: true }) | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
+  const estimated: boolean = r.estimated === true;
+
   const promptTokens: number = (r.prompt_tokens ?? r.input_tokens) as number;
   const completionTokens: number = ((r.completion_tokens ?? r.output_tokens ?? 0)) as number;
   const totalTokens: number = r.total_tokens as number;
-  if (!Number.isSafeInteger(promptTokens) || promptTokens <= 0 || completionTokens !== 0 || totalTokens !== promptTokens) return null;
-  return { prompt_tokens: promptTokens, completion_tokens: 0, total_tokens: totalTokens };
+
+  if (!Number.isSafeInteger(promptTokens) || promptTokens <= 0) return null;
+  if (completionTokens !== 0) return null;
+
+  // An exact report has to be internally consistent; an estimate is allowed to
+  // omit or disagree on the total, which is then derived.
+  if (!estimated && totalTokens !== promptTokens) return null;
+
+  const usage: EmbeddingUsage & { estimated?: true } = {
+    prompt_tokens: promptTokens,
+    completion_tokens: 0,
+    total_tokens: Number.isSafeInteger(totalTokens) ? totalTokens : promptTokens,
+  };
+  if (estimated) usage.estimated = true;
+  return usage;
 }
 
 /**
@@ -136,18 +164,17 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
     const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
 
     if (!credentials || credentials.allRateLimited) {
-      if (credentials?.allRateLimited) {
-        const errorMsg: string = lastError || credentials.lastError || "Unavailable";
-        const status: number = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
-        log.warn("EMBEDDINGS", `[${provider}/${model}] ${errorMsg} (${credentials.retryAfterHuman})`);
-        return unavailableResponse(status, `[${provider}/${model}] ${errorMsg}`, String(credentials.retryAfter ?? ""), credentials.retryAfterHuman ?? "");
+      // One owner for the three outcomes, shared with the chat path — this is
+      // where the 404-vs-400 drift lived.
+      const exhaustion = resolveAccountExhaustion(
+        provider, model, credentials, excludeConnectionIds.size, lastError, lastStatus,
+      );
+      if (exhaustion.kind === "rate-limited") {
+        log.warn("EMBEDDINGS", `${exhaustion.message} (${exhaustion.retryAfterHuman})`);
+        return unavailableResponse(exhaustion.status, exhaustion.message, exhaustion.retryAfter, exhaustion.retryAfterHuman);
       }
-      if (excludeConnectionIds.size === 0) {
-        log.error("AUTH", `No credentials for provider: ${provider}`);
-        return errorResponse(HTTP_STATUS.BAD_REQUEST, `No credentials for provider: ${provider}`);
-      }
-      log.warn("EMBEDDINGS", "No more accounts available", { provider });
-      return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
+      log.warn(exhaustion.kind === "no-accounts" ? "AUTH" : "EMBEDDINGS", exhaustion.message, { provider });
+      return errorResponse(exhaustion.status, exhaustion.message);
     }
 
     const connectionId = credentials.connectionId;
@@ -176,7 +203,7 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
     }) as unknown as EmbeddingsCoreResult;
 
     if (result.success) {
-      const usage: EmbeddingUsage | null = exactEmbeddingUsage(result.usage);
+      const usage = normalizeEmbeddingUsage(result.usage);
       if (usage) {
         saveRequestUsage({
           provider,
@@ -188,6 +215,21 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
           status: "success",
         }).catch(() => {});
       }
+      // Embeddings never wrote a request detail, so an embedding showed up in
+      // the Usage totals but never in the request-detail drill-down — anyone
+      // debugging one concluded the call had not happened. Best-effort like
+      // every other caller: a failed detail write must not fail the request.
+      saveRequestDetail({
+        provider,
+        model,
+        connectionId,
+        timestamp: new Date().toISOString(),
+        status: "success",
+        latency: { ttft: 0, total: 0 },
+        tokens: (usage ?? {}) as unknown as Record<string, unknown>,
+        request: { endpoint: url.pathname, body },
+        response: {},
+      });
       return result.response as Response;
     }
 

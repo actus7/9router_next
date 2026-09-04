@@ -263,4 +263,6 @@ export interface SaveUsageStatsOptions {
   endpoint?: string;
   label?: string;
   silent?: boolean;
+  /** Compact routing summary stored on the usage row; see summarizeRoutingTrace. */
+  meta?: Record<string, unknown>;
 }
