@@ -34,7 +34,7 @@ inteira desse problema — o npm só resolve a subárvore da plataforma onde rod
 
    **A ressalva:** sem `CREDENTIAL_KEY` definida o app roda em claro, avisando a cada boot e expondo o estado em `GET /api/settings` (`credentialEncryptionEnabled`). Isso é deliberado — recusar o boot brickaria instalações que nunca optaram. Onde plaintext não é aceitável, `CREDENTIAL_ENCRYPTION_REQUIRED=true` faz o app recusar subir sem a chave; a política é configuração, não decisão de código. Ver `docs/OPERATIONS.md`.
 2. ~~**Secrets padrão previsíveis**~~ — **reclassificado, não era risco.** Ver as duas seções abaixo.
-3. **CORS permissivo em `/v1`** — **auditoria de clientes concluída** (seção abaixo). Resta uma decisão de produto, não uma investigação.
+3. ~~**CORS permissivo em `/v1`**~~ — **não é dívida: é escolha de produto registrada.** Auditoria de clientes concluída, decisão tomada — o gateway suporta aplicação web de terceiro apontando para ele, e é isso que o `*` habilita. Ver a seção abaixo.
 
 ## CORS permissivo — auditoria de clientes concluída
 
@@ -60,16 +60,27 @@ Conclusão: **nenhum cliente deste repositório precisa de `*` nas rotas
 `/api/health` através do túnel, e uma allowlist com loopback +
 `settings.tunnelUrl` + `settings.tailscaleUrl` cobre isso inteiramente.
 
-**A decisão de produto que sobra:** o `*` em `/v1/*` só serve a aplicações web de
-terceiros apontando para o gateway do usuário. Isso é um caso de uso plausível
-para um produto que se chama gateway, e é o que se perde ao apertar. Não é uma
-pergunta técnica — é definição de escopo do produto, e por isso não foi decidida
-aqui.
+### Decisão: manter o `*`
 
-Se a resposta for "não suportamos browser de terceiros", a mudança segura é:
-sem `Origin` no request, não emitir ACAO (todo cliente server-side segue
-intacto); com `Origin`, refletir apenas se estiver na allowlist. Sem `*` em
-nenhum caminho.
+O `*` em `/v1/*` só serve a aplicações web de terceiros apontando para o gateway
+do usuário. **Decidido que esse caso de uso é suportado** — é coerente com um
+produto que se chama gateway, e apertar a allowlist o eliminaria.
+
+Isso deixa de ser dívida técnica e passa a ser escolha registrada. Consequências
+que vêm com ela, documentadas para não serem redescobertas como se fossem bug:
+
+- Qualquer página web pode fazer request para o gateway a partir do browser de
+  quem a visita. O que a protege **não é** o CORS: é o gate de API key
+  (`requireGatewayApiKey`) e, para chamador remoto, o `dashboardGuard`. O CORS
+  nunca foi a fronteira de segurança aqui.
+- Como o navegador não anexa credencial de outra origem por padrão, o risco
+  concreto é uma página de terceiro usar uma chave que o usuário lhe forneceu —
+  o que é o caso de uso, não um ataque.
+- Se algum dia isso for revisto, a mudança segura já está desenhada: sem
+  `Origin`, não emitir ACAO (todo cliente server-side segue intacto); com
+  `Origin`, refletir apenas loopback + `settings.tunnelUrl` +
+  `settings.tailscaleUrl`. A tabela acima é o inventário que torna essa mudança
+  possível sem quebrar cliente em campo.
 
 ## `API_KEY_SECRET` — reclassificado de risco para código morto (removido)
 
