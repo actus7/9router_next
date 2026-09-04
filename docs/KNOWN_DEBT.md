@@ -4,6 +4,28 @@ Itens intencionalmente adiados das fatias de refatoração. Rastrear aqui antes 
 
 A auditoria do core do gateway está concluída e não deixou dívida aberta: endpoint operacional, gerenciamento de modelos e os fluxos de validação e teste de provider. O registro dos trinta achados, das correções e das três decisões de comportamento está em [AUDITORIA-CORE.md](AUDITORIA-CORE.md).
 
+## `package-lock.json` insatisfazível — CI usa `npm install` em vez de `npm ci`
+
+`@tailwindcss/oxide-wasm32-wasi` e `@img/sharp-wasm32` declaram
+`@emnapi/core@^1.11.1` e `@emnapi/runtime@^1.11.1`, e o lock **não tem entrada
+nenhuma** resolvendo esses dois nesses caminhos. O lock está insatisfazível como
+escrito, para qualquer plataforma.
+
+Por que passou despercebido: o npm no Windows nunca instala esses pacotes de
+plataforma, então nunca valida a subárvore deles e reporta o lock como
+`up to date`. O `npm ci` no Linux valida a árvore inteira e recusa com
+`Missing: @emnapi/runtime@1.11.3 from lock file`. Foi assim que o job `check`
+ficou vermelho em todo PR antes de a gente notar — inclusive no #1.
+
+Mitigação atual: o CI roda `npm install --no-audit --no-fund`. Instala
+corretamente, mas perde a garantia de versão exata que o `npm ci` dá — um pacote
+transitivo pode resolver mais novo no CI do que o lock registra.
+
+**Correção:** regenerar `package-lock.json` no Linux (ou num container
+descartável), commitar, e voltar o CI para `npm ci`. Tentativas de regenerar do
+Windows com `--os=linux --cpu=x64 --libc=glibc --force` não acrescentam as
+variantes de plataforma; o npm só resolve a subárvore da plataforma em que roda.
+
 ## Riscos de segurança (fora de escopo desta revisão)
 
 1. ~~**Credenciais em plaintext no SQLite**~~ — **resolvido, com uma ressalva.** `apiKey`, `accessToken`, `refreshToken` e `idToken` dentro de `providerConnections.data` agora são cifrados com AES-256-GCM por campo (`src/lib/db/helpers/credentialCipher.ts`), chave derivada de `CREDENTIAL_KEY` com scrypt, linhas existentes migradas pela 010. O backup herda de graça, porque copia os bytes já cifrados. A propagação para fora do banco também fechou: cada destino recebe chave própria registrada em `apiKeys.sink`, e `usageHistory.apiKey` guarda o id da linha (migration 009) — rotação em `docs/OPERATIONS.md`.
