@@ -154,9 +154,22 @@ Se a definição do produto mudar para controle de custo ou compliance, o corret
 
 Hoje o risco é baixo — a aplicação é local-first e single-tenant — mas a correção adequada é tornar a resolução de locale request-scoped no servidor (por exemplo `AsyncLocalStorage` ou `React.cache()` num módulo server-only) em vez de estado de módulo. Isso implica trocar a assinatura de `translate()` nos ~50 componentes que a importam diretamente, então foi adiado.
 
-## Literais de tradução com BOM UTF-8
+## Literais de tradução com BOM UTF-8 — resolvido
 
-Os 34 arquivos em `public/i18n/literals/*.json` são gravados com BOM. `Response.json()` no browser tolera, `JSON.parse` no servidor não — o que já causou fallback silencioso para inglês e mismatch de hidratação. `src/i18n/server.ts` remove o BOM na leitura e `tests/unit/i18nLiteralFiles.test.ts` protege a regressão, mas o ideal é corrigir a ferramenta que gera esses arquivos para emitir UTF-8 sem BOM.
+Os 34 arquivos em `public/i18n/literals/*.json` eram gravados com BOM.
+`Response.json()` no browser tolera, `JSON.parse` no servidor não — o que já
+causou fallback silencioso para inglês e mismatch de hidratação.
+
+O registro anterior dizia que o ideal era corrigir a ferramenta geradora. Não há
+geradora no repositório: os arquivos são versionados e nenhum script os escreve,
+então essa ação nunca seria executável aqui. **Os 34 arquivos foram limpos** e o
+teste passou a exigir ausência de BOM em vez de tolerá-la.
+
+O que estava errado era o teste: ele fazia `raw.replace(/^﻿/, "")` antes de
+parsear, ou seja, passava justamente por causa do workaround que deveria
+denunciar. Com isso o repositório podia acumular arquivos quebrados
+indefinidamente sem nada falhar. A remoção de BOM em `src/i18n/server.ts` fica
+como defesa em profundidade, mas agora não deve ter nada para remover.
 
 ## Landing token migration
 

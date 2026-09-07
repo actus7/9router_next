@@ -22,6 +22,17 @@ describe("i18n literal files", () => {
     expect(missing).toEqual([]);
   });
 
+  /**
+   * The runtime strip in src/i18n/server.ts stays as defence, but it should
+   * never have anything to strip. Tolerating the BOM in the test as well left
+   * the repository holding 34 files that only work because of a workaround —
+   * so the next file added by hand reintroduces the bug and nothing fails.
+   */
+  it.each(files)("%s carries no UTF-8 BOM", (name) => {
+    const bytes = readFileSync(join(literalsDir, name));
+    expect([bytes[0], bytes[1], bytes[2]]).not.toEqual([0xef, 0xbb, 0xbf]);
+  });
+
   it.each(files)("%s parses the way the server reads it", (name) => {
     const raw = readFileSync(join(literalsDir, name), "utf-8");
     const parsed: unknown = JSON.parse(raw.replace(/^\uFEFF/, ""));
