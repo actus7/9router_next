@@ -1,0 +1,22 @@
+# Build inputs only. Anything regenerated in the image, or specific to a
+# developer machine, stays out so the build cache is not invalidated by it.
+.git
+.github
+node_modules
+.next
+.vercel
+coverage
+*.log
+
+# Never ship secrets or a developer's local database into an image.
+.env
+.env.*
+!.env.example
+data/
+
+# Docs and agent tooling are not needed to build or run the server.
+docs/
+gitbook/
+.claude/
+.remember/
+tests/

@@ -159,3 +159,33 @@ describe("auth module on a host with an uncreatable home", () => {
     error.mockRestore();
   });
 });
+
+/**
+ * Booting is not the same as working.
+ *
+ * Once the app survives an unwritable home it lands on the OS temp dir, where
+ * the SQLite file holding the operator's provider credentials is erased when
+ * the instance recycles. Silently accepting a provider API key into storage
+ * that is about to vanish is a data-loss trap, so the condition has to be
+ * observable from outside this module.
+ */
+describe("ephemeral storage is reported, not hidden", () => {
+  it("flags the temp-dir fallback as ephemeral", async () => {
+    mockFsWithUnwritableHome();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { DATA_DIR, DATA_DIR_IS_EPHEMERAL } = await import("@/lib/dataDir");
+
+    expect(norm(DATA_DIR)).toBe("/tmp/modelhub");
+    expect(DATA_DIR_IS_EPHEMERAL).toBe(true);
+  });
+
+  it("does not flag a configured persistent directory", async () => {
+    mockFsWithUnwritableHome();
+    vi.stubEnv("DATA_DIR", "/var/data/modelhub");
+
+    const { DATA_DIR_IS_EPHEMERAL } = await import("@/lib/dataDir");
+
+    expect(DATA_DIR_IS_EPHEMERAL).toBe(false);
+  });
+});

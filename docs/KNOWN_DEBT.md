@@ -154,9 +154,22 @@ Se a definição do produto mudar para controle de custo ou compliance, o corret
 
 Hoje o risco é baixo — a aplicação é local-first e single-tenant — mas a correção adequada é tornar a resolução de locale request-scoped no servidor (por exemplo `AsyncLocalStorage` ou `React.cache()` num módulo server-only) em vez de estado de módulo. Isso implica trocar a assinatura de `translate()` nos ~50 componentes que a importam diretamente, então foi adiado.
 
-## Literais de tradução com BOM UTF-8
+## Literais de tradução com BOM UTF-8 — resolvido
 
-Os 34 arquivos em `public/i18n/literals/*.json` são gravados com BOM. `Response.json()` no browser tolera, `JSON.parse` no servidor não — o que já causou fallback silencioso para inglês e mismatch de hidratação. `src/i18n/server.ts` remove o BOM na leitura e `tests/unit/i18nLiteralFiles.test.ts` protege a regressão, mas o ideal é corrigir a ferramenta que gera esses arquivos para emitir UTF-8 sem BOM.
+Os 34 arquivos em `public/i18n/literals/*.json` eram gravados com BOM.
+`Response.json()` no browser tolera, `JSON.parse` no servidor não — o que já
+causou fallback silencioso para inglês e mismatch de hidratação.
+
+O registro anterior dizia que o ideal era corrigir a ferramenta geradora. Não há
+geradora no repositório: os arquivos são versionados e nenhum script os escreve,
+então essa ação nunca seria executável aqui. **Os 34 arquivos foram limpos** e o
+teste passou a exigir ausência de BOM em vez de tolerá-la.
+
+O que estava errado era o teste: ele fazia `raw.replace(/^﻿/, "")` antes de
+parsear, ou seja, passava justamente por causa do workaround que deveria
+denunciar. Com isso o repositório podia acumular arquivos quebrados
+indefinidamente sem nada falhar. A remoção de BOM em `src/i18n/server.ts` fica
+como defesa em profundidade, mas agora não deve ter nada para remover.
 
 ## Landing token migration
 
@@ -165,3 +178,37 @@ A landing ainda usa cores hex hard-coded (`#f97815`, `#181411`, etc.) em vez dos
 ## Mass color rename
 
 Renomeação em massa de hex e classes ad-hoc para o sistema de tema compartilhado (`primary`, `bg-bg`, etc.) não foi incluída. Abrange landing, componentes de marketing e cards antigos do dashboard; fazer como migração dedicada de design system para evitar regressões mistas.
+
+## Hospedagem: o adapter síncrono decide o host — resolvido como documentação
+
+A app quebrava no Vercel (`ENOENT: mkdir '/home/sbx_user1051/.modelhub'` durante
+module evaluation do middleware, ou seja, 500 em toda request). O boot está
+corrigido e verificado em produção, mas consertar o boot expôs a questão de
+fundo, que **não** é um bug e sim um limite de arquitetura:
+
+`DbAdapter` (`src/lib/db/driver.ts`) é **síncrono** — `get`, `all`, `run`, `exec`
+e `transaction` retornam sem `await`. Isso não é detalhe de implementação: é o
+que permite os repos em `src/lib/db/repos` serem escritos como são. Trocar por um
+banco de rede (Postgres, Neon, Turso) não é configuração; obriga a tornar async
+todo repo e todo chamador. Ou seja, **o requisito de hospedagem é disco gravável
+que sobrevive a restart**, e não há atalho de env var para contorná-lo.
+
+Consequência prática, agora documentada em [DEPLOYMENT.md](DEPLOYMENT.md): Vercel,
+Netlify e afins bootam mas são **demo apenas** — o banco, o JWT secret e os
+backups são apagados a cada reciclagem de instância. Docker com volume, VPS,
+Fly/Railway/Render com volume persistente são os alvos suportados.
+
+O que foi feito para o modo degradado não ser silencioso — porque aceitar uma
+chave de provider em armazenamento que vai evaporar, sem nada na tela, é
+armadilha de perda de dados:
+
+- `DATA_DIR_IS_EPHEMERAL` (`src/lib/dataDir.ts`), verdadeiro quando o diretório
+  resolvido é o temp do SO;
+- `storageEphemeral` em `GET /api/settings`, no mesmo padrão derivado-nunca-armazenado
+  de `credentialEncryptionEnabled`;
+- faixa permanente no topo do dashboard, **não dispensável de propósito**: um
+  aviso que dá para fechar é um aviso fechado antes de a credencial ser digitada.
+
+Não fica dívida aberta aqui. Se algum dia o produto exigir mesmo rodar
+serverless, aí sim o trabalho é tornar `DbAdapter` async — e isso é reescrita
+deliberada, com nota de migração, não ajuste.
