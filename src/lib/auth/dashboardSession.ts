@@ -9,17 +9,48 @@ const DEFAULT_PASSWORD: string = "123456";
 
 function loadJwtSecret(): string {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+
   const file: string = path.join(DATA_DIR, "jwt-secret");
   try {
     return fs.readFileSync(file, "utf8").trim();
-  } catch {}
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch { /* not created yet, or unreadable — fall through */ }
+
   const generated: string = crypto.randomBytes(32).toString("hex");
-  fs.writeFileSync(file, generated, { mode: 0o600 });
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(file, generated, { mode: 0o600 });
+  } catch (error: unknown) {
+    // A read-only filesystem must not take the process down. This module used
+    // to compute the secret at import time and is reachable from the Next
+    // middleware, so an unwritable DATA_DIR threw during module evaluation and
+    // every request 500'd — that is how the app failed to boot on Vercel, where
+    // the reported home directory cannot be created.
+    //
+    // The in-memory secret keeps auth working, but only inside this instance:
+    // it changes on restart and differs across instances, so sessions do not
+    // survive either. On a host without a persistent disk, JWT_SECRET has to be
+    // set.
+    console.error(
+      `[auth] Could not persist the JWT secret to '${file}' ` +
+      `(${error instanceof Error ? error.message : String(error)}). ` +
+      `Using an in-memory secret: sessions will not survive a restart and will ` +
+      `not work across instances. Set JWT_SECRET to fix this.`,
+    );
+  }
   return generated;
 }
 
-const SECRET: Uint8Array = new TextEncoder().encode(loadJwtSecret());
+/**
+ * Resolved on first use, not at import.
+ *
+ * Import-time resolution is what made an unwritable data directory fatal for
+ * the entire app instead of only for the features that need the disk.
+ */
+let cachedSecret: Uint8Array | null = null;
+function getSecret(): Uint8Array {
+  cachedSecret ??= new TextEncoder().encode(loadJwtSecret());
+  return cachedSecret;
+}
 
 interface RequestLike {
   headers: {
@@ -44,13 +75,13 @@ async function createDashboardAuthToken(claims: Record<string, unknown> = {}): P
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("24h")
-    .sign(SECRET);
+    .sign(getSecret());
 }
 
 export async function verifyDashboardAuthToken(token: string): Promise<boolean> {
   if (!token) return false;
   try {
-    await jwtVerify(token, SECRET);
+    await jwtVerify(token, getSecret());
     return true;
   } catch {
     return false;
@@ -60,7 +91,7 @@ export async function verifyDashboardAuthToken(token: string): Promise<boolean> 
 export async function getDashboardAuthSession(token: string): Promise<JWTPayload | null> {
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, getSecret());
     return payload;
   } catch {
     return null;
