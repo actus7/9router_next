@@ -4,6 +4,7 @@ import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "@/server/llm-gateway/catalog";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { isCredentialEncryptionEnabled } from "@/lib/db/helpers/credentialCipher";
+import { DATA_DIR_IS_EPHEMERAL } from "@/lib/dataDir";
 import bcrypt from "bcryptjs";
 
 
@@ -32,6 +33,12 @@ export async function GET(): Promise<NextResponse> {
       // "credentials are encrypted at rest" is a thing the operator can see
       // rather than assume — an install that never set the env runs in clear.
       credentialEncryptionEnabled: isCredentialEncryptionEnabled(),
+      // Derived, never stored: whether the data directory survives a restart.
+      // False on any host with a real disk; true when the app fell back to the
+      // OS temp dir because the home directory was unwritable (Vercel and other
+      // read-only serverless hosts). Surfaced because the failure it warns
+      // about is silent — credentials are accepted and then erased.
+      storageEphemeral: DATA_DIR_IS_EPHEMERAL,
       hasPassword: !!password
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {

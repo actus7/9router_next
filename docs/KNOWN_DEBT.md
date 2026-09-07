@@ -165,3 +165,37 @@ A landing ainda usa cores hex hard-coded (`#f97815`, `#181411`, etc.) em vez dos
 ## Mass color rename
 
 Renomeação em massa de hex e classes ad-hoc para o sistema de tema compartilhado (`primary`, `bg-bg`, etc.) não foi incluída. Abrange landing, componentes de marketing e cards antigos do dashboard; fazer como migração dedicada de design system para evitar regressões mistas.
+
+## Hospedagem: o adapter síncrono decide o host — resolvido como documentação
+
+A app quebrava no Vercel (`ENOENT: mkdir '/home/sbx_user1051/.modelhub'` durante
+module evaluation do middleware, ou seja, 500 em toda request). O boot está
+corrigido e verificado em produção, mas consertar o boot expôs a questão de
+fundo, que **não** é um bug e sim um limite de arquitetura:
+
+`DbAdapter` (`src/lib/db/driver.ts`) é **síncrono** — `get`, `all`, `run`, `exec`
+e `transaction` retornam sem `await`. Isso não é detalhe de implementação: é o
+que permite os repos em `src/lib/db/repos` serem escritos como são. Trocar por um
+banco de rede (Postgres, Neon, Turso) não é configuração; obriga a tornar async
+todo repo e todo chamador. Ou seja, **o requisito de hospedagem é disco gravável
+que sobrevive a restart**, e não há atalho de env var para contorná-lo.
+
+Consequência prática, agora documentada em [DEPLOYMENT.md](DEPLOYMENT.md): Vercel,
+Netlify e afins bootam mas são **demo apenas** — o banco, o JWT secret e os
+backups são apagados a cada reciclagem de instância. Docker com volume, VPS,
+Fly/Railway/Render com volume persistente são os alvos suportados.
+
+O que foi feito para o modo degradado não ser silencioso — porque aceitar uma
+chave de provider em armazenamento que vai evaporar, sem nada na tela, é
+armadilha de perda de dados:
+
+- `DATA_DIR_IS_EPHEMERAL` (`src/lib/dataDir.ts`), verdadeiro quando o diretório
+  resolvido é o temp do SO;
+- `storageEphemeral` em `GET /api/settings`, no mesmo padrão derivado-nunca-armazenado
+  de `credentialEncryptionEnabled`;
+- faixa permanente no topo do dashboard, **não dispensável de propósito**: um
+  aviso que dá para fechar é um aviso fechado antes de a credencial ser digitada.
+
+Não fica dívida aberta aqui. Se algum dia o produto exigir mesmo rodar
+serverless, aí sim o trabalho é tornar `DbAdapter` async — e isso é reescrita
+deliberada, com nota de migração, não ajuste.

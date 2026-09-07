@@ -89,3 +89,18 @@ function getDataDir(): string {
 }
 
 export const DATA_DIR: string = getDataDir();
+
+/**
+ * True when the resolved directory does not survive a restart.
+ *
+ * Booting on the temp dir is a supported way to *start*, not to *run*: the
+ * SQLite file, the JWT secret and the backups are erased when the instance is
+ * recycled, which on a serverless host happens constantly. Accepting a provider
+ * API key into storage that is about to vanish, with nothing on screen saying
+ * so, is a data-loss trap — so the condition is exported and surfaced rather
+ * than left in a boot-time log nobody reads.
+ *
+ * An explicitly configured DATA_DIR under the temp dir counts as ephemeral too,
+ * because it is: the flag describes the storage, not how it was chosen.
+ */
+export const DATA_DIR_IS_EPHEMERAL: boolean = DATA_DIR === tempDir();

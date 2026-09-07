@@ -1,0 +1,33 @@
+# Minimal self-hosted deployment: one container, one named volume.
+#
+# The volume is not optional. ModelHub keeps provider credentials, API keys,
+# usage history and its JWT secret in an embedded SQLite file under DATA_DIR;
+# without a volume the container starts clean on every restart.
+services:
+  modelhub:
+    build: .
+    image: modelhub:latest
+    restart: unless-stopped
+    ports:
+      - "20128:20128"
+    volumes:
+      - modelhub-data:/data
+    environment:
+      # Must match the volume mount above.
+      DATA_DIR: /data
+      # Sessions survive a restart only if this is stable. Left unset, the app
+      # generates one and writes it under DATA_DIR, which works here because the
+      # volume persists — set it explicitly when running more than one replica,
+      # since each would otherwise generate its own and reject the other's
+      # cookies.
+      # JWT_SECRET: ${JWT_SECRET}
+      #
+      # Without this, provider credentials sit in the database in clear text and
+      # the app warns on every boot. See docs/OPERATIONS.md for rotation.
+      # CREDENTIAL_KEY: ${CREDENTIAL_KEY}
+      #
+      # Refuses to boot without CREDENTIAL_KEY. Off by default so an existing
+      # install that never opted in is not bricked by an upgrade.
+      # CREDENTIAL_ENCRYPTION_REQUIRED: "true"
+volumes:
+  modelhub-data:
