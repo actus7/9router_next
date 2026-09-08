@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 
 interface DeploymentRow {
@@ -74,21 +75,21 @@ function deploymentToRow(d: CloudDeployment): Record<string, unknown> {
 }
 
 interface DbLike {
-  run(sql: string, params?: unknown[]): void;
-  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
-  all(sql: string, params?: unknown[]): Array<Record<string, unknown>>;
-  transaction(fn: () => void): void;
+  run(sql: string, params?: unknown[]): Promise<{ changes: number }>;
+  get(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined>;
+  all(sql: string, params?: unknown[]): Promise<Array<Record<string, unknown>>>;
+  transaction<T>(fn: () => Promise<T>): Promise<T>;
 }
 
-function upsert(db: DbLike, d: CloudDeployment): void {
+async function upsert(db: DbLike, d: CloudDeployment): Promise<void> {
   const r = deploymentToRow(d);
-  db.run(
-    `INSERT INTO cloudDeployments(id, connectionId, provider, toolId, status, publicUrl, data, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+  await db.run(
+    `INSERT INTO cloudDeployments(id, userId, connectionId, provider, toolId, status, publicUrl, data, createdAt, updatedAt)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        status=excluded.status, publicUrl=excluded.publicUrl,
        data=excluded.data, updatedAt=excluded.updatedAt`,
-    [r.id, r.connectionId, r.provider, r.toolId, r.status, r.publicUrl, r.data, r.createdAt, r.updatedAt]
+    [r.id, currentTenantId(), r.connectionId, r.provider, r.toolId, r.status, r.publicUrl, r.data, r.createdAt, r.updatedAt]
   );
 }
 
@@ -100,11 +101,11 @@ interface DeploymentFilter {
 export async function getCloudDeployments(filter: DeploymentFilter = {}): Promise<CloudDeployment[]> {
   const db = await getAdapter();
   const where: string[] = [];
-  const params: unknown[] = [];
+  const params: unknown[] = [currentTenantId()];
   if (filter.toolId) { where.push("toolId = ?"); params.push(filter.toolId); }
   if (filter.provider) { where.push("provider = ?"); params.push(filter.provider); }
-  const sql = `SELECT * FROM cloudDeployments${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const list = (db.all(sql, params) as unknown as DeploymentRow[])
+  const sql = `SELECT * FROM cloudDeployments WHERE userId = ?${where.length ? ` AND ${where.join(" AND ")}` : ""}`;
+  const list = (await db.all(sql, params) as unknown as DeploymentRow[])
     .map(rowToDeployment)
     .filter((d): d is CloudDeployment => d !== null);
   list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -113,7 +114,7 @@ export async function getCloudDeployments(filter: DeploymentFilter = {}): Promis
 
 export async function getCloudDeploymentById(id: string): Promise<CloudDeployment | null> {
   const db = await getAdapter();
-  return rowToDeployment(db.get(`SELECT * FROM cloudDeployments WHERE id = ?`, [id]) as DeploymentRow | undefined);
+  return rowToDeployment(await db.get(`SELECT * FROM cloudDeployments WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as DeploymentRow | undefined);
 }
 
 interface DeploymentInput {
@@ -155,18 +156,18 @@ export async function createCloudDeployment(data: DeploymentInput): Promise<Clou
     createdAt: now,
     updatedAt: now,
   };
-  upsert(db, deployment);
+  await upsert(db, deployment);
   return deployment;
 }
 
 export async function updateCloudDeployment(id: string, data: Partial<CloudDeployment>): Promise<CloudDeployment | null> {
   const db = await getAdapter();
   let result: CloudDeployment | null = null;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM cloudDeployments WHERE id = ?`, [id]) as DeploymentRow | undefined;
+  await db.transaction(async () => {
+    const row = await db.get(`SELECT * FROM cloudDeployments WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as DeploymentRow | undefined;
     if (!row) return;
     const merged: CloudDeployment = { ...rowToDeployment(row)!, ...data, updatedAt: new Date().toISOString() };
-    upsert(db, merged);
+    await upsert(db, merged);
     result = merged;
   });
   return result;
@@ -175,11 +176,11 @@ export async function updateCloudDeployment(id: string, data: Partial<CloudDeplo
 export async function deleteCloudDeployment(id: string): Promise<CloudDeployment | null> {
   const db = await getAdapter();
   let removed: CloudDeployment | null = null;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM cloudDeployments WHERE id = ?`, [id]) as DeploymentRow | undefined;
+  await db.transaction(async () => {
+    const row = await db.get(`SELECT * FROM cloudDeployments WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as DeploymentRow | undefined;
     if (!row) return;
     removed = rowToDeployment(row);
-    db.run(`DELETE FROM cloudDeployments WHERE id = ?`, [id]);
+    await db.run(`DELETE FROM cloudDeployments WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
   });
   return removed;
 }

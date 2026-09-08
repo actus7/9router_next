@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 
 interface NodeRow {
@@ -46,19 +47,19 @@ function nodeToRow(n: ProviderNode): Record<string, unknown> {
 }
 
 interface DbLike {
-  run(sql: string, params?: unknown[]): void;
-  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
-  all(sql: string, params?: unknown[]): Array<Record<string, unknown>>;
+  run(sql: string, params?: unknown[]): Promise<{ changes: number }>;
+  get(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined>;
+  all(sql: string, params?: unknown[]): Promise<Array<Record<string, unknown>>>;
 }
 
-function upsert(db: DbLike, n: ProviderNode): void {
+async function upsert(db: DbLike, n: ProviderNode): Promise<void> {
   const r = nodeToRow(n);
-  db.run(
-    `INSERT INTO providerNodes(id, type, name, data, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?)
+  await db.run(
+    `INSERT INTO providerNodes(id, userId, type, name, data, createdAt, updatedAt)
+     VALUES(?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        type=excluded.type, name=excluded.name, data=excluded.data, updatedAt=excluded.updatedAt`,
-    [r.id, r.type, r.name, r.data, r.createdAt, r.updatedAt]
+    [r.id, currentTenantId(), r.type, r.name, r.data, r.createdAt, r.updatedAt]
   );
 }
 
@@ -69,15 +70,15 @@ interface NodeFilter {
 export async function getProviderNodes(filter: NodeFilter = {}): Promise<ProviderNode[]> {
   const db = await getAdapter();
   const where: string[] = [];
-  const params: unknown[] = [];
+  const params: unknown[] = [currentTenantId()];
   if (filter.type) { where.push("type = ?"); params.push(filter.type); }
-  const sql: string = `SELECT * FROM providerNodes${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  return (db.all(sql, params) as unknown as NodeRow[]).map(rowToNode).filter((n): n is ProviderNode => n !== null);
+  const sql: string = `SELECT * FROM providerNodes WHERE userId = ?${where.length ? ` AND ${where.join(" AND ")}` : ""}`;
+  return (await db.all(sql, params) as unknown as NodeRow[]).map(rowToNode).filter((n): n is ProviderNode => n !== null);
 }
 
 export async function getProviderNodeById(id: string): Promise<ProviderNode | null> {
   const db = await getAdapter();
-  return rowToNode(db.get(`SELECT * FROM providerNodes WHERE id = ?`, [id]) as NodeRow | undefined);
+  return rowToNode(await db.get(`SELECT * FROM providerNodes WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as NodeRow | undefined);
 }
 
 interface NodeInput {
@@ -100,18 +101,18 @@ export async function createProviderNode(data: NodeInput): Promise<ProviderNode>
     createdAt: now,
     updatedAt: now,
   };
-  upsert(db, node);
+  await upsert(db, node);
   return node;
 }
 
 export async function updateProviderNode(id: string, data: Partial<ProviderNode>): Promise<ProviderNode | null> {
   const db = await getAdapter();
   let result: ProviderNode | null = null;
-  db.transaction(() => {
-    const row: NodeRow | undefined = db.get(`SELECT * FROM providerNodes WHERE id = ?`, [id]) as NodeRow | undefined;
+  await db.transaction(async () => {
+    const row: NodeRow | undefined = await db.get(`SELECT * FROM providerNodes WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as NodeRow | undefined;
     if (!row) return;
     const merged: ProviderNode = { ...rowToNode(row)!, ...data, updatedAt: new Date().toISOString() };
-    upsert(db, merged);
+    await upsert(db, merged);
     result = merged;
   });
   return result;
@@ -120,11 +121,11 @@ export async function updateProviderNode(id: string, data: Partial<ProviderNode>
 export async function deleteProviderNode(id: string): Promise<ProviderNode | null> {
   const db = await getAdapter();
   let removed: ProviderNode | null = null;
-  db.transaction(() => {
-    const row: NodeRow | undefined = db.get(`SELECT * FROM providerNodes WHERE id = ?`, [id]) as NodeRow | undefined;
+  await db.transaction(async () => {
+    const row: NodeRow | undefined = await db.get(`SELECT * FROM providerNodes WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as NodeRow | undefined;
     if (!row) return;
     removed = rowToNode(row);
-    db.run(`DELETE FROM providerNodes WHERE id = ?`, [id]);
+    await db.run(`DELETE FROM providerNodes WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
   });
   return removed;
 }

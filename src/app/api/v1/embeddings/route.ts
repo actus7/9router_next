@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { handleEmbeddings } from "@/server/llm-gateway/embeddings";
 
@@ -17,6 +18,8 @@ export async function OPTIONS() {
 /**
  * POST /v1/embeddings - OpenAI-compatible embeddings endpoint
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return await handleEmbeddings(request);
 }
+
+export const POST = gatewayRoute(handlePOST);

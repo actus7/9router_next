@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProxyPool } from "@/models";
 
@@ -47,7 +48,7 @@ export default {
 `;
 
 // POST /api/proxy-pools/cloudflare-deploy
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json();
     const accountId = body.accountId?.trim();
@@ -143,3 +144,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: (error as Error).message || "Deploy failed" }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

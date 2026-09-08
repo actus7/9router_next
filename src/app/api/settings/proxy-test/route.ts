@@ -1,7 +1,8 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { testProxyUrl } from "@/lib/network/proxyTest";
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const result = await testProxyUrl({
@@ -21,3 +22,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

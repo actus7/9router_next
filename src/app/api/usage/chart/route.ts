@@ -1,10 +1,11 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { getChartData } from "@/lib/usageDb";
 
 const VALID_PERIODS = new Set(["today", "24h", "7d", "30d", "60d"]);
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   await assertRequestRuntime();
   const { searchParams } = new URL(request.url);
   try {
@@ -21,3 +22,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch chart data" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);

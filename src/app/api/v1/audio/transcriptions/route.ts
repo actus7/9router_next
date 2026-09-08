@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { handleStt } from "@/server/llm-gateway/media";
 
@@ -15,6 +16,8 @@ export async function OPTIONS() {
 }
 
 /** POST /v1/audio/transcriptions - OpenAI Whisper compatible STT */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return await handleStt(request);
 }
+
+export const POST = gatewayRoute(handlePOST);

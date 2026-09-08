@@ -17,6 +17,7 @@ export const navItems = [
   { href: "/dashboard/usage", label: "Usage", icon: <BarChart3 /> },
   { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: <Webhook /> },
   { href: "/dashboard/providers", label: "Providers", icon: <Server /> },
+  { href: "/dashboard/web-providers", label: "Web Session Providers", icon: <Globe /> },
   { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: <Layers /> },
   { href: "/dashboard/quota", label: "Quota Tracker", icon: <PieChart /> },
   { href: "/dashboard/token-saver", label: "Token Saver", icon: <PiggyBank /> },

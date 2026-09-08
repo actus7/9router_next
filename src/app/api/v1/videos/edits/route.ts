@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { handleVideoCreate } from "@/server/llm-gateway/media";
 
@@ -12,6 +13,8 @@ export async function OPTIONS() {
 }
 
 /** POST /v1/videos/edits - async video edit (xAI Grok Imagine) */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return await handleVideoCreate(request, "edits");
 }
+
+export const POST = gatewayRoute(handlePOST);

@@ -9,7 +9,6 @@ import {
   isCredentialEncryptionEnabled,
   isEncryptedValue,
 } from "@/lib/db/helpers/credentialCipher";
-import migration010 from "@/lib/db/migrations/010-cipher-connection-blob";
 
 /**
  * Encryption at rest for the credential fields of providerConnections.data.
@@ -137,68 +136,5 @@ describe("encryption policy", () => {
     expect(() => assertCredentialEncryptionPolicy()).not.toThrow();
     process.env.CREDENTIAL_ENCRYPTION_REQUIRED = "yes";
     expect(() => assertCredentialEncryptionPolicy()).not.toThrow();
-  });
-});
-
-function fakeDb(rows: Array<{ id: string; data: string }>) {
-  const writes: Array<{ id: string; data: string }> = [];
-  return {
-    writes,
-    all: () => rows.map((row) => ({ ...row }) as Record<string, unknown>),
-    run: (_sql: string, params?: unknown[]) => {
-      writes.push({ data: String(params?.[0]), id: String(params?.[2]) });
-      return { changes: 1 };
-    },
-  };
-}
-
-describe("migration 010", () => {
-  it("encrypts the credential fields of existing rows", () => {
-    const db = fakeDb([{ id: "c1", data: JSON.stringify({ apiKey: "sk-plain", email: "a@b.c" }) }]);
-
-    migration010.up(db);
-
-    expect(db.writes).toHaveLength(1);
-    const written = JSON.parse(db.writes[0]!.data);
-    expect(isEncryptedValue(written.apiKey)).toBe(true);
-    expect(written.email).toBe("a@b.c");
-  });
-
-  it("is idempotent — a second run changes nothing", () => {
-    const encrypted = JSON.stringify(encryptConnectionSecrets({ apiKey: "sk-plain" }));
-    const db = fakeDb([{ id: "c1", data: encrypted }]);
-
-    migration010.up(db);
-
-    expect(db.writes).toEqual([]);
-  });
-
-  it("does nothing at all when no key is configured", () => {
-    withKey(undefined);
-    const db = fakeDb([{ id: "c1", data: JSON.stringify({ apiKey: "sk-plain" }) }]);
-
-    migration010.up(db);
-
-    // An install that never opted into encryption must keep booting untouched.
-    expect(db.writes).toEqual([]);
-  });
-
-  it("skips blobs that are not objects without throwing", () => {
-    // JSON.parse succeeds on all of these, so a parse try/catch does not cover
-    // them: "null" yields null, and reading a property off it throws.
-    const db = fakeDb([
-      { id: "c1", data: "null" },
-      { id: "c2", data: "42" },
-      { id: "c3", data: '"text"' },
-      { id: "c4", data: "[]" },
-      { id: "c5", data: "{not json" },
-      { id: "c6", data: JSON.stringify({ apiKey: "sk-good" }) },
-    ]);
-
-    expect(() => migration010.up(db)).not.toThrow();
-
-    // The one good row still migrates, so a bad neighbour cannot cost the rest
-    // of the table its encryption.
-    expect(db.writes.map((w) => w.id)).toEqual(["c6"]);
   });
 });

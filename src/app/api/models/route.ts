@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { getModelAliases, setModelAlias } from "@/models";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
@@ -6,7 +7,7 @@ import { getProviderAlias } from "@/shared/constants/providers";
 import { getCapabilitiesForModel } from "@/server/llm-gateway/catalog";
 
 // GET /api/models - Get models with aliases
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   try {
     const modelAliases = await getModelAliases();
     const disabled = await getDisabledModels();
@@ -45,7 +46,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // PUT /api/models - Update model alias
-export async function PUT(request: NextRequest): Promise<NextResponse> {
+async function handlePUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const { model, alias } = body;
@@ -74,3 +75,6 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to update alias" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const PUT = tenantRoute(handlePUT);

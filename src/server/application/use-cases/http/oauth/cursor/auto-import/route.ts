@@ -4,6 +4,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { createRequire } from "node:module";
 
 const execFileAsync = promisify(execFile);
 
@@ -68,9 +69,15 @@ function getCandidatePaths(platform: string) {
  * This is the preferred strategy — no external CLI required.
  */
 function extractTokensViaBetterSqlite(dbPath: string) {
-  // Dynamic require so the route stays importable even if native bindings fail
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Database = require("better-sqlite3");
+  // Resolved at runtime, on purpose. `better-sqlite3` is an optionalDependency
+  // with a native build that does not compile everywhere, and a literal
+  // require() here is a static import as far as the bundler is concerned — it
+  // failed the whole production build on a machine where the optional install
+  // had been skipped. Assembling the specifier keeps the resolution where it
+  // belongs: at call time, inside the caller's try/catch, which already falls
+  // through to the CLI strategy.
+  const specifier: string = ["better", "sqlite3"].join("-");
+  const Database = createRequire(import.meta.url)(specifier);
   const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 
   const query = (key: string) => {

@@ -24,10 +24,16 @@ interface ToolSummaryCardProps {
   status?: ToolStatus;
 }
 
-// Derive simple connected/configured/not-installed status from API payload
+// Derive simple connected/configured/not-detected status from API payload.
+//
+// "Not detected", not "Not installed": `installed` is the result of probing the
+// machine running ModelHub, which is the operator's machine only on a local
+// install. On Vercel, in Docker or on a LAN box it is false for every tool no
+// matter what the operator has, so claiming the tool is not installed states
+// something this app cannot know. The detail page words it the same way.
 function getStatus(status?: ToolStatus) {
   if (!status) return { label: "Unknown", cls: "bg-gray-500/10 text-gray-500" };
-  if (!status.installed) return { label: "Not installed", cls: "bg-gray-500/10 text-gray-500" };
+  if (!status.installed) return { label: "Not detected", cls: "bg-gray-500/10 text-gray-500" };
   if (status.hasModelHub) return { label: "Connected", cls: "bg-success text-success-foreground dark:text-success-foreground" };
   return { label: "Not configured", cls: "bg-warning text-warning-foreground dark:text-warning-foreground" };
 }

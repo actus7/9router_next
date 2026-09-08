@@ -5,6 +5,7 @@ import { Spinner } from "@/shared/components/Loading";
 import { isCombinedWebKind, mediaProviderListingHref } from "../listingHref";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import MediaProviderKindClient from "./MediaProviderKindClient";
+import { withTenantPage } from "@/server/application/http/withTenantPage";
 
 async function MediaProviderKindContent() {
   await assertRequestRuntime();
@@ -24,11 +25,13 @@ async function MediaProviderKindContent() {
 }
 
 export default async function MediaProviderKindPage({ params }: PageProps<"/dashboard/media-providers/[kind]">) {
-  await assertRequestRuntime();
-  const { kind } = await params;
-  // webSearch and webFetch share the combined /web listing. Redirecting here
-  // means the stub route never renders, so it can no longer navigate mid-render.
-  if (isCombinedWebKind(kind)) redirect(mediaProviderListingHref(kind));
+  return withTenantPage(async () => {
+    await assertRequestRuntime();
+    const { kind } = await params;
+    // webSearch and webFetch share the combined /web listing. Redirecting here
+    // means the stub route never renders, so it can no longer navigate mid-render.
+    if (isCombinedWebKind(kind)) redirect(mediaProviderListingHref(kind));
 
-  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><MediaProviderKindContent /></Suspense>;
+    return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><MediaProviderKindContent /></Suspense>;
+  });
 }

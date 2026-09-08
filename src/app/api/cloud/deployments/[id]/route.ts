@@ -1,9 +1,10 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { deleteCloudDeployment, getCloudDeploymentById, getCloudConnectionById, revokeApiKeysForSink, type ApiKeySink } from "@/models";
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { isCloudProviderError, formatCloudProviderError } from "@/server/cloud/providers/driver";
 
-export async function DELETE(_request: NextRequest, { params }: RouteContext<"/api/cloud/deployments/[id]">) {
+async function handleDELETE(_request: NextRequest, { params }: RouteContext<"/api/cloud/deployments/[id]">) {
   const { id } = await params;
   const deployment = await getCloudDeploymentById(id);
   if (!deployment) return NextResponse.json({ error: "Deployment não encontrado" }, { status: 404 });
@@ -33,3 +34,5 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext<"/a
 
   return NextResponse.json({ success: true });
 }
+
+export const DELETE = tenantRoute(handleDELETE);

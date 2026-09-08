@@ -17,6 +17,7 @@ interface ImportStepProps {
 }
 
 const ORIGIN_LABELS: Record<CredentialOrigin, string> = {
+  extension: "Browser extension",
   "curl-cookie": "Cookie header",
   "curl-authorization": "Authorization header",
   "header-authorization": "Authorization header",
@@ -80,7 +81,7 @@ export default function ImportStep({ providerName, website, authHint, onExtracte
       <div className="flex gap-3 rounded-lg border border-border/60 bg-muted/30 p-3" role="note">
         <Shield className="size-4 shrink-0 text-text-muted mt-0.5" aria-hidden="true" />
         <p className="text-xs text-text-muted leading-relaxed">
-          Browsers do not allow automatic cross-site cookie capture. You&apos;ll need to copy session data from your browser&apos;s DevTools manually. This is a one-time setup per connection.
+          Use this method to import a session manually. Sessions can expire; reconnect when the provider asks you to sign in again.
         </p>
       </div>
 

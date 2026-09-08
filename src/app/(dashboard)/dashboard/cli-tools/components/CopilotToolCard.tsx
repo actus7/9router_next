@@ -277,6 +277,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
                 resetDisabled={!status?.hasModelHub}
                 resetLoading={restoring}
                 onManualConfig={() => setShowManualConfigModal(true)}
+                localApply={!!status?.installed}
               />
             </>
           )}

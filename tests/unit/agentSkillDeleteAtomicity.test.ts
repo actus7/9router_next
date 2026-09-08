@@ -40,15 +40,17 @@ describe("deleteAgentSkillWithFiles", () => {
     expect(files).toBeGreaterThanOrEqual(0);
     expect(row).toBeGreaterThanOrEqual(0);
 
-    expect(run.mock.calls[files]![1]).toEqual(["skill-1"]);
-    expect(run.mock.calls[row]![1]).toEqual(["skill-1"]);
+    expect(run.mock.calls[files]![1]).toEqual(["test-user", "skill-1"]);
+    expect(run.mock.calls[row]![1]).toEqual(["test-user", "skill-1"]);
   });
 
   it("bumps the skill revision so readers invalidate their cache", async () => {
     await deleteAgentSkillWithFiles("skill-1");
 
-    const bump = run.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO _meta"));
+    // The revision counter is per-account now, so it lives in `kv` under the
+    // reserved "meta" scope rather than the instance-wide `_meta` table.
+    const bump = run.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO kv"));
     expect(bump).toBeDefined();
-    expect(bump![1]).toEqual(["agentSkillsRevision", "4"]);
+    expect(bump![1]).toEqual(["test-user", "meta", "agentSkillsRevision", "4"]);
   });
 });

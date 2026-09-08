@@ -9,10 +9,30 @@ import {
   fetchWithTimeout,
 } from "./duckaiRuntime";
 
+// DuckDuckGo rejects the chat request with 418 ERR_CHALLENGE when x-fe-signals
+// carries no interaction trace: an empty `events` array with a 1ms window reads
+// as "no human touched this". The first-party app sends the chat-open events
+// plus a `trusted` action for the click that submitted the message, so mirror
+// that shape with plausible deltas.
 function buildDuckAiSignalsHeader(): string {
-  const start = Date.now();
-  const end = start + 1;
-  return Buffer.from(JSON.stringify({ end, events: [], start })).toString("base64");
+  const composeMs = 8_000 + Math.floor(Math.random() * 6_000);
+  const start = Date.now() - composeMs;
+  return Buffer.from(
+    JSON.stringify({
+      start,
+      events: [
+        { name: "startNewChat_free", delta: 90 + Math.floor(Math.random() * 60) },
+        { name: "recentChatsListImpression", delta: 240 + Math.floor(Math.random() * 90) },
+        { name: "action", delta: composeMs - 300, trusted: true },
+      ],
+      end: composeMs + 300,
+    })
+  ).toString("base64");
+}
+
+/** Per-conversation journey id, matching the first-party app's header. */
+function buildDuckAiJourneyId(): string {
+  return randomUUID().replace(/-/g, "");
 }
 
 function buildDuckAiToolChoice() {
@@ -76,9 +96,17 @@ export function toDdgMessages(
   return result;
 }
 
-// Model IDs known to support reasoning effort
+// Every reasoning model needs an explicit reasoningEffort, and only one it
+// actually declares: omitting it — or sending one the model does not support —
+// is rejected with 400 ERR_BAD_REQUEST. gpt-oss is the trap here, since "low"
+// is the only value it accepts. Models absent from this map are general (not
+// reasoning) models that must be sent no reasoningEffort at all.
 const REASONING_EFFORT_MODELS: Record<string, DuckAiReasoningEffort> = {
-  "gpt-5-mini": "minimal",
+  "gpt-5.6-luna": "none",
+  "gpt-5.4-mini": "none",
+  "claude-haiku-4-5": "none",
+  "tinfoil/gemma4-31b": "none",
+  "tinfoil/gpt-oss-120b": "low",
 };
 
 export function getReasoningEffort(modelId: string): DuckAiReasoningEffort | undefined {
@@ -100,6 +128,7 @@ export async function sendDuckAiChatRequest(input: {
     "Content-Type": "application/json",
     ...(input.cookies ? { Cookie: input.cookies } : {}),
     Origin: "https://duck.ai",
+    "x-ddg-journey-id": buildDuckAiJourneyId(),
     "x-fe-signals": buildDuckAiSignalsHeader(),
     "x-vqd-hash-1": input.vqdData.hashPayload,
   };

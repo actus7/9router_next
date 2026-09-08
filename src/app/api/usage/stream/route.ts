@@ -1,7 +1,8 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { getUsageStats, statsEmitter, getActiveRequests } from "@/lib/usageDb";
 
 
-export async function GET() {
+async function handleGET() {
   const encoder = new TextEncoder();
   const state: {
     closed: boolean;
@@ -82,3 +83,5 @@ export async function GET() {
     },
   });
 }
+
+export const GET = tenantRoute(handleGET);

@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextResponse } from "next/server";
 import { installPxpipe } from "@/lib/pxpipe/install";
 import { unloadPxpipe } from "@/lib/pxpipe/loader";
@@ -7,7 +8,7 @@ import { runHealthCheck } from "@/lib/pxpipe/service";
 export const maxDuration = 300;
 
 // Install (or repair — same operation, reinstalls @latest) then re-run the health check.
-export async function POST() {
+async function handlePOST() {
   try {
     const info = await installPxpipe();
     unloadPxpipe(); // drop any previously-loaded version so health loads the fresh one
@@ -18,3 +19,5 @@ export async function POST() {
     return NextResponse.json({ error: err.message, code: err.code || null }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

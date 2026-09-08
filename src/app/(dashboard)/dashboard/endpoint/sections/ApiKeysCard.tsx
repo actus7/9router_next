@@ -11,8 +11,6 @@ import type { ApiKey, ConfirmState } from "../types";
 interface ApiKeysCardProps {
   keys: ApiKey[];
   setShowAddModal: (v: boolean) => void;
-  requireApiKey: boolean;
-  handleRequireApiKey: (v: boolean) => void;
   isRemoteHost: boolean;
   visibleKeys: Set<string>;
   copied: string | null;
@@ -25,7 +23,7 @@ interface ApiKeysCardProps {
 }
 
 export default function ApiKeysCard({
-  keys, setShowAddModal, requireApiKey, handleRequireApiKey,
+  keys, setShowAddModal,
   isRemoteHost, visibleKeys, copied, copy,
   maskKey, toggleKeyVisibility, setConfirmState, handleToggleKey, handleDeleteKey,
 }: ApiKeysCardProps) {
@@ -41,22 +39,16 @@ export default function ApiKeysCard({
         </Button>
       </div>
 
-      <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
-        <div>
-          <p className="font-medium">{translate("Require API key") || "Require API key"}</p>
-          <p className="text-sm text-text-muted">
-            {translate("Requests without a valid key will be rejected") || "Requests without a valid key will be rejected"}
-          </p>
-        </div>
-        <Switch
-          checked={requireApiKey}
-          onCheckedChange={() => handleRequireApiKey(!requireApiKey)}
-        />
+      <div className="pb-4 mb-4 border-b border-border">
+        <p className="font-medium">{translate("An API key is always required") || "An API key is always required"}</p>
+        <p className="text-sm text-text-muted">
+          {translate("The key identifies the account a request is billed to, so requests without one are rejected.") || "The key identifies the account a request is billed to, so requests without one are rejected."}
+        </p>
       </div>
 
-      {isRemoteHost && !requireApiKey && (
+      {isRemoteHost && keys.length === 0 && (
         <div className="mb-4 -mt-2">
-          <SecurityWarning message={translate("Endpoint is exposed without an API key.") || "Endpoint is exposed without an API key."} />
+          <SecurityWarning message={translate("No key exists yet, so this endpoint cannot serve anything.") || "No key exists yet, so this endpoint cannot serve anything."} />
         </div>
       )}
 

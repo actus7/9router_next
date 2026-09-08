@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { pingModelByKind } from "./ping";
 
 // POST /api/models/test - Ping a single model via internal completions or embeddings
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const { model, kind, timeoutMs } = await request.json();
     if (!model) return NextResponse.json({ error: "Model required" }, { status: 400 });
@@ -14,3 +15,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: error.message, isTimeout, isCancelled: error.name === "AbortError" }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

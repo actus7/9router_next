@@ -3,15 +3,18 @@ import { getProviders, getCombos } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import WebMediaProvidersClient from "./WebMediaProvidersClient";
+import { withTenantPage } from "@/server/application/http/withTenantPage";
 
 async function WebMediaProvidersContent() {
-  await assertRequestRuntime();
-  const [connections, combos] = await Promise.all([
-    getProviders(),
-    getCombos(),
-  ]);
+  return withTenantPage(async () => {
+    await assertRequestRuntime();
+    const [connections, combos] = await Promise.all([
+      getProviders(),
+      getCombos(),
+    ]);
 
-  return <WebMediaProvidersClient initialConnections={connections} initialCombos={combos as unknown as { id: string; name: string; kind?: string; models: string[] }[]} />;
+    return <WebMediaProvidersClient initialConnections={connections} initialCombos={combos as unknown as { id: string; name: string; kind?: string; models: string[] }[]} />;
+  });
 }
 
 export default function WebMediaProvidersPage() {

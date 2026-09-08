@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { createCloudDeployment, getCloudConnectionByProvider, getCloudDeployments, issueApiKeyForSink, type ApiKeySink } from "@/models";
 import { getCloudTool } from "@/server/cloud/tools/registry";
@@ -12,7 +13,7 @@ function serializeDeployment(d: Awaited<ReturnType<typeof getCloudDeployments>>[
   return rest;
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const toolId = searchParams.get("toolId") ?? undefined;
   const provider = searchParams.get("provider") ?? undefined;
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ deployments: deployments.map(serializeDeployment) });
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const provider = typeof body?.provider === "string" ? body.provider : "";
   const toolId = typeof body?.toolId === "string" ? body.toolId : "";
@@ -102,3 +103,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Falha ao criar deployment" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const POST = tenantRoute(handlePOST);

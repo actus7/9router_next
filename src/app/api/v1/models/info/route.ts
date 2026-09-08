@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { PROVIDER_MODELS } from "@/server/llm-gateway/catalog";
 import { AI_PROVIDERS, ALIAS_TO_ID, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
@@ -87,7 +88,7 @@ export async function OPTIONS() {
 }
 
 // GET /v1/models/info?id={alias}/{modelId} — metadata for a single model
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   const kind = searchParams.get("kind");
@@ -114,3 +115,5 @@ export async function GET(request: NextRequest) {
   }
   return Response.json(info, { headers: { "Access-Control-Allow-Origin": "*" } });
 }
+
+export const GET = gatewayRoute(handleGET);

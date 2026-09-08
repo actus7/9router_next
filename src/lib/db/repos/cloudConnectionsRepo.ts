@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 
 interface ConnectionRow {
@@ -52,27 +53,27 @@ function connectionToRow(c: CloudConnection): Record<string, unknown> {
 }
 
 interface DbLike {
-  run(sql: string, params?: unknown[]): void;
-  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
-  all(sql: string, params?: unknown[]): Array<Record<string, unknown>>;
-  transaction(fn: () => void): void;
+  run(sql: string, params?: unknown[]): Promise<{ changes: number }>;
+  get(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined>;
+  all(sql: string, params?: unknown[]): Promise<Array<Record<string, unknown>>>;
+  transaction<T>(fn: () => Promise<T>): Promise<T>;
 }
 
-function upsert(db: DbLike, c: CloudConnection): void {
+async function upsert(db: DbLike, c: CloudConnection): Promise<void> {
   const r = connectionToRow(c);
-  db.run(
-    `INSERT INTO cloudConnections(id, provider, label, data, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?)
+  await db.run(
+    `INSERT INTO cloudConnections(id, userId, provider, label, data, createdAt, updatedAt)
+     VALUES(?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        provider=excluded.provider, label=excluded.label,
        data=excluded.data, updatedAt=excluded.updatedAt`,
-    [r.id, r.provider, r.label, r.data, r.createdAt, r.updatedAt]
+    [r.id, currentTenantId(), r.provider, r.label, r.data, r.createdAt, r.updatedAt]
   );
 }
 
 export async function getCloudConnections(): Promise<CloudConnection[]> {
   const db = await getAdapter();
-  const list = (db.all(`SELECT * FROM cloudConnections`) as unknown as ConnectionRow[])
+  const list = (await db.all(`SELECT * FROM cloudConnections WHERE userId = ?`, [currentTenantId()]) as unknown as ConnectionRow[])
     .map(rowToConnection)
     .filter((c): c is CloudConnection => c !== null);
   list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -81,12 +82,12 @@ export async function getCloudConnections(): Promise<CloudConnection[]> {
 
 export async function getCloudConnectionByProvider(provider: string): Promise<CloudConnection | null> {
   const db = await getAdapter();
-  return rowToConnection(db.get(`SELECT * FROM cloudConnections WHERE provider = ?`, [provider]) as ConnectionRow | undefined);
+  return rowToConnection(await db.get(`SELECT * FROM cloudConnections WHERE userId = ? AND provider = ?`, [currentTenantId(), provider]) as ConnectionRow | undefined);
 }
 
 export async function getCloudConnectionById(id: string): Promise<CloudConnection | null> {
   const db = await getAdapter();
-  return rowToConnection(db.get(`SELECT * FROM cloudConnections WHERE id = ?`, [id]) as ConnectionRow | undefined);
+  return rowToConnection(await db.get(`SELECT * FROM cloudConnections WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as ConnectionRow | undefined);
 }
 
 interface ConnectionInput {
@@ -102,8 +103,8 @@ export async function createCloudConnection(data: ConnectionInput): Promise<Clou
   const db = await getAdapter();
   const now = new Date().toISOString();
   let result!: CloudConnection;
-  db.transaction(() => {
-    const existing = db.get(`SELECT * FROM cloudConnections WHERE provider = ?`, [data.provider]) as ConnectionRow | undefined;
+  await db.transaction(async () => {
+    const existing = await db.get(`SELECT * FROM cloudConnections WHERE userId = ? AND provider = ?`, [currentTenantId(), data.provider]) as ConnectionRow | undefined;
     const connection: CloudConnection = {
       id: existing?.id ?? uuidv4(),
       provider: data.provider,
@@ -115,7 +116,7 @@ export async function createCloudConnection(data: ConnectionInput): Promise<Clou
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
-    upsert(db, connection);
+    await upsert(db, connection);
     result = connection;
   });
   return result;
@@ -124,11 +125,11 @@ export async function createCloudConnection(data: ConnectionInput): Promise<Clou
 export async function deleteCloudConnection(id: string): Promise<CloudConnection | null> {
   const db = await getAdapter();
   let removed: CloudConnection | null = null;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM cloudConnections WHERE id = ?`, [id]) as ConnectionRow | undefined;
+  await db.transaction(async () => {
+    const row = await db.get(`SELECT * FROM cloudConnections WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as ConnectionRow | undefined;
     if (!row) return;
     removed = rowToConnection(row);
-    db.run(`DELETE FROM cloudConnections WHERE id = ?`, [id]);
+    await db.run(`DELETE FROM cloudConnections WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
   });
   return removed;
 }

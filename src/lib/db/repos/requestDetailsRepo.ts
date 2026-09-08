@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { currentTenantId, withTenant } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { toPersistenceError, type PersistenceError } from "../errors";
 
@@ -16,11 +17,19 @@ interface ObservabilityConfig {
   maxJsonSize: number;
 }
 
-let cachedConfig: ObservabilityConfig | null = null;
-let cachedConfigTs: number = 0;
+/**
+ * Cached per tenant, not globally: the record limit, batch size and the
+ * on/off switch all come from `settings`, which is now one row per account.
+ * A single shared entry would apply whichever tenant happened to warm it to
+ * everyone else for the next five seconds.
+ */
+const configCache: Map<string, { config: ObservabilityConfig; ts: number }> = new Map();
 
 async function getObservabilityConfig(): Promise<ObservabilityConfig> {
-  if (cachedConfig && (Date.now() - cachedConfigTs) < CONFIG_CACHE_TTL_MS) return cachedConfig;
+  const tenantId: string = currentTenantId();
+  const hit = configCache.get(tenantId);
+  if (hit && (Date.now() - hit.ts) < CONFIG_CACHE_TTL_MS) return hit.config;
+  let cachedConfig: ObservabilityConfig;
   try {
     const { getSettings } = await import("./settingsRepo");
     const settings: Record<string, unknown> = await getSettings() as Record<string, unknown>;
@@ -34,7 +43,7 @@ async function getObservabilityConfig(): Promise<ObservabilityConfig> {
         flushIntervalMs: (settings.observabilityFlushIntervalMs as number) || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
         maxJsonSize: ((settings.observabilityMaxJsonSize as number) || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
       };
-      cachedConfigTs = Date.now();
+      configCache.set(tenantId, { config: cachedConfig, ts: Date.now() });
       return cachedConfig;
     }
     const envFallback: boolean = process.env.OBSERVABILITY_ENABLED !== "false";
@@ -53,11 +62,18 @@ async function getObservabilityConfig(): Promise<ObservabilityConfig> {
   } catch (error) {
     throw toPersistenceError("requestDetails.loadConfiguration", error);
   }
-  cachedConfigTs = Date.now();
+  configCache.set(tenantId, { config: cachedConfig, ts: Date.now() });
   return cachedConfig;
 }
 
 interface WriteBufferItem {
+  /**
+   * Stamped when the detail is enqueued, because the flush runs on a timer
+   * with no request around it — `currentTenantId()` would have nothing to
+   * read by then. Optional in the public shape so callers do not pass it;
+   * `saveRequestDetail` is what fills it in.
+   */
+  userId?: string;
   id?: string;
   timestamp?: string;
   provider?: string;
@@ -116,44 +132,59 @@ async function flushToDatabase(): Promise<void> {
       const items: WriteBufferItem[] = writeBuffer.splice(0, writeBuffer.length);
       inFlight = items;
       const db = await getAdapter();
-      const config: ObservabilityConfig = await getObservabilityConfig();
 
-      db.transaction(() => {
-        for (const item of items) {
-          if (!item.id) item.id = generateDetailId(item.model);
-          if (!item.timestamp) item.timestamp = new Date().toISOString();
-          if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers as Record<string, unknown>);
+      // Grouped by owner: one batch can hold details from several accounts,
+      // and both the config that shapes a record and the pruning below are
+      // per-tenant.
+      const byTenant: Map<string, WriteBufferItem[]> = new Map();
+      for (const item of items) {
+        const owner: string | undefined = item.userId;
+        if (!owner) continue;
+        const bucket = byTenant.get(owner);
+        if (bucket) bucket.push(item);
+        else byTenant.set(owner, [item]);
+      }
 
-          const record: Record<string, unknown> = {
-            id: item.id,
-            provider: item.provider || null,
-            model: item.model || null,
-            connectionId: item.connectionId || null,
-            timestamp: item.timestamp,
-            status: item.status || null,
-            latency: item.latency || {},
-            tokens: item.tokens || {},
-            request: truncateField(item.request, config.maxJsonSize),
-            providerRequest: truncateField(item.providerRequest, config.maxJsonSize),
-            providerResponse: truncateField(item.providerResponse, config.maxJsonSize),
-            response: truncateField(item.response, config.maxJsonSize),
-            pxpipe: item.pxpipe || undefined,
-          };
+      for (const [userId, tenantItems] of byTenant) {
+          const config: ObservabilityConfig = await withTenant(userId, () => getObservabilityConfig());
 
-          db.run(
-            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
-            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
-          );
-        }
+        await db.transaction(async () => {
+          for (const item of tenantItems) {
+            if (!item.id) item.id = generateDetailId(item.model);
+            if (!item.timestamp) item.timestamp = new Date().toISOString();
+            if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers as Record<string, unknown>);
 
-        const cnt = db.get(`SELECT COUNT(*) as c FROM requestDetails`) as { c: number } | undefined;
-        if (cnt && cnt.c > config.maxRecords) {
-          db.run(
-            `DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`,
-            [cnt.c - config.maxRecords]
-          );
-        }
-      });
+            const record: Record<string, unknown> = {
+              id: item.id,
+              provider: item.provider || null,
+              model: item.model || null,
+              connectionId: item.connectionId || null,
+              timestamp: item.timestamp,
+              status: item.status || null,
+              latency: item.latency || {},
+              tokens: item.tokens || {},
+              request: truncateField(item.request, config.maxJsonSize),
+              providerRequest: truncateField(item.providerRequest, config.maxJsonSize),
+              providerResponse: truncateField(item.providerResponse, config.maxJsonSize),
+              response: truncateField(item.response, config.maxJsonSize),
+              pxpipe: item.pxpipe || undefined,
+            };
+
+            await db.run(
+              `INSERT INTO requestDetails(id, userId, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
+              [record.id, userId, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
+            );
+          }
+
+          const cnt = await db.get(`SELECT COUNT(*) as c FROM requestDetails WHERE userId = ?`, [userId]) as { c: number } | undefined;
+          if (cnt && cnt.c > config.maxRecords) {
+            await db.run(
+              `DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails WHERE userId = ? ORDER BY timestamp ASC LIMIT ?)`,
+              [userId, cnt.c - config.maxRecords]
+            );
+          }
+        });
+      }
       inFlight = [];
     }
     lastFlushError = null;
@@ -175,7 +206,7 @@ export async function saveRequestDetail(detail: WriteBufferItem): Promise<void> 
   const config: ObservabilityConfig = await getObservabilityConfig();
   if (!config.enabled) {return;}
 
-  writeBuffer.push(detail);
+  writeBuffer.push({ ...detail, userId: currentTenantId() });
 
   // Trigger immediate flush if batch threshold reached.
   // flushToDatabase() drains entire buffer in a loop, so all pushes during await are persisted.
@@ -220,7 +251,7 @@ interface RequestDetailsResult {
 export async function getRequestDetails(filter: RequestDetailsFilter = {}): Promise<RequestDetailsResult> {
   const db = await getAdapter();
   const conds: string[] = [];
-  const params: unknown[] = [];
+  const params: unknown[] = [currentTenantId()];
 
   if (filter.provider) { conds.push("provider = ?"); params.push(filter.provider); }
   if (filter.model) { conds.push("model = ?"); params.push(filter.model); }
@@ -229,8 +260,8 @@ export async function getRequestDetails(filter: RequestDetailsFilter = {}): Prom
   if (filter.startDate) { conds.push("timestamp >= ?"); params.push(new Date(filter.startDate).toISOString()); }
   if (filter.endDate) { conds.push("timestamp <= ?"); params.push(new Date(filter.endDate).toISOString()); }
 
-  const where: string = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-  const cntRow = db.get(`SELECT COUNT(*) as c FROM requestDetails ${where}`, params) as { c: number } | undefined;
+  const where: string = conds.length ? `AND ${conds.join(" AND ")}` : "";
+  const cntRow = await db.get(`SELECT COUNT(*) as c FROM requestDetails WHERE userId = ? ${where}`, params) as { c: number } | undefined;
   const totalItems: number = cntRow ? cntRow.c : 0;
 
   const page: number = filter.page || 1;
@@ -238,8 +269,8 @@ export async function getRequestDetails(filter: RequestDetailsFilter = {}): Prom
   const totalPages: number = Math.ceil(totalItems / pageSize);
   const offset: number = (page - 1) * pageSize;
 
-  const rows = db.all(
-    `SELECT data FROM requestDetails ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+  const rows = await db.all(
+    `SELECT data FROM requestDetails WHERE userId = ? ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, offset]
   ) as Array<{ data: string }>;
   const details: Record<string, unknown>[] = rows.map((r: { data: string }) => parseJson(r.data, {}) as Record<string, unknown>);
@@ -252,13 +283,13 @@ export async function getRequestDetails(filter: RequestDetailsFilter = {}): Prom
 
 export async function getDistinctProviders(): Promise<string[]> {
   const db = await getAdapter();
-  const rows = db.all(`SELECT DISTINCT provider FROM requestDetails WHERE provider IS NOT NULL ORDER BY provider ASC`) as Array<{ provider: string }>;
+  const rows = await db.all(`SELECT DISTINCT provider FROM requestDetails WHERE userId = ? AND provider IS NOT NULL ORDER BY provider ASC`, [currentTenantId()]) as Array<{ provider: string }>;
   return rows.map((r: { provider: string }) => r.provider);
 }
 
 export async function getRequestDetailById(id: string): Promise<Record<string, unknown> | null> {
   const db = await getAdapter();
-  const row = db.get(`SELECT data FROM requestDetails WHERE id = ?`, [id]) as { data: string } | undefined;
+  const row = await db.get(`SELECT data FROM requestDetails WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as { data: string } | undefined;
   return row ? (parseJson(row.data, null) as Record<string, unknown> | null) : null;
 }
 

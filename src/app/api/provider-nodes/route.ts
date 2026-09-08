@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { createProviderNode, getProviderNodes } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, CUSTOM_EMBEDDING_PREFIX } from "@/shared/constants/providers";
@@ -17,7 +18,7 @@ const CUSTOM_EMBEDDING_DEFAULTS = {
 };
 
 // GET /api/provider-nodes - List all provider nodes
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   try {
     const nodes = await getProviderNodes();
     return NextResponse.json({ nodes });
@@ -28,7 +29,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST /api/provider-nodes - Create provider node
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const { name, prefix, apiType, baseUrl, type } = body;
@@ -101,3 +102,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to create provider node" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const POST = tenantRoute(handlePOST);

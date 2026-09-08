@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getProviderConnectionById } = vi.hoisted(() => ({ getProviderConnectionById: vi.fn() }));
 
+vi.mock("@/server/application/http/tenantRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);
+vi.mock("@/server/application/http/gatewayRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);
+
 vi.mock("server-only", () => ({}));
 vi.mock("@/models", () => ({ getProviderConnectionById }));
 vi.mock("@/shared/constants/providers", () => ({

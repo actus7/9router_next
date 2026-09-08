@@ -1,4 +1,5 @@
 ﻿import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { makeKv } from "../helpers/kvStore";
 
@@ -73,17 +74,17 @@ export async function getPricingForModel(provider: string, model: string): Promi
 // Atomic merge inside transaction (per-provider read-modify-write)
 export async function updatePricing(pricingData: Record<string, Record<string, unknown>>): Promise<Record<string, Record<string, unknown>>> {
   const db = await getAdapter();
-  db.transaction(() => {
+  await db.transaction(async () => {
     for (const [provider, models] of Object.entries(pricingData)) {
-      const row = db.get(`SELECT value FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]) as { value: string } | undefined;
+      const row = await db.get(`SELECT value FROM kv WHERE userId = ? AND scope = 'pricing' AND key = ?`, [currentTenantId(), provider]) as { value: string } | undefined;
       const current: Record<string, unknown> = row ? ((parseJson(row.value, {}) as Record<string, unknown>) || {}) : {};
       const merged: Record<string, unknown> = { ...current };
       for (const [model, pricing] of Object.entries(models)) {
         merged[model] = pricing;
       }
-      db.run(
-        `INSERT INTO kv(scope, key, value) VALUES('pricing', ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value`,
-        [provider, stringifyJson(merged)]
+      await db.run(
+        `INSERT INTO kv(userId, scope, key, value) VALUES(?, 'pricing', ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`,
+        [currentTenantId(), provider, stringifyJson(merged)]
       );
     }
   });
@@ -94,20 +95,20 @@ export async function updatePricing(pricingData: Record<string, Record<string, u
 export async function resetPricing(provider?: string, model?: string): Promise<Record<string, Record<string, unknown>>> {
   if (!provider) return await getUserPricing();
   const db = await getAdapter();
-  db.transaction(() => {
+  await db.transaction(async () => {
     if (!model) {
-      db.run(`DELETE FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]);
+      await db.run(`DELETE FROM kv WHERE userId = ? AND scope = 'pricing' AND key = ?`, [currentTenantId(), provider]);
       return;
     }
-    const row = db.get(`SELECT value FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]) as { value: string } | undefined;
+    const row = await db.get(`SELECT value FROM kv WHERE userId = ? AND scope = 'pricing' AND key = ?`, [currentTenantId(), provider]) as { value: string } | undefined;
     const current: Record<string, unknown> = row ? ((parseJson(row.value, {}) as Record<string, unknown>) || {}) : {};
     delete current[model];
     if (Object.keys(current).length === 0) {
-      db.run(`DELETE FROM kv WHERE scope = 'pricing' AND key = ?`, [provider]);
+      await db.run(`DELETE FROM kv WHERE userId = ? AND scope = 'pricing' AND key = ?`, [currentTenantId(), provider]);
     } else {
-      db.run(
-        `INSERT INTO kv(scope, key, value) VALUES('pricing', ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value`,
-        [provider, stringifyJson(current)]
+      await db.run(
+        `INSERT INTO kv(userId, scope, key, value) VALUES(?, 'pricing', ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`,
+        [currentTenantId(), provider, stringifyJson(current)]
       );
     }
   });

@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "ModelHub Web Sessions",
+  "version": "1.0.1",
+  "minimum_chrome_version": "127",
+  "description": "Conecte suas contas web ao ModelHub sem copiar cURL. A captura começa somente após sua confirmação.",
+  "permissions": ["activeTab", "scripting", "storage", "webRequest", "alarms"],
+  "optional_permissions": ["cookies"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "ModelHub Web Sessions" }
+}

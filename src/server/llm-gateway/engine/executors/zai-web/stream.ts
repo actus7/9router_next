@@ -129,6 +129,60 @@ async function drainSseDeltas(
   }
 }
 
+/** Upstream rejects a reused captcha proof with this, and often accepts a retry. */
+export function isZaiCaptchaError(message: string | null | undefined): boolean {
+  return !!message && /captcha/i.test(message);
+}
+
+/**
+ * Read the head of an SSE body far enough to see whether the stream opens with a
+ * terminal error frame, and hand back a body that replays what was consumed —
+ * so a caller can decide to retry before anything reaches the client.
+ */
+export async function peekZaiStreamError(
+  sourceBody: ReadableStream<Uint8Array>
+): Promise<{ error: string | null; body: ReadableStream<Uint8Array> }> {
+  const reader = sourceBody.getReader();
+  const decoder = new TextDecoder();
+  const buffer = { text: "" };
+  const consumed: Uint8Array[] = [];
+  let error: string | null = null;
+  let drained = false;
+
+  while (!drained) {
+    const { done, value } = await reader.read();
+    if (done) {
+      drained = true;
+      break;
+    }
+    consumed.push(value);
+    let head = false;
+    for (const raw of extractSseDataPayloads(buffer, decoder.decode(value, { stream: true }))) {
+      const delta = parseSsePayload(raw);
+      if (!delta) continue;
+      if (delta.error) error = delta.error;
+      head = true;
+      break;
+    }
+    if (head) break;
+  }
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of consumed) controller.enqueue(chunk);
+      if (drained) controller.close();
+    },
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) controller.close();
+      else controller.enqueue(value);
+    },
+    cancel: (reason) => reader.cancel(reason),
+  });
+
+  return { error, body };
+}
+
 function emitDeltaChunks(
   controller: ReadableStreamDefaultController,
   delta: ZaiDelta,

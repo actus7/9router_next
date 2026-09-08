@@ -3,14 +3,17 @@ import { getSettings, getDatabaseInfo } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ProfileClient from "./ProfileClient";
+import { withTenantPage } from "@/server/application/http/withTenantPage";
 
 async function ProfileContent() {
-  await assertRequestRuntime();
-  const [settings, dbInfo] = await Promise.all([
-    getSettings(),
-    getDatabaseInfo()
-  ]);
-  return <ProfileClient initialSettings={settings} initialDbInfo={dbInfo} />;
+  return withTenantPage(async () => {
+    await assertRequestRuntime();
+    const [settings, dbInfo] = await Promise.all([
+      getSettings(),
+      getDatabaseInfo()
+    ]);
+    return <ProfileClient initialSettings={settings} initialDbInfo={dbInfo} />;
+  });
 }
 
 export default function ProfilePage() {

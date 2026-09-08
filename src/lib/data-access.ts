@@ -49,6 +49,7 @@ import {
 } from "@/lib/db/repos/aliasRepo";
 
 import { getAdapter } from "@/lib/db/driver";
+import { currentTenantId } from "@/lib/db/tenant";
 
 // ---------------------------------------------------------------------------
 // Re-exported types (so consumers can import from a single module)
@@ -327,39 +328,37 @@ export async function getDatabaseInfo(): Promise<Record<string, unknown>> {
   try {
     const db = await getAdapter();
 
-    // Get table counts
+    // Row counts for the calling account, not the deployment: the numbers are
+    // shown on that account's own settings screen.
     const tables = ['providerConnections', 'providerNodes', 'proxyPools', 'apiKeys', 'combos', 'usageHistory', 'requestDetails'];
     const tableCounts: Record<string, number> = {};
+    const userId = currentTenantId();
 
     for (const table of tables) {
       try {
-        const result = db.get(`SELECT COUNT(*) as count FROM ${table}`);
-        tableCounts[table] = (result as { count: number })?.count || 0;
+        const result = await db.get(`SELECT COUNT(*) as count FROM ${table} WHERE userId = ?`, [userId]);
+        tableCounts[table] = (result as { count: number } | undefined)?.count || 0;
       } catch {
         tableCounts[table] = 0;
       }
     }
 
-    // Get database size (approximate)
+    // Bytes this account occupies, summed from the same tables. Postgres has
+    // no per-tenant page count, and the whole-database size the SQLite PRAGMAs
+    // reported would now be everybody's rows together.
     let dbSize = 0;
     try {
-      const pageCount = db.get(`PRAGMA page_count`);
-      const pageSize = db.get(`PRAGMA page_size`);
-      if (pageCount && pageSize) {
-        dbSize = ((pageCount as { page_count: number }).page_count || 0) * ((pageCount as { page_size: number }).page_size || 0);
-      }
+      const sizes = await Promise.all(tables.map((table) =>
+        db.get(`SELECT COALESCE(SUM(pg_column_size(t.*)), 0) AS bytes FROM ${table} t WHERE userId = ?`, [userId]),
+      ));
+      dbSize = sizes.reduce((sum, row) => sum + Number((row as { bytes?: number } | undefined)?.bytes || 0), 0);
     } catch {
       // Ignore size calculation errors
     }
 
-    // Get schema version
-    let schemaVersion = 0;
-    try {
-      const versionRow = db.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`);
-      schemaVersion = parseInt((versionRow as { value: string })?.value || '0', 10);
-    } catch {
-      // Ignore version errors
-    }
+    // The schema is synced declaratively from schema.ts on every boot, so
+    // there is no stored version number any more.
+    const schemaVersion = 0;
 
     return {
       tableCounts,

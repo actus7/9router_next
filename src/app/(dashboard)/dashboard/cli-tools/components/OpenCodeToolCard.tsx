@@ -305,7 +305,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
             </div>
           )}
 
-          {!checking && status?.installed && (
+          {!checking && (
             <>
               <div className="flex flex-col gap-2">
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
@@ -359,9 +359,10 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                 applyDisabled={selectedModels.length === 0}
                 applyLoading={applying}
                 onReset={handleReset}
-                resetDisabled={!status.hasModelHub}
+                resetDisabled={!status?.hasModelHub}
                 resetLoading={restoring}
                 onManualConfig={() => setShowManualConfigModal(true)}
+                localApply={!!status?.installed}
               />
             </>
           )}

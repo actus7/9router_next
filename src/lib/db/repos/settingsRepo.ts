@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 
 const DEFAULT_HEADROOM_URL: string = process.env.HEADROOM_URL || "http://localhost:8787";
@@ -19,22 +20,13 @@ interface Settings {
   comboStickyRoundRobinLimit: number;
   comboStrategies: Record<string, unknown>;
   capacityAdapter: Record<string, { enabled: boolean; roundRobin: boolean; models: string[] }>;
-  requireLogin: boolean;
   requireApiKey: boolean;
-  tunnelDashboardAccess: boolean;
-  authMode: string;
-  ssoType: string;
-  oidcIssuerUrl: string;
-  oidcClientId: string;
-  oidcClientSecret: string;
-  oidcScopes: string;
-  oidcLoginLabel: string;
-  samlEntryPoint: string;
-  samlIssuer: string;
-  samlCert: string;
-  samlLoginLabel: string;
-  samlAttributeEmail: string;
-  samlAttributeName: string;
+  /**
+   * Login is no longer a setting. Identity comes from Neon Auth and every row
+   * is owned by an account, so there is no "no login" mode left to configure —
+   * see docs/NEON-MIGRATION.md. Serving the dashboard on a given host is a
+   * deployment concern now: `DASHBOARD_ALLOWED_HOSTS`.
+   */
   enableObservability: boolean;
   observabilityMaxRecords: number;
   observabilityBatchSize: number;
@@ -87,22 +79,7 @@ const DEFAULT_SETTINGS: Settings = {
     audioInput: { enabled: true, roundRobin: false, models: [] },
     videoInput: { enabled: false, roundRobin: false, models: [] },
   },
-  requireLogin: true,
   requireApiKey: true,
-  tunnelDashboardAccess: true,
-  authMode: "password",
-  ssoType: "oidc",
-  oidcIssuerUrl: "",
-  oidcClientId: "",
-  oidcClientSecret: "",
-  oidcScopes: "openid profile email",
-  oidcLoginLabel: "Sign in with OIDC",
-  samlEntryPoint: "",
-  samlIssuer: "urn:modelhub:sp",
-  samlCert: "",
-  samlLoginLabel: "Sign in with SAML SSO",
-  samlAttributeEmail: "email",
-  samlAttributeName: "name",
   enableObservability: false,
   observabilityMaxRecords: 1000,
   observabilityBatchSize: 20,
@@ -130,7 +107,7 @@ const DEFAULT_SETTINGS: Settings = {
 
 async function readRaw(): Promise<Record<string, unknown>> {
   const db = await getAdapter();
-  const row = db.get(`SELECT data FROM settings WHERE id = 1`) as { data: string } | undefined;
+  const row = (await db.get(`SELECT data FROM settings WHERE userId = ?`, [currentTenantId()])) as { data: string } | undefined;
   return row ? (parseJson(row.data, {}) as Record<string, unknown>) : {};
 }
 
@@ -161,14 +138,15 @@ export async function getSettings(): Promise<Settings> {
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
 export async function updateSettings(updates: Record<string, unknown>): Promise<Settings> {
   const db = await getAdapter();
+  const userId = currentTenantId();
   let next: Settings;
-  db.transaction(function () {
-    const row = db.get(`SELECT data FROM settings WHERE id = 1`) as { data: string } | undefined;
+  await db.transaction(async () => {
+    const row = (await db.get(`SELECT data FROM settings WHERE userId = ?`, [userId])) as { data: string } | undefined;
     const current: Record<string, unknown> = row ? (parseJson(row.data, {}) as Record<string, unknown>) : {};
     next = { ...current, ...updates } as Settings;
-    db.run(
-      `INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
-      [stringifyJson(next)],
+    await db.run(
+      `INSERT INTO settings(userId, data) VALUES(?, ?) ON CONFLICT(userId) DO UPDATE SET data = excluded.data`,
+      [userId, stringifyJson(next)],
     );
   });
   return mergeWithDefaults(next!);

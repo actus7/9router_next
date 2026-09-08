@@ -12,7 +12,7 @@ import { matchKnownEndpoint } from "./cliEndpointMatch";
 import { useModelAliases } from "./useCliToolCommon";
 import { StatusMessage, ActionButtons } from "./CliToolShared";
 import { expandableCardHeaderProps } from "./expandableCardHeader";
-import { ArrowRight, ChevronDown, Copy, GitBranch, Info, Loader2, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, ChevronDown, GitBranch, Info, Loader2, TriangleAlert, X } from "lucide-react";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; requiresExternalUrl?: boolean; image?: string; notes?: Array<{ type: string; text: string }>; }
@@ -276,11 +276,10 @@ export default function GrokBuildToolCard({
                   <code className="block mt-2 p-2 bg-black/20 rounded text-xs font-mono">curl -fsSL https://x.ai/cli/install.sh | bash</code>
                 </div>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => setShowManualConfigModal(true)} className="w-full sm:w-auto"><Copy className="size-5" />Manual Config</Button>
             </div>
           )}
 
-          {!checking && grokStatus?.installed && (
+          {!checking && (
             <>
               <div className="flex flex-col gap-2">
                 {tool.notes && tool.notes.length > 0 && (
@@ -349,6 +348,7 @@ export default function GrokBuildToolCard({
                 resetDisabled={!grokStatus?.hasModelHub}
                 resetLoading={restoring}
                 onManualConfig={() => setShowManualConfigModal(true)}
+                localApply={!!grokStatus?.installed}
                 className="flex flex-col sm:flex-row sm:items-center gap-2"
               />
             </>

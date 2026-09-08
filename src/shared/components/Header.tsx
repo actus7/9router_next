@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import useSWR from "swr";
 import { usePathname, useRouter } from "next/navigation";
 import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
@@ -11,41 +10,42 @@ import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { translate } from "@/i18n/runtime";
-import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 import { Search, X } from "lucide-react";
+import { authClient } from "@/lib/auth/client";
+import { SIGN_IN_PATH } from "@/lib/auth/paths";
 import { getPageInfo } from "./getPageInfo";
 import { HeaderBreadcrumb, HeaderAuthBadge } from "./HeaderParts";
-
-interface AuthStatus {
-  displayName?: string;
-  samlName?: string;
-  samlEmail?: string;
-  oidcName?: string;
-  oidcEmail?: string;
-  loginMethod?: string;
-}
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: authStatus } = useSWR<AuthStatus>("/api/auth/status", jsonFetcher);
-  const displayName = authStatus?.displayName || authStatus?.samlName || authStatus?.samlEmail || authStatus?.oidcName || authStatus?.oidcEmail || "";
-  const email = authStatus?.oidcEmail || authStatus?.samlEmail || "";
-  const loginMethod = authStatus?.loginMethod || "";
+  // The signed-in account, straight from the Neon Auth session — there is no
+  // /api/auth/status to poll any more, and no SAML/OIDC identity to fall back
+  // through: one account, one name.
+  const { data: session } = authClient.useSession();
+  const displayName = session?.user?.name || session?.user?.email || "";
+  const email = session?.user?.email || "";
   const { title, description, icon, breadcrumbs } = useMemo(() => getPageInfo(pathname), [pathname]);
 
-  const handleLogout = async () => { try { const r = await fetch("/api/auth/logout", { method: "POST" }); if (r.ok) router.replace("/login"); } catch (e) { console.error("Failed to logout:", e); } };
+  const handleLogout = async () => {
+    try {
+      await authClient.signOut();
+      router.replace(SIGN_IN_PATH);
+    } catch (e) {
+      console.error("Failed to logout:", e);
+    }
+  };
 
   return (
     <header className="shrink-0 flex items-center justify-between gap-3 px-4 lg:px-8 pt-3 pb-2 border-b border-border bg-background/90 backdrop-blur-xl z-20">
       <div className="flex items-center gap-3 shrink-0"><SidebarTrigger /></div>
       <div className="flex flex-col min-w-0 flex-1"><HeaderBreadcrumb breadcrumbs={breadcrumbs} title={title} description={description} icon={icon} /></div>
       <div className="flex items-center gap-1 shrink-0">
-        <HeaderAuthBadge displayName={displayName} loginMethod={loginMethod} />
+        <HeaderAuthBadge displayName={displayName} loginMethod={displayName ? "Neon Auth" : ""} />
         <HeaderSearch />
         <ThemeToggle />
         <HeaderLanguage />
-        <HeaderMenu onLogout={handleLogout} displayName={loginMethod === "OIDC" || loginMethod === "SAML" ? displayName : null} email={email || null} />
+        <HeaderMenu onLogout={handleLogout} displayName={displayName || null} email={email || null} />
       </div>
     </header>
   );

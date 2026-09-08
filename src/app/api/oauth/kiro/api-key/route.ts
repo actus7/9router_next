@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { KiroService } from "@/lib/oauth/services/kiro";
@@ -9,7 +10,7 @@ import { createProviderConnection } from "@/models";
  * credential — there is no refresh token. It is validated against the Amazon
  * Q model catalog, then stored with authMethod="api_key".
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const { apiKey, region } = await request.json();
 
@@ -65,3 +66,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = tenantRoute(handlePOST);

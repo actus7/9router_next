@@ -1,0 +1,36 @@
+{
+  "name": "@model-hub/setup",
+  "version": "0.1.0",
+  "description": "Writes ModelHub-generated CLI tool configs to the machine that runs the CLI.",
+  "type": "module",
+  "bin": {
+    "modelhub-setup": "index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "modelhub",
+    "llm",
+    "gateway",
+    "cli",
+    "config"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/actus7/9router_next.git",
+    "directory": "packages/modelhub-setup"
+  },
+  "homepage": "https://github.com/actus7/9router_next/blob/main/docs/CLI-TOOLS.md",
+  "bugs": {
+    "url": "https://github.com/actus7/9router_next/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

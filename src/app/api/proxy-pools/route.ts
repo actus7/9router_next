@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProxyPool, getProviderConnections, getProxyPools } from "@/models";
 
@@ -42,7 +43,7 @@ function buildUsageMap(connections: Record<string, unknown>[] = []) {
 }
 
 // GET /api/proxy-pools - List proxy pools
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   try {
     const isActive = toBoolean(searchParams.get("isActive"));
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/proxy-pools - Create proxy pool
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json();
     const normalized = normalizeProxyPoolInput(body);
@@ -91,3 +92,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create proxy pool" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const POST = tenantRoute(handlePOST);

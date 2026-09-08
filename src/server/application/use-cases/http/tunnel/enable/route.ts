@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { enableTunnel } from "@/lib/tunnel";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
-import { configureTunnelMonitoring } from "@/shared/services/initializeApp";
+import { configureTunnelMonitoring, setTunnelOwner } from "@/shared/services/initializeApp";
+import { currentTenantId } from "@/lib/db/tenant";
 
 const DNS_WARMUP_DELAY_MS = 8000;
 
 export async function POST() {
   try {
+    // One cloudflared per machine, but `tunnelEnabled` is a row per account —
+    // so the process remembers who turned it on, and the watchdog restarts it
+    // under that account rather than guessing.
+    setTunnelOwner(currentTenantId());
     const result = await enableTunnel();
     getSettings()
       .then(configureTunnelMonitoring)

@@ -114,3 +114,22 @@ describe("runProbePlan", () => {
     expect(result.ok).toBe(true);
   });
 });
+
+describe("web-session credentials", () => {
+  it("probes Z.ai Web on its authenticated models endpoint", () => {
+    const plan = resolveProbePlan("zai-web");
+    expect(plan?.strategy).toBe("bearer-get");
+    expect(plan?.url).toBe("https://chat.z.ai/api/models");
+  });
+
+  it("sends only the token out of a captured Z.ai credential blob", async () => {
+    const { send, calls } = fetcher(200);
+    const plan = resolveProbePlan("zai-web")!;
+    const blob = JSON.stringify({ token: "jwt-token", captcha_verify_param: "captcha" });
+
+    const result = await runProbePlan("zai-web", plan, blob, send);
+
+    expect(result.ok).toBe(true);
+    expect(headerOf(calls[0][1], "Authorization")).toBe("Bearer jwt-token");
+  });
+});

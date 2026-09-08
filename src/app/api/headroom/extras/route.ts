@@ -1,9 +1,10 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import { findPython310, getInstalledHeadroomExtras, HEADROOM_COMPRESSION_EXTRAS } from "@/lib/headroom/detect";
 import { installHeadroomExtras, uninstallHeadroomExtras, getInstallLogTail } from "@/lib/headroom/process";
 
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   try {
     // `?log=1` returns the live install/uninstall log tail for progress polling.
     if (new URL(req.url).searchParams.get("log") === "1") {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const requested = Array.isArray(body?.extras) ? body.extras : [];
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
+async function handleDELETE(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const requested = Array.isArray(body?.extras) ? body.extras : [];
@@ -45,3 +46,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error), code: errObj.code || null }, { status });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const POST = tenantRoute(handlePOST);
+export const DELETE = tenantRoute(handleDELETE);

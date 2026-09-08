@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import type {
   HarnessPendingWrite,
@@ -35,13 +36,13 @@ export async function listHarnessPendingWrites(
 ): Promise<HarnessPendingWrite[]> {
   const db = await getAdapter();
   const rows = kind
-    ? db.all(
-        "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE kind = ? AND status = ? ORDER BY createdAt",
-        [kind, status],
+    ? await db.all(
+        "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE userId = ? AND kind = ? AND status = ? ORDER BY createdAt",
+        [currentTenantId(), kind, status],
       )
-    : db.all(
-        "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE status = ? ORDER BY createdAt",
-        [status],
+    : await db.all(
+        "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE userId = ? AND status = ? ORDER BY createdAt",
+        [currentTenantId(), status],
       );
   return rows.map(rowToPending);
 }
@@ -51,11 +52,12 @@ export async function insertHarnessPendingWrite(
 ): Promise<HarnessPendingWrite> {
   const db = await getAdapter();
   const now = new Date().toISOString();
-  db.run(
-    `INSERT INTO harnessPendingWrites(id, kind, action, payload, source, status, createdAt)
-     VALUES(?, ?, ?, ?, ?, 'pending', ?)`,
+  await db.run(
+    `INSERT INTO harnessPendingWrites(id, userId, kind, action, payload, source, status, createdAt)
+     VALUES(?, ?, ?, ?, ?, ?, 'pending', ?)`,
     [
       write.id,
+      currentTenantId(),
       write.kind,
       write.action,
       stringifyJson(write.payload),
@@ -72,9 +74,9 @@ export async function resolveHarnessPendingWrite(
   result: Record<string, unknown>,
 ): Promise<void> {
   const db = await getAdapter();
-  db.run(
-    "UPDATE harnessPendingWrites SET status = ?, reviewedAt = ?, result = ? WHERE id = ? AND status = 'pending'",
-    [status, new Date().toISOString(), stringifyJson(result), id],
+  await db.run(
+    "UPDATE harnessPendingWrites SET status = ?, reviewedAt = ?, result = ? WHERE userId = ? AND id = ? AND status = 'pending'",
+    [status, new Date().toISOString(), stringifyJson(result), currentTenantId(), id],
   );
 }
 
@@ -82,9 +84,9 @@ export async function getHarnessPendingWrite(
   id: string,
 ): Promise<HarnessPendingWrite | null> {
   const db = await getAdapter();
-  const row = db.get(
-    "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE id = ?",
-    [id],
+  const row = await db.get(
+    "SELECT id, kind, action, payload, source, status, reviewedAt, result, createdAt FROM harnessPendingWrites WHERE userId = ? AND id = ?",
+    [currentTenantId(), id],
   );
   return row ? rowToPending(row) : null;
 }

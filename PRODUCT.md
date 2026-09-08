@@ -1,6 +1,6 @@
 # ModelHub product contract
 
-ModelHub is a local-first AI infrastructure dashboard and OpenAI-compatible gateway. It lets operators connect providers, normalize models, route requests, inspect usage, configure CLI tools, and expose selected media and web capabilities through one endpoint.
+ModelHub is an AI infrastructure dashboard and OpenAI-compatible gateway. It lets operators connect providers, normalize models, route requests, inspect usage, configure CLI tools, and expose selected media and web capabilities through one endpoint. The gateway and dashboard run on any host; persistent state requires a writable disk that survives a restart, and anything that has to touch the operator's own filesystem is handed to the operator rather than performed by the server.
 
 ## Primary users and jobs
 
@@ -13,7 +13,7 @@ ModelHub is a local-first AI infrastructure dashboard and OpenAI-compatible gate
 
 1. Authenticate, open the dashboard and recover from an expired or default password.
 2. Add a provider connection, validate it, refresh its models and execute a model test.
-3. Select models and capabilities for a CLI tool, apply settings and restore the prior configuration.
+3. Select models and capabilities for a CLI tool and apply the resulting configuration: written and restorable in place when ModelHub runs on the operator's own machine, handed over as a command or as files to copy when it does not.
 4. Send a Basic Chat request, stream the response, render markdown safely and inspect failures.
 5. Review usage and quota without persistence failures appearing as legitimate empty states.
 

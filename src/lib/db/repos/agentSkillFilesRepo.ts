@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 
 export interface AgentSkillFileRow {
   skillId: string;
@@ -26,12 +27,11 @@ function rowToFile(row: Record<string, unknown>): AgentSkillFileRow {
 
 export async function listAgentSkillFiles(skillId: string): Promise<AgentSkillFileRow[]> {
   const db = await getAdapter();
-  return db
-    .all(
-      "SELECT skillId, filePath, content, createdAt, updatedAt FROM agentSkillFiles WHERE skillId = ? ORDER BY filePath",
-      [skillId],
-    )
-    .map(rowToFile);
+  const rows = await db.all(
+    "SELECT skillId, filePath, content, createdAt, updatedAt FROM agentSkillFiles WHERE userId = ? AND skillId = ? ORDER BY filePath",
+    [currentTenantId(), skillId],
+  );
+  return rows.map(rowToFile);
 }
 
 export async function upsertAgentSkillFile(
@@ -39,13 +39,13 @@ export async function upsertAgentSkillFile(
 ): Promise<AgentSkillFileRow> {
   const db = await getAdapter();
   const now = new Date().toISOString();
-  db.run(
-    `INSERT INTO agentSkillFiles(skillId, filePath, content, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?)
-     ON CONFLICT(skillId, filePath) DO UPDATE SET
+  await db.run(
+    `INSERT INTO agentSkillFiles(userId, skillId, filePath, content, createdAt, updatedAt)
+     VALUES(?, ?, ?, ?, ?, ?)
+     ON CONFLICT(userId, skillId, filePath) DO UPDATE SET
        content = excluded.content,
        updatedAt = excluded.updatedAt`,
-    [row.skillId, row.filePath, row.content, now, now],
+    [currentTenantId(), row.skillId, row.filePath, row.content, now, now],
   );
   return { ...row, createdAt: now, updatedAt: now };
 }
@@ -55,7 +55,8 @@ export async function deleteAgentSkillFile(
   filePath: string,
 ): Promise<void> {
   const db = await getAdapter();
-  db.run("DELETE FROM agentSkillFiles WHERE skillId = ? AND filePath = ?", [
+  await db.run("DELETE FROM agentSkillFiles WHERE userId = ? AND skillId = ? AND filePath = ?", [
+    currentTenantId(),
     skillId,
     filePath,
   ]);
@@ -63,7 +64,7 @@ export async function deleteAgentSkillFile(
 
 export async function deleteAgentSkillFilesForSkill(skillId: string): Promise<void> {
   const db = await getAdapter();
-  db.run("DELETE FROM agentSkillFiles WHERE skillId = ?", [skillId]);
+  await db.run("DELETE FROM agentSkillFiles WHERE userId = ? AND skillId = ?", [currentTenantId(), skillId]);
 }
 
 export async function replaceAgentSkillFiles(
@@ -71,14 +72,15 @@ export async function replaceAgentSkillFiles(
   files: Array<{ filePath: string; content: string }>,
 ): Promise<void> {
   const db = await getAdapter();
-  db.transaction(() => {
-    db.run("DELETE FROM agentSkillFiles WHERE skillId = ?", [skillId]);
+  const userId = currentTenantId();
+  await db.transaction(async () => {
+    await db.run("DELETE FROM agentSkillFiles WHERE userId = ? AND skillId = ?", [userId, skillId]);
     const now = new Date().toISOString();
     for (const file of files) {
-      db.run(
-        `INSERT INTO agentSkillFiles(skillId, filePath, content, createdAt, updatedAt)
-         VALUES(?, ?, ?, ?, ?)`,
-        [skillId, file.filePath, file.content, now, now],
+      await db.run(
+        `INSERT INTO agentSkillFiles(userId, skillId, filePath, content, createdAt, updatedAt)
+         VALUES(?, ?, ?, ?, ?, ?)`,
+        [userId, skillId, file.filePath, file.content, now, now],
       );
     }
   });

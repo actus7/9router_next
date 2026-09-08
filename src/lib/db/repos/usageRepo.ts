@@ -1,5 +1,7 @@
 ﻿import { EventEmitter } from "events";
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
+import { bumpTenantMeta } from "../helpers/tenantMeta";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { toPersistenceError } from "../errors";
 import { getUsageStatsForState, type UsageStats } from "./usageAnalytics";
@@ -23,10 +25,6 @@ interface LastErrorProvider {
   ts: number;
 }
 
-interface RecentRing {
-  items: RingEntry[];
-  initialized: boolean;
-}
 
 interface ConnectionMapCache {
   map: Record<string, string>;
@@ -50,34 +48,54 @@ interface RingEntry {
   tokens: Record<string, unknown>;
 }
 
+/**
+ * In-flight counters, the last failing provider and the connection-name cache,
+ * per account.
+ *
+ * These were four module-level singletons. Under one operator that was just
+ * process state; with accounts, a shared `pendingRequests` puts one tenant's
+ * live traffic on another tenant's dashboard, and a shared connection-name
+ * cache hands out the names of accounts the viewer cannot see. None of it
+ * reaches the database, so no query filter would have caught it.
+ */
+interface TenantRuntime {
+  pendingRequests: PendingRequests;
+  lastErrorProvider: LastErrorProvider;
+  pendingTimers: Record<string, ReturnType<typeof setTimeout>>;
+  connCache: ConnectionMapCache;
+}
+
 declare global {
-  var _pendingRequests: PendingRequests | undefined;
-  var _lastErrorProvider: LastErrorProvider | undefined;
   var _statsEmitter: EventEmitter | undefined;
-  var _pendingTimers: Record<string, ReturnType<typeof setTimeout>> | undefined;
-  var _recentRing: RecentRing | undefined;
-  var _connectionMapCache: ConnectionMapCache | undefined;
+  var _usageRuntime: Map<string, TenantRuntime> | undefined;
   var _statsEmitTimers: StatsEmitTimers | undefined;
 }
 
 // In-memory state shared across Next.js modules
-if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
-if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
+if (!global._usageRuntime) global._usageRuntime = new Map();
 if (!global._statsEmitter) {
   global._statsEmitter = new EventEmitter();
   global._statsEmitter.setMaxListeners(50);
 }
-if (!global._pendingTimers) global._pendingTimers = {};
-if (!global._recentRing) global._recentRing = { items: [], initialized: false };
-if (!global._connectionMapCache) global._connectionMapCache = { map: {}, ts: 0 };
 if (!global._statsEmitTimers) global._statsEmitTimers = { pending: null, update: null };
 
-const pendingRequests: PendingRequests = global._pendingRequests!;
-const lastErrorProvider: LastErrorProvider = global._lastErrorProvider!;
-const pendingTimers: Record<string, ReturnType<typeof setTimeout>> = global._pendingTimers!;
-const recentRing: RecentRing = global._recentRing!;
-const connCache: ConnectionMapCache = global._connectionMapCache!;
+const runtimes: Map<string, TenantRuntime> = global._usageRuntime!;
 const statsEmitTimers: StatsEmitTimers = global._statsEmitTimers!;
+
+function runtime(): TenantRuntime {
+  const tenantId: string = currentTenantId();
+  let state: TenantRuntime | undefined = runtimes.get(tenantId);
+  if (!state) {
+    state = {
+      pendingRequests: { byModel: {}, byAccount: {} },
+      lastErrorProvider: { provider: "", ts: 0 },
+      pendingTimers: {},
+      connCache: { map: {}, ts: 0 },
+    };
+    runtimes.set(tenantId, state);
+  }
+  return state;
+}
 
 export const statsEmitter: EventEmitter = global._statsEmitter!;
 
@@ -194,14 +212,8 @@ function aggregateEntryToDay(day: DayData, entry: UsageEntry): void {
   addToCounter(day.byEndpoint, epKey, { ...vals, meta: { endpoint, rawModel: entry.model, provider: entry.provider } });
 }
 
-function pushToRing(entry: UsageEntry): void {
-  recentRing.items.push(entry as RingEntry);
-  if (recentRing.items.length > RING_CAP) {
-    recentRing.items = recentRing.items.slice(-RING_CAP);
-  }
-}
-
 async function getConnectionMapCached(): Promise<Record<string, string>> {
+  const connCache: ConnectionMapCache = runtime().connCache;
   if (Date.now() - connCache.ts < CONN_CACHE_TTL_MS) return connCache.map;
   try {
     const { getProviderConnections } = await import("./connectionsRepo");
@@ -216,19 +228,29 @@ async function getConnectionMapCached(): Promise<Record<string, string>> {
   }
 }
 
-async function ensureRingInitialized(): Promise<void> {
-  if (recentRing.initialized) return;
+/**
+ * The last `RING_CAP` requests for the current account.
+ *
+ * This used to be a process-wide ring buffer topped up on every write. Making
+ * it per-tenant would have meant one buffer per account held forever in a
+ * process that may serve thousands; the query it replaces is 50 rows off
+ * `idx_uh_ts`, which the same dashboard poll already pays for several times.
+ */
+async function loadRecentRing(): Promise<RingEntry[]> {
   try {
     const db = await getAdapter();
-    const rows: Array<Record<string, unknown>> = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`, [RING_CAP]);
-    recentRing.items = rows.reverse().map((r: Record<string, unknown>) => ({
+    const rows: Array<Record<string, unknown>> = await db.all(
+      `SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens
+       FROM usageHistory WHERE userId = ? ORDER BY id DESC LIMIT ?`,
+      [currentTenantId(), RING_CAP],
+    );
+    return rows.map((r: Record<string, unknown>) => ({
       timestamp: r.timestamp as string, provider: r.provider as string, model: r.model as string, connectionId: r.connectionId as string,
       apiKey: r.apiKey as string, endpoint: r.endpoint as string, cost: r.cost as number, status: r.status as string,
       tokens: parseJson(r.tokens, {}) as Record<string, unknown>,
     }));
-    recentRing.initialized = true;
   } catch (error) {
-    throw toPersistenceError("usage.initializeRecentRing", error);
+    throw toPersistenceError("usage.loadRecentRequests", error);
   }
 }
 
@@ -247,6 +269,7 @@ async function calculateCost(provider: string, model: string, tokens: Record<str
 }
 
 export function trackPendingRequest(model: string, provider: string, connectionId: string, started: boolean, error: boolean = false): void {
+  const { pendingRequests, pendingTimers, lastErrorProvider } = runtime();
   const modelKey: string = provider ? `${model} (${provider})` : model;
   const timerKey: string = `${connectionId}|${modelKey}`;
 
@@ -312,6 +335,7 @@ interface ActiveRequestsResult {
 }
 
 export async function getActiveRequests(): Promise<ActiveRequestsResult> {
+  const { pendingRequests, lastErrorProvider } = runtime();
   const activeRequests: ActiveRequest[] = [];
   const connectionMap: Record<string, string> = await getConnectionMapCached();
 
@@ -329,9 +353,8 @@ export async function getActiveRequests(): Promise<ActiveRequestsResult> {
     }
   }
 
-  await ensureRingInitialized();
   const seen: Set<string> = new Set();
-  const recentRequests: RecentRequest[] = [...recentRing.items]
+  const recentRequests: RecentRequest[] = (await loadRecentRing())
     .sort((a: RingEntry, b: RingEntry) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .map((e: RingEntry) => {
       const t: Record<string, unknown> = e.tokens || {};
@@ -408,12 +431,14 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
     const promptTokens: number = (tokens.prompt_tokens as number) || (tokens.input_tokens as number) || 0;
     const completionTokens: number = (tokens.completion_tokens as number) || (tokens.output_tokens as number) || 0;
 
+    const userId: string = currentTenantId();
     let inserted: boolean = false;
 
-    db.transaction(() => {
-      const existing = db.get(
+    await db.transaction(async () => {
+      const existing = await db.get(
         `SELECT id, endpoint FROM usageHistory
-         WHERE timestamp = ?
+         WHERE userId = ?
+           AND timestamp = ?
            AND COALESCE(provider, '') = COALESCE(?, '')
            AND COALESCE(model, '') = COALESCE(?, '')
            AND COALESCE(connectionId, '') = COALESCE(?, '')
@@ -422,7 +447,7 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
            AND completionTokens = ?
          ORDER BY id DESC LIMIT 1`,
         [
-          entry.timestamp, entry.provider || null, entry.model || null,
+          userId, entry.timestamp, entry.provider || null, entry.model || null,
           entry.connectionId || null, entry.apiKey || null,
           promptTokens, completionTokens,
         ]
@@ -430,15 +455,15 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
 
       if (existing) {
         if (!existing.endpoint && entry.endpoint) {
-          db.run(`UPDATE usageHistory SET endpoint = ? WHERE id = ?`, [entry.endpoint, existing.id]);
+          await db.run(`UPDATE usageHistory SET endpoint = ? WHERE userId = ? AND id = ?`, [entry.endpoint, userId, existing.id]);
         }
         return;
       }
 
-      db.run(
-        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      await db.run(
+        `INSERT INTO usageHistory(userId, timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          entry.timestamp, entry.provider || null, entry.model || null,
+          userId, entry.timestamp, entry.provider || null, entry.model || null,
           entry.connectionId || null, entry.apiKey || null, entry.endpoint || null,
           promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
           stringifyJson(tokens), stringifyJson(entry.meta || {}),
@@ -446,22 +471,19 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
       );
 
       const dateKey: string = getLocalDateKey(entry.timestamp);
-      const row = db.get(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]) as { data: string } | undefined;
+      const row = await db.get(`SELECT data FROM usageDaily WHERE userId = ? AND dateKey = ?`, [userId, dateKey]) as { data: string } | undefined;
       const day: DayData = row ? (parseJson(row.data, {}) as DayData) : {
         requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0,
         byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
       };
       aggregateEntryToDay(day, entry);
-      db.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON CONFLICT(dateKey) DO UPDATE SET data = excluded.data`, [dateKey, stringifyJson(day)]);
+      await db.run(`INSERT INTO usageDaily(userId, dateKey, data) VALUES(?, ?, ?) ON CONFLICT(userId, dateKey) DO UPDATE SET data = excluded.data`, [userId, dateKey, stringifyJson(day)]);
 
-      const cur = db.get(`SELECT value FROM _meta WHERE key = 'totalRequestsLifetime'`) as { value: string } | undefined;
-      const next: number = (cur ? parseInt(cur.value, 10) : 0) + 1;
-      db.run(`INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [String(next)]);
+      await bumpTenantMeta(db, "totalRequestsLifetime");
       inserted = true;
     });
 
     if (inserted) {
-      pushToRing(entry);
       scheduleStatsEvent("update", 250);
     }
   } catch (error) {
@@ -491,15 +513,15 @@ interface UsageHistoryEntry {
 export async function getUsageHistory(filter: UsageHistoryFilter = {}): Promise<UsageHistoryEntry[]> {
   const db = await getAdapter();
   const conds: string[] = [];
-  const params: unknown[] = [];
+  const params: unknown[] = [currentTenantId()];
 
   if (filter.provider) { conds.push("provider = ?"); params.push(filter.provider); }
   if (filter.model) { conds.push("model = ?"); params.push(filter.model); }
   if (filter.startDate) { conds.push("timestamp >= ?"); params.push(new Date(filter.startDate).toISOString()); }
   if (filter.endDate) { conds.push("timestamp <= ?"); params.push(new Date(filter.endDate).toISOString()); }
 
-  const where: string = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-  const rows: Array<Record<string, unknown>> = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory ${where} ORDER BY id ASC`, params);
+  const where: string = conds.length ? `AND ${conds.join(" AND ")}` : "";
+  const rows: Array<Record<string, unknown>> = await db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory WHERE userId = ? ${where} ORDER BY id ASC`, params);
 
   return rows.map((r: Record<string, unknown>) => ({
     timestamp: r.timestamp as string, provider: r.provider as string, model: r.model as string,
@@ -509,6 +531,7 @@ export async function getUsageHistory(filter: UsageHistoryFilter = {}): Promise<
 }
 
 export async function getUsageStats(period: string = "all"): Promise<UsageStats> {
+  const { pendingRequests, lastErrorProvider } = runtime();
   return getUsageStatsForState(period, { pendingRequests, lastErrorProvider });
 }
 
@@ -525,9 +548,9 @@ export async function appendRequestLog(): Promise<void> {}
 export async function getRecentLogs(limit: number = 200): Promise<string[]> {
   try {
     const db = await getAdapter();
-    const rows: Array<Record<string, unknown>> = db.all(
-      `SELECT timestamp, provider, model, connectionId, promptTokens, completionTokens, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`,
-      [limit],
+    const rows: Array<Record<string, unknown>> = await db.all(
+      `SELECT timestamp, provider, model, connectionId, promptTokens, completionTokens, status, tokens FROM usageHistory WHERE userId = ? ORDER BY id DESC LIMIT ?`,
+      [currentTenantId(), limit],
     );
     if (!rows.length) return [];
 

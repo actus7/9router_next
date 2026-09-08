@@ -32,7 +32,9 @@ import {
 import {
   buildZaiStreamingBody,
   collectZaiNonStreaming,
+  isZaiCaptchaError,
   makeZaiChunkEmitter,
+  peekZaiStreamError,
 } from "./zai-web/stream";
 
 let cachedFeVersion: { value: string; expiresAt: number } | null = null;
@@ -43,6 +45,10 @@ function errorResponse(status: number, message: string) {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+type ZaiAttempt =
+  | { kind: "error"; status: number; message: string; url: string; headers: Record<string, string>; sent: Record<string, unknown> }
+  | { kind: "stream"; head: string | null; body: ReadableStream<Uint8Array>; url: string; headers: Record<string, string>; sent: Record<string, unknown> };
 
 interface ResolvedZaiRequest {
   captchaVerifyParam: string;
@@ -177,23 +183,21 @@ export class ZaiWebExecutor extends BaseExecutor {
     return { chatId, userMessageId };
   }
 
-  async execute({ model, body, stream, credentials, signal, log }: {
-    model: string;
+  /**
+   * One signed completion round-trip, chat creation included. The SSE head is
+   * read before returning so the caller can retry a rejected captcha proof
+   * before any of it reaches the client.
+   */
+  private async sendCompletion(input: {
     body: Record<string, unknown>;
-    stream: boolean;
-    credentials: Credentials;
+    request: ResolvedZaiRequest;
+    frontendVersion: string;
     signal?: AbortSignal;
     log?: Logger;
-  }) {
-    const resolved = resolveZaiRequest(body, credentials, model);
-    if ("error" in resolved) {
-      return { response: errorResponse(resolved.error.status, resolved.error.message), url: ZAI_CHAT_URL, headers: {}, transformedBody: body };
-    }
-    const { captchaVerifyParam, messages, modelId, prompt, thinkingConfig, token, userId, webSearchEnabled } = resolved.request;
+  }): Promise<ZaiAttempt> {
+    const { body, frontendVersion, signal, log } = input;
+    const { captchaVerifyParam, messages, modelId, prompt, thinkingConfig, token, userId, webSearchEnabled } = input.request;
 
-    log?.info?.("ZAI-WEB", `Query to ${modelId}, msgs=${messages.length}`);
-
-    const frontendVersion = await this.resolveFrontendVersion(signal);
     const createdChat = await this.createRemoteChat({
       messages,
       modelId,
@@ -205,7 +209,7 @@ export class ZaiWebExecutor extends BaseExecutor {
     });
     if ("error" in createdChat) {
       log?.warn?.("ZAI-WEB", createdChat.error.message);
-      return { response: errorResponse(createdChat.error.status, createdChat.error.message), url: ZAI_NEW_CHAT_URL, headers: {}, transformedBody: body };
+      return { kind: "error", status: createdChat.error.status, message: createdChat.error.message, url: ZAI_NEW_CHAT_URL, headers: {}, sent: body };
     }
 
     const timestamp = Date.now();
@@ -226,6 +230,8 @@ export class ZaiWebExecutor extends BaseExecutor {
       reasoningEffortSupported: thinkingConfig.effortSupported,
       webSearchEnabled,
     });
+    const failed = (status: number, message: string): ZaiAttempt =>
+      ({ kind: "error", status, message, url: completionUrl, headers: reqHeaders, sent: reqBody });
 
     let upstream: Response;
     try {
@@ -233,12 +239,7 @@ export class ZaiWebExecutor extends BaseExecutor {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log?.error?.("ZAI-WEB", `Fetch failed: ${msg}`);
-      return {
-        response: errorResponse(502, `Z.ai connection failed: ${sanitizeErrorMessage(msg)}`),
-        url: completionUrl,
-        headers: reqHeaders,
-        transformedBody: reqBody,
-      };
+      return failed(502, `Z.ai connection failed: ${sanitizeErrorMessage(msg)}`);
     }
 
     if (!upstream.ok) {
@@ -248,19 +249,52 @@ export class ZaiWebExecutor extends BaseExecutor {
       if (status === 401 || status === 403) errMsg = "Z.ai auth failed — token or captcha_verify_param may be expired. Re-paste both from chat.z.ai.";
       else if (status === 429) errMsg = "Z.ai rate limited. Wait a moment and retry.";
       log?.warn?.("ZAI-WEB", errMsg);
-      return { response: errorResponse(status, errMsg), url: completionUrl, headers: reqHeaders, transformedBody: reqBody };
+      return failed(status, errMsg);
     }
 
-    if (!upstream.body) {
-      return { response: errorResponse(502, "Z.ai returned empty response body"), url: completionUrl, headers: reqHeaders, transformedBody: reqBody };
+    if (!upstream.body) return failed(502, "Z.ai returned empty response body");
+
+    const peeked = await peekZaiStreamError(upstream.body);
+    return { kind: "stream", head: peeked.error, body: peeked.body, url: completionUrl, headers: reqHeaders, sent: reqBody };
+  }
+
+  async execute({ model, body, stream, credentials, signal, log }: {
+    model: string;
+    body: Record<string, unknown>;
+    stream: boolean;
+    credentials: Credentials;
+    signal?: AbortSignal;
+    log?: Logger;
+  }) {
+    const resolved = resolveZaiRequest(body, credentials, model);
+    if ("error" in resolved) {
+      return { response: errorResponse(resolved.error.status, resolved.error.message), url: ZAI_CHAT_URL, headers: {}, transformedBody: body };
     }
+    const { messages, modelId } = resolved.request;
+
+    log?.info?.("ZAI-WEB", `Query to ${modelId}, msgs=${messages.length}`);
+
+    const frontendVersion = await this.resolveFrontendVersion(signal);
+    let attempt = await this.sendCompletion({ body, request: resolved.request, frontendVersion, signal, log });
+    if (attempt.kind === "stream" && isZaiCaptchaError(attempt.head)) {
+      // ponytail: one blind retry. A captured captcha proof gets rejected once
+      // and accepted on the next signed request often enough to be worth it; a
+      // genuinely expired one fails again and the error below is what shows up.
+      log?.warn?.("ZAI-WEB", "Captcha proof rejected, retrying once");
+      await attempt.body.cancel().catch(() => {});
+      attempt = await this.sendCompletion({ body, request: resolved.request, frontendVersion, signal, log });
+    }
+    if (attempt.kind === "error") {
+      return { response: errorResponse(attempt.status, attempt.message), url: attempt.url, headers: attempt.headers, transformedBody: attempt.sent };
+    }
+    const { body: upstreamBody, url: completionUrl, headers: reqHeaders, sent: reqBody } = attempt;
 
     const id = `chatcmpl-zai-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
     const emitChunk = makeZaiChunkEmitter(id, created, modelId);
 
     if (stream) {
-      const outStream = buildZaiStreamingBody(upstream.body, emitChunk, signal);
+      const outStream = buildZaiStreamingBody(upstreamBody, emitChunk, signal);
       return {
         response: new Response(outStream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" } }),
         url: completionUrl,
@@ -272,7 +306,7 @@ export class ZaiWebExecutor extends BaseExecutor {
     let answer: string;
     let reasoning: string;
     try {
-      ({ answer, reasoning } = await collectZaiNonStreaming(upstream.body));
+      ({ answer, reasoning } = await collectZaiNonStreaming(upstreamBody));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { response: errorResponse(502, `Z.ai stream failed: ${sanitizeErrorMessage(msg)}`), url: completionUrl, headers: reqHeaders, transformedBody: reqBody };

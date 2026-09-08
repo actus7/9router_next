@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
@@ -17,7 +18,7 @@ import { extractCodexAccountInfo } from "@/lib/oauth/providers";
  *
  * Tokens are NEVER echoed back in the response.
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   let body;
   try {
     body = await request.json();
@@ -120,3 +121,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ success, failed, results });
 }
+
+export const POST = tenantRoute(handlePOST);

@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { CursorService } from "@/lib/oauth/services/cursor";
@@ -11,7 +12,7 @@ import { createProviderConnection } from "@/models";
  * - accessToken: string - Access token from cursorAuth/accessToken
  * - machineId: string - Machine ID from storage.serviceMachineId
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const { accessToken, machineId } = await request.json();
 
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
  * GET /api/oauth/cursor/import
  * Get instructions for importing Cursor token
  */
-export async function GET() {
+async function handleGET() {
   const cursorService = new CursorService();
   const instructions = cursorService.getTokenStorageInstructions();
 
@@ -98,3 +99,6 @@ export async function GET() {
     ],
   });
 }
+
+export const POST = tenantRoute(handlePOST);
+export const GET = tenantRoute(handleGET);

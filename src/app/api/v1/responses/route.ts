@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { handleChat } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
@@ -25,7 +26,9 @@ export async function OPTIONS() {
  * POST /v1/responses - OpenAI Responses API format
  * Now handled by translator pattern (openai-responses format auto-detected)
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   await ensureInitialized();
   return await handleChat(request);
 }
+
+export const POST = gatewayRoute(handlePOST);

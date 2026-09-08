@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/db/driver", async () => {
+  const { emptyAdapter } = await import("../setup/emptyAdapter");
+  const adapter = emptyAdapter();
+  return { getAdapter: vi.fn(async () => adapter) };
+});
+
 vi.mock("@/lib/db/repos/settingsRepo", () => ({
   getSettings: vi.fn(async () => ({ requireApiKey: false, comboStrategies: {}, providerStrategies: {}, freeFallbackEnabled: true })),
 }));

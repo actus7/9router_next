@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { deleteProviderConnectionsByProvider, deleteProviderNode, getProviderConnections, getProviderNodeById, updateProviderConnection, updateProviderNode } from "@/models";
 
 // PUT /api/provider-nodes/[id] - Update provider node
-export async function PUT(request: NextRequest, { params }: RouteContext<"/api/provider-nodes/[id]">): Promise<NextResponse> {
+async function handlePUT(request: NextRequest, { params }: RouteContext<"/api/provider-nodes/[id]">): Promise<NextResponse> {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -81,7 +82,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext<"/api/p
 }
 
 // DELETE /api/provider-nodes/[id] - Delete provider node and its connections
-export async function DELETE(request: NextRequest, { params }: RouteContext<"/api/provider-nodes/[id]">): Promise<NextResponse> {
+async function handleDELETE(request: NextRequest, { params }: RouteContext<"/api/provider-nodes/[id]">): Promise<NextResponse> {
   try {
     const { id } = await params;
     const node = await getProviderNodeById(id);
@@ -99,3 +100,6 @@ export async function DELETE(request: NextRequest, { params }: RouteContext<"/ap
     return NextResponse.json({ error: "Failed to delete provider node" }, { status: 500 });
   }
 }
+
+export const PUT = tenantRoute(handlePUT);
+export const DELETE = tenantRoute(handleDELETE);

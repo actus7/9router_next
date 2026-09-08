@@ -1,9 +1,10 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { getCloudDeploymentById, getCloudConnectionById, updateCloudDeployment } from "@/models";
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { isCloudProviderError, formatCloudProviderError } from "@/server/cloud/providers/driver";
 
-export async function POST(_request: NextRequest, { params }: RouteContext<"/api/cloud/deployments/[id]/refresh">) {
+async function handlePOST(_request: NextRequest, { params }: RouteContext<"/api/cloud/deployments/[id]/refresh">) {
   const { id } = await params;
   const deployment = await getCloudDeploymentById(id);
   if (!deployment) return NextResponse.json({ error: "Deployment não encontrado" }, { status: 404 });
@@ -36,3 +37,5 @@ export async function POST(_request: NextRequest, { params }: RouteContext<"/api
     return NextResponse.json({ error: "Falha ao atualizar status" }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

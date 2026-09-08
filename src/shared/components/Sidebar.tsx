@@ -16,6 +16,7 @@ import { Settings } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { navItems, debugItems, systemItems } from "./sidebarData";
 import { SidebarMediaProviders } from "./SidebarMediaProviders";
+import { AI_PROVIDERS } from "@/shared/constants/providers";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -26,6 +27,10 @@ export default function Sidebar() {
   const enableTranslator = !!settings?.enableTranslator;
 
   const isActive = (href: string): boolean => {
+    const providerId = pathname.match(/^\/dashboard\/providers\/([^/]+)$/)?.[1];
+    const webDetail = providerId && AI_PROVIDERS[providerId]?.category === "webCookie";
+    if (href === "/dashboard/web-providers") return pathname.startsWith(href) || !!webDetail;
+    if (href === "/dashboard/providers" && webDetail) return false;
     if (href === "/dashboard/usage") return pathname === "/dashboard" || pathname.startsWith("/dashboard/usage");
     return pathname.startsWith(href);
   };

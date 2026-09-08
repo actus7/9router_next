@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { PROVIDER_MODELS } from "@/shared/constants/models";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { getProviderAlias } from "@/shared/constants/providers";
@@ -19,7 +20,7 @@ export async function OPTIONS() {
  * GET /v1beta/models - Gemini compatible models list
  * Returns models in Gemini API format
  */
-export async function GET() {
+async function handleGET() {
   try {
     const models: Record<string, unknown>[] = [];
     const seen = new Set<string>();
@@ -76,3 +77,5 @@ export async function GET() {
     return Response.json({ error: { message: error instanceof Error ? error.message : String(error) } }, { status: 500 });
   }
 }
+
+export const GET = gatewayRoute(handleGET);

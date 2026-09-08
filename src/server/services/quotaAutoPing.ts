@@ -1,5 +1,6 @@
 // Quota auto-ping scheduler: warms 5h windows by sending tiny opt-in requests right after reset.
 import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { forEachTenant } from "@/lib/db/tenants";
 import { getProviderConnections, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import { getClaudeUsage, getCodexUsage, getExecutor, CLAUDE_CLI_SPOOF_HEADERS, proxyAwareFetch } from "@/server/llm-gateway/usage";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
@@ -379,11 +380,23 @@ async function runQuotaAutoPingTick(deps: Deps = createDefaultDeps(), state: Aut
   }
 }
 
+/**
+ * Once per account. Which connections get pinged is a per-account setting and
+ * the connections themselves are per-account rows, so a single unscoped tick
+ * has nothing coherent to read.
+ */
+function runTickForEveryTenant(): void {
+  void forEachTenant(
+    () => runQuotaAutoPingTick(),
+    (userId: string, e: unknown) => console.warn(`[AutoPing] ${userId}: ${(e as Error).message}`),
+  ).catch(() => {});
+}
+
 export function startQuotaAutoPing(): void {
   if (g.interval) return;
   console.log("[AutoPing] scheduler started");
-  runQuotaAutoPingTick().catch(() => {});
-  g.interval = setInterval(() => { runQuotaAutoPingTick().catch(() => {}); }, C.tickIntervalMs);
+  runTickForEveryTenant();
+  g.interval = setInterval(runTickForEveryTenant, C.tickIntervalMs);
   if (g.interval.unref) g.interval.unref();
 }
 

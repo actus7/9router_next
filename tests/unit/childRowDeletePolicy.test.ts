@@ -109,17 +109,28 @@ const POLICY: Record<string, Declared> = {
     policy: "not-a-reference",
     why: "Client-generated id inside the session payload; no messages table exists.",
   },
+  "*.userId": {
+    policy: "not-a-reference",
+    why:
+      "The account that owns the row, on every table but _meta. Its parent is " +
+      "the Neon Auth `user` table in the neon_auth schema, not a row in TABLES, " +
+      "so no repo cascades on it. Purging an account's rows is account " +
+      "deletion — see docs/NEON-MIGRATION.md — not a per-parent cleanup.",
+  },
 };
 
 /** Columns whose name suggests they point at another row. */
 function referenceLookingColumns(): string[] {
-  const found: string[] = [];
+  const found: Set<string> = new Set();
   for (const [table, def] of Object.entries(TABLES)) {
     for (const column of Object.keys(def.columns)) {
-      if (/Id$/.test(column) || column === "apiKey") found.push(`${table}.${column}`);
+      // `userId` is on nearly every table with one shared policy; listing it
+      // 22 times would be 22 copies of one decision.
+      if (column === "userId") { found.add("*.userId"); continue; }
+      if (/Id$/.test(column) || column === "apiKey") found.add(`${table}.${column}`);
     }
   }
-  return found.sort();
+  return [...found].sort();
 }
 
 describe("child-row delete policy", () => {

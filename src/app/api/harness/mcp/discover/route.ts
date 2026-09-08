@@ -1,10 +1,11 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 import { discoverMcpTools } from "@/server/harness/mcpClient";
 
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   await assertRequestRuntime();
   // The URL and the token come from the caller and the server opens a session
   // with them, so this is owner authority — the same gate `mcp/call` applies.
@@ -33,3 +34,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = tenantRoute(handlePOST);

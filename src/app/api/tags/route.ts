@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { ollamaModels } from "@/server/llm-gateway/catalog";
 
 const CORS_HEADERS = {
@@ -6,12 +7,15 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "*"
 };
 
-export async function OPTIONS(): Promise<Response> {
+async function handleOPTIONS(): Promise<Response> {
   return new Response(null, { headers: CORS_HEADERS });
 }
 
-export async function GET(): Promise<Response> {
+async function handleGET(): Promise<Response> {
   return new Response(JSON.stringify(ollamaModels), {
     headers: { "Content-Type": "application/json", ...CORS_HEADERS }
   });
 }
+
+export const OPTIONS = tenantRoute(handleOPTIONS);
+export const GET = tenantRoute(handleGET);

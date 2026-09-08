@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { FILTERS } from "./filters";
 
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+async function handleGET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get("url");
   const type = searchParams.get("type");
@@ -29,3 +30,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ data: [] });
   }
 }
+
+export const GET = tenantRoute(handleGET);

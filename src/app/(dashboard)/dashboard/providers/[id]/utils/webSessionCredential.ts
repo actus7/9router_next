@@ -16,6 +16,7 @@
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type CredentialOrigin =
+  | "extension"
   | "curl-cookie"
   | "curl-authorization"
   | "header-authorization"

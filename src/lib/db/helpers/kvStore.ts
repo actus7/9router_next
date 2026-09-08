@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "./jsonCol";
 
 interface KvStore {
@@ -14,35 +15,36 @@ export function makeKv(scope: string): KvStore {
   return {
     async get<T = unknown>(key: string, fallback: T | null = null): Promise<T | null> {
       const db = await getAdapter();
-      const row = db.get(`SELECT value FROM kv WHERE scope = ? AND key = ?`, [scope, key]) as { value: string } | undefined;
+      const row = (await db.get(`SELECT value FROM kv WHERE userId = ? AND scope = ? AND key = ?`, [currentTenantId(), scope, key])) as { value: string } | undefined;
       return row ? parseJson<T>(row.value, fallback) : fallback;
     },
     async getAll(): Promise<Record<string, unknown>> {
       const db = await getAdapter();
-      const rows = db.all(`SELECT key, value FROM kv WHERE scope = ?`, [scope]) as unknown as Array<{ key: string; value: string }>;
+      const rows = (await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = ?`, [currentTenantId(), scope])) as unknown as Array<{ key: string; value: string }>;
       const out: Record<string, unknown> = {};
       for (const r of rows) out[r.key] = parseJson(r.value);
       return out;
     },
     async set(key: string, value: unknown): Promise<void> {
       const db = await getAdapter();
-      db.run(`INSERT INTO kv(scope, key, value) VALUES(?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value`, [scope, key, stringifyJson(value)]);
+      await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, ?, ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`, [currentTenantId(), scope, key, stringifyJson(value)]);
     },
     async setMany(obj: Record<string, unknown>): Promise<void> {
       const db = await getAdapter();
-      db.transaction(() => {
+      const userId = currentTenantId();
+      await db.transaction(async () => {
         for (const [k, v] of Object.entries(obj)) {
-          db.run(`INSERT INTO kv(scope, key, value) VALUES(?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value`, [scope, k, stringifyJson(v)]);
+          await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, ?, ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`, [userId, scope, k, stringifyJson(v)]);
         }
       });
     },
     async remove(key: string): Promise<void> {
       const db = await getAdapter();
-      db.run(`DELETE FROM kv WHERE scope = ? AND key = ?`, [scope, key]);
+      await db.run(`DELETE FROM kv WHERE userId = ? AND scope = ? AND key = ?`, [currentTenantId(), scope, key]);
     },
     async clear(): Promise<void> {
       const db = await getAdapter();
-      db.run(`DELETE FROM kv WHERE scope = ?`, [scope]);
+      await db.run(`DELETE FROM kv WHERE userId = ? AND scope = ?`, [currentTenantId(), scope]);
     },
   };
 }

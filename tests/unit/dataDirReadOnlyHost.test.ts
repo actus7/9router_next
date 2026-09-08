@@ -126,40 +126,6 @@ describe("data directory on a host with an uncreatable home", () => {
   });
 });
 
-describe("auth module on a host with an uncreatable home", () => {
-  it("imports without throwing, so the middleware still loads", async () => {
-    mockFsWithUnwritableHome();
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    // The regression: this import used to throw during module evaluation and
-    // take down every request in the app.
-    await expect(import("@/lib/auth/dashboardSession")).resolves.toBeDefined();
-  });
-
-  it("still signs and verifies a token when the secret cannot be persisted", async () => {
-    mockFsWithUnwritableHome();
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    // The dataDir fallback normally rescues this, so force the last-resort
-    // case: nothing at all is writable, not even the temp dir.
-    tempAlsoUnwritable = true;
-
-    const mod = await import("@/lib/auth/dashboardSession");
-    const cookies: Array<{ name: string; value: string }> = [];
-    await mod.setDashboardAuthCookie(
-      { set: (name: string, value: string) => cookies.push({ name, value }) } as never,
-      { headers: { get: () => null } } as never,
-    );
-
-    const token = cookies.find((c) => c.name === "auth_token")?.value ?? "";
-    expect(token).not.toBe("");
-    expect(await mod.verifyDashboardAuthToken(token)).toBe(true);
-    // Loud about it: an in-memory secret means sessions die on restart.
-    expect(error).toHaveBeenCalled();
-    error.mockRestore();
-  });
-});
-
 /**
  * Booting is not the same as working.
  *

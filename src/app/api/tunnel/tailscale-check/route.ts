@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -34,7 +35,7 @@ async function isCustomDaemonRunning() {
   }
 }
 
-export async function GET() {
+async function handleGET() {
   try {
     const installed = isTailscaleInstalled();
     const platform = os.platform();
@@ -52,3 +53,5 @@ export async function GET() {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);

@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { refreshDeterministicSmartProfiles, type SmartModelProfile } from "@/server/llm-gateway/smart-routing";
 import { handleSingleModelChat } from "@/server/llm-gateway/chat";
@@ -110,7 +111,7 @@ async function classifyBatch(classifier: SmartModelProfile, batch: SmartModelPro
   return parseSuggestions(await response.json());
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json().catch(() => ({}));
     const inventory = await refreshDeterministicSmartProfiles();
@@ -151,3 +152,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to suggest model profiles" }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

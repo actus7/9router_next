@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { KiroService } from "@/lib/oauth/services/kiro";
@@ -9,7 +10,7 @@ import { createProviderConnection } from "@/models";
  * For IDC (organization) tokens, accepts clientId/clientSecret/region so the
  * token can be refreshed via the regional AWS OIDC endpoint.
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const { refreshToken, clientId, clientSecret, region, profileArn } = await request.json();
 
@@ -64,3 +65,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: ($1 as Error).message }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

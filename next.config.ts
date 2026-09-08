@@ -21,9 +21,10 @@ const nextConfig: NextConfig = {
   output: process.env.VERCEL ? undefined : "standalone",
   serverExternalPackages: [
     "better-sqlite3",
-    "sql.js",
-    "node:sqlite",
-    "bun:sqlite",
+    // The Duck.ai VQD solver reaches jsdom through a string-indirected dynamic
+    // import to keep the bundler out of it, which also keeps the tracer out of
+    // it — listing it here is what gets the package into the deployed function.
+    "jsdom",
     "open",
     "puppeteer",
     "puppeteer-core",

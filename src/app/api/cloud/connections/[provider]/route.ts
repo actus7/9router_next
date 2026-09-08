@@ -1,9 +1,10 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { createCloudConnection, deleteCloudConnection, getCloudConnectionByProvider, getCloudDeployments } from "@/models";
 import { getCloudProviderDriver } from "@/server/cloud/providers/registry";
 import { isCloudProviderError, formatCloudProviderError } from "@/server/cloud/providers/driver";
 
-export async function POST(request: NextRequest, { params }: RouteContext<"/api/cloud/connections/[provider]">) {
+async function handlePOST(request: NextRequest, { params }: RouteContext<"/api/cloud/connections/[provider]">) {
   const { provider } = await params;
   const driver = getCloudProviderDriver(provider);
   if (!driver) {
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: RouteContext<"/api/cloud/connections/[provider]">) {
+async function handleDELETE(_request: NextRequest, { params }: RouteContext<"/api/cloud/connections/[provider]">) {
   const { provider } = await params;
   const existing = await getCloudConnectionByProvider(provider);
   if (!existing) {
@@ -70,3 +71,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext<"/a
   await deleteCloudConnection(existing.id);
   return NextResponse.json({ success: true });
 }
+
+export const POST = tenantRoute(handlePOST);
+export const DELETE = tenantRoute(handleDELETE);

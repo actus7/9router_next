@@ -7,10 +7,13 @@ import { createHmac, randomUUID } from "node:crypto";
 
 const ZAI_BASE_URL = "https://chat.z.ai";
 export const ZAI_NEW_CHAT_URL = `${ZAI_BASE_URL}/api/v1/chats/new`;
+// Open WebUI-style listing of the models this account can actually use — the
+// only place GLM releases show up before the static catalog is updated.
+export const ZAI_MODELS_URL = `${ZAI_BASE_URL}/api/models`;
 // The unversioned /api/chat/completions path 404s model-independently — the
 // site moved to /api/v2 (see registry notice for zai-web).
 export const ZAI_CHAT_URL = `${ZAI_BASE_URL}/api/v2/chat/completions`;
-export const ZAI_DEFAULT_MODEL = "GLM-5.1";
+export const ZAI_DEFAULT_MODEL = "glm-5.3";
 export const ZAI_DEFAULT_FE_VERSION = "prod-fe-1.1.79";
 export const ZAI_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";

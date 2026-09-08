@@ -23,18 +23,18 @@ describe("replaceHarnessConversations", () => {
     await replaceHarnessConversations([session]);
 
     const statements = run.mock.calls.map(([sql]) => String(sql));
-    const fts = statements.findIndex((sql) => sql.includes("DELETE FROM harnessMessageFts"));
+    // One search table now, not two: the Postgres index is a generated column
+    // on harnessMessageIndex, so there is no companion FTS table to clear.
     const index = statements.findIndex((sql) => sql.includes("DELETE FROM harnessMessageIndex"));
     const events = statements.findIndex((sql) => sql.includes("DELETE FROM harnessEvents"));
-    expect(fts).toBeGreaterThanOrEqual(0);
     expect(index).toBeGreaterThanOrEqual(0);
     expect(events).toBeGreaterThan(index);
   });
 
-  it("clears both search tables when all sessions are deleted", async () => {
+  it("clears the search table when all sessions are deleted", async () => {
     await replaceHarnessConversations([]);
 
-    expect(run).toHaveBeenCalledWith("DELETE FROM harnessMessageFts");
-    expect(run).toHaveBeenCalledWith("DELETE FROM harnessMessageIndex");
+    expect(run).toHaveBeenCalledWith("DELETE FROM harnessMessageIndex WHERE userId = ?", ["test-user"]);
+    expect(run).toHaveBeenCalledWith("DELETE FROM harnessConversations WHERE userId = ?", ["test-user"]);
   });
 });

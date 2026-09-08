@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextResponse } from "next/server";
 import { getRecentLogs } from "@/lib/usageDb";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 
-export async function GET() {
+async function handleGET() {
   await assertRequestRuntime();
   try {
     const logs = await getRecentLogs(200);
@@ -13,3 +14,5 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch logs" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);

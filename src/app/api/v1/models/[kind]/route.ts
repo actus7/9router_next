@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { buildModelsList } from "@/server/application/use-cases/http/v1/models/route";
 
@@ -26,7 +27,7 @@ export async function OPTIONS() {
  * GET /v1/models/{kind} - OpenAI-compatible models list filtered by capability.
  * Supported kinds: image, tts, stt, embedding, image-to-text, web, video.
  */
-export async function GET(_request: NextRequest, { params }: RouteContext<"/api/v1/models/[kind]">) {
+async function handleGET(_request: NextRequest, { params }: RouteContext<"/api/v1/models/[kind]">) {
   try {
     const { kind } = await params;
     const kindFilter = KIND_SLUG_MAP[kind];
@@ -55,3 +56,5 @@ export async function GET(_request: NextRequest, { params }: RouteContext<"/api/
     );
   }
 }
+
+export const GET = gatewayRoute(handleGET);

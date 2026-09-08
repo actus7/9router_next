@@ -40,7 +40,7 @@ describe("deleteProviderConnection", () => {
       String(sql).includes("DELETE FROM modelAvailability"),
     );
     expect(availabilityDelete).toBeDefined();
-    expect(availabilityDelete![1]).toEqual(["conn-1"]);
+    expect(availabilityDelete![1]).toEqual(["test-user", "conn-1"]);
     // One transaction wrapping the whole delete, so a failure cannot leave the
     // connection gone and its availability rows behind.
     expect(transaction).toHaveBeenCalledTimes(1);

@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { testSingleConnection } from "./testUtils";
 
 // POST /api/providers/[id]/test - Test connection
-export async function POST(request: NextRequest, { params }: RouteContext<"/api/providers/[id]/test">): Promise<NextResponse> {
+async function handlePOST(request: NextRequest, { params }: RouteContext<"/api/providers/[id]/test">): Promise<NextResponse> {
   try {
     const { id } = await params;
     const result = await testSingleConnection(id);
@@ -28,3 +29,5 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
     return NextResponse.json({ error: "Test failed" }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

@@ -1,5 +1,7 @@
 "use client";
 
+import { authClient } from "@/lib/auth/client";
+import { SIGN_IN_PATH } from "@/lib/auth/paths";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FormInput as Input } from "@/shared/components/FormInput";
@@ -11,15 +13,12 @@ import { translate } from "@/i18n/runtime";
 import { Button } from "@/components/ui/button";
 import type { ProfileClientProps } from "./types";
 import { useProfileSettings } from "./hooks/useProfileSettings";
-import { usePasswordChange } from "./hooks/usePasswordChange";
-import { useSsoConfig } from "./hooks/useSsoConfig";
 import { useOutboundProxy } from "./hooks/useOutboundProxy";
 import { useDatabaseBackup } from "./hooks/useDatabaseBackup";
 import LocalModeCard from "./sections/LocalModeCard";
 import LanguageCard from "./sections/LanguageCard";
 import AccentColorCard from "./sections/AccentColorCard";
 import SecurityCard from "./sections/SecurityCard";
-import SsoCard from "./sections/SsoCard";
 import RoutingCard from "./sections/RoutingCard";
 import NetworkCard from "./sections/NetworkCard";
 import ObservabilityCard from "./sections/ObservabilityCard";
@@ -43,17 +42,13 @@ export default function ProfileClient({ initialSettings, initialDbInfo: _initial
   const profileSettings = useProfileSettings(initialSettings);
   const { settings, setSettings, loading, reloadSettings } = profileSettings;
 
-  const passwordChange = usePasswordChange(settings);
-  const ssoConfig = useSsoConfig(initialSettings, settings, setSettings);
   const outboundProxy = useOutboundProxy(initialSettings, settings, setSettings);
   const databaseBackup = useDatabaseBackup(settings, setSettings, reloadSettings);
 
   const handleLogout = async () => {
     try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      if (res.ok) {
-        router.replace("/login");
-      }
+      await authClient.signOut();
+      router.replace(SIGN_IN_PATH);
     } catch (err) {
       console.error("Falha ao sair:", err);
     }
@@ -80,53 +75,8 @@ export default function ProfileClient({ initialSettings, initialDbInfo: _initial
 
         <AccentColorCard />
 
-        <SecurityCard
-          settings={settings}
-          loading={loading}
-          passwords={passwordChange.passwords}
-          setPasswords={passwordChange.setPasswords}
-          passStatus={passwordChange.passStatus}
-          passLoading={passwordChange.passLoading}
-          handlePasswordChange={passwordChange.handlePasswordChange}
-          updateRequireLogin={profileSettings.updateRequireLogin}
-        />
+        <SecurityCard />
 
-        <SsoCard
-          settings={settings}
-          loading={loading}
-          oidcForm={ssoConfig.oidcForm}
-          oidcClientSecret={ssoConfig.oidcClientSecret}
-          setOidcClientSecret={ssoConfig.setOidcClientSecret}
-          oidcStatus={ssoConfig.oidcStatus}
-          oidcLoading={ssoConfig.oidcLoading}
-          oidcTestLoading={ssoConfig.oidcTestLoading}
-          oidcTestStatus={ssoConfig.oidcTestStatus}
-          oidcExpanded={ssoConfig.oidcExpanded}
-          setOidcExpanded={ssoConfig.setOidcExpanded}
-          updateOidcForm={ssoConfig.updateOidcForm}
-          saveOidcSettings={ssoConfig.saveOidcSettings}
-          testOidcConnection={ssoConfig.testOidcConnection}
-          oidcRedirectUri={ssoConfig.oidcRedirectUri}
-          ssoTypeTab={ssoConfig.ssoTypeTab}
-          setSsoTypeTab={ssoConfig.setSsoTypeTab}
-          samlForm={ssoConfig.samlForm}
-          samlStatus={ssoConfig.samlStatus}
-          setSamlStatus={ssoConfig.setSamlStatus}
-          samlLoading={ssoConfig.samlLoading}
-          samlTestLoading={ssoConfig.samlTestLoading}
-          samlTestStatus={ssoConfig.samlTestStatus}
-          showSamlGuide={ssoConfig.showSamlGuide}
-          setShowSamlGuide={ssoConfig.setShowSamlGuide}
-          idpMetadataFileRef={ssoConfig.idpMetadataFileRef}
-          certFileRef={ssoConfig.certFileRef}
-          updateSamlForm={ssoConfig.updateSamlForm}
-          handleIdpMetadataUpload={ssoConfig.handleIdpMetadataUpload}
-          handleCertFileUpload={ssoConfig.handleCertFileUpload}
-          saveSamlSettings={ssoConfig.saveSamlSettings}
-          testSamlConnection={ssoConfig.testSamlConnection}
-          samlAcsUrl={ssoConfig.samlAcsUrl}
-          samlMetadataUrl={ssoConfig.samlMetadataUrl}
-        />
 
         <RoutingCard
           settings={settings}

@@ -1,9 +1,10 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { getDisabledModels, disableModels, enableModels } from "@/lib/disabledModelsDb";
 
 
 // GET /api/models/disabled?providerAlias=xxx
-export async function GET(request: NextRequest): Promise<NextResponse> {
+async function handleGET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   try {
     const providerAlias = searchParams.get("providerAlias");
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 }
 
 // POST /api/models/disabled  body: { providerAlias, ids: [...], action?: "enable" }
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const { providerAlias, ids, action } = await request.json();
     if (!providerAlias || !Array.isArray(ids)) {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 // DELETE /api/models/disabled?providerAlias=xxx[&id=yyy][&id=zzz]
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
+async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   try {
     const providerAlias = searchParams.get("providerAlias");
@@ -48,3 +49,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to enable models" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const POST = tenantRoute(handlePOST);
+export const DELETE = tenantRoute(handleDELETE);

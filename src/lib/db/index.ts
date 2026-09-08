@@ -1,5 +1,6 @@
 // Public API barrel — all DB functions
 import { getAdapter } from "./driver";
+import { currentTenantId } from "./tenant";
 import { stringifyJson, parseJson } from "./helpers/jsonCol";
 
 // Settings
@@ -93,12 +94,12 @@ export async function exportDb(): Promise<Record<string, unknown>> {
 
   const out: Record<string, unknown> = {
     settings: await exportSettings(),
-    providerConnections: (db.all(`SELECT * FROM providerConnections`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    providerNodes: (db.all(`SELECT * FROM providerNodes`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    proxyPools: (db.all(`SELECT * FROM proxyPools`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    apiKeys: (db.all(`SELECT * FROM apiKeys`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt })),
-    combos: (db.all(`SELECT * FROM combos`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), routing: parseJson(r.routing, null), createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    smartModelProfiles: (db.all(`SELECT * FROM smartModelProfiles`) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({
+    providerConnections: (await db.all(`SELECT * FROM providerConnections WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    providerNodes: (await db.all(`SELECT * FROM providerNodes WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    proxyPools: (await db.all(`SELECT * FROM proxyPools WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    apiKeys: (await db.all(`SELECT * FROM apiKeys WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt })),
+    combos: (await db.all(`SELECT * FROM combos WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), routing: parseJson(r.routing, null), createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    smartModelProfiles: (await db.all(`SELECT * FROM smartModelProfiles WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({
       modelKey: r.modelKey,
       inventoryFingerprint: r.inventoryFingerprint,
       source: r.source,
@@ -109,15 +110,15 @@ export async function exportDb(): Promise<Record<string, unknown>> {
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     })),
-    modelAvailability: db.all(`SELECT * FROM modelAvailability`) as Array<Record<string, unknown>>,
+    modelAvailability: await db.all(`SELECT * FROM modelAvailability WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>,
     modelAliases: {} as Record<string, unknown>,
     customModels: [] as unknown[],
     pricing: {} as Record<string, unknown>,
   };
 
-  for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'modelAliases'`) as Array<Record<string, unknown>>) (out.modelAliases as Record<string, unknown>)[r.key as string] = parseJson(r.value);
-  for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'customModels'`) as Array<Record<string, unknown>>) (out.customModels as unknown[]).push(parseJson(r.value));
-  for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'pricing'`) as Array<Record<string, unknown>>) (out.pricing as Record<string, unknown>)[r.key as string] = parseJson(r.value);
+  for (const r of await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = 'modelAliases'`, [currentTenantId()]) as Array<Record<string, unknown>>) (out.modelAliases as Record<string, unknown>)[r.key as string] = parseJson(r.value);
+  for (const r of await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = 'customModels'`, [currentTenantId()]) as Array<Record<string, unknown>>) (out.customModels as unknown[]).push(parseJson(r.value));
+  for (const r of await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = 'pricing'`, [currentTenantId()]) as Array<Record<string, unknown>>) (out.pricing as Record<string, unknown>)[r.key as string] = parseJson(r.value);
 
   return out;
 }
@@ -128,68 +129,89 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
   }
   const db = await getAdapter();
 
-  db.transaction(() => {
-    // Wipe all tables (keep _meta)
-    db.run(`DELETE FROM settings`);
-    db.run(`DELETE FROM providerConnections`);
-    db.run(`DELETE FROM providerNodes`);
-    db.run(`DELETE FROM proxyPools`);
-    db.run(`DELETE FROM apiKeys`);
-    db.run(`DELETE FROM combos`);
-    db.run(`DELETE FROM smartModelProfiles`);
-    db.run(`DELETE FROM modelAvailability`);
-    db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'pricing')`);
+  const userId: string = currentTenantId();
+  await db.transaction(async () => {
+    // Wipe this account's rows only. `_meta` is instance state and is never
+    // part of an export; every other DELETE here is scoped, so one account
+    // restoring a backup cannot empty anyone else's tables.
+    await db.run(`DELETE FROM settings WHERE userId = ?`, [userId]);
+    await db.run(`DELETE FROM providerConnections WHERE userId = ?`, [userId]);
+    await db.run(`DELETE FROM providerNodes WHERE userId = ?`, [userId]);
+    await db.run(`DELETE FROM proxyPools WHERE userId = ?`, [userId]);
+    await db.run(`DELETE FROM apiKeys WHERE userId = ?`, [userId]);
+    await db.run(`DELETE FROM combos WHERE userId = ?`, [userId]);
+    await db.run(`DELETE FROM smartModelProfiles WHERE userId = ?`, [userId]);
+    await db.run(`DELETE FROM modelAvailability WHERE userId = ?`, [userId]);
+    await db.run(`DELETE FROM kv WHERE userId = ? AND scope IN ('modelAliases', 'customModels', 'pricing')`, [userId]);
 
     // Settings
     if (payload.settings) {
-      db.run(`INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`, [stringifyJson(payload.settings)]);
+      await db.run(`INSERT INTO settings(userId, data) VALUES(?, ?) ON CONFLICT(userId) DO UPDATE SET data = excluded.data`, [userId, stringifyJson(payload.settings)]);
     }
 
     for (const c of (payload.providerConnections || []) as Array<Record<string, unknown>>) {
       const { id, provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = c;
-      db.run(
-        `INSERT OR REPLACE INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, provider, authType || "oauth", name || null, email || null, priority || null, isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
+      await db.run(
+        `INSERT INTO providerConnections(id, userId, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET provider=excluded.provider, authType=excluded.authType, name=excluded.name,
+           email=excluded.email, priority=excluded.priority, isActive=excluded.isActive,
+           data=excluded.data, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
+        [id, userId, provider, authType || "oauth", name || null, email || null, priority || null, isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
     for (const n of (payload.providerNodes || []) as Array<Record<string, unknown>>) {
       const { id, type, name, createdAt, updatedAt, ...rest } = n;
-      db.run(
-        `INSERT OR REPLACE INTO providerNodes(id, type, name, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
-        [id, type || null, name || null, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
+      await db.run(
+        `INSERT INTO providerNodes(id, userId, type, name, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET type=excluded.type, name=excluded.name, data=excluded.data,
+           createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
+        [id, userId, type || null, name || null, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
     for (const p of (payload.proxyPools || []) as Array<Record<string, unknown>>) {
       const { id, isActive, testStatus, createdAt, updatedAt, ...rest } = p;
-      db.run(
-        `INSERT OR REPLACE INTO proxyPools(id, isActive, testStatus, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
-        [id, isActive === false ? 0 : 1, testStatus || "unknown", stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
+      await db.run(
+        `INSERT INTO proxyPools(id, userId, isActive, testStatus, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET isActive=excluded.isActive, testStatus=excluded.testStatus,
+           data=excluded.data, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
+        [id, userId, isActive === false ? 0 : 1, testStatus || "unknown", stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
     for (const k of (payload.apiKeys || []) as Array<Record<string, unknown>>) {
-      db.run(
-        `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?)`,
-        [k.id, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString()]
+      await db.run(
+        `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET key=excluded.key, name=excluded.name, machineId=excluded.machineId,
+           isActive=excluded.isActive, createdAt=excluded.createdAt`,
+        [k.id, userId, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString()]
       );
     }
     for (const c of (payload.combos || []) as Array<Record<string, unknown>>) {
-      db.run(
-        `INSERT OR REPLACE INTO combos(id, name, kind, models, routing, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)`,
-        [c.id, c.name, c.kind || null, stringifyJson(c.models || []), c.routing ? stringifyJson(c.routing) : null, c.createdAt || new Date().toISOString(), c.updatedAt || new Date().toISOString()]
+      await db.run(
+        `INSERT INTO combos(id, userId, name, kind, models, routing, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, models=excluded.models,
+           routing=excluded.routing, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
+        [c.id, userId, c.name, c.kind || null, stringifyJson(c.models || []), c.routing ? stringifyJson(c.routing) : null, c.createdAt || new Date().toISOString(), c.updatedAt || new Date().toISOString()]
       );
     }
     for (const p of (payload.smartModelProfiles || []) as Array<Record<string, unknown>>) {
-      db.run(
-        `INSERT OR REPLACE INTO smartModelProfiles(modelKey, inventoryFingerprint, source, profile, classifierModel, sources, researchedAt, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [p.modelKey, p.inventoryFingerprint, p.source || "deterministic", stringifyJson(p.profile || {}), p.classifierModel || null, stringifyJson(p.sources || []), p.researchedAt || null, p.createdAt || new Date().toISOString(), p.updatedAt || new Date().toISOString()]
+      await db.run(
+        `INSERT INTO smartModelProfiles(userId, modelKey, inventoryFingerprint, source, profile, classifierModel, sources, researchedAt, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(userId, modelKey) DO UPDATE SET inventoryFingerprint=excluded.inventoryFingerprint,
+           source=excluded.source, profile=excluded.profile, classifierModel=excluded.classifierModel,
+           sources=excluded.sources, researchedAt=excluded.researchedAt, updatedAt=excluded.updatedAt`,
+        [userId, p.modelKey, p.inventoryFingerprint, p.source || "deterministic", stringifyJson(p.profile || {}), p.classifierModel || null, stringifyJson(p.sources || []), p.researchedAt || null, p.createdAt || new Date().toISOString(), p.updatedAt || new Date().toISOString()]
       );
     }
     for (const availability of (payload.modelAvailability || []) as Array<Record<string, unknown>>) {
       if (!availability.connectionId || !availability.modelId) continue;
-      db.run(
-        `INSERT OR REPLACE INTO modelAvailability(connectionId, modelId, status, reason, errorCode, lastError, until, createdAt, updatedAt)
-         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      await db.run(
+        `INSERT INTO modelAvailability(userId, connectionId, modelId, status, reason, errorCode, lastError, until, createdAt, updatedAt)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(userId, connectionId, modelId) DO UPDATE SET status=excluded.status, reason=excluded.reason,
+           errorCode=excluded.errorCode, lastError=excluded.lastError, until=excluded.until,
+           createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
         [
+          userId,
           availability.connectionId,
           availability.modelId,
           availability.status || "cooldown",
@@ -203,14 +225,14 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
       );
     }
     for (const [a, m] of Object.entries((payload.modelAliases || {}) as Record<string, unknown>)) {
-      db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('modelAliases', ?, ?)`, [a, stringifyJson(m)]);
+      await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, 'modelAliases', ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`, [userId, a, stringifyJson(m)]);
     }
     for (const m of (payload.customModels || []) as Array<Record<string, unknown>>) {
       const k: string = `${m.providerAlias}|${m.id}|${m.type || "llm"}`;
-      db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('customModels', ?, ?)`, [k, stringifyJson(m)]);
+      await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, 'customModels', ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`, [userId, k, stringifyJson(m)]);
     }
     for (const [provider, models] of Object.entries((payload.pricing || {}) as Record<string, unknown>)) {
-      db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('pricing', ?, ?)`, [provider, stringifyJson(models || {})]);
+      await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, 'pricing', ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`, [userId, provider, stringifyJson(models || {})]);
     }
   });
 

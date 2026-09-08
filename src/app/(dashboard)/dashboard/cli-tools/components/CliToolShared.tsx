@@ -27,6 +27,13 @@ interface ActionButtonsProps {
   resetDisabled: boolean;
   resetLoading: boolean;
   onManualConfig: () => void;
+  /**
+   * Whether this ModelHub can write the tool's config file itself, i.e. the
+   * CLI was found on the machine running the server. False on any remote
+   * deploy (Vercel, Docker, a LAN box), where Apply would write into the
+   * server's home directory and never reach the operator's machine.
+   */
+  localApply?: boolean;
   /** Extra CSS classes for the container */
   className?: string;
 }
@@ -36,18 +43,23 @@ export function ActionButtons({
   onApply, applyDisabled, applyLoading,
   onReset, resetDisabled, resetLoading,
   onManualConfig,
+  localApply = true,
   className,
 }: ActionButtonsProps) {
   return (
     <div className={className ?? "grid grid-cols-1 gap-2 sm:flex sm:items-center"}>
-      <Button variant="primary" size="sm" onClick={onApply} disabled={applyDisabled} loading={applyLoading}>
-        <Save className="size-4" />Apply
-      </Button>
-      <Button variant="outline" size="sm" onClick={onReset} disabled={resetDisabled} loading={resetLoading}>
-        <History className="size-4" />Reset
-      </Button>
-      <Button variant="ghost" size="sm" onClick={onManualConfig}>
-        <Copy className="size-4" />Manual Config
+      {localApply && (
+        <>
+          <Button variant="primary" size="sm" onClick={onApply} disabled={applyDisabled} loading={applyLoading}>
+            <Save className="size-4" />Apply
+          </Button>
+          <Button variant="outline" size="sm" onClick={onReset} disabled={resetDisabled} loading={resetLoading}>
+            <History className="size-4" />Reset
+          </Button>
+        </>
+      )}
+      <Button variant={localApply ? "ghost" : "primary"} size="sm" onClick={onManualConfig}>
+        <Copy className="size-4" />{localApply ? "Manual Config" : "Get config"}
       </Button>
     </div>
   );

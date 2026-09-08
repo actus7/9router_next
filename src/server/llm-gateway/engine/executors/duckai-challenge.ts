@@ -37,24 +37,24 @@ export function getDuckAiChallengeRuntime(): DuckAiChallengeRuntime {
   const rawRuntime = process.env.DUCKAI_CHALLENGE_RUNTIME?.trim().toLowerCase();
   if (rawRuntime === "browser" || rawRuntime === "puppeteer") return "browser";
   if (rawRuntime === "off" || rawRuntime === "disabled") return "off";
-  if (
-    rawRuntime === "jsdom-dangerous" &&
-    process.env.DUCKAI_ALLOW_UNTRUSTED_CHALLENGE_CODE === "true"
-  ) {
-    return "jsdom-dangerous";
-  }
+  if (rawRuntime === "jsdom" || rawRuntime === "jsdom-dangerous") return "jsdom-dangerous";
 
   const legacyBrowserFallback = process.env.DUCKAI_BROWSER_FALLBACK?.trim().toLowerCase();
   if (legacyBrowserFallback === "0" || legacyBrowserFallback === "false") return "off";
   if (legacyBrowserFallback === "1" || legacyBrowserFallback === "true") return "browser";
 
+  // An explicit remote browser is worth using when one is configured: it runs
+  // the challenge in a separate process instead of this one.
   if (process.env.DUCKAI_BROWSER_WS_ENDPOINT?.trim()) {
     return "browser";
   }
 
-  // Local/dev can use the bundled Puppeteer browser. Production should use
-  // DUCKAI_BROWSER_WS_ENDPOINT or an explicit runtime setting.
-  return process.env.VERCEL ? "off" : "browser";
+  // jsdom everywhere by default, serverless included — it needs no browser and
+  // is the only runtime that works on a host where one cannot be launched.
+  // The name stays "dangerous" because it is: the challenge is DuckDuckGo's
+  // own obfuscated JS and this runs it in-process. Set DUCKAI_BROWSER_WS_ENDPOINT
+  // to move that execution into a browser process instead.
+  return "jsdom-dangerous";
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +304,7 @@ async function getJsdomCtor(): Promise<JsdomCtor> {
         return mod.JSDOM;
       } catch {
         throw new Error(
-          "jsdom is not installed. Run: npm install jsdom  (required for DUCKAI_CHALLENGE_RUNTIME=jsdom-dangerous)"
+          "jsdom is not installed. Run: npm install jsdom  (it solves the Duck.ai VQD challenge)"
         );
       }
     })();
@@ -432,8 +432,12 @@ async function solveVqdWithJsdom(challengeB64: string): Promise<VqdSolveOutcome>
 
   for (let attempt = 1; attempt <= JSDOM_MAX_RETRIES; attempt++) {
     try {
-      const useDeobfuscation = attempt > 1;
-      const result = await solveVqdChallenge(challengeB64, useDeobfuscation);
+      // Deobfuscate from the first attempt. Running the raw script instead
+      // produces client_hashes the upstream rejects with 418 ERR_CHALLENGE —
+      // and because that rejection is a server response rather than a thrown
+      // error, the retry below never fires, so gating deobfuscation on
+      // `attempt > 1` left this whole layer unreachable.
+      const result = await solveVqdChallenge(challengeB64, true);
       console.log(
         `[Duck.ai][challenge] ${JSON.stringify({
           browserFallbackUsed: false, finalOutcome: "success", jsdomAttempts: attempt, phase: "vqd",
@@ -485,8 +489,9 @@ export async function solveVqdChallengeMultiLayer(
 
   if (runtime === "off") {
     throw new Error(
-      "Duck.ai VQD challenge runtime is disabled. Set DUCKAI_BROWSER_WS_ENDPOINT " +
-        "or DUCKAI_CHALLENGE_RUNTIME=browser to keep Duck.ai enabled safely."
+      "Duck.ai VQD challenge runtime is explicitly disabled. Unset " +
+        "DUCKAI_CHALLENGE_RUNTIME to use the default jsdom solver, or point " +
+        "DUCKAI_BROWSER_WS_ENDPOINT at a remote browser to solve it out of process."
     );
   }
 

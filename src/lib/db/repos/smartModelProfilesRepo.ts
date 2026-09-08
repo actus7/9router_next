@@ -1,4 +1,5 @@
 ﻿import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import type { SmartModelProfile } from "@/server/llm-gateway/engine/services/smart-routing/types";
 
@@ -32,28 +33,37 @@ function rowToProfile(row: ProfileRow | undefined): SmartModelProfile | null {
 
 export async function getSmartModelProfiles(): Promise<SmartModelProfile[]> {
   const db = await getAdapter();
-  const rows = db.all("SELECT * FROM smartModelProfiles ORDER BY modelKey ASC") as unknown as ProfileRow[];
+  const rows = await db.all("SELECT * FROM smartModelProfiles WHERE userId = ? ORDER BY modelKey ASC", [currentTenantId()]) as unknown as ProfileRow[];
   return rows.map(rowToProfile).filter((profile): profile is SmartModelProfile => profile !== null);
 }
 
 export async function getSmartModelProfile(modelKey: string): Promise<SmartModelProfile | null> {
   const db = await getAdapter();
-  return rowToProfile(db.get("SELECT * FROM smartModelProfiles WHERE modelKey = ?", [modelKey]) as unknown as ProfileRow | undefined);
+  return rowToProfile(await db.get("SELECT * FROM smartModelProfiles WHERE userId = ? AND modelKey = ?", [currentTenantId(), modelKey]) as unknown as ProfileRow | undefined);
 }
 
 export async function upsertSmartModelProfiles(profiles: SmartModelProfile[]): Promise<void> {
   if (profiles.length === 0) return;
   const db = await getAdapter();
   const now = new Date().toISOString();
-  db.transaction(() => {
+  await db.transaction(async () => {
     for (const profile of profiles) {
-      const existing = db.get("SELECT createdAt FROM smartModelProfiles WHERE modelKey = ?", [profile.modelKey]) as { createdAt?: string } | undefined;
-      db.run(
-        `INSERT OR REPLACE INTO smartModelProfiles(
-          modelKey, inventoryFingerprint, source, profile, classifierModel,
+      const existing = await db.get("SELECT createdAt FROM smartModelProfiles WHERE userId = ? AND modelKey = ?", [currentTenantId(), profile.modelKey]) as { createdAt?: string } | undefined;
+      await db.run(
+        `INSERT INTO smartModelProfiles(
+          userId, modelKey, inventoryFingerprint, source, profile, classifierModel,
           sources, researchedAt, createdAt, updatedAt
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(userId, modelKey) DO UPDATE SET
+          inventoryFingerprint = excluded.inventoryFingerprint,
+          source = excluded.source,
+          profile = excluded.profile,
+          classifierModel = excluded.classifierModel,
+          sources = excluded.sources,
+          researchedAt = excluded.researchedAt,
+          updatedAt = excluded.updatedAt`,
         [
+          currentTenantId(),
           profile.modelKey,
           profile.inventoryFingerprint,
           profile.source,
@@ -72,12 +82,12 @@ export async function upsertSmartModelProfiles(profiles: SmartModelProfile[]): P
 export async function deleteSmartModelProfiles(modelKeys?: string[]): Promise<number> {
   const db = await getAdapter();
   if (!modelKeys || modelKeys.length === 0) {
-    return db.run("DELETE FROM smartModelProfiles").changes;
+    return (await db.run("DELETE FROM smartModelProfiles WHERE userId = ?", [currentTenantId()])).changes;
   }
   let changes = 0;
-  db.transaction(() => {
+  await db.transaction(async () => {
     for (const modelKey of modelKeys) {
-      changes += db.run("DELETE FROM smartModelProfiles WHERE modelKey = ?", [modelKey]).changes;
+      changes += (await db.run("DELETE FROM smartModelProfiles WHERE userId = ? AND modelKey = ?", [currentTenantId(), modelKey])).changes;
     }
   });
   return changes;

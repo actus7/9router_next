@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { validateApiKey } from "@/lib/db/repos/apiKeysRepo";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
-import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
 import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";
+import { NEON_AUTH_COOKIE_PREFIX } from "@neondatabase/auth/server";
 
 const CLI_TOKEN_HEADER: string = "x-9r-cli-token";
 const CLI_TOKEN_SALT: string = "9r-cli-auth";
@@ -21,16 +20,13 @@ async function hasValidCliToken(request: Request): Promise<boolean> {
   return token === await getCliToken();
 }
 
+// Reachable without a session. `/api/auth` is Neon Auth's own surface — the
+// sign-in request itself cannot require being signed in.
 const PUBLIC_API_PATHS: string[] = [
   "/api/health",
   "/api/locale",
-  "/api/auth/login",
-  "/api/auth/logout",
-  "/api/auth/status",
-  "/api/auth/oidc",
-  "/api/auth/saml",
+  "/api/auth",
   "/api/version",
-  "/api/settings/require-login",
 ];
 
 // Every rewrite in next.config.ts that targets /api/v1* must appear here: the
@@ -56,11 +52,28 @@ const LOCAL_ONLY_PATHS: string[] = [
   "/api/tunnel/disable",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
-  "/api/auth/reset-password",
   "/api/headroom/start",
   "/api/headroom/stop",
   "/api/headroom/proxy",
 ];
+
+/**
+ * Anything with a file extension, which under this matcher means a file served
+ * from `public/`: translation literals, provider logos, icons.
+ *
+ * The proxy matcher only excludes `_next/*` and the favicon, so everything else
+ * in `public/` reaches here. Before accounts that was harmless — this guard
+ * ended in `NextResponse.next()`. Now anything it does not claim falls through
+ * to the Neon Auth middleware, which answers an unauthenticated request with a
+ * redirect to the sign-in page. The symptom was a `<script>` fetching
+ * `/i18n/literals/pt-BR.json`, getting HTML, and every label on the sign-in
+ * page silently staying English.
+ */
+const PUBLIC_FILE: RegExp = /\.[^/]+$/;
+
+export function isPublicAsset(pathname: string): boolean {
+  return PUBLIC_FILE.test(pathname);
+}
 
 const LOOPBACK_HOSTS: Set<string> = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -100,14 +113,6 @@ export function isLocalRequest(request: Request): boolean {
   return true;
 }
 
-/**
- * Disabling dashboard login is intended for a local, single-user instance.
- * Remote administrative routes must still require an authenticated session.
- */
-function canUseUnauthenticatedLocalMode(request: NextRequest): boolean {
-  return isLocalRequest(request);
-}
-
 function isPublicLlmApi(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p: string) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -128,54 +133,53 @@ async function hasValidApiKey(request: NextRequest): Promise<boolean> {
   return await validateApiKey(apiKey);
 }
 
+/**
+ * A gateway call is authorised by its API key, and by nothing else.
+ *
+ * Local callers used to be waved through unconditionally. That was safe when
+ * the instance had one operator and one set of provider accounts; now the key
+ * is what says *whose* accounts and quota the request spends, so a request
+ * without one has no owner to bill and no rows it is allowed to read.
+ */
 async function canAccessPublicLlmApi(request: NextRequest): Promise<boolean> {
-  if (isLocalRequest(request)) return true;
-  if (await hasValidCliToken(request)) return true;
   return await hasValidApiKey(request);
 }
 
 async function canAccessLocalOnlyRoute(request: NextRequest): Promise<boolean> {
   if (await hasValidCliToken(request)) return true;
-  if (isLocalRequest(request) && await isAuthenticated(request)) return true;
-  return false;
+  return isLocalRequest(request) && hasSessionCookie(request);
 }
 
-async function hasValidToken(request: NextRequest): Promise<boolean> {
-  const token: string | undefined = request.cookies.get("auth_token")?.value;
-  if (!token) return false;
-  return await verifyDashboardAuthToken(token);
-}
-
-async function loadSettings(): Promise<Awaited<ReturnType<typeof getSettings>> | null> {
-  try {
-    return await getSettings();
-  } catch {
-    return null;
-  }
-}
-
-async function isAuthenticated(request: NextRequest): Promise<boolean> {
-  if (await hasValidToken(request)) return true;
-  const settings = await loadSettings();
-  if (settings && settings.requireLogin === false && canUseUnauthenticatedLocalMode(request)) return true;
-  return false;
-}
-
-function isPublicApi(pathname: string): boolean {
-  if (isPublicLlmApi(pathname)) return true;
-  return PUBLIC_API_PATHS.some((p: string) => pathname === p || pathname.startsWith(`${p}/`));
+/**
+ * Whether a session cookie is present at all.
+ *
+ * The prefix comes from the SDK rather than being written out here. It was
+ * spelled by hand once — `neon-auth.` — and the real name is
+ * `__Secure-neon-auth.*`, so this returned false for every request and the
+ * dashboard answered 401 to its own fetches while the pages themselves loaded
+ * fine, because those go through Neon's middleware instead of this check.
+ *
+ * Deliberately does not verify the cookie: `auth.middleware()` validates and
+ * refreshes the session for page routes, and every dashboard API handler
+ * re-checks it through `tenantRoute`, which is what actually decides whose
+ * data is returned. A third implementation of the same check would be a third
+ * thing to get wrong.
+ */
+function hasSessionCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some((c) => c.name.startsWith(NEON_AUTH_COOKIE_PREFIX));
 }
 
 export const __test__ = {
   isLocalRequest,
   isPublicLlmApi,
   extractApiKey,
+  isPublicAsset,
   canAccessPublicLlmApi,
   canAccessLocalOnlyRoute,
-  canUseUnauthenticatedLocalMode,
+  hasSessionCookie,
 };
 
-export async function proxy(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse | null> {
   const { pathname } = request.nextUrl;
 
   if (LOCAL_ONLY_PATHS.some((p: string) => pathname.startsWith(p))) {
@@ -185,63 +189,33 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   if (ALWAYS_PROTECTED.some((p: string) => pathname.startsWith(p))) {
-    if (await hasValidCliToken(request) || await hasValidToken(request))
-      return NextResponse.next();
+    if (await hasValidCliToken(request) || hasSessionCookie(request)) return NextResponse.next();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (isPublicLlmApi(pathname)) {
     if (await canAccessPublicLlmApi(request)) return NextResponse.next();
-    return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
+    return NextResponse.json({ error: "API key required" }, { status: 401 });
   }
 
   if (pathname.startsWith("/api/")) {
-    if (isPublicApi(pathname)) return NextResponse.next();
-    if (await hasValidCliToken(request) || await isAuthenticated(request))
+    if (PUBLIC_API_PATHS.some((p: string) => pathname === p || pathname.startsWith(`${p}/`))) {
       return NextResponse.next();
+    }
+    if (await hasValidCliToken(request)) return NextResponse.next();
+    if (hasSessionCookie(request)) return NextResponse.next();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (pathname.startsWith("/dashboard")) {
-    let requireLogin: boolean = true;
-    let tunnelDashboardAccess: boolean = true;
-
-    try {
-      const settings = await loadSettings();
-      if (settings) {
-        requireLogin = settings.requireLogin !== false;
-        tunnelDashboardAccess = settings.tunnelDashboardAccess === true;
-
-        if (!tunnelDashboardAccess) {
-          const host: string = (request.headers.get("host") || "").split(":")[0].toLowerCase();
-          const tunnelHost: string = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
-          const tailscaleHost: string = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
-          if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
-            return NextResponse.redirect(new URL("/login", request.url));
-          }
-        }
-      }
-    } catch {
-      // On error, keep defaults
-    }
-
-    if (!requireLogin && canUseUnauthenticatedLocalMode(request)) return NextResponse.next();
-
-    const token: string | undefined = request.cookies.get("auth_token")?.value;
-    if (token) {
-      if (await verifyDashboardAuthToken(token)) {
-        return NextResponse.next();
-      } else {
-        return NextResponse.redirect(new URL("/login", request.url));
-      }
-    }
-
-    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   if (pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  return NextResponse.next();
+  // A file in `public/` is not a page and has no session to check.
+  if (isPublicAsset(pathname)) return NextResponse.next();
+
+  // Page routes: null hands the request to the Neon Auth middleware, which
+  // validates the session, refreshes it when it is close to expiring, and
+  // redirects to the sign-in page when there is none.
+  return null;
 }

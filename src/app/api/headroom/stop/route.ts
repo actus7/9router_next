@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextResponse } from "next/server";
 import { stopHeadroomProxy } from "@/lib/headroom/process";
 
 
-export async function POST() {
+async function handlePOST() {
   try {
     const result = stopHeadroomProxy();
     const status = result.stopped ? 200 : 409;
@@ -12,3 +13,5 @@ export async function POST() {
     return NextResponse.json({ error: err.message, code: err.code || null }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

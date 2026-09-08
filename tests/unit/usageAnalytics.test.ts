@@ -24,35 +24,44 @@ function createMockDb(history: HistoryRow[], daily: DailyRow[] = []) {
   return {
     run: vi.fn(),
     get: vi.fn(),
-    all: vi.fn((sql: string, params?: unknown[]) => {
-      const query = sql.replace(/\s+/g, " ").trim().toLowerCase();
+    all: vi.fn((sql: string, allParams?: unknown[]) => {
+      // Every query is tenant-scoped now: `WHERE userId = ?` leads the clause
+      // and binds first. Normalising it away here keeps the fake matching on
+      // the part of the statement that is actually under test.
+      const query = sql
+        .replace(/\s+/g, " ")
+        .replace(/where userid = \? and /i, "where ")
+        .replace(/ where userid = \?$/i, "")
+        .trim()
+        .toLowerCase();
+      const params = (allParams || []).slice(1);
 
       if (query.startsWith("select timestamp, provider, model, tokens, status from usagehistory order by id desc limit 100")) {
         return [...history].reverse().slice(0, 100);
       }
 
       if (query.startsWith("select timestamp, prompttokens, completiontokens, cost from usagehistory where timestamp >=")) {
-        const [from, to] = (params || []) as string[];
+        const [from, to] = params as string[];
         return history.filter((row) => row.timestamp >= from && row.timestamp <= to);
       }
 
       if (query.startsWith("select timestamp, provider, model, connectionid, apikey, endpoint, prompttokens, completiontokens, cost, tokens from usagehistory where timestamp >=")) {
-        const [from] = (params || []) as string[];
+        const [from] = params as string[];
         return history.filter((row) => row.timestamp >= from);
       }
 
       if (query.startsWith("select timestamp, provider, model, connectionid, apikey, endpoint from usagehistory where timestamp >=")) {
-        const [from] = (params || []) as string[];
+        const [from] = params as string[];
         return history.filter((row) => row.timestamp >= from);
       }
 
       if (query.startsWith("select timestamp, prompttokens, completiontokens, cost from usagehistory where timestamp >=") && query.includes("limit") === false) {
-        const [from] = (params || []) as string[];
+        const [from] = params as string[];
         return history.filter((row) => row.timestamp >= from);
       }
 
       if (query.startsWith("select datekey, data from usagedaily where datekey >=")) {
-        const [cutoff] = (params || []) as string[];
+        const [cutoff] = params as string[];
         return daily.filter((row) => row.dateKey >= cutoff);
       }
 

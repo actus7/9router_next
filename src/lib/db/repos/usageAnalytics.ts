@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson } from "../helpers/jsonCol";
 
 interface PendingRequests {
@@ -63,19 +64,19 @@ const PERIOD_MS: Record<string, number> = {
 };
 
 interface DbLike {
-  run(sql: string, params?: unknown[]): void;
-  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
-  all(sql: string, params?: unknown[]): Array<Record<string, unknown>>;
+  run(sql: string, params?: unknown[]): Promise<{ changes: number }>;
+  get(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined>;
+  all(sql: string, params?: unknown[]): Promise<Array<Record<string, unknown>>>;
 }
 
-function loadDaysInRange(adapter: DbLike, maxDays: number | null): Array<{ dateKey: string; data: string }> {
+async function loadDaysInRange(adapter: DbLike, maxDays: number | null): Promise<Array<{ dateKey: string; data: string }>> {
   if (maxDays == null) {
-    return adapter.all(`SELECT dateKey, data FROM usageDaily`) as unknown as Array<{ dateKey: string; data: string }>;
+    return await adapter.all(`SELECT dateKey, data FROM usageDaily WHERE userId = ?`, [currentTenantId()]) as unknown as Array<{ dateKey: string; data: string }>;
   }
   const today: Date = new Date();
   const cutoff: Date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - maxDays + 1);
   const cutoffKey: string = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
-  return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]) as unknown as Array<{ dateKey: string; data: string }>;
+  return await adapter.all(`SELECT dateKey, data FROM usageDaily WHERE userId = ? AND dateKey >= ?`, [currentTenantId(), cutoffKey]) as unknown as Array<{ dateKey: string; data: string }>;
 }
 
 export interface UsageStats {
@@ -109,16 +110,16 @@ export async function getUsageStatsForState(
   const { pendingRequests } = state;
   const db = await getAdapter();
   const maps = await loadReferenceMaps();
-  const recentRequests = buildRecentRequests(db);
+  const recentRequests = await buildRecentRequests(db);
   const stats = initStats(recentRequests, state);
   buildActiveRequests(stats, maps.connectionMap, pendingRequests);
-  buildLast10Minutes(db, stats);
+  await buildLast10Minutes(db, stats);
 
   const useDailySummary: boolean = period !== "24h" && period !== "today";
   if (useDailySummary) {
-    aggregateDailySummary(db, period, stats, maps);
+    await aggregateDailySummary(db, period, stats, maps);
   } else {
-    aggregateRecentHistory(db, period, stats, maps);
+    await aggregateRecentHistory(db, period, stats, maps);
   }
 
   stats.totalRequests = Object.values(stats.byProvider).reduce((sum: number, p: Counter) => sum + (p.requests || 0), 0);
@@ -154,8 +155,8 @@ async function loadReferenceMaps(): Promise<RefMaps> {
   return { connectionMap, providerNodeNameMap, apiKeyMap };
 }
 
-function buildRecentRequests(db: DbLike): RecentRequest[] {
-  const recentRows: Array<Record<string, unknown>> = db.all(`SELECT timestamp, provider, model, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`);
+async function buildRecentRequests(db: DbLike): Promise<RecentRequest[]> {
+  const recentRows: Array<Record<string, unknown>> = await db.all(`SELECT timestamp, provider, model, tokens, status FROM usageHistory WHERE userId = ? ORDER BY id DESC LIMIT 100`, [currentTenantId()]);
   const seen: Set<string> = new Set();
   return recentRows
     .map((r: Record<string, unknown>) => {
@@ -213,7 +214,7 @@ function buildActiveRequests(
   }
 }
 
-function buildLast10Minutes(db: DbLike, stats: UsageStats): void {
+async function buildLast10Minutes(db: DbLike, stats: UsageStats): Promise<void> {
   const now: Date = new Date();
   const currentMinuteStart: Date = new Date(Math.floor(now.getTime() / 60000) * 60000);
   const tenMinutesAgo: Date = new Date(currentMinuteStart.getTime() - 9 * 60 * 1000);
@@ -223,9 +224,9 @@ function buildLast10Minutes(db: DbLike, stats: UsageStats): void {
     bucketMap[ts] = { requests: 0, promptTokens: 0, completionTokens: 0, cost: 0 };
     stats.last10Minutes.push(bucketMap[ts]);
   }
-  const recent10: Array<Record<string, unknown>> = db.all(
-    `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ? AND timestamp <= ?`,
-    [tenMinutesAgo.toISOString(), now.toISOString()]
+  const recent10: Array<Record<string, unknown>> = await db.all(
+    `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE userId = ? AND timestamp >= ? AND timestamp <= ?`,
+    [currentTenantId(), tenMinutesAgo.toISOString(), now.toISOString()]
   );
   for (const r of recent10) {
     const tt: number = new Date(r.timestamp as string).getTime();
@@ -239,11 +240,11 @@ function buildLast10Minutes(db: DbLike, stats: UsageStats): void {
   }
 }
 
-function aggregateDailySummary(db: DbLike, period: string, stats: UsageStats, maps: RefMaps): void {
+async function aggregateDailySummary(db: DbLike, period: string, stats: UsageStats, maps: RefMaps): Promise<void> {
   const { connectionMap, providerNodeNameMap, apiKeyMap } = maps;
   const periodDays: Record<string, number> = { "7d": 7, "30d": 30, "60d": 60 };
   const maxDays: number | null = periodDays[period] || null;
-  const dayRows: Array<{ dateKey: string; data: string }> = loadDaysInRange(db, maxDays);
+  const dayRows: Array<{ dateKey: string; data: string }> = await loadDaysInRange(db, maxDays);
 
   for (const dr of dayRows) {
     const dateKey: string = dr.dateKey;
@@ -336,9 +337,9 @@ function aggregateDailySummary(db: DbLike, period: string, stats: UsageStats, ma
   }
 
   const overlayCutoff: number = maxDays ? Date.now() - maxDays * 86400000 : 0;
-  const histRows: Array<Record<string, unknown>> = db.all(
-    `SELECT timestamp, provider, model, connectionId, apiKey, endpoint FROM usageHistory WHERE timestamp >= ?`,
-    [new Date(overlayCutoff).toISOString()]
+  const histRows: Array<Record<string, unknown>> = await db.all(
+    `SELECT timestamp, provider, model, connectionId, apiKey, endpoint FROM usageHistory WHERE userId = ? AND timestamp >= ?`,
+    [currentTenantId(), new Date(overlayCutoff).toISOString()]
   );
   for (const e of histRows) {
     const ts: string = e.timestamp as string;
@@ -362,7 +363,7 @@ function aggregateDailySummary(db: DbLike, period: string, stats: UsageStats, ma
   }
 }
 
-function aggregateRecentHistory(db: DbLike, period: string, stats: UsageStats, maps: RefMaps): void {
+async function aggregateRecentHistory(db: DbLike, period: string, stats: UsageStats, maps: RefMaps): Promise<void> {
   const { connectionMap, providerNodeNameMap, apiKeyMap } = maps;
   let cutoff: string;
   if (period === "today") {
@@ -372,9 +373,9 @@ function aggregateRecentHistory(db: DbLike, period: string, stats: UsageStats, m
   } else {
     cutoff = new Date(Date.now() - PERIOD_MS["24h"]).toISOString();
   }
-  const filtered: Array<Record<string, unknown>> = db.all(
-    `SELECT timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE timestamp >= ?`,
-    [cutoff]
+  const filtered: Array<Record<string, unknown>> = await db.all(
+    `SELECT timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE userId = ? AND timestamp >= ?`,
+    [currentTenantId(), cutoff]
   );
 
   for (const r of filtered) {
@@ -473,9 +474,9 @@ export async function getChartData(period: string = "7d"): Promise<ChartBucket[]
     const labelFn = (ts: number): string => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
     const buckets: ChartBucket[] = Array.from({ length: bucketCount }, (_, i: number) => ({ label: labelFn(startTime + i * bucketMs), tokens: 0, cost: 0 }));
 
-    const rows: Array<Record<string, unknown>> = db.all(
-      `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
-      [new Date(startTime).toISOString()]
+    const rows: Array<Record<string, unknown>> = await db.all(
+      `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE userId = ? AND timestamp >= ?`,
+      [currentTenantId(), new Date(startTime).toISOString()]
     );
     for (const r of rows) {
       const t: number = new Date(r.timestamp as string).getTime();
@@ -496,9 +497,9 @@ export async function getChartData(period: string = "7d"): Promise<ChartBucket[]
     const startTime: number = now - bucketCount * bucketMs;
     const buckets: ChartBucket[] = Array.from({ length: bucketCount }, (_, i: number) => ({ label: labelFn(startTime + i * bucketMs), tokens: 0, cost: 0 }));
 
-    const rows: Array<Record<string, unknown>> = db.all(
-      `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
-      [new Date(startTime).toISOString()]
+    const rows: Array<Record<string, unknown>> = await db.all(
+      `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE userId = ? AND timestamp >= ?`,
+      [currentTenantId(), new Date(startTime).toISOString()]
     );
     for (const r of rows) {
       const t: number = new Date(r.timestamp as string).getTime();
@@ -514,7 +515,7 @@ export async function getChartData(period: string = "7d"): Promise<ChartBucket[]
   const today: Date = new Date();
   const labelFn = (d: Date): string => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-  const dayRows: Array<{ dateKey: string; data: string }> = loadDaysInRange(db, bucketCount);
+  const dayRows: Array<{ dateKey: string; data: string }> = await loadDaysInRange(db, bucketCount);
   const dayMap: Record<string, DayData> = {};
   for (const r of dayRows) dayMap[r.dateKey] = (parseJson(r.data, {}) || {}) as DayData;
 

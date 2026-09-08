@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import { getProxyPoolById, updateProxyPool } from "@/models";
 import { testProxyUrl } from "@/lib/network/proxyTest";
@@ -34,7 +35,7 @@ async function testVercelRelay(relayUrl: string, timeoutMs = 10000) {
 }
 
 // POST /api/proxy-pools/[id]/test - Test proxy pool entry
-export async function POST(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]/test">) {
+async function handlePOST(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]/test">) {
   try {
     const { id } = await params;
     const proxyPool = await getProxyPoolById(id);
@@ -68,3 +69,5 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
     return NextResponse.json({ error: "Failed to test proxy pool" }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

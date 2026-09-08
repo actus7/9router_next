@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextResponse } from "next/server";
 import { getCloudConnections } from "@/models";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
@@ -14,8 +15,10 @@ function serializeConnection(c: Awaited<ReturnType<typeof getCloudConnections>>[
   };
 }
 
-export async function GET() {
+async function handleGET() {
   await assertRequestRuntime();
   const connections = await getCloudConnections();
   return NextResponse.json({ connections: connections.map(serializeConnection) });
 }
+
+export const GET = tenantRoute(handleGET);

@@ -5,7 +5,6 @@ import { CardSkeleton } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { clientPingUrl, clientPingAny } from "./endpointPing";
 import { STATUS_POLL_FAST_MS, CLIENT_PING_FAST_MS, REACHABLE_MISS_THRESHOLD } from "./endpointConstants";
-import { translate } from "@/i18n/runtime";
 import { useApiKeys } from "./hooks/useApiKeys";
 import { useEndpointSettings } from "./hooks/useEndpointSettings";
 import { useTunnel } from "./hooks/useTunnel";
@@ -22,7 +21,6 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
   const tailscale = useTailscale();
   const { copied, copy } = useCopyToClipboard();
   const { fetchData } = apiKeys;
-  const { loadSettings } = settings;
   const {
     tunnelEnabled, tunnelReachable, tunnelUrl, tunnelPublicUrl,
     tunnelClientReachableRef, tunnelMissRef, tunnelEverReachableRef,
@@ -33,17 +31,17 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
     setTsReachable, setTsEverReachable, syncFromStatus: syncTailscaleFromStatus,
   } = tailscale;
 
-  // Security gate: block remote exposure while dashboard uses default password or login is off.
-  const isLoginUnsafe = !settings.requireLogin || !settings.hasPassword;
-  const unsafeReason = !settings.requireLogin
-    ? (translate("Enable \"Require login\" and set a custom password before enabling the tunnel.") || "Enable \"Require login\" and set a custom password before enabling the tunnel.")
-    : (translate("Change the dashboard default password before enabling the tunnel.") || "Change the dashboard default password before enabling the tunnel.");
+  // The old gate blocked the tunnel while the dashboard still used the default
+  // operator password or had login switched off. Neither exists: sign-in is
+  // Neon Auth and there is no way to turn it off, so there is nothing left to
+  // be unsafe about here.
+  const isLoginUnsafe = false;
+  const unsafeReason = "";
 
   useEffect(() => {
     fetchData();
-    loadSettings();
     loadTunnelStatus();
-  }, [fetchData, loadSettings, loadTunnelStatus]);
+  }, [fetchData, loadTunnelStatus]);
 
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
@@ -163,11 +161,6 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
         setTsProgress={tailscale.setTsProgress}
         setTsStatus={tailscale.setTsStatus}
         clearUserAuth={tailscale.clearUserAuth}
-        requireApiKey={settings.requireApiKey}
-        requireLogin={settings.requireLogin}
-        hasPassword={settings.hasPassword}
-        tunnelDashboardAccess={settings.tunnelDashboardAccess}
-        handleTunnelDashboardAccess={settings.handleTunnelDashboardAccess}
         isLoginUnsafe={isLoginUnsafe}
         unsafeReason={unsafeReason}
       />
@@ -175,8 +168,6 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
       <ApiKeysCard
         keys={apiKeys.keys}
         setShowAddModal={apiKeys.setShowAddModal}
-        requireApiKey={settings.requireApiKey}
-        handleRequireApiKey={settings.handleRequireApiKey}
         isRemoteHost={settings.isRemoteHost}
         visibleKeys={apiKeys.visibleKeys}
         copied={copied}

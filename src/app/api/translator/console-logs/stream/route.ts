@@ -1,10 +1,11 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest } from "next/server";
 import { getConsoleLogs, getConsoleEmitter, initConsoleLogCapture } from "@/lib/consoleLogBuffer";
 
 
 initConsoleLogCapture();
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const encoder = new TextEncoder();
   const emitter = getConsoleEmitter();
   const state: { closed: boolean; send: ((line: unknown) => void) | null; sendLines: ((lines: unknown) => void) | null; sendClear: (() => void) | null; keepalive: ReturnType<typeof setInterval> | null } = { closed: false, send: null, sendLines: null, sendClear: null, keepalive: null };
@@ -89,3 +90,5 @@ export async function GET(request: NextRequest) {
     },
   });
 }
+
+export const GET = tenantRoute(handleGET);

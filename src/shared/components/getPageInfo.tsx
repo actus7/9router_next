@@ -1,7 +1,6 @@
 "use client";
 
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
 import { BarChart3, Globe, Key, Languages, Layers, MessageCircle, Monitor, Network, PieChart, PiggyBank, Puzzle, Server, Settings, Terminal, Webhook } from "lucide-react";
@@ -49,18 +48,19 @@ function matchProviderDetail(pathname: string): PageInfo | null {
   const m = pathname.match(/\/providers\/([^/]+)$/);
   if (!m) return null;
   const providerId = m[1];
-  const providerInfo = OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId];
+  const providerInfo = AI_PROVIDERS[providerId];
   if (!providerInfo) return null;
   return {
     title: providerInfo.name as string, description: "",
     breadcrumbs: [
-      { label: "Providers", href: "/dashboard/providers" },
+      { label: providerInfo.category === "webCookie" ? "Web Session Providers" : "Providers", href: providerInfo.category === "webCookie" ? "/dashboard/web-providers" : "/dashboard/providers" },
       { label: providerInfo.name as string, image: getProviderIconSrc(providerInfo.id as string) ?? undefined },
     ],
   };
 }
 
 const SIMPLE_ROUTES: { test: (p: string) => boolean; title: string; desc: string; icon: React.ReactNode }[] = [
+  { test: (p) => p.startsWith("/dashboard/web-providers"), title: "Web Session Providers", desc: "Conecte suas contas pelo navegador", icon: <Globe className="size-6" /> },
   { test: (p) => p.includes("/basic-chat"), title: "Chat", desc: "Converse with AI models from your connected providers", icon: <MessageCircle className="size-6" /> },
   { test: (p) => p.includes("/providers") && !p.includes("/media-providers"), title: "Providers", desc: "Manage your AI provider connections", icon: <Server className="size-6" /> },
   { test: (p) => p.includes("/combos"), title: "Combos", desc: "Model combos with fallback", icon: <Layers className="size-6" /> },

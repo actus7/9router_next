@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import {
   deleteProxyPool,
@@ -50,7 +51,7 @@ function countBoundConnections(connections: Record<string, unknown>[] = [], prox
 }
 
 // GET /api/proxy-pools/[id] - Get proxy pool
-export async function GET(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
+async function handleGET(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
   try {
     const { id } = await params;
     const proxyPool = await getProxyPoolById(id);
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest, { params }: RouteContext<"/api/p
 }
 
 // PUT /api/proxy-pools/[id] - Update proxy pool
-export async function PUT(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
+async function handlePUT(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
   try {
     const { id } = await params;
     const existing = await getProxyPoolById(id);
@@ -92,7 +93,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext<"/api/p
 }
 
 // DELETE /api/proxy-pools/[id] - Delete proxy pool
-export async function DELETE(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
+async function handleDELETE(request: NextRequest, { params }: RouteContext<"/api/proxy-pools/[id]">) {
   try {
     const { id } = await params;
     const existing = await getProxyPoolById(id);
@@ -121,3 +122,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext<"/ap
     return NextResponse.json({ error: "Failed to delete proxy pool" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const PUT = tenantRoute(handlePUT);
+export const DELETE = tenantRoute(handleDELETE);

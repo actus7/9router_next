@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 
@@ -18,7 +19,7 @@ export async function OPTIONS() {
 
 // GET /v1/audio/voices?provider={p}[&lang=xx]
 // Returns OpenAI-style list with each voice's full model id ready for /v1/audio/speech
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   try {
     const provider = searchParams.get("provider");
@@ -68,3 +69,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = gatewayRoute(handleGET);

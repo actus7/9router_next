@@ -10,6 +10,11 @@ import {
 } from "@/server/llm-gateway/catalog";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { resolveXiaomiTokenplanBaseUrl } from "@/server/llm-gateway/engine/config/providers";
+import {
+  ZAI_MODELS_URL,
+  buildZaiHeaders,
+  extractZaiToken,
+} from "@/server/llm-gateway/engine/executors/zai-web/protocol";
 import { buildOAuthResolver } from "./providerModelsOAuth";
 import {
   CODEX_MODELS_URL,
@@ -206,6 +211,38 @@ export const PROVIDER_MODELS_CUSTOM_RESOLVERS: Record<string, Record<string, unk
   },
   theoldllm: {
     customResolver: async () => ({ models: getStaticProviderModels("theoldllm") })
+  },
+  // Web session, not an API key: the stored credential is the captured blob and
+  // chat.z.ai answers its Open WebUI listing with whatever the account can use —
+  // the only place a new GLM release shows up before the static catalog moves.
+  "zai-web": {
+    customResolver: async (connection: Record<string, unknown>) => {
+      const providerSpecificData = (connection.providerSpecificData || {}) as Record<string, unknown>;
+      const raw = String(connection.apiKey ?? connection.accessToken ?? "");
+      const token = extractZaiToken(raw);
+      if (!token) {
+        return { error: "No Z.ai web session token found — recapture it from chat.z.ai.", status: 401 };
+      }
+      const response = await fetchWithConnectionProxy(ZAI_MODELS_URL, {
+        method: "GET",
+        headers: buildZaiHeaders(token, { accept: "application/json" }),
+      }, providerSpecificData);
+      if (!response.ok) {
+        const expired = response.status === 401 || response.status === 403;
+        return {
+          error: expired
+            ? "Z.ai web session expired — recapture the token from chat.z.ai."
+            : `Failed to fetch models: ${response.status}`,
+          status: response.status,
+        };
+      }
+      const models = parseOpenAIStyleModels(await response.json().catch(() => null));
+      if (models.length) return { models };
+      return {
+        models: getStaticProviderModels("zai-web"),
+        warning: "Z.ai returned no live models; falling back to static catalog.",
+      };
+    },
   },
   "xiaomi-tokenplan": {
     customResolver: async (connection: Record<string, unknown>) => {

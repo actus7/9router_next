@@ -4,34 +4,37 @@ import { getComboById, getSettings, getProviders, getApiKeys, getModelAliases, g
 import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ComboDetailClient from "./ComboDetailClient";
+import { withTenantPage } from "@/server/application/http/withTenantPage";
 
 async function ComboDetailContent({ params }: Pick<PageProps<"/dashboard/media-providers/combo/[id]">, "params">) {
-  await assertRequestRuntime();
-  const { id } = await params;
-  const [combo, settings, providers, keys, aliases, logs] = await Promise.all([
-    getComboById(id),
-    getSettings(),
-    getProviders(),
-    getApiKeys(),
-    getModelAliases(),
-    getUsageLogs({}),
-  ]);
+  return withTenantPage(async () => {
+    await assertRequestRuntime();
+    const { id } = await params;
+    const [combo, settings, providers, keys, aliases, logs] = await Promise.all([
+      getComboById(id),
+      getSettings(),
+      getProviders(),
+      getApiKeys(),
+      getModelAliases(),
+      getUsageLogs({}),
+    ]);
 
-  if (!combo) {
-    notFound();
-  }
+    if (!combo) {
+      notFound();
+    }
 
-  return (
-    <ComboDetailClient
-        comboId={id}
-        initialCombo={combo as unknown as { id: string; name: string; kind?: string; models: string[] }}
-        initialSettings={settings as unknown as Record<string, unknown>}
-        initialProviders={providers as unknown as Record<string, unknown>[]}
-        initialKeys={keys as unknown as Record<string, unknown>[]}
-        initialAliases={aliases as unknown as Record<string, unknown>}
-        initialLogs={logs as unknown[]}
-    />
-  );
+    return (
+      <ComboDetailClient
+          comboId={id}
+          initialCombo={combo as unknown as { id: string; name: string; kind?: string; models: string[] }}
+          initialSettings={settings as unknown as Record<string, unknown>}
+          initialProviders={providers as unknown as Record<string, unknown>[]}
+          initialKeys={keys as unknown as Record<string, unknown>[]}
+          initialAliases={aliases as unknown as Record<string, unknown>}
+          initialLogs={logs as unknown[]}
+      />
+    );
+  });
 }
 
 export default function ComboDetailPage(props: PageProps<"/dashboard/media-providers/combo/[id]">) {

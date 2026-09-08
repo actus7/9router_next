@@ -7,26 +7,29 @@ import {
   isValidBuiltInMediaProviderDetail,
   isValidMediaProviderKind,
 } from "../../validateDetailRoute";
+import { withTenantPage } from "@/server/application/http/withTenantPage";
 
 export default async function MediaProviderDetailPage({ params }: PageProps<"/dashboard/media-providers/[kind]/[id]">) {
-  await assertRequestRuntime();
-  const { kind, id } = await params;
+  return withTenantPage(async () => {
+    await assertRequestRuntime();
+    const { kind, id } = await params;
 
-  if (!isValidMediaProviderKind(kind)) notFound();
+    if (!isValidMediaProviderKind(kind)) notFound();
 
-  const nodes = await getProviderNodes();
+    const nodes = await getProviderNodes();
 
-  if (isCustomEmbeddingDetail(kind, id)) {
-    if (!nodes.some((node) => node.id === id)) notFound();
-  } else if (!isValidBuiltInMediaProviderDetail(kind, id)) {
-    notFound();
-  }
+    if (isCustomEmbeddingDetail(kind, id)) {
+      if (!nodes.some((node) => node.id === id)) notFound();
+    } else if (!isValidBuiltInMediaProviderDetail(kind, id)) {
+      notFound();
+    }
 
-  return (
-    <MediaProviderDetailClient
-      kind={kind}
-      id={id}
-      initialNodes={nodes as unknown as { id: string; name?: string; type?: string; prefix?: string }[]}
-    />
-  );
+    return (
+      <MediaProviderDetailClient
+        kind={kind}
+        id={id}
+        initialNodes={nodes as unknown as { id: string; name?: string; type?: string; prefix?: string }[]}
+      />
+    );
+  });
 }

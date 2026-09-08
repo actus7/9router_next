@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { ChevronDown, SearchX } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { getProviderConnectionAuthTypes } from "@/shared/constants/providers";
@@ -18,6 +19,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       <AvailabilityFilterBar availabilityFilter={d.availabilityFilter} onFilterChange={d.setAvailabilityFilter} />
+      <p className="text-sm text-muted-foreground">Para conectar contas pelo navegador, acesse <Link href="/dashboard/web-providers" className="text-primary underline underline-offset-4">Web Session Providers</Link>.</p>
       {!d.hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
           <SearchX className="size-8" />
@@ -55,21 +57,6 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         >
           {d.filterEntries(d.visibleApikeyEntries, "other", "apikey").map(([key, info]) => (
             <ApiKeyProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, "apikey")} onToggle={(active) => d.handleToggleProvider(key, "apikey", active)} availability={d.availabilityFor(info)} />
-          ))}
-        </ProviderSection>
-      )}
-      {d.webCookieEntries.length > 0 && (
-        <ProviderSection
-          title={translate("Web Session Providers")}
-          testMode="cookie"
-          testLabel="Test all Web Session connections"
-          testAriaLabel="Test all Web Session connections"
-          testingMode={d.testingMode}
-          onTest={d.handleBatchTest}
-          description={translate("Guided setup imports session from a copied browser request.") || "Guided setup imports session from a copied browser request."}
-        >
-          {d.filterEntries(d.webCookieEntries, "other", "cookie").map(([key, info]) => (
-            <ApiKeyProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, "cookie")} onToggle={(active) => d.handleToggleProvider(key, "cookie", active)} availability={d.availabilityFor(info)} />
           ))}
         </ProviderSection>
       )}

@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { getTenantMeta, setTenantMeta } from "../helpers/tenantMeta";
 
 export interface HarnessLearningConfig {
   memoryWriteApproval: boolean;
@@ -51,18 +52,17 @@ function readBool(value: unknown, fallback: boolean): boolean {
 
 export async function getHarnessLearningConfig(): Promise<HarnessLearningConfig> {
   const db = await getAdapter();
-  const read = (key: string) => db.get("SELECT value FROM _meta WHERE key = ?", [key])?.value;
+  const read = (key: string) => getTenantMeta(db, key);
+  const reviewModel = await read(KEYS.learningReviewModel);
   return {
-    memoryWriteApproval: readBool(read(KEYS.memoryWriteApproval), DEFAULTS.memoryWriteApproval),
-    skillWriteApproval: readBool(read(KEYS.skillWriteApproval), DEFAULTS.skillWriteApproval),
-    memoryAgentEnabled: readBool(read(KEYS.memoryAgentEnabled), DEFAULTS.memoryAgentEnabled),
-    memoryUserEnabled: readBool(read(KEYS.memoryUserEnabled), DEFAULTS.memoryUserEnabled),
-    learningReviewEnabled: readBool(read(KEYS.learningReviewEnabled), DEFAULTS.learningReviewEnabled),
-    learningReviewModel: typeof read(KEYS.learningReviewModel) === "string"
-      ? String(read(KEYS.learningReviewModel))
-      : DEFAULTS.learningReviewModel,
-    learningDeferWhenBusy: readBool(read(KEYS.learningDeferWhenBusy), DEFAULTS.learningDeferWhenBusy),
-    memoryNotifications: readBool(read(KEYS.memoryNotifications), DEFAULTS.memoryNotifications),
+    memoryWriteApproval: readBool(await read(KEYS.memoryWriteApproval), DEFAULTS.memoryWriteApproval),
+    skillWriteApproval: readBool(await read(KEYS.skillWriteApproval), DEFAULTS.skillWriteApproval),
+    memoryAgentEnabled: readBool(await read(KEYS.memoryAgentEnabled), DEFAULTS.memoryAgentEnabled),
+    memoryUserEnabled: readBool(await read(KEYS.memoryUserEnabled), DEFAULTS.memoryUserEnabled),
+    learningReviewEnabled: readBool(await read(KEYS.learningReviewEnabled), DEFAULTS.learningReviewEnabled),
+    learningReviewModel: reviewModel ?? DEFAULTS.learningReviewModel,
+    learningDeferWhenBusy: readBool(await read(KEYS.learningDeferWhenBusy), DEFAULTS.learningDeferWhenBusy),
+    memoryNotifications: readBool(await read(KEYS.memoryNotifications), DEFAULTS.memoryNotifications),
   };
 }
 
@@ -72,21 +72,15 @@ export async function updateHarnessLearningConfig(
   const db = await getAdapter();
   const current = await getHarnessLearningConfig();
   const next = { ...current, ...patch };
-  db.transaction(() => {
-    const set = (key: string, value: string) => {
-      db.run(
-        "INSERT INTO _meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        [key, value],
-      );
-    };
-    set(KEYS.memoryWriteApproval, String(next.memoryWriteApproval));
-    set(KEYS.skillWriteApproval, String(next.skillWriteApproval));
-    set(KEYS.memoryAgentEnabled, String(next.memoryAgentEnabled));
-    set(KEYS.memoryUserEnabled, String(next.memoryUserEnabled));
-    set(KEYS.learningReviewEnabled, String(next.learningReviewEnabled));
-    set(KEYS.learningReviewModel, next.learningReviewModel);
-    set(KEYS.learningDeferWhenBusy, String(next.learningDeferWhenBusy));
-    set(KEYS.memoryNotifications, String(next.memoryNotifications));
+  await db.transaction(async () => {
+    await setTenantMeta(db, KEYS.memoryWriteApproval, next.memoryWriteApproval);
+    await setTenantMeta(db, KEYS.skillWriteApproval, next.skillWriteApproval);
+    await setTenantMeta(db, KEYS.memoryAgentEnabled, next.memoryAgentEnabled);
+    await setTenantMeta(db, KEYS.memoryUserEnabled, next.memoryUserEnabled);
+    await setTenantMeta(db, KEYS.learningReviewEnabled, next.learningReviewEnabled);
+    await setTenantMeta(db, KEYS.learningReviewModel, next.learningReviewModel);
+    await setTenantMeta(db, KEYS.learningDeferWhenBusy, next.learningDeferWhenBusy);
+    await setTenantMeta(db, KEYS.memoryNotifications, next.memoryNotifications);
   });
   return next;
 }

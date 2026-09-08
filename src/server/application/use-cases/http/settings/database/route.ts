@@ -2,22 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { exportDb, importDb } from "@/lib/db/index";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
-import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
 
-const CLI_TOKEN_HEADER = "x-9r-cli-token";
-const PASSWORD_HEADER = "x-9r-password";
+/**
+ * Export and import used to demand the operator password on top of the session,
+ * because they moved the whole database. They no longer can: both are scoped to
+ * the calling account now, so an export contains only the caller's rows and an
+ * import replaces only the caller's rows. The session that got the request here
+ * is the same authority the rest of the dashboard runs on.
+ */
 
-// CLI token requests are already trusted (local machine); skip password re-auth.
-function isCliRequest(request: NextRequest): boolean {
-  return Boolean(request.headers.get(CLI_TOKEN_HEADER));
-}
-
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse> {
   try {
-    const password = request.headers.get(PASSWORD_HEADER);
-    if (!isCliRequest(request) && (!password || !(await verifyDashboardPassword(password)))) {
-      return NextResponse.json({ error: "Invalid password" }, { status: 401 });
-    }
     const payload = await exportDb();
     return NextResponse.json(payload);
   } catch (error) {
@@ -28,10 +23,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const { password, ...payload } = await request.json();
-    if (!isCliRequest(request) && !(await verifyDashboardPassword(password))) {
-      return NextResponse.json({ error: "Invalid password" }, { status: 401 });
-    }
+    const { password: _ignored, ...payload } = await request.json();
     await importDb(payload);
 
     // Ensure proxy settings take effect immediately after a DB import.

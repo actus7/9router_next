@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Check, Copy, X } from "lucide-react";
 import { translate } from "@/i18n/runtime";
+import { buildSetupCommand } from "@/shared/utils/setupCommand";
 
 interface ConfigItem {
   filename: string;
@@ -30,6 +31,8 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Manual Con
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  const setupCommand = configs.length > 0 ? buildSetupCommand(configs) : "";
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -50,6 +53,26 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Manual Con
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-4">
+        {setupCommand && (
+          <div className="flex flex-col gap-2 rounded border border-border-subtle bg-surface-2/30 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-text-main">
+                {translate("Apply on the machine running the CLI") ?? "Apply on the machine running the CLI"}
+              </span>
+              <Button variant="ghost" size="sm" onClick={() => copyConfig(setupCommand, -1)}>
+                {copiedIndex === -1 ? <Check className="size-4 mr-1" /> : <Copy className="size-4 mr-1" />}
+                {copiedIndex === -1 ? (translate("Copied!") ?? "Copied!") : (translate("Copy") ?? "Copy")}
+              </Button>
+            </div>
+            <p className="text-xs text-text-muted">
+              {translate("Merges into existing JSON configs and backs up whatever it replaces. If your shell rejects the length, pipe it on stdin instead.") ??
+                "Merges into existing JSON configs and backs up whatever it replaces. If your shell rejects the length, pipe it on stdin instead."}
+            </p>
+            <pre className="px-3 py-2 bg-surface-2/50 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-32 overflow-y-auto border border-border">
+              {setupCommand}
+            </pre>
+          </div>
+        )}
         {configs.map((config, index) => (
           <div key={index} className="flex flex-col gap-2">
             <div className="flex items-center justify-between">

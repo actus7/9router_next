@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextResponse } from "next/server";
 import { safePublicFetch } from "@/server/security/safeFetch";
 import { FREE_PROVIDERS } from "@/shared/constants/providers";
@@ -130,9 +131,11 @@ export async function resolveFreeModelGroups(
  * lists their static catalog models directly so chat can offer them without
  * requiring the user to add a connection first.
  */
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   const providers = getEligibleFreeModelProviders(FREE_PROVIDERS);
   const groups = await resolveFreeModelGroups(providers);
 
   return NextResponse.json({ groups });
 }
+
+export const GET = tenantRoute(handleGET);

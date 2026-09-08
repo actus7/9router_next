@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -74,7 +75,7 @@ function estimateAnthropicInputTokens(body: Record<string, unknown> = {}) {
 /**
  * POST /v1/messages/count_tokens - Mock token count response
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   let body;
   try {
     body = await request.json();
@@ -94,3 +95,4 @@ export async function POST(request: NextRequest) {
   });
 }
 
+export const POST = gatewayRoute(handlePOST);

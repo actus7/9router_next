@@ -4,6 +4,7 @@ import { getProviders, getProviderNodes } from "@/lib/data-access";
 import ProvidersClient from "./ProvidersClient";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { Spinner } from "@/shared/components/Loading";
+import { withTenantPage } from "@/server/application/http/withTenantPage";
 
 export const metadata: Metadata = {
   title: "Providers | ModelHub",
@@ -11,13 +12,15 @@ export const metadata: Metadata = {
 };
 
 async function ProvidersContent() {
-  await assertRequestRuntime();
-  const [providers, nodes] = await Promise.all([
-    getProviders(),
-    getProviderNodes(),
-  ]);
+  return withTenantPage(async () => {
+    await assertRequestRuntime();
+    const [providers, nodes] = await Promise.all([
+      getProviders(),
+      getProviderNodes(),
+    ]);
 
-  return <ProvidersClient initialConnections={providers} initialNodes={nodes as Array<{ id: string; name?: string; type?: string; apiType?: string }>} />;
+    return <ProvidersClient initialConnections={providers} initialNodes={nodes as Array<{ id: string; name?: string; type?: string; apiType?: string }>} />;
+  });
 }
 
 export default function ProvidersPage() {

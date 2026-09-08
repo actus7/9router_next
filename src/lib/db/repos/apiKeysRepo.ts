@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 
 /**
  * Where a key was propagated to. One key per destination is what makes the
@@ -57,13 +58,13 @@ function rowToKey(row: ApiKeyRow | undefined): ApiKey | null {
 
 export async function getApiKeys(): Promise<ApiKey[]> {
   const db = await getAdapter();
-  const rows = db.all(`SELECT * FROM apiKeys ORDER BY createdAt ASC`) as unknown as ApiKeyRow[];
+  const rows = (await db.all(`SELECT * FROM apiKeys WHERE userId = ? ORDER BY createdAt ASC`, [currentTenantId()])) as unknown as ApiKeyRow[];
   return rows.map(rowToKey).filter((k): k is ApiKey => k !== null);
 }
 
 export async function getApiKeyById(id: string): Promise<ApiKey | null> {
   const db = await getAdapter();
-  const row = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]) as ApiKeyRow | undefined;
+  const row = (await db.get(`SELECT * FROM apiKeys WHERE userId = ? AND id = ?`, [currentTenantId(), id])) as ApiKeyRow | undefined;
   return rowToKey(row);
 }
 
@@ -88,10 +89,10 @@ export async function createApiKey(
     sinkRef,
     revokedAt: null,
   };
-  db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, sink, sinkRef, revokedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-    [apiKey.id, apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, sink, sinkRef]
+  await db.run(
+    `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt, sink, sinkRef, revokedAt)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    [apiKey.id, currentTenantId(), apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, sink, sinkRef]
   );
   return apiKey;
 }
@@ -105,10 +106,10 @@ export async function createApiKey(
  */
 export async function getActiveApiKeyBySink(sink: ApiKeySink): Promise<ApiKey | null> {
   const db = await getAdapter();
-  const row = db.get(
-    `SELECT * FROM apiKeys WHERE sink = ? AND isActive = 1 ORDER BY createdAt DESC`,
-    [sink],
-  ) as ApiKeyRow | undefined;
+  const row = (await db.get(
+    `SELECT * FROM apiKeys WHERE userId = ? AND sink = ? AND isActive = 1 ORDER BY createdAt DESC`,
+    [currentTenantId(), sink],
+  )) as ApiKeyRow | undefined;
   return rowToKey(row);
 }
 
@@ -127,7 +128,7 @@ export async function issueApiKeyForSink(
   if (existing) {
     if (sinkRef && existing.sinkRef !== sinkRef) {
       const db = await getAdapter();
-      db.run(`UPDATE apiKeys SET sinkRef = ? WHERE id = ?`, [sinkRef, existing.id]);
+      await db.run(`UPDATE apiKeys SET sinkRef = ? WHERE userId = ? AND id = ?`, [sinkRef, currentTenantId(), existing.id]);
       return { ...existing, sinkRef };
     }
     return existing;
@@ -145,23 +146,24 @@ export async function issueApiKeyForSink(
  */
 export async function revokeApiKeysForSink(sink: ApiKeySink): Promise<number> {
   const db = await getAdapter();
-  const res = db.run(
-    `UPDATE apiKeys SET isActive = 0, revokedAt = ? WHERE sink = ? AND isActive = 1`,
-    [new Date().toISOString(), sink],
+  const res = await db.run(
+    `UPDATE apiKeys SET isActive = 0, revokedAt = ? WHERE userId = ? AND sink = ? AND isActive = 1`,
+    [new Date().toISOString(), currentTenantId(), sink],
   );
   return res?.changes ?? 0;
 }
 
 export async function updateApiKey(id: string, data: Partial<ApiKey>): Promise<ApiKey | null> {
   const db = await getAdapter();
+  const userId = currentTenantId();
   let result: ApiKey | null = null;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]) as ApiKeyRow | undefined;
+  await db.transaction(async () => {
+    const row = (await db.get(`SELECT * FROM apiKeys WHERE userId = ? AND id = ?`, [userId, id])) as ApiKeyRow | undefined;
     if (!row) return;
     const merged: ApiKey = { ...rowToKey(row)!, ...data };
-    db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, sink = ?, sinkRef = ?, revokedAt = ? WHERE id = ?`,
-      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, merged.sink, merged.sinkRef, merged.revokedAt, id]
+    await db.run(
+      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, sink = ?, sinkRef = ?, revokedAt = ? WHERE userId = ? AND id = ?`,
+      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, merged.sink, merged.sinkRef, merged.revokedAt, userId, id]
     );
     result = merged;
   });
@@ -170,13 +172,28 @@ export async function updateApiKey(id: string, data: Partial<ApiKey>): Promise<A
 
 export async function deleteApiKey(id: string): Promise<boolean> {
   const db = await getAdapter();
-  const res = db.run(`DELETE FROM apiKeys WHERE id = ?`, [id]);
+  const res = await db.run(`DELETE FROM apiKeys WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
   return (res?.changes ?? 0) > 0;
 }
 
-export async function validateApiKey(key: string): Promise<boolean> {
+/**
+ * The tenant a gateway request belongs to, from the key it authenticated with.
+ *
+ * Deliberately NOT tenant-scoped: this is one of the two places a tenant is
+ * *established* (see `lib/db/tenant.ts`), so it cannot already be in context.
+ * That is why `apiKeys.key` is globally unique — the lookup has to be
+ * unambiguous across the whole table.
+ */
+export async function resolveApiKeyOwner(key: string): Promise<{ userId: string; id: string } | null> {
   const db = await getAdapter();
-  const row = db.get(`SELECT isActive FROM apiKeys WHERE key = ?`, [key]) as { isActive: number | boolean } | undefined;
-  if (!row) return false;
-  return row.isActive === 1 || row.isActive === true;
+  const row = (await db.get(`SELECT id, userId, isActive FROM apiKeys WHERE key = ?`, [key])) as
+    | { id: string; userId: string; isActive: number | boolean }
+    | undefined;
+  if (!row) return null;
+  if (!(row.isActive === 1 || row.isActive === true)) return null;
+  return { userId: row.userId, id: row.id };
+}
+
+export async function validateApiKey(key: string): Promise<boolean> {
+  return (await resolveApiKeyOwner(key)) !== null;
 }

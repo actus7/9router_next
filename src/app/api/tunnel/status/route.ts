@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextResponse } from "next/server";
 import { getTunnelStatus, getTailscaleStatus, getDownloadStatus } from "@/lib/tunnel";
 
@@ -7,7 +8,7 @@ const STATUS_CACHE_TTL_MS = 3000; // coalesce rapid polls; underlying probes alr
 // download progress stays live so the enable/download UI updates smoothly.
 const statusCache = ((global as Record<string, unknown>).__tunnelStatusCache ??= { value: null, fetchedAt: 0 }) as { value: unknown; fetchedAt: number };
 
-export async function GET() {
+async function handleGET() {
   try {
     let probes = statusCache.value as Record<string, unknown> | null;
     if (!probes || Date.now() - statusCache.fetchedAt >= STATUS_CACHE_TTL_MS) {
@@ -23,3 +24,5 @@ export async function GET() {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);

@@ -1,6 +1,8 @@
 import os from "os";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { cleanupProviderConnections } from "@/lib/db/repos/connectionsRepo";
+import { forEachTenant, listTenantIds } from "@/lib/db/tenants";
+import { withTenant } from "@/lib/db/tenant";
 import {
   enableTunnel, enableTailscale,
   getTunnelService, getTailscaleService, setTunnelUnexpectedExitCallback,
@@ -24,6 +26,18 @@ interface AppSingleton {
   lastOnline: boolean | null;
   tunnelAutoResumed: boolean;
   tailscaleAutoResumed: boolean;
+  /**
+   * The account whose settings the tunnel and Tailscale processes were started
+   * from, for this process.
+   *
+   * There is one `cloudflared` per machine but one `tunnelEnabled` row per
+   * account, so a watchdog restart has to know which account's settings it is
+   * acting on. It is whoever turned it on — at startup on a single-account
+   * install, or the account that called the enable route. Null means nobody
+   * did, and the watchdog has nothing to restart.
+   */
+  tunnelOwner: string | null;
+  tailscaleOwner: string | null;
 }
 
 interface TunnelService {
@@ -73,6 +87,8 @@ const g: AppSingleton = global.__appSingleton ??= {
   lastOnline: null,
   tunnelAutoResumed: false,
   tailscaleAutoResumed: false,
+  tunnelOwner: null,
+  tailscaleOwner: null,
 };
 
 export async function initializeApp(): Promise<void> {
@@ -107,32 +123,15 @@ export async function initializeApp(): Promise<void> {
 }
 
 async function runHeavyStartup(): Promise<void> {
-  await cleanupProviderConnections();
-  const settings: Settings = await getSettings();
+  await forEachTenant(async () => { await cleanupProviderConnections(); });
 
-  // Auto-resume tunnel (once per process)
-  if (settings.tunnelEnabled && !g.tunnelAutoResumed) {
-    g.tunnelAutoResumed = true;
-    console.log("[InitApp] Tunnel was enabled, auto-resuming...");
-    safeRestartTunnel("startup").catch((e: Error) => console.error("[InitApp] Tunnel resume failed:", e.message));
-  }
+  await resumeSingleTenantProcesses();
 
-  // Auto-resume tailscale (once per process)
-  if (settings.tailscaleEnabled && !g.tailscaleAutoResumed) {
-    g.tailscaleAutoResumed = true;
-    console.log("[InitApp] Tailscale was enabled, auto-resuming...");
-    safeRestartTailscale("startup").catch((e: Error) => console.error("[InitApp] Tailscale resume failed:", e.message));
-  }
-
-  if (settings.tunnelEnabled) ensureCloudflared().catch(() => {});
-
-  configureTunnelMonitoring(settings);
-
-  if (hasQuotaAutoPingEnabled(settings)) {
-    import("@/server/services/quotaAutoPing")
-      .then(({ startQuotaAutoPing }) => startQuotaAutoPing())
-      .catch((e: Error) => console.error("[AutoPing] scheduler start failed:", e.message));
-  }
+  // Both schedulers loop over accounts themselves, so they start unconditionally
+  // and decide per account what to do.
+  import("@/server/services/quotaAutoPing")
+    .then(({ startQuotaAutoPing }) => startQuotaAutoPing())
+    .catch((e: Error) => console.error("[AutoPing] scheduler start failed:", e.message));
 
   // Proactive OAuth token refresh (e.g. grok-cli ~6h TTL). Module is idempotent
   // and also started from custom-server.js when that entry is used.
@@ -141,10 +140,50 @@ async function runHeavyStartup(): Promise<void> {
     .catch((e: Error) => console.error("[BackgroundTokenRefresh] scheduler start failed:", e.message));
 }
 
-function hasQuotaAutoPingEnabled(settings: Settings): boolean {
-  return [settings?.claudeAutoPing, settings?.codexAutoPing]
-    .some((config) => Object.values(config?.connections || {}).some(Boolean));
+/**
+ * Resume the tunnel and Tailscale from stored settings, but only on a
+ * single-account instance.
+ *
+ * `cloudflared` and `tailscaled` are one process per machine, while
+ * `tunnelEnabled` is now a row per account. On a self-hosted install with one
+ * account those are the same thing and behaviour is unchanged. With several,
+ * "is the tunnel on" has no single answer — resuming from whichever account
+ * happened to be enumerated last would hand one account's tunnel URL to
+ * everyone — so it stays off and says so, and an operator who wants it enables
+ * it explicitly from the dashboard.
+ */
+async function resumeSingleTenantProcesses(): Promise<void> {
+  const tenants: string[] = await listTenantIds();
+  if (tenants.length !== 1) {
+    if (tenants.length > 1) {
+      console.log(`[InitApp] ${tenants.length} accounts: skipping tunnel/Tailscale auto-resume (one process, no single owner)`);
+    }
+    return;
+  }
+
+  await withTenant(tenants[0]!, async () => {
+    const settings: Settings = await getSettings();
+
+    if (settings.tunnelEnabled && !g.tunnelAutoResumed) {
+      g.tunnelAutoResumed = true;
+      g.tunnelOwner = tenants[0]!;
+      console.log("[InitApp] Tunnel was enabled, auto-resuming...");
+      safeRestartTunnel("startup").catch((e: Error) => console.error("[InitApp] Tunnel resume failed:", e.message));
+    }
+
+    if (settings.tailscaleEnabled && !g.tailscaleAutoResumed) {
+      g.tailscaleAutoResumed = true;
+      g.tailscaleOwner = tenants[0]!;
+      console.log("[InitApp] Tailscale was enabled, auto-resuming...");
+      safeRestartTailscale("startup").catch((e: Error) => console.error("[InitApp] Tailscale resume failed:", e.message));
+    }
+
+    if (settings.tunnelEnabled) ensureCloudflared().catch(() => {});
+
+    configureTunnelMonitoring(settings);
+  });
 }
+
 
 // Cooldown only applies to repeating watchdog ticks (anti hammer-loop).
 // Network/exit events are one-shot transitions → bypass to recover fast.
@@ -153,6 +192,12 @@ const FORCE_RESTART_REASONS: RegExp = /^(startup|netchange|sleep|sleep\+netchang
 // ─── Safe restart (4 guards: spawn / cooldown / alive / internet) ────────────
 
 async function safeRestartTunnel(reason: string): Promise<void> {
+  const owner: string | null = g.tunnelOwner;
+  if (!owner) return;
+  return withTenant(owner, () => safeRestartTunnelForOwner(reason));
+}
+
+async function safeRestartTunnelForOwner(reason: string): Promise<void> {
   const svc: TunnelService = getTunnelService();
   const settings: Settings = await getSettings();
   if (!settings.tunnelEnabled) return;
@@ -184,6 +229,12 @@ async function safeRestartTunnel(reason: string): Promise<void> {
 }
 
 async function safeRestartTailscale(reason: string): Promise<void> {
+  const owner: string | null = g.tailscaleOwner;
+  if (!owner) return;
+  return withTenant(owner, () => safeRestartTailscaleForOwner(reason));
+}
+
+async function safeRestartTailscaleForOwner(reason: string): Promise<void> {
   const svc: TailscaleService = getTailscaleService();
   const settings: Settings = await getSettings();
   if (!settings.tailscaleEnabled) return;
@@ -309,6 +360,15 @@ function stopNetworkMonitor(): void {
   g.networkMonitorInterval = null;
   g.lastNetworkFingerprint = null;
   g.lastOnline = null;
+}
+
+/** Records which account started the machine-level tunnel/Tailscale process. */
+export function setTunnelOwner(userId: string): void {
+  g.tunnelOwner = userId;
+}
+
+export function setTailscaleOwner(userId: string): void {
+  g.tailscaleOwner = userId;
 }
 
 export function configureTunnelMonitoring(settings: Settings): void {

@@ -6,12 +6,12 @@ import {
   solveVqdChallengeMultiLayer,
   type VqdChallengeResult,
 } from "./duckai-challenge";
+import { DUCKAI_USER_AGENT as UA } from "./duckaiChallengeTypes";
 
 export const CHAT_URL = PROVIDERS["duckai"]?.baseUrl as string || "https://duck.ai/duckchat/v1/chat";
 const AUTH_TOKEN_URL = "https://duck.ai/duckchat/v1/auth/token";
 const STATUS_URL = "https://duck.ai/duckchat/v1/status";
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+
 
 export const DUCKAI_TEMPORARY_ERROR_MESSAGE =
   "Duck.ai is temporarily unavailable. Please try again in a few moments.";
@@ -25,7 +25,7 @@ const DUCKAI_CHAT_RETRY_MAX_DELAY_MS = readNumberEnv("DUCKAI_CHAT_RETRY_MAX_DELA
 // ---------------------------------------------------------------------------
 
 export type DdgMessage = { role: "user" | "assistant"; content: string };
-export type DuckAiReasoningEffort = "minimal" | "low";
+export type DuckAiReasoningEffort = "none" | "minimal" | "low";
 export type DuckAiRetryClass = "bn_limit" | "challenge" | "empty_stream" | "network" | "timeout";
 export type DuckAiRetryPhase = "chat_http" | "chat_stream" | "chat_stream_prelude" | "vqd";
 
@@ -468,8 +468,9 @@ export async function getVqdData(seedCookies = ""): Promise<DuckAiVqdData> {
 
   if (challengeRuntime === "off") {
     throw new Error(
-      "Duck.ai VQD challenge runtime is disabled. Set DUCKAI_BROWSER_WS_ENDPOINT " +
-        "or DUCKAI_CHALLENGE_RUNTIME=browser to keep Duck.ai enabled safely."
+      "Duck.ai VQD challenge runtime is explicitly disabled. Unset " +
+        "DUCKAI_CHALLENGE_RUNTIME to use the default jsdom solver, or point " +
+        "DUCKAI_BROWSER_WS_ENDPOINT at a remote browser to solve it out of process."
     );
   }
 

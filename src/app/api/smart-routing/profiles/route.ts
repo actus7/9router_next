@@ -1,9 +1,10 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { getDeterministicSmartProfiles } from "@/server/application/use-cases/smart-routing/getDeterministicProfiles";
 import { refreshDeterministicSmartProfiles } from "@/server/llm-gateway/smart-routing";
 
 
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   try {
     const profiles = await getDeterministicSmartProfiles();
     return NextResponse.json({ profiles });
@@ -13,7 +14,7 @@ export async function GET(): Promise<NextResponse> {
   }
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json().catch(() => ({}));
     if (body.action && body.action !== "refresh") {
@@ -27,3 +28,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
+export const GET = tenantRoute(handleGET);
+export const POST = tenantRoute(handlePOST);

@@ -34,6 +34,11 @@ This is visible rather than silent:
 - `storageEphemeral: true` in `GET /api/settings`,
 - a permanent banner across the top of the dashboard.
 
+The gateway itself is unaffected — provider calls, the OpenAI/Anthropic
+endpoints and the dashboard all work. What a serverless host cannot do is keep
+state, and it cannot write a CLI tool's config file for you either: see
+[CLI-TOOLS.md](CLI-TOOLS.md).
+
 Setting `JWT_SECRET` on such a host is worth doing anyway — it at least keeps
 logins from breaking on every cold start — but it does not make provider
 credentials or usage history survive.

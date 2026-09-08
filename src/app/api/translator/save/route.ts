@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import fs from "fs";
 import path from "path";
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const { file, content } = await request.json();
 
@@ -42,3 +43,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

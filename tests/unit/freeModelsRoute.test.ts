@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   FREE_MODEL_DISCOVERY_TIMEOUT_MS,
   filterDiscoveredNoAuthModels,
@@ -7,6 +7,9 @@ import {
   resolveFreeModelGroups,
 } from "@/app/api/models/free/route";
 import { buildFreeChatModels, isFreeModelEnabledForChat } from "@/app/(dashboard)/dashboard/basic-chat/hooks/useChatModels";
+
+vi.mock("@/server/application/http/tenantRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);
+vi.mock("@/server/application/http/gatewayRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);
 
 describe("free model discovery", () => {
   it("keeps every chat-capable model returned by a no-auth provider", () => {

@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { ACCENT_COLOR_COOKIE, isValidAccentColor } from "@/shared/constants/accentColors";
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const { accentColor } = await request.json();
 
@@ -25,3 +26,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to set accent color" }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

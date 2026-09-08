@@ -2,6 +2,7 @@
 // Fail-open everywhere: tick errors and per-connection failures never kill the interval.
 
 import * as log from "../utils/logger";
+import { forEachTenant } from "@/lib/db/tenants";
 import { getRefreshLeadMs } from "@/server/llm-gateway/engine/services/tokenRefresh";
 import { getCredentialExpiryMs } from "@/server/llm-gateway/engine/services/oauthCredentialManager";
 
@@ -179,16 +180,29 @@ export function startBackgroundTokenRefresh({ intervalMs }: StartOptions = {}): 
   started = true;
   const period: number = Number.isFinite(intervalMs!) && intervalMs! > 0 ? intervalMs! : DEFAULT_INTERVAL_MS;
 
+  // Once per account, not once overall: provider connections and their tokens
+  // belong to an account, and this job has no request to tell it which one.
   const safeTick = (): void => {
-    runBackgroundTokenRefreshTick().catch((err: Error) => {
-      log.warn("BG_TOKEN_REFRESH", "Unhandled tick rejection (swallowed)", {
-        error: err?.message ?? String(err),
+    void forEachTenant(
+      async () => {
+        await runBackgroundTokenRefreshTick();
+        // Expired model cooldowns are already ignored by the reader, but
+        // without a sweep they accumulate forever. This is the only always-on
+        // timer in the server runtime, so the GC rides along instead of adding
+        // a second one.
+        sweepExpiredModelAvailability();
+      },
+      (userId: string, err: unknown) => {
+        log.warn("BG_TOKEN_REFRESH", "Tick failed for one account (others continue)", {
+          userId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      },
+    ).catch((err: unknown) => {
+      log.warn("BG_TOKEN_REFRESH", "Could not enumerate accounts (swallowed)", {
+        error: err instanceof Error ? err.message : String(err),
       });
     });
-    // Expired model cooldowns are already ignored by the reader, but without a
-    // sweep they accumulate forever. This is the only always-on timer in the
-    // server runtime, so the GC rides along instead of adding a second one.
-    sweepExpiredModelAvailability();
   };
 
   initialTimeoutHandle = setTimeout(safeTick, INITIAL_DELAY_MS);

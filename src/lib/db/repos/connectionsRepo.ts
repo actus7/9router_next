@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { decryptConnectionSecrets, encryptConnectionSecrets } from "../helpers/credentialCipher";
 
@@ -111,21 +112,21 @@ function connToRow(c: ProviderConnection): Record<string, unknown> {
 }
 
 interface DbLike {
-  run(sql: string, params?: unknown[]): void;
-  get(sql: string, params?: unknown[]): Record<string, unknown> | undefined;
-  all(sql: string, params?: unknown[]): Array<Record<string, unknown>>;
+  run(sql: string, params?: unknown[]): Promise<{ changes: number }>;
+  get(sql: string, params?: unknown[]): Promise<Record<string, unknown> | undefined>;
+  all(sql: string, params?: unknown[]): Promise<Array<Record<string, unknown>>>;
 }
 
-function upsert(db: DbLike, c: ProviderConnection): void {
+async function upsert(db: DbLike, c: ProviderConnection): Promise<void> {
   const r = connToRow(c);
-  db.run(
-    `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  await db.run(
+    `INSERT INTO providerConnections(id, userId, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        provider=excluded.provider, authType=excluded.authType, name=excluded.name,
        email=excluded.email, priority=excluded.priority, isActive=excluded.isActive,
        data=excluded.data, updatedAt=excluded.updatedAt`,
-    [r.id, r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.data, r.createdAt, r.updatedAt]
+    [r.id, currentTenantId(), r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.data, r.createdAt, r.updatedAt]
   );
 }
 
@@ -149,11 +150,11 @@ interface ConnectionFilter {
 export async function getProviderConnections(filter: ConnectionFilter = {}): Promise<ProviderConnection[]> {
   const db = await getAdapter();
   const where: string[] = [];
-  const params: unknown[] = [];
+  const params: unknown[] = [currentTenantId()];
   if (filter.provider) { where.push("provider = ?"); params.push(filter.provider); }
   if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
-  const sql: string = `SELECT * FROM providerConnections${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const rows = db.all(sql, params) as unknown as ConnectionRow[];
+  const sql: string = `SELECT * FROM providerConnections WHERE userId = ?${where.length ? ` AND ${where.join(" AND ")}` : ""}`;
+  const rows = await db.all(sql, params) as unknown as ConnectionRow[];
   const list: ProviderConnection[] = rows.map(rowToConn).filter((c): c is ProviderConnection => c !== null);
   list.sort((a: ProviderConnection, b: ProviderConnection) => (a.priority || 999) - (b.priority || 999));
   return list;
@@ -161,21 +162,22 @@ export async function getProviderConnections(filter: ConnectionFilter = {}): Pro
 
 export async function getProviderConnectionById(id: string): Promise<ProviderConnection | null> {
   const db = await getAdapter();
-  const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]) as ConnectionRow | undefined;
+  const row = await db.get(`SELECT * FROM providerConnections WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as ConnectionRow | undefined;
   return rowToConn(row);
 }
 
 // Internal sync reorder — must be called INSIDE a transaction
-function reorderInTx(db: DbLike, providerId: string): void {
-  const list: ProviderConnection[] = (db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [providerId]) as unknown as ConnectionRow[]).map(rowToConn).filter((c): c is ProviderConnection => c !== null);
+async function reorderInTx(db: DbLike, providerId: string): Promise<void> {
+  const userId: string = currentTenantId();
+  const list: ProviderConnection[] = (await db.all(`SELECT * FROM providerConnections WHERE userId = ? AND provider = ?`, [userId, providerId]) as unknown as ConnectionRow[]).map(rowToConn).filter((c): c is ProviderConnection => c !== null);
   list.sort((a: ProviderConnection, b: ProviderConnection) => {
     const pDiff: number = (a.priority || 0) - (b.priority || 0);
     if (pDiff !== 0) return pDiff;
     return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
   });
-  list.forEach((c: ProviderConnection, i: number) => {
-    db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [i + 1, c.id]);
-  });
+  for (const [i, c] of list.entries()) {
+    await db.run(`UPDATE providerConnections SET priority = ? WHERE userId = ? AND id = ?`, [i + 1, userId, c.id]);
+  }
 }
 
 interface ConnectionInput {
@@ -194,8 +196,8 @@ export async function createProviderConnection(data: ConnectionInput): Promise<P
   const now: string = new Date().toISOString();
   let result: ProviderConnection | undefined;
 
-  db.transaction(() => {
-    const all: ProviderConnection[] = (db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [data.provider]) as unknown as ConnectionRow[]).map(rowToConn).filter((c): c is ProviderConnection => c !== null);
+  await db.transaction(async () => {
+    const all: ProviderConnection[] = (await db.all(`SELECT * FROM providerConnections WHERE userId = ? AND provider = ?`, [currentTenantId(), data.provider]) as unknown as ConnectionRow[]).map(rowToConn).filter((c): c is ProviderConnection => c !== null);
 
     let existing: ProviderConnection | undefined;
     if (data.authType === "oauth" && data.email) {
@@ -226,7 +228,7 @@ export async function createProviderConnection(data: ConnectionInput): Promise<P
 
     if (existing) {
       const merged: ProviderConnection = { ...existing, ...data, updatedAt: now };
-      upsert(db, merged);
+      await upsert(db, merged);
       result = merged;
       return;
     }
@@ -259,8 +261,8 @@ export async function createProviderConnection(data: ConnectionInput): Promise<P
     }
     if (data.email !== undefined) conn.email = data.email;
 
-    upsert(db, conn);
-    reorderInTx(db, data.provider);
+    await upsert(db, conn);
+    await reorderInTx(db, data.provider);
     result = conn;
   });
 
@@ -271,13 +273,13 @@ export async function createProviderConnection(data: ConnectionInput): Promise<P
 export async function updateProviderConnection(id: string, data: Partial<ProviderConnection>): Promise<ProviderConnection | null> {
   const db = await getAdapter();
   let result: ProviderConnection | null;
-  db.transaction(() => {
-  const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]) as ConnectionRow | undefined;
+  await db.transaction(async () => {
+  const row = await db.get(`SELECT * FROM providerConnections WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as ConnectionRow | undefined;
     if (!row) { result = null; return; }
     const existing: ProviderConnection = rowToConn(row)!;
     const merged: ProviderConnection = { ...existing, ...data, updatedAt: new Date().toISOString() };
-    upsert(db, merged);
-    if (data.priority !== undefined) reorderInTx(db, existing.provider);
+    await upsert(db, merged);
+    if (data.priority !== undefined) await reorderInTx(db, existing.provider);
     result = merged;
   });
   return result!;
@@ -286,10 +288,10 @@ export async function updateProviderConnection(id: string, data: Partial<Provide
 export async function deleteProviderConnection(id: string): Promise<boolean> {
   const db = await getAdapter();
   let ok: boolean = false;
-  db.transaction(() => {
-    const row = db.get(`SELECT provider FROM providerConnections WHERE id = ?`, [id]) as { provider: string } | undefined;
+  await db.transaction(async () => {
+    const row = await db.get(`SELECT provider FROM providerConnections WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as { provider: string } | undefined;
     if (!row) return;
-    db.run(`DELETE FROM providerConnections WHERE id = ?`, [id]);
+    await db.run(`DELETE FROM providerConnections WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
     // No FOREIGN KEY exists anywhere in the schema, so the child rows keyed on
     // this connection have to go explicitly. `cleanupExpiredModelAvailability`
     // does not cover them: it only deletes rows whose `until` has passed, and a
@@ -297,7 +299,7 @@ export async function deleteProviderConnection(id: string): Promise<boolean> {
     // forever. Done here rather than in the callers because there are two of
     // them (the DELETE route and the server action) and a guard in one leaves
     // the other leaking.
-    db.run(`DELETE FROM modelAvailability WHERE connectionId = ?`, [id]);
+    await db.run(`DELETE FROM modelAvailability WHERE userId = ? AND connectionId = ?`, [currentTenantId(), id]);
     reorderInTx(db, row.provider);
     ok = true;
   });
@@ -306,14 +308,15 @@ export async function deleteProviderConnection(id: string): Promise<boolean> {
 
 export async function deleteProviderConnectionsByProvider(providerId: string): Promise<number> {
   const db = await getAdapter();
-  const before = db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [providerId]) as { n: number } | undefined;
-  db.run(`DELETE FROM providerConnections WHERE provider = ?`, [providerId]);
+  const userId: string = currentTenantId();
+  const before = await db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE userId = ? AND provider = ?`, [userId, providerId]) as { n: number } | undefined;
+  await db.run(`DELETE FROM providerConnections WHERE userId = ? AND provider = ?`, [userId, providerId]);
   return before?.n || 0;
 }
 
 export async function reorderProviderConnections(providerId: string): Promise<void> {
   const db = await getAdapter();
-  db.transaction(() => reorderInTx(db, providerId));
+  await db.transaction(async () => { await reorderInTx(db, providerId); });
 }
 
 export async function cleanupProviderConnections(): Promise<number> {
@@ -326,8 +329,8 @@ export async function cleanupProviderConnections(): Promise<number> {
     "consecutiveUseCount",
   ];
   let cleaned: number = 0;
-  db.transaction(() => {
-    const rows = db.all(`SELECT * FROM providerConnections`) as unknown as ConnectionRow[];
+  await db.transaction(async () => {
+    const rows = await db.all(`SELECT * FROM providerConnections WHERE userId = ?`, [currentTenantId()]) as unknown as ConnectionRow[];
     for (const row of rows) {
       const conn: ProviderConnection = rowToConn(row)!;
       let dirty: boolean = false;
@@ -341,7 +344,7 @@ export async function cleanupProviderConnections(): Promise<number> {
         cleaned++;
         dirty = true;
       }
-      if (dirty) upsert(db, conn);
+      if (dirty) await upsert(db, conn);
     }
   });
   return cleaned;

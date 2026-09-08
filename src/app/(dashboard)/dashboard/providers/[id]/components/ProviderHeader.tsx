@@ -6,6 +6,7 @@ import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/prov
 import { translate } from "@/i18n/runtime";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { ProviderInfo } from "../types";
+import { AI_PROVIDERS } from "@/shared/constants/providers";
 
 interface ProviderHeaderProps {
   providerInfo: ProviderInfo;
@@ -37,11 +38,11 @@ export default function ProviderHeader({
   return (
     <div className="min-w-0 px-1 py-1 sm:px-0">
       <Link
-        href="/dashboard/providers"
+        href={AI_PROVIDERS[providerInfo.id]?.category === "webCookie" ? "/dashboard/web-providers" : "/dashboard/providers"}
         className="mb-3 inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-primary"
       >
         <ArrowLeft className="size-4" />
-        {translate("Back to Providers")}
+        {AI_PROVIDERS[providerInfo.id]?.category === "webCookie" ? "Voltar para Web Session Providers" : translate("Back to Providers")}
       </Link>
       <div className="flex min-w-0 items-center gap-3 sm:gap-4">
         <div

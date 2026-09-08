@@ -3,7 +3,8 @@
 import { Card } from "@/shared/components";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Copy, History, Info, Loader2, Save, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronUp, Info, Loader2, TriangleAlert } from "lucide-react";
+import { ActionButtons, StatusMessage } from "./CliToolShared";
 
 interface ToolActionCapability {
   execute: () => void;
@@ -127,10 +128,6 @@ export default function ToolCardShell({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pl-9">
-                  <Button variant="secondary" size="sm" onClick={capabilities.manualConfig.execute}>
-                    <Copy className="size-5" />
-                    Manual Config
-                  </Button>
                   {capabilities.installGuide && (
                     <Button variant="outline" size="sm" onClick={capabilities.installGuide.toggle}>
                       {capabilities.installGuide.expanded ? <ChevronUp className="size-4 mr-1" /> : <Info className="size-4 mr-1" />}
@@ -148,30 +145,27 @@ export default function ToolCardShell({
             </div>
           )}
 
-          {/* Installed form content */}
-          {!checking && installed && children}
+          {/* Form content. Rendered whether or not the CLI was found on the
+              server: the endpoint, key and model pickers are what produce the
+              config to copy, so hiding them on a remote deploy left the
+              "Manual Config" modal showing defaults nobody could change. */}
+          {!checking && children}
 
           {/* Message */}
-          {message && (
-            <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground"}`}>
-              {message.type === "success" ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
-              <span>{message.text}</span>
-            </div>
-          )}
+          <StatusMessage message={message} />
 
           {/* Action buttons */}
-          {!checking && installed && (
-            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
-              <Button variant="primary" size="sm" onClick={capabilities.apply.execute} disabled={capabilities.apply.disabled} loading={capabilities.apply.loading}>
-                <Save className="size-4" />Apply
-              </Button>
-              <Button variant="outline" size="sm" onClick={capabilities.reset.execute} disabled={capabilities.reset.disabled} loading={capabilities.reset.loading}>
-                <History className="size-4" />Reset
-              </Button>
-              <Button variant="ghost" size="sm" onClick={capabilities.manualConfig.execute}>
-                <Copy className="size-4" />Manual Config
-              </Button>
-            </div>
+          {!checking && (
+            <ActionButtons
+              onApply={capabilities.apply.execute}
+              applyDisabled={capabilities.apply.disabled}
+              applyLoading={capabilities.apply.loading}
+              onReset={capabilities.reset.execute}
+              resetDisabled={capabilities.reset.disabled}
+              resetLoading={capabilities.reset.loading}
+              onManualConfig={capabilities.manualConfig.execute}
+              localApply={!!installed}
+            />
           )}
         </div>
       )}

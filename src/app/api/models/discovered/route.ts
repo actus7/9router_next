@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomModels, syncDiscoveredCustomModels, pickDiscoveredMetadata } from "@/models";
 
 // POST /api/models/discovered - atomically replace a provider's discovered LLM snapshot.
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const { providerAlias, models } = await request.json();
     if (typeof providerAlias !== "string" || !providerAlias || !Array.isArray(models)) {
@@ -29,3 +30,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to synchronize discovered models" }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

@@ -1,18 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { __test__ } from "@/dashboardGuard";
+import { NEON_AUTH_COOKIE_PREFIX } from "@neondatabase/auth/server";
 import nextConfig from "../../next.config";
 
 const originalPeerToken = process.env.NINEROUTER_PEER_TOKEN;
 
-function requestFrom(peerIp: string, token = "test-peer-token"): Request {
-  process.env.NINEROUTER_PEER_TOKEN = token;
-  return new Request("http://router.example.test/api/smart-routing/profiles", {
-    headers: {
-      "x-9r-peer-token": token,
-      "x-9r-real-ip": peerIp,
-    },
-  });
-}
 
 afterEach(() => {
   if (originalPeerToken === undefined) delete process.env.NINEROUTER_PEER_TOKEN;
@@ -35,20 +27,57 @@ describe("gateway edge allowlist", () => {
   });
 });
 
-describe("unauthenticated dashboard mode", () => {
-  it("permits disabling login only for a trusted loopback peer", () => {
-    expect(__test__.canUseUnauthenticatedLocalMode(requestFrom("127.0.0.1") as never)).toBe(true);
+/**
+ * Files under `public/` must not be answered with a redirect to sign-in.
+ *
+ * The proxy matcher lets everything but `_next/*` through, and the tail of the
+ * proxy is now the Neon Auth middleware. A translation file that came back as
+ * the sign-in HTML is how this was found: the page rendered, the labels stayed
+ * English, and nothing failed loudly.
+ */
+describe("public assets", () => {
+  it("recognises files served from public/", () => {
+    for (const path of [
+      "/i18n/literals/pt-BR.json",
+      "/providers/openai.svg",
+      "/icons/apple-icon.png",
+      "/CHANGELOG.md",
+    ]) {
+      expect(__test__.isPublicAsset(path), path).toBe(true);
+    }
   });
 
-  it("does not expose administrative APIs to a remote peer", () => {
-    expect(__test__.canUseUnauthenticatedLocalMode(requestFrom("203.0.113.10") as never)).toBe(false);
+  it("does not mistake a page or an API path for one", () => {
+    for (const path of ["/dashboard", "/dashboard/providers", "/auth/sign-in", "/api/settings", "/"]) {
+      expect(__test__.isPublicAsset(path), path).toBe(false);
+    }
+  });
+});
+
+/**
+ * The session-cookie pre-check must agree with the name Neon Auth actually
+ * sets. Spelled by hand it read `neon-auth.`, which matches nothing: the
+ * dashboard pages loaded (Neon's own middleware guards those) while every
+ * fetch the dashboard made came back 401.
+ */
+describe("session cookie detection", () => {
+  function withCookies(names: string[]) {
+    return {
+      cookies: { getAll: () => names.map((name) => ({ name, value: "x" })) },
+    } as never;
+  }
+
+  it("recognises the cookie Neon Auth sets", () => {
+    expect(__test__.hasSessionCookie(withCookies([`${NEON_AUTH_COOKIE_PREFIX}.session_token`]))).toBe(true);
   });
 
-  it("does not trust an attacker supplied real-ip header", () => {
-    process.env.NINEROUTER_PEER_TOKEN = "expected-token";
-    const request = new Request("http://router.example.test/api/smart-routing/profiles", {
-      headers: { "x-9r-real-ip": "127.0.0.1", "x-9r-peer-token": "wrong-token" },
-    });
-    expect(__test__.canUseUnauthenticatedLocalMode(request as never)).toBe(false);
+  it("is anchored on the SDK constant, not a hand-written prefix", () => {
+    // If the SDK ever renames it, this fails here instead of as a 401 on every
+    // dashboard fetch.
+    expect(NEON_AUTH_COOKIE_PREFIX).toBe("__Secure-neon-auth");
+  });
+
+  it("ignores unrelated cookies", () => {
+    expect(__test__.hasSessionCookie(withCookies(["locale", "theme", "neon-auth."]))).toBe(false);
   });
 });

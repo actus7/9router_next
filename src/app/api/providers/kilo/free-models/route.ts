@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextResponse } from "next/server";
 
 const KILO_MODELS_URL = "https://api.kilo.ai/api/gateway/models";
@@ -14,7 +15,7 @@ let cachedModels: Array<{ id: string; name: string; isFree: boolean; context_len
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   const now = Date.now();
 
   // Return cached result if still valid
@@ -60,3 +61,5 @@ export async function GET(): Promise<NextResponse> {
     );
   }
 }
+
+export const GET = tenantRoute(handleGET);

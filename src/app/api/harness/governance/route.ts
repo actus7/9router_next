@@ -1,1 +1,4 @@
-export { POST } from "@/server/application/use-cases/http/harness/governance/route";
+import { tenantRoute } from "@/server/application/http/tenantRoute";
+import { POST as implPOST } from "@/server/application/use-cases/http/harness/governance/route";
+
+export const POST = tenantRoute(implPOST);

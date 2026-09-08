@@ -1,9 +1,10 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { getModelAliases, setModelAlias, deleteModelAlias } from "@/models";
 
 
 // GET /api/models/alias - Get all aliases
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   try {
     const aliases = await getModelAliases();
     return NextResponse.json({ aliases });
@@ -14,7 +15,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // PUT /api/models/alias - Set model alias
-export async function PUT(request: NextRequest): Promise<NextResponse> {
+async function handlePUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const { model, alias } = body;
@@ -33,7 +34,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 }
 
 // DELETE /api/models/alias?alias=xxx - Delete alias
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
+async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   try {
     const alias = searchParams.get("alias");
@@ -50,3 +51,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to delete alias" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const PUT = tenantRoute(handlePUT);
+export const DELETE = tenantRoute(handleDELETE);

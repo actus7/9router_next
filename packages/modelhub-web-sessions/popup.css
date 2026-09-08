@@ -1,0 +1,14 @@
+:root { color-scheme: light dark; font: 14px/1.5 system-ui, sans-serif; --surface: #fafafa; --text: #202020; --muted: #565656; --border: #d0d0d0; --accent: #755923; --on-accent: #fff; }
+@media (prefers-color-scheme: dark) { :root { --surface: #20232b; --text: #f4f4f5; --muted: #c3c5cc; --border: #494d58; --accent: #d1af68; --on-accent: #202020; } }
+body { width: 340px; margin: 0; background: var(--surface); color: var(--text); }
+main { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+h1 { font-size: 19px; margin: 0; }
+p { margin: 0; overflow-wrap: anywhere; }
+button { min-height: 44px; padding: 10px 14px; border: 1px solid transparent; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--on-accent); }
+button.secondary { background: transparent; color: var(--text); border-color: var(--border); }
+button:hover { filter: brightness(.94); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button:disabled { opacity: .6; cursor: wait; }
+button[hidden] { display: none; }
+.hint { color: var(--muted); font-size: 12px; }
+::selection { background: var(--accent); color: var(--on-accent); }

@@ -3,24 +3,27 @@ import { getCombos, getProviders, getSettings, getModelAliases } from "@/lib/dat
 import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import CombosClient from "./CombosClient";
+import { withTenantPage } from "@/server/application/http/withTenantPage";
 
 async function CombosContent() {
-  await assertRequestRuntime();
-  const [combos, providers, settings, aliases] = await Promise.all([
-    getCombos(),
-    getProviders(),
-    getSettings(),
-    getModelAliases(),
-  ]);
+  return withTenantPage(async () => {
+    await assertRequestRuntime();
+    const [combos, providers, settings, aliases] = await Promise.all([
+      getCombos(),
+      getProviders(),
+      getSettings(),
+      getModelAliases(),
+    ]);
 
-  return (
-    <CombosClient
-        initialCombos={combos}
-        initialProviders={providers}
-        initialSettings={settings}
-        initialAliases={aliases}
-    />
-  );
+    return (
+      <CombosClient
+          initialCombos={combos}
+          initialProviders={providers}
+          initialSettings={settings}
+          initialAliases={aliases}
+      />
+    );
+  });
 }
 
 export default function CombosPage() {

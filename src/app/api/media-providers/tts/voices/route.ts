@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { VOICE_FETCHERS } from "@/server/llm-gateway/media";
 import { NextRequest, NextResponse  } from "next/server";
 
@@ -19,7 +20,7 @@ function langName(code: string) {
  *   ?lang=en     (optional filter by lang code)
  *   ?apiKey=xxx  (required for elevenlabs)
  */
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   try {
     const provider   = searchParams.get("provider") || "edge-tts";
@@ -97,3 +98,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to fetch voices" }, { status: 502 });
   }
 }
+
+export const GET = tenantRoute(handleGET);

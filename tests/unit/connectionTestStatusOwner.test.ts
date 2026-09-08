@@ -18,7 +18,6 @@ const sourceRoot = resolve(__dirname, "../../src");
  */
 const OWNERS: readonly string[] = [
   "lib/db/repos/connectionsRepo.ts",
-  "lib/db/migrations/008-connection-test-status.ts",
   "app/api/providers/[id]/test/testUtils.ts",
 ];
 

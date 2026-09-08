@@ -1,103 +1,43 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { KeyRound } from "lucide-react";
+
 import { Card } from "@/shared/components";
-import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Shield } from "lucide-react";
+import { ACCOUNT_PATH } from "@/lib/auth/paths";
 import { translate } from "@/i18n/runtime";
-import type { Settings, StatusMessage } from "../types";
 
-interface SecurityCardProps {
-  settings: Settings;
-  loading: boolean;
-  passwords: { current: string; new: string; confirm: string };
-  setPasswords: React.Dispatch<React.SetStateAction<{ current: string; new: string; confirm: string }>>;
-  passStatus: StatusMessage;
-  passLoading: boolean;
-  handlePasswordChange: (e: React.FormEvent) => Promise<void>;
-  updateRequireLogin: (requireLogin: boolean) => Promise<void>;
-}
+/**
+ * Account security now lives with the identity provider.
+ *
+ * The password used to be a bcrypt hash in this app's `settings` row, so this
+ * card owned a change-password form. Neon Auth holds the credential today —
+ * along with the sessions and the connected sign-in providers — and it is the
+ * only thing that can change any of them, so this card points at it instead of
+ * reimplementing a form that could only go out of date.
+ */
+export default function SecurityCard() {
+  const router = useRouter();
 
-export default function SecurityCard({
-  settings, loading,
-  passwords, setPasswords, passStatus, passLoading,
-  handlePasswordChange, updateRequireLogin,
-}: SecurityCardProps) {
   return (
     <Card>
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-          <Shield className="size-5" />
+        <div className="size-10 rounded-lg bg-warning text-warning-foreground flex items-center justify-center shrink-0">
+          <KeyRound className="size-5" />
         </div>
         <h3 className="text-base sm:text-lg font-semibold">{translate("Security")}</h3>
       </div>
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start sm:items-center justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm sm:text-base">{translate("Require login")}</p>
-            <p className="text-xs sm:text-sm text-text-muted">
-              {translate("When ON, dashboard requires password. When OFF, access without login.")}
-            </p>
-          </div>
-          <Switch
-            checked={settings.requireLogin === true}
-            onCheckedChange={() => updateRequireLogin(!settings.requireLogin)}
-            disabled={loading}
-          />
-        </div>
-        {settings.requireLogin === true && (
-          <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 pt-4 border-t border-border/50">
-            {settings.hasPassword && (
-              <div className="flex flex-col gap-2">
-                <Label className="text-xs sm:text-sm">{translate("Current Password")}</Label>
-                <Input
-                  type="password"
-                  placeholder={translate("Enter current password") || ""}
-                  value={passwords.current}
-                  onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                  required
-                />
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label className="text-xs sm:text-sm">{translate("New Password")}</Label>
-                <Input
-                  type="password"
-                  placeholder={translate("Enter new password") || ""}
-                  value={passwords.new}
-                  onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label className="text-xs sm:text-sm">{translate("Confirm New Password")}</Label>
-                <Input
-                  type="password"
-                  placeholder={translate("Confirm new password") || ""}
-                  value={passwords.confirm}
-                  onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
-
-            {passStatus.message && (
-              <p className={`text-xs sm:text-sm ${passStatus.type === "error" ? "text-destructive" : "text-success"}`}>
-                {passStatus.message}
-              </p>
-            )}
-
-            <div className="pt-2">
-              <Button type="submit" variant="primary" loading={passLoading} className="w-full sm:w-auto">
-                {settings.hasPassword ? translate("Update Password") : translate("Set Password")}
-              </Button>
-            </div>
-          </form>
-        )}
-      </div>
+      <Button
+        variant="outline"
+        onClick={() => router.push(ACCOUNT_PATH)}
+        className="flex items-center justify-between w-full p-3 rounded-lg bg-bg border border-border hover:border-primary/50 transition-colors"
+      >
+        <span className="text-sm text-text-muted">
+          {translate("Password, sign-in providers and active sessions")}
+        </span>
+        <span className="text-sm text-primary">{translate("Manage account")}</span>
+      </Button>
     </Card>
   );
 }

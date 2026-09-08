@@ -43,7 +43,7 @@ export function useProviderData(
   const visibleApikeyEntries = isApikeySearching || showAllApikey ? apikeyEntries : apikeyEntries.slice(0, APIKEY_INITIAL_VISIBLE);
   const hiddenApikeyCount = apikeyEntries.length - APIKEY_INITIAL_VISIBLE;
 
-  const hasAnyResult = oauthEntries.length > 0 || freeEntries.length > 0 || freeTierEntries.length > 0 || apikeyEntries.length > 0 || webCookieEntries.length > 0 || compatibleProviders.length > 0 || anthropicCompatibleProviders.length > 0;
+  const hasAnyResult = oauthEntries.length > 0 || freeEntries.length > 0 || freeTierEntries.length > 0 || apikeyEntries.length > 0 || compatibleProviders.length > 0 || anthropicCompatibleProviders.length > 0;
 
   const filterEntries = (entries: [string, ProviderInfo][], source: "free" | "freeTier" | "other", authTypes: string | string[]) =>
     filterByAvailability(entries, source, authTypes, availabilityFilter, getStats);

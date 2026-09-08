@@ -1,4 +1,5 @@
 import { getDefaultModel, PROVIDERS } from "@/server/llm-gateway/catalog";
+import { ZAI_MODELS_URL, ZAI_USER_AGENT, extractZaiToken } from "@/server/llm-gateway/engine/executors/zai-web/protocol";
 import {
   CREDENTIAL_REJECTED_STATUSES,
   probeFailed,
@@ -41,6 +42,12 @@ export interface ProbePlan {
   error?: string;
   /** Skip the connection proxy. Only providers that reject proxied IPs need this. */
   direct?: boolean;
+  /**
+   * Reduce a stored credential to what the probe endpoint accepts. Web-session
+   * providers keep a blob (token plus captcha proof, cookie jar, …) where the
+   * upstream only wants the bearer token.
+   */
+  credential?: (raw: string) => string;
 }
 
 const REJECTED_KEY = "Invalid API key";
@@ -113,6 +120,22 @@ const PLANS: Record<string, ProbePlan> = {
   "volcengine-ark": { strategy: "chat-post", url: "" },
   byteplus: { strategy: "chat-post", url: "" },
 
+  // Web sessions: the stored credential is a blob, the probe wants its token.
+  "zai-web": {
+    strategy: "bearer-get",
+    url: ZAI_MODELS_URL,
+    credential: extractZaiToken,
+    // Same browser-shaped headers the executor sends; a bare GET reads as a bot.
+    extraHeaders: {
+      Accept: "application/json",
+      "Accept-Language": "en-US",
+      "User-Agent": ZAI_USER_AGENT,
+      Origin: new URL(ZAI_MODELS_URL).origin,
+      Referer: `${new URL(ZAI_MODELS_URL).origin}/`,
+    },
+    error: "Z.ai web session expired — recapture the token from chat.z.ai.",
+  },
+
   // Anthropic wire format. Anthropic itself still accepts a 403.
   anthropic: { strategy: "anthropic-post", url: "https://api.anthropic.com/v1/messages", model: "claude-3-haiku-20240307", rejected: REJECT_401_ONLY },
   glm: { strategy: "anthropic-post", url: "https://api.z.ai/api/anthropic/v1/messages", model: "glm-4.7" },
@@ -175,6 +198,10 @@ export async function runProbePlan(
   const rejected = plan.rejected || CREDENTIAL_REJECTED_STATUSES;
   const error = plan.error || REJECTED_KEY;
   const headers: Record<string, string> = { ...(plan.extraHeaders || {}) };
+  if (plan.credential) {
+    apiKey = plan.credential(apiKey);
+    if (!apiKey) return probeFailed(error);
+  }
 
   switch (plan.strategy) {
     case "bearer-get":

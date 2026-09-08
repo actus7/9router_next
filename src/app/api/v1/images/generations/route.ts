@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { handleImageGeneration } from "@/server/llm-gateway/media";
 
@@ -12,6 +13,8 @@ export async function OPTIONS() {
 }
 
 /** POST /v1/images/generations - OpenAI-compatible image generation endpoint */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return await handleImageGeneration(request);
 }
+
+export const POST = gatewayRoute(handlePOST);

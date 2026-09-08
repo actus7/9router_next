@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { makeKv } from "../helpers/kvStore";
 
@@ -70,8 +71,8 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
   );
   const db = await getAdapter();
 
-  db.transaction(() => {
-    const rows = db.all("SELECT key, value FROM kv WHERE scope = 'customModels'") as Array<{ key: string; value: string }>;
+  await db.transaction(async () => {
+    const rows = await db.all("SELECT key, value FROM kv WHERE userId = ? AND scope = 'customModels'", [currentTenantId()]) as Array<{ key: string; value: string }>;
     const existing = new Map(rows.map((row) => [row.key, parseJson<Record<string, unknown>>(row.value, {}) || {}]));
 
     for (const [key, value] of existing) {
@@ -81,7 +82,7 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
         value.source === "discovered" &&
         !desired.has(key)
       ) {
-        db.run("DELETE FROM kv WHERE scope = 'customModels' AND key = ?", [key]);
+        await db.run("DELETE FROM kv WHERE userId = ? AND scope = 'customModels' AND key = ?", [currentTenantId(), key]);
       }
     }
 
@@ -98,9 +99,9 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
         name: model.name || model.id,
         source: "discovered",
       });
-      db.run(
-        "INSERT INTO kv(scope, key, value) VALUES('customModels', ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value = excluded.value",
-        [key, value],
+      await db.run(
+        "INSERT INTO kv(userId, scope, key, value) VALUES(?, 'customModels', ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value",
+        [currentTenantId(), key, value],
       );
     }
   });
@@ -110,9 +111,10 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
 export async function addCustomModel({ providerAlias, id, type = "llm", name, source = "manual", metadata = {} }: CustomModelInput): Promise<boolean> {
   const k: string = customKey(providerAlias, id, type);
   const db = await getAdapter();
+  const userId = currentTenantId();
   let added: boolean = false;
-  db.transaction(() => {
-    const row: Record<string, unknown> | undefined = db.get(`SELECT value FROM kv WHERE scope = 'customModels' AND key = ?`, [k]);
+  await db.transaction(async () => {
+    const row: Record<string, unknown> | undefined = await db.get(`SELECT value FROM kv WHERE userId = ? AND scope = 'customModels' AND key = ?`, [userId, k]);
     if (row) {
       // A refresh owns only entries it previously discovered. Keep manually
       // curated models untouched, but update discovery metadata so stale names
@@ -121,13 +123,13 @@ export async function addCustomModel({ providerAlias, id, type = "llm", name, so
         const existing = parseJson<Record<string, unknown>>((row.value as string) || "{}", {}) || {};
         if (existing.source === "discovered") {
           const value = stringifyJson({ ...existing, ...metadata, providerAlias, id, type, name: name || id, source });
-          db.run(`UPDATE kv SET value = ? WHERE scope = 'customModels' AND key = ?`, [value, k]);
+          await db.run(`UPDATE kv SET value = ? WHERE userId = ? AND scope = 'customModels' AND key = ?`, [value, userId, k]);
         }
       }
       return;
     }
     const value: string = stringifyJson({ ...metadata, providerAlias, id, type, name: name || id, source });
-    db.run(`INSERT INTO kv(scope, key, value) VALUES('customModels', ?, ?)`, [k, value]);
+    await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, 'customModels', ?, ?)`, [userId, k, value]);
     added = true;
   });
   return added;

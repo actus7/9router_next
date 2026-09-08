@@ -3,10 +3,8 @@
 import { Card } from "@/shared/components";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import EndpointRow from "../components/EndpointRow";
 import SecurityWarning from "../components/SecurityWarning";
-import Tooltip from "../components/Tooltip";
 import { AlertCircle, Check, CloudUpload, Copy, ExternalLink, Loader2, Lock, Power, Webhook } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { StatusInfo } from "../types";
@@ -50,12 +48,6 @@ interface EndpointCardProps {
   setTsProgress: (v: string) => void;
   setTsStatus: (v: StatusInfo | null) => void;
   clearUserAuth: () => void;
-  // Settings
-  requireApiKey: boolean;
-  requireLogin: boolean;
-  hasPassword: boolean;
-  tunnelDashboardAccess: boolean;
-  handleTunnelDashboardAccess: (v: boolean) => void;
   // Security
   isLoginUnsafe: boolean;
   unsafeReason: string;
@@ -69,7 +61,6 @@ export default function EndpointCard({
   tsEnabled, tsLoading, tsConnecting, tsReachable, tsUrl, tsProgress, tsStatus, setTsStatus,
   tsAuthUrl, tsAuthLabel, tsEverReachable,
   setShowDisableTsModal, handleOpenTsModal, setTsLoading, setTsConnecting, setTsProgress, clearUserAuth,
-  requireApiKey, requireLogin, hasPassword, tunnelDashboardAccess, handleTunnelDashboardAccess,
   isLoginUnsafe, unsafeReason,
 }: EndpointCardProps) {
   return (
@@ -178,10 +169,6 @@ export default function EndpointCard({
               onClick={() => {
                 if (isLoginUnsafe) {
                   setTunnelStatus({ type: "error", message: `${translate("Security required:") || "Security required:"} ${unsafeReason}` });
-                  return;
-                }
-                if (!requireApiKey) {
-                  setTunnelStatus({ type: "error", message: `${translate("Security required:") || "Security required:"} ${translate("Enable \"Require API key\" before enabling the tunnel.") || "Enable \"Require API key\" before enabling the tunnel."}` });
                   return;
                 }
                 setShowEnableTunnelModal(true);
@@ -295,44 +282,9 @@ export default function EndpointCard({
         </div>
       )}
 
-      {/* Security warnings when tunnel or tailscale is active */}
-      {(tunnelEnabled || tsEnabled) && (
-        <div className="mt-4 flex flex-col gap-2">
-          {!requireApiKey && (
-            <SecurityWarning
-              message={translate("Require API key is disabled — your endpoint is publicly accessible without authentication.") || "Require API key is disabled — your endpoint is publicly accessible without authentication."}
-              action={{ label: translate("Enable") || "Enable", href: "#require-api-key" }}
-            />
-          )}
-          {(!requireLogin || !hasPassword) && (
-            <SecurityWarning
-              message={
-                !requireLogin
-                  ? (translate("Require login is disabled — anyone can access your dashboard via tunnel.") || "Require login is disabled — anyone can access your dashboard via tunnel.")
-                  : (translate("Dashboard uses the default password — change in Profile settings.") || "Dashboard uses the default password — change in Profile settings.")
-              }
-              action={{
-                label: !requireLogin ? (translate("Enable") || "Enable") : (translate("Change password") || "Change password"),
-                href: "/dashboard/profile",
-              }}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Tunnel dashboard access option */}
-      {(tunnelEnabled || tsEnabled) && (
-        <div className="mt-4 pt-4 border-t border-border flex items-center gap-3">
-          <Switch
-            checked={tunnelDashboardAccess}
-            onCheckedChange={() => handleTunnelDashboardAccess(!tunnelDashboardAccess)}
-          />
-          <div className="flex items-center gap-1.5">
-            <p className="font-medium text-sm">{translate("Allow dashboard access via tunnel") || "Allow dashboard access via tunnel"}</p>
-            <Tooltip text={translate("When enabled, the dashboard can be accessed through your tunnel or Tailscale URL (login still required). When disabled, dashboard access via tunnel/Tailscale is completely blocked.") || "When enabled, the dashboard can be accessed through your tunnel or Tailscale URL (login still required). When disabled, dashboard access via tunnel/Tailscale is completely blocked."} />
-          </div>
-        </div>
-      )}
+      {/* Whether the dashboard answers on the tunnel host is a deployment
+          setting now — DASHBOARD_ALLOWED_HOSTS — because the middleware has to
+          decide before it knows which account is asking. */}
     </Card>
   );
 }

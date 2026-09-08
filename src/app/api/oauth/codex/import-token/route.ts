@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
@@ -10,7 +11,7 @@ import { extractCodexAccountInfo } from "@/lib/oauth/providers";
  *
  * Body: { accessToken: string, name?: string }
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const { accessToken, name } = await request.json();
 
@@ -94,3 +95,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

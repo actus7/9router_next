@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextResponse } from "next/server";
 import { readFile, readdir } from "fs/promises";
 import { homedir } from "os";
@@ -9,7 +10,7 @@ import { join } from "path";
  * For IDC (organization) tokens, also resolves clientId/clientSecret from the
  * linked client registration file so token refresh works.
  */
-export async function GET() {
+async function handleGET() {
   try {
     const cachePath = join(homedir(), ".aws/sso/cache");
 
@@ -130,3 +131,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = tenantRoute(handleGET);

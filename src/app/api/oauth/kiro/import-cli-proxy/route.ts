@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
@@ -7,7 +8,7 @@ import { normalizeKiroExternalIdpAuth } from "@/lib/oauth/kiroExternalIdp";
  * POST /api/oauth/kiro/import-cli-proxy
  * Import Kiro CLIProxyAPI auth JSON for Microsoft external_idp accounts.
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json();
     const rawAuth = body?.cliProxyAuth ?? body?.auth ?? body?.json ?? body;
@@ -39,3 +40,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = tenantRoute(handlePOST);

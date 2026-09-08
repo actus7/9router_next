@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { handleChat, transformToOllama } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
@@ -21,7 +22,7 @@ export async function OPTIONS() {
   });
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   await ensureInitialized();
   
   const clonedReq = request.clone();
@@ -35,3 +36,4 @@ export async function POST(request: NextRequest) {
   return transformToOllama(response, modelName);
 }
 
+export const POST = gatewayRoute(handlePOST);

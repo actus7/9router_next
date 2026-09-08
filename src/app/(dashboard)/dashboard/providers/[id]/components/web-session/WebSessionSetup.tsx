@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { CredentialOrigin } from "../../utils/webSessionCredential";
-import ImportStep from "./ImportStep";
+import BrowserSessionStep from "./BrowserSessionStep";
 import NameSaveStep from "./NameSaveStep";
 
 interface ProxyPool {
@@ -51,7 +51,8 @@ export default function WebSessionSetup({
 
   if (step === "import") {
     return (
-      <ImportStep
+      <BrowserSessionStep
+        provider={provider}
         providerName={providerName}
         website={website}
         authHint={authHint}

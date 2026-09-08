@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { handleFetch } from "@/server/llm-gateway/search";
 
@@ -17,6 +18,8 @@ export async function OPTIONS() {
 /**
  * POST /v1/web/fetch - Web URL fetch/extract endpoint
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return await handleFetch(request);
 }
+
+export const POST = gatewayRoute(handlePOST);

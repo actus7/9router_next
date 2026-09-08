@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 
 export type ModelAvailabilityStatus = "cooldown" | "unavailable";
 export type ModelAvailabilityReason = "quota" | "rate_limit" | "billing" | "model" | "transient" | "legacy";
@@ -35,7 +36,7 @@ export async function getActiveModelAvailability(connectionIds?: string[], model
   const db = await getAdapter();
   const now = new Date().toISOString();
   const where = ["(until IS NULL OR until > ?)"];
-  const params: unknown[] = [now];
+  const params: unknown[] = [currentTenantId(), now];
   if (connectionIds?.length) {
     where.push(`connectionId IN (${connectionIds.map(() => "?").join(", ")})`);
     params.push(...connectionIds);
@@ -44,38 +45,38 @@ export async function getActiveModelAvailability(connectionIds?: string[], model
     where.push("modelId IN (?, '__all')");
     params.push(modelId);
   }
-  return db.all(`SELECT * FROM modelAvailability WHERE ${where.join(" AND ")} ORDER BY until ASC`, params)
-    .map(rowToAvailability);
+  const rows = await db.all(`SELECT * FROM modelAvailability WHERE userId = ? AND ${where.join(" AND ")} ORDER BY until ASC`, params);
+  return rows.map(rowToAvailability);
 }
 
 export async function setModelAvailability(input: Omit<ModelAvailability, "createdAt" | "updatedAt">): Promise<void> {
   const db = await getAdapter();
   const now = new Date().toISOString();
-  db.run(
-    `INSERT INTO modelAvailability(connectionId, modelId, status, reason, errorCode, lastError, until, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(connectionId, modelId) DO UPDATE SET status=excluded.status, reason=excluded.reason,
+  await db.run(
+    `INSERT INTO modelAvailability(userId, connectionId, modelId, status, reason, errorCode, lastError, until, createdAt, updatedAt)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(userId, connectionId, modelId) DO UPDATE SET status=excluded.status, reason=excluded.reason,
        errorCode=excluded.errorCode, lastError=excluded.lastError, until=excluded.until, updatedAt=excluded.updatedAt`,
-    [input.connectionId, input.modelId, input.status, input.reason, input.errorCode, input.lastError, input.until, now, now],
+    [currentTenantId(), input.connectionId, input.modelId, input.status, input.reason, input.errorCode, input.lastError, input.until, now, now],
   );
 }
 
 export async function clearModelAvailability(connectionId: string, modelId?: string | null): Promise<number> {
   const db = await getAdapter();
-  if (!modelId) return db.run("DELETE FROM modelAvailability WHERE connectionId = ?", [connectionId]).changes;
-  return db.run("DELETE FROM modelAvailability WHERE connectionId = ? AND modelId IN (?, '__all')", [connectionId, modelId]).changes;
+  if (!modelId) return (await db.run("DELETE FROM modelAvailability WHERE userId = ? AND connectionId = ?", [currentTenantId(), connectionId])).changes;
+  return (await db.run("DELETE FROM modelAvailability WHERE userId = ? AND connectionId = ? AND modelId IN (?, '__all')", [currentTenantId(), connectionId, modelId])).changes;
 }
 
 export async function clearProviderModelAvailability(connectionIds: string[], modelId: string): Promise<number> {
   if (connectionIds.length === 0) return 0;
   const db = await getAdapter();
-  return db.run(
-    `DELETE FROM modelAvailability WHERE modelId = ? AND connectionId IN (${connectionIds.map(() => "?").join(", ")})`,
-    [modelId, ...connectionIds],
-  ).changes;
+  return (await db.run(
+    `DELETE FROM modelAvailability WHERE userId = ? AND modelId = ? AND connectionId IN (${connectionIds.map(() => "?").join(", ")})`,
+    [currentTenantId(), modelId, ...connectionIds],
+  )).changes;
 }
 
 export async function cleanupExpiredModelAvailability(): Promise<number> {
   const db = await getAdapter();
-  return db.run("DELETE FROM modelAvailability WHERE until IS NOT NULL AND until <= ?", [new Date().toISOString()]).changes;
+  return (await db.run("DELETE FROM modelAvailability WHERE userId = ? AND until IS NOT NULL AND until <= ?", [currentTenantId(), new Date().toISOString()])).changes;
 }

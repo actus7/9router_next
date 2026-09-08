@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { KiroService } from "@/lib/oauth/services/kiro";
@@ -8,7 +9,7 @@ import { createProviderConnection } from "@/models";
  * Exchange authorization code for tokens (Google/GitHub social login)
  * Callback URL will be in format: kiro://kiro.kiroAgent/authenticate-success?code=XXX&state=YYY
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const { code, codeVerifier, provider } = await request.json();
 
@@ -65,3 +66,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

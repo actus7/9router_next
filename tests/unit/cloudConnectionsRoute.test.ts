@@ -1,5 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+vi.mock("@/server/application/http/tenantRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);
+vi.mock("@/server/application/http/gatewayRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);
+
 vi.mock("@/models", () => ({
   createCloudConnection: vi.fn(),
   deleteCloudConnection: vi.fn(),

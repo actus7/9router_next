@@ -1,3 +1,4 @@
+import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
 import { handleChat } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
@@ -25,7 +26,7 @@ export async function OPTIONS() {
  * POST /v1/responses/compact - Compact conversation context
  * Reuses the same handleChat pipeline, signals compact via body._compact
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   await ensureInitialized();
   const body = await request.json();
   body._compact = true;
@@ -36,3 +37,5 @@ export async function POST(request: NextRequest) {
   });
   return await handleChat(newRequest);
 }
+
+export const POST = gatewayRoute(handlePOST);

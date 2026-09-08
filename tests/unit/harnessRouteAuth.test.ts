@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Route handlers mark themselves request-time dynamic, and Next's connection()
 // throws when called outside a request scope, which is where a unit test lives.
+vi.mock("@/server/application/http/tenantRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);
+vi.mock("@/server/application/http/gatewayRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);
+
 vi.mock("@/server/application/http/requestRuntime", () => ({
   assertRequestRuntime: vi.fn(async () => {}),
 }));

@@ -1,8 +1,9 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
 import { getCustomModels, addCustomModel, deleteCustomModel, pickDiscoveredMetadata } from "@/models";
 
 // GET /api/models/custom - List all custom models
-export async function GET(): Promise<NextResponse> {
+async function handleGET(): Promise<NextResponse> {
   try {
     const models = await getCustomModels();
     return NextResponse.json({ models });
@@ -13,7 +14,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 // POST /api/models/custom - Add custom model
-export async function POST(request: NextRequest): Promise<NextResponse> {
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
   try {
     const { providerAlias, id, type, name, source, metadata } = await request.json();
     if (!providerAlias || !id) {
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 }
 
 // DELETE /api/models/custom?providerAlias=xxx&id=yyy&type=zzz
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
+async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   try {
     const providerAlias = searchParams.get("providerAlias");
@@ -51,3 +52,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to delete custom model" }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);
+export const POST = tenantRoute(handlePOST);
+export const DELETE = tenantRoute(handleDELETE);

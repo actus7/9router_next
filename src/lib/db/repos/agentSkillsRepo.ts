@@ -1,4 +1,6 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
+import { bumpTenantMeta, getTenantMeta } from "../helpers/tenantMeta";
 
 export interface AgentSkillRow {
   id: string;
@@ -28,46 +30,36 @@ function rowToSkill(row: Record<string, unknown>): AgentSkillRow {
 
 export async function listAgentSkillRows(): Promise<AgentSkillRow[]> {
   const db = await getAdapter();
-  return db
-    .all(
-      "SELECT id, name, description, body, enabled, source, origin FROM agentSkills ORDER BY id",
-    )
-    .map(rowToSkill);
+  const rows = await db.all(
+    "SELECT id, name, description, body, enabled, source, origin FROM agentSkills WHERE userId = ? ORDER BY id",
+    [currentTenantId()],
+  );
+  return rows.map(rowToSkill);
 }
 
 export async function getAgentSkillRow(id: string): Promise<AgentSkillRow | null> {
   const db = await getAdapter();
-  const row = db.get(
-    "SELECT id, name, description, body, enabled, source, origin FROM agentSkills WHERE id = ?",
-    [id],
+  const row = await db.get(
+    "SELECT id, name, description, body, enabled, source, origin FROM agentSkills WHERE userId = ? AND id = ?",
+    [currentTenantId(), id],
   );
   return row ? rowToSkill(row) : null;
 }
 
 export async function getAgentSkillsRevision(): Promise<number> {
   const db = await getAdapter();
-  const row = db.get("SELECT value FROM _meta WHERE key = ?", [REVISION_KEY]);
-  const value = Number(row?.value);
+  const value = Number(await getTenantMeta(db, REVISION_KEY));
   return Number.isFinite(value) ? value : 0;
-}
-
-function bumpRevision(db: Awaited<ReturnType<typeof getAdapter>>): void {
-  const row = db.get("SELECT value FROM _meta WHERE key = ?", [REVISION_KEY]);
-  const next = (Number(row?.value) || 0) + 1;
-  db.run(
-    "INSERT INTO _meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    [REVISION_KEY, String(next)],
-  );
 }
 
 export async function upsertAgentSkillRow(row: AgentSkillRow): Promise<void> {
   const db = await getAdapter();
   const now = new Date().toISOString();
-  db.transaction(() => {
-    db.run(
-      `INSERT INTO agentSkills(id, name, description, body, enabled, source, origin, createdAt, updatedAt)
-       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
+  await db.transaction(async () => {
+    await db.run(
+      `INSERT INTO agentSkills(userId, id, name, description, body, enabled, source, origin, createdAt, updatedAt)
+       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(userId, id) DO UPDATE SET
          name = excluded.name,
          description = excluded.description,
          body = excluded.body,
@@ -76,6 +68,7 @@ export async function upsertAgentSkillRow(row: AgentSkillRow): Promise<void> {
          origin = excluded.origin,
          updatedAt = excluded.updatedAt`,
       [
+        currentTenantId(),
         row.id,
         row.name,
         row.description,
@@ -87,15 +80,16 @@ export async function upsertAgentSkillRow(row: AgentSkillRow): Promise<void> {
         now,
       ],
     );
-    bumpRevision(db);
+    await bumpTenantMeta(db, REVISION_KEY);
   });
 }
 
 export async function deleteAgentSkillRow(id: string): Promise<void> {
   const db = await getAdapter();
-  db.transaction(() => {
-    db.run("DELETE FROM agentSkills WHERE id = ?", [id]);
-    bumpRevision(db);
+  const userId = currentTenantId();
+  await db.transaction(async () => {
+    await db.run("DELETE FROM agentSkills WHERE userId = ? AND id = ?", [userId, id]);
+    await bumpTenantMeta(db, REVISION_KEY);
   });
 }
 
@@ -113,9 +107,10 @@ export async function deleteAgentSkillRow(id: string): Promise<void> {
  */
 export async function deleteAgentSkillWithFiles(id: string): Promise<void> {
   const db = await getAdapter();
-  db.transaction(() => {
-    db.run("DELETE FROM agentSkillFiles WHERE skillId = ?", [id]);
-    db.run("DELETE FROM agentSkills WHERE id = ?", [id]);
-    bumpRevision(db);
+  const userId = currentTenantId();
+  await db.transaction(async () => {
+    await db.run("DELETE FROM agentSkillFiles WHERE userId = ? AND skillId = ?", [userId, id]);
+    await db.run("DELETE FROM agentSkills WHERE userId = ? AND id = ?", [userId, id]);
+    await bumpTenantMeta(db, REVISION_KEY);
   });
 }

@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // These suites cover route logic, not the auth gate; tests/unit/dashboardAccess.test.ts
 // and tests/unit/harnessRouteAuth.test.ts cover the gate itself.
+vi.mock("@/lib/db/driver", async () => {
+  const { emptyAdapter } = await import("../setup/emptyAdapter");
+  const adapter = emptyAdapter();
+  return { getAdapter: vi.fn(async () => adapter) };
+});
+
 vi.mock("@/server/application/http/requireDashboardAccess", () => ({
   requireDashboardAccess: vi.fn(async () => null),
 }));

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/shared/components";
 import AddCustomModelModal from "../AddCustomModelModal";
 import ModelsGrid from "./models/ModelsGrid";
 import ModelsToolbar from "./models/ModelsToolbar";
 import TestDiagnosticsModal from "./models/TestDiagnosticsModal";
+import { deletableModelIds, useDiagnosticActions } from "../hooks/useDiagnosticActions";
 import ClearConfirmationModal from "./models/ClearConfirmationModal";
 import type { UseProviderModelsReturn } from "../hooks/useProviderModels";
 import type { Connection } from "../types";
@@ -38,6 +39,21 @@ export default function ModelsSection({
   modelsHook: m,
 }: ModelsSectionProps) {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+
+  // Retest / disable / delete for the rows of a finished run. Built here rather
+  // than inside the modal so the retest writes back into the same
+  // `testAllModels` the batch produced, and the counters move with the rows.
+  const customModelIds = useMemo(
+    () => deletableModelIds(m.customModels, providerStorageAlias),
+    [m.customModels, providerStorageAlias],
+  );
+
+  const diagnosticActions = useDiagnosticActions({
+    providerStorageAlias,
+    setTestAllModels: m.setTestAllModels,
+    onDisableModel: m.handleDisableModel,
+    onDeleteCustomModel: (modelId: string) => m.handleDeleteCustomModel(modelId, "llm", providerStorageAlias),
+  });
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
   return (
@@ -96,6 +112,8 @@ export default function ModelsSection({
         onClose={() => setDiagnosticsOpen(false)}
         testAllModels={m.testAllModels}
         onCancelTests={m.handleCancelTestAllModels}
+        actions={diagnosticActions}
+        customModelIds={customModelIds}
       />
     </>
   );

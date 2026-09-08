@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/models";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProviderConnection } from "@/models";
@@ -10,7 +11,7 @@ const GITLAB_DEFAULT_BASE = "https://gitlab.com";
  * POST /api/oauth/gitlab/pat
  * Authenticate GitLab Duo with a Personal Access Token (PAT)
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     let body;
     try {
@@ -65,3 +66,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(handlePOST);

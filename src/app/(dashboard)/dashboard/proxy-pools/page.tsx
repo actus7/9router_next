@@ -3,12 +3,15 @@ import { getProxyPoolsWithUsage } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ProxyPoolsClient, { type ProxyPool } from "./ProxyPoolsClient";
+import { withTenantPage } from "@/server/application/http/withTenantPage";
 
 async function ProxyPoolsContent() {
-  await assertRequestRuntime();
-  const proxyPools = await getProxyPoolsWithUsage();
+  return withTenantPage(async () => {
+    await assertRequestRuntime();
+    const proxyPools = await getProxyPoolsWithUsage();
 
-  return <ProxyPoolsClient initialProxyPools={proxyPools as unknown as ProxyPool[]} />;
+    return <ProxyPoolsClient initialProxyPools={proxyPools as unknown as ProxyPool[]} />;
+  });
 }
 
 export default function ProxyPoolsPage() {

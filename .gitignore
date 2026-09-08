@@ -69,3 +69,8 @@ loop-history/
 
 # brainstorming visual companion mockups
 .superpowers/
+
+# Local tooling / build artefacts
+%SystemDrive%/
+rtk/
+public/extensions/

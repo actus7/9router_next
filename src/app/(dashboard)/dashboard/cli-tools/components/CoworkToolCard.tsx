@@ -7,10 +7,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
-import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Copy, History, Loader2, Save, TriangleAlert, X } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Loader2, TriangleAlert, X } from "lucide-react";
 import { McpPluginsSection, ToolsSection, LocalPluginsSection } from "./CoworkSections";
 import { AddMcpModal } from "./ModalsSection";
 import { expandableCardHeaderProps } from "./expandableCardHeader";
+import { ActionButtons } from "./CliToolShared";
 
 interface ApiKey { id: string; key: string; }
 interface ToolInfo { name: string; description?: string; image?: string; requiresExternalUrl?: boolean; }
@@ -282,16 +283,10 @@ export default function CoworkToolCard({
                   <p className="text-sm text-text-muted">Open Claude Desktop → Help → Troubleshooting → Enable Developer mode → Configure third-party inference, then return here.</p>
                 </div>
               </div>
-              <div className="pl-9">
-                <Button variant="secondary" size="sm" onClick={() => setShowManualConfigModal(true)} className="!bg-warning !border-warning-border !text-warning-foreground dark:!text-warning-foreground hover:!bg-warning">
-                  <Copy className="size-5" />
-                  Manual Config
-                </Button>
-              </div>
             </div>
           )}
 
-          {!checking && status?.installed && (
+          {!checking && (
             <>
               <div className="flex flex-col gap-2">
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
@@ -373,17 +368,17 @@ export default function CoworkToolCard({
                 <span>Relax Claude Desktop security for this integration (allow all extension egress hosts, skip extension signature checks, disable telemetry). Leave unchecked unless a plugin needs it.</span>
               </label>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <Button variant="primary" size="sm" onClick={handleApply} disabled={selectedModels.length === 0} loading={applying} className="w-full sm:w-auto">
-                  <Save className="size-4" />Apply
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={!status.hasModelHub} loading={restoring} className="w-full sm:w-auto">
-                  <History className="size-4" />Reset
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)} className="w-full sm:w-auto">
-                  <Copy className="size-4" />Manual Config
-                </Button>
-              </div>
+              <ActionButtons
+                onApply={handleApply}
+                applyDisabled={selectedModels.length === 0}
+                applyLoading={applying}
+                onReset={handleReset}
+                resetDisabled={!status?.hasModelHub}
+                resetLoading={restoring}
+                onManualConfig={() => setShowManualConfigModal(true)}
+                localApply={!!status?.installed}
+                className="flex flex-col sm:flex-row sm:items-center gap-2"
+              />
             </>
           )}
         </div>

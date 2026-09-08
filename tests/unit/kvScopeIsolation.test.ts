@@ -25,28 +25,36 @@ const adapter = vi.hoisted(() => {
   const inlineScope = (sql: string): string | null => {
     const where = /scope = '([^']+)'/.exec(sql);
     if (where) return where[1];
-    const values = /VALUES\('([^']+)'/.exec(sql);
+    // The owner is bound first now, so the literal scope sits after it:
+    // VALUES(?, 'pricing', ?, ?)
+    const values = /VALUES\(\?,\s*'([^']+)'/.exec(sql);
     return values ? values[1] : null;
   };
   const rowKey = (scope: string, k: string) => `${scope} ${k}`;
 
+  // Every kv statement now binds the owning userId first, so the fake drops
+  // it before reading the positions it cares about. The UPDATE branch is the
+  // exception: there the new value comes first and the owner second.
   return {
-    all: (sql: string, params: unknown[] = []) => {
+    all: (sql: string, allParams: unknown[] = []) => {
+      const params = allParams.slice(1);
       const scope = inlineScope(sql) ?? String(params[0] ?? "");
       const prefix = `${scope} `;
       return [...store.entries()]
         .filter(([k]) => k.startsWith(prefix))
         .map(([k, value]) => ({ key: k.slice(prefix.length), value }));
     },
-    get: (sql: string, params: unknown[] = []) => {
+    get: (sql: string, allParams: unknown[] = []) => {
+      const params = allParams.slice(1);
       const inline = inlineScope(sql);
       const scope = inline ?? String(params[0] ?? "");
       const k = String(inline ? params[0] : params[1]);
       const value = store.get(rowKey(scope, k));
       return value === undefined ? undefined : { key: k, value };
     },
-    run: (sql: string, params: unknown[] = []) => {
+    run: (sql: string, allParams: unknown[] = []) => {
       const inline = inlineScope(sql);
+      const params = /^\s*UPDATE/i.test(sql) ? allParams : allParams.slice(1);
       if (/^\s*DELETE/i.test(sql)) {
         const scope = inline ?? String(params[0] ?? "");
         const expectsKey = inline ? params.length >= 1 : params.length >= 2;
@@ -68,9 +76,9 @@ const adapter = vi.hoisted(() => {
         store.set(rowKey(scope, k), value);
         return { changes: 1 };
       }
-      // UPDATE kv SET value = ? WHERE scope = ... AND key = ?
-      const scope = inline ?? String(params[1] ?? "");
-      const k = String(inline ? params[1] : params[2]);
+      // UPDATE kv SET value = ? WHERE userId = ? AND scope = ... AND key = ?
+      const scope = inline ?? String(params[2] ?? "");
+      const k = String(inline ? params[2] : params[3]);
       store.set(rowKey(scope, k), String(params[0]));
       return { changes: 1 };
     },

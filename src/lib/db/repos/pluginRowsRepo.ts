@@ -1,4 +1,6 @@
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
+import { bumpTenantMeta, getTenantMeta } from "../helpers/tenantMeta";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import type { PatchRow } from "@/server/plugin-core/composition";
 
@@ -21,9 +23,11 @@ function rowToPatchRow(row: Record<string, unknown>): PatchRow {
 
 export async function listPluginRows(): Promise<PatchRow[]> {
   const db = await getAdapter();
-  return db
-    .all("SELECT id, plugin, config, position, enabled, source FROM pluginRows ORDER BY position, id")
-    .map(rowToPatchRow);
+  const rows = await db.all(
+    "SELECT id, plugin, config, position, enabled, source FROM pluginRows WHERE userId = ? ORDER BY position, id",
+    [currentTenantId()],
+  );
+  return rows.map(rowToPatchRow);
 }
 
 /**
@@ -34,28 +38,18 @@ export async function listPluginRows(): Promise<PatchRow[]> {
  */
 export async function getPluginTreeRevision(): Promise<number> {
   const db = await getAdapter();
-  const row = db.get("SELECT value FROM _meta WHERE key = ?", [REVISION_KEY]);
-  const value = Number(row?.value);
+  const value = Number(await getTenantMeta(db, REVISION_KEY));
   return Number.isFinite(value) ? value : 0;
-}
-
-function bumpRevision(db: Awaited<ReturnType<typeof getAdapter>>): void {
-  const row = db.get("SELECT value FROM _meta WHERE key = ?", [REVISION_KEY]);
-  const next = (Number(row?.value) || 0) + 1;
-  db.run(
-    "INSERT INTO _meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    [REVISION_KEY, String(next)],
-  );
 }
 
 export async function upsertPluginRow(row: PatchRow): Promise<void> {
   const db = await getAdapter();
   const now = new Date().toISOString();
-  db.transaction(() => {
-    db.run(
-      `INSERT INTO pluginRows(id, plugin, config, position, enabled, source, createdAt, updatedAt)
-       VALUES(?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
+  await db.transaction(async () => {
+    await db.run(
+      `INSERT INTO pluginRows(userId, id, plugin, config, position, enabled, source, createdAt, updatedAt)
+       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(userId, id) DO UPDATE SET
          plugin = excluded.plugin,
          config = excluded.config,
          position = excluded.position,
@@ -63,6 +57,7 @@ export async function upsertPluginRow(row: PatchRow): Promise<void> {
          source = excluded.source,
          updatedAt = excluded.updatedAt`,
       [
+        currentTenantId(),
         row.id,
         row.plugin,
         stringifyJson(row.config),
@@ -73,14 +68,14 @@ export async function upsertPluginRow(row: PatchRow): Promise<void> {
         now,
       ],
     );
-    bumpRevision(db);
+    await bumpTenantMeta(db, REVISION_KEY);
   });
 }
 
 export async function deletePluginRow(id: string): Promise<void> {
   const db = await getAdapter();
-  db.transaction(() => {
-    db.run("DELETE FROM pluginRows WHERE id = ?", [id]);
-    bumpRevision(db);
+  await db.transaction(async () => {
+    await db.run("DELETE FROM pluginRows WHERE userId = ? AND id = ?", [currentTenantId(), id]);
+    await bumpTenantMeta(db, REVISION_KEY);
   });
 }

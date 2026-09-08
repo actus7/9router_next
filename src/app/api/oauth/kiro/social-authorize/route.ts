@@ -1,3 +1,4 @@
+import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import { generatePKCE } from "@/lib/oauth/utils/pkce";
 import { KiroService } from "@/lib/oauth/services/kiro";
@@ -7,7 +8,7 @@ import { KiroService } from "@/lib/oauth/services/kiro";
  * Generate Google/GitHub social login URL for manual callback flow
  * Uses kiro:// custom protocol as required by AWS Cognito
  */
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   try {
     const provider = searchParams.get("provider"); // "google" or "github"
@@ -40,3 +41,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: ($1 as Error).message }, { status: 500 });
   }
 }
+
+export const GET = tenantRoute(handleGET);

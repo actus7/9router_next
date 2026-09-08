@@ -51,7 +51,10 @@ destination's key cannot break another, because they never share one.
    - cloud: delete and recreate the deployment. `POST /api/cloud/deployments`
      mints its own key (`cloud:<provider>`) and the teardown path revokes it, so
      the key never has to be handled by hand.
-   - CLI tool: reconfigure it from the CLI Tools screen.
+   - CLI tool: reconfigure it from the CLI Tools screen. When ModelHub does
+     not run on the same machine as the CLI, that screen hands you a
+     `npx @model-hub/setup` command instead of writing the file — see
+     [CLI-TOOLS.md](CLI-TOOLS.md).
 4. No other destination needs touching. Verify with the inventory.
 
 `revokedAt` is an audit timestamp; `isActive = 0` is what actually stops the key

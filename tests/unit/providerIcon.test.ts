@@ -9,6 +9,19 @@ describe("getProviderIconSrc", () => {
   });
 
   it("continues resolving canonical provider assets", () => {
-    expect(getProviderIconSrc("perplexity-agent")).toBe("/providers/perplexity.png");
+    expect(getProviderIconSrc("perplexity-agent")).toBe("/providers/perplexity-agent.png");
+  });
+
+  it("never points at an asset that is not shipped", () => {
+    expect(getProviderIconSrc("zenmux-free")).toBeNull();
+  });
+
+  it("borrows the parent brand asset for product variants", () => {
+    expect(getProviderIconSrc("v0-vercel-web")).toBe("/providers/vercel.png");
+    expect(getProviderIconSrc("venice-web")).toBe("/providers/venice.png");
+  });
+
+  it("prefers the png when a provider ships more than one asset", () => {
+    expect(getProviderIconSrc("kimchi")).toBe("/providers/kimchi.png");
   });
 });

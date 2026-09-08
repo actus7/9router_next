@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
+import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 
 interface ComboRow {
@@ -37,19 +38,19 @@ function rowToCombo(row: ComboRow | undefined): Combo | null {
 
 export async function getCombos(): Promise<Combo[]> {
   const db = await getAdapter();
-  const rows = db.all(`SELECT * FROM combos ORDER BY createdAt ASC`) as unknown as ComboRow[];
+  const rows = await db.all(`SELECT * FROM combos WHERE userId = ? ORDER BY createdAt ASC`, [currentTenantId()]) as unknown as ComboRow[];
   return rows.map(rowToCombo).filter((c): c is Combo => c !== null);
 }
 
 export async function getComboById(id: string): Promise<Combo | null> {
   const db = await getAdapter();
-  const row = db.get(`SELECT * FROM combos WHERE id = ?`, [id]) as ComboRow | undefined;
+  const row = await db.get(`SELECT * FROM combos WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as ComboRow | undefined;
   return rowToCombo(row);
 }
 
 export async function getComboByName(name: string): Promise<Combo | null> {
   const db = await getAdapter();
-  const row = db.get(`SELECT * FROM combos WHERE name = ?`, [name]) as ComboRow | undefined;
+  const row = await db.get(`SELECT * FROM combos WHERE userId = ? AND name = ?`, [currentTenantId(), name]) as ComboRow | undefined;
   return rowToCombo(row);
 }
 
@@ -72,9 +73,9 @@ export async function createCombo(data: ComboInput): Promise<Combo> {
     createdAt: now,
     updatedAt: now,
   };
-  db.run(
-    `INSERT INTO combos(id, name, kind, models, routing, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)`,
-    [combo.id, combo.name, combo.kind, stringifyJson(combo.models), combo.routing ? stringifyJson(combo.routing) : null, combo.createdAt, combo.updatedAt]
+  await db.run(
+    `INSERT INTO combos(id, userId, name, kind, models, routing, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
+    [combo.id, currentTenantId(), combo.name, combo.kind, stringifyJson(combo.models), combo.routing ? stringifyJson(combo.routing) : null, combo.createdAt, combo.updatedAt]
   );
   return combo;
 }
@@ -82,13 +83,13 @@ export async function createCombo(data: ComboInput): Promise<Combo> {
 export async function updateCombo(id: string, data: Partial<ComboInput>): Promise<Combo | null> {
   const db = await getAdapter();
   let result: Combo | null = null;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM combos WHERE id = ?`, [id]) as ComboRow | undefined;
+  await db.transaction(async () => {
+    const row = await db.get(`SELECT * FROM combos WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as ComboRow | undefined;
     if (!row) return;
     const merged: Combo = { ...rowToCombo(row)!, ...data, updatedAt: new Date().toISOString() };
-    db.run(
-      `UPDATE combos SET name = ?, kind = ?, models = ?, routing = ?, updatedAt = ? WHERE id = ?`,
-      [merged.name, merged.kind, stringifyJson(merged.models || []), merged.routing ? stringifyJson(merged.routing) : null, merged.updatedAt, id]
+    await db.run(
+      `UPDATE combos SET name = ?, kind = ?, models = ?, routing = ?, updatedAt = ? WHERE userId = ? AND id = ?`,
+      [merged.name, merged.kind, stringifyJson(merged.models || []), merged.routing ? stringifyJson(merged.routing) : null, merged.updatedAt, currentTenantId(), id]
     );
     result = merged;
   });
@@ -97,6 +98,6 @@ export async function updateCombo(id: string, data: Partial<ComboInput>): Promis
 
 export async function deleteCombo(id: string): Promise<boolean> {
   const db = await getAdapter();
-  const res = db.run(`DELETE FROM combos WHERE id = ?`, [id]);
+  const res = await db.run(`DELETE FROM combos WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
   return (res?.changes ?? 0) > 0;
 }
