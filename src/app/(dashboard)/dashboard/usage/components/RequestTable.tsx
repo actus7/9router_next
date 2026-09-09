@@ -18,10 +18,13 @@ interface Props {
   onViewDetail: (detail: RequestDetail) => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
+  /** Observability is off, so an empty table means "nothing is recorded", not "no match". */
+  observabilityOff?: boolean;
 }
 
 export default function RequestTable({
-  details, loading, pagination, providerNameCache, onViewDetail, onPageChange, onPageSizeChange
+  details, loading, pagination, providerNameCache, onViewDetail, onPageChange, onPageSizeChange,
+  observabilityOff = false,
 }: Props) {
   return (
     <Card padding="none">
@@ -51,7 +54,18 @@ export default function RequestTable({
           ) : details.length === 0 ? (
             <TableRow>
               <TableCell colSpan={7} className="p-8 text-center text-text-muted">
-                {translate("No request details found")}
+                {observabilityOff ? (
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-text-main">
+                      {translate("Request detail recording is off.")}
+                    </span>
+                    <span className="text-sm">
+                      {translate("The summary counts every request, but this tab needs observability enabled. Turn it on in Profile — only requests made after that are recorded.")}
+                    </span>
+                  </div>
+                ) : (
+                  translate("No request details found")
+                )}
               </TableCell>
             </TableRow>
           ) : (

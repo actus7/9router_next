@@ -48,6 +48,15 @@ export default function RequestDetailsTab() {
   const details = data?.details ?? [];
   const totalItems = data?.pagination?.totalItems ?? 0;
 
+  /*
+   * Overview counts every request; this tab reads `requestDetails`, which is
+   * only written while observability is on — and it is off by default. Without
+   * knowing that, an empty table here reads as "your filter matched nothing"
+   * right after the summary showed the request, which is how it was reported.
+   */
+  const { data: settings } = useSWR<{ enableObservability?: boolean }>("/api/settings", jsonFetcher);
+  const observabilityOff = settings ? settings.enableObservability !== true : false;
+
   useEffect(() => { fetchProviders(); }, [fetchProviders]);
 
   return (
@@ -55,6 +64,7 @@ export default function RequestDetailsTab() {
       <FilterBar providers={providers} filters={filters} onFiltersChange={setFilters} />
       <RequestTable
         details={details} loading={loading} pagination={{ page, pageSize, totalItems }}
+        observabilityOff={observabilityOff}
         providerNameCache={providerNameCache}
         onViewDetail={(d) => { setSelectedDetail(d); setIsDrawerOpen(true); }}
         onPageChange={setPage}

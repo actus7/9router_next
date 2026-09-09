@@ -46,11 +46,15 @@ async function getObservabilityConfig(): Promise<ObservabilityConfig> {
       configCache.set(tenantId, { config: cachedConfig, ts: Date.now() });
       return cachedConfig;
     }
-    const envFallback: boolean = process.env.OBSERVABILITY_ENABLED !== "false";
-    const uiFlag: boolean = typeof settings.enableObservability === "boolean";
-    const enabled: boolean = uiFlag
-      ? (settings.enableObservability as boolean)
-      : envFallback;
+    /**
+     * `enableObservability` decides it, and it is always present: `getSettings`
+     * merges DEFAULT_SETTINGS, where it is `false`. There used to be an
+     * `OBSERVABILITY_ENABLED !== "false"` fallback here for when the key was
+     * absent — it could never run, and reading it gave the opposite impression
+     * of what the product actually does, which is: record nothing until the
+     * operator turns the toggle on in Profile.
+     */
+    const enabled: boolean = settings.enableObservability === true;
 
     cachedConfig = {
       enabled,

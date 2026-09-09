@@ -1349,5 +1349,7 @@
   "Rose": "Rosa",
   "Teal": "Turquesa",
   "Paste this into your AI:": "Cole isso na sua IA:",
-  "Browse the source code, README and examples.": "Navegue pelo código-fonte, README e exemplos."
+  "Browse the source code, README and examples.": "Navegue pelo código-fonte, README e exemplos.",
+  "Request detail recording is off.": "O registro de detalhes de requisição está desligado.",
+  "The summary counts every request, but this tab needs observability enabled. Turn it on in Profile — only requests made after that are recorded.": "O resumo conta todas as requisições, mas esta aba precisa da observabilidade ligada. Ative em Perfil — só as requisições feitas depois disso são registradas."
 }
