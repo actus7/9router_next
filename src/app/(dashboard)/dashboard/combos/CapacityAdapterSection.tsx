@@ -57,8 +57,17 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }: 
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon aria-hidden="true" /></div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-medium text-text-main">{cap.label}</h3>
-              <p className="mt-0.5 text-xs text-text-muted">{cap.desc}</p>
+              {/*
+                * `cap.label` and `cap.desc` are plain English constants in
+                * combo-types.ts, and pt-BR translates both (Vision -> Visao,
+                * Images -> Imagens). Rendered raw, the only thing translating
+                * them was the i18n DOM walker, which rewrites text nodes after
+                * render and races React's hydration — the same mismatch the
+                * strategy labels had. Translating here settles it before the
+                * markup exists.
+                */}
+              <h3 className="font-medium text-text-main">{translate(cap.label) || cap.label}</h3>
+              <p className="mt-0.5 text-xs text-text-muted">{translate(cap.desc) || cap.desc}</p>
             </div>
           </div>
           <div className="grid w-full grid-cols-2 gap-2 lg:w-auto lg:grid-cols-[auto_auto_auto]">
