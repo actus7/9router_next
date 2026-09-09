@@ -96,14 +96,14 @@ export const DATA_DIR: string = getDataDir();
 /**
  * True when the resolved directory does not survive a restart.
  *
- * It no longer means data loss: the database, the provider credentials and the
- * sessions moved to Neon Postgres and Neon Auth. What resets on every recycle
- * is the host-local, file-backed state — the Cloudflare/Tailscale tunnel,
- * pxpipe's install, headroom's process files and the machine id. Those fail
- * quietly, which is why the condition is exported and surfaced in the UI rather
- * than left in a boot-time log nobody reads.
+ * Diagnostic only, reported by `GET /api/settings` as `storageEphemeral`.
  *
- * An explicitly configured DATA_DIR under the temp dir counts as ephemeral too,
- * because it is: the flag describes the storage, not how it was chosen.
+ * It used to drive a permanent banner across the dashboard, from back when the
+ * database lived on this disk and an accepted provider key really did evaporate.
+ * With the database and the credentials in Neon Postgres, the only things left
+ * under DATA_DIR are the Cloudflare/Tailscale tunnel, pxpipe and headroom — and
+ * on a host with no writable disk those cannot run at all, so a banner on every
+ * page was warning about the reset of features that were never going to start.
+ * A feature that is unavailable should say so on its own screen.
  */
 export const DATA_DIR_IS_EPHEMERAL: boolean = DATA_DIR === tempDir();

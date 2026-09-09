@@ -39,17 +39,9 @@ function getToastStyle(type: ToastType) {
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  /**
-   * The data directory does not survive a restart. Since the Neon migration
-   * this no longer touches the database, the provider credentials or the
-   * backups — those live in Postgres — only the host-local features that keep
-   * files on disk: the Cloudflare/Tailscale tunnel, pxpipe and headroom.
-   * Resolved on the server by the route layout; see DATA_DIR_IS_EPHEMERAL.
-   */
-  storageEphemeral?: boolean;
 }
 
-export default function DashboardLayout({ children, storageEphemeral = false }: DashboardLayoutProps) {
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const notifications = useNotificationStore((state) => state.notifications);
   const removeNotification = useNotificationStore((state) => state.removeNotification);
@@ -104,30 +96,6 @@ export default function DashboardLayout({ children, storageEphemeral = false }: 
       <SidebarInset id="main-content" className="relative overflow-hidden transition-colors duration-300 isolate">
         {/* Faint grid background */}
         <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
-        {storageEphemeral ? (
-          /*
-           * Not dismissible on purpose: the tunnel silently failing to come
-           * back after a restart is not something the operator should have to
-           * rediscover. It deliberately does NOT claim data loss any more —
-           * the database and the credentials are in Neon Postgres and survive
-           * the instance, so the old wording was a false alarm on every page.
-           */
-          <div
-            role="status"
-            className="flex items-start gap-2 border-b border-warning-border/30 bg-warning/10 px-6 py-2 text-warning lg:px-10"
-          >
-            <TriangleAlert className="mt-px size-[18px] shrink-0" aria-hidden="true" />
-            <p className="text-xs leading-5">
-              <span className="font-semibold">
-                {translate("This host has no persistent disk.") || "This host has no persistent disk."}
-              </span>{" "}
-              {translate(
-                "This host has no writable disk. Your data is safe — the database and provider credentials live in Neon Postgres — but the host-local features that keep files on disk (tunnel, pxpipe, headroom) reset on every restart. Set DATA_DIR to a persistent path to use them.",
-              ) ||
-                "This host has no writable disk. Your data is safe — the database and provider credentials live in Neon Postgres — but the host-local features that keep files on disk (tunnel, pxpipe, headroom) reset on every restart. Set DATA_DIR to a persistent path to use them."}
-            </p>
-          </div>
-        ) : null}
         <Header />
         <div className={`flex-1 overflow-y-auto custom-scrollbar ${pathname === "/dashboard/basic-chat" ? "" : "p-6 lg:p-10"} ${pathname === "/dashboard/basic-chat" ? "flex flex-col overflow-hidden" : ""}`}>
           <div className={`${pathname === "/dashboard/basic-chat" ? "flex-1 w-full h-full flex flex-col" : "max-w-7xl mx-auto"}`}>{children}</div>
