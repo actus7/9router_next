@@ -84,16 +84,39 @@ export async function listHarnessEvents(sessionId: string, after = 0): Promise<H
   }));
 }
 
+/**
+ * Two appends to the same session race on `MAX(seq) + 1`. At READ COMMITTED
+ * both transactions read the same max, both INSERT it, and whichever commits
+ * second dies on `harnessEvents_pkey` — a 500 on an event the chat UI fires
+ * and forgets. The winner is committed by then, so re-reading the max settles
+ * it; only a conflict is retried, every other error still surfaces.
+ *
+ * A retry rather than a Postgres sequence: `seq` is numbered per
+ * (userId, sessionId), which one shared sequence cannot produce, and the
+ * contention here is a handful of concurrent events, not a hot path.
+ */
+const MAX_SEQ_CONFLICT_RETRIES = 5;
+
+function isSeqConflict(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === "23505";
+}
+
 export async function appendHarnessEvent(input: Omit<HarnessEvent, "seq" | "createdAt"> & { createdAt?: string }): Promise<HarnessEvent> {
   const db = await getAdapter();
   const createdAt = input.createdAt || new Date().toISOString();
   const userId = currentTenantId();
-  let event: HarnessEvent | undefined;
-  await db.transaction(async () => {
-    const row = await db.get("SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM harnessEvents WHERE userId = ? AND sessionId = ?", [userId, input.sessionId]);
-    const seq = Number(row?.nextSeq || 1);
-    await db.run("INSERT INTO harnessEvents(userId, sessionId, seq, type, data, createdAt) VALUES(?, ?, ?, ?, ?, ?)", [userId, input.sessionId, seq, input.type, stringifyJson(input.data), createdAt]);
-    event = { sessionId: input.sessionId, seq, type: input.type, data: input.data, createdAt };
-  });
-  return event!;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      let event: HarnessEvent | undefined;
+      await db.transaction(async () => {
+        const row = await db.get("SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM harnessEvents WHERE userId = ? AND sessionId = ?", [userId, input.sessionId]);
+        const seq = Number(row?.nextSeq || 1);
+        await db.run("INSERT INTO harnessEvents(userId, sessionId, seq, type, data, createdAt) VALUES(?, ?, ?, ?, ?, ?)", [userId, input.sessionId, seq, input.type, stringifyJson(input.data), createdAt]);
+        event = { sessionId: input.sessionId, seq, type: input.type, data: input.data, createdAt };
+      });
+      return event!;
+    } catch (error: unknown) {
+      if (attempt >= MAX_SEQ_CONFLICT_RETRIES || !isSeqConflict(error)) throw error;
+    }
+  }
 }
