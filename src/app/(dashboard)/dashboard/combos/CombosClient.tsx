@@ -78,9 +78,9 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
         <div className="min-w-0 flex-1">
           <p id="combo-strategies" className="mt-1 text-sm text-text-muted">{translate("Group models under a name and choose a strategy per combo:")}</p>
           <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm text-text-muted lg:grid-cols-3">
-            <div><dt className="font-medium text-text-main">Fallback</dt><dd>{translate("Tries models in order and moves to the next after a failure.")}</dd></div>
-            <div><dt className="font-medium text-text-main">Round Robin</dt><dd>{translate("Rotates models between requests to distribute load.")}</dd></div>
-            <div><dt className="font-medium text-text-main">Fusion</dt><dd>{translate("Runs the panel in parallel and lets a judge synthesize the response (N+1 calls).")}</dd></div>
+            <div><dt className="font-medium text-text-main">{translate("Fallback") || "Fallback"}</dt><dd>{translate("Tries models in order and moves to the next after a failure.")}</dd></div>
+            <div><dt className="font-medium text-text-main">{translate("Round Robin") || "Round Robin"}</dt><dd>{translate("Rotates models between requests to distribute load.")}</dd></div>
+            <div><dt className="font-medium text-text-main">{translate("Fusion") || "Fusion"}</dt><dd>{translate("Runs the panel in parallel and lets a judge synthesize the response (N+1 calls).")}</dd></div>
           </dl>
         </div>
         <Button size="lg" onClick={() => setShowCreateModal(true)} className="min-h-11 w-full whitespace-nowrap sm:w-auto"><Plus data-icon="inline-start" />{translate("Create Combo") || "Create Combo"}</Button>
