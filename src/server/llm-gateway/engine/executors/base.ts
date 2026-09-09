@@ -209,6 +209,38 @@ export class BaseExecutor {
           continue;
         }
 
+        // A 2xx whose body is HTML is never a completion. It is a login page,
+        // a captcha, or — as opencode did — a SPA catch-all answering a path
+        // that no longer exists, served with 200 because the site renders fine.
+        // Passed through, it reaches the chat as a successful reply full of
+        // markup, so nothing logs an error and nothing falls back: the provider
+        // looks healthy while being entirely dead.
+        //
+        // Only 2xx is judged here. An HTML error page already travels the error
+        // path, and providers that legitimately parse markup override execute().
+        if (response.ok && /text\/html/i.test(ct)) {
+          discard();
+          log?.error?.("HTML", `${this.provider} answered ${response.status} with HTML from ${url}`);
+          return {
+            response: new Response(
+              JSON.stringify({
+                error: {
+                  message:
+                    `${this.provider} returned an HTML page instead of an API response ` +
+                    `(HTTP ${response.status} from ${url}). The upstream endpoint has most ` +
+                    `likely moved, or now demands a browser session.`,
+                  type: "upstream_contract_changed",
+                  code: "ERR_HTML_RESPONSE",
+                },
+              }),
+              { status: 502, headers: { "content-type": "application/json" } }
+            ),
+            url,
+            headers,
+            transformedBody,
+          };
+        }
+
         return { response, url, headers, transformedBody };
       } catch (e) {
         clearTimeout(connectTimer);
