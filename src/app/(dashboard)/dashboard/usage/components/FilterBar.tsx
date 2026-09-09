@@ -53,7 +53,15 @@ export default function FilterBar({ providers, filters, onFiltersChange }: Props
             className="h-9 px-3 w-full min-w-0 text-sm text-text-main" />
         </div>
         <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 lg:col-span-1">
-          <span className="hidden text-sm font-medium text-text-main opacity-0 lg:block" aria-hidden="true">Clear</span>
+          {/*
+            * Spacer, not content: it reserves the height of a <Label> so the button
+            * lines up with the fields above on lg. It used to hold the word "Clear",
+            * which pt-BR translates (Limpar) — so the i18n DOM walker rewrote this
+            * node after render and lost the race with hydration. A non-breaking
+            * space cannot be translated: `processTextNode` skips any node whose
+            * text is whitespace, and String.trim() counts U+00A0 as whitespace.
+            */}
+          <span className="hidden text-sm font-medium text-text-main opacity-0 lg:block" aria-hidden="true">&nbsp;</span>
           <Button variant="ghost" onClick={handleClearFilters}
             disabled={!filters.provider && !filters.startDate && !filters.endDate} className="w-full">
             {translate("Clear Filters")}

@@ -261,7 +261,7 @@ export default function ConnectionCard({
                         <Clock className="size-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>View Codex reset credit expiry</TooltipContent>
+                    <TooltipContent>{translate("View Codex reset credit expiry") || "View Codex reset credit expiry"}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </>
@@ -299,7 +299,7 @@ export default function ConnectionCard({
                     <RefreshCw className={`size-[18px] text-text-muted ${isLoading ? "animate-spin" : ""}`} />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Refresh quota</TooltipContent>
+                <TooltipContent>{translate("Refresh quota") || "Refresh quota"}</TooltipContent>
               </Tooltip>
             </TooltipProvider>}
             {!isUsageOnly && <>
@@ -321,7 +321,7 @@ export default function ConnectionCard({
                     <Pencil className="size-5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Edit connection</TooltipContent>
+                <TooltipContent>{translate("Edit connection") || "Edit connection"}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <TooltipProvider>
@@ -341,7 +341,7 @@ export default function ConnectionCard({
                     <Trash2 className={`size-[18px] ${deletingId === conn.id ? "animate-pulse" : ""}`} />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Delete connection</TooltipContent>
+                <TooltipContent>{translate("Delete connection") || "Delete connection"}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <div

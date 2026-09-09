@@ -1,6 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
+import { translate } from "@/i18n/runtime";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -69,7 +70,7 @@ export default function PaginationSection({
                   {option} / page
                 </SelectItem>
               ))}
-              <SelectItem value="custom">Custom</SelectItem>
+              <SelectItem value="custom">{translate("Custom") || "Custom"}</SelectItem>
             </SelectContent>
           </Select>
           <Input

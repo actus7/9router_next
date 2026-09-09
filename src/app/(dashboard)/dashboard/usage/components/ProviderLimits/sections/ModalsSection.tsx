@@ -118,7 +118,7 @@ export default function ModalsSection({
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl ring-1 ring-border">
             <div className="flex items-start justify-between gap-3 border-b border-border bg-bg-subtle/30 px-4 py-3">
               <div className="min-w-0">
-                <h3 className="text-base font-semibold text-text-primary">Codex Reset Credit Expiry</h3>
+                <h3 className="text-base font-semibold text-text-primary">{translate("Codex Reset Credit Expiry") || "Codex Reset Credit Expiry"}</h3>
                 <p className="mt-0.5 truncate text-xs text-text-muted">
                   {getConnectionLabel(resetCreditsState.connection) || "Codex account"}
                 </p>
@@ -156,9 +156,9 @@ export default function ModalsSection({
                       <TableHeader className="bg-black/[0.03] text-xs uppercase tracking-wide text-text-muted dark:bg-white/[0.04]">
                         <TableRow>
                           <TableHead className="px-3 py-2 font-medium">Status</TableHead>
-                          <TableHead className="px-3 py-2 font-medium">Granted At</TableHead>
-                          <TableHead className="px-3 py-2 font-medium">Expires At</TableHead>
-                          <TableHead className="px-3 py-2 font-medium">Remaining</TableHead>
+                          <TableHead className="px-3 py-2 font-medium">{translate("Granted At") || "Granted At"}</TableHead>
+                          <TableHead className="px-3 py-2 font-medium">{translate("Expires At") || "Expires At"}</TableHead>
+                          <TableHead className="px-3 py-2 font-medium">{translate("Remaining") || "Remaining"}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>

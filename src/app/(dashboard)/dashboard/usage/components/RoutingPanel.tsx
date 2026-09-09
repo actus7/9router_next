@@ -16,7 +16,7 @@ export default function RoutingPanel({ routing }: Props) {
       </div>
       <dl className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
         <div><dt className="text-text-muted">Tarefa</dt><dd className="mt-0.5 font-medium text-text-main">{routing.need}</dd></div>
-        <div><dt className="text-text-muted">Tier</dt><dd className="mt-0.5 font-medium text-text-main">{routing.tier}</dd></div>
+        <div><dt className="text-text-muted">{translate("Tier") || "Tier"}</dt><dd className="mt-0.5 font-medium text-text-main">{routing.tier}</dd></div>
         <div><dt className="text-text-muted">{translate("Confidence")}</dt><dd className="mt-0.5 font-medium text-text-main">{Math.round((routing.confidence || 0) * 100)}%</dd></div>
         <div><dt className="text-text-muted">Motivo</dt><dd className="mt-0.5 font-medium text-text-main">{routing.reason}</dd></div>
       </dl>
