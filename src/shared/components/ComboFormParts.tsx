@@ -16,6 +16,12 @@ interface ModelItemProps {
 export function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown, onRemove }: ModelItemProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(model);
+  // Both lists key their rows by position, so dragging, reordering or removing
+  // a row reuses this instance for a different model. Without resyncing, the
+  // draft kept the previous row's text and `commit()` wrote it over the new
+  // one — a silently corrupted routing list.
+  const [lastModel, setLastModel] = useState(model);
+  if (lastModel !== model) { setLastModel(model); setDraft(model); }
   const commit = () => { const t = draft.trim(); if (t && t !== model) onEdit(t); else setDraft(model); setEditing(false); };
   return (
     <div className="group flex min-w-0 items-center gap-1.5 rounded-md bg-black/[0.02] px-2 py-1 transition-colors hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]">

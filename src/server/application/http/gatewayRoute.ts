@@ -2,6 +2,7 @@ import { NextResponse, connection } from "next/server";
 
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { withTenant } from "@/lib/db/tenant";
+import { RATE_LIMIT_WINDOW_MS, consumeRateLimit, gatewayRateLimit } from "./rateLimit";
 
 /**
  * Reads the API key from wherever a client protocol puts it.
@@ -51,6 +52,15 @@ export function gatewayRoute<R extends Request, A extends unknown[]>(
     const owner = await resolveApiKeyOwner(key);
     if (!owner) {
       return NextResponse.json({ error: { message: "Invalid API key", type: "invalid_request_error" } }, { status: 401 });
+    }
+    // Keyed by account, not by key: several keys belong to one account and the
+    // ceiling is meant to bound what that account can spend.
+    const limited = consumeRateLimit(`gw:${owner.userId}`, gatewayRateLimit(), RATE_LIMIT_WINDOW_MS);
+    if (!limited.allowed) {
+      return NextResponse.json(
+        { error: { message: "Rate limit exceeded", type: "rate_limit_error" } },
+        { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
+      );
     }
     return withTenant(owner.userId, async () => handler(request, ...rest));
   };

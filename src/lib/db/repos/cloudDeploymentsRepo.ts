@@ -88,7 +88,8 @@ async function upsert(db: DbLike, d: CloudDeployment): Promise<void> {
      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        status=excluded.status, publicUrl=excluded.publicUrl,
-       data=excluded.data, updatedAt=excluded.updatedAt`,
+       data=excluded.data, updatedAt=excluded.updatedAt
+     WHERE cloudDeployments.userId = excluded.userId`,
     [r.id, currentTenantId(), r.connectionId, r.provider, r.toolId, r.status, r.publicUrl, r.data, r.createdAt, r.updatedAt]
   );
 }

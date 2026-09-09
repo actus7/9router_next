@@ -160,6 +160,11 @@ export class HuggingChatExecutor extends BaseExecutor {
       Referer: `${HUGGINGFACE_BASE}/chat/`,
     };
 
+    // Handshake only. This deadline used to ride the message fetch too, and it
+    // is counted from here — so a generation that ran past 30s had its *body*
+    // aborted mid-stream, and the catch below closed the stream cleanly: HTTP
+    // 200, a truncated answer, no `[DONE]`, nothing saying it failed. The
+    // gateway already has a stall watchdog for the generation itself.
     const timeoutSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
     const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
@@ -216,7 +221,7 @@ export class HuggingChatExecutor extends BaseExecutor {
 
     let upstream: Response;
     try {
-      upstream = await fetch(messageUrl, { method: "POST", headers: baseHeaders, body: formData, signal: combinedSignal });
+      upstream = await fetch(messageUrl, { method: "POST", headers: baseHeaders, body: formData, signal: signal ?? undefined });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       log?.error?.("HUGGINGCHAT", `Message send failed: ${message}`);
@@ -248,9 +253,21 @@ export class HuggingChatExecutor extends BaseExecutor {
           try {
             for await (const chunk of jsonlStream) controller.enqueue(encoder.encode(chunk));
           } catch (err) {
-            log?.error?.("HUGGINGCHAT", `Stream error: ${err}`);
+            const message = err instanceof Error ? err.message : String(err);
+            log?.error?.("HUGGINGCHAT", `Stream error: ${message}`);
+            // Say so in the stream. Closing quietly handed the client a 200
+            // with a half-written answer and no way to tell it apart from a
+            // short one.
+            try {
+              const errorChunk = {
+                id, object: "chat.completion.chunk", created, model: resolvedModel,
+                choices: [{ index: 0, delta: { content: `\n\n[HuggingChat stream error: ${message}]` }, finish_reason: "stop" }],
+              };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorChunk)}\n\n`));
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            } catch { /* downstream already gone */ }
           } finally {
-            controller.close();
+            try { controller.close(); } catch { /* already closed */ }
           }
         },
       });

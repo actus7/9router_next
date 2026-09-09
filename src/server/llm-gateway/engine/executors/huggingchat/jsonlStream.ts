@@ -77,6 +77,11 @@ export async function* streamJsonlToOpenAi(
         const parsed = parseJsonlLine(trimmed);
 
         if (parsed.error) {
+          // The provider said why it stopped — quota, model unavailable. Dropping
+          // it left a `finish_reason: "stop"` with empty content, so the provider
+          // looked healthy and the answer looked merely blank.
+          if (!emittedRole) { emittedRole = true; yield roleChunk(); }
+          yield contentChunk(`[HuggingChat error] ${parsed.error}`);
           yield stopChunk();
           yield "data: [DONE]\n\n";
           finished = true;

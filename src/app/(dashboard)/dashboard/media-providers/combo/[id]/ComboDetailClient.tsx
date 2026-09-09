@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { ArrowDown, ArrowLeft, ArrowUp, Download, Layers, Play, Plus, Trash2, X } from "lucide-react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 
 interface Combo {
@@ -84,7 +84,6 @@ export default function ComboDetailClient({
   initialAliases,
   initialLogs,
 }: ComboDetailClientProps) {
-  const notify = useNotificationStore();
   const router = useRouter();
   const [combo, setCombo] = useState<Combo | null>(initialCombo);
   const [name, setName] = useState(initialCombo?.name || "");

@@ -233,7 +233,11 @@ export class TheOldLLMExecutor extends BaseExecutor {
           })
         : buildErrorResponse(response.status, finalBody);
       return {
-        response: new Response(errorPayload, { status: response.status, headers: { "Content-Type": "application/json" } }),
+        // Never 200. A 200 with an empty body falls through to here, and
+        // returning it with the upstream status made chatCore's `!ok` check
+        // pass — the client got HTTP 200 carrying an `error` object where
+        // `choices` belonged, and no account fallback ran.
+        response: new Response(errorPayload, { status: response.status === 200 ? 502 : response.status, headers: { "Content-Type": "application/json" } }),
         url: THEOLDLLM_API,
         headers,
         transformedBody: reqBody,

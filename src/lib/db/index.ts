@@ -77,7 +77,7 @@ export {
 
 // Usage
 export {
-  statsEmitter, trackPendingRequest, getActiveRequests,
+  statsEmitter, statsEventName, trackPendingRequest, getActiveRequests,
   saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
   appendRequestLog, getRecentLogs,
 } from "./repos/usageRepo";
@@ -144,6 +144,15 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
     await db.run(`DELETE FROM modelAvailability WHERE userId = ?`, [userId]);
     await db.run(`DELETE FROM kv WHERE userId = ? AND scope IN ('modelAliases', 'customModels', 'pricing')`, [userId]);
 
+    // Every DO UPDATE below is guarded by `WHERE <table>.userId = excluded.userId`.
+    // The ids come straight from the uploaded payload and `ON CONFLICT(id)`
+    // matches on the primary key alone — so without the guard an import could
+    // name another account's row id and rewrite it in place, `userId` intact.
+    // On `apiKeys` that was an account takeover: overwrite the victim's key
+    // with one you know and the gateway then authenticates you as them. A row
+    // that fails the guard is left alone, which is the right outcome — it was
+    // never yours to restore.
+
     // Settings
     if (payload.settings) {
       await db.run(`INSERT INTO settings(userId, data) VALUES(?, ?) ON CONFLICT(userId) DO UPDATE SET data = excluded.data`, [userId, stringifyJson(payload.settings)]);
@@ -155,7 +164,8 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
         `INSERT INTO providerConnections(id, userId, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET provider=excluded.provider, authType=excluded.authType, name=excluded.name,
            email=excluded.email, priority=excluded.priority, isActive=excluded.isActive,
-           data=excluded.data, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
+           data=excluded.data, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt
+         WHERE providerConnections.userId = excluded.userId`,
         [id, userId, provider, authType || "oauth", name || null, email || null, priority || null, isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
@@ -164,7 +174,8 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
       await db.run(
         `INSERT INTO providerNodes(id, userId, type, name, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET type=excluded.type, name=excluded.name, data=excluded.data,
-           createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
+           createdAt=excluded.createdAt, updatedAt=excluded.updatedAt
+         WHERE providerNodes.userId = excluded.userId`,
         [id, userId, type || null, name || null, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
@@ -173,7 +184,8 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
       await db.run(
         `INSERT INTO proxyPools(id, userId, isActive, testStatus, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET isActive=excluded.isActive, testStatus=excluded.testStatus,
-           data=excluded.data, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
+           data=excluded.data, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt
+         WHERE proxyPools.userId = excluded.userId`,
         [id, userId, isActive === false ? 0 : 1, testStatus || "unknown", stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
@@ -181,7 +193,8 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
       await db.run(
         `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET key=excluded.key, name=excluded.name, machineId=excluded.machineId,
-           isActive=excluded.isActive, createdAt=excluded.createdAt`,
+           isActive=excluded.isActive, createdAt=excluded.createdAt
+         WHERE apiKeys.userId = excluded.userId`,
         [k.id, userId, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString()]
       );
     }
@@ -189,7 +202,8 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
       await db.run(
         `INSERT INTO combos(id, userId, name, kind, models, routing, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, models=excluded.models,
-           routing=excluded.routing, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt`,
+           routing=excluded.routing, createdAt=excluded.createdAt, updatedAt=excluded.updatedAt
+         WHERE combos.userId = excluded.userId`,
         [c.id, userId, c.name, c.kind || null, stringifyJson(c.models || []), c.routing ? stringifyJson(c.routing) : null, c.createdAt || new Date().toISOString(), c.updatedAt || new Date().toISOString()]
       );
     }

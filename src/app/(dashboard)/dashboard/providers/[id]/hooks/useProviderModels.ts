@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { useDisabledModels } from "./useDisabledModels";
 import { useCustomModels } from "./useCustomModels";
 import { CLEAR_ALL_MODELS_SENTINEL } from "./modelConstants";
@@ -31,7 +31,6 @@ export function useProviderModels({
   providerId, providerStorageAlias, providerAlias, isCompatible, isAnthropicCompatible,
   connections, providerNode, initialAliases, initialCustomModels, initialDisabledModels,
 }: UseProviderModelsArgs) {
-  const notify = useNotificationStore();
   const [showAddCustomModel, setShowAddCustomModel] = useState<boolean>(false);
   const setModelTestResultsRef = useRef<(v: Record<string, "ok" | "error">) => void>(() => {});
 

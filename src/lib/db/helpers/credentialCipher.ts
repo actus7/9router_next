@@ -28,7 +28,14 @@ const PREFIX = "v1:";
 /** Fixed salt: the env value is the secret, the salt only domain-separates it. */
 const KDF_SALT = "modelhub.credential.v1";
 
-const SECRET_FIELDS = ["apiKey", "accessToken", "refreshToken", "idToken"] as const;
+/**
+ * `cookie` belongs here too: `copilot-web` reads its whole session out of
+ * `providerSpecificData.cookie`, which is as much a credential as an apiKey and
+ * was the one that stayed in the clear. Adding a field is safe in both
+ * directions — a stored value with no `v1:` prefix is read as-is, so existing
+ * rows keep working and are encrypted the next time they are written.
+ */
+const SECRET_FIELDS = ["apiKey", "accessToken", "refreshToken", "idToken", "cookie"] as const;
 
 let cachedKey: Buffer | null | undefined;
 

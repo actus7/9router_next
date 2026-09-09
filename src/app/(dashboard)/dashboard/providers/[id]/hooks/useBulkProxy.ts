@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { translate } from "@/i18n/runtime";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import type { Connection, ProxyPool } from "../types";
 
 interface UseBulkProxyArgs {
@@ -12,7 +12,6 @@ interface UseBulkProxyArgs {
 }
 
 export function useBulkProxy({ connections, proxyPools, fetchConnections }: UseBulkProxyArgs) {
-  const notify = useNotificationStore();
   const [showBulkProxyModal, setShowBulkProxyModal] = useState<boolean>(false);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
   const [bulkUpdatingProxy, setBulkUpdatingProxy] = useState<boolean>(false);

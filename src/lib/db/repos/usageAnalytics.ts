@@ -336,10 +336,20 @@ async function aggregateDailySummary(db: DbLike, period: string, stats: UsageSta
     }
   }
 
+  // The overlay only supplies `lastUsed` timestamps and per-account labels on
+  // top of the pre-aggregated daily rows, so it does not need the whole table.
+  // With period="all" (the default for /api/usage/history and the SSE stream)
+  // `maxDays` is null and the cutoff was the epoch: every row this account has
+  // ever written, loaded into the worker on every dashboard poll, in a table
+  // that is never pruned. Newest first with a hard cap keeps the answer the
+  // same for any realistic history and bounded for the rest.
+  const OVERLAY_MAX_ROWS = 50_000;
   const overlayCutoff: number = maxDays ? Date.now() - maxDays * 86400000 : 0;
   const histRows: Array<Record<string, unknown>> = await db.all(
-    `SELECT timestamp, provider, model, connectionId, apiKey, endpoint FROM usageHistory WHERE userId = ? AND timestamp >= ?`,
-    [currentTenantId(), new Date(overlayCutoff).toISOString()]
+    `SELECT timestamp, provider, model, connectionId, apiKey, endpoint FROM usageHistory
+     WHERE userId = ? AND timestamp >= ?
+     ORDER BY timestamp DESC LIMIT ?`,
+    [currentTenantId(), new Date(overlayCutoff).toISOString(), OVERLAY_MAX_ROWS]
   );
   for (const e of histRows) {
     const ts: string = e.timestamp as string;

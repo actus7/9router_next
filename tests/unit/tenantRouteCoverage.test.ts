@@ -21,14 +21,16 @@ const actionsRoot = resolve(__dirname, "../../src/server/application/actions");
 /**
  * Routes that answer before anyone is signed in, each with the reason.
  *
- * A prefix here is a real decision: it says this path may be reached with no
- * account behind it, so nothing under it may read tenant-scoped data.
+ * Exact route paths, not prefixes. It used to be the first path segment, and
+ * `version` — exempt because it reports a build number — silently covered
+ * `version/update`, which kills the server process. One unauthenticated POST
+ * was a remote shutdown. An exemption now names the one route it excuses.
  */
-const UNSCOPED: ReadonlyArray<{ prefix: string; why: string }> = [
-  { prefix: "auth", why: "Neon Auth's own surface. The sign-in request cannot require being signed in." },
-  { prefix: "health", why: "Liveness probe. Reads nothing." },
-  { prefix: "locale", why: "Returns the UI language list, identical for everyone." },
-  { prefix: "version", why: "Reports the build version, identical for everyone." },
+const UNSCOPED: ReadonlyArray<{ route: string; why: string }> = [
+  { route: "auth/[...path]", why: "Neon Auth's own surface. The sign-in request cannot require being signed in." },
+  { route: "health", why: "Liveness probe. Reads nothing." },
+  { route: "locale", why: "Returns the UI language list, identical for everyone." },
+  { route: "version", why: "Reports the build version, identical for everyone." },
 ];
 
 const TENANT_WRAPPERS: readonly string[] = ["tenantRoute(", "gatewayRoute("];
@@ -41,12 +43,12 @@ function listRouteFiles(directory: string): string[] {
   });
 }
 
-function segment(path: string): string {
-  return relative(apiRoot, path).replaceAll("\\", "/").split("/")[0]!;
+function routeName(path: string): string {
+  return relative(apiRoot, path).replaceAll("\\", "/").replace(/\/route\.ts$/, "");
 }
 
 function isUnscoped(path: string): boolean {
-  return UNSCOPED.some((entry) => segment(path) === entry.prefix);
+  return UNSCOPED.some((entry) => routeName(path) === entry.route);
 }
 
 const HANDLER = /^export (?:async function|const) (GET|POST|PUT|PATCH|DELETE|HEAD)\b/m;
@@ -70,12 +72,10 @@ describe("tenant route coverage", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("keeps every exemption pointing at a directory that exists", () => {
-    const segments = new Set(
-      readdirSync(apiRoot).filter((entry) => statSync(join(apiRoot, entry)).isDirectory()),
-    );
+  it("keeps every exemption pointing at a route that exists", () => {
+    const routes = new Set(listRouteFiles(apiRoot).map(routeName));
     for (const entry of UNSCOPED) {
-      expect(segments.has(entry.prefix), `${entry.prefix} is exempted but is not a route`).toBe(true);
+      expect(routes.has(entry.route), `${entry.route} is exempted but is not a route`).toBe(true);
     }
   });
 

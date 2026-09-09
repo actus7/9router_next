@@ -1,8 +1,17 @@
 # Minimal self-hosted deployment: one container, one named volume.
 #
-# The volume is not optional. ModelHub keeps provider credentials, API keys,
-# usage history and its JWT secret in an embedded SQLite file under DATA_DIR;
-# without a volume the container starts clean on every restart.
+# The state that matters is NOT in the container. Since the Neon migration the
+# database, the provider credentials, the API keys and the usage history all
+# live in Neon Postgres, and sign-in is Neon Auth — so `DATABASE_URL`,
+# `NEON_AUTH_BASE_URL` and `NEON_AUTH_COOKIE_SECRET` are required. Without them
+# the container still starts and `/api/health` still answers, but every route
+# that touches the database fails: see docs/DEPLOYMENT.md.
+#
+# The volume is still worth keeping. It holds the host-local, file-backed state
+# — the Cloudflare/Tailscale tunnel, pxpipe's install, headroom's process files
+# and the machine id — which is regenerated on every restart without one.
+#
+# Values come from a `.env` beside this file; see `.env.example`.
 services:
   modelhub:
     build: .
@@ -15,19 +24,26 @@ services:
     environment:
       # Must match the volume mount above.
       DATA_DIR: /data
-      # Sessions survive a restart only if this is stable. Left unset, the app
-      # generates one and writes it under DATA_DIR, which works here because the
-      # volume persists — set it explicitly when running more than one replica,
-      # since each would otherwise generate its own and reject the other's
-      # cookies.
-      # JWT_SECRET: ${JWT_SECRET}
+      # Required. The POOLED Neon connection string (its host contains
+      # `-pooler`): the app opens interactive transactions, which the pooled
+      # endpoint supports and the HTTP one does not.
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env — the app stores everything in Neon Postgres}
+      # Required. Sign-in, and the account every row belongs to.
+      NEON_AUTH_BASE_URL: ${NEON_AUTH_BASE_URL:?set NEON_AUTH_BASE_URL in .env — identity is Neon Auth}
+      # Required. Signs the session cookie. At least 32 characters; changing it
+      # signs everybody out.
+      NEON_AUTH_COOKIE_SECRET: ${NEON_AUTH_COOKIE_SECRET:?set NEON_AUTH_COOKIE_SECRET in .env}
       #
-      # Without this, provider credentials sit in the database in clear text and
-      # the app warns on every boot. See docs/OPERATIONS.md for rotation.
-      # CREDENTIAL_KEY: ${CREDENTIAL_KEY}
+      # Optional. Comma-separated hosts allowed to serve the dashboard. Empty
+      # means any host; set it when the app is also reachable over a tunnel.
+      DASHBOARD_ALLOWED_HOSTS: ${DASHBOARD_ALLOWED_HOSTS:-}
+      #
+      # Optional. Without it, provider credentials sit in the database in clear
+      # text and the app warns on every boot. See docs/OPERATIONS.md.
+      CREDENTIAL_KEY: ${CREDENTIAL_KEY:-}
       #
       # Refuses to boot without CREDENTIAL_KEY. Off by default so an existing
       # install that never opted in is not bricked by an upgrade.
-      # CREDENTIAL_ENCRYPTION_REQUIRED: "true"
+      CREDENTIAL_ENCRYPTION_REQUIRED: ${CREDENTIAL_ENCRYPTION_REQUIRED:-}
 volumes:
   modelhub-data:

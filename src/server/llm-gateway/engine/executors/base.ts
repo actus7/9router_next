@@ -161,8 +161,14 @@ export class BaseExecutor {
     };
 
     for (let urlIndex = 0; urlIndex < fallbackCount; urlIndex++) {
-      const url = this.buildUrl(model, stream, urlIndex, credentials);
+      // transformRequest first: buildUrl and buildHeaders both read instance
+      // state that transformRequest is what sets (Codex's compact flag, its
+      // session id). buildUrl used to run first and read the *previous*
+      // request's value off this singleton — a compact call went to the plain
+      // endpoint and the next plain call went to /compact. No await separates
+      // the three, so they stay one atomic step even under concurrency.
       const transformedBody = this.transformRequest(model, body, stream, credentials);
+      const url = this.buildUrl(model, stream, urlIndex, credentials);
       const headers = this.buildHeaders(credentials, stream, url, model);
 
       if (!retryAttemptsByUrl[urlIndex]) retryAttemptsByUrl[urlIndex] = 0;
@@ -188,11 +194,18 @@ export class BaseExecutor {
         const cl = response.headers?.get?.("content-length") || "?";
         dbg("FETCH", `${this.provider.toUpperCase()} ← ${response.status} | ttft=${Date.now() - fetchT0}ms | ct=${ct} | cl=${cl}`);
 
-        if (await tryRetry(urlIndex, response.status, `status ${response.status}`, response)) { urlIndex--; continue; }
+        // Release the discarded body before looping. undici keeps the
+        // connection checked out of the pool until the body is read or
+        // cancelled, and a burst of 429s — exactly what the retry exists for —
+        // otherwise pins one socket per attempt until GC gets to it.
+        const discard = () => { void response.body?.cancel().catch(() => {}); };
+
+        if (await tryRetry(urlIndex, response.status, `status ${response.status}`, response)) { discard(); urlIndex--; continue; }
 
         if (this.shouldRetry(response.status, urlIndex)) {
           log?.debug?.("RETRY", `${response.status} on ${url}, trying fallback ${urlIndex + 1}`);
           lastStatus = response.status;
+          discard();
           continue;
         }
 

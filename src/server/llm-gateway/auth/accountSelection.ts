@@ -8,24 +8,28 @@ import { formatRetryAfter, checkFallbackError, isClientRequestError } from "@/se
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/server/llm-gateway/engine/config/errorConfig";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
+import { tryCurrentTenantId } from "@/lib/db/tenant";
 import type { Connection, Settings } from "@/lib/data-access";
 
 // Account selection mutates round-robin bookkeeping (lastUsedAt,
 // consecutiveUseCount), so concurrent picks for the same provider must
-// serialize. Keyed by provider: two providers have no shared state, and a
-// single global lock made every request queue behind an unrelated one.
+// serialize. Keyed by account *and* provider: the connections being rotated
+// belong to one account, so two accounts share no state — keying by provider
+// alone made one busy account's traffic serialize everybody else's picks for
+// the same provider.
 const selectionLocks = new Map<string, Promise<void>>();
 
 async function acquireSelectionLock(providerId: string): Promise<() => void> {
-  const previous: Promise<void> = selectionLocks.get(providerId) ?? Promise.resolve();
+  const key: string = `${tryCurrentTenantId() ?? "-"}:${providerId}`;
+  const previous: Promise<void> = selectionLocks.get(key) ?? Promise.resolve();
   let release!: () => void;
   const current: Promise<void> = new Promise<void>((resolve) => { release = resolve; });
-  selectionLocks.set(providerId, current);
+  selectionLocks.set(key, current);
   await previous;
   return (): void => {
     release();
     // Only the last waiter clears the slot, so the map does not grow per call.
-    if (selectionLocks.get(providerId) === current) selectionLocks.delete(providerId);
+    if (selectionLocks.get(key) === current) selectionLocks.delete(key);
   };
 }
 

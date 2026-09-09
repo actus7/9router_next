@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, RefreshCw, TriangleAlert } from "lucide-react";
@@ -17,7 +17,6 @@ export default function ModelAvailabilityBadge() {
   const [data, setData] = useState<AvailabilityData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [clearing, setClearing] = useState<string | null>(null);
-  const notify = useNotificationStore();
 
   const fetchStatus = useCallback(async () => {
     try {

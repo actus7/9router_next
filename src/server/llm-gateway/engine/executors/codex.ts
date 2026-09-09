@@ -257,6 +257,9 @@ function stripUnsupportedCodexParams(body: Record<string, unknown>): void {
  * Codex Executor - handles OpenAI Codex API (Responses API format)
  * Automatically injects default instructions if missing
  */
+/** Request bodies that arrived with `_compact`, kept after the flag is stripped. */
+const COMPACT_BODIES = new WeakSet<object>();
+
 export class CodexExecutor extends BaseExecutor {
   protected _currentSessionId!: string | null;
   protected _isCompact!: boolean;
@@ -465,8 +468,13 @@ export class CodexExecutor extends BaseExecutor {
    * Image fetching is handled separately in prefetchImages() so this stays sync.
    */
   transformRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Credentials) {
-    this._isCompact = !!body._compact;
+    // Remembered against the body object, not just the instance: base.execute
+    // calls transformRequest once per fallback URL and the retry loop below
+    // calls it again, all on the same body — so reading `_compact` after the
+    // first call deleted it would silently drop /compact on every retry.
+    if (body._compact) COMPACT_BODIES.add(body);
     delete body._compact;
+    this._isCompact = COMPACT_BODIES.has(body);
     this._currentSessionId = resolveCacheSessionId(body, credentials);
 
     normalizeCodexInput(body);

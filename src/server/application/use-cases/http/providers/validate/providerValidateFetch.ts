@@ -1,6 +1,7 @@
 import "server-only";
 
 import { safePublicFetch, type DestinationPolicy } from "@/server/security/safeFetch";
+import { privateProviderEndpointsAllowed } from "@/server/security/providerEndpoint";
 import {
   isAnthropicCompatibleProvider,
   isCustomEmbeddingProvider,
@@ -15,12 +16,23 @@ function isLocalHostname(hostname: string): boolean {
     || normalized.endsWith(".local");
 }
 
-/** User-configured or self-hosted endpoints may target loopback/private networks. */
+/**
+ * Whether validation may reach a loopback or private address.
+ *
+ * The four provider families below used to get `"trusted-local"` unconditionally,
+ * which turned the validate endpoint into a blind SSRF probe — an account picks
+ * the URL, and the status code says what is listening inside the network. They
+ * still need it on a self-hosted box (Ollama on 127.0.0.1), so the exception is
+ * now the same deployment-level switch the inference path uses rather than a
+ * property of the provider id.
+ */
 export function resolveProviderValidateFetchPolicy(
   url: string,
   options: { providerId?: string; allowLocal?: boolean } = {},
 ): DestinationPolicy {
   if (options.allowLocal) return "trusted-local";
+  if (!privateProviderEndpointsAllowed()) return "public-only";
+
   if (options.providerId) {
     if (
       options.providerId === "ollama"

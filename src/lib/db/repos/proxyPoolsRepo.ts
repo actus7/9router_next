@@ -59,7 +59,8 @@ async function upsert(db: DbLike, p: ProxyPool): Promise<void> {
      VALUES(?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        isActive=excluded.isActive, testStatus=excluded.testStatus,
-       data=excluded.data, updatedAt=excluded.updatedAt`,
+       data=excluded.data, updatedAt=excluded.updatedAt
+     WHERE proxyPools.userId = excluded.userId`,
     [r.id, currentTenantId(), r.isActive, r.testStatus, r.data, r.createdAt, r.updatedAt]
   );
 }

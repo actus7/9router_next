@@ -1,4 +1,5 @@
 import { BaseExecutor } from "./base";
+import { assertProviderEndpointAllowed } from "@/server/security/providerEndpoint";
 import { PROVIDERS, PROVIDER_OAUTH } from "../config/providers";
 import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE, selectAnthropicBeta } from "../providers/shared";
 import { resolveOpenAICompatibleApiType } from "../services/provider";
@@ -112,11 +113,24 @@ export class DefaultExecutor extends BaseExecutor {
     return { ...body, messages, response_format: { type: "json_object" } };
   }
 
+  /**
+   * Last line of defence for account-supplied endpoints.
+   *
+   * The write paths (`/api/provider-nodes`) validate too, but rows predate the
+   * check and `runtimeTransport`/`ollama` base URLs arrive from the connection
+   * itself. Throwing here fails the one request rather than letting the gateway
+   * fetch a private address with its own network position.
+   */
+  private checkedEndpoint(url: string): string {
+    assertProviderEndpointAllowed(url);
+    return url;
+  }
+
   buildUrl(model: string, stream: boolean, _urlIndex = 0, credentials: Credentials | null = null) {
     // Runtime transport (multi-endpoint providers): use the sourceFormat-matched endpoint
     const rt = credentials?.runtimeTransport as Record<string, unknown> | undefined;
     if (rt?.baseUrl) {
-      return rt.urlSuffix ? `${rt.baseUrl}${rt.urlSuffix}` : rt.baseUrl as string;
+      return this.checkedEndpoint(rt.urlSuffix ? `${rt.baseUrl}${rt.urlSuffix}` : rt.baseUrl as string);
     }
     // Ollama supports both Cloud and a self-hosted daemon. A connection-level
     // base URL must drive inference and discovery together; otherwise Refresh
@@ -125,19 +139,19 @@ export class DefaultExecutor extends BaseExecutor {
       const configuredBaseUrl = credentials?.providerSpecificData?.baseUrl;
       if (typeof configuredBaseUrl === "string" && configuredBaseUrl.trim()) {
         const baseUrl = configuredBaseUrl.trim().replace(/\/$/, "");
-        return baseUrl.endsWith("/api/chat") ? baseUrl : `${baseUrl}/api/chat`;
+        return this.checkedEndpoint(baseUrl.endsWith("/api/chat") ? baseUrl : `${baseUrl}/api/chat`);
       }
     }
     if (this.provider?.startsWith?.("openai-compatible-")) {
       const baseUrl = (credentials?.providerSpecificData?.baseUrl as string | undefined) || OPENAI_COMPAT_BASE;
       const normalized = baseUrl.replace(/\/$/, "");
       const path = resolveOpenAICompatibleApiType(this.provider, credentials) === "responses" ? "/responses" : "/chat/completions";
-      return `${normalized}${path}`;
+      return this.checkedEndpoint(`${normalized}${path}`);
     }
     if (this.provider?.startsWith?.("anthropic-compatible-")) {
       const baseUrl = (credentials?.providerSpecificData?.baseUrl as string | undefined) || ANTHROPIC_COMPAT_BASE;
       const normalized = baseUrl.replace(/\/$/, "");
-      return `${normalized}/messages`;
+      return this.checkedEndpoint(`${normalized}/messages`);
     }
     // gemini-format: build :streamGenerateContent / :generateContent path
     if (this.config.format === "gemini") {

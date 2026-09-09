@@ -61,7 +61,8 @@ export async function replaceHarnessConversations(conversations: HarnessConversa
         `INSERT INTO harnessConversations(id, userId, title, projectId, providerId, modelId, data, createdAt, updatedAt)
          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET title=excluded.title, projectId=excluded.projectId,
-           providerId=excluded.providerId, modelId=excluded.modelId, data=excluded.data, updatedAt=excluded.updatedAt`,
+           providerId=excluded.providerId, modelId=excluded.modelId, data=excluded.data, updatedAt=excluded.updatedAt
+         WHERE harnessConversations.userId = excluded.userId`,
         [id, userId, title, projectId || null, providerId || null, modelId || null, stringifyJson(data), createdAt, updatedAt],
       );
     }

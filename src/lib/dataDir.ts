@@ -39,10 +39,12 @@ function isUsable(dir: string): boolean {
 /**
  * First writable candidate, warning loudly when it is the ephemeral one.
  *
- * A caller that lands on the temp dir has no persistence: the SQLite file, the
- * JWT secret and the backups all vanish when the instance is recycled, which on
- * a serverless host is constantly. That is a supported way to *boot*, not a
- * supported way to *run* — the app is local-first and expects a real disk.
+ * A caller that lands on the temp dir has no persistence. Since the Neon
+ * migration that no longer means data loss — the database, the provider
+ * credentials and the sessions are in Postgres and behind Neon Auth. What it
+ * does mean is that every host-local feature backed by a file resets when the
+ * instance recycles: the Cloudflare/Tailscale tunnel state and binaries,
+ * pxpipe's install and headroom's process files.
  */
 function resolveWritableDir(candidates: string[], reason: string): string {
   for (const [index, dir] of candidates.entries()) {
@@ -50,8 +52,9 @@ function resolveWritableDir(candidates: string[], reason: string): string {
     if (index > 0) {
       console.warn(
         `[DATA_DIR] ${reason} → using '${dir}'. This location is not durable: ` +
-        `the database, the JWT secret and backups are lost when the instance restarts. ` +
-        `Set DATA_DIR to a persistent path (and JWT_SECRET, so sessions survive).`,
+        `the tunnel, pxpipe and headroom lose their on-disk state when the instance restarts. ` +
+        `The database and stored credentials are unaffected — they live in Neon Postgres. ` +
+        `Set DATA_DIR to a persistent path to use the host-local features.`,
       );
     }
     return dir;
@@ -93,11 +96,11 @@ export const DATA_DIR: string = getDataDir();
 /**
  * True when the resolved directory does not survive a restart.
  *
- * Booting on the temp dir is a supported way to *start*, not to *run*: the
- * SQLite file, the JWT secret and the backups are erased when the instance is
- * recycled, which on a serverless host happens constantly. Accepting a provider
- * API key into storage that is about to vanish, with nothing on screen saying
- * so, is a data-loss trap — so the condition is exported and surfaced rather
+ * It no longer means data loss: the database, the provider credentials and the
+ * sessions moved to Neon Postgres and Neon Auth. What resets on every recycle
+ * is the host-local, file-backed state — the Cloudflare/Tailscale tunnel,
+ * pxpipe's install, headroom's process files and the machine id. Those fail
+ * quietly, which is why the condition is exported and surfaced in the UI rather
  * than left in a boot-time log nobody reads.
  *
  * An explicitly configured DATA_DIR under the temp dir counts as ephemeral too,

@@ -120,6 +120,15 @@ export class PoeWebExecutor extends BaseExecutor {
       return { response: errorResponse(502, `Poe error: ${typeof gqlErr === "string" ? gqlErr : "GraphQL error"}`), url: POE_API, headers, transformedBody: poePayload };
     }
 
+    // A challenge or maintenance page comes back as 200 with HTML, `.json()`
+    // rejects, the `.catch` above turns it into `{}` and `text` ends up empty
+    // with no `errors` array — which used to fall straight through to the
+    // success return, handing the client an empty completion and leaving the
+    // connection looking healthy.
+    if (!text) {
+      return { response: errorResponse(502, "Poe returned no content — the p-b session cookie is likely expired or the request was challenged."), url: POE_API, headers, transformedBody: poePayload };
+    }
+
     const cid = `chatcmpl-poe-${crypto.randomUUID().slice(0, 12)}`;
     const created = Math.floor(Date.now() / 1000);
 

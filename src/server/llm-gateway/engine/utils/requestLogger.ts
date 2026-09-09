@@ -67,25 +67,45 @@ function writeJsonFile(sessionPath: string, filename: string, data: unknown) {
   }
 }
 
-// Mask sensitive data in headers (DISABLED - keep full token for testing)
+/**
+ * Redacts credentials before they are written to disk.
+ *
+ * This used to `return { ...headers }` behind a comment saying "keep full token
+ * for testing", with the masking code commented out underneath. Request logging
+ * is off by default, so it took one env var — `ENABLE_REQUEST_LOGS=true` — to
+ * start writing every client Authorization header and every provider OAuth
+ * refresh token to `logs/<session>/*.json` in the clear. Debugging a live token
+ * is a real need, so it stays reachable, but behind its own explicit flag.
+ */
+const SENSITIVE_HEADER_KEYS = ["authorization", "x-api-key", "api-key", "cookie", "token", "secret"];
+
+function maskSecret(value: string): string {
+  if (!value) return value;
+  return value.length > 20 ? `${value.slice(0, 10)}...${value.slice(-5)}` : "***";
+}
+
 function maskSensitiveHeaders(headers: Record<string, string> | null | undefined) {
   if (!headers) return {};
-  return { ...headers };
-  
-  // Old masking code (disabled):
-  // const masked = { ...headers };
-  // const sensitiveKeys = ["authorization", "x-api-key", "cookie", "token"];
-  // 
-  // for (const key of Object.keys(masked)) {
-  //   const lowerKey = key.toLowerCase();
-  //   if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
-  //     const value = masked[key];
-  //     if (value && value.length > 20) {
-  //       masked[key] = value.slice(0, 10) + "..." + value.slice(-5);
-  //     }
-  //   }
-  // }
-  // return masked;
+  if (process.env.LOG_UNMASKED_CREDENTIALS === "true") return { ...headers };
+
+  const masked: Record<string, string> = { ...headers };
+  for (const key of Object.keys(masked)) {
+    const lowerKey = key.toLowerCase();
+    if (SENSITIVE_HEADER_KEYS.some((sk) => lowerKey.includes(sk))) {
+      masked[key] = maskSecret(masked[key]!);
+    }
+  }
+  return masked;
+}
+
+/**
+ * Some providers put the credential in the query string rather than a header —
+ * Vertex appends `?key=<raw api key>` — so redacting headers alone still wrote
+ * the key out next to them.
+ */
+function maskUrlSecrets(url: string): string {
+  if (!url || process.env.LOG_UNMASKED_CREDENTIALS === "true") return url;
+  return url.replace(/([?&](?:key|api_key|apikey|access_token|token)=)[^&#]+/gi, "$1***");
 }
 
 /**
@@ -174,7 +194,7 @@ export async function createRequestLogger(sourceFormat: string, targetFormat: st
     logTargetRequest(url: string, headers: Record<string, string>, body: unknown) {
       writeJsonFile(sessionPath!, "4_req_target.json", {
         timestamp: new Date().toISOString(),
-        url,
+        url: maskUrlSecrets(url),
         headers: maskSensitiveHeaders(headers),
         body
       });

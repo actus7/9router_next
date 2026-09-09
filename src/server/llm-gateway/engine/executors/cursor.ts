@@ -172,11 +172,13 @@ export class CursorExecutor extends BaseExecutor {
     let waiting: ((value: { value: Buffer | undefined; done: boolean } | null) => void) | null = null;
     const state = { ended: false, streamError: null as Error | null };
 
-    const wake = (result: { value: Buffer | undefined; done: boolean } | null) => {
-      if (!waiting) return;
+    /** Hands `result` to a parked reader. False when nobody was waiting. */
+    const wake = (result: { value: Buffer | undefined; done: boolean } | null): boolean => {
+      if (!waiting) return false;
       const resolve = waiting;
       waiting = null;
       resolve(result);
+      return true;
     };
 
     const fail = (error: Error) => {

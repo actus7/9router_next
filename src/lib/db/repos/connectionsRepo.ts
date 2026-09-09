@@ -125,7 +125,8 @@ async function upsert(db: DbLike, c: ProviderConnection): Promise<void> {
      ON CONFLICT(id) DO UPDATE SET
        provider=excluded.provider, authType=excluded.authType, name=excluded.name,
        email=excluded.email, priority=excluded.priority, isActive=excluded.isActive,
-       data=excluded.data, updatedAt=excluded.updatedAt`,
+       data=excluded.data, updatedAt=excluded.updatedAt
+     WHERE providerConnections.userId = excluded.userId`,
     [r.id, currentTenantId(), r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.data, r.createdAt, r.updatedAt]
   );
 }

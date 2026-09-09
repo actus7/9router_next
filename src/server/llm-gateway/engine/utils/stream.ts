@@ -160,6 +160,25 @@ function trackContent(ctx: StreamContext, parsed: any) {
 }
 
 /** Emit translated items with optional usage injection and content filtering */
+/**
+ * Whether the *client* is waiting for OpenAI's `data: [DONE]` sentinel.
+ *
+ * `sourceFormat` is the client's dialect, `targetFormat` the provider's. Only
+ * the OpenAI family terminates a stream with the sentinel; Claude ends on
+ * `message_stop` and the Gemini family rejects `[DONE]` with a 400.
+ *
+ * Passthrough already emitted it and said why ("clients such as OpenClaw hang
+ * until timeout and trigger failover"). Translate did not, unless both sides
+ * happened to be openai-responses — so an OpenAI client talking to a Claude or
+ * Gemini provider, the most ordinary route through this gateway, got a stream
+ * that simply stopped.
+ */
+function clientExpectsDoneSentinel(ctx: StreamContext): boolean {
+  return ctx.sourceFormat === FORMATS.OPENAI
+    || ctx.sourceFormat === FORMATS.OPENAI_RESPONSES
+    || ctx.sourceFormat === FORMATS.OPENAI_RESPONSE;
+}
+
 function emitTranslatedItems(ctx: StreamContext, translated: TranslatedArray, controller: TransformStreamDefaultController, injectUsage = false) {
   // Log OpenAI intermediate chunks (if available)
   if (translated?._openaiIntermediate) {
@@ -303,7 +322,7 @@ function processTranslateLine(ctx: StreamContext, _line: string, trimmed: string
       ctx.sseEmittedCount++;
     }
 
-    if (keepsOpenAIResponsesFormat && !ctx.streamDoneSent) {
+    if (clientExpectsDoneSentinel(ctx) && !ctx.streamDoneSent) {
       const doneOutput = "data: [DONE]\n\n";
       ctx.reqLogger?.appendConvertedChunk?.(doneOutput);
       controller.enqueue(sharedEncoder.encode(doneOutput));
@@ -400,7 +419,7 @@ function flushTranslate(ctx: StreamContext, controller: TransformStreamDefaultCo
     ctx.openAIResponsesTerminalSeen = true;
   }
 
-  if (keepsOpenAIResponsesFormat && !ctx.openAIResponsesDoneSent && !ctx.streamDoneSent) {
+  if (clientExpectsDoneSentinel(ctx) && !ctx.streamDoneSent) {
     const doneOutput = "data: [DONE]\n\n";
     ctx.reqLogger?.appendConvertedChunk?.(doneOutput);
     controller.enqueue(sharedEncoder.encode(doneOutput));

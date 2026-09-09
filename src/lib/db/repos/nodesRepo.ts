@@ -58,7 +58,8 @@ async function upsert(db: DbLike, n: ProviderNode): Promise<void> {
     `INSERT INTO providerNodes(id, userId, type, name, data, createdAt, updatedAt)
      VALUES(?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
-       type=excluded.type, name=excluded.name, data=excluded.data, updatedAt=excluded.updatedAt`,
+       type=excluded.type, name=excluded.name, data=excluded.data, updatedAt=excluded.updatedAt
+     WHERE providerNodes.userId = excluded.userId`,
     [r.id, currentTenantId(), r.type, r.name, r.data, r.createdAt, r.updatedAt]
   );
 }

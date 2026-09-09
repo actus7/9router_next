@@ -21,6 +21,7 @@
  */
 
 import { qoderEncodeBody } from "../shared/qoder/encoding";
+import { peekFirstQoderFrame } from "../shared/qoder/peekFrame";
 import { buildCosyHeaders } from "../shared/qoder/cosy";
 import { v4 as uuidv4 } from "uuid";
 import { createHash } from "crypto";
@@ -218,52 +219,6 @@ async function buildQoderRequestBody({ model, body, credentials, log, proxyOptio
     },
     modelConfig,
   };
-}
-
-/**
- * Check if a qoder error message indicates a billing/quota block.
- * Signatures: code 112 (quota exhausted), code 10605 (queue throttle), pricingUrl field.
- */
-function isBillingBlock(inner: string) {
-  if (!inner || typeof inner !== "string") return false;
-  const lowerMsg = inner.toLowerCase();
-  // Match: {"code":"112",...}, {"code":"10605",...}, or pricingUrl field
-  return /\"code\"\s*:\s*\"(112|10605)\"/.test(inner) || lowerMsg.includes("pricingurl");
-}
-
-/**
- * Peek the first SSE frame to detect billing errors before piping.
- * Returns { isBilling, statusVal, message, consumed } — `consumed` is every
- * byte read so far (including the peeked line) so the caller can re-process
- * it and nothing is dropped from the stream.
- */
-async function peekFirstQoderFrame(reader: ReadableStreamDefaultReader<Uint8Array>, decoder: TextDecoder) {
-  let consumed = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) return { isBilling: false, consumed, upstreamDone: true };
-
-    consumed += decoder.decode(value, { stream: true });
-    const nl = consumed.indexOf("\n");
-    if (nl === -1) continue; // need a full line first
-
-    const line = consumed.slice(0, nl).replace(/\r$/, "").trim();
-    if (!line.startsWith("data:")) continue;
-
-    const data = line.slice(5).trimStart();
-    if (data === "[DONE]") return { isBilling: false, consumed };
-
-    let envelope;
-    try { envelope = JSON.parse(data); } catch { return { isBilling: false, consumed }; }
-
-    const statusVal = typeof envelope.statusCodeValue === "number" ? envelope.statusCodeValue : 200;
-    const inner = typeof envelope.body === "string" ? envelope.body : "";
-
-    if (statusVal !== 200 && isBillingBlock(inner)) {
-      return { isBilling: true, statusVal, message: inner || `qoder billing block (${statusVal})` };
-    }
-    return { isBilling: false, consumed };
-  }
 }
 
 /**

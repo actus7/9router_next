@@ -3,6 +3,7 @@ import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { DEFAULT_HEADROOM_URL, getHeadroomStatus } from "@/lib/headroom/detect";
 import { getManagedPid } from "@/lib/headroom/process";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
+import { currentTenantId } from "@/lib/db/tenant";
 
 
 // --- Request coalescing with short TTL cache ---
@@ -19,23 +20,26 @@ interface CachedEntry {
   result: unknown | null;
 }
 
-let cache: CachedEntry | null = null;
+// Keyed by account: the cached payload carries that account's `headroomUrl`,
+// so one shared entry handed it to every other account for the TTL.
+const caches: Map<string, CachedEntry> = new Map();
 
 /** Reset the coalescing cache. Exported for testing only. */
 export function resetHeadroomStatusCache(): void {
-  cache = null;
+  caches.clear();
 }
 
-function getCachedResult(): unknown | null {
+function getCachedResult(tenantId: string): unknown | null {
+  const cache = caches.get(tenantId);
   if (!cache || cache.resolvedAt === null) return null;
   if (Date.now() - cache.resolvedAt > CACHE_TTL_MS) {
-    cache = null; // expired
+    caches.delete(tenantId); // expired
     return null;
   }
   return cache.result;
 }
 
-function startComputation(url: string): Promise<unknown> {
+function startComputation(tenantId: string, url: string): Promise<unknown> {
   const p: Promise<unknown> = (async () => {
     const status = await getHeadroomStatus(url);
     const managedPid = getManagedPid();
@@ -43,7 +47,7 @@ function startComputation(url: string): Promise<unknown> {
   })();
 
   const entry: CachedEntry = { promise: p, resolvedAt: null, result: null };
-  cache = entry;
+  caches.set(tenantId, entry);
 
   p.then(
     (value: unknown) => {
@@ -52,7 +56,7 @@ function startComputation(url: string): Promise<unknown> {
     },
     () => {
       // On error, discard the cache entry so the next request retries.
-      if (cache === entry) cache = null;
+      if (caches.get(tenantId) === entry) caches.delete(tenantId);
     },
   );
 
@@ -62,8 +66,9 @@ function startComputation(url: string): Promise<unknown> {
 export async function GET() {
   await assertRequestRuntime();
   try {
+    const tenantId: string = currentTenantId();
     // Short-circuit: serve from cache if still valid.
-    const cached = getCachedResult();
+    const cached = getCachedResult(tenantId);
     if (cached !== null) {
       return NextResponse.json(cached);
     }
@@ -72,14 +77,15 @@ export async function GET() {
     const settings = await getSettings();
     const url = settings.headroomUrl || DEFAULT_HEADROOM_URL;
 
-    if (cache && cache.resolvedAt === null) {
+    const inFlight = caches.get(tenantId);
+    if (inFlight && inFlight.resolvedAt === null) {
       // Reuse in-flight promise (settings resolution is cheap; url may differ
       // only if settings changed mid-flight — acceptable for a 2s window).
-      const result = await cache.promise;
+      const result = await inFlight.promise;
       return NextResponse.json(result);
     }
 
-    const result = await startComputation(url);
+    const result = await startComputation(tenantId, url);
     return NextResponse.json(result);
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

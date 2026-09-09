@@ -20,9 +20,40 @@ const _migratedAdapters: WeakSet<object> = new WeakSet();
  * A destructive change (drop, rename, retype) is run by hand against the
  * branch, then reflected here.
  */
+/**
+ * `CREATE TABLE IF NOT EXISTS` is not atomic against a concurrent one.
+ *
+ * Two Postgres sessions running it at the same instant both see the table
+ * missing and both try to create it; the loser gets `23505 duplicate key value
+ * violates unique constraint "pg_type_typname_nsp_index"`, not a quiet no-op.
+ * That happens on every deploy, where several serverless instances cold-start
+ * together — and it used to be the one DDL here outside a try/catch, so the
+ * error escaped `initAdapter` and every route on that instance answered 500.
+ *
+ * A real failure still throws: the table is re-checked, and only an error that
+ * left it existing is treated as the race it is.
+ */
+async function createTable(
+  adapter: DbAdapter,
+  tableName: string,
+  def: (typeof TABLES)[keyof typeof TABLES],
+): Promise<void> {
+  try {
+    await adapter.exec(buildCreateTableSql(tableName, def));
+  } catch (e: unknown) {
+    const exists = await adapter.get(
+      `SELECT 1 AS present FROM information_schema.tables
+       WHERE table_schema = current_schema() AND table_name = ?`,
+      [tableName.toLowerCase()],
+    );
+    if (!exists) throw e;
+    console.warn(`[DB][sync] ${tableName} was created concurrently: ${(e as Error).message}`);
+  }
+}
+
 async function syncSchema(adapter: DbAdapter): Promise<void> {
   for (const [tableName, def] of Object.entries(TABLES)) {
-    await adapter.exec(buildCreateTableSql(tableName, def));
+    await createTable(adapter, tableName, def);
 
     // Postgres folds unquoted identifiers to lowercase, and the catalog stores
     // what was actually created — so the comparison has to be lowercase too.

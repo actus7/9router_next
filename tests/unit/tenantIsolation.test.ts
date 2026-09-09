@@ -99,6 +99,27 @@ function namesTenant(entry: Statement): boolean {
   return where !== entry.sql && /\buserId\b/i.test(where);
 }
 
+/**
+ * An upsert whose conflict target is not tenant-scoped must re-check the owner
+ * in its DO UPDATE.
+ *
+ * `namesTenant` only reads the INSERT column list, and that was enough to miss
+ * the real hole: `importDb` wrote `userId` on insert and then updated on
+ * `ON CONFLICT(id)`, matching on the primary key alone. An import naming
+ * another account's row id rewrote that row in place — on `apiKeys`, an
+ * account takeover. A conflict target that already names `userId` cannot cross
+ * accounts and needs no guard, and neither does `DO NOTHING`, which writes
+ * nothing on conflict.
+ */
+function upsertKeepsOwner(entry: Statement): boolean {
+  const target = /ON CONFLICT\s*\(([^)]*)\)/i.exec(entry.sql)?.[1];
+  if (target === undefined) return true;
+  if (/\buserId\b/i.test(target)) return true;
+  const doUpdate = /\bDO\s+UPDATE\b([\s\S]*)$/i.exec(entry.sql)?.[1];
+  if (doUpdate === undefined) return true;
+  return /\bWHERE\b[\s\S]*\buserId\b/i.test(doUpdate);
+}
+
 describe("tenant isolation", () => {
   it("finds the statements it is meant to be checking", () => {
     // A regex that silently stops matching would turn this whole file into a
@@ -115,6 +136,19 @@ describe("tenant isolation", () => {
       .map((entry) => `${entry.file}: ${entry.sql.slice(0, 110)}`);
 
     expect(offenders).toEqual([]);
+  });
+
+  it("re-checks the owner in every upsert whose conflict target is not tenant-scoped", () => {
+    const offenders = tenantStatements()
+      .filter((entry) => !upsertKeepsOwner(entry))
+      .map((entry) => `${entry.file}: ${entry.sql.slice(0, 110)}`);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("finds the upserts it is meant to be checking", () => {
+    const upserts = tenantStatements().filter((e) => /ON CONFLICT/i.test(e.sql));
+    expect(upserts.length).toBeGreaterThan(5);
   });
 
   it("keeps every deliberate exception real, so a rewrite cannot hide one", () => {

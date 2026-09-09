@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useNotificationStore } from "@/store/notificationStore";
 import { saveApiKey, updateConnection, updateNode } from "./connectionModalActions";
 import type { Connection, ConfirmState, ProviderNode } from "../types";
 
@@ -18,7 +17,6 @@ interface UseConnectionModalsArgs {
 export function useConnectionModals({
   providerId, initialConnections: _initialConnections, initialProvider: _initialProvider, isCompatible: _isCompatible, fetchConnections,
 }: UseConnectionModalsArgs) {
-  void (useNotificationStore());
   const [showOAuthModal, setShowOAuthModal] = useState<boolean>(false);
   const [showIFlowCookieModal, setShowIFlowCookieModal] = useState<boolean>(false);
   const [showAddApiKeyModal, setShowAddApiKeyModal] = useState<boolean>(false);

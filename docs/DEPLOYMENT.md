@@ -2,80 +2,102 @@
 
 ## The constraint that decides everything
 
-ModelHub keeps its state in an embedded SQLite file at `DATA_DIR/db/data.sqlite`,
-and `src/lib/db/driver.ts` reaches it through a **synchronous** adapter
-(`get`/`all`/`run`/`exec`/`transaction` all return without awaiting). Swapping in
-a network database is therefore not a configuration change — every repository in
-`src/lib/db/repos` and every caller would have to become async.
+ModelHub keeps its state in **Neon Postgres**, reached through
+`src/lib/db/adapters/postgresAdapter.ts`, and its identity in **Neon Auth**.
+Nothing that matters is on the container's disk any more: the provider
+credentials, the gateway API keys, the usage history, the settings and the
+sessions are all rows behind an account.
 
-So the hosting requirement is simply: **a writable disk that survives a restart.**
+So the hosting requirement is no longer "a writable disk". It is three
+environment variables:
+
+| Variable | Required | What breaks without it |
+|---|---|---|
+| `DATABASE_URL` | yes | Every route that touches data. The pooled endpoint (host contains `-pooler`) — the app opens interactive transactions, which the HTTP endpoint does not support |
+| `NEON_AUTH_BASE_URL` | yes | Sign-in. There is no operator password and no anonymous mode: a request with no account owns nothing |
+| `NEON_AUTH_COOKIE_SECRET` | yes | Session verification. At least 32 characters; changing it signs everybody out |
+
+`.env.example` is the full list, including the optional ones.
 
 ## Host suitability
 
-| Host | Boots | Keeps data | Verdict |
-|---|---|---|---|
-| Local machine, `npm start` | yes | yes | Supported — the primary target |
-| Docker with a volume | yes | yes | Supported — see below |
-| Fly.io / Railway / Render with a persistent volume | yes | yes | Supported |
-| VPS with systemd | yes | yes | Supported |
-| Vercel, Netlify, Cloudflare Workers | yes | **no** | Demo only |
+| Host | Verdict |
+|---|---|
+| Vercel | Supported. `vercel.json` sets `maxDuration: 300` for `src/app/api/**` — long completions need it, and Vercel's own default is 300s |
+| Docker with a volume | Supported — see below |
+| Fly.io / Railway / Render / a VPS | Supported |
+| Local machine, `npm start` | Supported |
 
-### Why serverless hosts are demo-only
+### What DATA_DIR still does
 
-They have no writable persistent filesystem. `os.homedir()` on Vercel reports a
-path that does not exist and cannot be created, so `src/lib/dataDir.ts` falls
-back to the OS temp directory. The app boots and every route works, but the
-database, the JWT secret and the backups are erased when the instance recycles —
-which is constantly.
+`DATA_DIR` holds only host-local, file-backed state: the Cloudflare/Tailscale
+tunnel and its binaries, pxpipe's install, headroom's process files and the
+machine id. On a host with no writable home directory the app falls back to the
+OS temp dir, warns at boot, reports `storageEphemeral: true` from
+`GET /api/settings` and shows a banner — all of which now mean *those features
+reset on restart*, not *your data is gone*. On a serverless host they are not
+usable anyway.
 
-This is visible rather than silent:
+## Vercel
 
-- a `[DATA_DIR] … is not writable → using '/tmp/modelhub'` warning at boot,
-- `storageEphemeral: true` in `GET /api/settings`,
-- a permanent banner across the top of the dashboard.
+Set the three required variables (plus `CREDENTIAL_KEY`, see below) in the
+project's environment, and deploy. `next.config.ts` drops `output: "standalone"`
+when `VERCEL` is present, because Vercel's adapter consumes Next's normal
+tracing manifests instead.
 
-The gateway itself is unaffected — provider calls, the OpenAI/Anthropic
-endpoints and the dashboard all work. What a serverless host cannot do is keep
-state, and it cannot write a CLI tool's config file for you either: see
-[CLI-TOOLS.md](CLI-TOOLS.md).
+`npm run build` runs `scripts/check-static-api-routes.mjs` after `next build`,
+so a route handler that lost its `assertRequestRuntime()` and got prerendered
+fails the deploy rather than serving a frozen build-time body forever.
 
-Setting `JWT_SECRET` on such a host is worth doing anyway — it at least keeps
-logins from breaking on every cold start — but it does not make provider
-credentials or usage history survive.
-
-## Docker (recommended for self-hosting)
+## Docker (self-hosting)
 
 ```bash
+cp .env.example .env      # fill in DATABASE_URL and the two Neon Auth values
 docker compose up -d --build
 ```
 
 Then open `http://localhost:20128`.
 
-The `modelhub-data` volume is the deployment. Back it up, and it is the only
-thing that has to move when the host does. Without the volume the container is
-no better than the serverless case.
+`docker-compose.yml` fails fast when a required variable is missing rather than
+starting a container that answers `/api/health` and 500s on everything else. The
+`modelhub-data` volume is still worth keeping — it holds the host-local state
+listed above — but it is no longer where the data lives.
 
 To run the image directly:
 
 ```bash
-docker build -t modelhub .
-docker run -d --name modelhub -p 20128:20128 -v modelhub-data:/data modelhub
+docker run -d --name modelhub -p 20128:20128 \
+  -e DATABASE_URL=... -e NEON_AUTH_BASE_URL=... -e NEON_AUTH_COOKIE_SECRET=... \
+  -v modelhub-data:/data modelhub
 ```
 
 ## Environment
 
 | Variable | Default | Effect |
 |---|---|---|
-| `DATA_DIR` | OS home dir, then OS temp dir | Where the database, backups and JWT secret live |
-| `JWT_SECRET` | generated and written to `DATA_DIR/jwt-secret` | Stable dashboard sessions. Required when `DATA_DIR` is not persistent, or across replicas |
-| `CREDENTIAL_KEY` | unset | Encrypts provider credentials at rest (AES-256-GCM). Unset means clear text, warned at boot |
+| `DATABASE_URL` | — | **Required.** Pooled Neon connection string |
+| `NEON_AUTH_BASE_URL` | — | **Required.** Neon Auth endpoint |
+| `NEON_AUTH_COOKIE_SECRET` | — | **Required.** Signs the session cookie |
+| `CREDENTIAL_KEY` | unset | Encrypts provider credentials at rest (AES-256-GCM). Unset means clear text in the database, warned at boot |
 | `CREDENTIAL_ENCRYPTION_REQUIRED` | `false` | Refuse to boot without `CREDENTIAL_KEY`. Off by default so upgrades do not brick installs that never opted in |
+| `DASHBOARD_ALLOWED_HOSTS` | empty (any) | Comma-separated hosts allowed to serve the dashboard |
+| `ALLOW_PRIVATE_PROVIDER_ENDPOINTS` | `false` | Lets an account point a provider at a private/loopback address. Needed for self-hosted Ollama; leave off on any deployment where people can sign up, where it is an SSRF primitive |
+| `RATE_LIMIT_GATEWAY_PER_MINUTE` | `600` | Per-account ceiling on gateway requests, counted per process. `0` disables |
+| `RATE_LIMIT_DASHBOARD_PER_MINUTE` | `1200` | Same, for dashboard API routes |
+| `DATA_DIR` | OS home dir, then OS temp dir | Host-local features only — tunnel, pxpipe, headroom, machine id |
 | `PORT` | `20128` | Listen port in the container |
 
-Rotation procedures for `CREDENTIAL_KEY` are in [OPERATIONS.md](OPERATIONS.md).
+Set `CREDENTIAL_KEY` before storing any provider credential. Rotation is in
+[OPERATIONS.md](OPERATIONS.md); losing the key makes existing encrypted
+credentials unrecoverable.
 
 ## Upgrading
 
-Schema changes back the database up before applying versioned migrations, so a
-normal restart on a new image is the upgrade path. Never delete or rewrite the
-database as a deployment shortcut — see [OPERATIONS.md](OPERATIONS.md).
+The schema is declarative and synced additively on boot: `syncSchema()` creates
+missing tables, adds missing columns and creates missing indexes. There is no
+versioned migration chain — Neon's branching covers the rollback case. A
+destructive change (drop, rename, retype) is run by hand against the branch and
+then reflected in `src/lib/db/schema.ts`.
+
+Concurrent cold starts after a deploy all run `syncSchema()` at once; the DDL is
+written to tolerate losing that race rather than failing the instance.

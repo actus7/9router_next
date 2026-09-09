@@ -1,17 +1,21 @@
 # Self-hosted runtime for ModelHub.
 #
-# This exists because the app is local-first: it keeps its state in an embedded
-# SQLite file under DATA_DIR, and `src/lib/db/driver.ts` talks to it through a
-# fully synchronous adapter. That rules out a network database without rewriting
-# every repository, so "production" means a host with a writable disk, and the
-# container has to be run with a volume. Vercel and other read-only serverless
-# hosts will boot (see src/lib/dataDir.ts) but erase the database on every
-# recycle — the dashboard says so in a banner.
+# The state is NOT in this image. Since the Neon migration the database, the
+# provider credentials, the API keys and the usage history live in Neon
+# Postgres, and sign-in is Neon Auth — so the container needs DATABASE_URL,
+# NEON_AUTH_BASE_URL and NEON_AUTH_COOKIE_SECRET to do anything at all. See
+# docs/DEPLOYMENT.md.
+#
+# The volume is still worth mounting: DATA_DIR holds the host-local, file-backed
+# state — the Cloudflare/Tailscale tunnel and its binaries, pxpipe's install,
+# headroom's process files and the machine id — which resets on every restart
+# without one.
 #
 # Debian rather than Alpine: better-sqlite3 is an optionalDependency with native
-# bindings and publishes glibc prebuilds. On musl it would be compiled from
-# source at install time, or silently skipped, dropping the app to a slower
-# driver in the fallback chain for no benefit.
+# bindings (used only to read Cursor's own local database when importing its
+# credentials) and publishes glibc prebuilds. On musl it would be compiled from
+# source at install time, or silently skipped.
+
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./

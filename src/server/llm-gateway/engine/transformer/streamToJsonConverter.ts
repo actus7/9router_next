@@ -4,6 +4,8 @@
  * Used when client requests non-streaming but provider forces streaming (e.g., Codex)
  */
 
+import { STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig";
+
 interface ConverterState {
   responseId: string;
   created: number;
@@ -50,11 +52,24 @@ function processSSEMessage(msg: string, state: ConverterState) {
 const EMPTY_RESPONSE = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
 
 /**
- * Convert Responses API SSE stream to single JSON response
+ * Convert Responses API SSE stream to single JSON response.
+ *
+ * The read loop is bounded by a stall watchdog. It had none: this path is the
+ * one taken when a `forceStream` provider (Codex) answers a client that asked
+ * for JSON, and `pipeWithDisconnect` — which owns the watchdog for the
+ * streaming path — is not involved. An upstream that sent `response.created`
+ * and then went quiet without closing left `reader.read()` pending forever,
+ * holding the request, the socket and a `trackPendingRequest` slot that only
+ * `trackDone()` releases.
+ *
  * @param {ReadableStream} stream - SSE stream from provider
+ * @param {number} stallTimeoutMs - Give up after this long with no bytes
  * @returns {Promise<Object>} Final JSON response in Responses API format
  */
-export async function convertResponsesStreamToJson(stream: ReadableStream | null | undefined) {
+export async function convertResponsesStreamToJson(
+  stream: ReadableStream | null | undefined,
+  stallTimeoutMs: number = STREAM_STALL_TIMEOUT_MS,
+) {
   if (!stream || typeof stream.getReader !== "function") {
     return { id: `resp_${Date.now()}`, object: "response", created_at: Math.floor(Date.now() / 1000), status: "failed", output: [], usage: { ...EMPTY_RESPONSE } };
   }
@@ -71,9 +86,40 @@ export async function convertResponsesStreamToJson(stream: ReadableStream | null
     items: new Map()
   };
 
+  // One symbol for the whole loop; only its identity matters.
+  const STALLED = Symbol("stalled");
+
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      // Races the read against a watchdog rather than aborting the stream: the
+      // caller owns the response body, and a stalled provider must fail the
+      // request instead of hanging it.
+      let stallTimer: ReturnType<typeof setTimeout> | undefined;
+      const watchdog = new Promise<typeof STALLED>((resolve) => {
+        stallTimer = setTimeout(() => resolve(STALLED), stallTimeoutMs);
+        stallTimer.unref?.();
+      });
+
+      const readPromise = reader.read();
+      // When the watchdog wins nothing awaits this any more, and a late
+      // rejection would surface as an unhandled rejection. Registering a
+      // handler here does not swallow it from the race below.
+      readPromise.catch(() => {});
+
+      let next: Awaited<ReturnType<typeof reader.read>> | typeof STALLED;
+      try {
+        next = await Promise.race([readPromise, watchdog]);
+      } finally {
+        clearTimeout(stallTimer);
+      }
+
+      if (next === STALLED) {
+        void reader.cancel().catch(() => {});
+        state.status = "failed";
+        break;
+      }
+
+      const { done, value } = next;
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });

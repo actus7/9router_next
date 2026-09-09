@@ -1,6 +1,7 @@
 ﻿import { EventEmitter } from "events";
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
+import { resolveApiKeyId } from "./apiKeyIdCache";
 import { bumpTenantMeta } from "../helpers/tenantMeta";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { toPersistenceError } from "../errors";
@@ -31,10 +32,17 @@ interface ConnectionMapCache {
   ts: number;
 }
 
-interface StatsEmitTimers {
+/**
+ * Debounce timers for the stats SSE, keyed by account.
+ *
+ * They used to be one pair for the whole process, which coalesced across
+ * accounts: while account A's 150ms window was open, a write by account B
+ * scheduled nothing, so B's dashboard simply missed the update.
+ */
+type StatsEmitTimers = Map<string, {
   pending: ReturnType<typeof setTimeout> | null;
   update: ReturnType<typeof setTimeout> | null;
-}
+}>;
 
 interface RingEntry {
   timestamp: string;
@@ -77,7 +85,7 @@ if (!global._statsEmitter) {
   global._statsEmitter = new EventEmitter();
   global._statsEmitter.setMaxListeners(50);
 }
-if (!global._statsEmitTimers) global._statsEmitTimers = { pending: null, update: null };
+if (!global._statsEmitTimers) global._statsEmitTimers = new Map();
 
 const runtimes: Map<string, TenantRuntime> = global._usageRuntime!;
 const statsEmitTimers: StatsEmitTimers = global._statsEmitTimers!;
@@ -99,14 +107,33 @@ function runtime(): TenantRuntime {
 
 export const statsEmitter: EventEmitter = global._statsEmitter!;
 
+/**
+ * Wakes only the SSE streams belonging to the account that wrote.
+ *
+ * The event name carries the account. It has to: the listener runs inside the
+ * `setTimeout` scheduled here, so it inherits *this* request's tenant context —
+ * a process-wide `emit("update")` therefore ran every other account's listener
+ * under this account's tenant, and `getUsageStats()` shipped one account's
+ * models, connections, masked keys and costs to every open dashboard.
+ */
+export function statsEventName(event: "update" | "pending", tenantId: string): string {
+  return `${event}:${tenantId}`;
+}
+
 function scheduleStatsEvent(event: string, delayMs: number = 150): void {
   const key: "update" | "pending" = event === "update" ? "update" : "pending";
-  if (statsEmitTimers[key]) return;
-  statsEmitTimers[key] = setTimeout(() => {
-    statsEmitTimers[key] = null;
-    statsEmitter.emit(event);
+  const tenantId: string = currentTenantId();
+  let timers = statsEmitTimers.get(tenantId);
+  if (!timers) {
+    timers = { pending: null, update: null };
+    statsEmitTimers.set(tenantId, timers);
+  }
+  if (timers[key]) return;
+  timers[key] = setTimeout(() => {
+    timers[key] = null;
+    statsEmitter.emit(statsEventName(key, tenantId));
   }, delayMs);
-  statsEmitTimers[key]?.unref?.();
+  timers[key]?.unref?.();
 }
 
 function getLocalDateKey(timestamp?: string): string {
@@ -377,37 +404,6 @@ export async function getActiveRequests(): Promise<ActiveRequestsResult> {
 
   const errorProvider: string = (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "";
   return { activeRequests, recentRequests, errorProvider };
-}
-
-// Resolving the api key to its row id happens on every usage write, so it must
-// not be a query per request. Mirrors getConnectionMapCached below (dynamic
-// import + TTL), with one difference that matters: a cache miss forces a
-// refresh instead of giving up. A key minted seconds ago has to resolve
-// immediately — otherwise its first requests would store the raw secret in
-// usageHistory, which has no pruning, and migration 009 has already run.
-const KEY_CACHE_TTL_MS: number = 30 * 1000;
-const KEY_CACHE_MIN_REFRESH_MS: number = 5 * 1000;
-const apiKeyIdCache: { map: Record<string, string>; ts: number } = { map: {}, ts: 0 };
-
-async function refreshApiKeyIdCache(): Promise<void> {
-  const { getApiKeys } = await import("./apiKeysRepo");
-  const map: Record<string, string> = {};
-  for (const k of await getApiKeys()) map[k.key] = k.id;
-  apiKeyIdCache.map = map;
-  apiKeyIdCache.ts = Date.now();
-}
-
-async function resolveApiKeyId(key: string): Promise<string | null> {
-  const age = Date.now() - apiKeyIdCache.ts;
-  if (age < KEY_CACHE_TTL_MS) {
-    const hit = apiKeyIdCache.map[key];
-    if (hit) return hit;
-    // Unknown key with a warm cache: refresh, but not on every request — a key
-    // that is not ours at all would otherwise re-read the table each time.
-    if (age < KEY_CACHE_MIN_REFRESH_MS) return null;
-  }
-  await refreshApiKeyIdCache();
-  return apiKeyIdCache.map[key] ?? null;
 }
 
 export async function saveRequestUsage(entry: UsageEntry): Promise<void> {

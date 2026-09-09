@@ -4,7 +4,7 @@ import { probeModel } from "../../probeModel";
 import { useRef, useState } from "react";
 import { getModelKind } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { saveModelTestLatency } from "@/shared/utils/modelTestLatency";
 import { pingModelWithRetry, isDefinitivelyUnavailableModel } from "./modelTestHelpers";
 import type { LiveModel, ModelDiagnostic } from "../types";
@@ -24,7 +24,6 @@ interface UseModelTestingArgs {
 export function useModelTesting({
   providerStorageAlias, providerId, models, kiloFreeModels, disabledModelIds, onDisableModels,
 }: UseModelTestingArgs) {
-  const notify = useNotificationStore();
   const [modelTestResults, setModelTestResults] = useState<Record<string, "ok" | "error">>({});
   const [modelsTestError, setModelsTestError] = useState<string>("");
   const [testingModelIds, setTestingModelIds] = useState<Set<string>>(() => new Set());

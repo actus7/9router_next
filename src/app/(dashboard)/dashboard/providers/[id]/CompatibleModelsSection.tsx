@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 import { Download, Plus } from "lucide-react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import CompatibleModelRow from "./components/CompatibleModelRow";
 import { importModelsFromEndpoint, testCompatibleModel } from "./compatibleModelHelpers";
@@ -29,7 +29,6 @@ interface CompatibleModelsSectionProps {
 }
 
 export default function CompatibleModelsSection({ providerStorageAlias, providerDisplayAlias, modelAliases, customModels, copied, onCopy, onDeleteAlias, onAddCustomModel, onDeleteCustomModel, connections, isAnthropic }: CompatibleModelsSectionProps) {
-  const notify = useNotificationStore();
   const [newModel, setNewModel] = useState<string>("");
   const [adding, setAdding] = useState<boolean>(false);
   const [importing, setImporting] = useState<boolean>(false);

@@ -4,6 +4,7 @@ import { NextResponse, connection } from "next/server";
 
 import { auth } from "@/lib/auth/server";
 import { withTenant } from "@/lib/db/tenant";
+import { RATE_LIMIT_WINDOW_MS, consumeRateLimit, dashboardRateLimit } from "./rateLimit";
 
 /**
  * The account behind the current request, or null when nobody is signed in.
@@ -48,6 +49,16 @@ export function tenantRoute<A extends unknown[]>(handler: Handler<A>): (...args:
     await connection();
     const userId: string | null = await currentUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // A ceiling, not a quota. The dashboard polls and streams, so it sits well
+    // above normal use; what it stops is a signed-in account looping an
+    // endpoint that makes its own outbound request or writes to Neon.
+    const limited = consumeRateLimit(`dash:${userId}`, dashboardRateLimit(), RATE_LIMIT_WINDOW_MS);
+    if (!limited.allowed) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
+      );
+    }
     return withTenant(userId, async () => handler(...args));
   };
 }

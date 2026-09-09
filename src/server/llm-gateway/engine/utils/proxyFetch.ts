@@ -203,6 +203,12 @@ async function getDispatcher(proxyUrl: string) {
  * Create HTTPS request with manual socket connection (bypass DNS)
  */
 
+function isAbortError(error: unknown): boolean {
+  const err = error as { name?: string; code?: string; cause?: { name?: string; code?: string } } | null;
+  return err?.name === "AbortError" || err?.cause?.name === "AbortError"
+    || err?.code === "ABORT_ERR" || err?.cause?.code === "ABORT_ERR";
+}
+
 export async function proxyAwareFetch(url: string | URL, options: RequestInit & { dispatcher?: unknown } = {}, proxyOptions: ProxyOptions | null = null): Promise<Response> {
   const targetUrl = typeof url === "string" ? url : url.toString();
 
@@ -231,6 +237,16 @@ export async function proxyAwareFetch(url: string | URL, options: RequestInit & 
       // If strictProxy is enabled, fail hard instead of falling back to direct
       if (proxyOptions?.strictProxy === true) {
         throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyErrMsg}`);
+      }
+      // The caller went away: retrying direct would fire a second full upstream
+      // request — a second generation, a second charge — for nobody.
+      if (isAbortError(proxyError)) throw proxyError;
+      // A proxy attached to *this connection* is part of the account's identity:
+      // the provider ties the session to that egress IP. Silently re-issuing the
+      // request from the server's own address is what gets the account flagged,
+      // so a per-connection proxy never falls back, whatever strictProxy says.
+      if (connectionProxyUrl) {
+        throw new Error(`[ProxyFetch] Connection proxy failed and direct would leak the real IP: ${proxyErrMsg}`);
       }
       console.warn(`[ProxyFetch] Proxy failed, falling back to direct: ${proxyErrMsg}`);
       return originalFetch(url, options);

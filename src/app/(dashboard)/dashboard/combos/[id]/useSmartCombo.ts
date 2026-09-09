@@ -1,13 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTierOrDefault, type SmartModelProfile, type SmartRoutingConfig } from "@/shared/llm-catalog";
 import { getStoredModelTestLatencies } from "@/shared/utils/modelTestLatency";
 import { ALL_TIERS, capProfilesPerTier, normalizeConfig, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview } from "./smartComboHelpers";
 
 export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartModelProfile[]) {
-  const notify = useNotificationStore();
   const [name, setName] = useState(initialCombo.name);
   const [config, setConfig] = useState<SmartRoutingConfig>(() => normalizeConfig(initialCombo.routing));
   const [globalModels, setGlobalModels] = useState<string[]>(initialCombo.models || []);

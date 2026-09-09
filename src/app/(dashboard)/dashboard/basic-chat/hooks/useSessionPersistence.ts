@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { translate } from "@/i18n/runtime";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { ensureBuiltinMcpServers } from "@/shared/harness/builtinMcpServers";
 import { FREE_DEFAULT_MODEL_KEY } from "@/shared/constants/freeDefault";
 import { createId } from "../chatFormatUtils";
@@ -63,7 +63,6 @@ export interface UseSessionPersistenceArgs {
 }
 
 export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
-  const notify = useNotificationStore();
   const {
     providerGroups,
     loadingData,
@@ -187,7 +186,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     return () => {
       cancelled = true;
     };
-  }, [isHydrated, notify, serverSessionsReadyRef, setSessions]);
+  }, [isHydrated, serverSessionsReadyRef, setSessions]);
 
   // Load or create API key
   useEffect(() => {
@@ -383,7 +382,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     return () => {
       if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current);
     };
-  }, [isHydrated, notify, serverSessionsReadyRef, serverSyncTimerRef, sessions]);
+  }, [isHydrated, serverSessionsReadyRef, serverSyncTimerRef, sessions]);
 
   // Auto-connect Context7 (no token required): discover its tools as soon as a
   // session carries the built-in server without them, so it works out of the

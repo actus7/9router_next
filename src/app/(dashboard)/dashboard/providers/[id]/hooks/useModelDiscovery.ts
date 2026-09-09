@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { translate } from "@/i18n/runtime";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { fetchSuggestedModels, type ModelsFetcher } from "@/shared/utils/providerModelsFetcher";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { refreshModels, clearProviderModels } from "./modelRefreshHelpers";
@@ -35,7 +35,6 @@ export function useModelDiscovery({
   onAddCustomModel, onFetchDisabledModels, onClearTestResults,
   setCustomModels, setModelAliases, setDisabledModelIds,
 }: UseModelDiscoveryArgs) {
-  const notify = useNotificationStore();
   const [suggestedModels, setSuggestedModels] = useState<SuggestedModel[]>([]);
   const [liveModels, setLiveModels] = useState<LiveModel[]>([]);
   const [kiloFreeModels, setKiloFreeModels] = useState<LiveModel[]>([]);

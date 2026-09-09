@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, getProvidersByKind } from "@/shared/constants/providers";
 import { ChevronRight, Globe, Layers, Plus, Search } from "lucide-react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 
 interface Connection {
   provider: string;
@@ -178,7 +178,6 @@ interface WebMediaProvidersClientProps {
 }
 
 export default function WebMediaProvidersClient({ initialConnections, initialCombos }: WebMediaProvidersClientProps) {
-  const notify = useNotificationStore();
   const router = useRouter();
   const [connections, ] = useState<Connection[]>(initialConnections);
   const [combos, ] = useState<Combo[]>(initialCombos);

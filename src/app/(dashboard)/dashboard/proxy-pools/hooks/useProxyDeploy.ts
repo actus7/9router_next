@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 
 export function useProxyDeploy(fetchProxyPools: () => Promise<void>) {
   const [showVercelModal, setShowVercelModal] = useState(false);
@@ -13,7 +13,6 @@ export function useProxyDeploy(fetchProxyPools: () => Promise<void>) {
   const [denoForm, setDenoForm] = useState({ denoToken: "", orgDomain: "", projectName: "" });
   const [deploying, setDeploying] = useState(false);
   const relayMenuRef = useRef<HTMLDivElement>(null);
-  const notify = useNotificationStore();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

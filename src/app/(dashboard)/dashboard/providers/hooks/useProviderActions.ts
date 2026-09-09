@@ -1,6 +1,6 @@
 "use client";
 
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { normalizeProviderId } from "@/lib/providerNormalization";
 import type { Connection, TestResults } from "../types";
@@ -12,7 +12,6 @@ export function useProviderActions(
   setTestingMode: React.Dispatch<React.SetStateAction<string | null>>,
   setTestResults: React.Dispatch<React.SetStateAction<TestResults | null>>,
 ) {
-  const notify = useNotificationStore();
 
   const handleToggleProvider = async (
     providerId: string,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import type { ProxyPool, ConfirmState } from "../types";
 import { normalizeFormData } from "../types";
@@ -18,7 +18,6 @@ export function useProxyPools(initialProxyPools: ProxyPool[]) {
   const [healthProgress, setHealthProgress] = useState({ current: 0, total: 0 });
   const [bulkBusy, setBulkBusy] = useState(false);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
-  const notify = useNotificationStore();
 
   const fetchProxyPools = useCallback(async () => {
     try {

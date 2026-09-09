@@ -11,10 +11,15 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-let cache: CacheEntry = { value: null, expiresAt: 0 };
+/**
+ * Keyed by account. It was a single entry, and `getPricing()` merges the
+ * caller's own overrides into the constant table — so for the 5s TTL every
+ * other account was billed with, and shown, the first caller's custom prices.
+ */
+const cache: Map<string, CacheEntry> = new Map();
 
 function invalidate(): void {
-  cache = { value: null, expiresAt: 0 };
+  cache.delete(currentTenantId());
 }
 
 async function getUserPricing(): Promise<Record<string, Record<string, unknown>>> {
@@ -32,7 +37,9 @@ export async function getPricingOverrides(): Promise<Record<string, Record<strin
 
 export async function getPricing(): Promise<Record<string, Record<string, unknown>>> {
   const now: number = Date.now();
-  if (cache.value && cache.expiresAt > now) return cache.value;
+  const tenantId: string = currentTenantId();
+  const hit: CacheEntry | undefined = cache.get(tenantId);
+  if (hit?.value && hit.expiresAt > now) return hit.value;
 
   const userPricing: Record<string, Record<string, unknown>> = await getUserPricing();
   const { PROVIDER_PRICING } = await import("@/server/llm-gateway/engine/providers/pricing");
@@ -59,7 +66,7 @@ export async function getPricing(): Promise<Record<string, Record<string, unknow
     }
   }
 
-  cache = { value: merged, expiresAt: now + CACHE_TTL_MS };
+  cache.set(tenantId, { value: merged, expiresAt: now + CACHE_TTL_MS });
   return merged;
 }
 

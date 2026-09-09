@@ -16,8 +16,10 @@ const LOG_LEVEL_COLORS: Record<string, string> = {
 };
 
 function colorLine(line: string) {
-  const match = line.match(/\[(\w+)\]/g);
-  const levelTag = match ? match[1]?.replace(/\[|\]/g, "") : null;
+  // No /g flag: with it, String.match returns whole matches, so match[1] was
+  // the *second* bracketed token on the line, never the level — which is why
+  // every line rendered in the default green.
+  const levelTag = /\[(\w+)\]/.exec(line)?.[1] ?? null;
   const color = LOG_LEVEL_COLORS[levelTag ?? ""] || "text-success";
   return <span className={color}>{line}</span>;
 }
@@ -42,19 +44,26 @@ export default function ConsoleLogClient() {
     es.onopen = () => setConnected(true);
 
     es.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
+      // A malformed frame, or an "init" with no `logs`, threw inside onmessage
+      // and killed the log stream silently — the page just stopped updating.
+      let msg: { type?: string; logs?: unknown; line?: unknown; lines?: unknown };
+      try {
+        msg = JSON.parse(e.data);
+      } catch (err) {
+        console.error("[console-log] bad frame:", err);
+        return;
+      }
+      const cap = (next: string[]) =>
+        next.length > CONSOLE_LOG_CONFIG.maxLines ? next.slice(-CONSOLE_LOG_CONFIG.maxLines) : next;
+
       if (msg.type === "init") {
-        setLogs(msg.logs.slice(-CONSOLE_LOG_CONFIG.maxLines));
+        setLogs(Array.isArray(msg.logs) ? cap(msg.logs as string[]) : []);
       } else if (msg.type === "line") {
-        setLogs((prev) => {
-          const next = [...prev, msg.line];
-          return next.length > CONSOLE_LOG_CONFIG.maxLines ? next.slice(-CONSOLE_LOG_CONFIG.maxLines) : next;
-        });
+        if (typeof msg.line !== "string") return;
+        setLogs((prev) => cap([...prev, msg.line as string]));
       } else if (msg.type === "lines") {
-        setLogs((prev) => {
-          const next = [...prev, ...msg.lines];
-          return next.length > CONSOLE_LOG_CONFIG.maxLines ? next.slice(-CONSOLE_LOG_CONFIG.maxLines) : next;
-        });
+        if (!Array.isArray(msg.lines)) return;
+        setLogs((prev) => cap([...prev, ...(msg.lines as string[])]));
       } else if (msg.type === "clear") {
         setLogs([]);
       }

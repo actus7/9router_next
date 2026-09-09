@@ -152,9 +152,10 @@ function buildStreamingResponse(body: ReadableStream, model: string, cid: string
         const reader = body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        let terminated = false;
 
         try {
-          while (true) {
+          while (!terminated) {
             if (signal?.aborted) break;
             const { value, done } = await reader.read();
             if (done) break;
@@ -163,13 +164,21 @@ function buildStreamingResponse(body: ReadableStream, model: string, cid: string
             buffer = lines.pop() || "";
             for (const line of lines) {
               if (processT3StreamLine(line, encoder, cid, created, model, controller)) {
+                // `break` only left the inner for-loop: the outer read kept
+                // going, so lines after the terminal frame still emitted
+                // content, and a t3.chat socket held open after `done` left
+                // the client hanging.
                 buffer = "";
+                terminated = true;
                 break;
               }
             }
           }
         } finally {
-          reader.releaseLock();
+          // Stop the upstream too: without this it keeps sending into a
+          // connection nobody reads until it times out.
+          void reader.cancel().catch(() => {});
+          try { reader.releaseLock(); } catch { /* cancel already detached it */ }
         }
 
         controller.enqueue(encoder.encode(sseChunk({

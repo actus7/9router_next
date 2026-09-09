@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { useConnectionModals } from "./useConnectionModals";
 import { useProviderSettings } from "./useProviderSettings";
 import { useOneByOneTest } from "./useOneByOneTest";
@@ -22,7 +22,6 @@ interface UseProviderConnectionsArgs {
 export function useProviderConnections({
   providerId, initialConnections, initialProvider, initialPools, initialSettings, isCompatible,
 }: UseProviderConnectionsArgs) {
-  const notify = useNotificationStore();
 
   const [connections, setConnections] = useState<Connection[]>(initialConnections);
   const [showOptionalKeySection, setShowOptionalKeySection] = useState<boolean>(initialConnections.length > 0);

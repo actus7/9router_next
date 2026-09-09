@@ -16,6 +16,12 @@ export function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp,
   const style = { transform: CSS.Transform.toString(transform), opacity: isDragging ? 0.4 : 1, zIndex: isDragging ? 999 : undefined };
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(model);
+  // Both lists key their rows by position, so dragging, reordering or removing
+  // a row reuses this instance for a different model. Without resyncing, the
+  // draft kept the previous row's text and `commit()` wrote it over the new
+  // one — a silently corrupted routing list.
+  const [lastModel, setLastModel] = useState(model);
+  if (lastModel !== model) { setLastModel(model); setDraft(model); }
   const commit = () => {
     const trimmed = draft.trim();
     if (trimmed && trimmed !== model) onEdit(trimmed); else setDraft(model);

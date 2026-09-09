@@ -1,5 +1,6 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
+import { assertProviderEndpointAllowed } from "@/server/security/providerEndpoint";
 import { deleteProviderConnectionsByProvider, deleteProviderNode, getProviderConnections, getProviderNodeById, updateProviderConnection, updateProviderNode } from "@/models";
 
 // PUT /api/provider-nodes/[id] - Update provider node
@@ -7,27 +8,28 @@ async function handlePUT(request: NextRequest, { params }: RouteContext<"/api/pr
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, prefix, apiType, baseUrl } = body;
+    const { name, prefix, apiType, baseUrl } = (body ?? {}) as Record<string, unknown>;
     const node = await getProviderNodeById(id);
 
     if (!node) {
       return NextResponse.json({ error: "Provider node not found" }, { status: 404 });
     }
 
-    if (!name?.trim()) {
+    // Typed before trimmed: a non-string field used to throw and answer 500.
+    if (typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    if (!prefix?.trim()) {
+    if (typeof prefix !== "string" || !prefix.trim()) {
       return NextResponse.json({ error: "Prefix is required" }, { status: 400 });
     }
 
     // Only validate apiType for OpenAI Compatible nodes
-    if (node.type === "openai-compatible" && (!apiType || !["chat", "responses"].includes(apiType))) {
+    if (node.type === "openai-compatible" && (typeof apiType !== "string" || !["chat", "responses"].includes(apiType))) {
       return NextResponse.json({ error: "Invalid OpenAI compatible API type" }, { status: 400 });
     }
 
-    if (!baseUrl?.trim()) {
+    if (typeof baseUrl !== "string" || !baseUrl.trim()) {
       return NextResponse.json({ error: "Base URL is required" }, { status: 400 });
     }
 
@@ -47,6 +49,14 @@ async function handlePUT(request: NextRequest, { params }: RouteContext<"/api/pr
       if (sanitizedBaseUrl.endsWith("/embeddings")) {
         sanitizedBaseUrl = sanitizedBaseUrl.slice(0, -"/embeddings".length);
       }
+    }
+
+    // Same gate as the create route: an update must not be a way to move an
+    // existing node onto a private address after the fact.
+    try {
+      assertProviderEndpointAllowed(sanitizedBaseUrl);
+    } catch (error) {
+      return NextResponse.json({ error: (error as Error).message }, { status: 400 });
     }
 
     const updates: Record<string, unknown> = {

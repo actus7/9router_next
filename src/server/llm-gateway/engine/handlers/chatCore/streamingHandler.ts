@@ -85,6 +85,25 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     };
   }
 
+  // A bodiless upstream reaches here: 204, or a 200 with no content-type at all
+  // (the check above only runs when the header is present). `pipeWithDisconnect`
+  // then does `providerResponse.body!.pipeThrough(...)` and throws a TypeError
+  // that nothing above catches — a 500 to the client instead of a fallback to
+  // the next account.
+  if (!providerResponse.body) {
+    const status = providerResponse.status || 502;
+    if (log?.errorLine) log.errorLine(reqTag, "✗", `BLOCKED ${status} · ${provider}/${model} · empty upstream body`);
+    else console.warn(`[STREAM] ${provider} | ${model} | blocked pipe: empty upstream body [${status}]`);
+    streamController?.handleError?.(new Error(`upstream empty body: ${status}`));
+    return {
+      success: false,
+      response: new Response(JSON.stringify({ error: { message: `[${status}]: upstream returned an empty body` } }), {
+        status: status === 204 ? 502 : status,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      }),
+    };
+  }
+
   const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey });
 
   const isResponsesPassthrough = sourceFormat === FORMATS.OPENAI_RESPONSES && targetFormat === FORMATS.OPENAI_RESPONSES;

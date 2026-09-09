@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import dynamic from "next/dynamic";
 import { ArrowRight, Braces, ChevronDown, ChevronRight, Copy, FolderOpen, Send } from "lucide-react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -47,7 +47,6 @@ const EDITOR_OPTIONS = {
 };
 
 export default function TranslatorClient() {
-  const notify = useNotificationStore();
   const [contents, setContents] = useState<Record<number, string>>({});
   const [expanded, setExpanded] = useState<Record<number, boolean>>({ 1: true });
   const [loading, setLoading] = useState<Record<string, boolean>>({});

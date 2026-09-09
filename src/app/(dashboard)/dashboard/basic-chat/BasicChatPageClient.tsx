@@ -87,11 +87,17 @@ export default function BasicChatPageClient() {
         <ChatRunJournal harnessHook={harnessHook} />
         <ChatMobileHistoryMenu sessionsHook={chatSessions} />
 
-        {sendHook.chatError ? (
+        {/*
+          * `providerLoadError` was computed and then never rendered anywhere.
+          * When /api/providers fails, or no provider has an eligible model, the
+          * composer is disabled by `!activeModel` and the screen says nothing —
+          * which reads as the product being broken rather than unconfigured.
+          */}
+        {sendHook.chatError || modelsHook.providerLoadError ? (
           <div className="mx-6 mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="size-4 shrink-0 mt-0.5" />
-              <p className="text-xs leading-5">{sendHook.chatError}</p>
+              <p className="text-xs leading-5">{sendHook.chatError || modelsHook.providerLoadError}</p>
             </div>
           </div>
         ) : null}

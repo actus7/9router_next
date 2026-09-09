@@ -4,7 +4,6 @@ export interface Settings {
   comboStrategy?: string;
   stickyRoundRobinLimit?: number;
   comboStickyRoundRobinLimit?: number;
-  hasPassword?: boolean;
   enableObservability?: boolean;
   outboundProxyEnabled?: boolean;
   outboundProxyUrl?: string;

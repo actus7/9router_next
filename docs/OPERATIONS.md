@@ -2,7 +2,16 @@
 
 ## Database changes
 
-Run the normal application startup or migration workflow; schema changes trigger a local backup before versioned migrations. Export/import includes provider connections and model availability. Never delete or rewrite the database as a deployment shortcut.
+The schema is declarative. `syncSchema()` runs on boot and is additive only: it
+creates missing tables, adds missing columns and creates missing indexes. There
+is no versioned migration chain and no local backup step — that pair belonged to
+the file-backed SQLite database, and Neon's branching covers the "undo a bad
+change" case they existed for. A destructive change (drop, rename, retype) is
+run by hand against the branch and then reflected in `src/lib/db/schema.ts`.
+
+Export/import (`GET`/`POST /api/settings/database`) is scoped to the calling
+account and covers provider connections and model availability. Never delete or
+rewrite the database as a deployment shortcut.
 
 `modelAvailability` is disposable operational state: expired rows are cleaned automatically. Connection test status is durable diagnostic state and must be changed only by an explicit connection test or user action.
 
@@ -15,7 +24,7 @@ is set. Three states, chosen by configuration rather than by code:
 | Configuration | Behaviour |
 |---|---|
 | `CREDENTIAL_KEY` unset | Plaintext. Boots, warns on every boot, and reports `credentialEncryptionEnabled: false` from `GET /api/settings`. |
-| `CREDENTIAL_KEY` set | Encrypted. Existing rows are encrypted by migration 010 on the next boot. |
+| `CREDENTIAL_KEY` set | Encrypted. Rows written from then on are encrypted; plaintext rows already stored are read as-is and re-encrypted when next written. |
 | `CREDENTIAL_ENCRYPTION_REQUIRED=true` with no key | **Refuses to start**, naming both variables in the error. |
 
 Plaintext is the default on purpose: an upgrade must not stop an install that
@@ -25,16 +34,15 @@ checked before the legacy JSON import writes any credential.
 
 **Losing the key makes encrypted credentials unrecoverable.** They are dropped
 on read with an error in the log, and every affected provider has to be
-reconnected. Keep it wherever you keep secrets, not beside the database file.
+reconnected. Keep it wherever you keep secrets, not beside the connection
+string.
 
 Encrypted and plaintext rows coexist — a value without the `v1:` prefix is read
-as-is — so introducing the key needs no flag day, and migration 010 is
-idempotent.
+as-is — so introducing the key needs no flag day.
 
-One thing the migration cannot fix: `backup.ts` copies the stored bytes, so a
-backup taken *after* encryption is encrypted, but one taken *before* is not.
-Prune or re-take the backups under `<DATA_DIR>/db/backups` if plaintext copies
-there matter to you.
+One thing turning the key on cannot fix: an export taken *before* it was set
+contains plaintext credentials, and `GET /api/settings/database` hands that file
+to whoever downloaded it. Delete any such export you still have.
 
 ## Rotating a gateway API key
 

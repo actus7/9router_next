@@ -42,6 +42,9 @@ const ALWAYS_PROTECTED: string[] = [
 ];
 
 const LOCAL_ONLY_PATHS: string[] = [
+  // Stops the process. Nobody reaching the deployment over the network has any
+  // business doing that, signed in or not — it is the CLI updating itself.
+  "/api/version/update",
   "/api/cli-tools/cowork-settings",
   "/api/mcp/",
   "/api/tunnel/tailscale-install",

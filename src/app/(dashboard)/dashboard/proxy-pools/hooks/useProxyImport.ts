@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import type { ProxyPool } from "../types";
 
@@ -9,7 +9,6 @@ export function useProxyImport(proxyPools: ProxyPool[], fetchProxyPools: () => P
   const [showBatchImportModal, setShowBatchImportModal] = useState(false);
   const [batchImportText, setBatchImportText] = useState("");
   const [importing, setImporting] = useState(false);
-  const notify = useNotificationStore();
 
   const openBatchImportModal = () => {
     setBatchImportText("");

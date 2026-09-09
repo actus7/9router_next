@@ -30,7 +30,7 @@ inteira desse problema — o npm só resolve a subárvore da plataforma onde rod
 
 ## Riscos de segurança (fora de escopo desta revisão)
 
-1. ~~**Credenciais em plaintext no SQLite**~~ — **resolvido, com uma ressalva.** `apiKey`, `accessToken`, `refreshToken` e `idToken` dentro de `providerConnections.data` agora são cifrados com AES-256-GCM por campo (`src/lib/db/helpers/credentialCipher.ts`), chave derivada de `CREDENTIAL_KEY` com scrypt, linhas existentes migradas pela 010. O backup herda de graça, porque copia os bytes já cifrados. A propagação para fora do banco também fechou: cada destino recebe chave própria registrada em `apiKeys.sink`, e `usageHistory.apiKey` guarda o id da linha (migration 009) — rotação em `docs/OPERATIONS.md`.
+1. ~~**Credenciais em plaintext no SQLite**~~ — **resolvido, com uma ressalva.** `apiKey`, `accessToken`, `refreshToken` e `idToken` dentro de `providerConnections.data` agora são cifrados com AES-256-GCM por campo (`src/lib/db/helpers/credentialCipher.ts`), chave derivada de `CREDENTIAL_KEY` com scrypt, rows novas cifradas na escrita e as antigas lidas como estão. A propagação para fora do banco também fechou: cada destino recebe chave própria registrada em `apiKeys.sink`, e `usageHistory.apiKey` guarda o id da linha — rotação em `docs/OPERATIONS.md`.
 
    **A ressalva:** sem `CREDENTIAL_KEY` definida o app roda em claro, avisando a cada boot e expondo o estado em `GET /api/settings` (`credentialEncryptionEnabled`). Isso é deliberado — recusar o boot brickaria instalações que nunca optaram. Onde plaintext não é aceitável, `CREDENTIAL_ENCRYPTION_REQUIRED=true` faz o app recusar subir sem a chave; a política é configuração, não decisão de código. Ver `docs/OPERATIONS.md`.
 2. ~~**Secrets padrão previsíveis**~~ — **reclassificado, não era risco.** Ver as duas seções abaixo.
@@ -98,28 +98,26 @@ mesmo formato (`sk-{machineId}-{keyId}-{8}`), sem secret para vazar ou rotaciona
 Um digest com chave que nenhum leitor confere é complexidade que *parece*
 segurança, o que é pior do que não ter.
 
-## Senha padrão — residual local, por escolha
+## Senha padrão — removida pela migração para Neon Auth
 
-O registro tratava a senha `123456` (`src/lib/auth/dashboardSession.ts`) como
-exposição. O acesso remoto **já está fechado**:
-`use-cases/http/auth/login/route.ts:67` calcula
-`mustChangePassword = !storedHash && !INITIAL_PASSWORD && !isLocalRequest(request)`
-e devolve **403 sem emitir token de sessão**, com o raciocínio documentado no
-próprio código — emitir um JWT com senha pública permitiria a um atacante remoto
-dar `PATCH /api/settings` e desligar a autenticação.
+A entrada anterior discutia a senha `123456` em `src/lib/auth/dashboardSession.ts`
+e o cálculo de `mustChangePassword` em `use-cases/http/auth/login/route.ts`.
+**Nenhum dos dois arquivos existe.** Identidade é Neon Auth e só Neon Auth: não há
+senha de operador, não há rota de login própria, e `SecurityCard` manda o usuário
+para o provedor.
 
-O residual é: na máquina local, `123456` abre sessão. Para um app local-first
-single-user isso é postura defensável, equivalente a um SQLite sem senha no
-diretório do usuário. **Nenhuma ação pendente** — a entrada anterior descrevia um
-risco que não existe, e uma dívida assim custa atenção em toda revisão.
+O último resíduo — `PATCH /api/settings` aceitando `newPassword`, gravando um hash
+bcrypt em `settings.password` que nenhum autenticador lia — foi removido. Ficava
+parecendo caminho de credencial vivo em toda auditoria. `bcryptjs` continua em
+`package.json` sem uso; sai no próximo mexe-lockfile, não vale um `npm ci`
+vermelho para remover uma dependência inerte.
 
 ## Custódia da chave de cifragem (detalhe do item 1)
 
 A custódia é uma env var, `CREDENTIAL_KEY`. As alternativas foram consideradas e
-recusadas: o keychain do SO adiciona dependência nativa e quebra Docker headless,
-o que contradiz a cadeia de 4 drivers SQLite que existe justamente para não
-depender de binário nativo; e derivar do `machineId` protege contra quase nada,
-já que quem tem o arquivo do banco tipicamente tem a máquina — seria cifragem
+recusadas: o keychain do SO adiciona dependência nativa e quebra Docker headless;
+e derivar do `machineId` protege contra quase nada, já que quem alcança o banco
+tipicamente alcança a máquina que guarda a env — seria cifragem
 que só *parece* cifragem, pior que nenhuma porque cria confiança que não
 corresponde à proteção.
 
@@ -179,36 +177,21 @@ A landing ainda usa cores hex hard-coded (`#f97815`, `#181411`, etc.) em vez dos
 
 Renomeação em massa de hex e classes ad-hoc para o sistema de tema compartilhado (`primary`, `bg-bg`, etc.) não foi incluída. Abrange landing, componentes de marketing e cards antigos do dashboard; fazer como migração dedicada de design system para evitar regressões mistas.
 
-## Hospedagem: o adapter síncrono decide o host — resolvido como documentação
+## Adapter síncrono e hospedagem serverless — resolvido pela migração para Neon
 
-A app quebrava no Vercel (`ENOENT: mkdir '/home/sbx_user1051/.modelhub'` durante
-module evaluation do middleware, ou seja, 500 em toda request). O boot está
-corrigido e verificado em produção, mas consertar o boot expôs a questão de
-fundo, que **não** é um bug e sim um limite de arquitetura:
+A entrada anterior registrava como limite de arquitetura que `DbAdapter`
+(`src/lib/db/driver.ts`) era **síncrono**, que trocar por um banco de rede
+obrigaria a tornar async todo repo e todo chamador, e que portanto o requisito de
+hospedagem era disco gravável — deixando Vercel e afins como "demo apenas".
 
-`DbAdapter` (`src/lib/db/driver.ts`) é **síncrono** — `get`, `all`, `run`, `exec`
-e `transaction` retornam sem `await`. Isso não é detalhe de implementação: é o
-que permite os repos em `src/lib/db/repos` serem escritos como são. Trocar por um
-banco de rede (Postgres, Neon, Turso) não é configuração; obriga a tornar async
-todo repo e todo chamador. Ou seja, **o requisito de hospedagem é disco gravável
-que sobrevive a restart**, e não há atalho de env var para contorná-lo.
+**Esse trabalho foi feito.** O adapter é `createPostgresAdapter` sobre Neon, todo
+repo é async, e o requisito de hospedagem virou três variáveis de ambiente
+(`DATABASE_URL`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`). Vercel é alvo
+suportado; ver [DEPLOYMENT.md](DEPLOYMENT.md).
 
-Consequência prática, agora documentada em [DEPLOYMENT.md](DEPLOYMENT.md): Vercel,
-Netlify e afins bootam mas são **demo apenas** — o banco, o JWT secret e os
-backups são apagados a cada reciclagem de instância. Docker com volume, VPS,
-Fly/Railway/Render com volume persistente são os alvos suportados.
-
-O que foi feito para o modo degradado não ser silencioso — porque aceitar uma
-chave de provider em armazenamento que vai evaporar, sem nada na tela, é
-armadilha de perda de dados:
-
-- `DATA_DIR_IS_EPHEMERAL` (`src/lib/dataDir.ts`), verdadeiro quando o diretório
-  resolvido é o temp do SO;
-- `storageEphemeral` em `GET /api/settings`, no mesmo padrão derivado-nunca-armazenado
-  de `credentialEncryptionEnabled`;
-- faixa permanente no topo do dashboard, **não dispensável de propósito**: um
-  aviso que dá para fechar é um aviso fechado antes de a credencial ser digitada.
-
-Não fica dívida aberta aqui. Se algum dia o produto exigir mesmo rodar
-serverless, aí sim o trabalho é tornar `DbAdapter` async — e isso é reescrita
-deliberada, com nota de migração, não ajuste.
+`DATA_DIR` continua existindo, com escopo muito menor: túnel Cloudflare/Tailscale,
+pxpipe, headroom e o machine id. `DATA_DIR_IS_EPHEMERAL`, `storageEphemeral` em
+`GET /api/settings` e a faixa no dashboard continuam lá pelo mesmo motivo de
+antes — o modo degradado não pode ser silencioso — mas o texto foi corrigido: ele
+dizia que banco, credenciais e backups seriam apagados, o que virou falso na
+migração e assustava o operador sem motivo em toda página do dashboard.

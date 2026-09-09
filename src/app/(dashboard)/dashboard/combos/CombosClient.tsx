@@ -5,7 +5,7 @@ import { Card, ConfirmModal } from "@/shared/components";
 import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { Layers, Plus } from "lucide-react";
 import type { CombosClientProps, ComboView, Strategy, ConfirmState, CapEntry } from "./combo-types";
@@ -15,7 +15,6 @@ import { ComboFormModal } from "./ComboFormModal";
 import { CapacityAdapterSection } from "./CapacityAdapterSection";
 
 export default function CombosClient({ initialCombos, initialProviders, initialSettings, initialAliases }: CombosClientProps) {
-  const notify = useNotificationStore();
   const [combos, setCombos] = useState<ComboView[]>(() => normalizeCombos(initialCombos));
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState<ComboView | null>(null);

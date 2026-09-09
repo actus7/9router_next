@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import { addCustomModelApi, deleteCustomModelApi, deleteAliasApi } from "./customModelActions";
 import type { CustomModelEntry } from "../types";
 
@@ -12,7 +12,6 @@ interface UseCustomModelsArgs {
 }
 
 export function useCustomModels({ providerStorageAlias, initialAliases, initialCustomModels }: UseCustomModelsArgs) {
-  const notify = useNotificationStore();
   const [modelAliases, setModelAliases] = useState<Record<string, string>>(initialAliases);
   const [customModels, setCustomModels] = useState<CustomModelEntry[]>(initialCustomModels);
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { translate } from "@/i18n/runtime";
-import { useNotificationStore } from "@/store/notificationStore";
+import { notify } from "@/store/notificationStore";
 import type { HarnessEvent } from "../types";
 
 export interface UseHarnessEventsReturn {
@@ -16,7 +16,6 @@ export interface UseHarnessEventsReturn {
 // session: loads it when the session changes, and appends new events as
 // they're recorded elsewhere (e.g. by the send-message flow).
 export function useHarnessEvents(activeSessionId: string): UseHarnessEventsReturn {
-  const notify = useNotificationStore();
   const [harnessEvents, setHarnessEvents] = useState<HarnessEvent[]>([]);
   const [showRunJournal, setShowRunJournal] = useState(false);
   const activeSessionIdRef = useRef(activeSessionId);
@@ -45,7 +44,7 @@ export function useHarnessEvents(activeSessionId: string): UseHarnessEventsRetur
         );
       });
     return () => { cancelled = true; };
-  }, [activeSessionId, notify]);
+  }, [activeSessionId]);
 
   const recordHarnessEvent = useCallback((sessionId: string, type: string, data: Record<string, unknown>) => {
     void fetch(`/api/harness/sessions/${encodeURIComponent(sessionId)}/events`, {
@@ -64,7 +63,7 @@ export function useHarnessEvents(activeSessionId: string): UseHarnessEventsRetur
           "Could not save activity to run journal.",
       );
     });
-  }, [notify]);
+  }, []);
 
   return { harnessEvents, recordHarnessEvent, showRunJournal, setShowRunJournal };
 }

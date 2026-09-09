@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { useSearchParams, useRouter } from "next/navigation";
 import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
@@ -16,13 +16,21 @@ export function useUsageStatsData(period: string) {
 
   const { data: connectionsData } = useSWR("/api/providers", jsonFetcher);
   const { data: nodesData } = useSWR("/api/provider-nodes", jsonFetcher);
-  const providers = buildConnectedProviders(
-    connectionsData as Parameters<typeof buildConnectedProviders>[0],
-    nodesData as Parameters<typeof buildConnectedProviders>[1],
-  );
+  // Memoised: a fresh array every render defeated the useMemo in
+  // ProviderTopology, so the whole graph relaid out on every SSE tick.
+  const providers = useMemo(() => {
+    return buildConnectedProviders(
+      connectionsData as Parameters<typeof buildConnectedProviders>[0],
+      nodesData as Parameters<typeof buildConnectedProviders>[1],
+    );
+  }, [connectionsData, nodesData]);
 
   const { data: statsData, isLoading, isValidating } = useSWR<Record<string, unknown>>(`/api/usage/stats?period=${period}`, jsonFetcher);
-  const loading = isLoading;
+  // SWR flips isLoading off on resolve, but `stats` is only filled by the
+  // effect below — which runs after the commit. For that one frame the
+  // consumer saw "no stats, not loading" and rendered its failure message on
+  // the first screen of the dashboard.
+  const loading = isLoading || (statsData !== undefined && stats === null);
   const fetching = isValidating && !isLoading;
 
   useEffect(() => {

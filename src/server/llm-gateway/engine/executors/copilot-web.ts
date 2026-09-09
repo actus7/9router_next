@@ -142,7 +142,7 @@ interface CopilotWsEvent {
 
 function handleCopilotWsEvent(
   event: CopilotWsEvent,
-  ctx: { chatSent: boolean },
+  ctx: { chatSent: boolean; sawText: boolean },
   model: string,
   controller: ReadableStreamDefaultController<Uint8Array>,
   encoder: TextEncoder,
@@ -174,7 +174,7 @@ function handleCopilotWsEvent(
     }
     case "appendText":
     case "replaceText": {
-      if (event.text) controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ content: event.text }))}\n\n`));
+      if (event.text) { ctx.sawText = true; controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ content: event.text }))}\n\n`)); }
       break;
     }
     case "chainOfThought": {
@@ -221,7 +221,7 @@ function wsChat(conversationId: string, prompt: string, mode: string, model: str
       const encoder = new TextEncoder();
       let ws: WebSocket | null = null;
       let settled = false;
-      const ctx = { chatSent: false };
+      const ctx = { chatSent: false, sawText: false };
 
       const cleanup = () => { if (ws) { try { ws.close(); } catch { /* ignore */ } ws = null; } };
       const chunk = (delta: object, finish: string | null = null) => ({
@@ -233,6 +233,17 @@ function wsChat(conversationId: string, prompt: string, mode: string, model: str
         if (settled) return;
         settled = true;
         cleanup();
+        // A Copilot session with an expired cookie accepts the socket and
+        // closes it again without ever sending `appendText`. Emitting a plain
+        // `finish_reason: "stop"` there handed the client a successful, empty
+        // answer and left the connection looking healthy. The m365 sibling
+        // already treated that as the failure it is.
+        if (!ctx.sawText) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: { message: "Copilot closed the session without sending a reply - the access token or cookie is likely expired." } })}\n\n`));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+          return;
+        }
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({}, "stop"))}\n\n`));
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
@@ -287,6 +298,23 @@ function errorResponse(status: number, message: string) {
   return new Response(JSON.stringify({ error: { message } }), { status, headers: { "Content-Type": "application/json" } });
 }
 
+/**
+ * Message text out of either shape OpenAI accepts.
+ *
+ * `content` was read as a plain string, so the canonical typed-block form —
+ * what every Anthropic-to-OpenAI translation produces — reached `.trim()` as an
+ * array and threw `prompt.trim is not a function`, failing the whole request.
+ * The sibling web executors all had this helper; this one did not.
+ */
+function extractMessageText(content: unknown): string {
+  if (typeof content === "string") return content.trim();
+  if (!Array.isArray(content)) return "";
+  return content.map((part) => {
+    const item = part as Record<string, unknown>;
+    return item && (item.type === "text" || item.type === "input_text") && typeof item.text === "string" ? item.text : "";
+  }).filter((p) => p.trim().length > 0).join("\n").trim();
+}
+
 export class CopilotWebExecutor extends BaseExecutor {
   constructor() {
     super("copilot-web", PROVIDERS["copilot-web"]);
@@ -303,14 +331,14 @@ export class CopilotWebExecutor extends BaseExecutor {
     const messages = (body?.messages as Array<Record<string, unknown>>) || [];
     const userMsg = messages.filter((m) => m.role === "user").pop();
     const systemMsgs = messages.filter((m) => m.role === "system");
-    const prompt = (userMsg?.content as string) || "";
+    const prompt = extractMessageText(userMsg?.content);
     if (!prompt || !prompt.trim()) {
       return { response: errorResponse(400, "No user message provided"), url: COPILOT_START_URL, headers: {} as Record<string, string>, transformedBody: {} };
     }
 
     let fullPrompt = "";
     if (systemMsgs.length > 0) {
-      const sysText = systemMsgs.map((m) => (typeof m.content === "string" ? m.content : "")).filter(Boolean).join("\n");
+      const sysText = systemMsgs.map((m) => extractMessageText(m.content)).filter(Boolean).join("\n");
       if (sysText) fullPrompt += `[System Instructions]\n${sysText}\n\n`;
     }
     fullPrompt += prompt;

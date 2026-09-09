@@ -197,8 +197,14 @@ function transformStream(adaptaStream: ReadableStream, model: string): ReadableS
             }
           }
         }
-      } catch {
-        // Stream aborted or network error — emit what we have.
+      } catch (err) {
+        // Was a bare `catch {}` with a comment: a mid-generation ECONNRESET
+        // finalized as `finish_reason: "stop"`, so a truncated answer was
+        // indistinguishable from a short one. The error branch above already
+        // writes the failure into the stream; do the same here.
+        const message = err instanceof Error ? err.message : String(err);
+        ensureRole();
+        chunk({ content: `\n\n[Adapta stream error: ${message}]` });
       }
       finalize();
     },

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serializeHttpError } from "@/server/application/http/httpError";
 import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "@/server/llm-gateway/catalog";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { isCredentialEncryptionEnabled } from "@/lib/db/helpers/credentialCipher";
 import { DATA_DIR_IS_EPHEMERAL } from "@/lib/dataDir";
-import bcrypt from "bcryptjs";
 
 
 const SETTINGS_RESPONSE_HEADERS = {
@@ -36,14 +36,17 @@ export async function GET(): Promise<NextResponse> {
       // Derived, never stored: whether the data directory survives a restart.
       // False on any host with a real disk; true when the app fell back to the
       // OS temp dir because the home directory was unwritable (Vercel and other
-      // read-only serverless hosts). Surfaced because the failure it warns
-      // about is silent — credentials are accepted and then erased.
-      storageEphemeral: DATA_DIR_IS_EPHEMERAL,
-      hasPassword: !!password
+      // read-only serverless hosts). Since the Neon migration this says nothing
+      // about the database or the stored credentials — those are in Postgres —
+      // only about the host-local features that keep files on disk: the
+      // tunnel, pxpipe and headroom.
+      storageEphemeral: DATA_DIR_IS_EPHEMERAL
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.error("Error getting settings:", error);
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    // Never the raw message: a Neon failure carries the query fragment and the
+    // host, and TenantContextError carries internal wording.
+    return serializeHttpError(error, "Failed to load settings");
   }
 }
 
@@ -55,33 +58,11 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     // Strip protected secrets before any internal handling sets them
     for (const key of PROTECTED_SETTING_KEYS) delete body[key];
 
-    // If updating password, hash it
-    if (body.newPassword) {
-      const settings = await getSettings();
-      const currentHash = settings.password as string;
-
-      // Verify current password if it exists
-      if (currentHash) {
-        if (!body.currentPassword) {
-          return NextResponse.json({ error: "Current password required" }, { status: 400 });
-        }
-        const isValid = await bcrypt.compare(body.currentPassword, currentHash);
-        if (!isValid) {
-          return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
-        }
-      } else {
-        // First time setting password, no current password needed
-        // Allow empty currentPassword or default "123456"
-        if (body.currentPassword && body.currentPassword !== "123456") {
-           return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
-        }
-      }
-
-      const salt = await bcrypt.genSalt(10);
-      body.password = await bcrypt.hash(body.newPassword, salt);
-      delete body.newPassword;
-      delete body.currentPassword;
-    }
+    // The password branch that used to live here hashed `newPassword` into
+    // `settings.password` — a column nothing has authenticated against since
+    // identity moved to Neon Auth. `SecurityCard` sends people to the provider
+    // instead. Kept only as a note, because a write-only credential path reads
+    // like a live one in every security review.
 
     if (Object.prototype.hasOwnProperty.call(body, "oidcClientSecret")) {
       if (!body.oidcClientSecret || !String(body.oidcClientSecret).trim()) {
@@ -126,7 +107,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.error("Error updating settings:", error);
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    return serializeHttpError(error, "Failed to update settings");
   }
 }
 // Application HTTP use case extracted from the Next.js route adapter.

@@ -27,6 +27,8 @@ function extractResultText(result: Record<string, unknown>): string {
 
 interface AcpStreamCtx {
   emit: (data: string) => void;
+  /** Ends the response stream. Idempotent; safe after the client disconnected. */
+  close: () => void;
   responseId: string;
   created: number;
   model: string;
@@ -105,6 +107,7 @@ function ctxFinish(ctx: AcpStreamCtx, error?: string | null, finishReason = "sto
     })}\n\n`);
   }
   ctx.emit("data: [DONE]\n\n");
+  ctx.close();
 
   try {
     if (!ctx.stdinClosed) {
@@ -288,7 +291,7 @@ function setupNdjsonReader(child: ReturnType<typeof spawn>, ctx: AcpStreamCtx) {
 function setupProcessHandlers(
   child: ReturnType<typeof spawn>,
   ctx: AcpStreamCtx,
-  spawnError: Error | null,
+  spawnState: { error: Error | null },
   cleanupMcp: () => void,
   log: Logger | undefined,
 ) {
@@ -298,7 +301,7 @@ function setupProcessHandlers(
 
   child.on("close", (code) => {
     if (!ctx.finished) {
-      if (code !== 0 && !spawnError) {
+      if (code !== 0 && !spawnState.error) {
         ctxFinish(ctx, ctx.roleEmitted ? undefined : `Devin CLI exited with code ${code}`);
       } else {
         ctxFinish(ctx);
@@ -323,7 +326,23 @@ export function createDevinAcpStream(
   return new ReadableStream({
     start(controller) {
       const enc = new TextEncoder();
-      const emit = (data: string) => controller.enqueue(enc.encode(data));
+      // `emit` used to enqueue unguarded and nothing ever closed the stream on
+      // the normal path — `ctxFinish` wrote `[DONE]` and left the ReadableStream
+      // open, so the HTTP response never ended. On the spawn-failure path the
+      // opposite happened: the error handler closed the controller, then the
+      // child's `close` event ran ctxFinish, which enqueued into a closed
+      // controller and threw inside an EventEmitter listener — an uncaught
+      // exception that took the process with it.
+      let closed = false;
+      const emit = (data: string) => {
+        if (closed) return;
+        try { controller.enqueue(enc.encode(data)); } catch { closed = true; }
+      };
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        try { controller.close(); } catch { /* already closed downstream */ }
+      };
 
       const env = { ...process.env };
       env.DEVIN_PERMISSION_MODE = process.env.DEVIN_PERMISSION_MODE || "bypass";
@@ -340,17 +359,7 @@ export function createDevinAcpStream(
         shell: process.platform === "win32",
       });
 
-      let spawnError: Error | null = null;
-
-      child.on("error", (err) => {
-        spawnError = err;
-        const msg = err.message.includes("ENOENT") || err.message.includes("not found")
-          ? `Devin CLI not found: ${devinBin}. Install via https://cli.devin.ai or set CLI_DEVIN_BIN env var.`
-          : `Devin CLI spawn error: ${err.message}`;
-        emit(`data: ${JSON.stringify({ error: { message: msg, type: "devin_cli_error", code: "spawn_failed" } })}\n\n`);
-        emit("data: [DONE]\n\n");
-        controller.close();
-      });
+      const spawnState: { error: Error | null } = { error: null };
 
       if (signal) {
         signal.addEventListener("abort", () => {
@@ -359,7 +368,7 @@ export function createDevinAcpStream(
       }
 
       const ctx: AcpStreamCtx = {
-        emit, responseId: `chatcmpl-devin-${Date.now()}`, created: Math.floor(Date.now() / 1000),
+        emit, close, responseId: `chatcmpl-devin-${Date.now()}`, created: Math.floor(Date.now() / 1000),
         model, promptText, workspaceCwd,
         roleEmitted: false, totalText: "", finished: false, toolUseEmitted: false,
         pendingClientTools: new Map(), hasClientTools, stdinClosed: false,
@@ -367,8 +376,19 @@ export function createDevinAcpStream(
         child, cleanupMcp, log,
       };
 
+      // Registered after `ctx` exists: it calls ctxFinish, and Node emits
+      // 'error' asynchronously, but keeping the order explicit beats relying
+      // on that.
+      child.on("error", (err) => {
+        spawnState.error = err;
+        const msg = err.message.includes("ENOENT") || err.message.includes("not found")
+          ? `Devin CLI not found: ${devinBin}. Install via https://cli.devin.ai or set CLI_DEVIN_BIN env var.`
+          : `Devin CLI spawn error: ${err.message}`;
+        ctxFinish(ctx, msg);
+      });
+
       setupNdjsonReader(child, ctx);
-      setupProcessHandlers(child, ctx, spawnError, cleanupMcp, log);
+      setupProcessHandlers(child, ctx, spawnState, cleanupMcp, log);
 
       // Send initialize
       ctxSendRpc(ctx, "initialize", {

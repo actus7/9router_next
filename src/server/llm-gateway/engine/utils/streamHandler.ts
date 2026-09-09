@@ -182,8 +182,13 @@ function createDisconnectAwareStream(transformStream: TransformStream<Uint8Array
 
     cancel(reason) {
       streamController.handleDisconnect(reason || "cancelled");
-      reader.cancel();
-      writer.abort();
+      // Both reject when the underlying stream is already errored — which is
+      // exactly the case that reaches here (upstream reset while the client
+      // was disconnecting). Unhandled, Node's default takes the whole process
+      // down with every in-flight request. The error path above already
+      // swallows them; this one was the hole.
+      reader.cancel().catch(() => {});
+      writer.abort().catch(() => {});
     }
   });
 }

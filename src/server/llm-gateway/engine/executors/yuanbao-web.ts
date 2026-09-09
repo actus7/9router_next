@@ -122,12 +122,23 @@ function transformYuanbaoStream(upstream: ReadableStream<Uint8Array>, model: str
             }
           }
         }
+      } catch (err) {
+        // There was no catch at all: a rejected read() fell through to the
+        // finally, which emitted `finish_reason: "stop"` and passed a broken
+        // stream off as a complete one.
+        const message = err instanceof Error ? err.message : String(err);
+        try {
+          ensureRole();
+          emit({ content: `\n\n[Yuanbao stream error: ${message}]` });
+        } catch { /* downstream already gone */ }
       } finally {
-        ensureRole();
-        emit({}, "stop");
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-        reader.releaseLock();
+        // Each step guarded on its own: once the client disconnects, emit()
+        // throws, and an exception here used to skip both close() and
+        // releaseLock() — leaving the upstream reader locked forever.
+        try { ensureRole(); emit({}, "stop"); } catch { /* downstream gone */ }
+        try { controller.enqueue(encoder.encode("data: [DONE]\n\n")); } catch { /* downstream gone */ }
+        try { controller.close(); } catch { /* already closed */ }
+        try { reader.releaseLock(); } catch { /* already released */ }
       }
     },
   });

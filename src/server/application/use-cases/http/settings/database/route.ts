@@ -37,8 +37,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error importing database:", error);
+    // The message is a Postgres error more often than a validation one, and it
+    // carries query text and constraint names. The log above keeps the detail.
     return NextResponse.json(
-      { error: (error as Error)?.message || "Failed to import database" },
+      { error: "Failed to import database — the payload was rejected." },
       { status: 400 }
     );
   }

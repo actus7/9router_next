@@ -549,7 +549,10 @@ export class DeepSeekWebExecutor extends BaseExecutor {
       const ct = resp.headers.get("content-type") || "";
       if (ct.includes("application/json")) {
         try {
-          const json = await resp.json();
+          // `resp.clone()`: a failed parse here used to leave the original body
+          // locked, and the `resp.body!` read further down then threw
+          // `TypeError: body stream already read` instead of streaming.
+          const json = await resp.clone().json();
           const parsed = parseDeepSeekErrorPayload(json);
           if (parsed) {
             const errMsg = `DeepSeek error ${parsed.code}: ${parsed.message}`;

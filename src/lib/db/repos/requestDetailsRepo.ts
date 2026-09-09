@@ -171,7 +171,7 @@ async function flushToDatabase(): Promise<void> {
             };
 
             await db.run(
-              `INSERT INTO requestDetails(id, userId, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
+              `INSERT INTO requestDetails(id, userId, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data WHERE requestDetails.userId = excluded.userId`,
               [record.id, userId, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
             );
           }

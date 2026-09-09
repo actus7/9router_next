@@ -40,9 +40,11 @@ function getToastStyle(type: ToastType) {
 interface DashboardLayoutProps {
   children: ReactNode;
   /**
-   * The data directory does not survive a restart, so anything saved here is
-   * lost when the instance recycles. Resolved on the server by the route
-   * layout; see DATA_DIR_IS_EPHEMERAL.
+   * The data directory does not survive a restart. Since the Neon migration
+   * this no longer touches the database, the provider credentials or the
+   * backups — those live in Postgres — only the host-local features that keep
+   * files on disk: the Cloudflare/Tailscale tunnel, pxpipe and headroom.
+   * Resolved on the server by the route layout; see DATA_DIR_IS_EPHEMERAL.
    */
   storageEphemeral?: boolean;
 }
@@ -104,10 +106,11 @@ export default function DashboardLayout({ children, storageEphemeral = false }: 
         <div className="landing-grid absolute inset-0 pointer-events-none -z-10" aria-hidden="true" />
         {storageEphemeral ? (
           /*
-           * Not dismissible on purpose. The whole point is that saving a
-           * provider API key here looks like it worked and then silently
-           * undoes itself; a banner the operator can close is a banner that is
-           * closed before the credential is entered.
+           * Not dismissible on purpose: the tunnel silently failing to come
+           * back after a restart is not something the operator should have to
+           * rediscover. It deliberately does NOT claim data loss any more —
+           * the database and the credentials are in Neon Postgres and survive
+           * the instance, so the old wording was a false alarm on every page.
            */
           <div
             role="status"
@@ -116,12 +119,12 @@ export default function DashboardLayout({ children, storageEphemeral = false }: 
             <TriangleAlert className="mt-px size-[18px] shrink-0" aria-hidden="true" />
             <p className="text-xs leading-5">
               <span className="font-semibold">
-                {translate("Storage is not persistent.") || "Storage is not persistent."}
+                {translate("This host has no persistent disk.") || "This host has no persistent disk."}
               </span>{" "}
               {translate(
-                "This host has no writable disk, so the database, saved credentials and backups are erased when the instance restarts. Set DATA_DIR to a persistent path before storing anything you need to keep.",
+                "This host has no writable disk. Your data is safe — the database and provider credentials live in Neon Postgres — but the host-local features that keep files on disk (tunnel, pxpipe, headroom) reset on every restart. Set DATA_DIR to a persistent path to use them.",
               ) ||
-                "This host has no writable disk, so the database, saved credentials and backups are erased when the instance restarts. Set DATA_DIR to a persistent path before storing anything you need to keep."}
+                "This host has no writable disk. Your data is safe — the database and provider credentials live in Neon Postgres — but the host-local features that keep files on disk (tunnel, pxpipe, headroom) reset on every restart. Set DATA_DIR to a persistent path to use them."}
             </p>
           </div>
         ) : null}

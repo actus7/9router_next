@@ -288,7 +288,7 @@ export function setupHttp2Request(
   urlObj: URL,
   headers: Record<string, string>,
   state: { ended: boolean; streamError: Error | null },
-  wake: (result: { value: Buffer | undefined; done: boolean } | null) => void,
+  wake: (result: { value: Buffer | undefined; done: boolean } | null) => boolean,
   chunkQueue: Buffer[]
 ) {
   const req = client.request({
@@ -306,8 +306,15 @@ export function setupHttp2Request(
     wake(null);
   });
   req.on("data", (chunk) => {
-    if (chunkQueue.length > 0 || state.ended) return;
+    if (state.ended) return;
+    // Two bugs lived in these three lines. The old guard returned early when
+    // the queue was non-empty, silently dropping every chunk that arrived
+    // before the reader drained the previous one — a corrupt length prefix in
+    // `decodeAgentFrames`, or a body lost entirely. And nothing woke a reader
+    // parked in `read()`, so it stayed parked until "end" and returned `done`
+    // with the queued chunk still sitting there: a valid, empty agent turn.
     chunkQueue.push(chunk);
+    if (wake({ value: chunkQueue[0], done: false })) chunkQueue.shift();
   });
   req.on("end", () => {
     state.ended = true;
