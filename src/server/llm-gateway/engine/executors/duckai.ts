@@ -22,6 +22,7 @@ import {
   type DuckAiReasoningEffort,
   type DuckAiVqdData,
   buildDuckAiErrorResponse,
+  buildDuckAiContractErrorResponse,
   buildDuckAiTemporaryErrorResponse,
   getVqdData,
   isRetryableDuckAiHttpFailure,
@@ -49,7 +50,11 @@ async function executeDuckAiAttempt(
   ddgMessages: DdgMessage[],
   model: string,
   reasoningEffort: DuckAiReasoningEffort | undefined,
-  state: { cookieJar: string; activeVqdData: DuckAiVqdData | null },
+  state: {
+    cookieJar: string;
+    activeVqdData: DuckAiVqdData | null;
+    freshVqdChallengeFailures: number;
+  },
   reusedVqd: boolean,
   signal: AbortSignal | undefined,
   body: Record<string, unknown>,
@@ -80,6 +85,23 @@ async function executeDuckAiAttempt(
     const classification = isRetryableDuckAiHttpFailure(chatResponse.status, errorText);
 
     if (classification.retryable && classification.retryClass) {
+      // A challenge refused right after solving a fresh one cannot be cured by
+      // solving another. Two of those in a row means the contract moved, so
+      // stop instead of burning the remaining attempts on the same answer.
+      if (classification.retryClass === "challenge" && !reusedVqd) {
+        state.freshVqdChallengeFailures += 1;
+        if (state.freshVqdChallengeFailures >= 2) {
+          logDuckAi("chat", "error", {
+            attempt,
+            finalOutcome: "contract_changed",
+            phase: "chat_http",
+            retryClass: "challenge",
+            status: chatResponse.status,
+          });
+          return { action: "error", response: buildDuckAiContractErrorResponse(body).response };
+        }
+      }
+
       const decision = logAndDecideDuckAiRetry(
         attempt, classification.retryClass, "chat_http",
         { ...classification.info, status: chatResponse.status },
@@ -145,7 +167,11 @@ export class DuckAiExecutor extends BaseExecutor {
     const created = Math.floor(Date.now() / 1000);
     log?.info?.("DUCKAI", `Query to ${model}, ${ddgMessages.length} messages, stream=${stream}`);
 
-    const state = { cookieJar: "", activeVqdData: null as DuckAiVqdData | null };
+    const state = {
+      cookieJar: "",
+      activeVqdData: null as DuckAiVqdData | null,
+      freshVqdChallengeFailures: 0,
+    };
 
     for (let attempt = 1; attempt <= DUCKAI_CHAT_MAX_ATTEMPTS; attempt++) {
       try {

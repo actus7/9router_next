@@ -7,6 +7,7 @@ import {
   type VqdChallengeResult,
 } from "./duckai-challenge";
 import { DUCKAI_USER_AGENT as UA } from "./duckaiChallengeTypes";
+import { type DuckAiFrontend, fetchDuckAiFrontend } from "./duckaiFrontend";
 
 export const CHAT_URL = PROVIDERS["duckai"]?.baseUrl as string || "https://duck.ai/duckchat/v1/chat";
 const AUTH_TOKEN_URL = "https://duck.ai/duckchat/v1/auth/token";
@@ -32,6 +33,7 @@ export type DuckAiRetryPhase = "chat_http" | "chat_stream" | "chat_stream_prelud
 export type DuckAiVqdData = {
   browserFallbackUsed: boolean;
   cookies: string;
+  feVersion?: string;
   hashPayload: string;
   jsdomAttempts: number;
 };
@@ -177,6 +179,31 @@ export function buildDuckAiErrorResponse(
 }
 
 /** Build the standard 503 "temporary unavailable" result used across retries. */
+/**
+ * A challenge rejection that survives a freshly solved VQD is not weather.
+ *
+ * Retrying it is what turned the 2026-09-09 breakage into a 15s wait ending in
+ * "try again in a few moments" — advice that could never work, because what had
+ * actually happened was that duck.ai changed what it requires of the request.
+ * Saying so points at the real fix; "temporarily unavailable" points nowhere.
+ */
+export function buildDuckAiContractErrorResponse(body: Record<string, unknown>) {
+  return {
+    response: buildDuckAiErrorResponse(502, {
+      message:
+        "Duck.ai rejected the challenge twice with a freshly solved token, which " +
+        "means the upstream changed what it expects rather than being briefly " +
+        "unavailable. Retrying will not help. See docs/DUCKAI-CONTRACT.md for how " +
+        "to diff our request against the first-party app's and find what moved.",
+      type: "upstream_contract_changed",
+      code: "ERR_CHALLENGE_PERSISTENT",
+    }),
+    url: CHAT_URL,
+    headers: {} as Record<string, string>,
+    transformedBody: body,
+  };
+}
+
 export function buildDuckAiTemporaryErrorResponse(body: Record<string, unknown>) {
   return {
     response: buildDuckAiErrorResponse(503, {
@@ -418,10 +445,37 @@ async function warmDuckAiAuthToken(existingCookies = ""): Promise<{ cookies: str
 
 /**
  * Build the base64 hash payload from a challenge result.
+ *
+ * The challenge script returns `meta` with only v/challenge_id/timestamp/debug.
+ * The first-party client adds three more fields before submitting, and the
+ * upstream checks them — omitting them is answered with 418 ERR_CHALLENGE:
+ *
+ *   origin    the page the challenge ran on
+ *   duration  how many ms solving took
+ *   stack     an Error stack whose frames sit inside duck.ai's entry bundle
+ *
+ * The stack is the awkward one: it has to look like it was captured inside
+ * their code. The frames mirror the shape the app produces; the offsets come
+ * from an observed request and drift with the bundle, which is why the
+ * filename is resolved live instead of pinned.
  */
-function buildHashPayload(challengeResult: VqdChallengeResult): string {
+function buildHashPayload(
+  challengeResult: VqdChallengeResult,
+  durationMs: number,
+  frontend: DuckAiFrontend | null
+): string {
   const hashedClientHashes = challengeResult.client_hashes.map((c) => sha256Base64(c));
-  const payload = { ...challengeResult, client_hashes: hashedClientHashes };
+  const meta: Record<string, unknown> = {
+    ...challengeResult.meta,
+    origin: "https://duck.ai",
+    duration: String(durationMs),
+  };
+  if (frontend) {
+    meta.stack = `Error
+at l (${frontend.bundleUrl}:2:1876921)
+at async ${frontend.bundleUrl}:2:1654438`;
+  }
+  const payload = { ...challengeResult, client_hashes: hashedClientHashes, meta };
   return Buffer.from(JSON.stringify(payload)).toString("base64");
 }
 
@@ -477,16 +531,24 @@ export async function getVqdData(seedCookies = ""): Promise<DuckAiVqdData> {
   const challenge = await fetchChallengeHash(cookies);
   cookies = challenge.cookies;
 
+  // Resolved alongside the solve: the chat request needs the build stamp and
+  // the payload needs the bundle path, and neither should add a round trip.
+  const frontendPromise = fetchDuckAiFrontend();
+
+  const startedAt = Date.now();
   const { result, browserFallbackUsed, jsdomAttempts } = await solveVqdChallengeMultiLayer(
     challenge.challengeHash,
     challengeRuntime,
     cookies
   );
+  const durationMs = Date.now() - startedAt;
+  const frontend = await frontendPromise;
 
   return {
     browserFallbackUsed,
     cookies,
-    hashPayload: buildHashPayload(result),
+    feVersion: frontend?.feVersion,
+    hashPayload: buildHashPayload(result, durationMs, frontend),
     jsdomAttempts,
   };
 }

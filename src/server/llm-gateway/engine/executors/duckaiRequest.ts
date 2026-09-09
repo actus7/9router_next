@@ -130,22 +130,34 @@ export async function sendDuckAiChatRequest(input: {
     Origin: "https://duck.ai",
     "x-ddg-journey-id": buildDuckAiJourneyId(),
     "x-fe-signals": buildDuckAiSignalsHeader(),
+    // The build stamp the duck.ai app sends on every chat call. The challenge
+    // is validated against it, so a request without it reads as not coming
+    // from the app at all.
+    ...(input.vqdData.feVersion ? { "x-fe-version": input.vqdData.feVersion } : {}),
     "x-vqd-hash-1": input.vqdData.hashPayload,
   };
   const requestBody: Record<string, unknown> = {
     model: input.modelId,
-    messages: input.messages,
+    // The wire shape is a content part array, not a bare string. Sending the
+    // string is answered with 400 ERR_BAD_REQUEST, which is checked before the
+    // challenge is — so it masks itself as an unrelated failure.
+    messages: input.messages.map((m) => ({
+      role: m.role,
+      content: [{ type: "text", text: m.content }],
+    })),
     canUseTools: true,
     canUseApproxLocation: null,
+    canDelegateImageGeneration: null,
+    canShowGreeting: true,
     durableStream: input.durableStream,
     metadata: {
       toolChoice: buildDuckAiToolChoice(),
     },
   };
 
-  if (input.reasoningEffort) {
-    requestBody.reasoningEffort = input.reasoningEffort;
-  }
+  // The app always sends the field, "none" for models without a reasoning
+  // mode; omitting it entirely is rejected.
+  requestBody.reasoningEffort = input.reasoningEffort ?? "none";
 
   const response = await fetchWithTimeout(
     CHAT_URL,

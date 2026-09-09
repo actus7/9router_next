@@ -195,3 +195,30 @@ pxpipe, headroom e o machine id. `DATA_DIR_IS_EPHEMERAL`, `storageEphemeral` em
 antes — o modo degradado não pode ser silencioso — mas o texto foi corrigido: ele
 dizia que banco, credenciais e backups seriam apagados, o que virou falso na
 migração e assustava o operador sem motivo em toda página do dashboard.
+
+## `meta.stack` do Duck.ai com offsets pinados
+
+Para passar no challenge, `buildHashPayload` (`duckaiRuntime.ts`) monta um campo
+`meta.stack` imitando o Error stack que o app first-party captura dentro do
+próprio bundle:
+
+```
+Error
+at l (https://duck.ai/dist/duckai-dist/entry.duckai.<hash>.js:2:1876921)
+at async https://duck.ai/dist/duckai-dist/entry.duckai.<hash>.js:2:1654438
+```
+
+O nome do bundle é resolvido em runtime a partir do HTML do duck.ai, então essa
+parte acompanha os deploys deles. **Os offsets `2:1876921` e `2:1654438` não** —
+foram copiados de um request observado em 2026-09-09 e apontam para posições
+dentro daquele build específico.
+
+Não se sabe se o DuckDuckGo valida os offsets ou apenas confere que os frames
+estão no domínio/bundle deles. Se validar, isso quebra no próximo deploy do
+duck.ai, com o mesmo sintoma de sempre: `418 ERR_CHALLENGE`.
+
+Descobrir qual dos dois é exigiria alterar os offsets de propósito e observar a
+resposta — barato de fazer, mas só faz sentido com o IP limpo (ver
+[DUCKAI-CONTRACT.md](DUCKAI-CONTRACT.md)). Enquanto isso não for feito, o
+procedimento de conserto é o mesmo documentado lá: capturar o request do app real
+e copiar os offsets novos.

@@ -30,6 +30,7 @@ async function captureChatRequest() {
       vqdData: {
         browserFallbackUsed: true,
         cookies: "",
+        feVersion: "serp_20260909_143633_ET-abc123",
         hashPayload: "hash",
         jsdomAttempts: 0,
       },
@@ -106,5 +107,31 @@ describe("Duck.ai chat request", () => {
     for (const id of ["gpt-5.6-sol", "gpt-5.6-terra", "claude-opus-4-8", "claude-sonnet-4-6"]) {
       expect(registry.models.map((m) => m.id)).not.toContain(id);
     }
+  });
+});
+
+// Duck.ai broke on 2026-09-09 because the request had drifted from the
+// first-party app's on four points at once, and the 418 from the first hid the
+// 400 from the rest. These lock in the shape captured from the real client.
+describe("Duck.ai chat request — first-party parity", () => {
+  it("stamps the front-end build, which the challenge is validated against", async () => {
+    const { headers } = await captureChatRequest();
+    expect(headers["x-fe-version"]).toBe("serp_20260909_143633_ET-abc123");
+  });
+
+  it("sends message content as a part array, not a bare string", async () => {
+    const { body } = await captureChatRequest();
+    const messages = body.messages as Array<Record<string, unknown>>;
+    // A bare string is answered with 400 ERR_BAD_REQUEST.
+    expect(messages[0]!.content).toEqual([{ type: "text", text: "say OK" }]);
+  });
+
+  it("always sends reasoningEffort, and the flags the app sends", async () => {
+    const { body } = await captureChatRequest();
+    // Omitting the field entirely is rejected; models with no reasoning mode
+    // still carry "none".
+    expect(body.reasoningEffort).toBeDefined();
+    expect(body.canShowGreeting).toBe(true);
+    expect(body).toHaveProperty("canDelegateImageGeneration");
   });
 });
