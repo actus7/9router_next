@@ -90,7 +90,18 @@ export function useSendMessage({
     setStreamingMessageId("");
     setStreamingText("");
     setLiveActivities([]);
+    // The banner belongs to the run that failed. It used to be cleared only by
+    // the *next* send, so a provider error survived "new chat" and sat above an
+    // empty conversation as if the fresh one had already failed.
+    setChatError("");
   }, [queue]);
+
+  // Same staleness by the other route: switching conversations left the
+  // previous one's error on screen. The banner is page-level state, so it has
+  // to follow the active session rather than the send lifecycle alone.
+  useEffect(() => {
+    setChatError("");
+  }, [activeSessionId]);
 
   const handleStop = useCallback(() => {
     abortRef.current?.abort();
