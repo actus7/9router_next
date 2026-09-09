@@ -1,6 +1,7 @@
 import { getApiKeys } from "@/lib/db/repos/apiKeysRepo";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { getInternalBaseUrl } from "@/shared/utils/internalBaseUrl";
+import { browserOnlyProviderForModel } from "@/shared/llm-catalog";
 
 const CLI_TOKEN_SALT = "9r-cli-auth";
 
@@ -64,6 +65,22 @@ function requestSignal(timeoutMs: number, signal?: AbortSignal): AbortSignal {
 }
 
 export async function pingModelByKind(model: string, kind: string, baseUrl = getInternalBaseUrl(), timeoutMs = 25000, signal?: AbortSignal): Promise<PingResult> {
+  // Some providers have no server endpoint at all — Puter (MiMo) runs in the
+  // browser through its own SDK and the chat intercepts it before anything
+  // reaches us. Probing one meant a request the executor rejects by design,
+  // three retries, and an HTTP 502 reported as if the provider were down,
+  // while the same model answered fine in the chat. Say what is actually true.
+  const browserOnly = browserOnlyProviderForModel(model);
+  if (browserOnly) {
+    return {
+      ok: false,
+      latencyMs: 0,
+      status: 0,
+      error: `${browserOnly} runs in your browser and has no server endpoint to test — try it from the chat instead.`,
+      note: "browser-only",
+    };
+  }
+
   const headers = await getInternalHeaders();
   const start = Date.now();
 

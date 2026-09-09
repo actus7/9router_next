@@ -110,6 +110,37 @@ interface AuthData {
 /**
  * Generate auth data for a provider
  */
+/**
+ * Refuses an authorize URL that is missing its OAuth client id.
+ *
+ * Several providers read their credentials from the environment and fall back
+ * to `""` when it is unset — `GOOGLE_OAUTH_CLIENT_ID` for gemini-cli, gemini
+ * and antigravity, for instance. The empty value used to travel all the way
+ * into the query string, so the operator was sent to Google and got back a
+ * bare `400 invalid_request` with nothing naming the cause.
+ *
+ * Checked on the produced URL rather than on the config, because providers
+ * disagree about where the id comes from: some read the registry, gitlab takes
+ * it from the request. What they agree on is that if `client_id` is in the URL,
+ * it has to have a value.
+ */
+function assertAuthUrlIsUsable(providerName: string, authUrl: string): void {
+  let params: URLSearchParams;
+  try {
+    params = new URL(authUrl).searchParams;
+  } catch {
+    throw new Error(`OAuth for "${providerName}" produced an invalid authorize URL: ${authUrl}`);
+  }
+  if (params.has("client_id") && !params.get("client_id")) {
+    throw new Error(
+      `OAuth for "${providerName}" has no client id configured, so the sign-in page would reject the request. ` +
+      `Set the provider's OAuth client credentials in the environment — for the Google-based providers ` +
+      `(gemini, gemini-cli, antigravity) those are GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET. ` +
+      `See .env.example.`,
+    );
+  }
+}
+
 export async function generateAuthData(providerName: string, redirectUri: string, meta?: Record<string, unknown>): Promise<AuthData> {
   const provider: ProviderHandler = getProvider(providerName);
   const config: Record<string, unknown> = provider.prepareConfig
@@ -129,6 +160,8 @@ export async function generateAuthData(providerName: string, redirectUri: string
   } else {
     authUrl = provider.buildAuthUrl(config, redirectUri, state, undefined, meta || {});
   }
+
+  if (authUrl) assertAuthUrlIsUsable(providerName, authUrl);
 
   return {
     authUrl,

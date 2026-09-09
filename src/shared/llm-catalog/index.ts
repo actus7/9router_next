@@ -33,6 +33,12 @@ export { default as REGISTRY } from "@/server/llm-gateway/engine/providers/regis
 export { MEDIA_ENTRY_KEYS } from "@/server/llm-gateway/engine/providers/mediaKeys";
 export type { RegistryEntry } from "@/server/llm-gateway/engine/providers/schema";
 
+// Which providers have no server endpoint at all (browser-only, e.g. Puter)
+export {
+  isBrowserOnlyProvider,
+  browserOnlyProviderForModel,
+} from "@/server/llm-gateway/engine/providers/serverTransport";
+
 // Thinking levels (pure lookup)
 export { getThinkingLevels } from "@/server/llm-gateway/engine/providers/thinkingLevels";
 
