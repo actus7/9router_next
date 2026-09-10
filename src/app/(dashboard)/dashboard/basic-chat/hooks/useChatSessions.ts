@@ -234,6 +234,7 @@ export function useChatSessions({
     activeProjectId,
     setActiveProjectId,
     setDraft,
+    attachments,
     setAttachments,
     setAttachmentNotice,
     setHistoryOpen,

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { translate } from "@/i18n/runtime";
 import { cloneSession, createId, fileToDataUrl } from "../chatFormatUtils";
+import { decideAttachments } from "../attachmentLimits";
 import type { ChatAttachment, ChatProject, ChatSession, NormalizedModel, ProviderGroup } from "../types";
 
 const LAST_SELECTED_MODEL_KEY = "basic-chat.lastSelectedModelId";
@@ -49,6 +50,8 @@ export interface UseSessionHandlersArgs {
   activeProjectId: string;
   setActiveProjectId: React.Dispatch<React.SetStateAction<string>>;
   setDraft: React.Dispatch<React.SetStateAction<string>>;
+  /** Needed to enforce the per-message cap against what is already staged. */
+  attachments: ChatAttachment[];
   setAttachments: React.Dispatch<React.SetStateAction<ChatAttachment[]>>;
   setAttachmentNotice: React.Dispatch<React.SetStateAction<string>>;
   setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -93,7 +96,7 @@ export function useSessionHandlers({
   setProjects,
   activeSessionId, setActiveSessionId, activeProviderId, setActiveProviderId,
   activeModelId, setActiveModelId, activeProjectId, setActiveProjectId,
-  setDraft, setAttachments, setAttachmentNotice, setHistoryOpen,
+  setDraft, attachments, setAttachments, setAttachmentNotice, setHistoryOpen,
   newProjectName, setNewProjectName, setIsCreatingProject,
   renamingSessionId, setRenamingSessionId, setRenameValue, renameValue,
   selectedSessionIds, setSelectedSessionIds,
@@ -325,19 +328,17 @@ export function useSessionHandlers({
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
-    const images = files.filter((file) => file.type.startsWith("image/"));
-    const rejected = files.length - images.length;
-    setAttachmentNotice(
-      rejected > 0
-        ? translate("Only image files can be attached.") || "Only image files can be attached."
-        : "",
-    );
-    if (images.length === 0) {
+    // Size and count are checked before anything is read: an attachment
+    // becomes a base64 data URL inside the message, so it rides every later
+    // request in the conversation, not just this one.
+    const { accepted, notice } = decideAttachments(files, attachments.length);
+    setAttachmentNotice(notice);
+    if (accepted.length === 0) {
       event.target.value = "";
       return;
     }
 
-    const converted = await Promise.all(images.map(async (file) => ({
+    const converted = await Promise.all(accepted.map(async (file) => ({
       id: createId(),
       name: file.name,
       type: file.type,

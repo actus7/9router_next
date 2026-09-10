@@ -17,6 +17,23 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
+/**
+ * Attachments counted as their base64 payload, because that is what is sent.
+ *
+ * They were not counted at all: the meter summed `content` only, so a
+ * conversation carrying several megabytes of images — re-sent on every turn —
+ * reported a usage that looked like plain text. Providers bill images by tile
+ * rather than by byte, so this is a rough floor, not an accurate figure; being
+ * roughly right beats reporting zero for the largest thing in the request.
+ */
+function attachmentTokens(message: ChatMessage): number {
+  if (!Array.isArray(message.attachments)) return 0;
+  return message.attachments.reduce(
+    (sum, attachment) => sum + estimateTokens(typeof attachment?.dataUrl === "string" ? attachment.dataUrl : ""),
+    0,
+  );
+}
+
 /** Rough (chars/4) client-side estimate of context usage — no real tokenizer is available in the browser. */
 export function estimateContextUsage(
   messages: ChatMessage[],
@@ -26,7 +43,10 @@ export function estimateContextUsage(
 ): ContextUsageEstimate {
   const systemPromptTokens = estimateTokens(systemPrompt);
   const toolsTokens = estimateTokens(toolsJson);
-  const messagesTokens = messages.reduce((sum, m) => sum + estimateTokens(typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "")), 0);
+  const messagesTokens = messages.reduce(
+    (sum, m) => sum + estimateTokens(typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "")) + attachmentTokens(m),
+    0,
+  );
   const totalTokens = systemPromptTokens + toolsTokens + messagesTokens;
   return {
     systemPromptTokens,
