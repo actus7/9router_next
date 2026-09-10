@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { translate } from "@/i18n/runtime";
 import { notify } from "@/store/notificationStore";
 import { ensureBuiltinMcpServers } from "@/shared/harness/builtinMcpServers";
@@ -140,6 +140,16 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     setTemperature,
   ]);
 
+  /**
+   * Conversation id -> the `updatedAt` the server is known to hold.
+   *
+   * Seeded by a successful GET and updated by every successful sync. This is
+   * what makes the sync incremental and deletions explicit; an empty map means
+   * nothing is known, which is why the sync stays disarmed until the GET
+   * answers.
+   */
+  const syncedRef = useRef<Map<string, string>>(new Map());
+
   // Fetch sessions from the durable server store
   useEffect(() => {
     if (!isHydrated) return;
@@ -153,6 +163,12 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
       .then((data: Record<string, unknown>) => {
         if (cancelled) return;
         const remote = Array.isArray(data.sessions) ? data.sessions : [];
+        // What the server is known to hold, so the sync can send only what
+        // changed and name what was removed.
+        syncedRef.current = new Map(
+          remote.map((session) => [String((session as ChatSession).id), String((session as ChatSession).updatedAt)]),
+        );
+        serverSessionsReadyRef.current = true;
         if (remote.length > 0) {
           const remoteSessions = remote
             .map((session) => ({
@@ -174,14 +190,17 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
         }
       })
       .catch((error: unknown) => {
+        // Deliberately leaves the sync disarmed. It used to be armed in a
+        // `.finally`, so a transient failure here — a shared dashboard rate
+        // limit, Neon Auth blinking — let the next local change PUT the local
+        // state as the whole truth. Sync was destructive by omission, so on a
+        // fresh browser that replaced the account's history with one empty
+        // conversation, and the only sign was this warning.
         console.error("Failed to load harness sessions:", error);
         notify.warning(
           translate("Could not load saved sessions. Using local copy.") ||
             "Could not load saved sessions. Using local copy.",
         );
-      })
-      .finally(() => {
-        serverSessionsReadyRef.current = true;
       });
     return () => {
       cancelled = true;
@@ -362,27 +381,81 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     enterBehavior,
   ]);
 
-  // Debounced server sync
-  useEffect(() => {
-    if (!isHydrated || !serverSessionsReadyRef.current) return;
-    if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current);
-    serverSyncTimerRef.current = setTimeout(() => {
-      void fetch("/api/harness/sessions", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessions }),
-      }).catch((error: unknown) => {
+  /**
+   * Debounced server sync, incremental and explicit.
+   *
+   * Sends only the conversations whose `updatedAt` moved since the last
+   * successful sync, and names the ones that are gone. It used to POST every
+   * conversation — every message, every base64 attachment — on every keystroke
+   * of a chat, and the server deleted whatever the payload left out.
+   *
+   * `keepalive` and the `pagehide` flush exist because the cleanup below runs
+   * on unmount too: navigating to another dashboard route within the debounce
+   * window cancelled the timer, and the turn that had just finished never
+   * reached the server at all.
+   */
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+
+  const flushServerSync = useCallback((keepalive: boolean) => {
+    if (!serverSessionsReadyRef.current) return;
+    const current = sessionsRef.current;
+    const synced = syncedRef.current;
+    const upserts = current.filter((session) => synced.get(session.id) !== session.updatedAt);
+    const present = new Set(current.map((session) => session.id));
+    const deletedIds = [...synced.keys()].filter((id) => !present.has(id));
+    if (upserts.length === 0 && deletedIds.length === 0) return;
+
+    // Recorded as sent before the request resolves: a failure re-sends on the
+    // next change anyway, and holding the old value would re-send everything.
+    const next = new Map(synced);
+    for (const id of deletedIds) next.delete(id);
+    for (const session of upserts) next.set(session.id, session.updatedAt);
+    syncedRef.current = next;
+
+    void fetch("/api/harness/sessions", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessions: upserts, deletedIds }),
+      keepalive,
+    })
+      .then((response) => {
+        if (response.ok) return;
+        throw new Error(`Sync failed (${response.status})`);
+      })
+      .catch((error: unknown) => {
         console.error("Failed to sync harness sessions:", error);
+        // Put them back so the next change retries instead of assuming the
+        // server has what it never received.
+        const rollback = new Map(syncedRef.current);
+        for (const session of upserts) rollback.delete(session.id);
+        for (const id of deletedIds) rollback.set(id, "");
+        syncedRef.current = rollback;
         notify.warning(
           translate("Could not sync sessions to server. Changes are saved locally.") ||
             "Could not sync sessions to server. Changes are saved locally.",
         );
       });
-    }, 350);
+  }, [serverSessionsReadyRef]);
+
+  useEffect(() => {
+    if (!isHydrated || !serverSessionsReadyRef.current) return;
+    if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current);
+    serverSyncTimerRef.current = setTimeout(() => flushServerSync(false), 350);
     return () => {
       if (serverSyncTimerRef.current) clearTimeout(serverSyncTimerRef.current);
     };
-  }, [isHydrated, serverSessionsReadyRef, serverSyncTimerRef, sessions]);
+  }, [flushServerSync, isHydrated, serverSessionsReadyRef, serverSyncTimerRef, sessions]);
+
+  // The last write must survive leaving the page, by either route.
+  useEffect(() => {
+    const onHide = () => flushServerSync(true);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      flushServerSync(true);
+    };
+  }, [flushServerSync]);
 
   // Auto-connect Context7 (no token required): discover its tools as soon as a
   // session carries the built-in server without them, so it works out of the

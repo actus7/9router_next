@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listHarnessConversations, replaceHarnessConversations, type HarnessConversation } from "@/lib/db/repos/harnessConversationsRepo";
+import { listHarnessConversations, syncHarnessConversations, type HarnessConversation } from "@/lib/db/repos/harnessConversationsRepo";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
 import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
+
+/** Bounds one request the way the run delete endpoint bounds its id list. */
+const MAX_DELETED_IDS = 500;
 
 function isConversation(value: unknown): value is HarnessConversation {
   if (!value || typeof value !== "object") return false;
@@ -45,7 +48,16 @@ export async function PUT(request: NextRequest) {
   if (!body.sessions.every(hasOnlyPublicMcpUrls)) {
     return NextResponse.json({ error: "session mcpServers must use public URLs" }, { status: 400 });
   }
-  await replaceHarnessConversations(body.sessions);
+  // Deletions are named, never inferred from absence. A client that omits the
+  // field — an old tab still running the previous bundle — upserts what it
+  // sent and removes nothing, which is the safe reading.
+  const deletedIds = Array.isArray(body.deletedIds)
+    ? body.deletedIds.filter((id): id is string => typeof id === "string" && !!id)
+    : [];
+  if (deletedIds.length > MAX_DELETED_IDS) {
+    return NextResponse.json({ error: `deletedIds must hold at most ${MAX_DELETED_IDS} ids` }, { status: 400 });
+  }
+  await syncHarnessConversations({ upserts: body.sessions, deletedIds });
   return NextResponse.json({ ok: true });
 }
 // Application HTTP use case extracted from the Next.js route adapter.

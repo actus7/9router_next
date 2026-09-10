@@ -39,33 +39,48 @@ export async function listHarnessConversations(): Promise<HarnessConversation[]>
   return (await db.all("SELECT * FROM harnessConversations WHERE userId = ? ORDER BY updatedAt DESC", [currentTenantId()])).map(rowToConversation);
 }
 
-export async function replaceHarnessConversations(conversations: HarnessConversation[]): Promise<void> {
+export interface HarnessConversationSync {
+  /** Conversations to create or overwrite. Anything absent is left alone. */
+  upserts: readonly HarnessConversation[];
+  /** Conversations to remove, named explicitly. */
+  deletedIds: readonly string[];
+}
+
+/**
+ * Applies a sync payload to this account's conversations.
+ *
+ * Replaces the old `replaceHarnessConversations`, which deleted every row the
+ * payload did not mention. That made a stale or partial payload destructive: a client
+ * whose initial GET had failed, or a second tab that loaded before a
+ * conversation existed, wiped the rest of the account's history. Absence now
+ * means "no opinion", and a deletion has to be asked for.
+ *
+ * An upsert that writes no row is an error rather than a silent success:
+ * `harnessConversations.id` is a global primary key and the statement is
+ * guarded by `WHERE userId = excluded.userId`, so an id already owned by
+ * another account matched nothing and still answered ok.
+ */
+export async function syncHarnessConversations({ upserts, deletedIds }: HarnessConversationSync): Promise<void> {
+  if (upserts.length === 0 && deletedIds.length === 0) return;
   const db = await getAdapter();
   const userId = currentTenantId();
   await db.transaction(async () => {
-    const ids = conversations.map((conversation) => conversation.id).filter(Boolean);
-    if (ids.length === 0) {
-      await db.run("DELETE FROM harnessMessageIndex WHERE userId = ?", [userId]);
-      await db.run("DELETE FROM harnessEvents WHERE userId = ?", [userId]);
+    const ids = deletedIds.filter(Boolean);
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => "?").join(", ");
+      await db.run(`DELETE FROM harnessMessageIndex WHERE userId = ? AND sessionId IN (${placeholders})`, [userId, ...ids]);
+      await db.run(`DELETE FROM harnessEvents WHERE userId = ? AND sessionId IN (${placeholders})`, [userId, ...ids]);
       // Never a run still executing: the worker is mid-write, and deleting the
-      // row under it loses the answer with no error anywhere. Those settle on
-      // their own and are swept by the pass below on a later sync.
-      await db.run("DELETE FROM harnessRuns WHERE userId = ? AND status != ?", [userId, "running"]);
-      await db.run("DELETE FROM harnessConversations WHERE userId = ?", [userId]);
-      return;
-    }
-
-    const placeholders = ids.map(() => "?").join(", ");
-    await db.run(`DELETE FROM harnessMessageIndex WHERE userId = ? AND sessionId NOT IN (${placeholders})`, [userId, ...ids]);
-    await db.run(`DELETE FROM harnessEvents WHERE userId = ? AND sessionId NOT IN (${placeholders})`, [userId, ...ids]);
-    await db.run(
-      `DELETE FROM harnessRuns WHERE userId = ? AND status != ? AND sessionId NOT IN (${placeholders})`,
-      [userId, "running", ...ids],
-    );
-    await db.run(`DELETE FROM harnessConversations WHERE userId = ? AND id NOT IN (${placeholders})`, [userId, ...ids]);
-    for (const conversation of conversations) {
-      const { id, title, projectId, providerId, modelId, createdAt, updatedAt, ...data } = conversation;
+      // row under it loses the answer with no error anywhere.
       await db.run(
+        `DELETE FROM harnessRuns WHERE userId = ? AND status != ? AND sessionId IN (${placeholders})`,
+        [userId, "running", ...ids],
+      );
+      await db.run(`DELETE FROM harnessConversations WHERE userId = ? AND id IN (${placeholders})`, [userId, ...ids]);
+    }
+    for (const conversation of upserts) {
+      const { id, title, projectId, providerId, modelId, createdAt, updatedAt, ...data } = conversation;
+      const result = await db.run(
         `INSERT INTO harnessConversations(id, userId, title, projectId, providerId, modelId, data, createdAt, updatedAt)
          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET title=excluded.title, projectId=excluded.projectId,
@@ -73,6 +88,9 @@ export async function replaceHarnessConversations(conversations: HarnessConversa
          WHERE harnessConversations.userId = excluded.userId`,
         [id, userId, title, projectId || null, providerId || null, modelId || null, stringifyJson(data), createdAt, updatedAt],
       );
+      if (result && result.changes === 0) {
+        throw new Error(`harnessConversations: conversation ${id} could not be written`);
+      }
     }
   });
 }

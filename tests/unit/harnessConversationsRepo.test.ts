@@ -8,7 +8,7 @@ vi.mock("@/lib/db/driver", () => ({
   getAdapter: vi.fn(async () => ({ run, get, transaction })),
 }));
 
-import { appendHarnessEvent, replaceHarnessConversations } from "@/lib/db/repos/harnessConversationsRepo";
+import { appendHarnessEvent, syncHarnessConversations } from "@/lib/db/repos/harnessConversationsRepo";
 
 const session = {
   id: "session-1",
@@ -17,26 +17,27 @@ const session = {
   updatedAt: "2026-09-03T10:00:00.000Z",
 };
 
-describe("replaceHarnessConversations", () => {
+describe("syncHarnessConversations", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("removes search rows for sessions omitted from a replacement", async () => {
-    await replaceHarnessConversations([session]);
+  it("removes the search rows of a deleted session before the session itself", async () => {
+    await syncHarnessConversations({ upserts: [session], deletedIds: ["gone"] });
 
     const statements = run.mock.calls.map(([sql]) => String(sql));
     // One search table now, not two: the Postgres index is a generated column
     // on harnessMessageIndex, so there is no companion FTS table to clear.
     const index = statements.findIndex((sql) => sql.includes("DELETE FROM harnessMessageIndex"));
     const events = statements.findIndex((sql) => sql.includes("DELETE FROM harnessEvents"));
+    const conversations = statements.findIndex((sql) => sql.includes("DELETE FROM harnessConversations"));
     expect(index).toBeGreaterThanOrEqual(0);
     expect(events).toBeGreaterThan(index);
+    expect(conversations).toBeGreaterThan(events);
   });
 
-  it("clears the search table when all sessions are deleted", async () => {
-    await replaceHarnessConversations([]);
+  it("touches nothing when no session was upserted or deleted", async () => {
+    await syncHarnessConversations({ upserts: [], deletedIds: [] });
 
-    expect(run).toHaveBeenCalledWith("DELETE FROM harnessMessageIndex WHERE userId = ?", ["test-user"]);
-    expect(run).toHaveBeenCalledWith("DELETE FROM harnessConversations WHERE userId = ?", ["test-user"]);
+    expect(run).not.toHaveBeenCalled();
   });
 });
 

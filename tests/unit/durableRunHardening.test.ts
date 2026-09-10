@@ -12,7 +12,7 @@ vi.mock("@/lib/db/driver", () => ({
   getAdapter: vi.fn(async () => ({ run, get, transaction: (fn: () => unknown) => fn() })),
 }));
 
-import { replaceHarnessConversations } from "@/lib/db/repos/harnessConversationsRepo";
+import { syncHarnessConversations } from "@/lib/db/repos/harnessConversationsRepo";
 import { countRunningHarnessRuns, failStaleHarnessRuns, settleHarnessRun } from "@/lib/db/repos/harnessRunsRepo";
 
 function statements(): string[] {
@@ -25,25 +25,17 @@ describe("session sync must not delete a live run", () => {
     run.mockReturnValue({ changes: 1 });
   });
 
-  it("spares running rows when pruning sessions that are gone", async () => {
-    // `PUT /api/harness/sessions` replaces the conversation table wholesale,
-    // every 350ms while a chat is active. It swept `harnessRuns` for any
-    // session missing from the payload — including one whose worker was
-    // mid-write. The row vanished under the worker and the answer was lost
-    // with no error raised anywhere.
-    await replaceHarnessConversations([
-      { id: "kept", title: "Kept", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
-    ]);
+  it("spares running rows when a deleted session is swept", async () => {
+    // `PUT /api/harness/sessions` used to replace the conversation table
+    // wholesale, every 350ms while a chat was active, sweeping `harnessRuns`
+    // for any session missing from the payload — including one whose worker was
+    // mid-write. The row vanished under the worker and the answer was lost with
+    // no error raised anywhere. Sync only deletes what it is told to now, but
+    // the guard still has to hold for the session the user really did delete.
+    await syncHarnessConversations({ upserts: [], deletedIds: ["gone"] });
 
     const sweep = statements().find((sql) => sql.startsWith("DELETE FROM harnessRuns"));
     expect(sweep).toBeDefined();
-    expect(sweep).toContain("status !=");
-  });
-
-  it("spares running rows when every session is gone", async () => {
-    await replaceHarnessConversations([]);
-
-    const sweep = statements().find((sql) => sql.startsWith("DELETE FROM harnessRuns"));
     expect(sweep).toContain("status !=");
   });
 });
