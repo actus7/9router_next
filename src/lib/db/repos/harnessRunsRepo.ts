@@ -140,9 +140,14 @@ export async function settleHarnessRun(
 ): Promise<void> {
   const db = await getAdapter();
   await db.run(
+    // `AND status = 'running'` for the same reason the progress write has it: a
+    // user who pressed stop already settled this row, and the worker's last
+    // write lands after that. Without the guard a stop inside the final
+    // progress interval was overwritten by `completed`, and the answer the user
+    // interrupted was delivered in full.
     `UPDATE harnessRuns SET status = ?, partialText = COALESCE(?, partialText), reasoning = ?,
        toolCalls = ?, usage = ?, error = ?, updatedAt = ?
-     WHERE userId = ? AND id = ?`,
+     WHERE userId = ? AND id = ? AND status = ?`,
     [
       result.status,
       result.partialText ?? null,
@@ -153,6 +158,7 @@ export async function settleHarnessRun(
       new Date().toISOString(),
       currentTenantId(),
       id,
+      "running",
     ],
   );
 }

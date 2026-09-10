@@ -62,7 +62,9 @@ vi.mock("@/lib/db/repos/harnessRunsRepo", () => {
     }),
     settleHarnessRun: vi.fn(async (id: string, result: Partial<Row> & { status: Row["status"] }) => {
       const row = rows.get(id);
-      if (!row) return;
+      // Faithful to the real UPDATE, which matches only `running`: a stub that
+      // settles anything lets a stop be overwritten in tests but not in Neon.
+      if (!row || row.status !== "running") return;
       rows.set(id, {
         ...row,
         ...result,

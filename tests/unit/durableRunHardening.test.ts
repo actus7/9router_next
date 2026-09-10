@@ -13,7 +13,7 @@ vi.mock("@/lib/db/driver", () => ({
 }));
 
 import { replaceHarnessConversations } from "@/lib/db/repos/harnessConversationsRepo";
-import { countRunningHarnessRuns, failStaleHarnessRuns } from "@/lib/db/repos/harnessRunsRepo";
+import { countRunningHarnessRuns, failStaleHarnessRuns, settleHarnessRun } from "@/lib/db/repos/harnessRunsRepo";
 
 function statements(): string[] {
   return run.mock.calls.map(([sql]) => String(sql).replace(/\s+/g, " ").trim());
@@ -62,6 +62,19 @@ describe("run bookkeeping", () => {
     const [sql, params] = get.mock.calls[0] as unknown as [string, unknown[]];
     expect(sql).toContain("userId = ?");
     expect(params[0]).toBe("test-user");
+  });
+
+  it("only settles a row that is still running, so a stop is not overwritten", async () => {
+    // The worker learns about a stop by a write that matches nothing. Its final
+    // settle skipped that guard, so a stop landing inside the last progress
+    // interval — up to a second at the end of every answer — was overwritten by
+    // `completed`, and the user got the whole reply after asking it to stop.
+    await settleHarnessRun("run-1", { status: "completed", partialText: "done" });
+
+    const settle = statements().find((sql) => sql.startsWith("UPDATE harnessRuns SET status"));
+    expect(settle).toBeDefined();
+    expect(settle).toContain("status = ?");
+    expect(run.mock.calls[0]?.[1]).toContain("running");
   });
 
   it("drops settled rows nobody ever collected", async () => {
