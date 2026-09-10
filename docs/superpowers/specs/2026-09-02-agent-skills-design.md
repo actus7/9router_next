@@ -40,4 +40,4 @@ Import por URL usa `safePublicFetch` (HTTPS, SSRF guard). Rascunho devolvido sem
 
 ## Fora de escopo
 
-Página `/dashboard/skills` (links externos) permanece separada.
+Página `/dashboard/skills` (links externos) foi removida em 2026-09-09 — o repo upstream que ela linkava retornava 404 e a biblioteca de skills do harness cobre o caso.

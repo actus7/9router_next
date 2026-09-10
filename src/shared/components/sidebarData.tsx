@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CloudUpload, Film, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, Puzzle, ScanEye, Server, Terminal, Webhook, Braces } from "lucide-react";
+import { BarChart3, CloudUpload, Film, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, PiggyBank, ScanEye, Server, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export const KIND_ICON_MAP: Record<string, LucideIcon> = {
@@ -32,5 +32,4 @@ export const debugItems = [
 
 export const systemItems = [
   { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: <Network /> },
-  { href: "/dashboard/skills", label: "Skills", icon: <Puzzle /> },
 ];
