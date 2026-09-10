@@ -5,6 +5,7 @@ import {
 import { executeDurableChat } from "./executeDurableChat";
 import { recordRoutingTraceEvent } from "./recordRoutingTraceEvent";
 import { executeRuntimeToolCall } from "./executeRuntimeToolCall";
+import { isAbortError } from "./runtimeToolProviders";
 import { createAssistantMessage } from "./prepareChatMessages";
 import { getEnabledSkillIds } from "@/shared/harness/agentSkills";
 import { readSkillPreferences } from "@/shared/harness/skillPreferences";
@@ -16,6 +17,7 @@ import type {
   ToolCall,
 } from "../types";
 import { createId } from "../chatFormatUtils";
+import { translate } from "@/i18n/runtime";
 
 interface RunToolCallLoopParams {
   sessionId: string;
@@ -113,6 +115,10 @@ export async function runToolCallLoop(
     step < maxToolSteps && pendingCalls.length > 0;
     step += 1
   ) {
+    // Stop means stop. Each continuation is a fresh durable run whose POST is
+    // deliberately not given the signal, so carrying on here would start work
+    // on the server that the user just cancelled and nobody is watching.
+    if (signal.aborted) throw new DOMException("The run was stopped.", "AbortError");
     updateSession(sessionId, (s) => ({
       ...s,
       messages: s.messages.map((message) =>
@@ -209,6 +215,9 @@ export async function runToolCallLoop(
             status: failed ? ("error" as const) : ("done" as const),
           };
         } catch (error) {
+          // An abort is not a failed tool: turning it into an error result let
+          // the loop continue and post another run.
+          if (isAbortError(error) || signal.aborted) throw error;
           const content = JSON.stringify({
             ok: false,
             error:
@@ -378,6 +387,36 @@ export async function runToolCallLoop(
         arguments: toolCall.arguments,
       });
     }
+  }
+
+  // Out of steps with the model still asking for tools. Falling out of the loop
+  // silently left an empty bubble marked "done", its unanswered calls still on
+  // the message and no `run/complete` in the journal — a truncated turn that
+  // read as a finished one.
+  if (pendingCalls.length > 0) {
+    const notice =
+      translate("The agent reached its tool step limit before finishing. Send another message to continue.") ||
+      "The agent reached its tool step limit before finishing. Send another message to continue.";
+    updateSession(sessionId, (s) => ({
+      ...s,
+      messages: s.messages.map((message) =>
+        message.id === runId
+          ? { ...message, content: message.content || notice, status: "error" as const, toolCalls: [] }
+          : message,
+      ),
+      updatedAt: new Date().toISOString(),
+    }));
+    setLiveActivities((activities) =>
+      activities.map((activity) =>
+        activity.id === runId ? { ...activity, detail: "Interrompida", state: "error" } : activity,
+      ),
+    );
+    recordHarnessEvent(sessionId, "run/end", {
+      runId,
+      status: "failed",
+      error: "tool step limit reached",
+      steps: maxToolSteps,
+    });
   }
 
   return runId;

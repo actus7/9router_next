@@ -23,6 +23,39 @@ describe("buildChatRequest", () => {
     ]);
   });
 
+  it("drops tool calls no tool message ever answered", () => {
+    // The loop stops at 8 steps, and a tab can die mid-step, so an assistant
+    // message can keep `tool_calls` that nothing answered. Serialized as-is,
+    // the provider is handed a call with no result: the gateway backfills an
+    // empty one, and the model reads an empty answer it never gets told about.
+    const messages: ChatMessage[] = [
+      { id: "user", role: "user", content: "keep going" },
+      { id: "answered", role: "assistant", content: "", toolCalls: [{ id: "call_1", name: "list_files", arguments: "{}" }] },
+      { id: "result", role: "tool", toolCallId: "call_1", content: "{}" },
+      { id: "orphan", role: "assistant", content: "", toolCalls: [{ id: "call_2", name: "web_search", arguments: "{}" }] },
+      { id: "placeholder", role: "assistant", content: "" },
+    ];
+
+    expect(buildRequestMessages(messages, "placeholder", "")).toEqual([
+      { role: "user", content: "keep going" },
+      { role: "assistant", content: null, tool_calls: [{ id: "call_1", type: "function", function: { name: "list_files", arguments: "{}" } }] },
+      { role: "tool", tool_call_id: "call_1", content: "{}" },
+    ]);
+  });
+
+  it("keeps the text of a partly answered assistant turn", () => {
+    const messages: ChatMessage[] = [
+      { id: "user", role: "user", content: "go" },
+      { id: "mixed", role: "assistant", content: "on it", toolCalls: [{ id: "call_9", name: "web_search", arguments: "{}" }] },
+      { id: "placeholder", role: "assistant", content: "" },
+    ];
+
+    expect(buildRequestMessages(messages, "placeholder", "")).toEqual([
+      { role: "user", content: "go" },
+      { role: "assistant", content: "on it" },
+    ]);
+  });
+
   it("only includes ephemeral runtime tools supplied by the caller", () => {
     const request = buildChatFetchOptions(model, [], 0.7, "", new AbortController().signal, runtimeToolDefinitions);
     const body = JSON.parse(String(request.body));
