@@ -70,7 +70,7 @@ export async function trySkillWriteToolCall(
         error: "create_skill requires name, description, and body",
       });
     }
-    const response = await fetch("/api/harness/skills", {
+    const response = await fetch("/api/harness/skills/agent", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: name, name, description, body, enabled: true, initiator: "agent", action: "create" }),
@@ -153,7 +153,7 @@ export async function trySkillWriteToolCall(
       typeof arguments_.enabled === "boolean"
         ? arguments_.enabled
         : existingPayload.skill.enabled !== false;
-    const response = await fetch("/api/harness/skills", {
+    const response = await fetch("/api/harness/skills/agent", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: name, name, description, body, enabled, initiator: "agent", action: "update" }),
@@ -224,7 +224,7 @@ export async function trySkillWriteToolCall(
       mode === "replace"
         ? patch
         : `${existingPayload.skill.body ?? ""}\n\n${patch}`.trim();
-    const response = await fetch("/api/harness/skills", {
+    const response = await fetch("/api/harness/skills/agent", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -268,7 +268,7 @@ export async function trySkillWriteToolCall(
         error: "learn_skill requires name, description, and lesson",
       });
     }
-    const response = await fetch("/api/harness/skills", {
+    const response = await fetch("/api/harness/skills/agent", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

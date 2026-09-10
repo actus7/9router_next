@@ -116,4 +116,22 @@ describe("POST /api/harness/memory", () => {
     expect(insertPending).toHaveBeenCalledOnce();
     expect(insertEntry).not.toHaveBeenCalled();
   });
+
+  it("does not let the request talk itself out of the gate", async () => {
+    // POST is the agent's path — the operator's edits arrive on PUT, which
+    // sets its own origin server-side. This handler used to read
+    // `body.source`, so a write could declare itself an operator action and
+    // skip the queue: the gate was chosen by the caller.
+    const response = await POST(
+      new NextRequest(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add", scope: "agent", content: "x", source: "ui" }),
+      }),
+    );
+
+    expect((await response.json()).pending).toBe(true);
+    expect(insertPending).toHaveBeenCalledOnce();
+    expect(insertEntry).not.toHaveBeenCalled();
+  });
 });

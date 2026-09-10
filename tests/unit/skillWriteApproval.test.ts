@@ -33,6 +33,7 @@ vi.mock("@/lib/db/repos/harnessLearningConfigRepo", () => ({ getHarnessLearningC
 
 import { NextRequest } from "next/server";
 import { PUT } from "@/server/application/use-cases/http/harness/skills/route";
+import { PUT as agentPut } from "@/server/application/use-cases/http/harness/skills/agent/route";
 
 const url = "http://localhost/api/harness/skills";
 
@@ -66,7 +67,7 @@ beforeEach(() => {
  */
 describe("agent-initiated skill writes", () => {
   it("queues for approval instead of writing the skill", async () => {
-    const response = await PUT(put({ ...SKILL, initiator: "agent", action: "create" }));
+    const response = await agentPut(put({ ...SKILL, action: "create" }));
     const payload = await response.json();
 
     expect(payload.pending).toBe(true);
@@ -85,9 +86,27 @@ describe("agent-initiated skill writes", () => {
   it("writes directly when the operator turns approval off", async () => {
     getHarnessLearningConfig.mockResolvedValue({ skillWriteApproval: false });
 
-    const response = await PUT(put({ ...SKILL, initiator: "agent" }));
+    const response = await agentPut(put({ ...SKILL }));
 
     expect(response.status).toBe(200);
+    expect(insertHarnessPendingWrite).not.toHaveBeenCalled();
+    expect(upsertAgentSkillRow).toHaveBeenCalledTimes(1);
+  });
+
+  it("is decided by the path, not by what the request claims", async () => {
+    // The gate used to be chosen by `body.initiator`, defaulting to ungated.
+    // Any new executor that spread the model's own arguments into the body
+    // would have turned every agent write into an operator write, and the
+    // whole governance model with it. The two origins arrive on different
+    // paths now and neither reads the field.
+    await agentPut(put({ ...SKILL, initiator: "user" }));
+    expect(insertHarnessPendingWrite).toHaveBeenCalledTimes(1);
+    expect(upsertAgentSkillRow).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    getHarnessLearningConfig.mockResolvedValue({ skillWriteApproval: true });
+
+    await PUT(put({ ...SKILL, initiator: "agent" }));
     expect(insertHarnessPendingWrite).not.toHaveBeenCalled();
     expect(upsertAgentSkillRow).toHaveBeenCalledTimes(1);
   });

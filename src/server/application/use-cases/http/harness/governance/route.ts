@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
     const result = await applyPluginToggle({
       pluginId,
       enabled,
-      source: body.source === "ui" ? "ui" : "agent",
+      // Hardcoded: this endpoint is only reached by the agent's tool executor,
+      // and reading the origin from the body let a write declare itself an
+      // operator action and skip the approval queue.
+      source: "agent",
     });
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });

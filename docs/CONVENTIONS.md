@@ -78,6 +78,29 @@ em `profile/sections/RoutingCard.tsx`.
 A regra: uma chave sem UI **documentada como decisão** não é gap. O gap era não
 saber a diferença.
 
+## Quem pediu uma escrita: o caminho, não o corpo
+
+As três escritas governadas do harness — skill, memória e toggle de plugin —
+decidiam entre "operador" e "agente" por um campo do corpo da requisição
+(`initiator` / `source`). Nada corroborava, e no caso de skill o default era o
+lado *sem* gate: `body.initiator === "agent" ? "agent" : "user"`. Ou seja, o
+gate de aprovação estava a um executor esquecido de virar decoração — bastava
+uma ferramenta nova espalhar os argumentos do modelo no corpo.
+
+Hoje as duas origens chegam por caminhos diferentes e cada caminho responde por
+si:
+
+- skill: `PUT /api/harness/skills` é sempre do operador (o editor do
+  dashboard); `PUT /api/harness/skills/agent` é sempre do agente. Ambos chamam
+  `applySkillWrite(request, initiator)`.
+- memória: `PUT` é do operador, `POST` é do agente e fixa `source: "agent"`.
+- governança: `POST` é do agente e fixa `source: "agent"`.
+
+Nenhum dos quatro handlers lê o campo do corpo. O modelo só alcança o harness
+através dos nossos executores, então não consegue escolher o outro caminho — o
+que um rótulo no corpo nunca garantiu. Um XSS no dashboard continua fora do
+alcance deste gate, e sempre estará: ali o atacante é o próprio principal.
+
 ## Definição de pronto
 
 Antes de reportar qualquer tarefa como concluída, rodar `npm run check` (lint + contract:check + build + typecheck + test:coverage + check:static-routes + git diff --check) e confirmar que sai verde.

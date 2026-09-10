@@ -93,8 +93,11 @@ export async function POST(request: NextRequest) {
   if (!action || !["add", "replace", "remove"].includes(action)) {
     return badRequest("action must be add, replace, or remove");
   }
-  const source =
-    body.source === "review" ? "review" : body.source === "ui" ? "ui" : "agent";
+  // POST is the agent's path; the operator's edits arrive on PUT, which sets
+  // its own origin server-side. This used to read `body.source`, so a write
+  // could declare itself an operator action and skip the approval queue — the
+  // gate was chosen by the caller.
+  const source = "agent";
   const result = await applyMemoryWrite({
     action,
     scope: body.scope === "user" ? "user" : body.scope === "agent" ? "agent" : undefined,

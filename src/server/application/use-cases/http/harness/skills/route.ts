@@ -148,7 +148,20 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(serialize(state));
 }
 
-export async function PUT(request: NextRequest) {
+/**
+ * Writes a skill, as the operator or as the agent.
+ *
+ * The origin is a parameter, not a body field. It used to be
+ * `body.initiator === "agent" ? "agent" : "user"`, which meant the gate — a
+ * skill is a standing instruction injected into the system prompt of every
+ * later run — was chosen by the caller, and defaulted to ungated. Any new tool
+ * that spread the model's own arguments into the body would have turned every
+ * agent write into an operator write. The two origins arrive on different
+ * paths now (`/agent` for the tool executors) and each path answers for
+ * itself; the model reaches the harness only through our executors, so it
+ * cannot pick the other one.
+ */
+export async function applySkillWrite(request: NextRequest, initiator: "user" | "agent") {
   await assertRequestRuntime();
   const denied = await requireDashboardAccess();
   if (denied) return denied;
@@ -161,13 +174,11 @@ export async function PUT(request: NextRequest) {
   const files = readSkillFiles(body);
   if (typeof files === "string") return badRequest(files);
 
-  // A skill is a standing instruction that re-enters the system prompt of every
-  // later run, so an agent writing one is a bigger grant than an agent toggling
-  // a plugin — which already requires approval. `initiator` is distinct from
-  // `row.source`, which describes the skill's provenance (bundle/override/user)
-  // rather than who asked for the write. An operator editing a skill is the
-  // authority here and is never gated.
-  const initiator = body.initiator === "agent" ? "agent" : "user";
+  // An agent writing a skill is a bigger grant than an agent toggling a plugin,
+  // which already requires approval. `initiator` is distinct from `row.source`,
+  // which describes the skill's provenance (bundle/override/user) rather than
+  // who asked for the write. An operator editing a skill is the authority here
+  // and is never gated.
   if (initiator === "agent") {
     const { skillWriteApproval } = await getHarnessLearningConfig();
     if (skillWriteApproval) {
@@ -207,4 +218,9 @@ export async function DELETE(request: NextRequest) {
   const normalized = normalizeSkillId(id);
   await deleteAgentSkillWithFiles(normalized);
   return NextResponse.json(serialize(await invalidateSkillTreeCache()));
+}
+
+/** The operator's path: the skills editor in the dashboard. */
+export async function PUT(request: NextRequest) {
+  return applySkillWrite(request, "user");
 }
