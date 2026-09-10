@@ -1,7 +1,7 @@
 "use client";
 
+import Image from "next/image";
 import { Handle, Position } from "@xyflow/react";
-import { DynamicMedia } from "@/shared/components/DynamicMedia";
 
 export interface RouterNodeData {
   activeCount?: number;
@@ -22,12 +22,18 @@ export function RouterNode({ data }: { data: RouterNodeData }) {
       <Handle type="source" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
 
-      <DynamicMedia
-        src="/favicon.png"
+      {/* The app icon, same asset the sidebar uses. It was `/favicon.png`
+          through DynamicMedia, which is the raw-<img> escape hatch for runtime
+          URLs — its own docs say static assets go through next/image. That
+          path is also not excluded by the proxy matcher (only `favicon.ico`
+          is), so the request went through auth middleware instead of being
+          served as a file, and rendered as a broken image. */}
+      <Image
+        src="/icons/icon-192.png"
         alt="ModelHub"
-        className={`w-6 h-6 mr-2 ${powering ? "topology-router-icon" : ""}`}
-        loading="lazy"
-        decoding="async"
+        width={24}
+        height={24}
+        className={`w-6 h-6 mr-2 object-contain ${powering ? "topology-router-icon" : ""}`}
       />
       <span className={`text-sm font-bold ${powering ? "topology-router-label text-warning" : "text-primary"}`}>
         ModelHub
