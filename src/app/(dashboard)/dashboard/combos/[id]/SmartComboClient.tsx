@@ -8,12 +8,11 @@ import { translate } from "@/i18n/runtime";
 import ComplexityRoutingBoard from "./ComplexityRoutingBoard";
 import { useSmartCombo } from "./useSmartCombo";
 import { ComboHeader } from "./ComboHeader";
-import { NameSettingsCard } from "./NameSettingsCard";
-import { GlobalModelsCard } from "./GlobalModelsCard";
-import { ClassifierSettingsCard } from "./ClassifierSettingsCard";
-import { NeedTierOverridesCard } from "./NeedTierOverridesCard";
+import { InferenceCard } from "./InferenceCard";
+import { PrioritiesCard } from "./PrioritiesCard";
 import { ModelInventoryCard } from "./ModelInventoryCard";
 import { PreviewModal } from "./PreviewModal";
+import { SaveBar } from "./SaveBar";
 import type { ComboData } from "./smartComboHelpers";
 
 export default function SmartComboClient({ initialCombo, activeProviders, modelAliases, initialProfiles }: {
@@ -26,13 +25,16 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      <ComboHeader saving={s.saving} onSave={s.handleSave} />
+      <ComboHeader name={s.name} onNameChange={s.setName} />
 
-      <NameSettingsCard
-        name={s.name}
-        onNameChange={s.setName}
+      <InferenceCard
+        complexityEnabled={s.config.complexity.enabled}
+        onComplexityEnabledChange={(enabled) => s.setConfig((c) => ({ ...c, complexity: { enabled } }))}
         taskEnabled={s.config.task.enabled}
         onTaskEnabledChange={(enabled) => s.setConfig((c) => ({ ...c, task: { ...c.task, enabled } }))}
+        classifier={s.config.classifier}
+        onClassifierEnabledChange={(enabled) => s.setConfig((c) => ({ ...c, classifier: { ...c.classifier, enabled } }))}
+        tunedNote={s.classifierTunedNote}
       />
 
       <ComplexityRoutingBoard
@@ -41,7 +43,6 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           ...c, overrides: { ...c.overrides, general: { ...c.overrides.general, [tier]: models } },
         }))}
         enabled={s.config.complexity.enabled}
-        onEnabledChange={(enabled) => s.setConfig((c) => ({ ...c, complexity: { enabled } }))}
         profiles={s.profiles}
         activeProviders={activeProviders as unknown as ActiveProvider[]}
         modelAliases={modelAliases}
@@ -49,20 +50,14 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         suggesting={s.suggesting}
       />
 
-      <GlobalModelsCard
+      <PrioritiesCard
         globalModels={s.globalModels}
-        onRemoveModel={(model) => s.setGlobalModels(s.globalModels.filter((m) => m !== model))}
-        onAddClick={() => s.setShowGlobalModelSelect(true)}
-      />
-
-      <ClassifierSettingsCard
-        classifier={s.config.classifier}
-        onClassifierChange={(update) => s.setConfig((c) => ({ ...c, classifier: { ...c.classifier, ...update } }))}
-      />
-
-      <NeedTierOverridesCard
+        onRemoveGlobalModel={(model) => s.setGlobalModels(s.globalModels.filter((m) => m !== model))}
+        onAddGlobalClick={() => s.setShowGlobalModelSelect(true)}
+        activeScopes={s.activeScopes}
+        onScopeSelect={s.selectScope}
         selectedNeed={s.selectedNeed}
-        onNeedChange={(need) => { s.setSelectedNeed(need); if (need === "general") s.setSelectedTier("default"); }}
+        onNeedChange={s.setSelectedNeed}
         selectedTier={s.selectedTier}
         onTierChange={s.setSelectedTier}
         currentModels={s.currentModels}
@@ -71,7 +66,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         needOptions={s.NEED_OPTIONS}
         needLabels={s.NEED_LABELS}
         tierLabels={s.TIER_LABELS}
-        tierOptionsForNeed={s.tierOptionsForNeed}
+        tierOptions={s.tierOptions}
       />
 
       <ModelInventoryCard
@@ -80,9 +75,9 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         tierLabels={s.TIER_LABELS}
         onRefresh={s.handleRefresh}
         loadingProfiles={s.loadingProfiles}
-        onSuggest={s.handleSuggest}
-        suggesting={s.suggesting}
       />
+
+      <SaveBar dirty={s.isDirty} saving={s.saving} onSave={s.handleSave} />
 
       {s.showModelSelect && (
         <ModelSelectModal
@@ -92,7 +87,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           onDeselect={(model) => s.patchModels(s.currentModels.filter((m) => m !== model.value))}
           activeProviders={activeProviders as unknown as ActiveProvider[]}
           modelAliases={modelAliases}
-          title={`Override: ${s.NEED_LABELS[s.selectedNeed]} / ${s.TIER_LABELS[s.selectedTier]}`}
+          title={`${s.NEED_LABELS[s.selectedNeed]} / ${s.TIER_LABELS[s.selectedTier]}`}
           addedModelValues={s.currentModels}
           closeOnSelect={false}
         />
@@ -106,7 +101,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           onDeselect={(model) => s.setGlobalModels(s.globalModels.filter((m) => m !== model.value))}
           activeProviders={activeProviders as unknown as ActiveProvider[]}
           modelAliases={modelAliases}
-          title={translate("Add global override") || "Add global override"}
+          title={translate("Always considered") || "Always considered"}
           addedModelValues={s.globalModels}
           closeOnSelect={false}
         />

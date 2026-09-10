@@ -253,7 +253,7 @@ export async function getSmartCombo(modelStr: string): Promise<SmartComboEntry |
   };
 }
 
-export const __test__ = { chooseClassifierModel };
+export const __test__ = { chooseClassifierModel, mergeLegacyModels };
 
 export function deriveRoutingSessionKey(headers: Headers, body: Record<string, unknown>): string | undefined {
   const candidates = [

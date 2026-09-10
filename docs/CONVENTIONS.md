@@ -48,6 +48,26 @@ editar por `PATCH /api/settings` ou variável de ambiente):
 - `headroomEnabled`, `headroomUrl`, `headroomCompressUserMessages` — dependem de um processo externo em `localhost:8787`.
 - `pxpipeAutoInstall`, `pxpipeTimeoutMs` — tuning; o resto do pxpipe já tem UI.
 
+**Roteamento inteligente — tuning do classificador sem UI (decisão de 2026-09-09)**
+
+O combo `smart` guarda `classifier.confidenceThreshold`, `classifier.timeoutMs` e
+`classifier.model` no `routing`. Os três saíram da tela
+(`/dashboard/combos/[id]`) e só se editam por `PUT /api/combos/{id}`. Motivo:
+são tuning que ninguém calibra sem telemetria, o servidor já os clampa contra
+um default (`router.ts:71-73`), e `task.confidenceThreshold` nunca teve UI — a
+tela agora é consistente com esse precedente em vez de expor três campos
+numéricos ao lado do único controle que é escolha real, o switch
+`classifier.enabled`. Valor diferente do default aparece como texto no card
+"O que o sistema decide sozinho", para que uma config ajustada por API não fique
+invisível.
+
+Na mesma leva, `overrides.general.default` deixou de ser editável: era o mesmo
+balde que o router já preenche a partir de `combo.models`
+(`mergeLegacyModels`, `router.ts:207-208`), ou seja, dois editores para um
+campo. `combo.models` é estritamente mais amplo — vale no need classificado
+**e** no do endpoint — então ele sobreviveu como a lista "Sempre considerado" e
+configs antigas são dobradas nele por `foldGeneralDefaultIntoGlobals`.
+
 **Aguardando um segundo caso**: `tunnelProvider` só tem um provider implementado
 (`cloudflare`); um seletor de um item é ruído. Adicionar quando houver o segundo.
 
@@ -75,4 +95,10 @@ Ao corrigir um bug: escreva um teste que reproduza o bug primeiro, confirme que 
 
 ## Erros conhecidos
 
-_(vazio — populado quando um erro do Claude realmente se repetir duas vezes, formato erro → correção)_
+**`npm run check` com `next dev` rodando → o dev server passa a responder 404
+em todas as rotas.** O `next build` do check escreve em `.next` por cima do
+estado que o `next dev` mantém ali, e o processo continua vivo servindo um
+manifesto que não corresponde mais às rotas. Correção: parar o `next dev`
+antes de rodar o check, ou reiniciar depois. `NEXT_DIST_DIR=.next-check` **não**
+resolve — o ESLint passa a varrer o diretório novo e o passo de lint falha com
+centenas de erros no output do build.

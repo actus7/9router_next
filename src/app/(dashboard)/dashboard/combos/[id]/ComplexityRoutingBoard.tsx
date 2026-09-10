@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import TierModelPickerModal, { type ModelPriceInfo } from "@/shared/components/TierModelPickerModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
 import { ROUTING_TIERS, type RoutingTier, type SmartModelProfile } from "@/shared/llm-catalog";
@@ -205,7 +204,6 @@ export default function ComplexityRoutingBoard({
   overrides,
   onOverridesChange,
   enabled,
-  onEnabledChange,
   profiles,
   activeProviders,
   modelAliases,
@@ -215,7 +213,6 @@ export default function ComplexityRoutingBoard({
   overrides: Partial<Record<RoutingTier, string[]>>;
   onOverridesChange: (tier: RoutingTier, models: string[]) => void;
   enabled: boolean;
-  onEnabledChange: (enabled: boolean) => void;
   profiles: SmartModelProfile[];
   activeProviders: ActiveProvider[];
   modelAliases: Record<string, string>;
@@ -232,16 +229,16 @@ export default function ComplexityRoutingBoard({
             <h2 className="text-base font-semibold text-text-main">{translate("Complexity-based routing")}</h2>
             <p className="mt-1 text-sm text-text-muted">{translate("Each request is assessed on the spot and sent to the right tier — no latency cost. Use \"Suggest models with AI\" to fill the 4 columns automatically, or add manually.")}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <Button variant="outline" size="sm" onClick={onSuggest} loading={suggesting}>
-              <Sparkles data-icon="inline-start" /> {translate("Suggest models with AI")}
-            </Button>
-            <label className="flex items-center gap-2 text-sm text-text-main">
-              {translate("Enabled")}
-              <Switch aria-label={translate("Enable complexity-based routing") || "Enable complexity-based routing"} checked={enabled} onCheckedChange={onEnabledChange} />
-            </label>
-          </div>
+          <Button variant="outline" size="sm" onClick={onSuggest} loading={suggesting} className="shrink-0">
+            <Sparkles data-icon="inline-start" /> {translate("Suggest models with AI")}
+          </Button>
         </div>
+
+        {!enabled && (
+          <p className="rounded-lg border border-dashed border-warning/40 bg-warning/5 px-3 py-2 text-xs text-text-muted">
+            {translate("Complexity inference is off, so every request routes as Standard — only that column is used.")}
+          </p>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {ROUTING_TIERS.map((tier) => (

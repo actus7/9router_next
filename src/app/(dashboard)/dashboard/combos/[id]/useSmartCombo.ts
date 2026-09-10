@@ -2,15 +2,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
-import { ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTierOrDefault, type SmartModelProfile, type SmartRoutingConfig } from "@/shared/llm-catalog";
+import { DEFAULT_SMART_ROUTING_CONFIG, ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTierOrDefault, type SmartModelProfile, type SmartRoutingConfig } from "@/shared/llm-catalog";
 import { getStoredModelTestLatencies } from "@/shared/utils/modelTestLatency";
-import { ALL_TIERS, capProfilesPerTier, normalizeConfig, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview } from "./smartComboHelpers";
+import { ALL_TIERS, activeScopesFromConfig, capProfilesPerTier, foldGeneralDefaultIntoGlobals, normalizeConfig, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview } from "./smartComboHelpers";
 
 export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartModelProfile[]) {
-  const [name, setName] = useState(initialCombo.name);
-  const [config, setConfig] = useState<SmartRoutingConfig>(() => normalizeConfig(initialCombo.routing));
-  const [globalModels, setGlobalModels] = useState<string[]>(initialCombo.models || []);
-  const [selectedNeed, setSelectedNeed] = useState<RouteNeed>("general");
+  // The fold runs once, before any state exists: a config saved by the old
+  // screen can hold models in overrides.general.default, a bucket the grid no
+  // longer offers. Moving them into the global list only widens where they
+  // apply, so it is not a change the user has to approve.
+  const initial = useMemo(() => {
+    const folded = foldGeneralDefaultIntoGlobals(normalizeConfig(initialCombo.routing), initialCombo.models || []);
+    return { name: initialCombo.name, config: folded.config, globalModels: folded.models };
+  }, [initialCombo]);
+
+  const [name, setName] = useState(initial.name);
+  const [config, setConfig] = useState<SmartRoutingConfig>(initial.config);
+  const [globalModels, setGlobalModels] = useState<string[]>(initial.globalModels);
+  // `general` is not selectable here: the complexity board renders its tiers
+  // and the global list covers its default bucket.
+  const [selectedNeed, setSelectedNeed] = useState<RouteNeed>("vision");
   const [selectedTier, setSelectedTier] = useState<RoutingTierOrDefault>("default");
   const [showModelSelect, setShowModelSelect] = useState(false);
   const [showGlobalModelSelect, setShowGlobalModelSelect] = useState(false);
@@ -24,12 +35,23 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
   const [confirming, setConfirming] = useState(false);
   const currentModels = config.overrides[selectedNeed]?.[selectedTier] || [];
   useEffect(() => setModelTestLatencies(getStoredModelTestLatencies()), []);
-  const tierOptionsForNeed: RoutingTierOrDefault[] = selectedNeed === "general" ? ["default"] : ALL_TIERS;
-  const profileSummary = useMemo(() => ({
-    total: profiles.length,
-    llm: profiles.filter((p) => p.capabilities.serviceKinds.includes("llm")).length,
-    enriched: profiles.filter((p) => p.source !== "deterministic").length,
-  }), [profiles]);
+  const tierOptions: RoutingTierOrDefault[] = ALL_TIERS;
+  const activeScopes = useMemo(() => activeScopesFromConfig(config), [config]);
+  const isDirty = useMemo(() => (
+    name !== initial.name
+    || JSON.stringify(globalModels) !== JSON.stringify(initial.globalModels)
+    || JSON.stringify(config) !== JSON.stringify(initial.config)
+  ), [name, config, globalModels, initial]);
+  const profileSummary = useMemo(() => {
+    const llm = profiles.filter((p) => p.capabilities.serviceKinds.includes("llm"));
+    return {
+      total: profiles.length,
+      llm: llm.length,
+      // Contado sobre os llm, nao sobre o total: numa rota de chat o resto nem
+      // chega a ser candidato.
+      llmEnriched: llm.filter((p) => p.source !== "deterministic").length,
+    };
+  }, [profiles]);
   const NEED_LABELS: Record<RouteNeed, string> = {
     general: translate("General") || "General", vision: translate("Vision") || "Vision",
     tool_use: translate("Tool use") || "Tool use", coding: translate("Coding") || "Coding",
@@ -45,7 +67,19 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     standard: translate("Standard") || "Standard", complex: translate("Complex") || "Complex",
     reasoning: translate("Reasoning") || "Reasoning",
   };
-  const NEED_OPTIONS = ROUTE_NEEDS.map((need) => ({ value: need, label: NEED_LABELS[need] }));
+  const NEED_OPTIONS = ROUTE_NEEDS.filter((need) => need !== "general").map((need) => ({ value: need, label: NEED_LABELS[need] }));
+  const selectScope = (need: RouteNeed, tier: RoutingTierOrDefault) => { setSelectedNeed(need); setSelectedTier(tier); };
+  // Kept visible because the values persist and still take effect; only the
+  // inputs left the screen.
+  const classifierTunedNote = (() => {
+    const base = DEFAULT_SMART_ROUTING_CONFIG.classifier;
+    const diffs: string[] = [];
+    if (config.classifier.confidenceThreshold !== base.confidenceThreshold) diffs.push(`confidence ${config.classifier.confidenceThreshold}`);
+    if (config.classifier.timeoutMs !== base.timeoutMs) diffs.push(`timeout ${config.classifier.timeoutMs}ms`);
+    if (config.classifier.model !== base.model) diffs.push(`model ${config.classifier.model}`);
+    if (diffs.length === 0) return null;
+    return `${translate("Tuned via API") || "Tuned via API"}: ${diffs.join(" · ")}`;
+  })();
   const patchModels = (models: string[]) => setConfig((c) => ({
     ...c, overrides: { ...c.overrides, [selectedNeed]: { ...c.overrides[selectedNeed], [selectedTier]: models } },
   }));
@@ -116,7 +150,8 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     showModelSelect, setShowModelSelect, showGlobalModelSelect, setShowGlobalModelSelect,
     saving, profiles, loadingProfiles, suggesting, preview, setPreview, confirming,
     suggestionPreset, setSuggestionPreset, modelTestLatencies,
-    currentModels, tierOptionsForNeed, profileSummary, cappedPreviewProfiles,
+    currentModels, tierOptions, activeScopes, isDirty, selectScope, classifierTunedNote,
+    profileSummary, cappedPreviewProfiles,
     patchModels, handleSave, handleRefresh, handleSuggest, handleConfirmProfiles,
     NEED_LABELS, TIER_LABELS, NEED_OPTIONS,
   };

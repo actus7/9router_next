@@ -21,12 +21,17 @@ export function PreviewModal({
   onPresetChange: (preset: SuggestionPreset) => void;
   latencies: ModelLatencyMap;
 }) {
+  const testedCount = cappedPreviewProfiles.filter((profile) => typeof latencies[profile.modelKey.toLowerCase()]?.latencyMs === "number").length;
+  // "Fastest" ordena por latencia medida em teste de modelo, guardada no
+  // navegador. Sem nenhuma medicao ele cai para a velocidade estimada, ou seja,
+  // promete um criterio que nao tem dado para aplicar — melhor nao oferecer.
   const presetTabs: Array<{ value: SuggestionPreset; label: string; description: string; icon: typeof Sparkles }> = [
     { value: "balanced", label: translate("Balanced") || "Balanced", description: translate("AI recommendation, balanced across the four levels") || "AI recommendation, balanced across the four levels", icon: Sparkles },
-    { value: "performance", label: translate("Fastest") || "Fastest", description: translate("Real test latency first; estimated speed fills gaps") || "Real test latency first; estimated speed fills gaps", icon: Gauge },
+    ...(testedCount > 0
+      ? [{ value: "performance" as const, label: translate("Fastest") || "Fastest", description: translate("Real test latency first; estimated speed fills gaps") || "Real test latency first; estimated speed fills gaps", icon: Gauge }]
+      : []),
     { value: "quality", label: translate("Highest quality") || "Highest quality", description: translate("Highest assessed quality in each complexity level") || "Highest assessed quality in each complexity level", icon: Trophy },
   ];
-  const testedCount = cappedPreviewProfiles.filter((profile) => typeof latencies[profile.modelKey.toLowerCase()]?.latencyMs === "number").length;
   return (
     <Modal
       isOpen={!!preview}
@@ -48,7 +53,7 @@ export function PreviewModal({
             {preview.truncated && <p className="mt-1 text-warning">{translate("There were more models than this round's limit; the rest were not reassessed now.")}</p>}
           </div>
           <div className="flex flex-col gap-2" role="tablist" aria-label={translate("Suggestion presets") || "Suggestion presets"}>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {presetTabs.map((tab) => {
                 const Icon = tab.icon;
                 const active = preset === tab.value;
@@ -67,7 +72,7 @@ export function PreviewModal({
                 );
               })}
             </div>
-            {preset === "performance" && <p className="text-xs text-text-muted">{testedCount > 0 ? `${testedCount} ${translate("suggested models have measured test latency.") || "suggested models have measured test latency."}` : translate("No measured test latency yet; this preset is using estimated speed.") || "No measured test latency yet; this preset is using estimated speed."}</p>}
+            {preset === "performance" && <p className="text-xs text-text-muted">{testedCount} {translate("suggested models have measured test latency.")}</p>}
           </div>
           <p className="text-xs text-text-muted">{translate("Organized by complexity level")} ({translate("up to")} {MAX_SUGGESTIONS_PER_TIER} {translate("models per tier")}). {translate("On confirm, this list replaces what is in the \"Default routing\" board above.")}</p>
           <div className="grid max-h-[55vh] gap-3 overflow-y-auto custom-scrollbar sm:grid-cols-2 lg:grid-cols-4">
