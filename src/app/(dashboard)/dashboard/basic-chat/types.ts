@@ -106,6 +106,12 @@ export interface SendMessageOptions {
   text: string;
   attachments?: ChatAttachment[];
   baseMessages?: ChatMessage[];
+  /**
+   * The conversation to post into, when it must not be "whatever is on screen".
+   * A queued follow-up replays minutes later — the send ahead of it outlives
+   * the tab — so it carries the session it was typed into.
+   */
+  sessionId?: string;
 }
 
 export interface ChatProject {

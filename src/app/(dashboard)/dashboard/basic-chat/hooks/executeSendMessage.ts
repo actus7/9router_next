@@ -129,7 +129,7 @@ export async function executeSendMessage({
   if (!userText && messageAttachments.length === 0) return;
 
   const sessionResult = ensureChatSession(
-    activeSessionId,
+    options?.sessionId ?? activeSessionId,
     sessionsRef.current,
     model,
     ensureSessionForModel,

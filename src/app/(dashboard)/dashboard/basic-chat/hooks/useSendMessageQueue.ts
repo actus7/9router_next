@@ -13,7 +13,8 @@ export interface UseSendMessageQueueArgs {
   attachments: ChatAttachment[];
   setDraft: React.Dispatch<React.SetStateAction<string>>;
   setAttachments: React.Dispatch<React.SetStateAction<ChatAttachment[]>>;
-  abortRef: React.MutableRefObject<AbortController | null>;
+  /** Ends the run in flight — on the server too, not just this watcher. */
+  interrupt: () => void;
 }
 
 export interface UseSendMessageQueueReturn {
@@ -27,7 +28,6 @@ export interface UseSendMessageQueueReturn {
   moveQueuedMessage: (id: string, direction: "up" | "down") => void;
   clearQueue: () => void;
   dequeueNext: () => QueuedMessage | undefined;
-  requeueFront: (item: QueuedMessage) => void;
 }
 
 export function useSendMessageQueue({
@@ -37,7 +37,7 @@ export function useSendMessageQueue({
   attachments,
   setDraft,
   setAttachments,
-  abortRef,
+  interrupt,
 }: UseSendMessageQueueArgs): UseSendMessageQueueReturn {
   // The ref is what the send loop reads mid-flight, when a re-render has not
   // happened yet; every mutation below writes both, so nothing syncs them after.
@@ -85,18 +85,15 @@ export function useSendMessageQueue({
     [],
   );
 
+  // Steering interrupts the run and sends the new message instead, so it has to
+  // reach the server like stop does. Aborting locally only stopped watching,
+  // leaving the run the user steered away from burning quota — and its answer
+  // was folded back into the conversation later by run recovery.
   const steerMessage = useCallback(() => {
     if (!canQueue) return;
     queueMessage();
-    abortRef.current?.abort();
-  }, [abortRef, canQueue, queueMessage]);
-
-  /** Puts a dequeued message back at the head, still waiting, still visible. */
-  const requeueFront = useCallback((item: QueuedMessage) => {
-    const next = [item, ...queuedMessagesRef.current];
-    queuedMessagesRef.current = next;
-    setQueuedMessages(next);
-  }, []);
+    interrupt();
+  }, [canQueue, interrupt, queueMessage]);
 
   const dequeueNext = useCallback((): QueuedMessage | undefined => {
     const [next, ...rest] = queuedMessagesRef.current;
@@ -117,6 +114,5 @@ export function useSendMessageQueue({
     moveQueuedMessage,
     clearQueue,
     dequeueNext,
-    requeueFront,
   };
 }
