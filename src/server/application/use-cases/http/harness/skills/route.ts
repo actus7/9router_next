@@ -23,6 +23,7 @@ import {
 import { BUNDLE_SKILLS, BUNDLE_SKILL_IDS } from "@/shared/harness/bundleSkills";
 import type { AgentSkillRow } from "@/lib/db/repos/agentSkillsRepo";
 import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
+import { writeSkill } from "@/server/harness/skills/writeSkill";
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -174,39 +175,21 @@ export async function applySkillWrite(request: NextRequest, initiator: "user" | 
   const files = readSkillFiles(body);
   if (typeof files === "string") return badRequest(files);
 
-  // An agent writing a skill is a bigger grant than an agent toggling a plugin,
-  // which already requires approval. `initiator` is distinct from `row.source`,
-  // which describes the skill's provenance (bundle/override/user) rather than
-  // who asked for the write. An operator editing a skill is the authority here
-  // and is never gated.
-  if (initiator === "agent") {
-    const { skillWriteApproval } = await getHarnessLearningConfig();
-    if (skillWriteApproval) {
-      const pending = await insertHarnessPendingWrite({
-        id: randomUUID(),
-        kind: "skill",
-        action: typeof body.action === "string" ? body.action : "upsert",
-        source: "agent",
-        payload: { row, files },
-      });
-      return NextResponse.json({
-        ok: true,
-        pending: true,
-        pendingId: pending.id,
-        message: "Skill write queued for user approval",
-      });
-    }
+  const outcome = await writeSkill({
+    row,
+    files,
+    initiator,
+    action: typeof body.action === "string" ? body.action : "upsert",
+  });
+  if (outcome.pending || !outcome.state) {
+    return NextResponse.json({
+      ok: true,
+      pending: true,
+      pendingId: outcome.pendingId,
+      message: "Skill write queued for user approval",
+    });
   }
-
-  await upsertAgentSkillRow(row);
-  if (files.length > 0 && row.source !== "override") {
-    await replaceAgentSkillFiles(row.id, files.map((file) => ({
-      filePath: file.filePath,
-      content: file.content,
-    })));
-  }
-
-  return NextResponse.json(serialize(await invalidateSkillTreeCache()));
+  return NextResponse.json(serialize(outcome.state));
 }
 
 export async function DELETE(request: NextRequest) {

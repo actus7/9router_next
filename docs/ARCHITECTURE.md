@@ -47,11 +47,11 @@ Three things are deliberate:
   of its owner. `useDurableRunRecovery` still collects run rows, but it is now
   how a *live* tab catches up, not the only path an answer has.
 
-  A turn that asked for tools is mirrored as `error`, not `done`: it is not
-  finished, and the loop that would continue it runs in the browser. Writing it
-  as an answer would file a truncated turn as a complete one; not writing it at
-  all left it to expire in `harnessRuns` with nothing said. Its unanswered
-  calls ride along and are dropped when the conversation is next serialized.
+  A turn the worker could not finish — out of tool steps, or out of its time
+  budget — is mirrored as `error`, not `done`. Writing it as an answer would
+  file a truncated turn as a complete one; not writing it at all left it to
+  expire in `harnessRuns` with nothing said. Its unanswered calls ride along and
+  are dropped when the conversation is next serialized.
 - **Stop and navigating away are different.** Aborting locally only stops
   watching. An explicit stop `PATCH`es the row to `stopped`; the worker learns
   about it because its next progress `UPDATE ... WHERE status = 'running'`
@@ -91,13 +91,13 @@ have, while an in-process call runs inside the run's `withTenant(owner)`.
 `runToolCallLoop` in the browser is still there, and still needed. Two rules
 keep the two loops from ever both running a call:
 
-- **A step is all-or-nothing.** `web_search`, `web_fetch`, `delegate_task` and
-  MCP run in the worker; media generation and the approval-gated writes need the
-  browser (the first for provider/model resolution, the second because a human
-  has to answer). If any call in a step needs the browser, none of them run in
-  the worker and the whole set is settled onto the row — which is where
-  `executeDurableChat` reads tool calls from, so the browser picks up exactly
-  those.
+- **A step is all-or-nothing.** Every tool the harness ships runs in the
+  worker: search, fetch, delegation, MCP, the harness's own skill/memory/
+  governance tools, and media generation. The browser loop is the safety net
+  for a tool the worker has no executor for — a future one, or an MCP name that
+  is not in the request body. If any call in a step is unknown to the worker,
+  none of them run there and the whole set is settled onto the row, which is
+  where `executeDurableChat` reads tool calls from.
 - **A hand-back only happens before the worker has run anything.** Once it has,
   the earlier tool results exist only in the worker's own message list, so a
   browser continuing the chain would send a history missing them. The turn ends
@@ -106,12 +106,26 @@ keep the two loops from ever both running a call:
 The worker writes `tool/call` and `tool/result` into the run journal, so
 server-side tool work is visible rather than text appearing from nowhere.
 
-The ceiling is that `maxDuration`: one run, including its tool steps, must
-finish inside one invocation. Loops longer than that need Vercel Workflow or
-Queues.
+**Two accidents of environment had to be replaced, not moved.** The browser
+base64-encoded generated audio with `btoa`, walking the bytes through
+`String.fromCharCode` in 32KB chunks because that is all it had; the worker uses
+`Buffer`. And the browser bounded a video poll with an `AbortSignal`, which the
+worker does not have — a stop reaches it as a progress write that matches no
+row. So every wait in the worker is bounded by the run's own deadline instead.
 
-What a closed browser still changes: a turn whose tools are browser-only, and
-an approval-gated write, which waits for its operator by design.
+That deadline is the real ceiling: one run, every tool step included, must
+finish inside one invocation (`maxDuration` 300s, and the loop gives itself
+`RUN_BUDGET_MS` 240s). A video poll alone was allowed 90s, and eight of those
+would be killed by the platform mid-step — leaving the row `running` for the
+next reader to settle as dead, losing the whole chain. The loop watches its own
+clock and stops in a state it can report. Loops genuinely longer than one
+invocation need Vercel Workflow or Queues.
+
+The one thing a browser is still required for is a model that *is* the browser:
+Puter runs the completion inside `js.puter.com`, so `executeSendMessage`
+branches before the durable path and such a run never becomes a durable run at
+all. An approval-gated write no longer needs the browser — the worker queues it
+and the operator answers whenever they next look.
 
 ## Compatibility
 

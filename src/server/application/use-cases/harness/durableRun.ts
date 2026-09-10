@@ -33,7 +33,7 @@ const PROGRESS_INTERVAL_MS = 1_000;
  * message body, which is rendered verbatim.
  */
 const TOOL_TURN_INTERRUPTED =
-  "Stopped here: this turn needed a tool this side cannot run, or ran out of tool steps. Open the chat to continue.";
+  "Stopped here: this turn ran out of tool steps or of time. Send another message to continue.";
 
 /**
  * How often the run is touched even when the provider has sent nothing.
@@ -61,7 +61,27 @@ export interface StartDurableRunInput {
   body: Record<string, unknown>;
   /** Passed straight through, because the gateway still authenticates the call. */
   authorization: string | null;
+  /**
+   * Skills this session has enabled, so `load_skill` keeps its scope.
+   *
+   * Stated by the client rather than derived here: part of the answer lives in
+   * the browser's `localStorage` preferences, so the worker guessing it would
+   * either widen the scope or narrow it.
+   */
+  enabledSkillIds?: readonly string[];
 }
+
+/**
+ * How long the worker gives itself, against the platform's `maxDuration`.
+ *
+ * One run — every tool step included — has to finish inside one invocation.
+ * The tool loop can wait on a video job, and a poll that ran to its own 90s
+ * timeout eight times over would be killed by the platform mid-step: the row
+ * stays `running` and the next reader settles it as dead, losing everything
+ * accumulated. So the loop is given a deadline short of the ceiling and stops
+ * itself in a state it can report.
+ */
+const RUN_BUDGET_MS = 240_000;
 
 /**
  * Starts a chat run that does not depend on the caller staying connected.
@@ -112,6 +132,7 @@ async function ownedAuthorization(header: string | null, owner: string): Promise
 }
 
 async function executeRun(runId: string, input: StartDurableRunInput): Promise<void> {
+  const startedAt = Date.now();
   try {
     await ensureTranslators();
 
@@ -206,6 +227,8 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
           authorization,
           sessionId: input.sessionId,
           model: typeof input.body.model === "string" ? input.body.model : null,
+          deadline: startedAt + RUN_BUDGET_MS,
+          enabledSkillIds: input.enabledSkillIds,
           firstTurnText: parsed.text,
           firstTurnToolCalls: parsed.toolCalls,
           onProgress: (text) => updateHarnessRunProgress(runId, text),

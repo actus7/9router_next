@@ -71,6 +71,10 @@ export interface RunServerToolLoopInput {
   model: string | null;
   firstTurnText: string;
   firstTurnToolCalls: readonly ServerToolCall[];
+  /** Epoch ms the run must be finished by, against the platform's maxDuration. */
+  deadline: number;
+  /** Skills the session enabled, stated by the client that started the run. */
+  enabledSkillIds?: readonly string[];
   /** Called with the accumulated text after each step, to keep watchers fed. */
   onProgress: (text: string) => Promise<boolean>;
   /**
@@ -91,6 +95,8 @@ export async function runServerToolLoop(input: RunServerToolLoopInput): Promise<
     enabledToolNames,
     mcpRuntimeNames,
     model: input.model,
+    deadline: input.deadline,
+    enabledSkillIds: input.enabledSkillIds ? new Set(input.enabledSkillIds) : undefined,
   };
 
   const messages = Array.isArray(input.body.messages) ? [...(input.body.messages as unknown[])] : [];
@@ -101,6 +107,12 @@ export async function runServerToolLoop(input: RunServerToolLoopInput): Promise<
   let executed = 0;
 
   for (let step = 0; step < MAX_TOOL_STEPS && pending.length > 0; step += 1) {
+    // Out of budget: stop in a state that can be reported rather than being
+    // killed by the platform mid-step, which would leave the row `running` for
+    // the next reader to settle as dead — losing everything accumulated here.
+    if (Date.now() >= input.deadline) {
+      return { text, leftoverToolCalls: [], reasoning, usage, exhausted: true, executed };
+    }
     if (!pending.every((call) => canRunServerSide(call.name, context))) {
       // Handing calls back is only safe before this side has run any: the tool
       // results of earlier steps live in this function's `messages`, not in the

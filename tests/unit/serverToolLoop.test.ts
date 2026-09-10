@@ -16,12 +16,13 @@ const handleChat = vi.hoisted(() => vi.fn());
 const executeServerToolCall = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/llm-gateway/chat", () => ({ handleChat }));
-vi.mock("@/server/harness/tools/serverToolCall", async () => {
-  const actual = await vi.importActual<typeof import("@/server/harness/tools/serverToolCall")>(
-    "@/server/harness/tools/serverToolCall",
-  );
-  return { ...actual, executeServerToolCall };
-});
+// Mocked outright rather than through `importActual`: the real module reaches
+// the gateway handlers and the db repos, and the loop's contract with it is
+// just these two exports.
+vi.mock("@/server/harness/tools/serverToolCall", () => ({
+  executeServerToolCall,
+  SERVER_EXECUTABLE_TOOLS: new Set(["web_search", "web_fetch", "delegate_task"]),
+}));
 
 import { runServerToolLoop, toolNamesFromBody } from "@/server/harness/tools/serverToolLoop";
 
@@ -45,7 +46,7 @@ const body = {
   messages: [{ role: "user", content: "find something" }],
   tools: [
     { type: "function", function: { name: "web_search" } },
-    { type: "function", function: { name: "generate_image" } },
+    { type: "function", function: { name: "some_future_tool" } },
   ],
 };
 
@@ -58,6 +59,7 @@ function loop(overrides: Partial<Parameters<typeof runServerToolLoop>[0]> = {}) 
     firstTurnText: "",
     firstTurnToolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"x"}' }],
     onProgress: async () => true,
+    deadline: Date.now() + 60_000,
     ...overrides,
   });
 }
@@ -79,14 +81,15 @@ describe("server tool loop", () => {
     expect(result.executed).toBe(1);
   });
 
-  it("hands a browser-only call back without running any of the step", async () => {
-    // `generate_image` needs the provider/model resolution that lives in the
-    // browser. Running the rest of the step here and the rest there would
-    // execute the same call twice.
+  it("hands a call it cannot run back without running any of the step", async () => {
+    // Everything the harness ships now runs this side, so this is the safety
+    // net rather than the common case: a tool the model was offered that this
+    // side has no executor for. Running the rest of the step here and the rest
+    // in the browser would execute the same call twice.
     const result = await loop({
       firstTurnToolCalls: [
         { id: "call_1", name: "web_search", arguments: "{}" },
-        { id: "call_2", name: "generate_image", arguments: "{}" },
+        { id: "call_2", name: "some_future_tool", arguments: "{}" },
       ],
     });
 
@@ -101,7 +104,7 @@ describe("server tool loop", () => {
     // the client's conversation. Handing step two to the browser would make it
     // continue from a history missing step one, and the model would answer
     // without it — so once this side has run a step, the turn ends here.
-    handleChat.mockResolvedValueOnce(asksFor("generate_image", "call_2"));
+    handleChat.mockResolvedValueOnce(asksFor("some_future_tool", "call_2"));
 
     const result = await loop({ firstTurnText: "looking" });
 
@@ -144,6 +147,20 @@ describe("server tool loop", () => {
     expect(result.leftoverToolCalls).toEqual([]);
   });
 
+  it("stops on its own budget rather than being killed mid-step", async () => {
+    // One run, every tool step included, has to finish inside one invocation.
+    // A video poll can wait 90s; eight of those is past `maxDuration`, and a
+    // killed invocation leaves the row `running` for the next reader to settle
+    // as dead — losing the whole chain. So the loop watches its own clock.
+    handleChat.mockImplementation(async () => asksFor("web_search"));
+
+    const result = await loop({ deadline: Date.now() - 1 });
+
+    expect(handleChat).not.toHaveBeenCalled();
+    expect(executeServerToolCall).not.toHaveBeenCalled();
+    expect(result.exhausted).toBe(true);
+  });
+
   it("raises a failed continuation instead of settling a half answer", async () => {
     handleChat.mockResolvedValue(
       new Response(JSON.stringify({ error: "provider exhausted" }), { status: 502 }),
@@ -157,7 +174,7 @@ describe("toolNamesFromBody", () => {
   it("reads the enabled tools from what was offered to the model", () => {
     // No separate session lookup, so the worker and the browser cannot
     // disagree about which tools this turn had.
-    expect([...toolNamesFromBody(body)]).toEqual(["web_search", "generate_image"]);
+    expect([...toolNamesFromBody(body)]).toEqual(["web_search", "some_future_tool"]);
   });
 
   it("survives a body with no tools at all", () => {

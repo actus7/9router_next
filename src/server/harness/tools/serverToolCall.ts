@@ -5,6 +5,15 @@ import { handleFetch } from "@/server/llm-gateway/application/fetch";
 import { handleSearch } from "@/server/llm-gateway/application/search";
 import { buildModelsList } from "@/server/application/use-cases/http/v1/models/route";
 import { callSessionMcpTool } from "@/server/harness/mcpClient";
+import {
+  generateImageServerSide,
+  generateVideoServerSide,
+  textToSpeechServerSide,
+} from "./serverMediaTools";
+import {
+  SERVER_HARNESS_TOOLS,
+  executeHarnessToolServerSide,
+} from "./serverHarnessTools";
 
 /**
  * Runs a tool call inside the durable worker, with no browser involved.
@@ -21,11 +30,22 @@ import { callSessionMcpTool } from "@/server/harness/mcpClient";
  * silently skipped and nothing runs twice.
  */
 
-/** Tool names this side executes. Everything else is left to the browser. */
+/**
+ * Tool names this side executes.
+ *
+ * Everything, now, except the models that are themselves the browser: Puter
+ * runs the completion inside `js.puter.com`, so a run on it never reaches a
+ * worker in the first place (`executeSendMessage` branches before the durable
+ * path). There is nothing left here that the browser does better.
+ */
 export const SERVER_EXECUTABLE_TOOLS: ReadonlySet<string> = new Set([
   "web_search",
   "web_fetch",
   "delegate_task",
+  "generate_image",
+  "text_to_speech",
+  "generate_video",
+  ...SERVER_HARNESS_TOOLS,
 ]);
 
 export interface ServerToolContext {
@@ -42,6 +62,16 @@ export interface ServerToolContext {
   webFetchMaxCharacters?: number;
   /** The run's model, so `delegate_task` defaults to the same one. */
   model: string | null;
+  /**
+   * Epoch ms this run must be finished by.
+   *
+   * The worker has no `AbortSignal` — a stop reaches it as a progress write
+   * that matches no row — so waits are bounded by the run's own budget against
+   * `maxDuration` instead.
+   */
+  deadline: number;
+  /** Skills the session enabled, so `load_skill` keeps its scope. */
+  enabledSkillIds?: ReadonlySet<string>;
 }
 
 export interface ServerToolCall {
@@ -165,6 +195,17 @@ export async function executeServerToolCall(
       return failure(error instanceof Error ? error.message : "MCP tool call failed");
     }
   }
+
+  const media = { authorization: context.authorization, deadline: context.deadline };
+  if (call.name === "generate_image") return await generateImageServerSide(args, media);
+  if (call.name === "text_to_speech") return await textToSpeechServerSide(args, media);
+  if (call.name === "generate_video") return await generateVideoServerSide(args, media);
+
+  const harness = await executeHarnessToolServerSide(call.name, args, {
+    sessionId: context.sessionId,
+    enabledSkillIds: context.enabledSkillIds,
+  });
+  if (harness !== null) return harness;
 
   if (call.name === "web_search") {
     const query = typeof args.query === "string" ? args.query.trim() : "";

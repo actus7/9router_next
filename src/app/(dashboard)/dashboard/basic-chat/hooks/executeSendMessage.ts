@@ -8,6 +8,7 @@ import {
 } from "@/shared/harness/agentPlugins";
 import {
   buildSkillsPromptBlock,
+  getEnabledSkillIds,
   getSupplementalSkillAuthoringTools,
   getLoadSkillFileToolDefinition,
   resolveSessionSkills,
@@ -367,6 +368,9 @@ export async function executeSendMessage({
           signal,
           onStreamText: updateStreamingText,
           onRunId: adoptRunId,
+          // The worker runs `load_skill` itself now, and the enabled set is
+          // partly this browser's stored preferences.
+          enabledSkillIds: [...getEnabledSkillIds(session.skillOverrides, readSkillPreferences())],
         });
     recordRoutingTraceEvent(recordHarnessEvent, sessionId, assistantMessageId, result.routingTrace);
     if (result.streamed) {

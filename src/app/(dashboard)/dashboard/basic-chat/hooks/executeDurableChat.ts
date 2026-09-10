@@ -21,6 +21,14 @@ export interface DurableChatOptions {
   onStreamText: (text: string) => void;
   /** Called once the run exists, so the caller can stop it on purpose later. */
   onRunId?: (runId: string) => void;
+  /**
+   * Skills this session has enabled.
+   *
+   * The worker runs `load_skill` now and cannot work this out on its own —
+   * part of the answer is in this browser's `localStorage` preferences — so it
+   * is stated here rather than guessed there.
+   */
+  enabledSkillIds?: readonly string[];
 }
 
 /**
@@ -47,7 +55,12 @@ export async function executeDurableChat(options: DurableChatOptions): Promise<C
       "Content-Type": "application/json",
       ...(authorization ? { Authorization: authorization } : {}),
     },
-    body: JSON.stringify({ sessionId: options.sessionId, messageId: options.messageId, body }),
+    body: JSON.stringify({
+      sessionId: options.sessionId,
+      messageId: options.messageId,
+      body,
+      ...(options.enabledSkillIds ? { enabledSkillIds: options.enabledSkillIds } : {}),
+    }),
   });
 
   if (!created.ok) {

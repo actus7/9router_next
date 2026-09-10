@@ -58,6 +58,13 @@ export async function POST(request: NextRequest) {
   if (typeof (payload as Record<string, unknown>).model !== "string") {
     return NextResponse.json({ error: "body.model is required" }, { status: 400 });
   }
+  // Which skills this session has enabled. The worker cannot work this out on
+  // its own — part of the answer lives in the browser's `localStorage`
+  // preferences — and guessing it would either widen `load_skill`'s scope or
+  // narrow it. So the client states it, once, when it starts the run.
+  const enabledSkillIds = Array.isArray(body.enabledSkillIds)
+    ? body.enabledSkillIds.filter((id): id is string => typeof id === "string" && !!id).slice(0, 200)
+    : undefined;
 
   // Each run holds an invocation open and spends this account's provider
   // quota, and the dashboard rate limit only bounds how fast they are started,
@@ -75,6 +82,7 @@ export async function POST(request: NextRequest) {
     messageId,
     body: payload as Record<string, unknown>,
     authorization: request.headers.get("authorization"),
+    enabledSkillIds,
   });
   return NextResponse.json({ runId }, { status: 202 });
 }
