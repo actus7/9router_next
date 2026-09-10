@@ -1396,5 +1396,11 @@
   "Show all kinds": "Mostrar todos os tipos",
   "Only chat models": "Só modelos de chat",
   "Unsaved changes": "Alterações não salvas",
+  "The agent reached its tool step limit before finishing. Send another message to continue.": "O agente atingiu o limite de passos de ferramenta antes de terminar. Envie outra mensagem para continuar.",
+  "Each image must be under {limit}.": "Cada imagem deve ter menos de {limit}.",
+  "Up to {limit} images per message.": "Até {limit} imagens por mensagem.",
+  "Only image files can be attached.": "Somente arquivos de imagem podem ser anexados.",
+  "Could not sync sessions to server. Changes are saved locally.": "Não foi possível sincronizar as conversas com o servidor. As alterações estão salvas localmente.",
+  "Could not load saved sessions. Using local copy.": "Não foi possível carregar as conversas salvas. Usando a cópia local.",
   "Everything saved": "Tudo salvo"
 }

@@ -147,8 +147,12 @@ export async function appendRunAnswerToConversation(
   const db = await getAdapter();
   const userId = currentTenantId();
   return await db.transaction(async () => {
+    // `FOR UPDATE` because this is a read-modify-write of the whole message
+    // list. Two runs can settle in the same conversation at once, and without
+    // the row lock they interleave: both read the same messages, both write,
+    // and whichever committed first loses its answer with nothing to report it.
     const row = await db.get(
-      "SELECT id, data, updatedAt FROM harnessConversations WHERE userId = ? AND id = ?",
+      "SELECT id, data, updatedAt FROM harnessConversations WHERE userId = ? AND id = ? FOR UPDATE",
       [userId, sessionId],
     );
     if (!row) return false;

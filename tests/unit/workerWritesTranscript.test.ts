@@ -15,10 +15,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const rows = vi.hoisted(() => new Map<string, { data: string; updatedAt: string }>());
+const reads = vi.hoisted(() => [] as string[]);
 
 vi.mock("@/lib/db/driver", () => ({
   getAdapter: vi.fn(async () => ({
     get: vi.fn(async (sql: string, params: unknown[]) => {
+      reads.push(sql.replace(/\s+/g, " ").trim());
       if (!sql.includes("FROM harnessConversations")) return undefined;
       const row = rows.get(String(params[1]));
       return row ? { id: params[1], data: row.data, updatedAt: row.updatedAt } : undefined;
@@ -51,6 +53,7 @@ function messagesOf(sessionId: string): Array<Record<string, unknown>> {
 
 beforeEach(() => {
   rows.clear();
+  reads.length = 0;
   vi.clearAllMocks();
 });
 
@@ -87,6 +90,19 @@ describe("appendRunAnswerToConversation", () => {
     await appendRunAnswerToConversation("s3", "a1", { content: "x", status: "done" });
 
     expect(Date.parse(rows.get("s3")!.updatedAt)).toBeGreaterThan(Date.parse("2026-01-01T00:00:00.000Z"));
+  });
+
+  it("locks the row it is about to rewrite", async () => {
+    // Read-modify-write of the whole conversation blob. Two runs can settle in
+    // the same conversation at once (MAX_CONCURRENT_RUNS is 12, per account,
+    // across conversations), and without the row lock they interleave: both
+    // read the same messages, both write, and the answer of whichever committed
+    // first is gone with nothing to report it.
+    seed("s5", [{ id: "a1", role: "assistant", content: "", status: "streaming" }]);
+
+    await appendRunAnswerToConversation("s5", "a1", { content: "x", status: "done" });
+
+    expect(reads.find((sql) => sql.includes("FROM harnessConversations"))).toContain("FOR UPDATE");
   });
 
   it("does nothing when the conversation is not on the server yet", async () => {
