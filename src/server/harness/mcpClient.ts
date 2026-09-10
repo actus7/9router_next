@@ -292,3 +292,61 @@ export async function callMcpTool(
     await closeDispatcher(dispatcher);
   }
 }
+
+interface StoredMcpServer {
+  id?: unknown;
+  url?: unknown;
+  tools?: unknown;
+  enabled?: unknown;
+  authToken?: unknown;
+}
+
+/**
+ * Resolves a session's MCP tool and calls it.
+ *
+ * The caller supplies ids and a runtime name, never a URL: the target is read
+ * from this account's own persisted session record, which was validated when
+ * the server was discovered. That is what closes SSRF through a
+ * client-supplied URL, so it has to hold for every caller — the dashboard
+ * route and the durable worker both come through here rather than each doing
+ * their own lookup.
+ */
+export async function callSessionMcpTool({ sessionId, serverId, runtimeName, args }: {
+  sessionId: string;
+  /** Optional: the server is found by the tool's runtime name when absent. */
+  serverId?: string;
+  runtimeName: string;
+  args: Record<string, unknown>;
+}): Promise<unknown> {
+  const { listHarnessConversations } = await import("@/lib/db/repos/harnessConversationsRepo");
+  const conversations = await listHarnessConversations();
+  const conversation = conversations.find((item) => item.id === sessionId);
+  const mcpServers = Array.isArray(conversation?.mcpServers)
+    ? (conversation.mcpServers as StoredMcpServer[])
+    : [];
+  const matchesTool = (item: StoredMcpServer) =>
+    Array.isArray(item.tools) &&
+    item.tools.some(
+      (tool: unknown) =>
+        tool && typeof tool === "object" && (tool as { runtimeName?: unknown }).runtimeName === runtimeName,
+    );
+  const server = mcpServers.find((item) =>
+    item && typeof item === "object" && (serverId ? item.id === serverId : matchesTool(item)),
+  );
+  if (!server || typeof server.url !== "string" || !Array.isArray(server.tools)) {
+    throw new Error("Servidor MCP não encontrado nesta sessão.");
+  }
+  if (server.enabled === false) throw new Error("Servidor MCP está desativado nesta sessão.");
+
+  const tool = server.tools.find(
+    (item: unknown) =>
+      item && typeof item === "object" && (item as { runtimeName?: unknown }).runtimeName === runtimeName,
+  ) as { name?: unknown; enabled?: unknown } | undefined;
+  if (!tool || typeof tool.name !== "string") {
+    throw new Error("Ferramenta MCP não está habilitada nesta sessão.");
+  }
+  if (tool.enabled === false) throw new Error("Ferramenta MCP está desativada nesta sessão.");
+
+  const authToken = typeof server.authToken === "string" && server.authToken ? server.authToken : undefined;
+  return await callMcpTool(server.url, tool.name, args, authToken);
+}

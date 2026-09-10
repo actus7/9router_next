@@ -78,19 +78,38 @@ every tenant — and the delete endpoint caps its id list. The dashboard rate
 limit bounds how fast these are *started*, never how many are alive, which is
 the quantity that costs anything.
 
-The ceiling is that `maxDuration`: one run must finish inside one invocation.
-Tool calls still execute in the browser (`runToolCallLoop`), so each step is
-durable but the loop between steps is not — a tab that dies mid-loop keeps the
-step that was in flight and stops there, and that step is not mirrored into the
-conversation because it is not an answer. Durability across invocations, and
-loops that continue without the client, would need Vercel Workflow or Queues.
+**The tool loop runs in the worker** (`server/harness/tools/serverToolLoop.ts`),
+so a turn that needs several tool steps finishes with nothing open. Everything
+the browser's executor reaches is an HTTP route on this same server, so the work
+already lived here; what lived only in the browser was the loop. Dispatch is
+in-process rather than over HTTP, which is also what makes it possible: the
+harness routes authenticate with the dashboard session, which a worker does not
+have, while an in-process call runs inside the run's `withTenant(owner)`.
 
-**This is the one remaining way a closed browser changes the outcome.** A turn
-with no tool calls now completes and lands in the conversation whether anyone
-is watching or not; a turn that needs a second tool step still waits for a
-browser. Closing it means running the tool executors server-side — most of what
-`executeRuntimeToolCall` reaches is already an HTTP route on this server — plus
-somewhere for an approval-gated write to wait for its operator.
+`runToolCallLoop` in the browser is still there, and still needed. Two rules
+keep the two loops from ever both running a call:
+
+- **A step is all-or-nothing.** `web_search`, `web_fetch`, `delegate_task` and
+  MCP run in the worker; media generation and the approval-gated writes need the
+  browser (the first for provider/model resolution, the second because a human
+  has to answer). If any call in a step needs the browser, none of them run in
+  the worker and the whole set is settled onto the row — which is where
+  `executeDurableChat` reads tool calls from, so the browser picks up exactly
+  those.
+- **A hand-back only happens before the worker has run anything.** Once it has,
+  the earlier tool results exist only in the worker's own message list, so a
+  browser continuing the chain would send a history missing them. The turn ends
+  there instead and is reported unfinished.
+
+The worker writes `tool/call` and `tool/result` into the run journal, so
+server-side tool work is visible rather than text appearing from nowhere.
+
+The ceiling is that `maxDuration`: one run, including its tool steps, must
+finish inside one invocation. Loops longer than that need Vercel Workflow or
+Queues.
+
+What a closed browser still changes: a turn whose tools are browser-only, and
+an approval-gated write, which waits for its operator by design.
 
 ## Compatibility
 

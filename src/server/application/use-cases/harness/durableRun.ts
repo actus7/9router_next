@@ -8,7 +8,8 @@ import {
   settleHarnessRun,
   updateHarnessRunProgress,
 } from "@/lib/db/repos/harnessRunsRepo";
-import { appendRunAnswerToConversation } from "@/lib/db/repos/harnessConversationsRepo";
+import { appendHarnessEvent, appendRunAnswerToConversation } from "@/lib/db/repos/harnessConversationsRepo";
+import { runServerToolLoop } from "@/server/harness/tools/serverToolLoop";
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { handleChat } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
@@ -32,7 +33,7 @@ const PROGRESS_INTERVAL_MS = 1_000;
  * message body, which is rendered verbatim.
  */
 const TOOL_TURN_INTERRUPTED =
-  "Stopped here: this turn needed a tool and the chat was not open. Send another message to continue.";
+  "Stopped here: this turn needed a tool this side cannot run, or ran out of tool steps. Open the chat to continue.";
 
 /**
  * How often the run is touched even when the provider has sent nothing.
@@ -194,12 +195,40 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
     }
 
     const parsed = accumulator.finish(decoder.decode());
+
+    // The tool loop runs here now, not in the browser. Anything it cannot run
+    // this side comes back in `leftoverToolCalls` and is settled onto the row,
+    // which is where `executeDurableChat` reads tool calls from — so a browser
+    // picks up exactly those and never re-runs what this side already did.
+    const loop = parsed.toolCalls.length
+      ? await runServerToolLoop({
+          body: input.body,
+          authorization,
+          sessionId: input.sessionId,
+          model: typeof input.body.model === "string" ? input.body.model : null,
+          firstTurnText: parsed.text,
+          firstTurnToolCalls: parsed.toolCalls,
+          onProgress: (text) => updateHarnessRunProgress(runId, text),
+          onToolEvent: async (type, data) => {
+            // Best effort: the journal is observability, and failing to write
+            // it must not fail a run that is otherwise going fine.
+            await appendHarnessEvent({
+              sessionId: input.sessionId,
+              type,
+              data: { runId: input.messageId, ...data },
+            }).catch(() => undefined);
+          },
+        })
+      : null;
+
+    const finalText = loop ? loop.text : parsed.text;
+    const finalToolCalls = loop ? loop.leftoverToolCalls : parsed.toolCalls;
     const settled = await settleHarnessRun(runId, {
       status: "completed",
-      partialText: parsed.text,
-      reasoning: parsed.reasoning || null,
-      toolCalls: parsed.toolCalls,
-      usage: (parsed.usage as Record<string, unknown> | null) ?? null,
+      partialText: finalText,
+      reasoning: (loop?.reasoning || parsed.reasoning) || null,
+      toolCalls: finalToolCalls,
+      usage: (loop?.usage ?? (parsed.usage as Record<string, unknown> | null)) ?? null,
     });
     if (settled) {
       // A turn that asked for tools is not finished: the loop that continues it
@@ -209,17 +238,17 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
       // writing it as `done` would file a truncated turn as a complete answer.
       // Its unanswered calls ride along and are dropped when the conversation
       // is next serialized (`buildRequestMessages`).
-      const unfinished = parsed.toolCalls.length > 0;
+      const unfinished = finalToolCalls.length > 0;
       await mirrorAnswer(input, {
-        content: unfinished && parsed.text
-          ? `${parsed.text}
+        content: unfinished && finalText
+          ? `${finalText}
 
 _${TOOL_TURN_INTERRUPTED}_`
-          : parsed.text,
+          : finalText,
         status: unfinished ? "error" : "done",
-        reasoning: parsed.reasoning || null,
-        toolCalls: unfinished ? parsed.toolCalls : undefined,
-        tokenUsage: (parsed.usage as Record<string, unknown> | null) ?? null,
+        reasoning: (loop?.reasoning || parsed.reasoning) || null,
+        toolCalls: unfinished ? finalToolCalls : undefined,
+        tokenUsage: (loop?.usage ?? (parsed.usage as Record<string, unknown> | null)) ?? null,
       });
     }
   } catch (error) {
