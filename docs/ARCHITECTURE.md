@@ -38,8 +38,10 @@ Three things are deliberate:
   had already paid for.
 
   Sync is incremental now (`syncHarnessConversations`): it upserts what the
-  client says changed, deletes only ids it is told to delete, and refuses an
-  upsert older than the stored row — reporting it in `stale` so the client
+  client says changed, deletes only ids it is told to delete — recording a
+  tombstone so the deletion converges on every device instead of being
+  re-uploaded by whichever one still had a local copy — and refuses an upsert
+  older than the stored row — reporting it in `stale` so the client
   re-reads rather than overwriting. That is what makes a server-side write
   safe, and it is what makes the browser one reader of the conversation instead
   of its owner. `useDurableRunRecovery` still collects run rows, but it is now

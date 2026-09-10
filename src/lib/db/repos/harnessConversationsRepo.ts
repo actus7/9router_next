@@ -39,6 +39,25 @@ export async function listHarnessConversations(): Promise<HarnessConversation[]>
   return (await db.all("SELECT * FROM harnessConversations WHERE userId = ? ORDER BY updatedAt DESC", [currentTenantId()])).map(rowToConversation);
 }
 
+/**
+ * How long a deleted conversation is remembered as deleted.
+ *
+ * Only has to outlast the longest a device can plausibly sit offline holding a
+ * stale copy. Past that the tombstone is swept and a very old device could
+ * re-upload — which is strictly better than keeping a row per deletion forever.
+ */
+export const DELETED_CONVERSATION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+/** Conversations this account deleted, so a returning device can drop them. */
+export async function listDeletedConversationIds(): Promise<string[]> {
+  const db = await getAdapter();
+  const rows = await db.all(
+    "SELECT id FROM harnessDeletedConversations WHERE userId = ? AND deletedAt > ? ORDER BY deletedAt DESC LIMIT 2000",
+    [currentTenantId(), new Date(Date.now() - DELETED_CONVERSATION_TTL_MS).toISOString()],
+  );
+  return rows.map((row) => String(row.id));
+}
+
 export interface HarnessConversationSync {
   /** Conversations to create or overwrite. Anything absent is left alone. */
   upserts: readonly HarnessConversation[];
@@ -86,6 +105,32 @@ export async function syncHarnessConversations(
         [userId, "running", ...ids],
       );
       await db.run(`DELETE FROM harnessConversations WHERE userId = ? AND id IN (${placeholders})`, [userId, ...ids]);
+      const deletedAt = new Date().toISOString();
+      for (const id of ids) {
+        await db.run(
+          `INSERT INTO harnessDeletedConversations(userId, id, deletedAt) VALUES(?, ?, ?)
+           ON CONFLICT(userId, id) DO UPDATE SET deletedAt = excluded.deletedAt`,
+          [userId, id, deletedAt],
+        );
+      }
+      // Swept here rather than on a schedule: this is the only place that adds
+      // one, so it is the only place that can grow the table.
+      await db.run(
+        "DELETE FROM harnessDeletedConversations WHERE userId = ? AND deletedAt < ?",
+        [userId, new Date(Date.now() - DELETED_CONVERSATION_TTL_MS).toISOString()],
+      );
+    }
+    if (upserts.length > 0) {
+      // A conversation that comes back — a reused id, or a device that had it
+      // before the deletion — must not be shadowed by its own tombstone.
+      const upsertIds = upserts.map((conversation) => conversation.id).filter(Boolean);
+      const marks = upsertIds.map(() => "?").join(", ");
+      if (upsertIds.length > 0) {
+        await db.run(
+          `DELETE FROM harnessDeletedConversations WHERE userId = ? AND id IN (${marks})`,
+          [userId, ...upsertIds],
+        );
+      }
     }
     for (const conversation of upserts) {
       const { id, title, projectId, providerId, modelId, createdAt, updatedAt, ...data } = conversation;

@@ -168,18 +168,27 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
       remote.map((session) => [String((session as ChatSession).id), String((session as ChatSession).updatedAt)]),
     );
     serverSessionsReadyRef.current = true;
-    if (remote.length === 0) return;
+    // Conversations another device deleted. Without this the merge below reads
+    // "absent from the server" as "not synced yet" and re-uploads them, so a
+    // deletion never converged: deleting on the desktop came back the next
+    // time the phone opened the chat.
+    const deleted = new Set(
+      (Array.isArray(data.deletedIds) ? data.deletedIds : []).map((id) => String(id)),
+    );
     const remoteSessions = remote
       .map((session) => ({
         ...session,
         messages: Array.isArray(session?.messages) ? session.messages : [],
       }))
       .map(ensureBuiltinMcpServers) as ChatSession[];
+    if (remoteSessions.length === 0 && deleted.size === 0) return;
     // Merge instead of overwrite: a session created locally between hydration and
     // this fetch resolving hasn't reached the server yet and must not be discarded.
     setSessions((current) => {
       const remoteIds = new Set(remoteSessions.map((session) => session.id));
-      const localOnly = current.filter((session) => !remoteIds.has(session.id));
+      const localOnly = current.filter(
+        (session) => !remoteIds.has(session.id) && !deleted.has(session.id),
+      );
       return [...remoteSessions, ...localOnly];
     });
   }, [serverSessionsReadyRef, setSessions]);

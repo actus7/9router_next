@@ -294,6 +294,28 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_hc_project ON harnessConversations(userId, projectId)",
     ],
   },
+  // Conversations this account deleted, so the deletion converges.
+  //
+  // Sync is per-device and additive: a client that still holds a conversation
+  // locally re-uploads it, because "absent from the server" and "never synced"
+  // look identical from there. Deleting on the desktop therefore un-deleted
+  // itself the next time the phone opened the chat. A tombstone is the missing
+  // third state, and it is what `GET /api/harness/sessions` reports so every
+  // device can drop what is gone.
+  //
+  // Kept for `DELETED_CONVERSATION_TTL_MS`, which only has to outlast the
+  // longest a device can plausibly stay offline holding a stale copy.
+  harnessDeletedConversations: {
+    columns: {
+      userId: "TEXT NOT NULL",
+      id: "TEXT NOT NULL",
+      deletedAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (userId, id)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_hdc_deletedAt ON harnessDeletedConversations(userId, deletedAt)",
+    ],
+  },
   harnessEvents: {
     columns: {
       userId: "TEXT NOT NULL",

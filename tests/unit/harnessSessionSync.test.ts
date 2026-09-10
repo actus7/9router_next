@@ -47,7 +47,11 @@ describe("syncHarnessConversations", () => {
   it("never deletes a conversation the payload simply did not mention", async () => {
     await syncHarnessConversations({ upserts: [session], deletedIds: [] });
 
-    expect(statements().some((sql) => sql.startsWith("DELETE"))).toBe(false);
+    // Precisely: no conversation, event, run or index row is deleted. An
+    // upsert does clear that id's own tombstone, so that a conversation coming
+    // back is not shadowed by its own deletion.
+    const deletes = statements().filter((sql) => sql.startsWith("DELETE"));
+    expect(deletes.every((sql) => sql.includes("harnessDeletedConversations"))).toBe(true);
     expect(statements().some((sql) => sql.startsWith("INSERT INTO harnessConversations"))).toBe(true);
   });
 

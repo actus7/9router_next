@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listHarnessConversations, syncHarnessConversations, type HarnessConversation } from "@/lib/db/repos/harnessConversationsRepo";
+import { listDeletedConversationIds, listHarnessConversations, syncHarnessConversations, type HarnessConversation } from "@/lib/db/repos/harnessConversationsRepo";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
 import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
@@ -35,7 +35,14 @@ function hasOnlyPublicMcpUrls(conversation: HarnessConversation): boolean {
 export async function GET() {
   const denied = await requireDashboardAccess();
   if (denied) return denied;
-  return NextResponse.json({ sessions: await listHarnessConversations() });
+  // `deletedIds` is what makes a deletion converge: a device holding a stale
+  // copy cannot tell "absent from the server" from "never synced", so without
+  // this it re-uploads what another device deleted.
+  const [sessions, deletedIds] = await Promise.all([
+    listHarnessConversations(),
+    listDeletedConversationIds(),
+  ]);
+  return NextResponse.json({ sessions, deletedIds });
 }
 
 export async function PUT(request: NextRequest) {
