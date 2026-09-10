@@ -138,12 +138,19 @@ export async function sendDuckAiChatRequest(input: {
   };
   const requestBody: Record<string, unknown> = {
     model: input.modelId,
-    // The wire shape is a content part array, not a bare string. Sending the
-    // string is answered with 400 ERR_BAD_REQUEST, which is checked before the
-    // challenge is — so it masks itself as an unrelated failure.
+    // The two roles take different shapes, and the asymmetry is load-bearing:
+    // a user turn must be a content part array, an assistant turn must be a
+    // bare string. Sending the array for both is answered with 400
+    // ERR_BAD_REQUEST — and because the body is validated before the
+    // challenge, it only surfaces once the challenge passes. Sending the
+    // string for both fails the same way on the user turn.
+    //
+    // The practical effect of getting this wrong is narrow enough to slip
+    // through a smoke test: the first message of a conversation carries no
+    // assistant turn and succeeds, so only the second message onwards breaks.
     messages: input.messages.map((m) => ({
       role: m.role,
-      content: [{ type: "text", text: m.content }],
+      content: m.role === "assistant" ? m.content : [{ type: "text", text: m.content }],
     })),
     canUseTools: true,
     canUseApproxLocation: null,

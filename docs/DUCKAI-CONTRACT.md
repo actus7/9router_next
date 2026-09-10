@@ -73,7 +73,14 @@ O nome do bundle também sai do HTML da página.
 
 ### Formato do corpo
 
-- `messages[].content` é **array de parts** (`[{type:"text",text}]`), não string
+- `messages[].content` é **assimétrico por papel**, e isso é essencial:
+  - turno `user` → array de parts, `[{type:"text",text}]`
+  - turno `assistant` → **string pura**
+
+  Array no assistant dá 400; string no user, também. Essa é a divergência mais
+  fácil de deixar passar num smoke test: a primeira mensagem de uma conversa não
+  tem turno de assistant e funciona, então só o segundo turno em diante quebra.
+  Teste sempre com histórico.
 - `reasoningEffort` vai **sempre**; `"none"` para modelos sem modo de raciocínio
 - `canShowGreeting: true` e `canDelegateImageGeneration: null` estão presentes
 

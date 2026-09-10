@@ -11,7 +11,9 @@ function decodeBase64Json(value: string): Record<string, unknown> {
   return JSON.parse(Buffer.from(value, "base64").toString("utf-8"));
 }
 
-async function captureChatRequest() {
+async function captureChatRequest(
+  messages: Array<{ role: "user" | "assistant"; content: string }> = [{ role: "user", content: "say OK" }],
+) {
   const fetchSpy = vi
     .spyOn(globalThis, "fetch")
     .mockResolvedValue(new Response("", { status: 200 }));
@@ -24,7 +26,7 @@ async function captureChatRequest() {
         messageId: "m",
         publicKey: {} as JsonWebKey,
       },
-      messages: [{ role: "user", content: "say OK" }],
+      messages,
       modelId: "gpt-5.6-luna",
       reasoningEffort: getReasoningEffort("gpt-5.6-luna"),
       vqdData: {
@@ -119,10 +121,27 @@ describe("Duck.ai chat request — first-party parity", () => {
     expect(headers["x-fe-version"]).toBe("serp_20260909_143633_ET-abc123");
   });
 
-  it("sends message content as a part array, not a bare string", async () => {
+  it("shapes user and assistant turns differently, as the upstream demands", async () => {
+    const { body } = await captureChatRequest([
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "Hello" },
+      { role: "user", content: "say OK" },
+    ]);
+    const messages = body.messages as Array<Record<string, unknown>>;
+
+    // The asymmetry is load-bearing: an array on the assistant turn is
+    // answered with 400 ERR_BAD_REQUEST, a bare string on the user turn too.
+    expect(messages[0]!.content).toEqual([{ type: "text", text: "hi" }]);
+    expect(messages[1]!.content).toBe("Hello");
+    expect(messages[2]!.content).toEqual([{ type: "text", text: "say OK" }]);
+  });
+
+  it("still sends a lone user turn as a part array", async () => {
+    // The first message of a conversation has no assistant turn, so it kept
+    // working while every follow-up broke — which is how this reached QA.
     const { body } = await captureChatRequest();
     const messages = body.messages as Array<Record<string, unknown>>;
-    // A bare string is answered with 400 ERR_BAD_REQUEST.
+    expect(messages).toHaveLength(1);
     expect(messages[0]!.content).toEqual([{ type: "text", text: "say OK" }]);
   });
 
