@@ -17,14 +17,14 @@ const writeSkill = vi.hoisted(() => vi.fn(async (_input: Record<string, unknown>
 const applyMemoryWrite = vi.hoisted(() => vi.fn(async (_input: Record<string, unknown>) => ({ ok: true, pending: true, pendingId: "pw_2" })));
 const applyPluginToggle = vi.hoisted(() => vi.fn(async (_input: Record<string, unknown>) => ({ ok: true, pending: true })));
 const proposeHarnessCapability = vi.hoisted(() => vi.fn(async (_input: Record<string, unknown>) => ({ ok: true, pendingId: "pw_3" })));
-const findComposedSkill = vi.hoisted(() => vi.fn((_id: string) => undefined as unknown));
+const reloadSkillTree = vi.hoisted(() => vi.fn(async () => ({ revision: 1, skills: [] as Array<Record<string, unknown>>, diagnostics: [] })));
 const listAgentSkillFiles = vi.hoisted(() => vi.fn(async (_id: string) => [] as Array<{ filePath: string; content: string }>));
 const searchPastSessionMessages = vi.hoisted(() => vi.fn(async (_input: Record<string, unknown>) => [] as unknown[]));
 
 vi.mock("@/server/harness/skills/writeSkill", () => ({ writeSkill }));
 vi.mock("@/server/harness/memory/applyMemoryWrite", () => ({ applyMemoryWrite }));
 vi.mock("@/server/harness/governance/applyPluginWrite", () => ({ applyPluginToggle, proposeHarnessCapability }));
-vi.mock("@/server/harness/skills/context", () => ({ findComposedSkill }));
+vi.mock("@/server/harness/skills/context", () => ({ reloadSkillTree }));
 vi.mock("@/lib/db/repos/agentSkillFilesRepo", () => ({ listAgentSkillFiles }));
 vi.mock("@/lib/db/repos/harnessMessageIndexRepo", () => ({ searchPastSessionMessages }));
 
@@ -80,11 +80,11 @@ describe("reads keep their session scope", () => {
 
     expect(result).toMatchObject({ ok: false });
     expect(result.error).toMatch(/not enabled/i);
-    expect(findComposedSkill).not.toHaveBeenCalled();
+    expect(reloadSkillTree).not.toHaveBeenCalled();
   });
 
   it("returns a composed skill with its file list", async () => {
-    findComposedSkill.mockReturnValue({ id: "deploy", description: "how", body: "steps", enabled: true });
+    reloadSkillTree.mockResolvedValue({ revision: 1, skills: [{ id: "deploy", description: "how", body: "steps", enabled: true }], diagnostics: [] });
     listAgentSkillFiles.mockResolvedValue([{ filePath: "notes.md", content: "x" }]);
 
     const result = await run("load_skill", { name: "deploy" });
@@ -93,7 +93,7 @@ describe("reads keep their session scope", () => {
   });
 
   it("reads one skill file by path", async () => {
-    findComposedSkill.mockReturnValue({ id: "deploy", body: "steps" });
+    reloadSkillTree.mockResolvedValue({ revision: 1, skills: [{ id: "deploy", body: "steps" }], diagnostics: [] });
     listAgentSkillFiles.mockResolvedValue([{ filePath: "Notes.md", content: "file body" }]);
 
     const result = await run("load_skill_file", { name: "deploy", path: "notes.md" });
@@ -124,7 +124,7 @@ describe("validation", () => {
   });
 
   it("will not patch a bundled skill", async () => {
-    findComposedSkill.mockReturnValue({ id: "deploy", body: "steps", bundled: true });
+    reloadSkillTree.mockResolvedValue({ revision: 1, skills: [{ id: "deploy", body: "steps", bundled: true }], diagnostics: [] });
 
     const result = await run("patch_skill", { name: "deploy", patch: "more" });
 

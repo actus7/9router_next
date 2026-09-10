@@ -1,6 +1,6 @@
 import "server-only";
 
-import { findComposedSkill } from "@/server/harness/skills/context";
+import { reloadSkillTree } from "@/server/harness/skills/context";
 import { listAgentSkillFiles } from "@/lib/db/repos/agentSkillFilesRepo";
 import { applyMemoryWrite } from "@/server/harness/memory/applyMemoryWrite";
 import { applyPluginToggle, proposeHarnessCapability } from "@/server/harness/governance/applyPluginWrite";
@@ -60,6 +60,20 @@ function slug(value: unknown): string {
   return text(value).toLowerCase();
 }
 
+/**
+ * Finds a composed skill, reloading the tree first.
+ *
+ * The cached lookup reads a per-account cache, and in a worker that cache is
+ * cold: it answers from the bundle defaults alone, so every skill the account
+ * actually wrote would come back "not found". `reloadSkillTree` short-circuits
+ * when the stored revision has not moved, so this costs one query on a cold
+ * process and nothing on a warm one.
+ */
+async function composedSkill(id: string) {
+  const { skills } = await reloadSkillTree();
+  return skills.find((skill) => skill.id === id);
+}
+
 /** Skill writes carry the agent's origin, so the gate sees them as it should. */
 async function agentSkillWrite(
   id: string,
@@ -97,7 +111,7 @@ export async function executeHarnessToolServerSide(
     if (context.enabledSkillIds && !context.enabledSkillIds.has(skillId)) {
       return failure(`Skill not enabled in this session: ${skillId}`);
     }
-    const skill = findComposedSkill(skillId);
+    const skill = await composedSkill(skillId);
     if (!skill) return failure("Skill not found");
 
     if (name === "load_skill") {
@@ -132,7 +146,7 @@ export async function executeHarnessToolServerSide(
     if (name === "create_skill" && (!description || !body)) {
       return failure("create_skill requires name, description, and body");
     }
-    const existing = name === "update_skill" ? findComposedSkill(id) : undefined;
+    const existing = name === "update_skill" ? await composedSkill(id) : undefined;
     if (name === "update_skill" && !existing) return failure("Skill not found");
     if (existing?.bundled) return failure("Bundled skills cannot be edited via update_skill");
     return await agentSkillWrite(
@@ -168,7 +182,7 @@ export async function executeHarnessToolServerSide(
 
     const patch = text(args.patch);
     if (!patch) return failure("patch_skill requires name and patch");
-    const existing = findComposedSkill(id);
+    const existing = await composedSkill(id);
     if (!existing) return failure("Skill not found");
     if (existing.bundled) return failure("Bundled skills cannot be edited via patch_skill");
     const current = String(existing.body ?? "");

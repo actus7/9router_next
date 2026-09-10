@@ -121,6 +121,17 @@ next reader to settle as dead, losing the whole chain. The loop watches its own
 clock and stops in a state it can report. Loops genuinely longer than one
 invocation need Vercel Workflow or Queues.
 
+**The browser's own tool executors are still there, and deliberately.** They
+are now unreachable on the durable path — every tool the worker knows about it
+runs itself — which makes them duplicated semantics, the thing this repository
+otherwise avoids. They are kept for one release because the server-side
+implementations have only ever been proven against stubs, and
+`docs/CONVENTIONS.md` records that this exact flow reached the user broken twice
+for exactly that reason. `tests/unit/durableRunLive.test.ts` is the test that
+would settle it; until a run with a media tool has gone through it against a
+real provider, deleting the fallback would be trading a known duplication for
+an unknown regression. Delete them after that.
+
 The one thing a browser is still required for is a model that *is* the browser:
 Puter runs the completion inside `js.puter.com`, so `executeSendMessage`
 branches before the durable path and such a run never becomes a durable run at
