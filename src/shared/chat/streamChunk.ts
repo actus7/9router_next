@@ -80,13 +80,29 @@ type PartialStreamToolCall = {
   function?: { name?: unknown; arguments?: unknown };
 };
 
-/** Merge OpenAI-compatible incremental tool-call chunks into complete calls. */
-export function collectToolCallDeltas(calls: Map<number, StreamToolCall>, deltas: unknown): void {
+/**
+ * Merge OpenAI-compatible incremental tool-call chunks into complete calls.
+ *
+ * Keyed by `index` when there is one and by `id` otherwise. `index` alone was
+ * the key, and nothing in the SSE contract makes it mandatory: two parallel
+ * calls in indexless frames both landed in slot 0, so the second overwrote the
+ * first's id and name while their arguments were concatenated into one
+ * unparseable string. The first tool disappeared with nothing logged.
+ *
+ * `index` stays the preferred key because continuation frames carry it alone —
+ * the id arrives once, on the opening frame.
+ */
+export function collectToolCallDeltas(calls: Map<number | string, StreamToolCall>, deltas: unknown): void {
   if (!Array.isArray(deltas)) return;
   for (const delta of deltas as PartialStreamToolCall[]) {
-    const index = typeof delta.index === "number" ? delta.index : 0;
-    const previous = calls.get(index) || { id: "", name: "", arguments: "" };
-    calls.set(index, {
+    const key =
+      typeof delta.index === "number"
+        ? delta.index
+        : typeof delta.id === "string" && delta.id
+          ? delta.id
+          : 0;
+    const previous = calls.get(key) || { id: "", name: "", arguments: "" };
+    calls.set(key, {
       id: typeof delta.id === "string" ? delta.id : previous.id,
       name: typeof delta.function?.name === "string" ? delta.function.name : previous.name,
       arguments: previous.arguments + (typeof delta.function?.arguments === "string" ? delta.function.arguments : ""),
@@ -142,7 +158,13 @@ export class StreamChunkAccumulator {
     return {
       text: this.assistantText,
       reasoning: this.reasoningText,
-      toolCalls: Array.from(this.toolCalls.values()).filter((call) => call.id && call.name),
+      // A call with a name but no id used to be dropped here, and the turn then
+      // ended as empty text — indistinguishable from the model saying nothing.
+      // Providers passed through without a translator (the translators apply
+      // `fallbackToolCallId`) do emit these, so name it and let it run.
+      toolCalls: Array.from(this.toolCalls.entries())
+        .filter(([, call]) => call.name)
+        .map(([key, call]) => (call.id ? call : { ...call, id: `call_${key}` })),
       usage: this.usage,
     };
   }
