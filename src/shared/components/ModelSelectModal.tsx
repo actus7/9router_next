@@ -110,7 +110,7 @@ export default function ModelSelectModal({
       {/* Search - compact */}
       <div className="mb-3">
         <div className="relative">
-          <Search className="size-4" />
+          <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
           <Input
             type="text"
             placeholder={translate("Search...") || "Search..."}

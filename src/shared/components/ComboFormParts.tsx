@@ -76,7 +76,7 @@ export function ComboModelsList({ models, onAdd, onEdit, onMoveUp, onMoveDown, o
     <div>
       <Label className="mb-1.5 block">{translate("Models") || "Models"}</Label>
       {models.length === 0 ? (
-        <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]"><Layers className="size-4" /><p className="text-xs text-text-muted">{translate("No models added yet") || "No models added yet"}</p></div>
+        <div className="flex flex-col items-center gap-1.5 py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]"><Layers className="size-4 text-text-muted" /><p className="text-xs text-text-muted">{translate("No models added yet") || "No models added yet"}</p></div>
       ) : (
         <div className="flex max-h-[55vh] min-w-0 flex-col gap-1 overflow-y-auto sm:max-h-[350px]">
           {models.map((m, i) => <ModelItem key={i} index={i} model={m} isFirst={i === 0} isLast={i === models.length - 1} onEdit={(v) => onEdit(i, v)} onMoveUp={() => onMoveUp(i)} onMoveDown={() => onMoveDown(i)} onRemove={() => onRemove(i)} />)}

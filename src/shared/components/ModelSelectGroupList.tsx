@@ -34,7 +34,7 @@ export default function ModelSelectGroupList({ filteredGroups, filteredCombos, s
         </div>
       ))}
       {Object.keys(filteredGroups).length === 0 && filteredCombos.length === 0 && (
-        <div className="text-center py-4 text-text-muted"><SearchX className="size-4" /><p className="text-xs">{translate("No models found") || "No models found"}</p></div>
+        <div className="flex flex-col items-center gap-1.5 py-4 text-text-muted"><SearchX className="size-4" /><p className="text-xs">{translate("No models found") || "No models found"}</p></div>
       )}
     </div>
   );
