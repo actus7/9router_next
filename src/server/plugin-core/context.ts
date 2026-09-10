@@ -1,5 +1,6 @@
 import { Context } from "cordis";
 import { BUNDLE_CATALOG, setActiveHarnessCatalog } from "@/shared/harness/agentPlugins";
+import { currentTenantId } from "@/lib/db/tenant";
 import type { PatchRow } from "./composition";
 import { executorsPlugin } from "./plugins/executors-plugin";
 import { providersPlugin } from "./plugins/providers-plugin";
@@ -19,10 +20,48 @@ export interface PluginTreeState {
   diagnostics: CompositionDiagnostic[];
 }
 
-let treeState: PluginTreeState = { revision: 0, rows: [], diagnostics: [] };
+/**
+ * Composed plugin trees, keyed by account.
+ *
+ * It used to be one module-level `let`. `listPluginRows()` filters by tenant,
+ * so the query was never the problem — the destination was: whoever wrote last
+ * published their tree to the whole process, and `GET /api/harness/plugins`
+ * handed it to the next account that asked, catalogue included. The client then
+ * adopted it (`usePluginComposition`), so one account's toggles decided which
+ * tools another account's model was offered.
+ *
+ * Same fix, same reason, as `src/server/harness/skills/context.ts`.
+ */
+const treeStates: Map<string, PluginTreeState> = new Map();
+
+/**
+ * The account to key on, or null outside a request.
+ *
+ * `bootstrap()` runs from `instrumentation.ts` with no tenant established, and
+ * that composition is the bundle defaults — correct for everyone, owned by
+ * no one, so it is not cached against an account.
+ */
+function tenantKeyOrNull(): string | null {
+  try {
+    return currentTenantId();
+  } catch {
+    return null;
+  }
+}
+
+/** Bundle defaults with no stored layer — what an account with no rows gets. */
+function bundleOnlyState(): PluginTreeState {
+  const { rows, diagnostics } = composePluginRows(BUNDLE_ROWS, [], factoryRegistry);
+  return { revision: 0, rows, diagnostics };
+}
 
 export function getPluginTreeState(): PluginTreeState {
-  return treeState;
+  const tenantId = tenantKeyOrNull();
+  const cached = tenantId === null ? undefined : treeStates.get(tenantId);
+  const state = cached ?? bundleOnlyState();
+  if (tenantId !== null && !cached) treeStates.set(tenantId, state);
+  setActiveHarnessCatalog(catalogFromRows(state.rows));
+  return state;
 }
 
 /** Providers mounted by the current tree, so a reload can retire the ones a new composition dropped. */
@@ -65,8 +104,10 @@ export async function reloadPluginTree(ctx: Context): Promise<PluginTreeState> {
   mountedProviders = nextProviders;
 
   setActiveHarnessCatalog(catalogFromRows(rows));
-  treeState = { revision, rows, diagnostics: [...diagnostics, ...mountDiagnostics] };
-  return treeState;
+  const state: PluginTreeState = { revision, rows, diagnostics: [...diagnostics, ...mountDiagnostics] };
+  const tenantId = tenantKeyOrNull();
+  if (tenantId !== null) treeStates.set(tenantId, state);
+  return state;
 }
 
 export function bootstrap(): Promise<Context> {
@@ -100,7 +141,7 @@ export async function resetContext(): Promise<void> {
   }
   booting = null;
   mountedProviders = [];
-  treeState = { revision: 0, rows: [], diagnostics: [] };
+  treeStates.clear();
   setActiveHarnessCatalog(BUNDLE_CATALOG);
 }
 

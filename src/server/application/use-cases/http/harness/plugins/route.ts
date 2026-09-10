@@ -7,7 +7,6 @@ import { factoryRegistry } from "@/server/plugin-core/factories";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import {
   bootstrap,
-  getPluginTreeState,
   reloadPluginTree,
   type PluginTreeState,
 } from "@/server/plugin-core/context";
@@ -64,8 +63,12 @@ export async function GET() {
   await assertRequestRuntime();
   const denied = await requireDashboardAccess();
   if (denied) return denied;
-  await bootstrap();
-  return NextResponse.json(serialize(getPluginTreeState()));
+  // Recomposed for the caller, not read out of the process. `bootstrap()` is
+  // memoized, so after the first boot it returns without composing anything —
+  // this used to serve whichever account wrote last, and left an account with
+  // stored rows looking at bundle defaults until it made a write of its own.
+  const ctx = await bootstrap();
+  return NextResponse.json(serialize(await reloadPluginTree(ctx)));
 }
 
 export async function PUT(request: NextRequest) {

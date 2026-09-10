@@ -17,7 +17,6 @@ vi.mock("@/lib/db/repos/pluginRowsRepo", () => ({
 }));
 vi.mock("@/server/plugin-core/context", () => ({
   bootstrap: vi.fn(async () => ({}) as never),
-  getPluginTreeState: vi.fn(() => ({ revision: 3, rows: [], diagnostics: [] })),
   reloadPluginTree: vi.fn(async () => ({ revision: 4, rows: [], diagnostics: [] })),
 }));
 
@@ -52,10 +51,15 @@ const validCapability = {
 beforeEach(() => vi.clearAllMocks());
 
 describe("GET /api/harness/plugins", () => {
-  it("returns the composed tree with the bundle row ids and the active catalogue", async () => {
+  it("recomposes for the caller instead of reading process state", async () => {
+    // It used to serialize whatever `getPluginTreeState()` held, and
+    // `bootstrap()` is memoized, so the answer was whichever account wrote
+    // last — and an account with stored rows saw bundle defaults until it
+    // wrote something itself.
     const payload = await (await GET()).json();
 
-    expect(payload.revision).toBe(3);
+    expect(reloadPluginTree).toHaveBeenCalledOnce();
+    expect(payload.revision).toBe(4);
     expect(payload.bundleRowIds).toContain("persona");
     expect(payload.catalog.plugins.length).toBeGreaterThan(0);
   });
