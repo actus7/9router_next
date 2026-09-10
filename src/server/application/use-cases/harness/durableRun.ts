@@ -8,6 +8,7 @@ import {
   settleHarnessRun,
   updateHarnessRunProgress,
 } from "@/lib/db/repos/harnessRunsRepo";
+import { appendRunAnswerToConversation } from "@/lib/db/repos/harnessConversationsRepo";
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { handleChat } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
@@ -138,11 +139,15 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
       const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
       const choice = (data.choices as Array<Record<string, unknown>> | undefined)?.[0];
       const message = choice?.message as Record<string, unknown> | undefined;
-      await settleHarnessRun(runId, {
+      const text = typeof message?.content === "string" ? message.content : "";
+      const settled = await settleHarnessRun(runId, {
         status: "completed",
-        partialText: typeof message?.content === "string" ? message.content : "",
+        partialText: text,
         usage: (data.usage as Record<string, unknown> | undefined) ?? null,
       });
+      if (settled) {
+        await mirrorAnswer(input, { content: text, status: "done" });
+      }
       return;
     }
 
@@ -179,19 +184,48 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
     }
 
     const parsed = accumulator.finish(decoder.decode());
-    await settleHarnessRun(runId, {
+    const settled = await settleHarnessRun(runId, {
       status: "completed",
       partialText: parsed.text,
       reasoning: parsed.reasoning || null,
       toolCalls: parsed.toolCalls,
       usage: (parsed.usage as Record<string, unknown> | null) ?? null,
     });
+    // A turn that asked for tools is not finished, and the loop that continues
+    // it runs in the browser — writing it as an answer would file a truncated
+    // turn as a complete one. That ceiling is `runToolCallLoop`, not this.
+    if (settled && parsed.toolCalls.length === 0) {
+      await mirrorAnswer(input, {
+        content: parsed.text,
+        status: "done",
+        reasoning: parsed.reasoning || null,
+        tokenUsage: (parsed.usage as Record<string, unknown> | null) ?? null,
+      });
+    }
   } catch (error) {
     // Whatever went wrong, the row must stop saying "running" — a reader that
     // comes back tomorrow has no other way to learn this run is over.
-    await settleHarnessRun(runId, {
-      status: "failed",
-      error: truncateTraceError(error) ?? "The run failed.",
-    }).catch(() => undefined);
+    const message = truncateTraceError(error) ?? "The run failed.";
+    const settled = await settleHarnessRun(runId, { status: "failed", error: message }).catch(() => false);
+    if (settled) {
+      await mirrorAnswer(input, { content: `Error: ${message}`, status: "error" });
+    }
   }
+}
+
+/**
+ * Mirrors a settled run's answer into the conversation itself.
+ *
+ * Without this the answer lived only in `harnessRuns`, waiting for a browser to
+ * come back and fold it in — and only into the session that happened to be
+ * open. Settled rows expire after `SETTLED_RUN_TTL_MS`, so a laptop closed for
+ * a day lost an answer the account had already paid for. Best-effort on
+ * purpose: the run row is still the record, and failing here must not turn a
+ * finished run into a failed one.
+ */
+async function mirrorAnswer(
+  input: StartDurableRunInput,
+  patch: Parameters<typeof appendRunAnswerToConversation>[2],
+): Promise<void> {
+  await appendRunAnswerToConversation(input.sessionId, input.messageId, patch).catch(() => false);
 }

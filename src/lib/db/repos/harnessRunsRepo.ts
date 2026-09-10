@@ -127,6 +127,11 @@ export async function stopHarnessRun(id: string): Promise<void> {
   );
 }
 
+/**
+ * Settles a running row. Returns false when it was no longer running — the
+ * user pressed stop, or a reader already failed it as stale — which is how the
+ * worker knows not to mirror its answer into the conversation.
+ */
 export async function settleHarnessRun(
   id: string,
   result: {
@@ -137,9 +142,9 @@ export async function settleHarnessRun(
     usage?: Record<string, unknown> | null;
     error?: string | null;
   },
-): Promise<void> {
+): Promise<boolean> {
   const db = await getAdapter();
-  await db.run(
+  const outcome = await db.run(
     // `AND status = 'running'` for the same reason the progress write has it: a
     // user who pressed stop already settled this row, and the worker's last
     // write lands after that. Without the guard a stop inside the final
@@ -161,6 +166,7 @@ export async function settleHarnessRun(
       "running",
     ],
   );
+  return !outcome || outcome.changes !== 0;
 }
 
 export async function getHarnessRun(id: string): Promise<HarnessRun | null> {

@@ -4,7 +4,7 @@ vi.mock("@/server/application/http/requireDashboardAccess", () => ({
   requireDashboardAccess: vi.fn(async () => null),
 }));
 
-const syncHarnessConversations = vi.hoisted(() => vi.fn(async () => undefined));
+const syncHarnessConversations = vi.hoisted(() => vi.fn(async () => ({ stale: [] as string[] })));
 
 vi.mock("@/lib/db/repos/harnessConversationsRepo", () => ({
   listHarnessConversations: vi.fn(async () => []),
@@ -47,6 +47,14 @@ describe("PUT /api/harness/sessions", () => {
     await PUT(put({ sessions: [], deletedIds: ["gone", "", 7] }));
 
     expect(syncHarnessConversations).toHaveBeenCalledWith({ upserts: [], deletedIds: ["gone"] });
+  });
+
+  it("tells the client which conversations it refused as stale", async () => {
+    syncHarnessConversations.mockResolvedValueOnce({ stale: ["s1"] });
+
+    const payload = await (await PUT(put({ sessions: [session] }))).json();
+
+    expect(payload.stale).toEqual(["s1"]);
   });
 
   it("bounds the number of deletions in one request", async () => {

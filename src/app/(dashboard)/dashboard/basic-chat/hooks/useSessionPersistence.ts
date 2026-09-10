@@ -150,45 +150,45 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
    */
   const syncedRef = useRef<Map<string, string>>(new Map());
 
+  /**
+   * Reads the server's conversations and takes them as the newer truth.
+   *
+   * Used on mount and again whenever a sync is refused as stale — which is how
+   * a tab learns that the worker wrote a finished answer while it was idle.
+   */
+  const loadServerSessions = useCallback(async (isCancelled: () => boolean) => {
+    const response = await fetch("/api/harness/sessions", { cache: "no-store" });
+    if (!response.ok) throw new Error("Failed to load harness sessions");
+    const data = (await response.json()) as Record<string, unknown>;
+    if (isCancelled()) return;
+    const remote = Array.isArray(data.sessions) ? data.sessions : [];
+    // What the server is known to hold, so the sync can send only what
+    // changed and name what was removed.
+    syncedRef.current = new Map(
+      remote.map((session) => [String((session as ChatSession).id), String((session as ChatSession).updatedAt)]),
+    );
+    serverSessionsReadyRef.current = true;
+    if (remote.length === 0) return;
+    const remoteSessions = remote
+      .map((session) => ({
+        ...session,
+        messages: Array.isArray(session?.messages) ? session.messages : [],
+      }))
+      .map(ensureBuiltinMcpServers) as ChatSession[];
+    // Merge instead of overwrite: a session created locally between hydration and
+    // this fetch resolving hasn't reached the server yet and must not be discarded.
+    setSessions((current) => {
+      const remoteIds = new Set(remoteSessions.map((session) => session.id));
+      const localOnly = current.filter((session) => !remoteIds.has(session.id));
+      return [...remoteSessions, ...localOnly];
+    });
+  }, [serverSessionsReadyRef, setSessions]);
+
   // Fetch sessions from the durable server store
   useEffect(() => {
     if (!isHydrated) return;
     let cancelled = false;
-    void fetch("/api/harness/sessions", { cache: "no-store" })
-      .then((response) =>
-        response.ok
-          ? response.json()
-          : Promise.reject(new Error("Failed to load harness sessions")),
-      )
-      .then((data: Record<string, unknown>) => {
-        if (cancelled) return;
-        const remote = Array.isArray(data.sessions) ? data.sessions : [];
-        // What the server is known to hold, so the sync can send only what
-        // changed and name what was removed.
-        syncedRef.current = new Map(
-          remote.map((session) => [String((session as ChatSession).id), String((session as ChatSession).updatedAt)]),
-        );
-        serverSessionsReadyRef.current = true;
-        if (remote.length > 0) {
-          const remoteSessions = remote
-            .map((session) => ({
-              ...session,
-              messages: Array.isArray(session?.messages) ? session.messages : [],
-            }))
-            .map(ensureBuiltinMcpServers) as ChatSession[];
-          // Merge instead of overwrite: a session created locally between hydration and
-          // this fetch resolving hasn't reached the server yet and must not be discarded.
-          setSessions((current) => {
-            const remoteIds = new Set(
-              remoteSessions.map((session) => session.id),
-            );
-            const localOnly = current.filter(
-              (session) => !remoteIds.has(session.id),
-            );
-            return [...remoteSessions, ...localOnly];
-          });
-        }
-      })
+    void loadServerSessions(() => cancelled)
       .catch((error: unknown) => {
         // Deliberately leaves the sync disarmed. It used to be armed in a
         // `.finally`, so a transient failure here — a shared dashboard rate
@@ -205,7 +205,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     return () => {
       cancelled = true;
     };
-  }, [isHydrated, serverSessionsReadyRef, setSessions]);
+  }, [isHydrated, loadServerSessions]);
 
   // Load or create API key
   useEffect(() => {
@@ -419,9 +419,15 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
       body: JSON.stringify({ sessions: upserts, deletedIds }),
       keepalive,
     })
-      .then((response) => {
-        if (response.ok) return;
-        throw new Error(`Sync failed (${response.status})`);
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Sync failed (${response.status})`);
+        const body = (await response.json().catch(() => ({}))) as { stale?: unknown };
+        const staleIds = Array.isArray(body.stale) ? body.stale : [];
+        if (staleIds.length === 0) return;
+        // The server holds something newer for these — the worker settled a run
+        // and wrote the answer into the conversation while this tab was idle.
+        // Take its copy instead of pushing ours again.
+        await loadServerSessions(() => false);
       })
       .catch((error: unknown) => {
         console.error("Failed to sync harness sessions:", error);
@@ -436,7 +442,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
             "Could not sync sessions to server. Changes are saved locally.",
         );
       });
-  }, [serverSessionsReadyRef]);
+  }, [loadServerSessions, serverSessionsReadyRef]);
 
   useEffect(() => {
     if (!isHydrated || !serverSessionsReadyRef.current) return;

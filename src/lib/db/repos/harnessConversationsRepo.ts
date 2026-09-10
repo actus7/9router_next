@@ -55,15 +55,24 @@ export interface HarnessConversationSync {
  * conversation existed, wiped the rest of the account's history. Absence now
  * means "no opinion", and a deletion has to be asked for.
  *
- * An upsert that writes no row is an error rather than a silent success:
- * `harnessConversations.id` is a global primary key and the statement is
- * guarded by `WHERE userId = excluded.userId`, so an id already owned by
- * another account matched nothing and still answered ok.
+ * An upsert that writes no row is never a silent success. There are two
+ * reasons it can happen, and they are not the same thing:
+ *
+ *   - the server holds a newer copy, because the worker wrote a finished answer
+ *     into it while this client was idle. Refused, and reported in `stale` so
+ *     the caller re-reads instead of erasing the answer.
+ *   - the id belongs to another account. `harnessConversations.id` is a global
+ *     primary key and the statement is guarded by
+ *     `WHERE userId = excluded.userId`, so it matched nothing and used to still
+ *     answer ok, leaving a client that believed it had synced forever.
  */
-export async function syncHarnessConversations({ upserts, deletedIds }: HarnessConversationSync): Promise<void> {
-  if (upserts.length === 0 && deletedIds.length === 0) return;
+export async function syncHarnessConversations(
+  { upserts, deletedIds }: HarnessConversationSync,
+): Promise<{ stale: string[] }> {
+  if (upserts.length === 0 && deletedIds.length === 0) return { stale: [] };
   const db = await getAdapter();
   const userId = currentTenantId();
+  const stale: string[] = [];
   await db.transaction(async () => {
     const ids = deletedIds.filter(Boolean);
     if (ids.length > 0) {
@@ -85,13 +94,87 @@ export async function syncHarnessConversations({ upserts, deletedIds }: HarnessC
          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET title=excluded.title, projectId=excluded.projectId,
            providerId=excluded.providerId, modelId=excluded.modelId, data=excluded.data, updatedAt=excluded.updatedAt
-         WHERE harnessConversations.userId = excluded.userId`,
+         WHERE harnessConversations.userId = excluded.userId
+           AND excluded.updatedAt >= harnessConversations.updatedAt`,
         [id, userId, title, projectId || null, providerId || null, modelId || null, stringifyJson(data), createdAt, updatedAt],
       );
-      if (result && result.changes === 0) {
-        throw new Error(`harnessConversations: conversation ${id} could not be written`);
-      }
+      if (!result || result.changes !== 0) continue;
+
+      // Nothing was written. Ours and newer means the row is simply not ours.
+      const mine = await db.get(
+        "SELECT updatedAt FROM harnessConversations WHERE userId = ? AND id = ?",
+        [userId, id],
+      );
+      if (!mine) throw new Error(`harnessConversations: conversation ${id} could not be written`);
+      stale.push(id);
     }
+  });
+  return { stale };
+}
+
+/** What the worker knows about a finished answer. */
+export interface RunAnswerPatch {
+  content: string;
+  status: "done" | "error";
+  reasoning?: string | null;
+  toolCalls?: unknown[];
+  tokenUsage?: Record<string, unknown> | null;
+}
+
+/**
+ * Writes a finished answer into the conversation, from the server.
+ *
+ * The worker used to settle the run row and stop, leaving the answer to be
+ * folded in by the client — which only looks at the session that happens to be
+ * open, and only if a browser comes back at all. Settled rows expire after
+ * `SETTLED_RUN_TTL_MS`, so a laptop closed for a day lost a finished answer
+ * the account had already paid for.
+ *
+ * Doing this was unsafe until sync became incremental: the client replaced the
+ * whole table on every PUT, so a write from here was raced away. `updatedAt` is
+ * moved forward as part of the write, which is what lets the sync refuse a
+ * stale client copy instead of overwriting this.
+ *
+ * Returns whether anything was written. An empty answer, or a conversation the
+ * client never synced, is left alone rather than turned into a blank turn.
+ */
+export async function appendRunAnswerToConversation(
+  sessionId: string,
+  messageId: string,
+  patch: RunAnswerPatch,
+): Promise<boolean> {
+  if (!patch.content) return false;
+  const db = await getAdapter();
+  const userId = currentTenantId();
+  return await db.transaction(async () => {
+    const row = await db.get(
+      "SELECT id, data, updatedAt FROM harnessConversations WHERE userId = ? AND id = ?",
+      [userId, sessionId],
+    );
+    if (!row) return false;
+
+    const data = parseJson<Record<string, unknown>>(row.data, {}) || {};
+    const messages = Array.isArray(data.messages) ? [...(data.messages as Array<Record<string, unknown>>)] : [];
+    const index = messages.findIndex((message) => message?.id === messageId);
+    const answer = {
+      id: messageId,
+      role: "assistant",
+      ...(index >= 0 ? messages[index] : {}),
+      content: patch.content,
+      status: patch.status,
+      ...(patch.reasoning ? { reasoning: patch.reasoning } : {}),
+      ...(patch.toolCalls?.length ? { toolCalls: patch.toolCalls } : {}),
+      ...(patch.tokenUsage ? { tokenUsage: patch.tokenUsage } : {}),
+    };
+    if (index >= 0) messages[index] = answer;
+    else messages.push(answer);
+
+    const updatedAt = new Date().toISOString();
+    const result = await db.run(
+      "UPDATE harnessConversations SET data = ?, updatedAt = ? WHERE userId = ? AND id = ?",
+      [stringifyJson({ ...data, messages }), updatedAt, userId, sessionId],
+    );
+    return !result || result.changes !== 0;
   });
 }
 

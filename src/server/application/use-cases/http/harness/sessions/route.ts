@@ -57,7 +57,10 @@ export async function PUT(request: NextRequest) {
   if (deletedIds.length > MAX_DELETED_IDS) {
     return NextResponse.json({ error: `deletedIds must hold at most ${MAX_DELETED_IDS} ids` }, { status: 400 });
   }
-  await syncHarnessConversations({ upserts: body.sessions, deletedIds });
-  return NextResponse.json({ ok: true });
+  // `stale` names the conversations the server refused because it holds a
+  // newer copy — the worker having written a finished answer into one while
+  // this client was idle. The client re-reads those instead of pushing again.
+  const { stale } = await syncHarnessConversations({ upserts: body.sessions, deletedIds });
+  return NextResponse.json({ ok: true, stale });
 }
 // Application HTTP use case extracted from the Next.js route adapter.

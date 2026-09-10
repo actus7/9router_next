@@ -28,11 +28,25 @@ answer rather than only what arrived after it returned.
 
 Three things are deliberate:
 
-- **The worker never writes `harnessConversations`.** The client replaces that
-  table wholesale on every `PUT /api/harness/sessions`, so a background write
-  would be raced away. Finished runs wait in `harnessRuns` until
-  `useDurableRunRecovery` folds them into the session the user next opens —
-  which is the moment they came back to read it — and are deleted after.
+- **The worker writes the finished answer into `harnessConversations`.** It did
+  not, and could not: the client replaced that table wholesale on every
+  `PUT /api/harness/sessions`, so a background write was raced away. That left
+  the answer living only in `harnessRuns`, waiting to be folded in by
+  `useDurableRunRecovery` — which reads only the session that happens to be
+  open, and only if a browser comes back at all. Settled rows expire after
+  `SETTLED_RUN_TTL_MS`, so a laptop closed for a day lost an answer the account
+  had already paid for.
+
+  Sync is incremental now (`syncHarnessConversations`): it upserts what the
+  client says changed, deletes only ids it is told to delete, and refuses an
+  upsert older than the stored row — reporting it in `stale` so the client
+  re-reads rather than overwriting. That is what makes a server-side write
+  safe, and it is what makes the browser one reader of the conversation instead
+  of its owner. `useDurableRunRecovery` still collects run rows, but it is now
+  how a *live* tab catches up, not the only path an answer has.
+
+  A turn that asked for tools is deliberately not mirrored: it is not finished,
+  and the loop that would continue it runs in the browser.
 - **Stop and navigating away are different.** Aborting locally only stops
   watching. An explicit stop `PATCH`es the row to `stopped`; the worker learns
   about it because its next progress `UPDATE ... WHERE status = 'running'`
@@ -64,8 +78,16 @@ the quantity that costs anything.
 The ceiling is that `maxDuration`: one run must finish inside one invocation.
 Tool calls still execute in the browser (`runToolCallLoop`), so each step is
 durable but the loop between steps is not — a tab that dies mid-loop keeps the
-step that was in flight and stops there. Durability across invocations, and
+step that was in flight and stops there, and that step is not mirrored into the
+conversation because it is not an answer. Durability across invocations, and
 loops that continue without the client, would need Vercel Workflow or Queues.
+
+**This is the one remaining way a closed browser changes the outcome.** A turn
+with no tool calls now completes and lands in the conversation whether anyone
+is watching or not; a turn that needs a second tool step still waits for a
+browser. Closing it means running the tool executors server-side — most of what
+`executeRuntimeToolCall` reaches is already an HTTP route on this server — plus
+somewhere for an approval-gated write to wait for its operator.
 
 ## Compatibility
 
