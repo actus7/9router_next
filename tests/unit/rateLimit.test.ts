@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { __resetRateLimits, consumeRateLimit } from "@/server/application/http/rateLimit";
 
@@ -20,12 +20,22 @@ describe("rate limit", () => {
     expect(consumeRateLimit("b", 1, 60_000).allowed).toBe(true);
   });
 
+  // A 1ms window read from the real clock made this flaky: when the
+  // millisecond happened to turn between the first two calls, the second one
+  // legitimately opened a fresh window and `allowed` came back true. Fake
+  // timers make the expiry the only thing that moves the clock.
   it("starts a fresh window once the old one has expired", () => {
-    expect(consumeRateLimit("a", 1, 1).allowed).toBe(true);
-    expect(consumeRateLimit("a", 1, 1).allowed).toBe(false);
-    const start = Date.now();
-    while (Date.now() === start) { /* spin past the 1ms window */ }
-    expect(consumeRateLimit("a", 1, 1).allowed).toBe(true);
+    vi.useFakeTimers();
+    try {
+      expect(consumeRateLimit("a", 1, 1_000).allowed).toBe(true);
+      expect(consumeRateLimit("a", 1, 1_000).allowed).toBe(false);
+
+      vi.advanceTimersByTime(1_000);
+
+      expect(consumeRateLimit("a", 1, 1_000).allowed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("treats a limit of zero as disabled rather than as blocking everything", () => {
