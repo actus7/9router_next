@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  deleteAgentSkillWithFiles,
-  upsertAgentSkillRow,
-} from "@/lib/db/repos/agentSkillsRepo";
+import { deleteAgentSkillWithFiles } from "@/lib/db/repos/agentSkillsRepo";
 import {
   isValidSkillFilePath,
   listAgentSkillFiles,
-  replaceAgentSkillFiles,
 } from "@/lib/db/repos/agentSkillFilesRepo";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
-import { randomUUID } from "node:crypto";
-import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
-import { insertHarnessPendingWrite } from "@/lib/db/repos/harnessPendingWritesRepo";
 import {
   invalidateSkillTreeCache,
   reloadSkillTree,
