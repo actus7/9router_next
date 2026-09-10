@@ -26,15 +26,22 @@ export const SKILL_WRITE_TOOL_NAMES = new Set([
  * `skillWriteApproval` is on. The agent has to be told the skill does not exist
  * yet — reporting "created" would make it act on an instruction that is still
  * sitting in the review queue.
+ *
+ * Takes the parsed body rather than the `Response`: the callers already read it
+ * once to get `error`, and a second read — even through `clone()` — throws
+ * synchronously past the `.catch()`, which surfaced to the agent as a failed
+ * write on writes that had actually landed.
  */
-async function readSkillWriteOutcome(
-  response: Response,
-): Promise<{ pending: boolean; pendingId?: string }> {
-  const payload = (await response.clone().json().catch(() => null)) as {
-    pending?: boolean;
-    pendingId?: string;
-  } | null;
+function readSkillWriteOutcome(
+  payload: SkillWriteResponse | null,
+): { pending: boolean; pendingId?: string } {
   return { pending: payload?.pending === true, pendingId: payload?.pendingId };
+}
+
+interface SkillWriteResponse {
+  error?: unknown;
+  pending?: boolean;
+  pendingId?: string;
 }
 
 /** Returns the tool result, or null when `call` is not a skill-write tool. */
@@ -91,7 +98,7 @@ export async function trySkillWriteToolCall(
         >[0]["skills"],
       });
     }
-    const created = await readSkillWriteOutcome(response);
+    const created = readSkillWriteOutcome(payload);
     if (created.pending) {
       context.onSkillEvent?.("skill/queued", { name, pendingId: created.pendingId });
       return JSON.stringify({ ok: true, name, pending: true, pendingId: created.pendingId, message: "Skill write queued for user approval" });
@@ -174,7 +181,7 @@ export async function trySkillWriteToolCall(
         >[0]["skills"],
       });
     }
-    const updated = await readSkillWriteOutcome(response);
+    const updated = readSkillWriteOutcome(payload);
     if (updated.pending) {
       context.onSkillEvent?.("skill/queued", { name, pendingId: updated.pendingId });
       return JSON.stringify({ ok: true, name, pending: true, pendingId: updated.pendingId, message: "Skill write queued for user approval" });
@@ -231,10 +238,11 @@ export async function trySkillWriteToolCall(
       }),
       signal,
     });
+    const payload = (await response.json().catch(() => null)) as SkillWriteResponse | null;
     if (!response.ok) {
-      return JSON.stringify({ ok: false, error: "Failed to patch skill" });
+      return JSON.stringify({ ok: false, error: typeof payload?.error === "string" ? payload.error : "Failed to patch skill" });
     }
-    const patched = await readSkillWriteOutcome(response);
+    const patched = readSkillWriteOutcome(payload);
     if (patched.pending) {
       context.onSkillEvent?.("skill/queued", { name, pendingId: patched.pendingId, mode: "patch" });
       return JSON.stringify({ ok: true, name, pending: true, pendingId: patched.pendingId, message: "Skill write queued for user approval" });
@@ -274,10 +282,11 @@ export async function trySkillWriteToolCall(
       }),
       signal,
     });
+    const payload = (await response.json().catch(() => null)) as SkillWriteResponse | null;
     if (!response.ok) {
-      return JSON.stringify({ ok: false, error: "Failed to learn skill" });
+      return JSON.stringify({ ok: false, error: typeof payload?.error === "string" ? payload.error : "Failed to learn skill" });
     }
-    const learned = await readSkillWriteOutcome(response);
+    const learned = readSkillWriteOutcome(payload);
     if (learned.pending) {
       context.onSkillEvent?.("skill/queued", { name, pendingId: learned.pendingId, source: "learn_skill" });
       return JSON.stringify({ ok: true, name, pending: true, pendingId: learned.pendingId, message: "Skill write queued for user approval" });
