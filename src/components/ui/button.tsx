@@ -70,7 +70,10 @@ function Button({
       data-slot="button"
       aria-busy={loading || undefined}
       disabled={disabled || loading}
-      className={cn(buttonVariants({ variant, size, className }), fullWidth && "w-full")}
+      // shrink-0 na base protege botões de ícone em flex rows, mas contradiz
+      // fullWidth: dois "w-full shrink-0" lado a lado somam 200% e o segundo
+      // vaza para fora do container em vez de dividir 50/50.
+      className={cn(buttonVariants({ variant, size, className }), fullWidth && "w-full shrink min-w-0")}
       {...props}
     >
       {loading ? (
