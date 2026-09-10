@@ -114,7 +114,17 @@ export function useDurableRunRecovery({ activeSessionId, isReady, updateSession 
       for (const run of settled) {
         writeMessage(run.messageId, run.partialText, (message) => applySettled(message, run));
       }
-      await drop(settled.map((run) => run.id));
+      // The delete can be aborted by leaving the screen, and the `.catch` on it
+      // is silent. Forgetting these ids lets the next pass collect the rows
+      // instead of leaving them to expire with a "finished" badge on a
+      // conversation the user already read.
+      if (settled.length > 0) {
+        await drop(settled.map((run) => run.id));
+        if (controller.signal.aborted) {
+          for (const run of settled) handledRef.current.delete(run.id);
+          return;
+        }
+      }
 
       // Re-attach to whatever is still in flight. The stream replays the text
       // accumulated so far before following along, so the message catches up
@@ -143,15 +153,21 @@ export function useDurableRunRecovery({ activeSessionId, isReady, updateSession 
               }));
               await drop([run.id]);
             } catch (error) {
-              // Leaving the screen again aborts the watcher, and that is not a
-              // failure: the run keeps going and the next visit picks it up.
-              if ((error as Error)?.name === "AbortError") {
-                handledRef.current.delete(run.id);
-                return;
-              }
-              writeMessage(run.messageId, "", (message) => ({
-                ...message,
-                content: message.content || `Error: ${(error as Error)?.message || "The run failed."}`,
+              // Nothing that failed here is remembered as handled. Leaving the
+              // screen aborts the watcher, and refusing to attach is not the
+              // run's fault either: `MAX_WATCHERS_PER_ACCOUNT` is 8 while
+              // `MAX_CONCURRENT_RUNS` is 12, and two tabs share the count, so a
+              // 429 was routine — it marked a live run as failed and that tab
+              // never read it again, not even after switching sessions.
+              handledRef.current.delete(run.id);
+              if ((error as Error)?.name === "AbortError") return;
+              const message = (error as Error)?.message || "The run failed.";
+              // A refusal to watch says nothing about the run, so it must not
+              // be written onto the message as the run's own failure.
+              if (/too many/i.test(message)) return;
+              writeMessage(run.messageId, "", (item) => ({
+                ...item,
+                content: item.content || `Error: ${message}`,
                 status: "error",
               }));
             }

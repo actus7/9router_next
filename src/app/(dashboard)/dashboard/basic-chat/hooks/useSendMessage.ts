@@ -48,6 +48,9 @@ export function useSendMessage({
   // The durable run in flight. Pressing stop has to reach the server, because
   // aborting locally now only stops watching — the work is no longer here.
   const activeRunIdRef = useRef<string | null>(null);
+  // Stop pressed while `POST /api/harness/runs` was still in flight, so there
+  // was no run id to send it to yet.
+  const stopRequestedRef = useRef(false);
   const sessionsRef = useRef(sessions);
   const activityClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -61,6 +64,9 @@ export function useSendMessage({
   const interrupt = useCallback(() => {
     const runId = activeRunIdRef.current;
     if (runId) void stopDurableRun(runId);
+    // No id yet: the send is between its POST and the answer that names the
+    // run. Remembered so it is stopped the moment it has a name.
+    else stopRequestedRef.current = true;
     abortRef.current?.abort();
   }, []);
 
@@ -143,6 +149,9 @@ export function useSendMessage({
 
   const sendMessage = useCallback(
     async (options?: SendMessageOptions) => {
+      // A fresh send never inherits a stop aimed at the previous one.
+      stopRequestedRef.current = false;
+      activeRunIdRef.current = null;
       await executeSendMessage({
         options,
         activeModel,
@@ -164,6 +173,7 @@ export function useSendMessage({
         updateSession,
         abortRef,
         activeRunIdRef,
+        stopRequestedRef,
         setChatError,
         setIsSending,
         setStreamingMessageId,

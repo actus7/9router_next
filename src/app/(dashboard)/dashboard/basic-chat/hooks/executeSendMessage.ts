@@ -34,7 +34,7 @@ import {
   buildRequestMessages,
 } from "./buildChatRequest";
 import { readRoutingTraceFromError } from "./consumeSSEStream";
-import { executeDurableChat } from "./executeDurableChat";
+import { executeDurableChat, stopDurableRun } from "./executeDurableChat";
 import { recordRoutingTraceEvent } from "./recordRoutingTraceEvent";
 import {
   finalizeStreamError,
@@ -80,6 +80,15 @@ export interface ExecuteSendMessageArgs {
   abortRef: React.MutableRefObject<AbortController | null>;
   /** The durable run in flight, so an explicit stop can reach the server. */
   activeRunIdRef: React.MutableRefObject<string | null>;
+  /**
+   * Set when stop was pressed before the run had an id.
+   *
+   * `POST /api/harness/runs` is deliberately not given the abort signal, so in
+   * that window there was nothing to name: only the local abort happened and
+   * the run carried on server-side, unwatched, its answer folded into the
+   * conversation later as if nobody had asked it to stop.
+   */
+  stopRequestedRef: React.MutableRefObject<boolean>;
   setChatError: React.Dispatch<React.SetStateAction<string>>;
   setIsSending: React.Dispatch<React.SetStateAction<boolean>>;
   setStreamingMessageId: React.Dispatch<React.SetStateAction<string>>;
@@ -113,6 +122,7 @@ export async function executeSendMessage({
   updateSession,
   abortRef,
   activeRunIdRef,
+  stopRequestedRef,
   setChatError,
   setIsSending,
   setStreamingMessageId,
@@ -293,6 +303,14 @@ export async function executeSendMessage({
     reasoningEffort,
   );
 
+  /** Records the run, and honours a stop that was pressed before it existed. */
+  const adoptRunId = (id: string) => {
+    activeRunIdRef.current = id;
+    if (!stopRequestedRef.current) return;
+    stopRequestedRef.current = false;
+    void stopDurableRun(id);
+  };
+
   const requestStartedAt = Date.now();
   let firstTokenAt: number | null = null;
 
@@ -348,9 +366,7 @@ export async function executeSendMessage({
           fetchOptions,
           signal,
           onStreamText: updateStreamingText,
-          onRunId: (id) => {
-            activeRunIdRef.current = id;
-          },
+          onRunId: adoptRunId,
         });
     recordRoutingTraceEvent(recordHarnessEvent, sessionId, assistantMessageId, result.routingTrace);
     if (result.streamed) {
@@ -429,9 +445,7 @@ export async function executeSendMessage({
           reasoningEffort,
           apiKey,
           signal,
-          onRunId: (id: string) => {
-            activeRunIdRef.current = id;
-          },
+          onRunId: adoptRunId,
           runtimeTools,
           enabledToolNames,
           updateSession,

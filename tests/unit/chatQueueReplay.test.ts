@@ -11,9 +11,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const executeDurableChat = vi.hoisted(() => vi.fn());
 
+const stopDurableRun = vi.hoisted(() => vi.fn());
+
 vi.mock("@/app/(dashboard)/dashboard/basic-chat/hooks/executeDurableChat", () => ({
   executeDurableChat,
-  stopDurableRun: vi.fn(),
+  stopDurableRun,
 }));
 
 import { executeSendMessage } from "@/app/(dashboard)/dashboard/basic-chat/hooks/executeSendMessage";
@@ -53,18 +55,60 @@ beforeEach(() => {
   });
 });
 
+describe("stop before the run has an id", () => {
+  it("stops the run as soon as the server names it", async () => {
+    // `POST /api/harness/runs` is deliberately not given the abort signal, so
+    // pressing stop in the window before it answers had nothing to name: only
+    // the local abort happened, and the run went on burning quota with no
+    // watcher — its answer folded into the conversation later by recovery.
+    executeDurableChat.mockImplementation(async (options: { onRunId?: (id: string) => void }) => {
+      options.onRunId?.("run-42");
+      throw new DOMException("aborted", "AbortError");
+    });
+
+    await executeSendMessage(args({
+      // Stop was pressed while the POST was still in flight.
+      stopRequestedRef: { current: true },
+    }));
+
+    expect(stopDurableRun).toHaveBeenCalledWith("run-42");
+  });
+});
+
 describe("send targeting", () => {
   it("posts into the named conversation, not the one on screen", async () => {
-    const sessions = [conversation("A"), conversation("B")];
-    const sessionsRef = { current: sessions };
-    const noop = () => {};
+    const sessionsRef = { current: [conversation("A"), conversation("B")] };
 
-    await executeSendMessage({
+    await executeSendMessage(args({
       // The queued message was typed into A; the user is now reading B.
       options: { text: "follow-up", sessionId: "A" },
+      sessionsRef,
+      setSessions: (updater: Updater<ChatSession[]>) => {
+        sessionsRef.current = typeof updater === "function" ? updater(sessionsRef.current) : updater;
+      },
+      updateSession: (sessionId: string, updater: (session: ChatSession) => ChatSession) => {
+        sessionsRef.current = sessionsRef.current.map((item) =>
+          item.id === sessionId ? updater(item) : item,
+        );
+      },
+    }));
+
+    const a = sessionsRef.current.find((item) => item.id === "A");
+    const b = sessionsRef.current.find((item) => item.id === "B");
+    expect(a?.messages.map((message) => message.content)).toEqual(["follow-up", "answer"]);
+    expect(b?.messages).toEqual([]);
+  });
+});
+
+/** The full arg bag `executeSendMessage` takes, with only the parts a test cares about set. */
+function args(overrides: Record<string, unknown>) {
+  const noop = () => {};
+  const sessionsRef = { current: [conversation("A")] };
+  return {
+      options: { text: "hello" },
       activeModel: model,
       activeProviderGroup: null,
-      activeSessionId: "B",
+      activeSessionId: "A",
       setActiveSessionId: noop,
       sessionsRef,
       setSessions: (updater: Updater<ChatSession[]>) => {
@@ -95,11 +139,7 @@ describe("send targeting", () => {
       activityClearTimerRef: { current: null },
       dequeueNext: () => undefined,
       replayQueuedMessage: noop,
-    } as unknown as Parameters<typeof executeSendMessage>[0]);
-
-    const a = sessionsRef.current.find((item) => item.id === "A");
-    const b = sessionsRef.current.find((item) => item.id === "B");
-    expect(a?.messages.map((message) => message.content)).toEqual(["follow-up", "answer"]);
-    expect(b?.messages).toEqual([]);
-  });
-});
+      stopRequestedRef: { current: false },
+      ...overrides,
+  } as unknown as Parameters<typeof executeSendMessage>[0];
+}
