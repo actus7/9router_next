@@ -11,6 +11,8 @@ import {
 } from "./hooks/useChatSessions";
 import { useHarnessEvents } from "./hooks/useHarnessEvents";
 import { useSendMessage } from "./hooks/useSendMessage";
+import { useDurableRunRecovery } from "./hooks/useDurableRunRecovery";
+import { useRunIndicators } from "./hooks/useRunIndicators";
 import ChatSidebar from "./sections/ChatSidebar";
 import ChatTopBar from "./sections/ChatTopBar";
 import ChatRunJournal from "./sections/ChatRunJournal";
@@ -37,6 +39,16 @@ export default function BasicChatPageClient() {
     modelIndex: modelsHook.modelIndex,
   });
   const harnessHook = useHarnessEvents(sessionsHook.activeSessionId);
+  // One poller for the page. Both conversation lists render these badges, and
+  // both are mounted at all times, so a hook call inside each would poll twice
+  // forever — usually once for a list nobody can see.
+  const runIndicators = useRunIndicators();
+  // Picks up answers that finished on the server while this tab was closed.
+  useDurableRunRecovery({
+    activeSessionId: sessionsHook.activeSessionId,
+    isReady: sessionsHook.isHydrated,
+    updateSession: sessionsHook.updateSession,
+  });
   const sendHook = useSendMessage({
     activeModel: sessionsHook.activeModel,
     activeProviderGroup: sessionsHook.activeProviderGroup,
@@ -73,6 +85,7 @@ export default function BasicChatPageClient() {
       <ChatSidebar
         sessionsHook={chatSessions}
         onExport={sendHook.handleExportConversation}
+        runIndicators={runIndicators}
       />
 
       <div className="relative order-1 flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -85,7 +98,7 @@ export default function BasicChatPageClient() {
           }}
         />
         <ChatRunJournal harnessHook={harnessHook} />
-        <ChatMobileHistoryMenu sessionsHook={chatSessions} />
+        <ChatMobileHistoryMenu sessionsHook={chatSessions} runIndicators={runIndicators} />
 
         {/*
           * `providerLoadError` was computed and then never rendered anywhere.

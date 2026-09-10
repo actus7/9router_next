@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { stopDurableRun } from "./executeDurableChat";
 import type { SendMessageOptions } from "../types";
 import { executeSendMessage } from "./executeSendMessage";
 import { useSendMessageActions } from "./useSendMessageActions";
 import { useSendMessageQueue } from "./useSendMessageQueue";
 import type {
   AgentActivity,
+  QueuedMessage,
   UseSendMessageArgs,
   UseSendMessageReturn,
 } from "./useSendMessageTypes";
@@ -42,6 +45,9 @@ export function useSendMessage({
   const [streamingText, setStreamingText] = useState("");
   const [liveActivities, setLiveActivities] = useState<AgentActivity[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  // The durable run in flight. Pressing stop has to reach the server, because
+  // aborting locally now only stops watching — the work is no longer here.
+  const activeRunIdRef = useRef<string | null>(null);
   const sessionsRef = useRef(sessions);
   const activityClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -52,6 +58,7 @@ export function useSendMessage({
 
   const queue = useSendMessageQueue({
     isSending,
+    activeSessionId,
     draft,
     attachments,
     setDraft,
@@ -104,11 +111,25 @@ export function useSendMessage({
   }, [activeSessionId]);
 
   const handleStop = useCallback(() => {
+    // Deliberately asymmetric with the unmount cleanup above: leaving the
+    // screen aborts the watcher and lets the run finish on the server, while
+    // pressing stop means stop, so it tells the server first.
+    const runId = activeRunIdRef.current;
+    if (runId) void stopDurableRun(runId);
     abortRef.current?.abort();
   }, []);
 
   const replayQueuedMessage = useCallback(
-    (item: { text: string; attachments: typeof attachments }) => {
+    (item: QueuedMessage) => {
+      // A queued follow-up belongs to the conversation it was typed into. The
+      // send that was ahead of it can now take minutes — it outlives the tab —
+      // so by the time this fires the user may be reading something else, and
+      // `sendMessage` closes over whatever is open *now*. Replaying blindly
+      // posts the message into the wrong conversation with no error anywhere.
+      if (item.sessionId && item.sessionId !== activeSessionId) {
+        queue.requeueFront(item);
+        return;
+      }
       queuedReplayTimerRef.current = setTimeout(() => {
         void sendMessageRef.current?.({
           text: item.text,
@@ -116,7 +137,7 @@ export function useSendMessage({
         });
       }, 0);
     },
-    [queuedReplayTimerRef],
+    [activeSessionId, queue, queuedReplayTimerRef],
   );
 
   const sendMessage = useCallback(
@@ -141,6 +162,7 @@ export function useSendMessage({
         recordHarnessEvent,
         updateSession,
         abortRef,
+        activeRunIdRef,
         setChatError,
         setIsSending,
         setStreamingMessageId,

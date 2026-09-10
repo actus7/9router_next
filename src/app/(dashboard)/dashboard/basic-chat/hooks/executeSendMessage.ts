@@ -33,7 +33,8 @@ import {
   buildChatFetchOptions,
   buildRequestMessages,
 } from "./buildChatRequest";
-import { executeChatFetch, readRoutingTraceFromError } from "./consumeSSEStream";
+import { readRoutingTraceFromError } from "./consumeSSEStream";
+import { executeDurableChat } from "./executeDurableChat";
 import { recordRoutingTraceEvent } from "./recordRoutingTraceEvent";
 import {
   finalizeStreamError,
@@ -46,7 +47,7 @@ import {
   ensureChatSession,
 } from "./prepareChatMessages";
 import { runToolCallLoop } from "./runToolCallLoop";
-import type { AgentActivity } from "./useSendMessageTypes";
+import type { AgentActivity, QueuedMessage } from "./useSendMessageTypes";
 
 export interface ExecuteSendMessageArgs {
   options?: SendMessageOptions;
@@ -77,6 +78,8 @@ export interface ExecuteSendMessageArgs {
     updater: (session: ChatSession) => ChatSession,
   ) => void;
   abortRef: React.MutableRefObject<AbortController | null>;
+  /** The durable run in flight, so an explicit stop can reach the server. */
+  activeRunIdRef: React.MutableRefObject<string | null>;
   setChatError: React.Dispatch<React.SetStateAction<string>>;
   setIsSending: React.Dispatch<React.SetStateAction<boolean>>;
   setStreamingMessageId: React.Dispatch<React.SetStateAction<string>>;
@@ -85,11 +88,8 @@ export interface ExecuteSendMessageArgs {
   activityClearTimerRef: React.MutableRefObject<ReturnType<
     typeof setTimeout
   > | null>;
-  dequeueNext: () => { text: string; attachments: ChatAttachment[] } | undefined;
-  replayQueuedMessage: (item: {
-    text: string;
-    attachments: ChatAttachment[];
-  }) => void;
+  dequeueNext: () => QueuedMessage | undefined;
+  replayQueuedMessage: (item: QueuedMessage) => void;
 }
 
 export async function executeSendMessage({
@@ -112,6 +112,7 @@ export async function executeSendMessage({
   recordHarnessEvent,
   updateSession,
   abortRef,
+  activeRunIdRef,
   setChatError,
   setIsSending,
   setStreamingMessageId,
@@ -341,11 +342,16 @@ export async function executeSendMessage({
             routingTrace: null,
           };
         })()
-      : await executeChatFetch(
-          "/api/v1/chat/completions",
+      : await executeDurableChat({
+          sessionId,
+          messageId: assistantMessageId,
           fetchOptions,
-          updateStreamingText,
-        );
+          signal,
+          onStreamText: updateStreamingText,
+          onRunId: (id) => {
+            activeRunIdRef.current = id;
+          },
+        });
     recordRoutingTraceEvent(recordHarnessEvent, sessionId, assistantMessageId, result.routingTrace);
     if (result.streamed) {
       const completedAt = Date.now();
@@ -423,6 +429,9 @@ export async function executeSendMessage({
           reasoningEffort,
           apiKey,
           signal,
+          onRunId: (id: string) => {
+            activeRunIdRef.current = id;
+          },
           runtimeTools,
           enabledToolNames,
           updateSession,

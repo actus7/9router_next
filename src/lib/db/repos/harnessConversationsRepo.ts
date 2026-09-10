@@ -47,6 +47,10 @@ export async function replaceHarnessConversations(conversations: HarnessConversa
     if (ids.length === 0) {
       await db.run("DELETE FROM harnessMessageIndex WHERE userId = ?", [userId]);
       await db.run("DELETE FROM harnessEvents WHERE userId = ?", [userId]);
+      // Never a run still executing: the worker is mid-write, and deleting the
+      // row under it loses the answer with no error anywhere. Those settle on
+      // their own and are swept by the pass below on a later sync.
+      await db.run("DELETE FROM harnessRuns WHERE userId = ? AND status != ?", [userId, "running"]);
       await db.run("DELETE FROM harnessConversations WHERE userId = ?", [userId]);
       return;
     }
@@ -54,6 +58,10 @@ export async function replaceHarnessConversations(conversations: HarnessConversa
     const placeholders = ids.map(() => "?").join(", ");
     await db.run(`DELETE FROM harnessMessageIndex WHERE userId = ? AND sessionId NOT IN (${placeholders})`, [userId, ...ids]);
     await db.run(`DELETE FROM harnessEvents WHERE userId = ? AND sessionId NOT IN (${placeholders})`, [userId, ...ids]);
+    await db.run(
+      `DELETE FROM harnessRuns WHERE userId = ? AND status != ? AND sessionId NOT IN (${placeholders})`,
+      [userId, "running", ...ids],
+    );
     await db.run(`DELETE FROM harnessConversations WHERE userId = ? AND id NOT IN (${placeholders})`, [userId, ...ids]);
     for (const conversation of conversations) {
       const { id, title, projectId, providerId, modelId, createdAt, updatedAt, ...data } = conversation;

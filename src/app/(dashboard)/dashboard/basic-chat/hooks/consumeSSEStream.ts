@@ -1,6 +1,9 @@
-import { readAssistantText, readReasoningText, readStreamUsage, textValue } from "../chatFormatUtils";
+import { textValue } from "../chatFormatUtils";
 import { ROUTING_TRACE_HEADER, parseRoutingTrace, type RoutingTrace } from "@/shared/observability/routingTrace";
+import { StreamChunkAccumulator, collectToolCallDeltas } from "@/shared/chat/streamChunk";
 import type { TokenUsage, ToolCall } from "../types";
+
+export { collectToolCallDeltas };
 
 export interface ChatFetchResult {
   text: string;
@@ -17,32 +20,6 @@ export type ChatFetchError = Error & { status?: number; routingTrace?: RoutingTr
 
 export function readRoutingTraceFromError(error: unknown): RoutingTrace | null {
   return (error as ChatFetchError | null)?.routingTrace || null;
-}
-
-type PartialStreamToolCall = {
-  id?: unknown;
-  index?: unknown;
-  function?: { name?: unknown; arguments?: unknown };
-};
-
-type StreamToolCall = Pick<ToolCall, "id" | "name" | "arguments">;
-
-/** Merge OpenAI-compatible incremental tool-call chunks into complete calls. */
-export function collectToolCallDeltas(
-  calls: Map<number, StreamToolCall>,
-  deltas: unknown,
-): void {
-  if (!Array.isArray(deltas)) return;
-  for (const delta of deltas as PartialStreamToolCall[]) {
-    const index = typeof delta.index === "number" ? delta.index : 0;
-    const previous = calls.get(index) || { id: "", name: "", arguments: "" };
-    const next: StreamToolCall = {
-      id: typeof delta.id === "string" ? delta.id : previous.id,
-      name: typeof delta.function?.name === "string" ? delta.function.name : previous.name,
-      arguments: previous.arguments + (typeof delta.function?.arguments === "string" ? delta.function.arguments : ""),
-    };
-    calls.set(index, next);
-  }
 }
 
 /**
@@ -89,60 +66,24 @@ async function consumeSSEStream(
   onText: (text: string) => void,
 ): Promise<{ text: string; toolCalls: ToolCall[]; reasoning: string; usage: TokenUsage | null }> {
   const decoder = new TextDecoder();
-  let buffer = "";
-  let assistantText = "";
-  let reasoningText = "";
-  let usage: TokenUsage | null = null;
-  const streamedToolCalls = new Map<number, StreamToolCall>();
-  const consumeLine = (line: string) => {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("data:")) return;
-
-    const payload = trimmed.slice(5).trim();
-    if (!payload || payload === "[DONE]") return;
-
-    try {
-      const chunk = JSON.parse(payload);
-      const delta = (chunk?.choices?.[0]?.delta || {}) as Record<string, unknown>;
-      collectToolCallDeltas(streamedToolCalls, delta.tool_calls);
-      usage = readStreamUsage(chunk) || usage;
-      const reasoningDelta = readReasoningText(chunk);
-      if (reasoningDelta) reasoningText += reasoningDelta;
-      const text = readAssistantText(chunk);
-      if (!text) return;
-
-      assistantText += text;
-      onText(assistantText);
-    } catch {
-      // Ignore malformed chunks.
-    }
-  };
+  const accumulator = new StreamChunkAccumulator();
 
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || "";
-
-    for (const line of lines) {
-      consumeLine(line);
+    if (accumulator.push(decoder.decode(value, { stream: true }))) {
+      onText(accumulator.result().text);
     }
   }
 
-  // Some providers close immediately after the final data frame instead of
-  // terminating it with a newline. Flush the decoder and process that valid
-  // final frame so the answer is not silently truncated.
-  buffer += decoder.decode();
-  if (buffer.trim()) consumeLine(buffer);
-
+  const parsed = accumulator.finish(decoder.decode());
+  // A provider that closes right after its last frame, with no trailing
+  // newline, only yields that frame here — the caller still has to see it.
+  if (parsed.text) onText(parsed.text);
   return {
-    text: assistantText,
-    toolCalls: Array.from(streamedToolCalls.values())
-      .filter((call) => call.id && call.name)
-      .map((call) => ({ ...call, status: "pending" })),
-    reasoning: reasoningText,
-    usage,
+    text: parsed.text,
+    toolCalls: parsed.toolCalls.map((call) => ({ ...call, status: "pending" as const })),
+    reasoning: parsed.reasoning,
+    usage: parsed.usage,
   };
 }

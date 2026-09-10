@@ -17,6 +17,8 @@ export interface QueuedMessage {
   id: string;
   text: string;
   attachments: ChatAttachment[];
+  /** The conversation it was typed into. Replay must not guess this. */
+  sessionId: string;
 }
 
 export interface UseSendMessageArgs {

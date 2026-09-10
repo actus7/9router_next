@@ -308,6 +308,36 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_he_type ON harnessEvents(userId, type)",
     ],
   },
+  // A chat run that outlives the browser tab that started it.
+  //
+  // The run is the durable half of a send: the worker writes `partialText` as
+  // the provider streams and settles `status` at the end, so closing the tab
+  // or the laptop stops nothing. It is deliberately NOT written into
+  // `harnessConversations` by the server — that table is replaced wholesale by
+  // the client's `PUT /api/harness/sessions`, and a background write racing a
+  // full replace loses. The client reconciles finished runs into the
+  // conversation the next time it opens the session.
+  harnessRuns: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      userId: "TEXT NOT NULL",
+      sessionId: "TEXT NOT NULL",
+      messageId: "TEXT NOT NULL",
+      status: "TEXT NOT NULL",
+      model: "TEXT",
+      partialText: "TEXT NOT NULL",
+      reasoning: "TEXT",
+      toolCalls: "TEXT",
+      usage: "TEXT",
+      error: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_hr_session ON harnessRuns(userId, sessionId, createdAt DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_hr_status ON harnessRuns(userId, status, updatedAt)",
+    ],
+  },
   // Patch layer over the plugin rows each bundle declares in code. An empty
   // table reproduces the bundle defaults exactly, so this ships inert.
   // `id` is the bundle's row id, identical for every tenant that overrides the

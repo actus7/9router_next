@@ -12,6 +12,8 @@ import {
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { ChatProject, ChatSession } from "../types";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
+import type { RunIndicator } from "../hooks/useRunIndicators";
+import RunBadge from "./RunBadge";
 import IconActionButton from "./IconActionButton";
 
 interface SessionItemProps {
@@ -30,11 +32,12 @@ interface SessionItemProps {
   onCancelRename: () => void;
   onRenameChange: (value: string) => void;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
+  runIndicator?: RunIndicator;
 }
 
 function SessionItem({
   session, isActive, isSelected, isRenaming, renameValue, selectedCount,
-  onSelect, onToggleSelect, onStartRename, onCommitRename, onCancelRename, onDelete, onToggleArchive, onRenameChange, renameInputRef,
+  onSelect, onToggleSelect, onStartRename, onCommitRename, onCancelRename, onDelete, onToggleArchive, onRenameChange, renameInputRef, runIndicator,
 }: SessionItemProps) {
   return (
     <div
@@ -69,7 +72,10 @@ function SessionItem({
         ) : (
           <button type="button" onClick={() => onSelect(session.id)} className="block w-full min-w-0 text-left">
             <span className="block truncate text-xs font-medium text-card-foreground">{session.title}</span>
-            <span className="block text-[10px] text-muted-foreground">{formatRelativeTime(session.updatedAt)}</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              {formatRelativeTime(session.updatedAt)}
+              {runIndicator ? <RunBadge indicator={runIndicator} /> : null}
+            </span>
           </button>
         )}
       </div>
@@ -93,9 +99,11 @@ function SessionItem({
 interface ChatSidebarProps {
   sessionsHook: UseChatSessionsReturn;
   onExport: (format: "json" | "markdown") => void;
+  /** Owned by the page: one poller feeds every list that shows these. */
+  runIndicators: Map<string, RunIndicator>;
 }
 
-export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps) {
+export default function ChatSidebar({ sessionsHook, onExport, runIndicators }: ChatSidebarProps) {
   const {
     sidebarOpen, projects, activeProjectId, sessions, projectSessionCounts, isCreatingProject, newProjectName,
     setNewProjectName, handleCreateProject, setIsCreatingProject, handleSelectProject, handleRenameProject,
@@ -337,6 +345,7 @@ export default function ChatSidebar({ sessionsHook, onExport }: ChatSidebarProps
                   onToggleArchive={handleToggleArchiveSession}
                   onRenameChange={setRenameValue}
                   renameInputRef={renameInputRef}
+                  runIndicator={runIndicators.get(session.id)}
                 />
               ))}
             </div>

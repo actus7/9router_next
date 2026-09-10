@@ -7,6 +7,8 @@ import { createId } from "../chatFormatUtils";
 
 export interface UseSendMessageQueueArgs {
   isSending: boolean;
+  /** Stamped onto each queued message so replay lands where it was typed. */
+  activeSessionId: string;
   draft: string;
   attachments: ChatAttachment[];
   setDraft: React.Dispatch<React.SetStateAction<string>>;
@@ -25,10 +27,12 @@ export interface UseSendMessageQueueReturn {
   moveQueuedMessage: (id: string, direction: "up" | "down") => void;
   clearQueue: () => void;
   dequeueNext: () => QueuedMessage | undefined;
+  requeueFront: (item: QueuedMessage) => void;
 }
 
 export function useSendMessageQueue({
   isSending,
+  activeSessionId,
   draft,
   attachments,
   setDraft,
@@ -52,13 +56,13 @@ export function useSendMessageQueue({
   const queueMessage = useCallback(() => {
     if (!canQueue) return;
     const text = draft.trim();
-    const item: QueuedMessage = { id: createId(), text, attachments };
+    const item: QueuedMessage = { id: createId(), text, attachments, sessionId: activeSessionId };
     const next = [...queuedMessagesRef.current, item];
     queuedMessagesRef.current = next;
     setQueuedMessages(next);
     setDraft("");
     setAttachments([]);
-  }, [attachments, canQueue, draft, setAttachments, setDraft]);
+  }, [activeSessionId, attachments, canQueue, draft, setAttachments, setDraft]);
 
   const cancelQueuedMessage = useCallback((id: string) => {
     const next = queuedMessagesRef.current.filter((item) => item.id !== id);
@@ -87,6 +91,13 @@ export function useSendMessageQueue({
     abortRef.current?.abort();
   }, [abortRef, canQueue, queueMessage]);
 
+  /** Puts a dequeued message back at the head, still waiting, still visible. */
+  const requeueFront = useCallback((item: QueuedMessage) => {
+    const next = [item, ...queuedMessagesRef.current];
+    queuedMessagesRef.current = next;
+    setQueuedMessages(next);
+  }, []);
+
   const dequeueNext = useCallback((): QueuedMessage | undefined => {
     const [next, ...rest] = queuedMessagesRef.current;
     if (!next) return undefined;
@@ -106,5 +117,6 @@ export function useSendMessageQueue({
     moveQueuedMessage,
     clearQueue,
     dequeueNext,
+    requeueFront,
   };
 }

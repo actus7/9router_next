@@ -2,7 +2,7 @@ import {
   buildChatFetchOptions,
   buildRequestMessages,
 } from "./buildChatRequest";
-import { executeChatFetch } from "./consumeSSEStream";
+import { executeDurableChat } from "./executeDurableChat";
 import { recordRoutingTraceEvent } from "./recordRoutingTraceEvent";
 import { executeRuntimeToolCall } from "./executeRuntimeToolCall";
 import { createAssistantMessage } from "./prepareChatMessages";
@@ -31,6 +31,8 @@ interface RunToolCallLoopParams {
   reasoningEffort: "low" | "medium" | "high" | null;
   apiKey: string;
   signal: AbortSignal;
+  /** Reports each continuation's durable run id, so stop can reach the server. */
+  onRunId: (runId: string) => void;
   runtimeTools: readonly object[];
   enabledToolNames: Set<string>;
   updateSession: (
@@ -70,6 +72,7 @@ export async function runToolCallLoop(
     reasoningEffort,
     apiKey,
     signal,
+    onRunId,
     runtimeTools,
     enabledToolNames,
     updateSession,
@@ -281,9 +284,13 @@ export async function runToolCallLoop(
     });
     setStreamingMessageId(continuation.id);
     setStreamingText("");
-    const continuationResult = await executeChatFetch(
-      "/api/v1/chat/completions",
-      buildChatFetchOptions(
+    // Each continuation is its own durable run: if the tab dies between tool
+    // steps the loop cannot continue (the tools run here, in the browser), but
+    // the step that was in flight still finishes and is kept.
+    const continuationResult = await executeDurableChat({
+      sessionId,
+      messageId: continuation.id,
+      fetchOptions: buildChatFetchOptions(
         model,
         buildRequestMessages(
           conversation,
@@ -296,7 +303,9 @@ export async function runToolCallLoop(
         runtimeTools,
         reasoningEffort,
       ),
-      (text) => {
+      signal,
+      onRunId,
+      onStreamText: (text) => {
         setStreamingText(text);
         setLiveActivities((activities) =>
           activities.map((activity) =>
@@ -315,7 +324,7 @@ export async function runToolCallLoop(
           updatedAt: new Date().toISOString(),
         }));
       },
-    );
+    });
     recordRoutingTraceEvent(recordHarnessEvent, sessionId, continuation.id, continuationResult.routingTrace);
     conversation = conversation.map((message) =>
       message.id === continuation.id

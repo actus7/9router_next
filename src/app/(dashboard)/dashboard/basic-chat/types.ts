@@ -14,12 +14,11 @@ export interface ToolCall {
   status?: "pending" | "running" | "done" | "error";
 }
 
-export interface TokenUsage {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-  cached_tokens?: number;
-}
+// Defined in shared so the server worker that writes a durable run and the UI
+// that renders it cannot disagree about the shape.
+import type { TokenUsage } from "@/shared/chat/streamChunk";
+
+export type { TokenUsage };
 
 export interface MessageTiming {
   /** Time from request start to the first streamed token, in milliseconds. */

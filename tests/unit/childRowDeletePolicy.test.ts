@@ -69,6 +69,17 @@ const POLICY: Record<string, Declared> = {
     parent: "harnessConversations",
     why: "replaceHarnessConversations cascades events plus the search index and FTS rows.",
   },
+  "harnessRuns.sessionId": {
+    policy: "cleans",
+    parent: "harnessConversations",
+    why:
+      "Same cascade as harnessEvents. A run left behind by a deleted conversation " +
+      "is unreachable — nothing but that session's recovery pass ever reads it.",
+  },
+  "harnessRuns.messageId": {
+    policy: "not-a-reference",
+    why: "The assistant message id inside the conversation JSON, not a row of its own.",
+  },
   "harnessMessageIndex.sessionId": {
     policy: "cleans",
     parent: "harnessConversations",

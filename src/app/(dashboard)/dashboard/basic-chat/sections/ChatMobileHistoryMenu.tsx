@@ -3,15 +3,19 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { translate } from "@/i18n/runtime";
+import type { RunIndicator } from "../hooks/useRunIndicators";
+import RunBadge from "./RunBadge";
 import { Plus, Search } from "lucide-react";
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 
 interface ChatMobileHistoryMenuProps {
+  /** Owned by the page: one poller feeds every list that shows these. */
+  runIndicators: Map<string, RunIndicator>;
   sessionsHook: UseChatSessionsReturn;
 }
 
-export default function ChatMobileHistoryMenu({ sessionsHook }: ChatMobileHistoryMenuProps) {
+export default function ChatMobileHistoryMenu({ sessionsHook, runIndicators }: ChatMobileHistoryMenuProps) {
   const {
     historyOpen, historyMenuRef, handleNewChat, activeModel, historySearch, setHistorySearch,
     groupedSessionItems, activeSessionId, handleSelectSession,
@@ -43,7 +47,10 @@ export default function ChatMobileHistoryMenu({ sessionsHook }: ChatMobileHistor
               <button key={session.id} type="button" onClick={() => handleSelectSession(session.id)} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-muted ${session.id === activeSessionId ? "bg-muted" : ""}`}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium">{session.title}</p>
-                  <p className="text-[10px] text-muted-foreground">{formatRelativeTime(session.updatedAt)}</p>
+                  <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    {formatRelativeTime(session.updatedAt)}
+                    {runIndicators.get(session.id) ? <RunBadge indicator={runIndicators.get(session.id)!} /> : null}
+                  </p>
                 </div>
               </button>
             ))}
