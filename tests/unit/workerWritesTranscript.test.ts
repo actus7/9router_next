@@ -105,6 +105,25 @@ describe("appendRunAnswerToConversation", () => {
     expect(reads.find((sql) => sql.includes("FROM harnessConversations"))).toContain("FOR UPDATE");
   });
 
+  it("keeps a turn that asked for tools, marked as unfinished", async () => {
+    // The loop that would continue it runs in the browser, so a closed tab
+    // means it stops here. Not mirroring it at all left the work only in
+    // `harnessRuns`, to expire after 24h with nothing said; mirroring it as
+    // done would file a truncated turn as a finished answer.
+    seed("s6", [{ id: "a1", role: "assistant", content: "", status: "streaming" }]);
+
+    await appendRunAnswerToConversation("s6", "a1", {
+      content: "let me look that up",
+      status: "error",
+      toolCalls: [{ id: "call_1", name: "web_search", arguments: "{}" }],
+    });
+
+    const message = messagesOf("s6")[0]!;
+    expect(message.status).toBe("error");
+    expect(message.content).toBe("let me look that up");
+    expect(message.toolCalls).toHaveLength(1);
+  });
+
   it("does nothing when the conversation is not on the server yet", async () => {
     await expect(
       appendRunAnswerToConversation("missing", "a1", { content: "x", status: "done" }),

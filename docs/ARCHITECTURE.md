@@ -45,8 +45,11 @@ Three things are deliberate:
   of its owner. `useDurableRunRecovery` still collects run rows, but it is now
   how a *live* tab catches up, not the only path an answer has.
 
-  A turn that asked for tools is deliberately not mirrored: it is not finished,
-  and the loop that would continue it runs in the browser.
+  A turn that asked for tools is mirrored as `error`, not `done`: it is not
+  finished, and the loop that would continue it runs in the browser. Writing it
+  as an answer would file a truncated turn as a complete one; not writing it at
+  all left it to expire in `harnessRuns` with nothing said. Its unanswered
+  calls ride along and are dropped when the conversation is next serialized.
 - **Stop and navigating away are different.** Aborting locally only stops
   watching. An explicit stop `PATCH`es the row to `stopped`; the worker learns
   about it because its next progress `UPDATE ... WHERE status = 'running'`

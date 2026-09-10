@@ -25,6 +25,16 @@ import { truncateTraceError } from "@/shared/observability/routingTrace";
 const PROGRESS_INTERVAL_MS = 1_000;
 
 /**
+ * Shown after the text of a tool turn that no browser was there to continue.
+ *
+ * Server-side and therefore untranslated, like the other messages this file
+ * writes into a run (`"The run failed."`). It reaches the user through the
+ * message body, which is rendered verbatim.
+ */
+const TOOL_TURN_INTERRUPTED =
+  "Stopped here: this turn needed a tool and the chat was not open. Send another message to continue.";
+
+/**
  * How often the run is touched even when the provider has sent nothing.
  *
  * Without this there is no way to tell a worker that died from a provider
@@ -191,14 +201,24 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
       toolCalls: parsed.toolCalls,
       usage: (parsed.usage as Record<string, unknown> | null) ?? null,
     });
-    // A turn that asked for tools is not finished, and the loop that continues
-    // it runs in the browser — writing it as an answer would file a truncated
-    // turn as a complete one. That ceiling is `runToolCallLoop`, not this.
-    if (settled && parsed.toolCalls.length === 0) {
+    if (settled) {
+      // A turn that asked for tools is not finished: the loop that continues it
+      // runs in the browser, so a closed tab stops it here. It is still
+      // mirrored — leaving it only in `harnessRuns` meant it expired after
+      // `SETTLED_RUN_TTL_MS` with nothing said — but as `error`, because
+      // writing it as `done` would file a truncated turn as a complete answer.
+      // Its unanswered calls ride along and are dropped when the conversation
+      // is next serialized (`buildRequestMessages`).
+      const unfinished = parsed.toolCalls.length > 0;
       await mirrorAnswer(input, {
-        content: parsed.text,
-        status: "done",
+        content: unfinished && parsed.text
+          ? `${parsed.text}
+
+_${TOOL_TURN_INTERRUPTED}_`
+          : parsed.text,
+        status: unfinished ? "error" : "done",
         reasoning: parsed.reasoning || null,
+        toolCalls: unfinished ? parsed.toolCalls : undefined,
         tokenUsage: (parsed.usage as Record<string, unknown> | null) ?? null,
       });
     }
