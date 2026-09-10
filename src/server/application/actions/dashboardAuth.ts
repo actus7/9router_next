@@ -1,7 +1,7 @@
 "use server";
 
 import { HttpValidationError } from "@/server/application/http/requestBody";
-import { currentUserId } from "@/server/application/http/tenantRoute";
+import { resolveCurrentUser } from "@/server/application/http/tenantRoute";
 import { withTenant } from "@/lib/db/tenant";
 
 /**
@@ -14,8 +14,13 @@ import { withTenant } from "@/lib/db/tenant";
  * unaffected.
  */
 export async function withDashboardSession<T>(run: () => Promise<T>): Promise<T> {
-  const userId: string | null = await currentUserId();
+  const { userId, unavailable } = await resolveCurrentUser();
   if (!userId) {
+    // Same distinction `tenantRoute` makes: a throttled auth service is not a
+    // signed-out user, and 401 for it reads as "your session ended".
+    if (unavailable) {
+      throw new HttpValidationError("Auth service unavailable, try again", 503, "AUTH_UNAVAILABLE");
+    }
     throw new HttpValidationError("Unauthorized", 401, "UNAUTHORIZED");
   }
   return withTenant(userId, run);

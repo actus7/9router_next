@@ -206,7 +206,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse | null> 
       return NextResponse.next();
     }
     if (await hasValidCliToken(request)) return NextResponse.next();
-    if (hasSessionCookie(request)) return NextResponse.next();
+    // Handing a signed-in request to the Neon Auth middleware instead of
+    // answering it here is what keeps the `session_data` cookie alive.
+    //
+    // That cookie is the only thing that lets `auth.getSession()` answer from
+    // memory, it lives 5 minutes, and the middleware is the only code that
+    // mints it. Answering `next()` here meant the dashboard — which after the
+    // first paint is almost entirely `/api/*` traffic — never refreshed it: five
+    // minutes after the last page navigation every single API call went upstream
+    // to Neon Auth, which then answered `429`, which `currentUserId()` read as
+    // "not signed in", which surfaced as saves failing with 401.
+    if (hasSessionCookie(request)) return null;
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

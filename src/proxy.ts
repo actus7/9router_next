@@ -30,9 +30,26 @@ function isAllowedDashboardHost(request: NextRequest): boolean {
   return allowedHosts.has(host);
 }
 
+/**
+ * A program never wants a login page.
+ *
+ * Dashboard `/api/*` requests do go through the auth middleware — that is what
+ * refreshes the `session_data` cookie, see `dashboardGuard` — but the
+ * middleware's answer to a session it cannot verify is a redirect to sign-in.
+ * `fetch` follows that and hands the caller HTML with `res.ok === true`, so a
+ * failed save would read as a successful one. Any cookies the middleware set on
+ * the way (including clearing a stale one) are kept.
+ */
+export function asApiResponse(response: NextResponse): NextResponse {
+  if (response.status < 300 || response.status >= 400) return response;
+  const headers = new Headers();
+  for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers });
+}
+
 export async function proxy(request: NextRequest): Promise<NextResponse> {
-  // API and gateway paths answer for themselves — an API key or a CLI token,
-  // never a redirect to a login page, because their callers are programs.
+  // Gateway paths answer for themselves — an API key or a CLI token, never a
+  // redirect to a login page, because their callers are programs.
   const handled: NextResponse | null = await dashboardProxy(request);
   if (handled) return handled;
 
@@ -40,7 +57,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Dashboard is not served on this host" }, { status: 404 });
   }
 
-  return neonAuth(request);
+  const authenticated: NextResponse = await neonAuth(request);
+  return request.nextUrl.pathname.startsWith("/api/") ? asApiResponse(authenticated) : authenticated;
 }
 
 export const config = {

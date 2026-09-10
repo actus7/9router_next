@@ -5,7 +5,7 @@ import { connection } from "next/server";
 
 import { SIGN_IN_PATH } from "@/lib/auth/paths";
 import { withTenant } from "@/lib/db/tenant";
-import { currentUserId } from "@/server/application/http/tenantRoute";
+import { resolveCurrentUser } from "@/server/application/http/tenantRoute";
 
 /**
  * The Server Component counterpart of `tenantRoute`: runs `render` as the
@@ -23,7 +23,11 @@ import { currentUserId } from "@/server/application/http/tenantRoute";
 export async function withTenantPage<T>(render: () => Promise<T>): Promise<T> {
   // Request data, so the route cannot be prerendered — see tenantRoute.
   await connection();
-  const userId: string | null = await currentUserId();
+  const { userId, unavailable } = await resolveCurrentUser();
+  // A throttled or unreachable auth service is not a signed-out user, and
+  // redirecting there sends a signed-in user to a sign-in page that cannot
+  // work either. The error boundary saying so is the honest answer.
+  if (unavailable) throw new Error("Auth service unavailable, try again");
   if (!userId) redirect(SIGN_IN_PATH);
   return withTenant(userId, render);
 }
