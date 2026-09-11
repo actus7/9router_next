@@ -92,12 +92,17 @@ export interface ExecuteSendMessageArgs {
   stopRequestedRef: React.MutableRefObject<boolean>;
   setChatError: React.Dispatch<React.SetStateAction<string>>;
   setIsSending: React.Dispatch<React.SetStateAction<boolean>>;
+  /**
+   * Which conversation this send belongs to.
+   *
+   * Named before anything streams, and never cleared: the live-run card reads
+   * it to decide whether it is talking about the conversation on screen, and a
+   * stale owner with nothing running renders nothing anyway.
+   */
+  setSendingSessionId: React.Dispatch<React.SetStateAction<string>>;
   setStreamingMessageId: React.Dispatch<React.SetStateAction<string>>;
   setStreamingText: React.Dispatch<React.SetStateAction<string>>;
   setLiveActivities: React.Dispatch<React.SetStateAction<AgentActivity[]>>;
-  activityClearTimerRef: React.MutableRefObject<ReturnType<
-    typeof setTimeout
-  > | null>;
   dequeueNext: () => QueuedMessage | undefined;
   replayQueuedMessage: (item: QueuedMessage) => void;
 }
@@ -126,18 +131,24 @@ export async function executeSendMessage({
   stopRequestedRef,
   setChatError,
   setIsSending,
+  setSendingSessionId,
   setStreamingMessageId,
   setStreamingText,
   setLiveActivities,
-  activityClearTimerRef,
   dequeueNext,
   replayQueuedMessage,
 }: ExecuteSendMessageArgs): Promise<void> {
-  const model = activeModel || activeProviderGroup?.models?.[0] || null;
+  const model = options?.model || activeModel || activeProviderGroup?.models?.[0] || null;
   if (!model) return;
   const userText = (options?.text ?? draft).trim();
   const messageAttachments = options?.attachments ?? attachments;
   if (!userText && messageAttachments.length === 0) return;
+
+  // A send that names its conversation is a replay of something typed there.
+  // If that conversation is gone, the message goes with it: `ensureChatSession`
+  // would make a replacement and select it, dragging the reader out of
+  // whatever they had opened in the meantime.
+  if (options?.sessionId && !sessionsRef.current.some((item) => item.id === options.sessionId)) return;
 
   const sessionResult = ensureChatSession(
     options?.sessionId ?? activeSessionId,
@@ -175,10 +186,8 @@ export async function executeSendMessage({
     setAttachments([]);
   }
   setChatError("");
+  setSendingSessionId(sessionId);
   setIsSending(true);
-  if (activityClearTimerRef.current)
-    clearTimeout(activityClearTimerRef.current);
-  activityClearTimerRef.current = null;
   setStreamingMessageId(assistantMessageId);
   setStreamingText("");
   setLiveActivities([
@@ -483,14 +492,13 @@ export async function executeSendMessage({
     setStreamingMessageId("");
     setStreamingText("");
     abortRef.current = null;
+    // Nothing is watching it any more. Leaving the id here told run recovery to
+    // keep skipping a run that had already finished.
+    activeRunIdRef.current = null;
+    // Taking the card down is the hook's job, derived from `isSending` — doing
+    // it here made it this path's job, and every path that skipped this line
+    // left the card on screen for good.
     const next = dequeueNext();
-    if (next) {
-      replayQueuedMessage(next);
-    } else {
-      activityClearTimerRef.current = setTimeout(() => {
-        setLiveActivities([]);
-        activityClearTimerRef.current = null;
-      }, 900);
-    }
+    if (next) replayQueuedMessage(next);
   }
 }

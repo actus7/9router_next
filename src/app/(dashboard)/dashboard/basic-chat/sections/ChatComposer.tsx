@@ -70,6 +70,7 @@ export default function ChatComposer({
   const {
     handleKeyDown,
     isSending,
+    isBusy,
     handleStop,
     canSend,
     canQueue,
@@ -80,6 +81,11 @@ export default function ChatComposer({
     moveQueuedMessage,
     handleExportConversation,
   } = sendHook;
+
+  // Only this conversation's follow-ups. The queue is one list because the
+  // client sends one at a time, but a message typed in another conversation is
+  // not this one's to read, reorder or cancel.
+  const sessionQueue = queuedMessages.filter((item) => item.sessionId === currentSession?.id);
 
   const contextUsage = estimateContextUsage(
     currentSession?.messages ?? [],
@@ -132,7 +138,7 @@ export default function ChatComposer({
 
   return (
     <div className="shrink-0 border-t border-border bg-background/95 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <ChatQueueBar items={queuedMessages} onCancel={cancelQueuedMessage} onMove={moveQueuedMessage} />
+      <ChatQueueBar items={sessionQueue} onCancel={cancelQueuedMessage} onMove={moveQueuedMessage} />
       {attachmentNotice ? (
         <div className="mx-auto mb-3 flex w-full max-w-3xl items-center justify-between gap-3 px-6">
           <p role="status" className="text-xs text-destructive">{attachmentNotice}</p>
@@ -305,7 +311,7 @@ export default function ChatComposer({
                 }
                 size="sm"
                 type="button"
-                disabled={!currentSession || isSending}
+                disabled={!currentSession || isBusy}
                 aria-pressed={currentSession?.mode === "plan"}
                 onClick={() =>
                   currentSession &&
@@ -438,7 +444,18 @@ export default function ChatComposer({
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-2">
-              {isSending && (
+              {/*
+                * The client runs one send at a time, so a conversation that is
+                * not the one working can neither be stopped nor queued into —
+                * and saying so beats a send button that is disabled for no
+                * visible reason.
+                */}
+              {isSending && !isBusy && (
+                <span className="text-[11px] text-muted-foreground">
+                  Outra conversa está respondendo
+                </span>
+              )}
+              {isBusy && (
                 <>
                   <button
                     type="button"
@@ -446,7 +463,7 @@ export default function ChatComposer({
                     disabled={!canQueue}
                     className="rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-default disabled:opacity-60"
                   >
-                    {queuedMessages.length > 0 ? `Na fila (${queuedMessages.length})` : "Enviar depois"}
+                    {sessionQueue.length > 0 ? `Na fila (${sessionQueue.length})` : "Enviar depois"}
                   </button>
                   <button
                     type="button"

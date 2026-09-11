@@ -19,6 +19,8 @@ export interface QueuedMessage {
   attachments: ChatAttachment[];
   /** The conversation it was typed into. Replay must not guess this. */
   sessionId: string;
+  /** The model it was typed against, for the same reason. */
+  model: NormalizedModel | null;
 }
 
 export interface UseSendMessageArgs {
@@ -54,7 +56,14 @@ export interface UseSendMessageArgs {
 export interface UseSendMessageReturn {
   chatError: string;
   setChatError: React.Dispatch<React.SetStateAction<string>>;
+  /** A send is in flight somewhere — the client runs one at a time. */
   isSending: boolean;
+  /** That send belongs to the conversation on screen. What the composer reads. */
+  isBusy: boolean;
+  /** The conversation the in-flight send went into — empty before the first. */
+  sendingSessionId: string;
+  /** The durable run this tab is watching, so recovery does not watch it too. */
+  watchedRunIdRef: React.MutableRefObject<string | null>;
   streamingMessageId: string;
   streamingText: string;
   liveActivities: AgentActivity[];

@@ -41,6 +41,10 @@ export function useSendMessage({
 }: UseSendMessageArgs): UseSendMessageReturn {
   const [chatError, setChatError] = useState("");
   const [isSending, setIsSending] = useState(false);
+  // A run outlives the tab, so reading another conversation while one answers
+  // is the normal case. Without an owner the "agent working" card followed the
+  // reader and claimed whatever was on screen was busy.
+  const [sendingSessionId, setSendingSessionId] = useState("");
   const [streamingMessageId, setStreamingMessageId] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [liveActivities, setLiveActivities] = useState<AgentActivity[]>([]);
@@ -52,9 +56,6 @@ export function useSendMessage({
   // was no run id to send it to yet.
   const stopRequestedRef = useRef(false);
   const sessionsRef = useRef(sessions);
-  const activityClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const sendMessageRef = useRef<
     ((options?: SendMessageOptions) => Promise<void>) | null
   >(null);
@@ -70,9 +71,20 @@ export function useSendMessage({
     abortRef.current?.abort();
   }, []);
 
+  /**
+   * Whether *this* conversation is the one working.
+   *
+   * `isSending` is a fact about the client — it runs one send at a time — and
+   * every composer control was reading it directly, so "Stop" and the queue
+   * button appeared on every conversation while any one of them worked. Stop
+   * pressed in a conversation with nothing running killed the run in another.
+   */
+  const isBusy = isSending && sendingSessionId === activeSessionId;
+
   const queue = useSendMessageQueue({
-    isSending,
+    isSending: isBusy,
     activeSessionId,
+    activeModel,
     draft,
     attachments,
     setDraft,
@@ -89,14 +101,41 @@ export function useSendMessage({
   // updating state on an unmounted component.
   useEffect(() => {
     const abort = abortRef;
-    const activityTimer = activityClearTimerRef;
     const queueTimer = queuedReplayTimerRef;
     return () => {
       abort.current?.abort();
-      if (activityTimer.current) clearTimeout(activityTimer.current);
       if (queueTimer.current) clearTimeout(queueTimer.current);
     };
   }, [queuedReplayTimerRef]);
+
+  /**
+   * Takes the card down once there is nothing left to say.
+   *
+   * This used to be a timer the send scheduled in its own `finally`, which made
+   * the card's lifetime the responsibility of every exit path — and a path that
+   * skipped it (a replayed queue item, a throw before the request was even
+   * built) left the card frozen on screen, still naming what it had been doing,
+   * until the user reloaded the page. The condition is just "no send in flight
+   * and something still shown", so it is derived here and the pause before it
+   * goes is long enough to read the last state.
+   */
+  /**
+   * A follow-up cannot outlive the conversation it was typed into.
+   *
+   * Deleting one while its run was still going left the message queued for a
+   * conversation that no longer existed: undeliverable, and invisible because
+   * the bar only shows the open conversation's.
+   */
+  const { pruneQueue } = queue;
+  useEffect(() => {
+    pruneQueue(sessions.map((session) => session.id));
+  }, [pruneQueue, sessions]);
+
+  useEffect(() => {
+    if (isSending || liveActivities.length === 0) return;
+    const timer = setTimeout(() => setLiveActivities([]), 900);
+    return () => clearTimeout(timer);
+  }, [isSending, liveActivities]);
 
   const canSend =
     !isSending &&
@@ -104,9 +143,6 @@ export function useSendMessage({
     (draft.trim().length > 0 || attachments.length > 0);
 
   const resetStream = useCallback(() => {
-    if (activityClearTimerRef.current)
-      clearTimeout(activityClearTimerRef.current);
-    activityClearTimerRef.current = null;
     setStreamingMessageId("");
     setStreamingText("");
     setLiveActivities([]);
@@ -116,12 +152,11 @@ export function useSendMessage({
     setChatError("");
   }, []);
 
-  // Same staleness by the other route: switching conversations left the
-  // previous one's error on screen. The banner is page-level state, so it has
-  // to follow the active session rather than the send lifecycle alone.
-  useEffect(() => {
-    setChatError("");
-  }, [activeSessionId]);
+  // The banner used to be wiped on every conversation change, which hid the
+  // staleness without fixing it: a run that failed minutes after the reader
+  // moved on still painted its error over whichever conversation was open, and
+  // coming back to the one that actually failed erased the message. It is
+  // scoped by owner at the render instead — see `BasicChatPageClient`.
 
   // Deliberately asymmetric with the unmount cleanup above: leaving the screen
   // aborts the watcher and lets the run finish on the server, while pressing
@@ -141,6 +176,7 @@ export function useSendMessage({
           text: item.text,
           attachments: item.attachments,
           sessionId: item.sessionId || undefined,
+          model: item.model ?? undefined,
         });
       }, 0);
     },
@@ -152,37 +188,46 @@ export function useSendMessage({
       // A fresh send never inherits a stop aimed at the previous one.
       stopRequestedRef.current = false;
       activeRunIdRef.current = null;
-      await executeSendMessage({
-        options,
-        activeModel,
-        activeProviderGroup,
-        activeSessionId,
-        setActiveSessionId,
-        sessionsRef,
-        setSessions,
-        ensureSessionForModel,
-        draft,
-        setDraft,
-        attachments,
-        setAttachments,
-        systemPrompt,
-        temperature,
-        reasoningEffort,
-        apiKey,
-        recordHarnessEvent,
-        updateSession,
-        abortRef,
-        activeRunIdRef,
-        stopRequestedRef,
-        setChatError,
-        setIsSending,
-        setStreamingMessageId,
-        setStreamingText,
-        setLiveActivities,
-        activityClearTimerRef,
-        dequeueNext: queue.dequeueNext,
-        replayQueuedMessage,
-      });
+      try {
+        await executeSendMessage({
+          options,
+          activeModel,
+          activeProviderGroup,
+          activeSessionId,
+          setActiveSessionId,
+          sessionsRef,
+          setSessions,
+          ensureSessionForModel,
+          draft,
+          setDraft,
+          attachments,
+          setAttachments,
+          systemPrompt,
+          temperature,
+          reasoningEffort,
+          apiKey,
+          recordHarnessEvent,
+          updateSession,
+          abortRef,
+          activeRunIdRef,
+          stopRequestedRef,
+          setChatError,
+          setIsSending,
+          setSendingSessionId,
+          setStreamingMessageId,
+          setStreamingText,
+          setLiveActivities,
+          dequeueNext: queue.dequeueNext,
+          replayQueuedMessage,
+        });
+      } catch (error) {
+        // `executeSendMessage` guards the request, but it turns `isSending` on
+        // long before that guard — everything that builds the request runs
+        // outside it. A throw there left the composer disabled and the card
+        // frozen until the page was reloaded, with nothing said about why.
+        setChatError(error instanceof Error ? error.message : "The send failed.");
+        setIsSending(false);
+      }
     },
     [
       activeModel,
@@ -214,7 +259,7 @@ export function useSendMessage({
     activeModel,
     updateSession,
     sendMessage,
-    isSending,
+    isSending: isBusy,
     canSend,
     enterBehavior,
     queueMessage: queue.queueMessage,
@@ -225,6 +270,9 @@ export function useSendMessage({
     chatError,
     setChatError,
     isSending,
+    isBusy,
+    sendingSessionId,
+    watchedRunIdRef: activeRunIdRef,
     streamingMessageId,
     streamingText,
     liveActivities,

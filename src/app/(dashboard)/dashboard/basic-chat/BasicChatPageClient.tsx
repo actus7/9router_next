@@ -43,12 +43,6 @@ export default function BasicChatPageClient() {
   // both are mounted at all times, so a hook call inside each would poll twice
   // forever — usually once for a list nobody can see.
   const runIndicators = useRunIndicators();
-  // Picks up answers that finished on the server while this tab was closed.
-  useDurableRunRecovery({
-    activeSessionId: sessionsHook.activeSessionId,
-    isReady: sessionsHook.isHydrated,
-    updateSession: sessionsHook.updateSession,
-  });
   const sendHook = useSendMessage({
     activeModel: sessionsHook.activeModel,
     activeProviderGroup: sessionsHook.activeProviderGroup,
@@ -69,6 +63,18 @@ export default function BasicChatPageClient() {
     apiKey: sessionsHook.apiKey,
     recordHarnessEvent: harnessHook.recordHarnessEvent,
   });
+  // Picks up answers that finished on the server while this tab was closed.
+  // After `useSendMessage` on purpose: it needs the run this tab is already
+  // watching, so it does not attach a second watcher to it.
+  useDurableRunRecovery({
+    activeSessionId: sessionsHook.activeSessionId,
+    isReady: sessionsHook.isHydrated,
+    updateSession: sessionsHook.updateSession,
+    watchedRunIdRef: sendHook.watchedRunIdRef,
+  });
+
+  const sessionError =
+    sendHook.sendingSessionId === sessionsHook.activeSessionId ? sendHook.chatError : "";
 
   // Starting a new chat must also clear any in-flight streaming UI state,
   // which now lives in useSendMessage rather than useChatSessions.
@@ -106,21 +112,35 @@ export default function BasicChatPageClient() {
           * composer is disabled by `!activeModel` and the screen says nothing —
           * which reads as the product being broken rather than unconfigured.
           */}
-        {sendHook.chatError || modelsHook.providerLoadError ? (
+        {/*
+          * A send's error belongs to the conversation it was sent from; a
+          * provider load failure belongs to the page. Runs outlive the tab, so
+          * one can fail long after the reader moved on — and the banner used to
+          * describe that failure over whatever was open.
+          */}
+        {sessionError || modelsHook.providerLoadError ? (
           <div className="mx-6 mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="size-4 shrink-0 mt-0.5" />
-              <p className="text-xs leading-5">{sendHook.chatError || modelsHook.providerLoadError}</p>
+              <p className="text-xs leading-5">{sessionError || modelsHook.providerLoadError}</p>
             </div>
           </div>
         ) : null}
 
         <div className="flex flex-1 flex-col min-h-0">
           <ChatMessageList sessionsHook={chatSessions} sendHook={sendHook} />
-          <ChatLiveRunStatus
-            active={sendHook.isSending}
-            activities={sendHook.liveActivities}
-          />
+          {/*
+            * The card reports one conversation's run, so it only belongs on
+            * that conversation's screen. A run outlives the tab, so reading
+            * another one while it answers is normal — and this used to tell
+            * whichever was open that *it* was working.
+            */}
+          {sendHook.isBusy || sendHook.sendingSessionId === sessionsHook.activeSessionId ? (
+            <ChatLiveRunStatus
+              active={sendHook.isBusy}
+              activities={sendHook.liveActivities}
+            />
+          ) : null}
           <ChatComposer
             sessionsHook={chatSessions}
             sendHook={sendHook}

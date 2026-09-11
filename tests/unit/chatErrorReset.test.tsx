@@ -30,22 +30,26 @@ function args(activeSessionId: string): UseSendMessageArgs {
   } as unknown as UseSendMessageArgs;
 }
 
-// The banner is page-level state, so a provider error from one conversation
-// used to survive into the next one: it was only ever cleared at the start of
-// the following send.
+// The banner belongs to the conversation whose send failed.
+//
+// It used to be wiped on every conversation change. That hid the staleness
+// rather than fixing it — a run outlives the tab, so it can fail long after the
+// reader moved on, and the error still landed on whatever was open. Worse,
+// coming back to the conversation that actually failed erased the message. The
+// hook now keeps the error and `BasicChatPageClient` shows it only while
+// `sendingSessionId` is the conversation on screen.
 describe("chatError lifetime", () => {
-  it("clears when a new chat switches the active session", () => {
+  it("keeps the error when the reader moves to another conversation", () => {
     const { result, rerender } = renderHook(
       ({ sessionId }: { sessionId: string }) => useSendMessage(args(sessionId)),
       { initialProps: { sessionId: "session-1" } },
     );
 
     act(() => result.current.setChatError("403 credits have been used up"));
-    expect(result.current.chatError).toBe("403 credits have been used up");
-
     rerender({ sessionId: "session-2" });
 
-    expect(result.current.chatError).toBe("");
+    // Still held — it is session-1's, and session-1 has not been read yet.
+    expect(result.current.chatError).toBe("403 credits have been used up");
   });
 
   it("clears on resetStream, which new chat calls even when it reuses an empty session", () => {
