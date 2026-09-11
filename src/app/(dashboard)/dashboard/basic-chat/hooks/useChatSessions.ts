@@ -9,6 +9,8 @@ import type {
   ProviderGroup,
 } from "../types";
 import { useSessionDerived } from "./useSessionDerived";
+import { useSessionDrafts } from "./useSessionDrafts";
+import { useSessionInference } from "./useSessionInference";
 import { useSessionHandlers } from "./useSessionHandlers";
 import { useSessionPersistence } from "./useSessionPersistence";
 
@@ -121,11 +123,13 @@ export function useChatSessions({
   const [projects, setProjects] = useState<ChatProject[]>([]);
   const [activeProjectId, setActiveProjectId] = useState("");
   const [activeSessionId, setActiveSessionId] = useState("");
+  // Unsent text and attachments belong to the conversation they were typed
+  // into — as one page-level value they followed the reader into the next one.
+  const { draft, setDraft, attachments, setAttachments, drafts, hydrate: hydrateDrafts } =
+    useSessionDrafts(activeSessionId);
   const [activeProviderId, setActiveProviderId] = useState("");
   const [activeModelId, setActiveModelId] = useState("");
-  const [draft, setDraft] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [attachmentNotice, setAttachmentNotice] = useState("");
   const [isHydrated, setIsHydrated] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -134,11 +138,6 @@ export function useChatSessions({
   const [showArchived, setShowArchived] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [temperature, setTemperature] = useState(0.7);
-  const [reasoningEffort, setReasoningEffort] = useState<
-    "low" | "medium" | "high" | null
-  >(null);
   const [conversationDisplay, setConversationDisplay] = useState<
     "normal" | "compact"
   >("compact");
@@ -168,10 +167,8 @@ export function useChatSessions({
     activeProviderId,
     activeModelId,
     activeProjectId,
-    draft,
-    systemPrompt,
-    temperature,
-    reasoningEffort,
+    drafts,
+    hydrateDrafts,
     projects,
     sidebarOpen,
     conversationDisplay,
@@ -183,12 +180,8 @@ export function useChatSessions({
     setActiveSessionId,
     setActiveProviderId,
     setActiveModelId,
-    setDraft,
     setApiKey,
     setSidebarOpen,
-    setSystemPrompt,
-    setTemperature,
-    setReasoningEffort,
     setConversationDisplay,
     setEnterBehavior,
     setIsHydrated,
@@ -252,6 +245,13 @@ export function useChatSessions({
     fileInputRef,
   });
 
+  // Inference settings live on the conversation now, so this needs `derived`
+  // (which one is open) and `handlers` (how to write to it).
+  const inference = useSessionInference(
+    derived.currentSession ?? undefined,
+    handlers.updateSession,
+  );
+
   return {
     isHydrated,
     apiKey,
@@ -285,12 +285,6 @@ export function useChatSessions({
     setNewProjectName,
     isCreatingProject,
     setIsCreatingProject,
-    systemPrompt,
-    setSystemPrompt,
-    temperature,
-    setTemperature,
-    reasoningEffort,
-    setReasoningEffort,
     conversationDisplay,
     setConversationDisplay,
     enterBehavior,
@@ -304,5 +298,6 @@ export function useChatSessions({
     renameInputRef,
     ...derived,
     ...handlers,
+    ...inference,
   };
 }

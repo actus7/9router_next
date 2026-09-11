@@ -59,6 +59,17 @@ export interface ChatSession {
   updatedAt: string;
   projectId?: string;
   mode?: "agent" | "plan";
+  /**
+   * Inference settings for this conversation.
+   *
+   * They were page-level state in one `localStorage` key while the plugin,
+   * skill and MCP settings edited beside them were per conversation — so
+   * turning the effort up for one chat turned it up for every chat, and none
+   * of it survived a change of browser. Absent means the default.
+   */
+  systemPrompt?: string;
+  temperature?: number;
+  reasoningEffort?: "low" | "medium" | "high" | null;
   /** Per-session plugin composition, resolved from a built-in agent preset. */
   agentPresetId?: string;
   /** Explicit enablement changes layered over the selected preset. */
@@ -112,6 +123,14 @@ export interface SendMessageOptions {
    * the tab — so it carries the session it was typed into.
    */
   sessionId?: string;
+  /**
+   * The model it was typed against, for the same reason as `sessionId`.
+   *
+   * Carrying the conversation but not the model answered the right chat with
+   * whatever the reader had since opened — and `applyNewMessages` writes that
+   * model onto the conversation, so the sidebar changed too.
+   */
+  model?: NormalizedModel;
 }
 
 export interface ChatProject {

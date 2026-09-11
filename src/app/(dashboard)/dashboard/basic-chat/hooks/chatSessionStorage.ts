@@ -1,12 +1,15 @@
 import { safeParse } from "../chatFormatUtils";
-import type { ChatProject, ChatSession } from "../types";
+import type { ChatAttachment, ChatProject, ChatSession } from "../types";
 
 export const STORAGE_KEYS = {
   sessions: "basic-chat.sessions",
   activeSessionId: "basic-chat.activeSessionId",
   activeProviderId: "basic-chat.activeProviderId",
   activeModelId: "basic-chat.activeModelId",
+  /** Pre-split single draft. Read once on hydrate, never written again. */
   draft: "basic-chat.draft",
+  drafts: "basic-chat.drafts",
+  /** Pre-split page-wide inference settings. Read once on hydrate, then dropped. */
   systemPrompt: "basic-chat.systemPrompt",
   temperature: "basic-chat.temperature",
   reasoningEffort: "basic-chat.reasoningEffort",
@@ -32,7 +35,9 @@ export interface HydratedState {
   activeSessionId: string;
   activeProviderId: string;
   activeModelId: string;
+  /** The single draft this browser had before drafts became per-conversation. */
   draft: string;
+  drafts: Record<string, { text: string; attachments: ChatAttachment[] }>;
   sidebarOpen: boolean;
   systemPrompt: string;
   temperature: number;
@@ -99,6 +104,7 @@ export function hydrateFromStorage(): HydratedState {
     activeModelId:
       globalThis.localStorage.getItem(STORAGE_KEYS.activeModelId) || "",
     draft: globalThis.localStorage.getItem(STORAGE_KEYS.draft) || "",
+    drafts: safeParse(globalThis.localStorage.getItem(STORAGE_KEYS.drafts), {}) as HydratedState["drafts"],
     sidebarOpen:
       globalThis.localStorage.getItem(STORAGE_KEYS.sidebarOpen) !== "false",
     systemPrompt:
@@ -122,10 +128,7 @@ export function persistToStorage(params: {
   activeSessionId: string;
   activeProviderId: string;
   activeModelId: string;
-  draft: string;
-  systemPrompt: string;
-  temperature: number;
-  reasoningEffort: "low" | "medium" | "high" | null;
+  drafts: Record<string, { text: string; attachments: ChatAttachment[] }>;
   projects: ChatProject[];
   activeProjectId: string;
   sidebarOpen: boolean;
@@ -148,19 +151,15 @@ export function persistToStorage(params: {
     STORAGE_KEYS.activeModelId,
     params.activeModelId,
   );
-  globalThis.localStorage.setItem(STORAGE_KEYS.draft, params.draft);
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.systemPrompt,
-    params.systemPrompt,
-  );
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.temperature,
-    String(params.temperature),
-  );
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.reasoningEffort,
-    params.reasoningEffort ?? "",
-  );
+  globalThis.localStorage.setItem(STORAGE_KEYS.drafts, JSON.stringify(params.drafts));
+  // The pre-split key is migrated on hydrate and must not come back, or the
+  // next hydrate would re-seed a draft the user already sent.
+  globalThis.localStorage.removeItem(STORAGE_KEYS.draft);
+  // The pre-split inference keys are migrated on hydrate onto the conversation
+  // that owned them, and must not come back: they now live in `sessions`.
+  globalThis.localStorage.removeItem(STORAGE_KEYS.systemPrompt);
+  globalThis.localStorage.removeItem(STORAGE_KEYS.temperature);
+  globalThis.localStorage.removeItem(STORAGE_KEYS.reasoningEffort);
   globalThis.localStorage.setItem(
     STORAGE_KEYS.projects,
     JSON.stringify(params.projects),

@@ -5,6 +5,7 @@ import { ensureBuiltinMcpServers } from "@/shared/harness/builtinMcpServers";
 import { FREE_DEFAULT_MODEL_KEY } from "@/shared/constants/freeDefault";
 import { createId } from "../chatFormatUtils";
 import type {
+  ChatAttachment,
   ChatProject,
   ChatSession,
   NormalizedModel,
@@ -25,10 +26,12 @@ export interface UseSessionPersistenceArgs {
   activeProviderId: string;
   activeModelId: string;
   activeProjectId: string;
-  draft: string;
-  systemPrompt: string;
-  temperature: number;
-  reasoningEffort: "low" | "medium" | "high" | null;
+  drafts: Record<string, { text: string; attachments: ChatAttachment[] }>;
+  hydrateDrafts: (
+    saved: Record<string, { text: string; attachments: ChatAttachment[] }>,
+    legacy: string,
+    sessionId: string,
+  ) => void;
   projects: ChatProject[];
   sidebarOpen: boolean;
   conversationDisplay: "normal" | "compact";
@@ -41,14 +44,8 @@ export interface UseSessionPersistenceArgs {
   setActiveSessionId: React.Dispatch<React.SetStateAction<string>>;
   setActiveProviderId: React.Dispatch<React.SetStateAction<string>>;
   setActiveModelId: React.Dispatch<React.SetStateAction<string>>;
-  setDraft: React.Dispatch<React.SetStateAction<string>>;
   setApiKey: React.Dispatch<React.SetStateAction<string>>;
   setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setSystemPrompt: React.Dispatch<React.SetStateAction<string>>;
-  setTemperature: React.Dispatch<React.SetStateAction<number>>;
-  setReasoningEffort: React.Dispatch<
-    React.SetStateAction<"low" | "medium" | "high" | null>
-  >;
   setConversationDisplay: React.Dispatch<
     React.SetStateAction<"normal" | "compact">
   >;
@@ -72,10 +69,8 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     activeProviderId,
     activeModelId,
     activeProjectId,
-    draft,
-    systemPrompt,
-    temperature,
-    reasoningEffort,
+    drafts,
+    hydrateDrafts,
     projects,
     sidebarOpen,
     conversationDisplay,
@@ -87,12 +82,8 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     setActiveSessionId,
     setActiveProviderId,
     setActiveModelId,
-    setDraft,
     setApiKey,
     setSidebarOpen,
-    setSystemPrompt,
-    setTemperature,
-    setReasoningEffort,
     setConversationDisplay,
     setEnterBehavior,
     setIsHydrated,
@@ -105,17 +96,29 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
   useEffect(() => {
     try {
       const saved = hydrateFromStorage();
-      setSessions(saved.sessions.map(ensureBuiltinMcpServers));
+      // The three inference settings used to be one page-level value each.
+      // They belong to whichever conversation was open when they were set,
+      // which is the one being restored — dropping them on the upgrade would
+      // silently reset a custom system prompt.
+      setSessions(
+        saved.sessions.map(ensureBuiltinMcpServers).map((session) =>
+          session.id === saved.activeSessionId && session.systemPrompt === undefined
+            ? {
+                ...session,
+                systemPrompt: saved.systemPrompt || undefined,
+                temperature: saved.temperature,
+                reasoningEffort: saved.reasoningEffort,
+              }
+            : session,
+        ),
+      );
       setProjects(saved.projects);
       setActiveProjectId(saved.activeProjectId);
       setActiveSessionId(saved.activeSessionId);
       setActiveProviderId(saved.activeProviderId);
       setActiveModelId(saved.activeModelId);
-      setDraft(saved.draft);
+      hydrateDrafts(saved.drafts, saved.draft, saved.activeSessionId);
       setSidebarOpen(saved.sidebarOpen);
-      setSystemPrompt(saved.systemPrompt);
-      setTemperature(saved.temperature);
-      setReasoningEffort(saved.reasoningEffort);
       setConversationDisplay(saved.conversationDisplay);
       setEnterBehavior(saved.enterBehavior);
     } catch {
@@ -129,15 +132,12 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     setActiveProviderId,
     setActiveSessionId,
     setConversationDisplay,
-    setDraft,
+    hydrateDrafts,
     setEnterBehavior,
     setIsHydrated,
     setProjects,
-    setReasoningEffort,
     setSessions,
     setSidebarOpen,
-    setSystemPrompt,
-    setTemperature,
   ]);
 
   /**
@@ -360,10 +360,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
         activeSessionId,
         activeProviderId,
         activeModelId,
-        draft,
-        systemPrompt,
-        temperature,
-        reasoningEffort,
+        drafts,
         projects,
         activeProjectId,
         sidebarOpen,
@@ -379,10 +376,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     activeSessionId,
     activeProviderId,
     activeModelId,
-    draft,
-    systemPrompt,
-    temperature,
-    reasoningEffort,
+    drafts,
     projects,
     activeProjectId,
     sidebarOpen,
@@ -430,7 +424,22 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Sync failed (${response.status})`);
-        const body = (await response.json().catch(() => ({}))) as { stale?: unknown };
+        const body = (await response.json().catch(() => ({}))) as {
+          stale?: unknown;
+          rejected?: unknown;
+        };
+        const rejectedIds = Array.isArray(body.rejected) ? body.rejected : [];
+        if (rejectedIds.length > 0) {
+          // These can never be written under this id. Marking them synced is a
+          // lie, but the alternative is re-sending them on every change
+          // forever; the conversation stays readable locally and the warning
+          // says what happened.
+          for (const id of rejectedIds) syncedRef.current.set(String(id), "");
+          notify.warning(
+            translate("Some conversations could not be saved to the server.") ||
+              "Some conversations could not be saved to the server.",
+          );
+        }
         const staleIds = Array.isArray(body.stale) ? body.stale : [];
         if (staleIds.length === 0) return;
         // The server holds something newer for these — the worker settled a run

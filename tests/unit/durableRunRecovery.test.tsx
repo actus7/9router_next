@@ -60,7 +60,13 @@ function mount(initial: ChatSession) {
     current = updater(current);
   });
   renderHook(() =>
-    useDurableRunRecovery({ activeSessionId: "session-1", isReady: true, updateSession }),
+    useDurableRunRecovery({
+      activeSessionId: "session-1",
+      isReady: true,
+      updateSession,
+      // Nothing else is watching: this suite is about the recovery path itself.
+      watchedRunIdRef: { current: null },
+    }),
   );
   return { message: () => current.messages[0]!, updateSession };
 }

@@ -22,6 +22,15 @@ interface UseDurableRunRecoveryArgs {
   /** True once local sessions have loaded, so a run is not applied to an empty list. */
   isReady: boolean;
   updateSession: (sessionId: string, updater: (session: ChatSession) => ChatSession) => void;
+  /**
+   * The run the send in this tab is already watching, if any.
+   *
+   * This effect re-runs on every conversation change, so leaving the working
+   * conversation and coming back used to attach a second watcher to the same
+   * run — and the one that finished first deleted the row, leaving the other
+   * to report a complete answer as interrupted.
+   */
+  watchedRunIdRef: React.MutableRefObject<string | null>;
 }
 
 /**
@@ -71,7 +80,7 @@ function applySettled(message: ChatMessage, run: RunRow): ChatMessage {
  * that table wholesale on every sync, so a background write would be raced
  * away. This hook is the other half of that decision.
  */
-export function useDurableRunRecovery({ activeSessionId, isReady, updateSession }: UseDurableRunRecoveryArgs): void {
+export function useDurableRunRecovery({ activeSessionId, isReady, updateSession, watchedRunIdRef }: UseDurableRunRecoveryArgs): void {
   const handledRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -106,7 +115,9 @@ export function useDurableRunRecovery({ activeSessionId, isReady, updateSession 
       if (!response?.ok || controller.signal.aborted) return;
 
       const { runs } = (await response.json().catch(() => ({ runs: [] }))) as { runs: RunRow[] };
-      const fresh = runs.filter((run) => !handledRef.current.has(run.id));
+      const fresh = runs.filter(
+        (run) => !handledRef.current.has(run.id) && run.id !== watchedRunIdRef.current,
+      );
       if (!fresh.length) return;
       for (const run of fresh) handledRef.current.add(run.id);
 
@@ -178,5 +189,5 @@ export function useDurableRunRecovery({ activeSessionId, isReady, updateSession 
     return () => {
       controller.abort();
     };
-  }, [activeSessionId, isReady, updateSession]);
+  }, [activeSessionId, isReady, updateSession, watchedRunIdRef]);
 }
