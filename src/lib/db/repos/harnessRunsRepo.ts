@@ -118,6 +118,21 @@ export async function updateHarnessRunProgress(id: string, partialText: string):
   return result.changes > 0;
 }
 
+/**
+ * Records the coarse stage a run is in, for the history list.
+ *
+ * Scoped to `running` like every other progress write, so a stage cannot land
+ * on a row someone already stopped. Failing is fine and deliberately unreported
+ * — this is a caption, and losing one must not disturb the run.
+ */
+export async function setHarnessRunActivity(id: string, activity: string): Promise<void> {
+  const db = await getAdapter();
+  await db.run(
+    "UPDATE harnessRuns SET activity = ? WHERE userId = ? AND id = ? AND status = ?",
+    [activity, currentTenantId(), id, "running"],
+  );
+}
+
 /** Asks a running worker to stop at its next write, and settles the row now. */
 export async function stopHarnessRun(id: string): Promise<void> {
   const db = await getAdapter();
@@ -207,6 +222,8 @@ export async function listHarnessRunsSince(sessionId: string, since: string | nu
 export interface HarnessRunState {
   sessionId: string;
   status: HarnessRunStatus;
+  /** Coarse stage, only meaningful while `status` is `running`. */
+  activity: string | null;
 }
 
 /**
@@ -219,12 +236,13 @@ export interface HarnessRunState {
 export async function listHarnessRunStates(): Promise<HarnessRunState[]> {
   const db = await getAdapter();
   const rows = await db.all(
-    "SELECT sessionId, status FROM harnessRuns WHERE userId = ? ORDER BY updatedAt DESC LIMIT 200",
+    "SELECT sessionId, status, activity FROM harnessRuns WHERE userId = ? ORDER BY updatedAt DESC LIMIT 200",
     [currentTenantId()],
   );
   return rows.map((row) => ({
     sessionId: String(row.sessionId),
     status: String(row.status) as HarnessRunStatus,
+    activity: row.activity == null ? null : String(row.activity),
   }));
 }
 

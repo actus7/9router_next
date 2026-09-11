@@ -12,7 +12,7 @@ import {
 import { formatRelativeTime } from "../chatFormatUtils";
 import type { ChatProject, ChatSession } from "../types";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
-import type { RunIndicator } from "../hooks/useRunIndicators";
+import type { RunState } from "../hooks/useRunIndicators";
 import RunBadge from "./RunBadge";
 import IconActionButton from "./IconActionButton";
 
@@ -32,7 +32,7 @@ interface SessionItemProps {
   onCancelRename: () => void;
   onRenameChange: (value: string) => void;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
-  runIndicator?: RunIndicator;
+  runIndicator?: RunState;
 }
 
 function SessionItem({
@@ -72,9 +72,9 @@ function SessionItem({
         ) : (
           <button type="button" onClick={() => onSelect(session.id)} className="block w-full min-w-0 text-left">
             <span className="block truncate text-xs font-medium text-card-foreground">{session.title}</span>
-            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-              {formatRelativeTime(session.updatedAt)}
-              {runIndicator ? <RunBadge indicator={runIndicator} /> : null}
+            <span className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+              <span className="shrink-0">{formatRelativeTime(session.updatedAt)}</span>
+              {runIndicator ? <RunBadge state={runIndicator} /> : null}
             </span>
           </button>
         )}
@@ -100,7 +100,7 @@ interface ChatSidebarProps {
   sessionsHook: UseChatSessionsReturn;
   onExport: (format: "json" | "markdown") => void;
   /** Owned by the page: one poller feeds every list that shows these. */
-  runIndicators: Map<string, RunIndicator>;
+  runIndicators: Map<string, RunState>;
 }
 
 export default function ChatSidebar({ sessionsHook, onExport, runIndicators }: ChatSidebarProps) {
@@ -258,7 +258,7 @@ export default function ChatSidebar({ sessionsHook, onExport, runIndicators }: C
         </DialogContent>
       </Dialog>
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
-        <h2 className="text-sm font-semibold text-foreground">{showArchived ? (translate("Archived") || "Archived") : (translate("History") || "History")}</h2>
+        <h2 className="text-sm font-semibold text-foreground">{showArchived ? (translate("Archived") || "Archived") : (translate("Sessions") || "Sessions")}</h2>
         <div className="flex items-center gap-0.5">
           <IconActionButton tooltip={showArchived ? (translate("Back to history") || "Back to history") : (translate("Archived chats") || "Archived chats")} onClick={() => setShowArchived((value) => !value)} aria-pressed={showArchived} className="size-7">
             {showArchived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}

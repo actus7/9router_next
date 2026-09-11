@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { translate } from "@/i18n/runtime";
-import type { RunIndicator } from "../hooks/useRunIndicators";
+import type { RunState } from "../hooks/useRunIndicators";
 import RunBadge from "./RunBadge";
 import { Plus, Search } from "lucide-react";
 import { formatRelativeTime } from "../chatFormatUtils";
@@ -11,7 +11,7 @@ import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 
 interface ChatMobileHistoryMenuProps {
   /** Owned by the page: one poller feeds every list that shows these. */
-  runIndicators: Map<string, RunIndicator>;
+  runIndicators: Map<string, RunState>;
   sessionsHook: UseChatSessionsReturn;
 }
 
@@ -26,7 +26,7 @@ export default function ChatMobileHistoryMenu({ sessionsHook, runIndicators }: C
   return (
     <div ref={historyMenuRef} className="absolute right-4 top-[52px] z-20 flex max-h-[70vh] w-[min(340px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl md:hidden">
       <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-        <h2 className="text-sm font-semibold text-foreground">{translate("History") || "History"}</h2>
+        <h2 className="text-sm font-semibold text-foreground">{translate("Sessions") || "Sessions"}</h2>
         <Button variant="ghost" size="icon-sm" type="button" onClick={handleNewChat} disabled={!activeModel} aria-label={translate("New chat") || "New chat"} className="size-7">
           <Plus className="size-3.5" />
         </Button>
@@ -49,7 +49,7 @@ export default function ChatMobileHistoryMenu({ sessionsHook, runIndicators }: C
                   <p className="truncate text-xs font-medium">{session.title}</p>
                   <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     {formatRelativeTime(session.updatedAt)}
-                    {runIndicators.get(session.id) ? <RunBadge indicator={runIndicators.get(session.id)!} /> : null}
+                    {runIndicators.get(session.id) ? <RunBadge state={runIndicators.get(session.id)!} /> : null}
                   </p>
                 </div>
               </button>

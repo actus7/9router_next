@@ -347,6 +347,9 @@ export const TABLES: Record<string, TableDefinition> = {
       messageId: "TEXT NOT NULL",
       status: "TEXT NOT NULL",
       model: "TEXT",
+      // The coarse stage the worker is in, for the history list. Nullable and
+      // never read back by the run itself: purely what to say about it.
+      activity: "TEXT",
       partialText: "TEXT NOT NULL",
       reasoning: "TEXT",
       toolCalls: "TEXT",

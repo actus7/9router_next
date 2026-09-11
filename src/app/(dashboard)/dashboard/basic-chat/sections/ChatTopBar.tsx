@@ -106,7 +106,7 @@ export default function ChatTopBar({
           )}
         </IconActionButton>
         <IconActionButton
-          tooltip={translate("History") || "History"}
+          tooltip={translate("Sessions") || "Sessions"}
           onClick={() => setHistoryOpen((v) => !v)}
           data-history-toggle=""
           className="size-8 md:hidden"

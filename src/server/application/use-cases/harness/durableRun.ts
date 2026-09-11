@@ -5,11 +5,13 @@ import { waitUntil } from "@vercel/functions";
 import { currentTenantId, withTenant } from "@/lib/db/tenant";
 import {
   createHarnessRun,
+  setHarnessRunActivity,
   settleHarnessRun,
   updateHarnessRunProgress,
 } from "@/lib/db/repos/harnessRunsRepo";
 import { appendHarnessEvent, appendRunAnswerToConversation } from "@/lib/db/repos/harnessConversationsRepo";
 import { runServerToolLoop } from "@/server/harness/tools/serverToolLoop";
+import { ANSWERING_STAGE, runStageFor } from "@/server/harness/tools/runStage";
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { handleChat } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
@@ -233,6 +235,16 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
           firstTurnToolCalls: parsed.toolCalls,
           onProgress: (text) => updateHarnessRunProgress(runId, text),
           onToolEvent: async (type, data) => {
+            // What the history list says this conversation is doing. The loop
+            // runs its calls one at a time, so going back to "answering" on a
+            // result is exact rather than optimistic — and it has to happen, or
+            // an 8s poll shows a search that ended long ago.
+            await setHarnessRunActivity(
+              runId,
+              type === "tool/call" && typeof data.name === "string"
+                ? runStageFor(data.name)
+                : ANSWERING_STAGE,
+            ).catch(() => undefined);
             // Best effort: the journal is observability, and failing to write
             // it must not fail a run that is otherwise going fine.
             await appendHarnessEvent({

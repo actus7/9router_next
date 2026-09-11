@@ -5,6 +5,12 @@ import { useEffect, useState } from "react";
 /** What the history list shows next to a conversation. */
 export type RunIndicator = "working" | "finished" | "failed";
 
+/** The badge plus, while it is working, the coarse stage the worker reported. */
+export interface RunState {
+  indicator: RunIndicator;
+  activity: string | null;
+}
+
 /**
  * How often the sidebar asks which conversations are busy.
  *
@@ -17,6 +23,7 @@ const POLL_INTERVAL_MS = 8_000;
 interface RunStateRow {
   sessionId: string;
   status: "running" | "completed" | "failed" | "stopped";
+  activity?: string | null;
 }
 
 function indicatorFor(status: RunStateRow["status"]): RunIndicator | null {
@@ -26,9 +33,12 @@ function indicatorFor(status: RunStateRow["status"]): RunIndicator | null {
   return status === "completed" ? "finished" : null;
 }
 
-function sameIndicators(a: Map<string, RunIndicator>, b: Map<string, RunIndicator>): boolean {
+function sameIndicators(a: Map<string, RunState>, b: Map<string, RunState>): boolean {
   if (a.size !== b.size) return false;
-  for (const [key, value] of a) if (b.get(key) !== value) return false;
+  for (const [key, value] of a) {
+    const other = b.get(key);
+    if (other?.indicator !== value.indicator || other.activity !== value.activity) return false;
+  }
   return true;
 }
 
@@ -43,8 +53,8 @@ function sameIndicators(a: Map<string, RunIndicator>, b: Map<string, RunIndicato
  * Polls rather than streams, and only while the tab is visible: a background
  * tab that keeps a connection open costs the same as one being read.
  */
-export function useRunIndicators(): Map<string, RunIndicator> {
-  const [indicators, setIndicators] = useState<Map<string, RunIndicator>>(new Map());
+export function useRunIndicators(): Map<string, RunState> {
+  const [indicators, setIndicators] = useState<Map<string, RunState>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -56,13 +66,21 @@ export function useRunIndicators(): Map<string, RunIndicator> {
       if (!response?.ok || cancelled) return;
 
       const { states } = (await response.json().catch(() => ({ states: [] }))) as { states: RunStateRow[] };
-      const next = new Map<string, RunIndicator>();
+      const next = new Map<string, RunState>();
       for (const state of states) {
         const indicator = indicatorFor(state.status);
         if (!indicator) continue;
         // Working outranks finished: a conversation with a new run in flight
         // is working, whatever an older settled run of its own still says.
-        if (indicator === "working" || !next.has(state.sessionId)) next.set(state.sessionId, indicator);
+        if (indicator === "working" || !next.has(state.sessionId)) {
+          // A stage only describes work in progress. Carrying the last one onto
+          // a settled run would caption a finished conversation with whatever it
+          // happened to be doing when it stopped.
+          next.set(state.sessionId, {
+            indicator,
+            activity: indicator === "working" ? state.activity || null : null,
+          });
+        }
       }
       if (cancelled) return;
       // Same badges as last time is the common case — no run anywhere. Handing
