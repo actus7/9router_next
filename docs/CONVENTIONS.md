@@ -116,12 +116,108 @@ que o `tsconfig` inclui nesta versão. Para mudanças em `server/llm-gateway`, `
 
 Ao corrigir um bug: escreva um teste que reproduza o bug primeiro, confirme que ele falha pelo motivo esperado, e só então corrija a implementação — sem editar o teste.
 
+## Verificação ao vivo das runs duráveis
+
+`tests/unit/durableRunLive.test.ts` é o único teste que toca o banco real e um
+provider real. Fica pulado por padrão — gasta cota e precisa de `DATABASE_URL` —
+e existe porque o resto da suíte mocka pelo menos uma ponta, que foi como o
+fluxo de runs duráveis chegou quebrado ao usuário duas vezes: cada peça estava
+provada contra um stub.
+
+```bash
+NODE_OPTIONS="-r dotenv/config" DOTENV_CONFIG_PATH=.env \
+  LIVE_RUN=1 \
+  LIVE_RUN_USER=<uuid da conta> \
+  LIVE_RUN_MODEL=<modelo> \
+  LIVE_RUN_KEY=<api key da conta> \
+  npx vitest run tests/unit/durableRunLive.test.ts
+```
+
+`LIVE_RUN_KEY` é necessário quando a conta tem `requireApiKey` ligado, e tem que
+ser uma chave **da mesma conta**: o worker só repassa uma que consiga provar que
+o chamador possui. Sem ela a run settla como `failed: Missing API key`, que é o
+gate funcionando, não uma quebra.
+
 ## Erros conhecidos
 
-**`npm run check` com `next dev` rodando → o dev server passa a responder 404
-em todas as rotas.** O `next build` do check escreve em `.next` por cima do
-estado que o `next dev` mantém ali, e o processo continua vivo servindo um
-manifesto que não corresponde mais às rotas. Correção: parar o `next dev`
-antes de rodar o check, ou reiniciar depois. `NEXT_DIST_DIR=.next-check` **não**
-resolve — o ESLint passa a varrer o diretório novo e o passo de lint falha com
-centenas de erros no output do build.
+**O `next dev` responde 404 em todas as rotas.** Sintoma observado depois de
+rodar `npm run check` com o dev server no ar. A suspeita registrada era que o
+`next build` do check escreve um `.next` de produção por cima do que o
+`next dev` mantém ali.
+
+**Isso não se reproduziu quando foi medido (2026-09-10).** Com um único
+`next dev` na porta 3000, um `npm run build` completo por cima dele: o dev
+continuou respondendo 200. O que de fato produziu os 404 foi outra coisa —
+**dev servers acumulados**. O `next dev` não falha quando a porta está ocupada,
+ele avisa e sobe na próxima livre:
+
+```
+⚠ Port 3000 is in use by process 42088, using available port 3001 instead.
+```
+
+Então cada tentativa de "reiniciar" deixa o processo velho na 3000 e coloca o
+novo na 3001, 3002… O navegador continua apontando para a 3000 e recebe as
+respostas do servidor antigo, num estado que não corresponde mais ao código —
+inclusive 404 em tudo. Reiniciar parece não resolver porque o que responde
+nunca foi reiniciado.
+
+Diagnóstico antes de qualquer outra coisa: **veja quem está na porta.**
+
+```bash
+netstat -ano | grep ":300[0-9].*LISTENING"   # um PID por porta
+taskkill //PID <pid> //F                      # mate o que está na 3000
+npm run dev                                   # confirme "Local: http://localhost:3000"
+```
+
+Se a linha `Local:` do dev server não disser 3000, você está testando um
+servidor diferente do que o navegador está lendo.
+
+`NEXT_DIST_DIR=.next-check` **não** resolve — o ESLint passa a varrer o
+diretório novo e o passo de lint falha com centenas de erros no output do build.
+
+## O que pertence à conversa e o que pertence à conta
+
+Uma "sessão" é uma conversa. A regra que faltava estar escrita:
+
+**Da conversa** (vive em `ChatSession`, sincroniza, segue o usuário entre
+dispositivos): `systemPrompt`, `temperature`, `reasoningEffort`, `mode`,
+`agentPresetId`, `pluginOverrides`, `skillOverrides`, `pluginSettings`,
+`mcpServers`, e as mensagens.
+
+Os três primeiros eram estado de página numa chave única de `localStorage`,
+ao lado — no mesmo diálogo — de configurações que já eram por conversa. Subir
+o esforço numa conversa subia em todas, e nada disso sobrevivia a uma troca de
+navegador. Configs antigas são dobradas na conversa aberta na hidratação.
+
+**Da conta** (compartilhado por todas as conversas, de propósito): a memória do
+agente e do usuário, o catálogo de skills, a composição de plugins e a config
+de aprendizado. A memória é o ponto do produto — é o que deixa o assistente
+lembrar do usuário de uma conversa para outra. A UI diz isso em texto, porque
+o contexto visual sugeria o contrário.
+
+**Deste navegador, nunca sincronizado**: rascunhos e anexos não enviados
+(`useSessionDrafts`), chaveados por conversa. Não entram em `ChatSession` de
+propósito: sincronizá-los mexeria no `updatedAt`, que é o que decide
+precedência de sync.
+
+**Da página, e corretamente**: `isSending` — o cliente roda um envio por vez.
+Mas nenhum controle de conversa deve lê-lo: eles leem `isBusy`
+(`isSending && sendingSessionId === activeSessionId`). Ler `isSending` direto
+punha "Parar" em toda conversa, e pará-la numa conversa parada matava o run de
+outra.
+
+## O gate de capacidade é do servidor
+
+Duas perguntas diferentes, e só uma tinha resposta no servidor:
+
+- **quem pediu?** (operador ou agente) — resolvido pelo caminho, nunca pelo
+  corpo, com teste de regressão (`memoryRoute.test.ts`). Ver a seção acima.
+- **esta conversa pode?** (o plugin está ligado) — não existia fora do browser.
+  `serverToolLoop` derivava as ferramentas permitidas do `body.tools` que o
+  cliente postou, então qualquer coisa capaz de postar um run escrevia na
+  memória compartilhada da conta com o plugin desligado.
+
+`sessionHasPlugin` resolve a segunda a partir da conversa persistida e da
+composição de plugins da conta — mesmo padrão do alvo MCP, que nunca vem do
+chamador. Aplicado no executor do worker e nas rotas `POST /api/harness/memory`
+e `/api/harness/governance`. Teste: `serverPluginGate.test.ts`.

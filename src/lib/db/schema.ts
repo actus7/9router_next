@@ -277,9 +277,18 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_cd_tool_provider_active ON cloudDeployments(userId, toolId, provider) WHERE status != 'failed'",
     ],
   },
+  // The only per-conversation table whose id used to be a *global* primary
+  // key, so one account could hold an id another account needed — and the
+  // upsert that matched nothing took the whole sync down with it. Keyed like
+  // `harnessEvents`, `agentSkills` and the rest now.
+  //
+  // The unique index is what the upsert conflicts on. It is declared
+  // separately so it exists on databases created before the key changed:
+  // `syncSchema` adds indexes to an existing table but never rewrites its
+  // primary key, and the swap for those is DDL run by hand.
   harnessConversations: {
     columns: {
-      id: "TEXT PRIMARY KEY",
+      id: "TEXT NOT NULL",
       userId: "TEXT NOT NULL",
       title: "TEXT NOT NULL",
       projectId: "TEXT",
@@ -289,7 +298,9 @@ export const TABLES: Record<string, TableDefinition> = {
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",
     },
+    primaryKey: "PRIMARY KEY (userId, id)",
     indexes: [
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_hc_owner_id ON harnessConversations(userId, id)",
       "CREATE INDEX IF NOT EXISTS idx_hc_updated ON harnessConversations(userId, updatedAt DESC)",
       "CREATE INDEX IF NOT EXISTS idx_hc_project ON harnessConversations(userId, projectId)",
     ],

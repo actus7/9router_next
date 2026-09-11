@@ -67,7 +67,10 @@ export async function PUT(request: NextRequest) {
   // `stale` names the conversations the server refused because it holds a
   // newer copy — the worker having written a finished answer into one while
   // this client was idle. The client re-reads those instead of pushing again.
-  const { stale } = await syncHarnessConversations({ upserts: body.sessions, deletedIds });
-  return NextResponse.json({ ok: true, stale });
+  // `rejected` names ids this account cannot hold at all — historically, one
+  // already owned by someone else. Separate from `stale` because the answer
+  // differs: re-read a stale one, stop pushing a rejected one.
+  const { stale, rejected } = await syncHarnessConversations({ upserts: body.sessions, deletedIds });
+  return NextResponse.json({ ok: true, stale, rejected });
 }
 // Application HTTP use case extracted from the Next.js route adapter.

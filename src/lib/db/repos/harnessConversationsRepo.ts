@@ -65,6 +65,13 @@ export interface HarnessConversationSync {
   deletedIds: readonly string[];
 }
 
+export interface HarnessConversationSyncResult {
+  /** Refused as older than the stored row. Re-read, do not re-push. */
+  stale: string[];
+  /** Unwritable at all — the id is held by another account. Use a new id. */
+  rejected: string[];
+}
+
 /**
  * Applies a sync payload to this account's conversations.
  *
@@ -80,18 +87,22 @@ export interface HarnessConversationSync {
  *   - the server holds a newer copy, because the worker wrote a finished answer
  *     into it while this client was idle. Refused, and reported in `stale` so
  *     the caller re-reads instead of erasing the answer.
- *   - the id belongs to another account. `harnessConversations.id` is a global
- *     primary key and the statement is guarded by
- *     `WHERE userId = excluded.userId`, so it matched nothing and used to still
- *     answer ok, leaving a client that believed it had synced forever.
+ *   - the id belongs to another account, which the composite key makes a
+ *     historical case rather than an impossible one. Reported in `rejected`.
+ *
+ * Neither aborts the batch. Throwing rolled back every other upsert and every
+ * deletion in the same payload, the client rolled its bookkeeping back, and it
+ * re-sent the same unwritable id on the next change — so the account stopped
+ * syncing for good, with "Changes are saved locally" as the only sign.
  */
 export async function syncHarnessConversations(
   { upserts, deletedIds }: HarnessConversationSync,
-): Promise<{ stale: string[] }> {
-  if (upserts.length === 0 && deletedIds.length === 0) return { stale: [] };
+): Promise<HarnessConversationSyncResult> {
+  if (upserts.length === 0 && deletedIds.length === 0) return { stale: [], rejected: [] };
   const db = await getAdapter();
   const userId = currentTenantId();
   const stale: string[] = [];
+  const rejected: string[] = [];
   await db.transaction(async () => {
     const ids = deletedIds.filter(Boolean);
     if (ids.length > 0) {
@@ -137,10 +148,9 @@ export async function syncHarnessConversations(
       const result = await db.run(
         `INSERT INTO harnessConversations(id, userId, title, projectId, providerId, modelId, data, createdAt, updatedAt)
          VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET title=excluded.title, projectId=excluded.projectId,
+         ON CONFLICT(userId, id) DO UPDATE SET title=excluded.title, projectId=excluded.projectId,
            providerId=excluded.providerId, modelId=excluded.modelId, data=excluded.data, updatedAt=excluded.updatedAt
-         WHERE harnessConversations.userId = excluded.userId
-           AND excluded.updatedAt >= harnessConversations.updatedAt`,
+         WHERE excluded.updatedAt >= harnessConversations.updatedAt`,
         [id, userId, title, projectId || null, providerId || null, modelId || null, stringifyJson(data), createdAt, updatedAt],
       );
       if (!result || result.changes !== 0) continue;
@@ -150,11 +160,11 @@ export async function syncHarnessConversations(
         "SELECT updatedAt FROM harnessConversations WHERE userId = ? AND id = ?",
         [userId, id],
       );
-      if (!mine) throw new Error(`harnessConversations: conversation ${id} could not be written`);
-      stale.push(id);
+      if (!mine) rejected.push(id);
+      else stale.push(id);
     }
   });
-  return { stale };
+  return { stale, rejected };
 }
 
 /** What the worker knows about a finished answer. */

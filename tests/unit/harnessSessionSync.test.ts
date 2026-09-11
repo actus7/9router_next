@@ -80,18 +80,60 @@ describe("syncHarnessConversations", () => {
   });
 
   it("reports an upsert that wrote nothing instead of answering ok", async () => {
-    // `harnessConversations.id` is a global primary key and the upsert is
-    // guarded by `WHERE userId = excluded.userId`, so an id already owned by
-    // another account matched no row, changed nothing, and still answered 200 —
-    // a client that believed it had synced forever.
+    // An id already owned by another account matches no row of ours, changes
+    // nothing, and used to still answer 200 — a client that believed it had
+    // synced forever. It is named now, and named apart from `stale`, because
+    // the client's answer differs: re-read a stale one, re-key a rejected one.
     run.mockReturnValue({ changes: 0 });
     get.mockResolvedValue(undefined);
 
-    await expect(syncHarnessConversations({ upserts: [session], deletedIds: [] })).rejects.toThrow(/s1/);
+    const result = await syncHarnessConversations({ upserts: [session], deletedIds: [] });
+    expect(result.rejected).toEqual(["s1"]);
+    expect(result.stale).toEqual([]);
   });
 
   it("does nothing at all when there is nothing to do", async () => {
     await syncHarnessConversations({ upserts: [], deletedIds: [] });
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * One unwritable conversation must not take the whole payload down with it.
+ *
+ * `harnessConversations.id` was a global primary key, so an id belonging to
+ * another account matched nothing — and the repo threw, inside the
+ * transaction. Every other upsert and every deletion in the same PUT rolled
+ * back, the client rolled its sync bookkeeping back too, and re-sent the same
+ * poisoned id on the next change. The account stopped syncing permanently, and
+ * one PUT from anyone who could guess an id was enough to cause it.
+ */
+describe("a conversation that cannot be written", () => {
+  it("is reported on its own instead of failing the batch", async () => {
+    // s1 writes; s2 is somebody else's id — no row written, and no row of ours.
+    run.mockImplementation((sql: string) => ({
+      changes: String(sql).includes("INSERT INTO harnessConversations") &&
+        String(sql).includes("s2") ? 0 : 1,
+    }));
+    run.mockImplementation((sql: string, params?: unknown[]) => {
+      const isUpsert = String(sql).includes("INSERT INTO harnessConversations");
+      return { changes: isUpsert && (params as unknown[])?.[0] === "s2" ? 0 : 1 };
+    });
+    get.mockResolvedValue(undefined);
+
+    const result = await syncHarnessConversations({
+      upserts: [
+        { ...session, id: "s1" },
+        { ...session, id: "s2" },
+        { ...session, id: "s3" },
+      ],
+      deletedIds: [],
+    });
+
+    // s3 still went in: the batch was not abandoned at s2.
+    const written = statements().filter((sql) => sql.includes("INSERT INTO harnessConversations"));
+    expect(written).toHaveLength(3);
+    expect(result.rejected).toEqual(["s2"]);
+    expect(result.stale).toEqual([]);
   });
 });
