@@ -6,6 +6,13 @@ vi.mock("@/server/application/http/requireDashboardAccess", () => ({
   requireDashboardAccess: vi.fn(async () => null),
 }));
 
+// The capability gate ("may this conversation do that?") is a different
+// question from the origin gate these suites cover, and has its own suite in
+// tests/unit/serverPluginGate.test.ts.
+vi.mock("@/server/harness/tools/sessionCapability", () => ({
+  sessionHasPlugin: vi.fn(async () => true),
+}));
+
 const {
   listEntries,
   getRevision,
@@ -103,6 +110,7 @@ describe("POST /api/harness/memory", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          sessionId: "S",
           action: "add",
           scope: "agent",
           content: "Remember this fact",
@@ -126,7 +134,7 @@ describe("POST /api/harness/memory", () => {
       new NextRequest(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add", scope: "agent", content: "x", source: "ui" }),
+        body: JSON.stringify({ sessionId: "S", action: "add", scope: "agent", content: "x", source: "ui" }),
       }),
     );
 

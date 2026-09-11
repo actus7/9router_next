@@ -189,7 +189,7 @@ export async function tryExecuteHarnessToolCall(
     const response = await fetch("/api/harness/memory", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action, scope, id, content, source: "agent" }),
+      body: JSON.stringify({ action, scope, id, content, sessionId: context.sessionId }),
       signal,
     });
     const payload = (await response.json().catch(() => null)) as {
@@ -285,7 +285,7 @@ export async function tryExecuteHarnessToolCall(
         action: "toggle",
         plugin_id: pluginId,
         enabled: arguments_.enabled,
-        source: "agent",
+        sessionId: context.sessionId,
       }),
       signal,
     });
@@ -336,7 +336,7 @@ export async function tryExecuteHarnessToolCall(
         title,
         description,
         tool_name: toolName,
-        source: "agent",
+        sessionId: context.sessionId,
       }),
       signal,
     });

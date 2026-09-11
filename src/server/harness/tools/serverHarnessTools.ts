@@ -7,6 +7,7 @@ import { applyPluginToggle, proposeHarnessCapability } from "@/server/harness/go
 import { searchPastSessionMessages } from "@/lib/db/repos/harnessMessageIndexRepo";
 import { writeSkill } from "@/server/harness/skills/writeSkill";
 import { validateSkillFields } from "@/server/harness/skills/parseSkillMarkdown";
+import { sessionHasPlugin } from "./sessionCapability";
 
 /**
  * The harness's own tools, running in the durable worker.
@@ -200,6 +201,11 @@ export async function executeHarnessToolServerSide(
   }
 
   if (name === "memory_add" || name === "memory_replace" || name === "memory_remove") {
+    // The account's memory is shared by every conversation, so whether a
+    // conversation may write to it is the server's call, not the browser's.
+    if (!(await sessionHasPlugin(context.sessionId, "tool-memory"))) {
+      return failure("The Memory plugin (tool-memory) is not enabled for this conversation");
+    }
     const action = name === "memory_add" ? "add" : name === "memory_replace" ? "replace" : "remove";
     const scope = args.scope === "user" ? "user" : args.scope === "agent" ? "agent" : undefined;
     const id = text(args.id) || undefined;
@@ -232,6 +238,9 @@ export async function executeHarnessToolServerSide(
   }
 
   if (name === "toggle_plugin") {
+    if (!(await sessionHasPlugin(context.sessionId, "tool-harness-governance"))) {
+      return failure("The Governance plugin (tool-harness-governance) is not enabled for this conversation");
+    }
     const pluginId = text(args.plugin_id);
     if (!pluginId || typeof args.enabled !== "boolean") {
       return failure("toggle_plugin requires plugin_id and enabled");
@@ -241,6 +250,9 @@ export async function executeHarnessToolServerSide(
     return JSON.stringify({ ...result, ok: true });
   }
 
+  if (!(await sessionHasPlugin(context.sessionId, "tool-harness-governance"))) {
+    return failure("The Governance plugin (tool-harness-governance) is not enabled for this conversation");
+  }
   const title = text(args.title);
   const description = text(args.description);
   if (!title || !description) {

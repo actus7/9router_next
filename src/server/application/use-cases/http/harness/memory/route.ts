@@ -11,6 +11,7 @@ import {
   updateHarnessLearningConfig,
 } from "@/lib/db/repos/harnessLearningConfigRepo";
 import type { MemoryScope } from "@/shared/harness/agentMemory";
+import { sessionHasPlugin } from "@/server/harness/tools/sessionCapability";
 import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 function badRequest(message: string) {
@@ -92,6 +93,14 @@ export async function POST(request: NextRequest) {
   const action = body.action as MemoryApplyAction | undefined;
   if (!action || !["add", "replace", "remove"].includes(action)) {
     return badRequest("action must be add, replace, or remove");
+  }
+  // Whether this conversation may touch the account's shared memory is the
+  // server's call. It used to be nobody's: the browser decided by not offering
+  // the tool, and this endpoint asked no one.
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+  if (!sessionId) return badRequest("sessionId is required");
+  if (!(await sessionHasPlugin(sessionId, "tool-memory"))) {
+    return badRequest("The Memory plugin (tool-memory) is not enabled for this conversation");
   }
   // POST is the agent's path; the operator's edits arrive on PUT, which sets
   // its own origin server-side. This used to read `body.source`, so a write

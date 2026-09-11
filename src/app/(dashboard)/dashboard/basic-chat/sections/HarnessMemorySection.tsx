@@ -186,6 +186,18 @@ export default function HarnessMemorySection({
         Memória curada persistente para o assistente e preferências do usuário.
         O bloco entra no system prompt quando o plugin Memória está ativo.
       </p>
+      {/*
+        * Said outright because everything around it says the opposite: this
+        * panel lives inside the settings dialog of one conversation, between
+        * tabs that really are per-conversation, and the two buckets are named
+        * "Agente" and "Usuário", which reads like a scope within a chat.
+        */}
+      <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+        <strong className="font-medium text-foreground">Vale para a conta inteira.</strong>{" "}
+        O que é guardado aqui é lido por todas as suas sessões, não só por esta —
+        é o que permite ao assistente lembrar de você de uma conversa para outra.
+        As sessões em si continuam isoladas: nenhuma lê as mensagens da outra.
+      </p>
 
       {memory.error ? (
         <p className="mt-4 text-sm text-destructive">{memory.error}</p>
@@ -286,7 +298,10 @@ export default function HarnessMemorySection({
 
       {journeyEvents.length > 0 ? (
         <div className="mt-6 space-y-2">
-          <h3 className="font-medium">Journey (sessão atual)</h3>
+          <h3 className="font-medium">Journey</h3>
+          <p className="text-xs text-muted-foreground">
+            Só desta sessão — ao contrário da memória acima, não é compartilhado.
+          </p>
           <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border p-3 text-xs">
             {journeyEvents.slice(-12).map((event) => (
               <li key={`${event.seq}-${event.type}`} className="text-muted-foreground">

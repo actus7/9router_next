@@ -5,6 +5,7 @@ import {
   proposeHarnessCapability,
 } from "@/server/harness/governance/applyPluginWrite";
 import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
+import { sessionHasPlugin } from "@/server/harness/tools/sessionCapability";
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -15,6 +16,13 @@ export async function POST(request: NextRequest) {
   const denied = await requireDashboardAccess();
   if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  // Same reason as the memory endpoint: the Governance plugin being on was a
+  // rendering decision in the browser and a check nowhere on this side.
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+  if (!sessionId) return badRequest("sessionId is required");
+  if (!(await sessionHasPlugin(sessionId, "tool-harness-governance"))) {
+    return badRequest("The Governance plugin (tool-harness-governance) is not enabled for this conversation");
+  }
   const action = body.action;
   if (action === "toggle") {
     const pluginId = typeof body.plugin_id === "string" ? body.plugin_id : "";

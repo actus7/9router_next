@@ -21,6 +21,13 @@ const reloadSkillTree = vi.hoisted(() => vi.fn(async () => ({ revision: 1, skill
 const listAgentSkillFiles = vi.hoisted(() => vi.fn(async (_id: string) => [] as Array<{ filePath: string; content: string }>));
 const searchPastSessionMessages = vi.hoisted(() => vi.fn(async (_input: Record<string, unknown>) => [] as unknown[]));
 
+// Whether the conversation may use the tool at all is a separate gate, with
+// its own suite in tests/unit/serverPluginGate.test.ts. These cases are about
+// what the tools do once allowed.
+vi.mock("@/server/harness/tools/sessionCapability", () => ({
+  sessionHasPlugin: vi.fn(async () => true),
+}));
+
 vi.mock("@/server/harness/skills/writeSkill", () => ({ writeSkill }));
 vi.mock("@/server/harness/memory/applyMemoryWrite", () => ({ applyMemoryWrite }));
 vi.mock("@/server/harness/governance/applyPluginWrite", () => ({ applyPluginToggle, proposeHarnessCapability }));
