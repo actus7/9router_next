@@ -140,6 +140,36 @@ gate funcionando, não uma quebra.
 
 ## Erros conhecidos
 
+**`npm ci` falha no CI com "Missing: ... from lock file".** O workflow já
+explica a forma do problema — o npm no Windows nunca instala os pacotes
+específicos de plataforma, então nunca valida aquela subárvore e dá o lockfile
+como em dia, enquanto o `npm ci` no Linux valida a árvore inteira e recusa. O
+que faltava é a receita, porque a correção óbvia não funciona:
+
+```bash
+# NÃO resolve. Produz zero diff, no Windows e no Linux.
+npm install --package-lock-only --include=optional
+```
+
+O npm 11 considera o lockfile completo sem essas entradas e se recusa a
+escrevê-las, mas o `npm ci` dele — que é o que o workflow instala — exige.
+Quem escreve as entradas é o npm 10:
+
+```bash
+npx -y npm@10.9.2 install --package-lock-only --include=optional
+npx -y npm@10.9.2 ci --dry-run --include=optional   # confirma antes de commitar
+```
+
+Confira que o resultado é aditivo comparando os dois lockfiles campo a campo
+(versões alteradas, entradas removidas), nunca pelo tamanho do diff — 400
+linhas novas de dependência opcional são benignas, uma versão alterada não é.
+
+O commit `e3965291` atribui isso a uma diferença de versão entre o npm local e
+"o npm que vem com o Node 22" no CI. Está errado: o workflow instala `npm@11`
+explicitamente. A diferença é entre o que o npm 11 *escreve* e o que ele
+*valida*, e o npm 10 é a ferramenta que fecha essa lacuna.
+
+
 **O `next dev` responde 404 em todas as rotas.** Sintoma observado depois de
 rodar `npm run check` com o dev server no ar. A suspeita registrada era que o
 `next build` do check escreve um `.next` de produção por cima do que o
