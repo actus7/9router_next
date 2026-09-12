@@ -29,4 +29,14 @@ jobs:
       # validated their subtree and reported the lock as up to date, while
       # `npm ci` on Linux validates the whole tree and refused.
       - run: npm ci
+      # `next build` imports every route to collect its config, and
+      # `lib/auth/server` builds the Neon Auth client at module load — it throws
+      # rather than start without an identity provider, which is the right call
+      # at runtime and fatal at build time. Nothing here is a secret and nothing
+      # is contacted: the build needs these to *exist*, not to be valid. Real
+      # values belong in repository secrets, and only if CI ever runs the app.
       - run: npm run check
+        env:
+          NEON_AUTH_BASE_URL: https://auth.invalid/neondb/auth
+          # 32 characters is the SDK's floor for the cookie-signing secret.
+          NEON_AUTH_COOKIE_SECRET: ci-build-placeholder-not-a-secret
