@@ -10,11 +10,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * conversation do that?") had never been stated anywhere but in a render.
  */
 
-const listHarnessConversations = vi.hoisted(() => vi.fn());
+const getHarnessConversation = vi.hoisted(() => vi.fn());
 const applyMemoryWrite = vi.hoisted(() => vi.fn());
 const applyPluginToggle = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/db/repos/harnessConversationsRepo", () => ({ listHarnessConversations }));
+vi.mock("@/lib/db/repos/harnessConversationsRepo", () => ({ getHarnessConversation }));
 vi.mock("@/server/harness/memory/applyMemoryWrite", () => ({ applyMemoryWrite }));
 vi.mock("@/server/harness/governance/applyPluginWrite", () => ({
   applyPluginToggle,
@@ -24,7 +24,7 @@ vi.mock("@/server/harness/governance/applyPluginWrite", () => ({
 import { executeHarnessToolServerSide } from "@/server/harness/tools/serverHarnessTools";
 
 function conversation(pluginOverrides: Record<string, boolean>) {
-  return [{ id: "S", agentPresetId: undefined, pluginOverrides }];
+  return { id: "S", agentPresetId: undefined, pluginOverrides };
 }
 
 beforeEach(() => {
@@ -35,7 +35,7 @@ beforeEach(() => {
 
 describe("the capability gate", () => {
   it("refuses a memory write from a conversation with the plugin off", async () => {
-    listHarnessConversations.mockResolvedValue(conversation({ "tool-memory": false }));
+    getHarnessConversation.mockResolvedValue(conversation({ "tool-memory": false }));
 
     const result = await executeHarnessToolServerSide(
       "memory_add",
@@ -48,7 +48,7 @@ describe("the capability gate", () => {
   });
 
   it("allows it when the conversation has the plugin on", async () => {
-    listHarnessConversations.mockResolvedValue(conversation({ "tool-memory": true }));
+    getHarnessConversation.mockResolvedValue(conversation({ "tool-memory": true }));
 
     await executeHarnessToolServerSide(
       "memory_add",
@@ -62,7 +62,7 @@ describe("the capability gate", () => {
   });
 
   it("refuses a plugin toggle from a conversation without governance", async () => {
-    listHarnessConversations.mockResolvedValue(conversation({ "tool-harness-governance": false }));
+    getHarnessConversation.mockResolvedValue(conversation({ "tool-harness-governance": false }));
 
     const result = await executeHarnessToolServerSide(
       "toggle_plugin",

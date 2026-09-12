@@ -18,9 +18,11 @@ import { catalogFromRows } from "@/server/plugin-core/bundleRows";
  * per conversation — so this reads them together rather than either alone.
  */
 export async function sessionHasPlugin(sessionId: string, pluginId: string): Promise<boolean> {
-  const { listHarnessConversations } = await import("@/lib/db/repos/harnessConversationsRepo");
-  const conversations = await listHarnessConversations();
-  const conversation = conversations.find((item) => item.id === sessionId);
+  const { getHarnessConversation } = await import("@/lib/db/repos/harnessConversationsRepo");
+  // By id, not by scanning the account: every conversation's `data` column
+  // carries its whole message history, and this runs on every governed tool
+  // call.
+  const conversation = await getHarnessConversation(sessionId);
   // A run can name a conversation that was never synced — the client owns that
   // table and syncs on a debounce. Refusing then would break a first message,
   // so an unknown conversation gets the account's defaults, which is what it

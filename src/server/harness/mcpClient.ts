@@ -318,9 +318,10 @@ export async function callSessionMcpTool({ sessionId, serverId, runtimeName, arg
   runtimeName: string;
   args: Record<string, unknown>;
 }): Promise<unknown> {
-  const { listHarnessConversations } = await import("@/lib/db/repos/harnessConversationsRepo");
-  const conversations = await listHarnessConversations();
-  const conversation = conversations.find((item) => item.id === sessionId);
+  const { getHarnessConversation } = await import("@/lib/db/repos/harnessConversationsRepo");
+  // By id: scanning the account read every conversation's message history to
+  // find one server URL, once per MCP tool call.
+  const conversation = await getHarnessConversation(sessionId);
   const mcpServers = Array.isArray(conversation?.mcpServers)
     ? (conversation.mcpServers as StoredMcpServer[])
     : [];

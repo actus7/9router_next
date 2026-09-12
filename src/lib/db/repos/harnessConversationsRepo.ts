@@ -34,6 +34,21 @@ function rowToConversation(row: Record<string, unknown>): HarnessConversation {
   };
 }
 
+/**
+ * One conversation by id, or undefined.
+ *
+ * Exists because the callers that need a single conversation were reading the
+ * whole account through `listHarnessConversations` — every row, `data` column
+ * included, which is where all of a conversation's messages live. Per tool
+ * call, that is the account's entire chat history over the wire to decide one
+ * boolean.
+ */
+export async function getHarnessConversation(id: string): Promise<HarnessConversation | undefined> {
+  const db = await getAdapter();
+  const row = await db.get("SELECT * FROM harnessConversations WHERE userId = ? AND id = ?", [currentTenantId(), id]);
+  return row ? rowToConversation(row) : undefined;
+}
+
 export async function listHarnessConversations(): Promise<HarnessConversation[]> {
   const db = await getAdapter();
   return (await db.all("SELECT * FROM harnessConversations WHERE userId = ? ORDER BY updatedAt DESC", [currentTenantId()])).map(rowToConversation);
