@@ -15,7 +15,20 @@
   the client re-sent the same id on its next change, so the account stopped
   syncing permanently. A sync now reports such an id in `rejected` and writes
   the rest. Existing databases need the key swapped by hand (`syncSchema` adds
-  the unique index the upsert conflicts on, but never rewrites a primary key).
+  the unique index the upsert conflicts on, but never rewrites a primary key):
+
+  ```sql
+  ALTER TABLE harnessconversations DROP CONSTRAINT harnessconversations_pkey;
+  ALTER TABLE harnessconversations
+    ADD CONSTRAINT harnessconversations_pkey PRIMARY KEY (userid, id);
+  ```
+
+  Until that runs, the repair above is inert and the bug is *worse* than the
+  code reads: the arbiter `(userId, id)` finds no conflict, so the INSERT
+  proceeds and hits the surviving global key instead — a `23505` thrown from
+  inside the transaction, which is the abort the `rejected` list exists to
+  avoid. Applied to the NewModelHub branch on 2026-09-11; any other database
+  restored from before that date still needs it.
 
 - **Every row belongs to an account.** Each table but `_meta` carries `userId`, every repo filters on it, and the owner rides an `AsyncLocalStorage` established at four entry points: `tenantRoute` (dashboard API), `gatewayRoute` (API key), `assertDashboardSession` / `requireTenantPage` (Server Actions and Components), and `forEachTenant` (background jobs). Reaching tenant data with no owner throws rather than returning rows. Two tests hold the line: `tenantIsolation` reads the SQL, `tenantRouteCoverage` reads the routes. See `docs/NEON-MIGRATION.md`.
 - Identity is Neon Auth and only Neon Auth. There is no operator password, no OIDC/SAML and no way to disable login, because "logged out" would mean "owns nothing".
