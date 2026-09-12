@@ -70,7 +70,7 @@ export default function BasicChatPageClient() {
     activeSessionId: sessionsHook.activeSessionId,
     isReady: sessionsHook.isHydrated,
     updateSession: sessionsHook.updateSession,
-    watchedRunIdRef: sendHook.watchedRunIdRef,
+    isRunWatched: sendHook.isRunWatched,
   });
 
   const sessionError =

@@ -69,8 +69,7 @@ export default function ChatComposer({
   } = sessionsHook;
   const {
     handleKeyDown,
-    isSending,
-    isBusy,
+      isBusy,
     handleStop,
     canSend,
     canQueue,
@@ -444,17 +443,6 @@ export default function ChatComposer({
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-2">
-              {/*
-                * The client runs one send at a time, so a conversation that is
-                * not the one working can neither be stopped nor queued into —
-                * and saying so beats a send button that is disabled for no
-                * visible reason.
-                */}
-              {isSending && !isBusy && (
-                <span className="text-[11px] text-muted-foreground">
-                  Outra conversa está respondendo
-                </span>
-              )}
               {isBusy && (
                 <>
                   <button

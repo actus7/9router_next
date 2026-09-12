@@ -68,7 +68,7 @@ describe("stop before the run has an id", () => {
 
     await executeSendMessage(args({
       // Stop was pressed while the POST was still in flight.
-      stopRequestedRef: { current: true },
+      beginSend: () => scopeFor({ stopRequestedRef: { current: true } }),
     }));
 
     expect(stopDurableRun).toHaveBeenCalledWith("run-42");
@@ -101,6 +101,24 @@ describe("send targeting", () => {
 });
 
 /** The full arg bag `executeSendMessage` takes, with only the parts a test cares about set. */
+/**
+ * What a send is handed once it knows its conversation. The refs and setters
+ * used to be page-wide props; they are per conversation now, so the fixture
+ * hands back one scope instead of a loose bag.
+ */
+function scopeFor(overrides: Record<string, unknown> = {}) {
+  return {
+    abortRef: { current: null },
+    activeRunIdRef: { current: null },
+    stopRequestedRef: { current: false },
+    setStreamingMessageId: () => {},
+    setStreamingText: () => {},
+    setLiveActivities: () => {},
+    setSending: () => {},
+    ...overrides,
+  };
+}
+
 function args(overrides: Record<string, unknown>) {
   const noop = () => {};
   const sessionsRef = { current: [conversation("A")] };
@@ -129,17 +147,10 @@ function args(overrides: Record<string, unknown>) {
           item.id === sessionId ? updater(item) : item,
         );
       },
-      abortRef: { current: null },
-      activeRunIdRef: { current: null },
       setChatError: noop,
-      setIsSending: noop,
-      setSendingSessionId: noop,
-      setStreamingMessageId: noop,
-      setStreamingText: noop,
-      setLiveActivities: noop,
+      beginSend: () => scopeFor(),
       dequeueNext: () => undefined,
       replayQueuedMessage: noop,
-      stopRequestedRef: { current: false },
       ...overrides,
   } as unknown as Parameters<typeof executeSendMessage>[0];
 }

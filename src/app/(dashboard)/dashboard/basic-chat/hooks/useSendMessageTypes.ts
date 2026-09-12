@@ -23,6 +23,26 @@ export interface QueuedMessage {
   model: NormalizedModel | null;
 }
 
+/**
+ * Everything a single send owns, handed to it once its conversation is known.
+ *
+ * These were one set of refs and setters on the hook, which is what made the
+ * client single-file: a second send aborted the first one's controller, took
+ * over its run id, and streamed its tokens into whatever was on screen. A ref
+ * is just an object with a `current`, so scoping them per conversation costs
+ * the send nothing — it reads the same names it always did.
+ */
+export interface SendScope {
+  abortRef: React.MutableRefObject<AbortController | null>;
+  activeRunIdRef: React.MutableRefObject<string | null>;
+  stopRequestedRef: React.MutableRefObject<boolean>;
+  setStreamingMessageId: React.Dispatch<React.SetStateAction<string>>;
+  setStreamingText: React.Dispatch<React.SetStateAction<string>>;
+  setLiveActivities: React.Dispatch<React.SetStateAction<AgentActivity[]>>;
+  /** Marks this conversation as working, or done. Not the page. */
+  setSending: (sending: boolean) => void;
+}
+
 export interface UseSendMessageArgs {
   activeModel: NormalizedModel | null;
   activeProviderGroup: ProviderGroup | null;
@@ -56,14 +76,19 @@ export interface UseSendMessageArgs {
 export interface UseSendMessageReturn {
   chatError: string;
   setChatError: React.Dispatch<React.SetStateAction<string>>;
-  /** A send is in flight somewhere — the client runs one at a time. */
+  /** A send is in flight in some conversation, not necessarily this one. */
   isSending: boolean;
-  /** That send belongs to the conversation on screen. What the composer reads. */
+  /** A send is in flight in *this* conversation. What the composer reads. */
   isBusy: boolean;
-  /** The conversation the in-flight send went into — empty before the first. */
+  /** The conversation the most recent send went into — whose error is shown. */
   sendingSessionId: string;
-  /** The durable run this tab is watching, so recovery does not watch it too. */
-  watchedRunIdRef: React.MutableRefObject<string | null>;
+  /**
+   * Whether a run is already being watched by a live send.
+   *
+   * Was a single ref holding the one run id this tab watched. Several sends can
+   * be in flight now, so recovery has to ask rather than compare.
+   */
+  isRunWatched: (runId: string) => boolean;
   streamingMessageId: string;
   streamingText: string;
   liveActivities: AgentActivity[];

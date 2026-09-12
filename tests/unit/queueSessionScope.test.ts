@@ -115,6 +115,24 @@ describe("a replayed queue item", () => {
   });
 });
 
+/**
+ * What a send is handed once it knows its conversation. The refs and setters
+ * used to be page-wide props; they are per conversation now, so the fixture
+ * hands back one scope instead of a loose bag.
+ */
+function scopeFor(overrides: Record<string, unknown> = {}) {
+  return {
+    abortRef: { current: null },
+    activeRunIdRef: { current: null },
+    stopRequestedRef: { current: false },
+    setStreamingMessageId: () => {},
+    setStreamingText: () => {},
+    setLiveActivities: () => {},
+    setSending: () => {},
+    ...overrides,
+  };
+}
+
 function args(overrides: Record<string, unknown>) {
   const noop = () => {};
   const sessionsRef = { current: [conversation("A")] };
@@ -141,15 +159,8 @@ function args(overrides: Record<string, unknown>) {
         item.id === sessionId ? updater(item) : item,
       );
     },
-    abortRef: { current: null },
-    activeRunIdRef: { current: null },
-    stopRequestedRef: { current: false },
     setChatError: noop,
-    setIsSending: noop,
-    setSendingSessionId: noop,
-    setStreamingMessageId: noop,
-    setStreamingText: noop,
-    setLiveActivities: noop,
+    beginSend: () => scopeFor(),
     dequeueNext: () => undefined,
     replayQueuedMessage: noop,
     ...overrides,

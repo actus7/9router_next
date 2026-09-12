@@ -54,7 +54,7 @@ describe("durable run recovery", () => {
         activeSessionId: "A",
         isReady: true,
         updateSession: () => {},
-        watchedRunIdRef: { current: "run-1" },
+        isRunWatched: (runId: string) => runId === "run-1",
       }),
     );
 
@@ -70,7 +70,7 @@ describe("durable run recovery", () => {
         activeSessionId: "A",
         isReady: true,
         updateSession: () => {},
-        watchedRunIdRef: { current: null },
+        isRunWatched: () => false,
       }),
     );
 

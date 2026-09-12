@@ -56,18 +56,22 @@ beforeEach(() => {
 });
 
 describe("who the live run status belongs to", () => {
+  // The send names its conversation by claiming it — `beginSend(sessionId)` is
+  // what hands back that conversation's abort controller, run id and stream
+  // state. It replaced a `setSendingSessionId` call that said the same thing
+  // and owned nothing, so the claim is what these assert now.
   it("names the conversation the send went into, not the one on screen", async () => {
-    const setSendingSessionId = vi.fn();
+    const beginSend = vi.fn(() => scopeFor());
 
     await executeSendMessage(args({
       // Typed into A; the user is reading B by the time this runs.
       options: { text: "follow-up", sessionId: "A" },
       activeSessionId: "B",
-      setSendingSessionId,
+      beginSend,
     }));
 
-    expect(setSendingSessionId).toHaveBeenCalledWith("A");
-    expect(setSendingSessionId).not.toHaveBeenCalledWith("B");
+    expect(beginSend).toHaveBeenCalledWith("A");
+    expect(beginSend).not.toHaveBeenCalledWith("B");
   });
 
   it("names it before the answer arrives, so the card is never orphaned", async () => {
@@ -78,12 +82,28 @@ describe("who the live run status belongs to", () => {
     });
 
     await executeSendMessage(args({
-      setSendingSessionId: (id: string) => calls.push(`owner:${id}`),
+      beginSend: (id: string) => {
+        calls.push(`owner:${id}`);
+        return scopeFor();
+      },
     }));
 
     expect(calls[0]).toBe("owner:A");
   });
 });
+
+/** What a send owns once it has claimed its conversation. */
+function scopeFor() {
+  return {
+    abortRef: { current: null },
+    activeRunIdRef: { current: null },
+    stopRequestedRef: { current: false },
+    setStreamingMessageId: () => {},
+    setStreamingText: () => {},
+    setLiveActivities: () => {},
+    setSending: () => {},
+  };
+}
 
 /** The full arg bag `executeSendMessage` takes, with only the parts a test cares about set. */
 function args(overrides: Record<string, unknown>) {
@@ -114,17 +134,10 @@ function args(overrides: Record<string, unknown>) {
         item.id === sessionId ? updater(item) : item,
       );
     },
-    abortRef: { current: null },
-    activeRunIdRef: { current: null },
     setChatError: noop,
-    setIsSending: noop,
-    setSendingSessionId: noop,
-    setStreamingMessageId: noop,
-    setStreamingText: noop,
-    setLiveActivities: noop,
+    beginSend: () => scopeFor(),
     dequeueNext: () => undefined,
     replayQueuedMessage: noop,
-    stopRequestedRef: { current: false },
     ...overrides,
   } as unknown as Parameters<typeof executeSendMessage>[0];
 }

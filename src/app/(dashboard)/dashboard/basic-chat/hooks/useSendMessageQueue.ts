@@ -111,9 +111,19 @@ export function useSendMessageQueue({
     interrupt();
   }, [canQueue, interrupt, queueMessage]);
 
-  const dequeueNext = useCallback((): QueuedMessage | undefined => {
-    const [next, ...rest] = queuedMessagesRef.current;
+  /**
+   * The next follow-up for one conversation.
+   *
+   * Took the head of the whole queue, which was right only while a single send
+   * could exist: with two conversations answering, the one that finished first
+   * drained the other's follow-up and replayed it early.
+   */
+  const dequeueNext = useCallback((sessionId?: string): QueuedMessage | undefined => {
+    const queue = queuedMessagesRef.current;
+    const index = sessionId ? queue.findIndex((item) => item.sessionId === sessionId) : 0;
+    const next = index < 0 ? undefined : queue[index];
     if (!next) return undefined;
+    const rest = [...queue.slice(0, index), ...queue.slice(index + 1)];
     queuedMessagesRef.current = rest;
     setQueuedMessages(rest);
     return next;

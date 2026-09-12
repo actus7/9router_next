@@ -30,7 +30,7 @@ interface UseDurableRunRecoveryArgs {
    * run — and the one that finished first deleted the row, leaving the other
    * to report a complete answer as interrupted.
    */
-  watchedRunIdRef: React.MutableRefObject<string | null>;
+  isRunWatched: (runId: string) => boolean;
 }
 
 /**
@@ -80,7 +80,7 @@ function applySettled(message: ChatMessage, run: RunRow): ChatMessage {
  * that table wholesale on every sync, so a background write would be raced
  * away. This hook is the other half of that decision.
  */
-export function useDurableRunRecovery({ activeSessionId, isReady, updateSession, watchedRunIdRef }: UseDurableRunRecoveryArgs): void {
+export function useDurableRunRecovery({ activeSessionId, isReady, updateSession, isRunWatched }: UseDurableRunRecoveryArgs): void {
   const handledRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -116,7 +116,7 @@ export function useDurableRunRecovery({ activeSessionId, isReady, updateSession,
 
       const { runs } = (await response.json().catch(() => ({ runs: [] }))) as { runs: RunRow[] };
       const fresh = runs.filter(
-        (run) => !handledRef.current.has(run.id) && run.id !== watchedRunIdRef.current,
+        (run) => !handledRef.current.has(run.id) && !isRunWatched(run.id),
       );
       if (!fresh.length) return;
       for (const run of fresh) handledRef.current.add(run.id);
@@ -189,5 +189,5 @@ export function useDurableRunRecovery({ activeSessionId, isReady, updateSession,
     return () => {
       controller.abort();
     };
-  }, [activeSessionId, isReady, updateSession, watchedRunIdRef]);
+  }, [activeSessionId, isReady, updateSession, isRunWatched]);
 }

@@ -15,6 +15,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const executeSendMessage = vi.hoisted(() => vi.fn());
 
+/** Only what these tests drive: a send claims its conversation, then reports. */
+type SendInput = {
+  beginSend: (sessionId: string) => {
+    setSending: (sending: boolean) => void;
+    setLiveActivities: (value: unknown) => void;
+  };
+};
+
 vi.mock("@/app/(dashboard)/dashboard/basic-chat/hooks/executeSendMessage", () => ({
   executeSendMessage,
 }));
@@ -61,12 +69,13 @@ describe("live activity lifetime", () => {
   it("clears a settled activity that no exit path scheduled a clear for", async () => {
     // Exactly the shape of the stuck screen: the turn errored, the activity was
     // marked, `isSending` was released — and nothing scheduled the removal.
-    executeSendMessage.mockImplementation(async (input: Record<string, (value: unknown) => void>) => {
-      input.setIsSending(true);
-      input.setLiveActivities([
+    executeSendMessage.mockImplementation(async (input: SendInput) => {
+      const scope = input.beginSend("session-1");
+      scope.setSending(true);
+      scope.setLiveActivities([
         { id: "run-1", label: "Pensando", detail: "Interrompida", state: "error" },
       ]);
-      input.setIsSending(false);
+      scope.setSending(false);
     });
 
     const { result } = renderHook(() => useSendMessage(args()));
@@ -81,10 +90,11 @@ describe("live activity lifetime", () => {
   });
 
   it("leaves it up long enough to be read", async () => {
-    executeSendMessage.mockImplementation(async (input: Record<string, (value: unknown) => void>) => {
-      input.setIsSending(true);
-      input.setLiveActivities([{ id: "run-1", label: "Respondendo", state: "done" }]);
-      input.setIsSending(false);
+    executeSendMessage.mockImplementation(async (input: SendInput) => {
+      const scope = input.beginSend("session-1");
+      scope.setSending(true);
+      scope.setLiveActivities([{ id: "run-1", label: "Respondendo", state: "done" }]);
+      scope.setSending(false);
     });
 
     const { result } = renderHook(() => useSendMessage(args()));
@@ -101,9 +111,10 @@ describe("live activity lifetime", () => {
     // so anything that throws while building the request — blocked
     // localStorage, a malformed attachment — used to leave the composer
     // disabled and the card frozen until the page was reloaded.
-    executeSendMessage.mockImplementation(async (input: Record<string, (value: unknown) => void>) => {
-      input.setIsSending(true);
-      input.setLiveActivities([{ id: "run-1", label: "Pensando", state: "running" }]);
+    executeSendMessage.mockImplementation(async (input: SendInput) => {
+      const scope = input.beginSend("session-1");
+      scope.setSending(true);
+      scope.setLiveActivities([{ id: "run-1", label: "Pensando", state: "running" }]);
       throw new Error("Attachment too large to encode");
     });
 
@@ -120,9 +131,10 @@ describe("live activity lifetime", () => {
   });
 
   it("keeps it while the send is still running", async () => {
-    executeSendMessage.mockImplementation(async (input: Record<string, (value: unknown) => void>) => {
-      input.setIsSending(true);
-      input.setLiveActivities([{ id: "run-1", label: "Pensando", state: "running" }]);
+    executeSendMessage.mockImplementation(async (input: SendInput) => {
+      const scope = input.beginSend("session-1");
+      scope.setSending(true);
+      scope.setLiveActivities([{ id: "run-1", label: "Pensando", state: "running" }]);
       // Deliberately never released: a long tool step must not time the card out.
     });
 

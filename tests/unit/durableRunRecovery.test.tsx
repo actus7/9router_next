@@ -65,7 +65,7 @@ function mount(initial: ChatSession) {
       isReady: true,
       updateSession,
       // Nothing else is watching: this suite is about the recovery path itself.
-      watchedRunIdRef: { current: null },
+      isRunWatched: () => false,
     }),
   );
   return { message: () => current.messages[0]!, updateSession };

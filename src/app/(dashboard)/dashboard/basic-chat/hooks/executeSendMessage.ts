@@ -48,7 +48,7 @@ import {
   ensureChatSession,
 } from "./prepareChatMessages";
 import { runToolCallLoop } from "./runToolCallLoop";
-import type { AgentActivity, QueuedMessage } from "./useSendMessageTypes";
+import type { QueuedMessage, SendScope } from "./useSendMessageTypes";
 
 export interface ExecuteSendMessageArgs {
   options?: SendMessageOptions;
@@ -78,32 +78,19 @@ export interface ExecuteSendMessageArgs {
     sessionId: string,
     updater: (session: ChatSession) => ChatSession,
   ) => void;
-  abortRef: React.MutableRefObject<AbortController | null>;
-  /** The durable run in flight, so an explicit stop can reach the server. */
-  activeRunIdRef: React.MutableRefObject<string | null>;
-  /**
-   * Set when stop was pressed before the run had an id.
-   *
-   * `POST /api/harness/runs` is deliberately not given the abort signal, so in
-   * that window there was nothing to name: only the local abort happened and
-   * the run carried on server-side, unwatched, its answer folded into the
-   * conversation later as if nobody had asked it to stop.
-   */
-  stopRequestedRef: React.MutableRefObject<boolean>;
   setChatError: React.Dispatch<React.SetStateAction<string>>;
-  setIsSending: React.Dispatch<React.SetStateAction<boolean>>;
   /**
-   * Which conversation this send belongs to.
+   * Claims this send's conversation and hands back everything it owns — the
+   * abort controller, the run id, the stop flag, the stream state.
    *
-   * Named before anything streams, and never cleared: the live-run card reads
-   * it to decide whether it is talking about the conversation on screen, and a
-   * stale owner with nothing running renders nothing anyway.
+   * Called once the conversation is known, which is why it is a factory rather
+   * than a set of props: the id can be created inside this function.
+   * `POST /api/harness/runs` is deliberately not given the abort signal, so
+   * between the post and the answer that names the run there is nothing to
+   * stop — hence `stopRequestedRef`, remembered until the run has a name.
    */
-  setSendingSessionId: React.Dispatch<React.SetStateAction<string>>;
-  setStreamingMessageId: React.Dispatch<React.SetStateAction<string>>;
-  setStreamingText: React.Dispatch<React.SetStateAction<string>>;
-  setLiveActivities: React.Dispatch<React.SetStateAction<AgentActivity[]>>;
-  dequeueNext: () => QueuedMessage | undefined;
+  beginSend: (sessionId: string) => SendScope;
+  dequeueNext: (sessionId?: string) => QueuedMessage | undefined;
   replayQueuedMessage: (item: QueuedMessage) => void;
 }
 
@@ -126,15 +113,8 @@ export async function executeSendMessage({
   apiKey,
   recordHarnessEvent,
   updateSession,
-  abortRef,
-  activeRunIdRef,
-  stopRequestedRef,
   setChatError,
-  setIsSending,
-  setSendingSessionId,
-  setStreamingMessageId,
-  setStreamingText,
-  setLiveActivities,
+  beginSend,
   dequeueNext,
   replayQueuedMessage,
 }: ExecuteSendMessageArgs): Promise<void> {
@@ -161,6 +141,19 @@ export async function executeSendMessage({
   if (!sessionResult) return;
   const { sessionId, session } = sessionResult;
 
+  // From here on everything this send touches belongs to `sessionId`, so a
+  // second send in another conversation cannot abort it, steal its run id, or
+  // stream its tokens into whatever the reader happens to have open.
+  const {
+    abortRef,
+    activeRunIdRef,
+    stopRequestedRef,
+    setStreamingMessageId,
+    setStreamingText,
+    setLiveActivities,
+    setSending,
+  } = beginSend(sessionId);
+
   const userMessage = createUserMessage(userText, messageAttachments);
   const assistantMessage = createAssistantMessage(model);
   const assistantMessageId = assistantMessage.id;
@@ -186,8 +179,7 @@ export async function executeSendMessage({
     setAttachments([]);
   }
   setChatError("");
-  setSendingSessionId(sessionId);
-  setIsSending(true);
+  setSending(true);
   setStreamingMessageId(assistantMessageId);
   setStreamingText("");
   setLiveActivities([
@@ -488,7 +480,7 @@ export async function executeSendMessage({
       setChatError,
     );
   } finally {
-    setIsSending(false);
+    setSending(false);
     setStreamingMessageId("");
     setStreamingText("");
     abortRef.current = null;
@@ -498,7 +490,7 @@ export async function executeSendMessage({
     // Taking the card down is the hook's job, derived from `isSending` — doing
     // it here made it this path's job, and every path that skipped this line
     // left the card on screen for good.
-    const next = dequeueNext();
+    const next = dequeueNext(sessionId);
     if (next) replayQueuedMessage(next);
   }
 }

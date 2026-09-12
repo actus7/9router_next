@@ -53,10 +53,15 @@ function args(activeSessionId: string): UseSendMessageArgs {
 
 /** A send that starts in "A" and never finishes, like a long tool step. */
 function startRunInA() {
-  executeSendMessage.mockImplementation(async (input: Record<string, (value: unknown) => void>) => {
-    input.setSendingSessionId("A");
-    input.setIsSending(true);
-    input.setLiveActivities([{ id: "run-1", label: "Respondendo", state: "streaming" }]);
+  executeSendMessage.mockImplementation(async (input: {
+    beginSend: (sessionId: string) => {
+      setSending: (sending: boolean) => void;
+      setLiveActivities: (value: unknown) => void;
+    };
+  }) => {
+    const scope = input.beginSend("A");
+    scope.setSending(true);
+    scope.setLiveActivities([{ id: "run-1", label: "Respondendo", state: "streaming" }]);
   });
 }
 
