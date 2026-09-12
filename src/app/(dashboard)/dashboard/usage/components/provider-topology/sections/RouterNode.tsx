@@ -22,12 +22,14 @@ export function RouterNode({ data }: { data: RouterNodeData }) {
       <Handle type="source" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
 
-      {/* The app icon, same asset the sidebar uses. It was `/favicon.png`
-          through DynamicMedia, which is the raw-<img> escape hatch for runtime
-          URLs — its own docs say static assets go through next/image. That
-          path is also not excluded by the proxy matcher (only `favicon.ico`
-          is), so the request went through auth middleware instead of being
-          served as a file, and rendered as a broken image. */}
+      {/* The app icon, same asset the sidebar uses.
+          This was `/favicon.png` through DynamicMedia, and rendered broken. The
+          route itself is fine — it answers 200 image/png even unauthenticated,
+          so the middleware-matcher theory that first explained this was wrong.
+          What is certain is the wrong tool: DynamicMedia is the raw-<img>
+          escape hatch for runtime URLs, and its own docs say static assets go
+          through next/image. Moving to next/image with the asset the sidebar
+          already loads removes the variable rather than explaining it. */}
       <Image
         src="/icons/icon-192.png"
         alt="ModelHub"
