@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { SIGN_IN_PATH } from "@/lib/auth/paths";
 import { proxy as dashboardProxy } from "./dashboardGuard";
+import { buildContentSecurityPolicy, CSP_REPORT_ONLY_HEADER, REPORTING_ENDPOINTS } from "./lib/security/contentSecurityPolicy";
 
 const neonAuth = auth.middleware({ loginUrl: SIGN_IN_PATH });
 
@@ -57,8 +58,28 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Dashboard is not served on this host" }, { status: 404 });
   }
 
+  // Set on the *request* because that is where Next looks for the nonce to
+  // stamp onto its own bootstrap scripts (`app-render.js` reads
+  // `content-security-policy` or `content-security-policy-report-only` off the
+  // incoming headers). Without it every framework script reports a violation
+  // and buries the ones that mean something. `neonAuth` forwards the request
+  // headers it was given, so setting them here is enough.
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  const policy = buildContentSecurityPolicy(nonce);
+  request.headers.set(CSP_REPORT_ONLY_HEADER, policy);
+  request.headers.set("x-nonce", nonce);
+
   const authenticated: NextResponse = await neonAuth(request);
-  return request.nextUrl.pathname.startsWith("/api/") ? asApiResponse(authenticated) : authenticated;
+  const response: NextResponse = request.nextUrl.pathname.startsWith("/api/")
+    ? asApiResponse(authenticated)
+    : authenticated;
+  // Report-only on purpose: this policy has never run against the real page.
+  // The unknown is what `js.puter.com` pulls in once its SDK boots, and a
+  // guess that is wrong in enforce mode breaks chat for everyone. Read the
+  // violations first, then narrow and switch the header name.
+  response.headers.set("Content-Security-Policy-Report-Only", policy);
+  response.headers.set("Reporting-Endpoints", REPORTING_ENDPOINTS);
+  return response;
 }
 
 export const config = {

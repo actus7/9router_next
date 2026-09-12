@@ -31,6 +31,7 @@ const UNSCOPED: ReadonlyArray<{ route: string; why: string }> = [
   { route: "health", why: "Liveness probe. Reads nothing." },
   { route: "locale", why: "Returns the UI language list, identical for everyone." },
   { route: "version", why: "Reports the build version, identical for everyone." },
+  { route: "csp-report", why: "Violation reports arrive from a page that may have just been blocked; a session gate would drop the ones worth reading. Writes no rows." },
 ];
 
 const TENANT_WRAPPERS: readonly string[] = ["tenantRoute(", "gatewayRoute("];

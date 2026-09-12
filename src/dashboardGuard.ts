@@ -27,6 +27,9 @@ const PUBLIC_API_PATHS: string[] = [
   "/api/locale",
   "/api/auth",
   "/api/version",
+  // A CSP violation report comes from a page that may have just been blocked.
+  // Requiring a session here would drop the reports most worth reading.
+  "/api/csp-report",
 ];
 
 // Every rewrite in next.config.ts that targets /api/v1* must appear here: the

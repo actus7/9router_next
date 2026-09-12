@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,10 +22,14 @@ const inter = Inter({
  */
 export async function RootShell({ children }: { children: React.ReactNode }) {
   await assertRequestRuntime();
-  const [{ locale, translations }, accent] = await Promise.all([
+  // Both scripts below run before hydration, so both are inline and both need
+  // the request's nonce or the CSP blocks them. `proxy.ts` puts it here.
+  const [{ locale, translations }, accent, requestHeaders] = await Promise.all([
     getI18nProps(),
     readAccentColorAttribute(),
+    headers(),
   ]);
+  const nonce = requestHeaders.get("x-nonce") || undefined;
 
   return (
     <html
@@ -33,8 +39,9 @@ export async function RootShell({ children }: { children: React.ReactNode }) {
       className={`${inter.variable} h-full antialiased`}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col font-sans">
-        <I18nBootstrapScript locale={locale} translations={translations} />
+        <I18nBootstrapScript locale={locale} translations={translations} nonce={nonce} />
         <ThemeProvider
+          nonce={nonce}
           attribute="class"
           defaultTheme="system"
           enableSystem
