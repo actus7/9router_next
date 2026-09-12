@@ -434,7 +434,14 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
           // lie, but the alternative is re-sending them on every change
           // forever; the conversation stays readable locally and the warning
           // says what happened.
-          for (const id of rejectedIds) syncedRef.current.set(String(id), "");
+          //
+          // The value has to be the `updatedAt` we just sent, not `""`: the
+          // upsert list is `synced.get(id) !== session.updatedAt`, so `""`
+          // matched nothing and re-queued the rejected conversation on every
+          // flush — with its warning toast — which is the loop this avoids. A
+          // later edit changes `updatedAt` and does retry, once.
+          const sent = new Map(upserts.map((session) => [session.id, session.updatedAt]));
+          for (const id of rejectedIds) syncedRef.current.set(String(id), sent.get(String(id)) ?? "");
           notify.warning(
             translate("Some conversations could not be saved to the server.") ||
               "Some conversations could not be saved to the server.",

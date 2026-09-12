@@ -111,10 +111,6 @@ describe("syncHarnessConversations", () => {
 describe("a conversation that cannot be written", () => {
   it("is reported on its own instead of failing the batch", async () => {
     // s1 writes; s2 is somebody else's id — no row written, and no row of ours.
-    run.mockImplementation((sql: string) => ({
-      changes: String(sql).includes("INSERT INTO harnessConversations") &&
-        String(sql).includes("s2") ? 0 : 1,
-    }));
     run.mockImplementation((sql: string, params?: unknown[]) => {
       const isUpsert = String(sql).includes("INSERT INTO harnessConversations");
       return { changes: isUpsert && (params as unknown[])?.[0] === "s2" ? 0 : 1 };
