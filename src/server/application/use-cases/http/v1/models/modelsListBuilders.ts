@@ -35,49 +35,6 @@ export function buildComboEntries(
   return entries;
 }
 
-/** Build static model entries when no DB connections are available. */
-export function buildStaticModelEntries(
-  kindFilter: string[],
-  isDisabled: (alias: string, modelId: string) => boolean,
-  customModels: Record<string, unknown>[],
-): Record<string, unknown>[] {
-  const entries: Record<string, unknown>[] = [];
-  const aliasToProviderId = Object.fromEntries(
-    Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])
-  );
-  for (const [alias, providerModels] of Object.entries(PROVIDER_MODELS)) {
-    const providerId = aliasToProviderId[alias] || alias;
-    if (!providerMatchesKinds(providerId, kindFilter)) continue;
-    for (const model of providerModels as Array<Record<string, unknown>>) {
-      if (!kindFilter.includes(modelKind(model))) continue;
-      if (isDisabled(alias, model.id as string)) continue;
-      entries.push({
-        id: `${alias}/${model.id}`,
-        object: "model",
-        owned_by: alias,
-      });
-    }
-  }
-
-  for (const customModel of customModels) {
-    if (!customModel?.id || (customModel.type && customModel.type !== "llm")) continue;
-    // Custom models without active connection are LLM-only by current schema
-    if (!kindFilter.includes(LLM_KIND)) continue;
-    const providerAlias = customModel.providerAlias;
-    if (!providerAlias) continue;
-
-    const modelId = String(customModel.id).trim();
-    if (!modelId) continue;
-
-    entries.push({
-      id: `${providerAlias}/${modelId}`,
-      object: "model",
-      owned_by: providerAlias,
-    });
-  }
-  return entries;
-}
-
 /** Resolve raw model IDs and live/static metadata for a single provider. */
 export async function resolveProviderContext(
   conn: ConnectionRecord,

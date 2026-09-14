@@ -1,8 +1,9 @@
 ﻿import { translateResponse, initState } from "../translator/index";
 import { FORMATS } from "../translator/formats";
-import { trackPendingRequest, appendRequestLog } from "../host/usage";
+import { captureTenant, type TenantReentry } from "../host/tenant";
 import type { RequestLogger } from "./requestLogger";
-import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking";
+import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking";
+import { settleStream } from "./streamSettle";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers";
 import { dbg, isDebugEnabled } from "./debugLog";
@@ -21,7 +22,7 @@ interface TranslatedArray extends Array<unknown> {
 /**
  * Stream modes
  */
-const STREAM_MODE = {
+export const STREAM_MODE = {
   TRANSLATE: "translate",    // Full translation between formats
   PASSTHROUGH: "passthrough" // No translation, normalize output, extract usage
 } as const;
@@ -42,7 +43,7 @@ interface SSEStreamOptions {
 }
 
 /** Mutable state carried across transform/flush callbacks */
-interface StreamContext {
+export interface StreamContext {
   // Options (immutable after creation)
   mode: string;
   targetFormat?: string;
@@ -71,6 +72,11 @@ interface StreamContext {
   openAIResponsesTerminalSeen: boolean;
   openAIResponsesDoneSent: boolean;
   streamDoneSent: boolean;
+  /** Já contabilizado por `settleStream` — ver ali por que existem dois caminhos. */
+  settled: boolean;
+  /** Re-entra o tenant capturado na criação do stream — flush e cancel rodam
+   *  fora do contexto da requisição. */
+  reentry: TenantReentry;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -367,16 +373,6 @@ function flushPassthrough(ctx: StreamContext, controller: TransformStreamDefault
     controller.enqueue(sharedEncoder.encode(output));
   }
 
-  if (!hasValidUsage(ctx.usage) && ctx.totalContentLength > 0) {
-    ctx.usage = estimateUsage(ctx.body, ctx.totalContentLength, FORMATS.OPENAI);
-  }
-
-  if (hasValidUsage(ctx.usage)) {
-    logUsage(ctx.provider, ctx.usage!, ctx.model, ctx.connectionId, ctx.apiKey);
-  } else {
-    appendRequestLog().catch(() => { });
-  }
-
   // IMPORTANT: In passthrough mode we still must terminate the SSE stream.
   // Some clients (e.g. OpenClaw) expect the OpenAI-style sentinel:
   //   data: [DONE]\n\n
@@ -389,12 +385,7 @@ function flushPassthrough(ctx: StreamContext, controller: TransformStreamDefault
     controller.enqueue(sharedEncoder.encode(doneOutput));
   }
 
-  if (ctx.onStreamComplete) {
-    ctx.onStreamComplete({
-      content: ctx.accumulatedContent,
-      thinking: ctx.accumulatedThinking
-    }, ctx.usage, ctx.ttftAt);
-  }
+  settleStream(ctx);
 }
 
 /** Flush remaining buffer and finalize in translate mode */
@@ -427,22 +418,7 @@ function flushTranslate(ctx: StreamContext, controller: TransformStreamDefaultCo
     ctx.streamDoneSent = true;
   }
 
-  if (ctx.state && !hasValidUsage(ctx.state.usage as Record<string, unknown>) && ctx.totalContentLength > 0) {
-    ctx.state.usage = estimateUsage(ctx.body, ctx.totalContentLength, ctx.sourceFormat!);
-  }
-
-  if (ctx.state && hasValidUsage(ctx.state.usage as Record<string, unknown>)) {
-    logUsage((ctx.state.provider as string) || ctx.targetFormat!, ctx.state.usage as Record<string, unknown>, ctx.model, ctx.connectionId, ctx.apiKey);
-  } else {
-    appendRequestLog().catch(() => { });
-  }
-
-  if (ctx.onStreamComplete) {
-    ctx.onStreamComplete({
-      content: ctx.accumulatedContent,
-      thinking: ctx.accumulatedThinking
-    }, (ctx.state?.usage as Record<string, unknown>) ?? null, ctx.ttftAt);
-  }
+  settleStream(ctx);
 }
 
 // ─── Main orchestrator ──────────────────────────────────────────────────────
@@ -501,9 +477,15 @@ function createSSEStream(options: SSEStreamOptions = {}) {
     openAIResponsesTerminalSeen: false,
     openAIResponsesDoneSent: false,
     streamDoneSent: false,
+    settled: false,
+    reentry: captureTenant(),
   };
 
-  return new TransformStream({
+  // `Transformer` nesta versão do lib DOM não declara `cancel`, mas o runtime
+  // o invoca quando o lado legível é cancelado (cliente desconecta) ou o
+  // gravável é abortado (streamHandler no disconnect). Tipado à parte para
+  // manter o handler.
+  const transformer: Transformer<Uint8Array, Uint8Array> & { cancel?: (reason?: unknown) => void } = {
     transform(chunk, controller) {
       if (!ctx.ttftAt) ctx.ttftAt = Date.now();
       const text = decoder.decode(chunk, { stream: true });
@@ -541,7 +523,6 @@ function createSSEStream(options: SSEStreamOptions = {}) {
     flush(controller) {
       const evtSummary = Object.entries(ctx.eventTypeCounts).map(([k, v]) => `${k}=${v}`).join(",") || "none";
       dbg("SSE", `flush | provider=${provider} | model=${model} | recvLines=${ctx.sseLineCount} | emitted=${ctx.sseEmittedCount} | events=[${evtSummary}]`);
-      trackPendingRequest(model ?? "", provider ?? "", connectionId ?? "", false);
       try {
         const remaining = decoder.decode();
         if (remaining) ctx.buffer += remaining;
@@ -555,8 +536,21 @@ function createSSEStream(options: SSEStreamOptions = {}) {
       } catch (error) {
         console.error("Error in flush:", error);
       }
+    },
+
+    // O cliente fechou a conexão — quase sempre por ter lido `data: [DONE]`.
+    // Nada mais será emitido, mas o que já foi coletado ainda tem que ser
+    // contabilizado; `flush` não roda neste caminho.
+    cancel() {
+      try {
+        settleStream(ctx);
+      } catch (error) {
+        console.error("Error in cancel:", error);
+      }
     }
-  });
+  };
+
+  return new TransformStream(transformer);
 }
 
 export function createSSETransformStreamWithLogger(targetFormat: string, sourceFormat: string, provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, toolNameMap: SSEStreamOptions["toolNameMap"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null, customToolNames: string[] | null = null) {

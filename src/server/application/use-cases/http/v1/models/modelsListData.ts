@@ -11,7 +11,7 @@ export async function fetchModelsData(): Promise<ModelsData> {
   try {
     connections = (await getProviderConnections()) as unknown as ConnectionRecord[];
     connections = connections.filter((c) => c.isActive !== false);
-  } catch { console.error("Could not fetch providers, returning all models"); }
+  } catch { console.error("Could not fetch providers, listing keyless providers only"); }
 
   let combos: Record<string, unknown>[] = [];
   try {

@@ -60,7 +60,7 @@ export default function RequestTable({
                       {translate("Request detail recording is off.")}
                     </span>
                     <span className="text-sm">
-                      {translate("The summary counts every request, but this tab needs observability enabled. Turn it on in Profile — only requests made after that are recorded.")}
+                      {translate("The summary counts every request, but this tab needs the switch above turned on — only requests made after that are recorded.")}
                     </span>
                   </div>
                 ) : (

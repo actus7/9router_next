@@ -1,12 +1,10 @@
+import { FREE_PROVIDERS } from "@/shared/constants/providers";
+import { getEligibleFreeModelProviders, resolveFreeModelGroups, shippedFreeModels } from "./freeModelGroups";
 import type { ConnectionRecord } from "./liveModelResolvers";
-import {
-  buildComboEntries,
-  buildStaticModelEntries,
-  collectMergedModelIds,
-  resolveProviderContext,
-} from "./modelsListBuilders";
+import { buildComboEntries, collectMergedModelIds, resolveProviderContext } from "./modelsListBuilders";
 import { fetchModelsData } from "./modelsListData";
 import { buildNoAuthWebEntries, buildProviderModelEntries, deduplicateModels } from "./modelsListProviderEntries";
+import { LLM_KIND } from "./modelsListTypes";
 
 /**
  * Build OpenAI-format models list filtered by service kinds.
@@ -29,19 +27,42 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
   }
 
   const models: Record<string, unknown>[] = [];
+  const addProvider = async (conn: ConnectionRecord, providerId: string) => {
+    const ctx = await resolveProviderContext(conn, providerId, kindFilter, skipDynamicFetch);
+    if (!ctx) return;
+    const { mergedModelIds, customModelKindById } = collectMergedModelIds(ctx, data.customModels, data.modelAliases, kindFilter);
+    models.push(...buildProviderModelEntries(ctx, mergedModelIds, customModelKindById, kindFilter, isDisabled));
+  };
 
   // Combos first (filtered by kind). Web combos expose `kind` so AI knows search vs fetch.
   models.push(...buildComboEntries(data.combos, kindFilter));
 
-  if (data.connections.length === 0) {
-    // DB unavailable -> return static models, filtered by per-model kind
-    models.push(...buildStaticModelEntries(kindFilter, isDisabled, data.customModels));
-  } else {
-    for (const [providerId, conn] of activeConnectionByProvider.entries()) {
-      const ctx = await resolveProviderContext(conn, providerId, kindFilter, skipDynamicFetch);
-      if (!ctx) continue;
-      const { mergedModelIds, customModelKindById } = collectMergedModelIds(ctx, data.customModels, data.modelAliases, kindFilter);
-      models.push(...buildProviderModelEntries(ctx, mergedModelIds, customModelKindById, kindFilter, isDisabled));
+  // A provider is listed only when a request for it can be served: the account
+  // has a connection for it, or it needs none (`getProviderCredentials` answers
+  // noAuth providers with public credentials). An account without connections
+  // used to get the whole registry here — ~150 providers every request to which
+  // failed with "No credentials".
+  for (const [providerId, conn] of activeConnectionByProvider.entries()) {
+    await addProvider(conn, providerId);
+  }
+
+  if (kindFilter.includes(LLM_KIND)) {
+    const keyless = getEligibleFreeModelProviders(FREE_PROVIDERS)
+      .filter((provider) => !activeConnectionByProvider.has(String(provider.id)));
+    // ponytail: remote discovery on every call, bounded by
+    // FREE_MODEL_DISCOVERY_TIMEOUT_MS per provider in parallel. Cache per
+    // process if /v1/models latency starts to matter to clients.
+    const groups = await resolveFreeModelGroups(keyless, skipDynamicFetch ? shippedFreeModels : undefined);
+    for (const group of groups) {
+      // The discovered catalogue becomes a pseudo-connection's allow-list, so
+      // it runs through the same kind, disabled and capability pipeline as a
+      // real connection instead of a second copy of it.
+      await addProvider({
+        id: "noauth",
+        accessToken: "public",
+        provider: group.providerId,
+        providerSpecificData: { enabledModels: group.models.map((model) => model.id) },
+      }, group.providerId);
     }
   }
 

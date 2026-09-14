@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { useSearchParams, useRouter } from "next/navigation";
 import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 import { buildConnectedProviders } from "./usageStatsProviders";
@@ -11,8 +11,8 @@ export function useUsageStatsData(period: string) {
   const searchParams = useSearchParams();
   const sortBy = searchParams.get("sortBy") || "rawModel";
   const sortOrder = searchParams.get("sortOrder") || "asc";
+  const { mutate } = useSWRConfig();
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
-  const hasLoadedStats = useRef(false);
 
   const { data: connectionsData } = useSWR("/api/providers", jsonFetcher);
   const { data: nodesData } = useSWR("/api/provider-nodes", jsonFetcher);
@@ -34,11 +34,13 @@ export function useUsageStatsData(period: string) {
   const fetching = isValidating && !isLoading;
 
   useEffect(() => {
-    if (statsData) {
-      hasLoadedStats.current = true;
-      setStats((prev) => ({ ...prev, ...statsData }));
-    }
+    if (statsData) setStats((prev) => ({ ...prev, ...statsData }));
   }, [statsData]);
+
+  // Topo da lista de recentes na última mensagem do stream. `null` = ainda não
+  // chegou nenhuma; a primeira só sincroniza, porque o SWR de montagem já leu
+  // os mesmos dados.
+  const lastRecordedAt = useRef<string | null>(null);
 
   useEffect(() => {
     const es = new EventSource("/api/usage/stream");
@@ -46,10 +48,25 @@ export function useUsageStatsData(period: string) {
       try {
         const data = JSON.parse(e.data);
         setStats((prev) => prev ? { ...prev, activeRequests: data.activeRequests, recentRequests: data.recentRequests, errorProvider: data.errorProvider, pending: data.pending } : prev);
+
+        // O payload traz os totais do período "all" (`getUsageStats()` sem
+        // argumento, no stream) e a tela está no período que o usuário
+        // escolheu — por isso só os quatro campos acima vêm dele. Os cards, o
+        // gráfico e a tabela se releem do endpoint do período certo, senão uma
+        // chamada feita pela API só aparecia ali depois de recarregar a página.
+        // Só quando uma linha nova foi gravada: o stream também acorda a cada
+        // requisição que começa e termina, e aquilo não muda nenhum total.
+        const recordedAt: string = data.recentRequests?.[0]?.timestamp ?? "";
+        const isFirstMessage: boolean = lastRecordedAt.current === null;
+        const hasNewRow: boolean = recordedAt !== lastRecordedAt.current;
+        lastRecordedAt.current = recordedAt;
+        if (!isFirstMessage && hasNewRow) {
+          mutate((key: unknown) => typeof key === "string" && key.startsWith("/api/usage/"));
+        }
       } catch (err) { console.error("[SSE CLIENT] parse error:", err); }
     };
     return () => es.close();
-  }, []);
+  }, [mutate]);
 
   const toggleSort = useCallback((_tableType: string, field: string) => {
     const params = new URLSearchParams(searchParams.toString());

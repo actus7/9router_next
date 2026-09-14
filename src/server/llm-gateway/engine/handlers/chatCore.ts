@@ -5,6 +5,7 @@ import { HTTP_STATUS, TOKEN_SAVER_HEADER } from "../config/runtimeConfig";
 import { handleBypassRequest } from "../utils/bypassHandler";
 import { trySynapseIntercept } from "../rtk/synapse";
 import { trackPendingRequest, appendRequestLog } from "../host/usage";
+import { captureTenant } from "../host/tenant";
 import { getExecutor } from "../executors/index";
 import { bootstrap } from "@/server/plugin-core/context";
 import { handleForcedSSEToJson } from "./chatCore/sseToJsonHandler";
@@ -247,15 +248,20 @@ export async function handleChatCore({
     `${provider.toUpperCase()} | ${model} | ${msgCount} msgs`,
   );
 
+  // Disconnect e error são disparados pelo runtime ao fechar o socket, fora do
+  // withTenant da requisição — sem isto, `trackPendingRequest` estourava
+  // TenantContextError e derrubava o pipe ("failed to pipe response") num abort
+  // no meio do stream.
+  const runInTenant = captureTenant();
   const streamController = createStreamController({
     // The controller reports { reason, duration }; the caller's callback takes
     // the reason alone. Forwarding the object here used to pass the type check
     // only because the options object was cast.
-    onDisconnect: ({ reason }) => {
+    onDisconnect: ({ reason }) => runInTenant(() => {
       trackPendingRequest(model, provider, connectionId, false);
       if (onDisconnect) onDisconnect(reason);
-    },
-    onError: () => trackPendingRequest(model, provider, connectionId, false),
+    }),
+    onError: () => runInTenant(() => trackPendingRequest(model, provider, connectionId, false)),
     log,
     provider,
     model,

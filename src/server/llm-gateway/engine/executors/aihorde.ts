@@ -173,6 +173,23 @@ export class AIHordeExecutor extends BaseExecutor {
       const data = (await response.json()) as Record<string, unknown>;
       this.synthesizeUsage(body, data);
 
+      // The queued proxy reports HTTP 200 even when the volunteer worker
+      // serving this model is broken and produced nothing — live-observed on
+      // koboldcpp/Gemma-4-E4B-it-Ultra-Uncensored-Heretic, reproduced 3/3
+      // times. Throwing here routes through the normal executor error path
+      // (chatCore's catch → account/provider fallback) instead of forwarding
+      // a silent empty message.
+      const choices = (data.choices as Array<Record<string, unknown>>) || [];
+      const hasContent = choices.some((c) => {
+        const msg = c.message as Record<string, unknown> | undefined;
+        return typeof msg?.content === "string" && msg.content.trim().length > 0;
+      });
+      if (!hasContent) {
+        throw new Error(
+          `AI Horde returned an empty completion for "${model}" — the volunteer worker serving this model is likely misconfigured. Try again or pick a different model.`,
+        );
+      }
+
       dbg("AIHORDE", `← ${response.status} | model=${model} | usage=${JSON.stringify(data.usage)}`);
 
       // For streaming: wrap the complete response as a single SSE chunk sequence

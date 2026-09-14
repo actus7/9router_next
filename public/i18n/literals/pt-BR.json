@@ -1333,7 +1333,6 @@
   "Paste this into your AI:": "Cole isso na sua IA:",
   "Browse the source code, README and examples.": "Navegue pelo código-fonte, README e exemplos.",
   "Request detail recording is off.": "O registro de detalhes de requisição está desligado.",
-  "The summary counts every request, but this tab needs observability enabled. Turn it on in Profile — only requests made after that are recorded.": "O resumo conta todas as requisições, mas esta aba precisa da observabilidade ligada. Ative em Perfil — só as requisições feitas depois disso são registradas.",
   "Group models under a name and choose a strategy per combo:": "Agrupe modelos sob um nome e escolha uma estratégia por combinação:",
   "Tries models in order and moves to the next after a failure.": "Tenta os modelos em ordem e passa para o próximo após uma falha.",
   "Rotates models between requests to distribute load.": "Alterna os modelos entre requisições para distribuir a carga.",
@@ -1419,5 +1418,6 @@
   "Backup": "Backup",
   "Export or import this account's data": "Exporte ou importe os dados desta conta",
   "Replace this account's data?": "Substituir os dados desta conta?",
-  "Importing a backup deletes this account's current providers, keys, combos and settings, then restores what the file contains.": "Importar um backup apaga os provedores, chaves, combos e configurações atuais desta conta e restaura o que estiver no arquivo."
+  "Importing a backup deletes this account's current providers, keys, combos and settings, then restores what the file contains.": "Importar um backup apaga os provedores, chaves, combos e configurações atuais desta conta e restaura o que estiver no arquivo.",
+  "The summary counts every request, but this tab needs the switch above turned on — only requests made after that are recorded.": "O resumo conta todas as requisições, mas esta aba precisa do interruptor acima ligado — só as requisições feitas depois disso são registradas."
 }

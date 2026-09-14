@@ -20,7 +20,7 @@ interface FreeModelGroupPayload {
 }
 
 // Server-side discovery allows each free provider up to 2.5s (FREE_MODEL_DISCOVERY_TIMEOUT_MS
-// in api/models/free/route.ts), running in parallel across ~7 providers. 3s left too thin a
+// in server/application/use-cases/http/v1/models/freeModelGroups.ts), running in parallel across ~7 providers. 3s left too thin a
 // margin for the response body to finish streaming past that ceiling, so AbortSignal.timeout
 // fired mid-.json() and silently dropped every free provider (OpenCode, Duck.ai, etc.) from
 // the chat picker even though the server had already responded with full data.

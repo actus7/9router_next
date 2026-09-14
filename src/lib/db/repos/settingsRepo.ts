@@ -81,7 +81,9 @@ const DEFAULT_SETTINGS: Settings = {
     videoInput: { enabled: false, roundRobin: false, models: [] },
   },
   requireApiKey: true,
-  enableObservability: false,
+  // Ligada: a aba "Detalhes" só existe por causa dela, e desligada por padrão
+  // ela ficava vazia numa conta nova sem que nada na tela dissesse por quê.
+  enableObservability: true,
   observabilityMaxRecords: 1000,
   observabilityBatchSize: 20,
   observabilityFlushIntervalMs: 5000,

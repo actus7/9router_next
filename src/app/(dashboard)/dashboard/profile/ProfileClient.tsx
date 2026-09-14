@@ -20,7 +20,6 @@ import LanguageCard from "./sections/LanguageCard";
 import SecurityCard from "./sections/SecurityCard";
 import RoutingCard from "./sections/RoutingCard";
 import NetworkCard from "./sections/NetworkCard";
-import ObservabilityCard from "./sections/ObservabilityCard";
 import AccountActions from "./sections/AccountActions";
 
 function getLocaleFromCookie() {
@@ -92,12 +91,6 @@ export default function ProfileClient({ initialSettings }: ProfileClientProps) {
           updateOutboundProxy={outboundProxy.updateOutboundProxy}
           testOutboundProxy={outboundProxy.testOutboundProxy}
           updateOutboundProxyEnabled={outboundProxy.updateOutboundProxyEnabled}
-        />
-
-        <ObservabilityCard
-          observabilityEnabled={profileSettings.observabilityEnabled}
-          loading={loading}
-          updateObservabilityEnabled={profileSettings.updateObservabilityEnabled}
         />
 
         <AccountActions handleLogout={handleLogout} />

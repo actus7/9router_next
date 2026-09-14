@@ -7,6 +7,7 @@ import { createErrorResult } from "../../utils/error";
 import { HTTP_STATUS } from "../../config/runtimeConfig";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail";
+import { isEmptyChatCompletion } from "./emptyCompletion";
 import { saveRequestDetail } from "../../host/usage";
 import { summarizeRoutingTrace } from "../../host/routingTrace";
 import { getRoutingTrace } from "../../services/routingTrace";
@@ -356,6 +357,14 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     if (hasToolCalls && choice.finish_reason !== "tool_calls") {
       choice.finish_reason = "tool_calls";
     }
+  }
+
+  // A 200 with no text, no tool call and no reasoning is a failure wearing a
+  // success status (a broken free/community worker, most often) — treat it as
+  // retryable instead of forwarding an empty message to the client.
+  if (!isClaudeMessageResponse && !isResponsesResponse && isEmptyChatCompletion(translatedResponse)) {
+    appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
+    return createErrorResult(HTTP_STATUS.BAD_GATEWAY, `${provider}/${model} returned an empty completion`);
   }
 
   // Ensure OpenAI-required fields

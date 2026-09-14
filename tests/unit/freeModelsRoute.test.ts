@@ -5,7 +5,7 @@ import {
   getEligibleFreeModelProviders,
   parseRemoteModels,
   resolveFreeModelGroups,
-} from "@/app/api/models/free/route";
+} from "@/server/application/use-cases/http/v1/models/freeModelGroups";
 import { buildFreeChatModels, isFreeModelEnabledForChat } from "@/app/(dashboard)/dashboard/basic-chat/hooks/useChatModels";
 
 vi.mock("@/server/application/http/tenantRoute", async () => (await import("../setup/routeWrappers")).routeWrapperMocks);

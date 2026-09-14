@@ -48,11 +48,10 @@ async function getObservabilityConfig(): Promise<ObservabilityConfig> {
     }
     /**
      * `enableObservability` decides it, and it is always present: `getSettings`
-     * merges DEFAULT_SETTINGS, where it is `false`. There used to be an
+     * merges DEFAULT_SETTINGS, where it is `true`. There used to be an
      * `OBSERVABILITY_ENABLED !== "false"` fallback here for when the key was
-     * absent — it could never run, and reading it gave the opposite impression
-     * of what the product actually does, which is: record nothing until the
-     * operator turns the toggle on in Profile.
+     * absent — it could never run, because the key is never absent.
+     * `ENABLE_REQUEST_LOGS` acima ainda vence, para desligar por deploy.
      */
     const enabled: boolean = settings.enableObservability === true;
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import useSWR from "swr";
 import Drawer from "@/shared/components/Drawer";
+import { Switch } from "@/components/ui/switch";
 import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 import { translate } from "@/i18n/runtime";
 import type { RequestDetail } from "./types";
@@ -49,18 +50,46 @@ export default function RequestDetailsTab() {
   const totalItems = data?.pagination?.totalItems ?? 0;
 
   /*
-   * Overview counts every request; this tab reads `requestDetails`, which is
-   * only written while observability is on — and it is off by default. Without
-   * knowing that, an empty table here reads as "your filter matched nothing"
-   * right after the summary showed the request, which is how it was reported.
+   * Overview counts every request; this tab reads `requestDetails`, que só é
+   * escrita com a observabilidade ligada. O interruptor mora aqui — era em
+   * Perfil, longe da única tela que ele governa, então uma tabela vazia lia
+   * como "seu filtro não achou nada" logo depois de o resumo mostrar a
+   * requisição, que foi como o problema chegou.
    */
-  const { data: settings } = useSWR<{ enableObservability?: boolean }>("/api/settings", jsonFetcher);
-  const observabilityOff = settings ? settings.enableObservability !== true : false;
+  const { data: settings, mutate: mutateSettings } = useSWR<{ enableObservability?: boolean }>("/api/settings", jsonFetcher);
+  const observabilityOn = settings?.enableObservability === true;
+  const observabilityOff = settings ? !observabilityOn : false;
+
+  const setObservability = useCallback(async (enabled: boolean) => {
+    await mutateSettings(async (current) => {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enableObservability: enabled }),
+      });
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      return { ...current, enableObservability: enabled };
+    }, { optimisticData: { ...settings, enableObservability: enabled }, revalidate: false, rollbackOnError: true });
+  }, [mutateSettings, settings]);
 
   useEffect(() => { fetchProviders(); }, [fetchProviders]);
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
+      <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-bg-subtle px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-text-main">{translate("Enable Observability")}</p>
+          <p className="text-xs text-text-muted">
+            {translate("Record request details for inspection in the logs view")}
+          </p>
+        </div>
+        <Switch
+          checked={observabilityOn}
+          onCheckedChange={setObservability}
+          disabled={!settings}
+          aria-label={translate("Enable Observability") ?? "Enable Observability"}
+        />
+      </div>
       <FilterBar providers={providers} filters={filters} onFiltersChange={setFilters} />
       <RequestTable
         details={details} loading={loading} pagination={{ page, pageSize, totalItems }}

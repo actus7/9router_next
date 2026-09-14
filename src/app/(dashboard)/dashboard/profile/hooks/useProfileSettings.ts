@@ -114,23 +114,6 @@ const updateFreeFallbackEnabled = async (enabled: boolean) => {
     }
   };
 
-  const updateObservabilityEnabled = async (enabled: boolean) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enableObservability: enabled }),
-      });
-      if (res.ok) {
-        setSettings(prev => ({ ...prev, enableObservability: enabled }));
-      }
-    } catch (err) {
-      console.error("Falha ao atualizar habilitar observabilidade:", err);
-    }
-  };
-
-  const observabilityEnabled = settings.enableObservability === true;
-
   return {
     settings,
     setSettings,
@@ -143,7 +126,5 @@ const updateFreeFallbackEnabled = async (enabled: boolean) => {
     updateStickyLimit,
     updateComboStickyLimit,
     updateRequireLogin,
-    updateObservabilityEnabled,
-    observabilityEnabled,
   };
 }
