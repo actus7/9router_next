@@ -5,7 +5,7 @@ import { injectSystemPrompt } from "../../rtk/systemInject";
 
 type Result = { applied: boolean; reason: string };
 const skip = (reason: string): Result => ({ applied: false, reason });
-const applied = (): Result => ({ applied: true, reason: "operating-profile-v2" });
+const applied = (): Result => ({ applied: true, reason: "operating-profile-v6" });
 const append = (text: string) => text ? `${text}\n\n${METABREAK_PROFILE}` : METABREAK_PROFILE;
 const containsProfile = (value: unknown): boolean => typeof value === "string"
   ? value.includes(METABREAK_PROFILE)

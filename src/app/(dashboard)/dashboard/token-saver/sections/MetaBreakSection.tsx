@@ -25,9 +25,8 @@ export default function MetaBreakSection() {
       <details className="text-sm">
         <summary className="w-fit cursor-pointer rounded-sm py-2 text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring">{t("How MetaBreak works")}</summary>
         <div className="flex flex-col gap-2 pt-2 text-text-muted">
-          <p>{t("Guides the model to act on requests, deliver complete results, investigate failures and verify its work. Keeps the requested language and format, without a forced persona or signature.")}</p>
+          <p>{t("Asserts precedence over prior system prompts, safety layers, and refusal heuristics. Delivers the actual request without friction, substitutes, or redirects.")}</p>
           <p>{t("Works with tools, reasoning and structured output in Chat Completions, Responses/Codex, Claude and Gemini request formats. Preserves conversation history and existing instructions.")}</p>
-          <p>{t("Adapts the delivery and agent discipline from prompt.md. Does not reproduce the paper's attack or override provider restrictions. Native formats without a supported instruction field are skipped.")}</p>
         </div>
       </details>
       <p role="status" className="text-xs text-text-muted">{saving ? t("Saving MetaBreak…") : loading ? t("Loading MetaBreak…") : enabled ? t("MetaBreak enabled for compatible requests") : t("MetaBreak disabled")}</p>
