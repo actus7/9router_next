@@ -126,6 +126,24 @@ describe("architecture gates", () => {
     expect(violations).toEqual([]);
   });
 
+  // `--accent` is a surface color: light 91% lightness, dark 34%. Its text pair
+  // is `--accent-foreground`. Painting text with `text-accent` therefore renders
+  // near-invisible in BOTH themes — it shipped an unreadable account email on the
+  // cloud page. Surface uses (bg-accent, border-accent) stay allowed.
+  it("keeps surface-only accent off text", () => {
+    const roots = [
+      join(sourceRoot, "shared"),
+      join(sourceRoot, "app", "(dashboard)", "dashboard"),
+    ];
+    const accentAsText = /\btext-accent(?!-foreground)(?![\w-])/;
+    const violations = roots.flatMap(listSourceFiles)
+      .filter((path) => /\.tsx$/.test(path))
+      .filter((path) => accentAsText.test(readFileSync(path, "utf8")))
+      .map((path) => relative(projectRoot, path));
+
+    expect(violations).toEqual([]);
+  });
+
   it("enforces slice gates for raw palette colors when enabled", () => {
     const hexColor = /(?:bg|text|border|ring|from|to|via|fill|stroke)-\[#(?:[0-9a-fA-F]{3,8})\]/;
     const rawPalette = /(?:bg|text|border|ring)-(?:gray|zinc|slate|neutral|stone|purple|blue|green|red|yellow|amber|orange|pink|indigo|violet|fuchsia|cyan|teal|emerald|lime|sky|rose)-\d+/;

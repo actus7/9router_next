@@ -35,12 +35,12 @@ const STATUS_CONFIG: Record<Deployment["status"], { label: string; icon: React.R
   provisioning: {
     label: "Provisionando",
     icon: <Loader2 className="size-4 animate-spin" />,
-    color: "text-amber-600",
+    color: "text-warning",
   },
   healthy: {
     label: "Ativo",
     icon: <CheckCircle2 className="size-4" />,
-    color: "text-accent",
+    color: "text-success",
   },
   failed: {
     label: "Falhou",
@@ -91,7 +91,7 @@ export default function DeploymentCard({ deployment, toolName, onRefresh, onDele
                 href={deployment.publicUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-accent hover:underline break-all"
+                className="flex items-center gap-2 text-sm text-info hover:underline break-all"
               >
                 <ExternalLink className="size-3.5 flex-shrink-0" />
                 {deployment.publicUrl}

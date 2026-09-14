@@ -5,6 +5,7 @@ import { Cloud, Zap, CheckCircle2, AlertCircle } from "lucide-react";
 import ProviderConnectCard from "./components/ProviderConnectCard";
 import DeployForm from "./components/DeployForm";
 import DeploymentCard from "./components/DeploymentCard";
+import { useDeployModelProviders } from "./hooks/useDeployModelProviders";
 import { CLOUD_TOOL_CATALOG } from "./toolCatalog";
 
 interface Connection {
@@ -39,6 +40,7 @@ export default function CloudPageClient() {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [cloudEnabled, setCloudEnabled] = useState(false);
+  const { modelProviders, isLoadingModelProviders } = useDeployModelProviders();
   const [selectedToolId, ] = useState(CLOUD_TOOL_CATALOG[0]?.id ?? "");
   const [isLoading, setIsLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -130,11 +132,20 @@ export default function CloudPageClient() {
       {/* Header */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <Cloud className="size-6 text-accent" />
+          <Cloud className="size-6 text-primary" />
           <h1 className="text-2xl font-semibold">Cloud Deploy</h1>
         </div>
         <p className="text-sm text-text-muted">Provisione CLIs na nuvem de forma segura. Comece conectando um provedor cloud.</p>
       </div>
+
+      {/* Outside every list: a failed deploy is the case where there is no
+          deployment to render beside, and the error was invisible there. */}
+      {actionError && (
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <AlertCircle className="size-5 text-destructive mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-destructive-foreground">{actionError}</p>
+        </div>
+      )}
 
       {/* Step 1: Connect Providers */}
       <section className="space-y-4">
@@ -162,6 +173,8 @@ export default function CloudPageClient() {
             <DeployForm
               toolName={selectedTool.name}
               availableProviders={PROVIDER_META.map((p) => ({ ...p, connected: connections.some((c) => c.provider === p.id) }))}
+              modelProviders={modelProviders}
+              isLoadingModelProviders={isLoadingModelProviders}
               apiKeys={apiKeys}
               cloudEnabled={cloudEnabled}
               onDeploy={(input) => handleDeploy(selectedTool.id, input)}
@@ -181,12 +194,6 @@ export default function CloudPageClient() {
       {deployments.length > 0 && (
         <section className="space-y-4 pt-4 border-t border-border">
           <h2 className="text-lg font-semibold">Seus ambientes ({deployments.length})</h2>
-          {actionError && (
-            <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-              <AlertCircle className="size-5 text-destructive mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-destructive-foreground">{actionError}</p>
-            </div>
-          )}
           <div className="space-y-3">
             {deployments.map((d) => (
               <DeploymentCard

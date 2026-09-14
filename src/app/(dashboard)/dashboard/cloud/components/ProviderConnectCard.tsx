@@ -54,7 +54,7 @@ export default function ProviderConnectCard({ provider, label, hint, description
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             {connection ? (
-              <CheckCircle2 className="size-4 text-accent" />
+              <CheckCircle2 className="size-4 text-success" />
             ) : (
               <AlertCircle className="size-4 text-text-muted opacity-50" />
             )}
@@ -64,7 +64,7 @@ export default function ProviderConnectCard({ provider, label, hint, description
             <p className="text-xs text-text-muted mb-1">{description}</p>
           )}
           {connection ? (
-            <p className="text-xs text-accent font-medium">
+            <p className="text-xs text-text font-medium">
               {connection.externalUserEmail || connection.externalOrgName || "Conectado"}
             </p>
           ) : (
@@ -108,17 +108,17 @@ export default function ProviderConnectCard({ provider, label, hint, description
                   <p className="text-sm font-medium">Como gerar:</p>
                   {provider === "render" && (
                     <ol className="text-sm space-y-1 list-decimal list-inside">
-                      <li>Abra <a href="https://dashboard.render.com/account/api-tokens" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-semibold hover:text-blue-300 hover:underline">dashboard.render.com/account/api-tokens</a></li>
-                      <li>Clique em <span className="font-medium">"Create API Key"</span></li>
-                      <li>Dê um nome (ex: "Cloud Deploy")</li>
+                      <li>Abra <a href="https://dashboard.render.com/account/api-tokens" target="_blank" rel="noopener noreferrer" className="text-info font-semibold hover:underline">dashboard.render.com/account/api-tokens</a></li>
+                      <li>Clique em <span className="font-medium">Create API Key</span></li>
+                      <li>Dê um nome (ex: Cloud Deploy)</li>
                       <li>Copie e cole aqui</li>
                     </ol>
                   )}
                   {provider === "railway" && (
                     <ol className="text-sm space-y-1 list-decimal list-inside">
-                      <li>Abra <a href="https://railway.app/account/tokens" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-semibold hover:text-blue-300 hover:underline">railway.app/account/tokens</a></li>
-                      <li>Clique em <span className="font-medium">"Create Token"</span></li>
-                      <li>Dê um nome (ex: "Cloud Deploy")</li>
+                      <li>Abra <a href="https://railway.app/account/tokens" target="_blank" rel="noopener noreferrer" className="text-info font-semibold hover:underline">railway.app/account/tokens</a></li>
+                      <li>Clique em <span className="font-medium">Create Token</span></li>
+                      <li>Dê um nome (ex: Cloud Deploy)</li>
                       <li>Copie e cole aqui</li>
                     </ol>
                   )}
