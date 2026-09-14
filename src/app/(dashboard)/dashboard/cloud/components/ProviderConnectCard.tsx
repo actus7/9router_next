@@ -92,36 +92,37 @@ export default function ProviderConnectCard({ provider, label, hint, description
               <DialogTitle>Conectar {label}</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-3 py-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
+              <div className="space-y-3">
+                <div>
                   <label className="text-sm font-medium">Token da API</label>
+                  <Input
+                    type="password"
+                    placeholder="Cole o token aqui"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                    className="mt-1.5"
+                  />
+                </div>
+
+                <div className="bg-surface/60 border border-border rounded p-3 space-y-2">
+                  <p className="text-sm font-medium">Como gerar:</p>
                   {provider === "render" && (
-                    <a
-                      href="https://dashboard.render.com/api-tokens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-accent hover:underline"
-                    >
-                      Gerar novo token →
-                    </a>
+                    <ol className="text-sm space-y-1 list-decimal list-inside">
+                      <li>Abra <a href="https://dashboard.render.com/api-tokens" target="_blank" rel="noopener noreferrer" className="text-accent font-medium hover:underline">dashboard.render.com/api-tokens</a></li>
+                      <li>Clique em <span className="font-medium">"Create API Key"</span></li>
+                      <li>Dê um nome (ex: "Cloud Deploy")</li>
+                      <li>Copie e cole aqui</li>
+                    </ol>
                   )}
                   {provider === "railway" && (
-                    <a
-                      href="https://railway.app/project/_/settings/tokens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-accent hover:underline"
-                    >
-                      Gerar novo token →
-                    </a>
+                    <ol className="text-sm space-y-1 list-decimal list-inside">
+                      <li>Abra <a href="https://railway.app/project/_/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-accent font-medium hover:underline">railway.app/settings/tokens</a></li>
+                      <li>Clique em <span className="font-medium">"Create Token"</span></li>
+                      <li>Dê um nome (ex: "Cloud Deploy")</li>
+                      <li>Copie e cole aqui</li>
+                    </ol>
                   )}
                 </div>
-                <Input
-                  type="password"
-                  placeholder="Cole o token aqui"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                />
               </div>
               {error && (
                 <div className="flex items-start gap-2 rounded-sm bg-destructive/10 p-3">
