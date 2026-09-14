@@ -108,7 +108,7 @@ export default function ProviderConnectCard({ provider, label, hint, description
                   <p className="text-sm font-medium">Como gerar:</p>
                   {provider === "render" && (
                     <ol className="text-sm space-y-1 list-decimal list-inside">
-                      <li>Abra <a href="https://dashboard.render.com/api-tokens" target="_blank" rel="noopener noreferrer" className="text-accent font-medium hover:underline">dashboard.render.com/api-tokens</a></li>
+                      <li>Abra <a href="https://dashboard.render.com/api-tokens" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-semibold hover:text-blue-300 hover:underline">dashboard.render.com/api-tokens</a></li>
                       <li>Clique em <span className="font-medium">"Create API Key"</span></li>
                       <li>Dê um nome (ex: "Cloud Deploy")</li>
                       <li>Copie e cole aqui</li>
@@ -116,7 +116,7 @@ export default function ProviderConnectCard({ provider, label, hint, description
                   )}
                   {provider === "railway" && (
                     <ol className="text-sm space-y-1 list-decimal list-inside">
-                      <li>Abra <a href="https://railway.app/project/_/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-accent font-medium hover:underline">railway.app/settings/tokens</a></li>
+                      <li>Abra <a href="https://railway.app/project/_/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-semibold hover:text-blue-300 hover:underline">railway.app/settings/tokens</a></li>
                       <li>Clique em <span className="font-medium">"Create Token"</span></li>
                       <li>Dê um nome (ex: "Cloud Deploy")</li>
                       <li>Copie e cole aqui</li>
