@@ -55,6 +55,12 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
 
+    for (const key of ["metaBreakEnabled", "jailbreakEnabled"]) {
+      if (Object.prototype.hasOwnProperty.call(body, key) && typeof body[key] !== "boolean") {
+        return NextResponse.json({ error: "MetaBreak enabled must be a boolean" }, { status: 400 });
+      }
+    }
+
     // Strip protected secrets before any internal handling sets them
     for (const key of PROTECTED_SETTING_KEYS) delete body[key];
 

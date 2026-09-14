@@ -17,6 +17,7 @@ import { supportsGrokCliReasoningEffort } from "../../config/grokCli";
 import { detectClientTool, isNativePassthrough } from "../../utils/clientDetector";
 import { dedupeTools } from "../../utils/toolDeduper";
 import { injectCaveman } from "../../rtk/caveman";
+import { applyMetaBreak } from "./metabreak";
 import { injectPonytail } from "../../rtk/ponytail";
 import { compressMessages, formatRtkLog } from "../../rtk/index";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../../rtk/headroom";
@@ -307,6 +308,7 @@ export async function runTokenSavers(params: {
   cavemanLevel?: string;
   ponytailEnabled?: boolean;
   ponytailLevel?: string;
+  metaBreakEnabled?: boolean;
   pxpipeEnabled?: boolean;
   pxpipeMinChars?: number;
   pxpipeTimeoutMs?: number;
@@ -318,7 +320,7 @@ export async function runTokenSavers(params: {
   log?: ChatLogger;
   finalizeClaudeCache?: boolean;
 }): Promise<{ translatedBody: Record<string, unknown>; pxpipeSummary: PxpipeSummary | null }> {
-  const { translatedBody, finalFormat, upstreamModel, tokenSaverEnabled, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, provider, model, reqTag, log } = params;
+  const { translatedBody, finalFormat, upstreamModel, tokenSaverEnabled, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, metaBreakEnabled, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, provider, model, reqTag, log } = params;
   let body = translatedBody;
 
   // RTK: compress tool_result content
@@ -364,6 +366,13 @@ export async function runTokenSavers(params: {
     if (pxpipeResult.body) body = pxpipeResult.body;
     if (pxpipeSummary?.applied) xf.push(`PXPIPE:${(pxpipeSummary as PxpipeSummary).imageCount ?? 0}img`);
     try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
+  }
+
+  // Apply after compressors so the fixed operating profile stays intact.
+  if (tokenSaverEnabled && metaBreakEnabled) {
+    const result = applyMetaBreak(body, finalFormat);
+    if (result.applied) xf.push("METABREAK");
+    else log?.info?.("METABREAK", `skipped: ${result.reason}`);
   }
 
   if (xf.length && log?.line) log.line(reqTag, "⚙", xf.join(" · "));

@@ -18,5 +18,4 @@ export interface StatusMessage {
 
 export interface ProfileClientProps {
   initialSettings: Settings;
-  initialDbInfo: Record<string, unknown>;
 }

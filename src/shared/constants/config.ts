@@ -11,6 +11,11 @@ export const APP_CONFIG = {
 // GitHub configuration
 export const GITHUB_CONFIG = {
   changelogUrl: "/CHANGELOG.md",
+  // The landing pointed at `decolua/modelhub` and `npmjs.com/package/modelhub`
+  // in eleven places; both 404 today. One constant so the next rename is one
+  // edit instead of eleven.
+  repoUrl: "https://github.com/actus7/9router_next",
+  readmeUrl: "https://github.com/actus7/9router_next#readme",
 } as const;
 
 

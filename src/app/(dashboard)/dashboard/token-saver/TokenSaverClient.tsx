@@ -13,6 +13,7 @@ import { usePxpipe } from "./hooks/usePxpipe";
 import { useTokenSaverSettings } from "./hooks/useTokenSaverSettings";
 import PxpipeSection from "./sections/PxpipeSection";
 import PxpipeModal from "./sections/PxpipeModal";
+import MetaBreakSection from "./sections/MetaBreakSection";
 
 function t(text: string): string {
   return translate(text) || text;
@@ -230,6 +231,8 @@ export default function TokenSaverClient() {
           setShowPxpipeModal={pxpipe.setShowPxpipeModal}
           handlePxpipeEnabled={pxpipe.handlePxpipeEnabled}
         />
+
+        <MetaBreakSection />
       </Card>
 
       <PxpipeModal

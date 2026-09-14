@@ -45,6 +45,7 @@ interface Settings {
   ponytailLevel: string;
   synapseEnabled: boolean;
   synapseLevel: string;
+  metaBreakEnabled: boolean;
   pxpipeEnabled: boolean;
   pxpipeAutoInstall: boolean;
   pxpipeMinChars: number;
@@ -98,6 +99,7 @@ const DEFAULT_SETTINGS: Settings = {
   ponytailLevel: "full",
   synapseEnabled: false,
   synapseLevel: "lite",
+  metaBreakEnabled: false,
   pxpipeEnabled: false,
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
@@ -113,6 +115,7 @@ async function readRaw(): Promise<Record<string, unknown>> {
 
 // Merge raw settings with defaults; backward-compat for missing keys
 function mergeWithDefaults(raw: Record<string, unknown>): Settings {
+  raw = normalizeMetaBreakSettings(raw);
   const merged: Settings = { ...DEFAULT_SETTINGS, ...(raw || {}) } as Settings;
   for (const [key, defVal] of Object.entries(DEFAULT_SETTINGS)) {
     if ((merged as Record<string, unknown>)[key] === undefined) {
@@ -143,7 +146,7 @@ export async function updateSettings(updates: Record<string, unknown>): Promise<
   await db.transaction(async () => {
     const row = (await db.get(`SELECT data FROM settings WHERE userId = ?`, [userId])) as { data: string } | undefined;
     const current: Record<string, unknown> = row ? (parseJson(row.data, {}) as Record<string, unknown>) : {};
-    next = { ...current, ...updates } as Settings;
+    next = { ...normalizeMetaBreakSettings(current), ...normalizeMetaBreakSettings(updates) } as Settings;
     await db.run(
       `INSERT INTO settings(userId, data) VALUES(?, ?) ON CONFLICT(userId) DO UPDATE SET data = excluded.data`,
       [userId, stringifyJson(next)],
@@ -168,5 +171,15 @@ export async function getCloudUrl(): Promise<string> {
 }
 
 export async function exportSettings(): Promise<Record<string, unknown>> {
-  return await readRaw();
+  return normalizeMetaBreakSettings(await readRaw());
+}
+
+// Read legacy toggles without retaining the retired user-editable prompt.
+function normalizeMetaBreakSettings(raw: Record<string, unknown>): Record<string, unknown> {
+  const { jailbreakEnabled, jailbreakPrompt: _legacyPrompt, metaBreakPrompt: _prompt, ...settings } = raw;
+  if (typeof settings.metaBreakEnabled !== "boolean" && typeof jailbreakEnabled === "boolean") {
+    settings.metaBreakEnabled = jailbreakEnabled;
+  }
+  if ("metaBreakEnabled" in settings) settings.metaBreakEnabled = settings.metaBreakEnabled === true;
+  return settings;
 }

@@ -25,7 +25,6 @@ export default function AccountActions({ handleLogout }: AccountActionsProps) {
 
       <div className="text-center text-xs sm:text-sm text-text-muted py-4">
         <p>{APP_CONFIG.name} v{APP_CONFIG.version}</p>
-        <p className="mt-1">{translate("Local Mode - All data stored on your machine")}</p>
       </div>
     </>
   );

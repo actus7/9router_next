@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getSettings, getDatabaseInfo } from "@/lib/data-access";
+import { getSettings } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ProfileClient from "./ProfileClient";
@@ -8,11 +8,8 @@ import { withTenantPage } from "@/server/application/http/withTenantPage";
 async function ProfileContent() {
   return withTenantPage(async () => {
     await assertRequestRuntime();
-    const [settings, dbInfo] = await Promise.all([
-      getSettings(),
-      getDatabaseInfo()
-    ]);
-    return <ProfileClient initialSettings={settings} initialDbInfo={dbInfo} />;
+    const settings = await getSettings();
+    return <ProfileClient initialSettings={settings} />;
   });
 }
 

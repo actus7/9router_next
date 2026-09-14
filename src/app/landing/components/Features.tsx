@@ -34,7 +34,7 @@ const FEATURES: Feature[] = [
   { 
     icon: Zap, 
     title: "Easy Setup", 
-    desc: "Get up and running in minutes with npx command.", 
+    desc: "Connect a provider and route your first request in minutes.",
     colors: {
       border: "hover:border-orange-500/50",
       bg: "hover:bg-orange-500/5",

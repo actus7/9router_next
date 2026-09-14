@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Code, Rocket } from "lucide-react";
+import { APP_CONFIG, GITHUB_CONFIG } from "@/shared/constants/config";
 
 export default function HeroSection() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function HeroSection() {
         {/* Version badge */}
         <div className="inline-flex items-center gap-2 rounded-full border border-[#3a2f27] bg-[#23180f]/50 px-3 py-1 text-xs font-medium text-[#f97815]">
           <span className="flex h-2 w-2 rounded-full bg-[#f97815] animate-pulse"></span>
-          v1.0 is now live
+          v{APP_CONFIG.version} is now live
         </div>
 
         {/* Main heading */}
@@ -41,7 +42,7 @@ export default function HeroSection() {
             Get Started
           </Button>
           <a 
-            href="https://github.com/decolua/modelhub" 
+            href={GITHUB_CONFIG.repoUrl}
             target="_blank" 
             rel="noopener noreferrer"
             className="h-12 px-8 rounded-lg border border-[#3a2f27] bg-[#23180f] hover:bg-[#3a2f27] text-white text-base font-bold transition-all flex items-center gap-2"

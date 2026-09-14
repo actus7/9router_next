@@ -105,6 +105,7 @@ export interface HandleChatCoreOptions {
   cavemanLevel?: string;
   ponytailEnabled?: boolean;
   ponytailLevel?: string;
+  metaBreakEnabled?: boolean;
   synapseEnabled?: boolean;
   synapseLevel?: string;
   pxpipeEnabled?: boolean;

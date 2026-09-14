@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 interface Connection {
   id: string;
@@ -19,12 +19,13 @@ interface ProviderConnectCardProps {
   provider: "render" | "railway";
   label: string;
   hint: string;
+  description?: string;
   connection: Connection | null;
   onConnect: (provider: string, token: string) => Promise<{ error?: string }>;
   onDisconnect: (provider: string) => Promise<void>;
 }
 
-export default function ProviderConnectCard({ provider, label, hint, connection, onConnect, onDisconnect }: ProviderConnectCardProps) {
+export default function ProviderConnectCard({ provider, label, hint, description, connection, onConnect, onDisconnect }: ProviderConnectCardProps) {
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,41 +45,79 @@ export default function ProviderConnectCard({ provider, label, hint, connection,
   };
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-surface/40 px-4 py-3">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">{label}</span>
-          <Badge variant={connection ? "default" : "secondary"}>
-            {connection ? "Conectado" : "Desconectado"}
-          </Badge>
+    <div className={`flex flex-col gap-3 rounded-lg border p-4 transition-colors ${
+      connection
+        ? "border-accent/30 bg-accent/5"
+        : "border-border bg-surface/40"
+    }`}>
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            {connection ? (
+              <CheckCircle2 className="size-4 text-accent" />
+            ) : (
+              <AlertCircle className="size-4 text-text-muted opacity-50" />
+            )}
+            <h3 className="font-semibold text-sm">{label}</h3>
+          </div>
+          {description && (
+            <p className="text-xs text-text-muted mb-1">{description}</p>
+          )}
+          {connection ? (
+            <p className="text-xs text-accent font-medium">
+              {connection.externalUserEmail || connection.externalOrgName || "Conectado"}
+            </p>
+          ) : (
+            <p className="text-xs text-text-muted">{hint}</p>
+          )}
         </div>
-        <p className="text-xs text-text-muted">
-          {connection?.externalUserEmail || connection?.externalOrgName || hint}
-        </p>
       </div>
+
       {connection ? (
-        <Button variant="outline" size="sm" onClick={() => onDisconnect(provider)}>Desconectar</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onDisconnect(provider)}
+          className="w-full"
+        >
+          Desconectar
+        </Button>
       ) : (
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button variant="outline" size="sm" />}>
+          <DialogTrigger render={<Button size="sm" className="w-full" />}>
             Conectar
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Conectar {label}</DialogTitle>
             </DialogHeader>
-            <div className="flex flex-col gap-2 py-2">
-              <Input
-                type="password"
-                placeholder="API token"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-              />
-              {error && <p className="text-xs text-destructive-foreground">{error}</p>}
+            <div className="flex flex-col gap-3 py-4">
+              <div>
+                <label className="text-sm font-medium">Token da API</label>
+                <Input
+                  type="password"
+                  placeholder={`Paste your ${label} API token`}
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  className="mt-1.5"
+                />
+                <p className="text-xs text-text-muted mt-2">
+                  {provider === "render" && "Gere um token em https://dashboard.render.com/api-tokens"}
+                  {provider === "railway" && "Gere um token em https://railway.app/project/_/settings/tokens"}
+                </p>
+              </div>
+              {error && (
+                <div className="flex items-start gap-2 rounded-sm bg-destructive/10 p-3">
+                  <AlertCircle className="size-4 text-destructive mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-destructive-foreground">{error}</p>
+                </div>
+              )}
             </div>
             <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
               <Button onClick={handleConnect} disabled={!token.trim() || isSubmitting}>
-                {isSubmitting ? "Validando..." : "Conectar"}
+                {isSubmitting && <Loader2 className="size-4 mr-2 animate-spin" />}
+                {isSubmitting ? "Conectando..." : "Conectar"}
               </Button>
             </DialogFooter>
           </DialogContent>

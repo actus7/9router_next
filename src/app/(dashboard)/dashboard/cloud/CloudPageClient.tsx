@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Cloud, Zap, CheckCircle2, AlertCircle } from "lucide-react";
 import ProviderConnectCard from "./components/ProviderConnectCard";
 import DeployForm from "./components/DeployForm";
 import DeploymentCard from "./components/DeploymentCard";
@@ -29,8 +30,8 @@ interface ApiKey {
 }
 
 const PROVIDER_META = [
-  { id: "render" as const, label: "Render", hint: "Free tier com 750h/mês" },
-  { id: "railway" as const, label: "Railway", hint: "Free tier com créditos mensais" },
+  { id: "render" as const, label: "Render", hint: "Free tier com 750h/mês", description: "Hospede com escalabilidade automática" },
+  { id: "railway" as const, label: "Railway", hint: "Free tier com créditos mensais", description: "Deploy simplificado com CLI integrada" },
 ];
 
 export default function CloudPageClient() {
@@ -121,36 +122,51 @@ export default function CloudPageClient() {
   };
 
   const selectedTool = CLOUD_TOOL_CATALOG.find((t) => t.id === selectedToolId) ?? CLOUD_TOOL_CATALOG[0];
+  const connectedProviders = connections.map(c => c.provider);
+  const hasConnections = connectedProviders.length > 0;
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Cloud Deploy</h1>
-        <p className="text-sm text-text-muted">Provisione CLIs na nuvem em vez de rodá-las apenas na máquina local.</p>
+    <div className="flex flex-col gap-8 p-4 md:p-6 max-w-4xl">
+      {/* Header */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <Cloud className="size-6 text-accent" />
+          <h1 className="text-2xl font-semibold">Cloud Deploy</h1>
+        </div>
+        <p className="text-sm text-text-muted">Provisione CLIs na nuvem de forma segura. Comece conectando um provedor cloud.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {PROVIDER_META.map((p) => (
-          <ProviderConnectCard
-            key={p.id}
-            provider={p.id}
-            label={p.label}
-            hint={p.hint}
-            connection={connections.find((c) => c.provider === p.id) ?? null}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-          />
-        ))}
-      </div>
+      {/* Step 1: Connect Providers */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center size-8 rounded-full bg-accent/20 text-accent font-semibold text-sm">1</div>
+          <h2 className="text-lg font-semibold">Conecte um provedor cloud</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {PROVIDER_META.map((p) => (
+            <ProviderConnectCard
+              key={p.id}
+              provider={p.id}
+              label={p.label}
+              hint={p.hint}
+              description={p.description}
+              connection={connections.find((c) => c.provider === p.id) ?? null}
+              onConnect={handleConnect}
+              onDisconnect={handleDisconnect}
+            />
+          ))}
+        </div>
+      </section>
 
-      {!isLoading && CLOUD_TOOL_CATALOG.length === 0 && (
-        <p className="text-sm text-text-muted">Nenhuma CLI com imagem headless disponível para deploy em nuvem no momento.</p>
-      )}
-
-      {selectedTool && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium">{selectedTool.name}</h2>
+      {/* Step 2: Configure Deploy */}
+      {hasConnections && selectedTool && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center size-8 rounded-full bg-accent/20 text-accent font-semibold text-sm">2</div>
+            <h2 className="text-lg font-semibold">Configure o deploy</h2>
+          </div>
+          <div className="rounded-lg border border-border bg-surface/30 p-6">
+            <h3 className="text-base font-medium mb-4">{selectedTool.name}</h3>
             <DeployForm
               toolName={selectedTool.name}
               availableProviders={PROVIDER_META.map((p) => ({ ...p, connected: connections.some((c) => c.provider === p.id) }))}
@@ -159,25 +175,54 @@ export default function CloudPageClient() {
               onDeploy={(input) => handleDeploy(selectedTool.id, input)}
             />
           </div>
+        </section>
+      )}
 
-          <div className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium">Seus ambientes</h2>
-            {actionError && <p className="text-sm text-destructive-foreground">{actionError}</p>}
-            {deployments.length === 0 ? (
-              <p className="text-sm text-text-muted">Nenhum ambiente criado. Conecte um provedor, escolha o modelo e clique em Deploy.</p>
-            ) : (
-              deployments.map((d) => (
-                <DeploymentCard
-                  key={d.id}
-                  deployment={d}
-                  toolName={CLOUD_TOOL_CATALOG.find((t) => t.id === d.toolId)?.name ?? d.toolId}
-                  onRefresh={handleRefresh}
-                  onDelete={handleDelete}
-                />
-              ))
-            )}
-          </div>
+      {!isLoading && CLOUD_TOOL_CATALOG.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border bg-surface/20 p-8 text-center">
+          <Zap className="size-8 mx-auto mb-3 text-text-muted opacity-50" />
+          <p className="text-sm text-text-muted">Nenhuma CLI com imagem headless disponível para deploy em nuvem.</p>
         </div>
+      )}
+
+      {/* Step 3: View Deployments */}
+      {deployments.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center size-8 rounded-full bg-accent/20 text-accent font-semibold text-sm">3</div>
+            <h2 className="text-lg font-semibold">Seus ambientes ({deployments.length})</h2>
+          </div>
+          {actionError && (
+            <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+              <AlertCircle className="size-5 text-destructive mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-destructive-foreground">{actionError}</p>
+            </div>
+          )}
+          <div className="space-y-3">
+            {deployments.map((d) => (
+              <DeploymentCard
+                key={d.id}
+                deployment={d}
+                toolName={CLOUD_TOOL_CATALOG.find((t) => t.id === d.toolId)?.name ?? d.toolId}
+                onRefresh={handleRefresh}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {hasConnections && deployments.length === 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center size-8 rounded-full bg-accent/20 text-accent font-semibold text-sm">3</div>
+            <h2 className="text-lg font-semibold">Seus ambientes</h2>
+          </div>
+          <div className="rounded-lg border border-dashed border-border bg-surface/20 p-8 text-center">
+            <CheckCircle2 className="size-8 mx-auto mb-3 text-text-muted opacity-50" />
+            <p className="text-sm text-text-muted">Configure o deploy acima para criar seu primeiro ambiente.</p>
+          </div>
+        </section>
       )}
     </div>
   );

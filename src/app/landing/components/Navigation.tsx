@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Menu, Network, X } from "lucide-react";
+import { GITHUB_CONFIG } from "@/shared/constants/config";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,8 +29,8 @@ export default function Navigation() {
         <div className="hidden md:flex items-center gap-8">
           <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="#features">Features</a>
           <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="#how-it-works">How it Works</a>
-          <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="https://github.com/decolua/modelhub#readme" target="_blank" rel="noopener noreferrer">Docs</a>
-          <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors flex items-center gap-1" href="https://github.com/decolua/modelhub" target="_blank" rel="noopener noreferrer">
+          <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href={GITHUB_CONFIG.readmeUrl} target="_blank" rel="noopener noreferrer">Docs</a>
+          <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors flex items-center gap-1" href={GITHUB_CONFIG.repoUrl} target="_blank" rel="noopener noreferrer">
             GitHub <ExternalLink className="size-4" />
           </a>
         </div>
@@ -62,8 +63,8 @@ export default function Navigation() {
           <div className="flex flex-col gap-4 p-6">
             <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="#features" onClick={() => setMobileMenuOpen(false)}>Features</a>
             <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="#how-it-works" onClick={() => setMobileMenuOpen(false)}>How it Works</a>
-            <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="https://github.com/decolua/modelhub#readme" target="_blank" rel="noopener noreferrer">Docs</a>
-            <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href="https://github.com/decolua/modelhub" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href={GITHUB_CONFIG.readmeUrl} target="_blank" rel="noopener noreferrer">Docs</a>
+            <a className="text-gray-300 hover:text-white text-sm font-medium transition-colors" href={GITHUB_CONFIG.repoUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
             <Button 
               onClick={() => router.push("/dashboard")}
               className="h-9 rounded-lg bg-[#f97815] hover:bg-[#e0650a] text-[#181411] text-sm font-bold"

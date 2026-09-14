@@ -1403,5 +1403,21 @@
   "Only image files can be attached.": "Somente arquivos de imagem podem ser anexados.",
   "Could not sync sessions to server. Changes are saved locally.": "Não foi possível sincronizar as conversas com o servidor. As alterações estão salvas localmente.",
   "Could not load saved sessions. Using local copy.": "Não foi possível carregar as conversas salvas. Usando a cópia local.",
-  "Everything saved": "Tudo salvo"
+  "Everything saved": "Tudo salvo",
+  "Direct answers, complete work and persistence with tools. A fixed profile, with no prompt editing.": "Respostas diretas, trabalho completo e persistência com ferramentas. Perfil fixo, sem edição de prompt.",
+  "Experimental: adds context, not token compression. Results depend on the model and provider.": "Experimental: acrescenta contexto, sem comprimir tokens. Os resultados dependem do modelo e do provedor.",
+  "How MetaBreak works": "Como o MetaBreak funciona",
+  "Guides the model to act on requests, deliver complete results, investigate failures and verify its work. Keeps the requested language and format, without a forced persona or signature.": "Orienta o modelo a executar pedidos, entregar resultados completos, investigar falhas e verificar o trabalho. Mantém o idioma e o formato solicitados, sem personagem ou assinatura obrigatórios.",
+  "Works with tools, reasoning and structured output in Chat Completions, Responses/Codex, Claude and Gemini request formats. Preserves conversation history and existing instructions.": "Funciona com ferramentas, raciocínio e saída estruturada nos formatos Chat Completions, Responses/Codex, Claude e Gemini. Preserva o histórico da conversa e as instruções existentes.",
+  "Adapts the delivery and agent discipline from prompt.md. Does not reproduce the paper's attack or override provider restrictions. Native formats without a supported instruction field are skipped.": "Adapta as diretrizes de entrega e uso de ferramentas do prompt.md. Não reproduz o ataque do artigo nem substitui as restrições do provedor. Formatos nativos sem campo de instruções compatível são ignorados.",
+  "Saving MetaBreak…": "Salvando MetaBreak…",
+  "Loading MetaBreak…": "Carregando MetaBreak…",
+  "MetaBreak enabled for compatible requests": "MetaBreak ativado para requisições compatíveis",
+  "MetaBreak disabled": "MetaBreak desativado",
+  "Could not save MetaBreak. Your previous setting is unchanged. Try again.": "Não foi possível salvar o MetaBreak. A configuração anterior foi mantida. Tente novamente.",
+  "Could not load MetaBreak settings. Reload the page to try again.": "Não foi possível carregar o MetaBreak. Recarregue a página para tentar novamente.",
+  "Backup": "Backup",
+  "Export or import this account's data": "Exporte ou importe os dados desta conta",
+  "Replace this account's data?": "Substituir os dados desta conta?",
+  "Importing a backup deletes this account's current providers, keys, combos and settings, then restores what the file contains.": "Importar um backup apaga os provedores, chaves, combos e configurações atuais desta conta e restaura o que estiver no arquivo."
 }

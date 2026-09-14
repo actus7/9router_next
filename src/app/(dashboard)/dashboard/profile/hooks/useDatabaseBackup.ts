@@ -2,22 +2,21 @@
 
 import { useState, useRef } from "react";
 import { translate } from "@/i18n/runtime";
-import type { Settings, StatusMessage } from "../types";
+import type { StatusMessage } from "../types";
 
-export function useDatabaseBackup(settings: Settings, setSettings: React.Dispatch<React.SetStateAction<Settings>>, reloadSettings: () => Promise<void>) {
+export function useDatabaseBackup(reloadSettings: () => Promise<void>) {
   const [dbLoading, setDbLoading] = useState(false);
   const [dbStatus, setDbStatus] = useState<StatusMessage>({ type: "", message: "" });
-  const [dbAuth, setDbAuth] = useState({ open: false, mode: "", password: "" });
-  const pendingImportRef = useRef<File | null>(null);
+  // The import wipes this account's rows before restoring, so it still asks
+  // first — the password it used to ask for was never checked by the route.
+  const [pendingImport, setPendingImport] = useState<File | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
 
-  const handleExportDatabase = async (password: string) => {
+  const handleExportDatabase = async () => {
     setDbLoading(true);
     setDbStatus({ type: "", message: "" });
     try {
-      const res = await fetch("/api/settings/database", {
-        headers: { "x-9r-password": password },
-      });
+      const res = await fetch("/api/settings/database");
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || translate("Failed to export database") || "Failed to export database");
@@ -48,23 +47,22 @@ export function useDatabaseBackup(settings: Settings, setSettings: React.Dispatc
     const file = event.target.files?.[0];
     if (importFileRef.current) importFileRef.current.value = "";
     if (!file) return;
-    pendingImportRef.current = file;
     setDbStatus({ type: "", message: "" });
-    setDbAuth({ open: true, mode: "import", password: "" });
+    setPendingImport(file);
   };
 
-  const runImportDatabase = async (password: string) => {
-    const file = pendingImportRef.current;
+  const confirmImportDatabase = async () => {
+    const file = pendingImport;
+    setPendingImport(null);
     if (!file) return;
     setDbLoading(true);
     try {
-      const raw = await file.text();
-      const payload = JSON.parse(raw);
+      const payload = JSON.parse(await file.text());
 
       const res = await fetch("/api/settings/database", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, password }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -77,24 +75,15 @@ export function useDatabaseBackup(settings: Settings, setSettings: React.Dispatc
     } catch (err: unknown) {
       setDbStatus({ type: "error", message: err instanceof Error ? err.message : translate("Invalid backup file") || "Invalid backup file" });
     } finally {
-      pendingImportRef.current = null;
       setDbLoading(false);
     }
   };
 
-  // Confirm password modal, then run export or import.
-  const handleDbAuthConfirm = async () => {
-    const { mode, password } = dbAuth;
-    setDbAuth({ open: false, mode: "", password: "" });
-    if (mode === "export") await handleExportDatabase(password);
-    else if (mode === "import") await runImportDatabase(password);
-  };
-
   return {
-    dbLoading, setDbLoading,
-    dbStatus, setDbStatus,
-    dbAuth, setDbAuth,
-    pendingImportRef, importFileRef,
-    handleExportDatabase, handleImportDatabase, runImportDatabase, handleDbAuthConfirm,
+    dbLoading,
+    dbStatus,
+    pendingImport, setPendingImport,
+    importFileRef,
+    handleExportDatabase, handleImportDatabase, confirmImportDatabase,
   };
 }
