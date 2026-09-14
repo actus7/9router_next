@@ -128,7 +128,7 @@ export default function CloudPageClient() {
   return (
     <div className="flex flex-col gap-8 p-4 md:p-6 max-w-4xl">
       {/* Header */}
-      <div className="space-y-2">
+      <div className="space-y-4">
         <div className="flex items-center gap-3">
           <Cloud className="size-6 text-accent" />
           <h1 className="text-2xl font-semibold">Cloud Deploy</h1>
@@ -138,10 +138,6 @@ export default function CloudPageClient() {
 
       {/* Step 1: Connect Providers */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center size-8 rounded-full bg-accent/20 text-accent font-semibold text-sm">1</div>
-          <h2 className="text-lg font-semibold">Conecte um provedor cloud</h2>
-        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {PROVIDER_META.map((p) => (
             <ProviderConnectCard
@@ -160,13 +156,9 @@ export default function CloudPageClient() {
 
       {/* Step 2: Configure Deploy */}
       {hasConnections && selectedTool && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center size-8 rounded-full bg-accent/20 text-accent font-semibold text-sm">2</div>
-            <h2 className="text-lg font-semibold">Configure o deploy</h2>
-          </div>
+        <section className="space-y-4 pt-4 border-t border-border">
           <div className="rounded-lg border border-border bg-surface/30 p-6">
-            <h3 className="text-base font-medium mb-4">{selectedTool.name}</h3>
+            <h2 className="text-lg font-semibold mb-4">{selectedTool.name}</h2>
             <DeployForm
               toolName={selectedTool.name}
               availableProviders={PROVIDER_META.map((p) => ({ ...p, connected: connections.some((c) => c.provider === p.id) }))}
@@ -187,11 +179,8 @@ export default function CloudPageClient() {
 
       {/* Step 3: View Deployments */}
       {deployments.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center size-8 rounded-full bg-accent/20 text-accent font-semibold text-sm">3</div>
-            <h2 className="text-lg font-semibold">Seus ambientes ({deployments.length})</h2>
-          </div>
+        <section className="space-y-4 pt-4 border-t border-border">
+          <h2 className="text-lg font-semibold">Seus ambientes ({deployments.length})</h2>
           {actionError && (
             <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
               <AlertCircle className="size-5 text-destructive mt-0.5 flex-shrink-0" />
@@ -213,11 +202,8 @@ export default function CloudPageClient() {
       )}
 
       {hasConnections && deployments.length === 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center size-8 rounded-full bg-accent/20 text-accent font-semibold text-sm">3</div>
-            <h2 className="text-lg font-semibold">Seus ambientes</h2>
-          </div>
+        <section className="space-y-4 pt-4 border-t border-border">
+          <h2 className="text-lg font-semibold">Seus ambientes</h2>
           <div className="rounded-lg border border-dashed border-border bg-surface/20 p-8 text-center">
             <CheckCircle2 className="size-8 mx-auto mb-3 text-text-muted opacity-50" />
             <p className="text-sm text-text-muted">Configure o deploy acima para criar seu primeiro ambiente.</p>
