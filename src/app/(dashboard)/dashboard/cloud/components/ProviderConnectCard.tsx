@@ -93,38 +93,35 @@ export default function ProviderConnectCard({ provider, label, hint, description
             </DialogHeader>
             <div className="flex flex-col gap-3 py-4">
               <div>
-                <label className="text-sm font-medium">Token da API</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Token da API</label>
+                  {provider === "render" && (
+                    <a
+                      href="https://dashboard.render.com/api-tokens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-accent hover:underline"
+                    >
+                      Gerar novo token →
+                    </a>
+                  )}
+                  {provider === "railway" && (
+                    <a
+                      href="https://railway.app/project/_/settings/tokens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-accent hover:underline"
+                    >
+                      Gerar novo token →
+                    </a>
+                  )}
+                </div>
                 <Input
                   type="password"
                   placeholder="Cole o token aqui"
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
-                  className="mt-1.5"
                 />
-                <div className="mt-3 space-y-2 p-3 rounded-sm bg-accent/5 border border-accent/20">
-                  {provider === "render" && (
-                    <div className="text-xs space-y-1">
-                      <p className="font-medium text-accent">Como gerar seu token no Render:</p>
-                      <ol className="list-decimal list-inside text-text-muted space-y-0.5">
-                        <li>Acesse <a href="https://dashboard.render.com/api-tokens" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">dashboard.render.com/api-tokens</a></li>
-                        <li>Clique em "Create API Key"</li>
-                        <li>Dê um nome descritivo (ex: "Cloud Deploy")</li>
-                        <li>Copie o token gerado e cole aqui</li>
-                      </ol>
-                    </div>
-                  )}
-                  {provider === "railway" && (
-                    <div className="text-xs space-y-1">
-                      <p className="font-medium text-accent">Como gerar seu token no Railway:</p>
-                      <ol className="list-decimal list-inside text-text-muted space-y-0.5">
-                        <li>Acesse sua conta em <a href="https://railway.app" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">railway.app</a></li>
-                        <li>Vá para Settings → Tokens</li>
-                        <li>Clique em "Create Token"</li>
-                        <li>Copie o token e cole aqui</li>
-                      </ol>
-                    </div>
-                  )}
-                </div>
               </div>
               {error && (
                 <div className="flex items-start gap-2 rounded-sm bg-destructive/10 p-3">
