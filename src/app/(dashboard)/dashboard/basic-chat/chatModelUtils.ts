@@ -13,6 +13,43 @@ export function isChatKindModel(model: NormalizedModel): boolean {
   return !kind || kind === "llm";
 }
 
+/**
+ * The prefixes that mean "this connection's provider" rather than a vendor.
+ *
+ * A model id carries its vendor — `openrouter/free`, `inclusionai/ling-3.0` —
+ * so a slash proves nothing about whether the provider is already named. Only
+ * these do.
+ */
+function providerPrefixes(connection: Record<string, unknown>): string[] {
+  const providerId = String(connection.provider || "");
+  const nested = connection.providerSpecificData;
+  return [
+    providerId,
+    PROVIDER_ID_TO_ALIAS[providerId] || "",
+    String(connection.id || ""),
+    typeof nested === "object" && nested ? String((nested as Record<string, unknown>).prefix || "") : "",
+  ].filter((prefix) => prefix.length > 0);
+}
+
+/**
+ * `<provider>/<model>`, the form the gateway reads the provider from.
+ *
+ * Both normalisers below used to skip the prefix when the raw id contained a
+ * slash. For Kilo Gateway that shipped `openrouter/free` as the whole address,
+ * and the gateway answered "No active credentials for provider: openrouter".
+ */
+export function qualifyModelId(rawId: string, connection: Record<string, unknown>): string {
+  const providerId = String(connection.provider || "");
+  let modelId = rawId.trim();
+  for (const prefix of providerPrefixes(connection)) {
+    if (modelId.startsWith(`${prefix}/`)) {
+      modelId = modelId.slice(prefix.length + 1);
+      break;
+    }
+  }
+  return providerId ? `${providerId}/${modelId}` : modelId;
+}
+
 export function getProviderLabel(connection: Record<string, unknown>): string {
   return (connection?.name as string) || humanize((connection?.provider as string) || (connection?.id as string) || "provider");
 }
@@ -21,9 +58,9 @@ export function normalizeConfiguredModel(rawModel: string, connection: Record<st
   const providerId = connection.provider as string;
   const rawId = rawModel.trim();
   if (!providerId || !rawId) return null;
-  const modelId = rawId.startsWith(`${providerId}/`) ? rawId.slice(providerId.length + 1) : rawId;
+  const requestModel = qualifyModelId(rawId, connection);
+  const modelId = requestModel.slice(providerId.length + 1);
   const catalogModel = getModelsByProviderId(providerId).find((model) => model.id === modelId);
-  const requestModel = rawId.includes("/") ? rawId : `${providerId}/${rawId}`;
   return {
     id: requestModel,
     requestModel,
@@ -70,7 +107,7 @@ export function normalizeLiveModel(model: string | Record<string, unknown>, conn
     ? model.replace(/^models\//, "")
     : (model?.displayName as string) || ((model?.name as string) || rawId).replace(/^models\//, "");
 
-  const requestModel = rawId.includes("/") ? rawId : `${connection.provider}/${rawId}`;
+  const requestModel = qualifyModelId(rawId, connection);
 
   return {
     id: requestModel,
@@ -113,6 +150,7 @@ function modelIdentity(rawModelId: string, connection: Record<string, unknown>):
   const nested = connection.providerSpecificData;
   const prefixes = [
     connection.provider,
+    PROVIDER_ID_TO_ALIAS[String(connection.provider || "")],
     connection.id,
     typeof nested === "object" && nested ? (nested as Record<string, unknown>).prefix : undefined,
   ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
@@ -174,7 +212,7 @@ export function normalizeStaticModel(model: Record<string, unknown>, connection:
   const modelId = model?.id as string;
   if (!modelId) return null;
   const providerId = connection.provider as string;
-  const requestModel = `${providerId}/${modelId}`;
+  const requestModel = qualifyModelId(modelId, connection);
   return {
     id: requestModel,
     requestModel,
