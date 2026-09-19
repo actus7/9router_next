@@ -86,7 +86,7 @@ export function useModelDiscovery({
   const handleClearProviderModels = async () => {
     if (clearingModels) return;
     setClearingModels(true);
-    try { await clearProviderModels({ providerStorageAlias, customModels, modelAliases, setLiveModels, setSuggestedModels, setCustomModels, setModelAliases, setDisabledModelIds, onClearTestResults, notify }); }
+    try { await clearProviderModels({ providerStorageAlias, setLiveModels, setSuggestedModels, setCustomModels, setModelAliases, setDisabledModelIds, onClearTestResults, notify }); }
     catch (error) { console.error("Error clearing provider models:", error); notify.error(translate("Failed to clear models") || "Failed to clear models"); }
     finally { setClearingModels(false); }
   };

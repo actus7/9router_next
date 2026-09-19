@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { chunked, placeholderList } from "../helpers/batch";
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
@@ -349,4 +350,28 @@ export async function cleanupProviderConnections(): Promise<number> {
     }
   });
   return cleaned;
+}
+
+/**
+ * Flips `isActive` for several connections in one statement.
+ *
+ * The bulk toggle in the usage screen sent one PUT per connection. Nothing in
+ * this write needs the read-merge-upsert of `updateProviderConnection`: it
+ * touches no secret and no priority, so it is a plain UPDATE.
+ */
+export async function setProviderConnectionsActive(ids: string[], isActive: boolean): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = await getAdapter();
+  const userId = currentTenantId();
+  const now = new Date().toISOString();
+  let changes = 0;
+  await db.transaction(async () => {
+    for (const batch of chunked(ids)) {
+      changes += (await db.run(
+        `UPDATE providerConnections SET isActive = ?, updatedAt = ? WHERE userId = ? AND id IN (${placeholderList(batch.length)})`,
+        [isActive ? 1 : 0, now, userId, ...batch],
+      )).changes;
+    }
+  });
+  return changes;
 }

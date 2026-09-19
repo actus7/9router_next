@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { chunked, placeholderList } from "../helpers/batch";
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
@@ -145,4 +146,50 @@ export async function deleteProxyPool(id: string): Promise<ProxyPool | null> {
     await db.run(`DELETE FROM proxyPools WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
   });
   return removed;
+}
+
+/** Flips `isActive` for several pools in one statement per batch. */
+export async function setProxyPoolsActive(ids: string[], isActive: boolean): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = await getAdapter();
+  const userId = currentTenantId();
+  const now = new Date().toISOString();
+  let changes = 0;
+  await db.transaction(async () => {
+    for (const batch of chunked(ids)) {
+      changes += (await db.run(
+        `UPDATE proxyPools SET isActive = ?, updatedAt = ? WHERE userId = ? AND id IN (${placeholderList(batch.length)})`,
+        [isActive ? 1 : 0, now, userId, ...batch],
+      )).changes;
+    }
+  });
+  return changes;
+}
+
+/**
+ * Deletes the pools that nothing is bound to, and reports the rest.
+ *
+ * A pool in use is refused, exactly as the single-pool route refuses it with a
+ * 409 — the caller needs to know which ones survived and why, so the binding
+ * check stays part of the delete instead of being left to the caller.
+ */
+export async function deleteProxyPools(
+  ids: string[],
+  isBound: (poolId: string) => boolean,
+): Promise<{ deleted: string[]; blocked: string[] }> {
+  const blocked = ids.filter((id) => isBound(id));
+  const deletable = ids.filter((id) => !blocked.includes(id));
+  if (deletable.length === 0) return { deleted: [], blocked };
+
+  const db = await getAdapter();
+  const userId = currentTenantId();
+  await db.transaction(async () => {
+    for (const batch of chunked(deletable)) {
+      await db.run(
+        `DELETE FROM proxyPools WHERE userId = ? AND id IN (${placeholderList(batch.length)})`,
+        [userId, ...batch],
+      );
+    }
+  });
+  return { deleted: deletable, blocked };
 }

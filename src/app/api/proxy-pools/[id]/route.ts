@@ -1,4 +1,5 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
+import { countBoundConnections } from "../boundConnections";
 import { NextRequest, NextResponse  } from "next/server";
 import {
   deleteProxyPool,
@@ -44,10 +45,6 @@ function normalizeProxyPoolUpdate(body: Record<string, unknown> = {}) {
   }
 
   return { updates };
-}
-
-function countBoundConnections(connections: Record<string, unknown>[] = [], proxyPoolId: string) {
-  return connections.filter((connection) => (connection?.providerSpecificData as Record<string, unknown>)?.proxyPoolId === proxyPoolId).length;
 }
 
 // GET /api/proxy-pools/[id] - Get proxy pool

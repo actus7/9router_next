@@ -4,6 +4,7 @@ export {
   getProviderConnectionById,
   createProviderConnection,
   updateProviderConnection,
+  setProviderConnectionsActive,
   deleteProviderConnection,
   deleteProviderConnectionsByProvider,
   TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
@@ -23,6 +24,8 @@ export {
   createProxyPool,
   updateProxyPool,
   deleteProxyPool,
+  setProxyPoolsActive,
+  deleteProxyPools,
 } from "@/lib/db/repos/proxyPoolsRepo";
 export {
   getModelAliases,
@@ -31,6 +34,8 @@ export {
   getCustomModels,
   addCustomModel,
   deleteCustomModel,
+  deleteCustomModelsByProvider,
+  deleteModelAliasesByProvider,
   syncDiscoveredCustomModels,
   pickDiscoveredMetadata,
 } from "@/lib/db/repos/aliasRepo";

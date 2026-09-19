@@ -38,12 +38,16 @@ export function createConnectionCrud({
         setConfirmState(null);
         let failed = 0;
         const idsToDelete = [...selectedConnectionIds];
-        for (const id of idsToDelete) {
-          try {
-            const res = await fetch(`/api/providers/${id}`, { method: "DELETE" });
-            if (!res.ok) failed += 1;
-          } catch (error) { console.error("Error deleting connection:", error); failed += 1; }
-        }
+        // One request for the selection, instead of one DELETE per connection.
+        try {
+          const res = await fetch("/api/providers", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: idsToDelete }),
+          });
+          const data = res.ok ? await res.json().catch(() => ({})) : {};
+          failed = res.ok ? Number(data.failed ?? 0) : idsToDelete.length;
+        } catch (error) { console.error("Error deleting connections:", error); failed = idsToDelete.length; }
         setConnections(prev => prev.filter(c => !idsToDelete.includes(c.id)));
         setSelectedConnectionIds([]);
         if (failed > 0) notify.warning(translate("Deleted") + ` ${idsToDelete.length - failed} ` + translate("connection(s)") + `, ${failed} ` + translate("failed") + ".");

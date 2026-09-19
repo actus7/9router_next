@@ -52,6 +52,7 @@ export default function ModelsSection({
     providerStorageAlias,
     setTestAllModels: m.setTestAllModels,
     onDisableModel: m.handleDisableModel,
+    onDisableModels: m.handleDisableAll,
     onDeleteCustomModel: (modelId: string) => m.handleDeleteCustomModel(modelId, "llm", providerStorageAlias),
   });
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);

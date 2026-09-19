@@ -71,8 +71,6 @@ export async function refreshModels({
 
 interface ClearModelsArgs {
   providerStorageAlias: string;
-  customModels: CustomModelEntry[];
-  modelAliases: Record<string, string>;
   setLiveModels: React.Dispatch<React.SetStateAction<LiveModel[]>>;
   setSuggestedModels: React.Dispatch<React.SetStateAction<SuggestedModel[]>>;
   setCustomModels: React.Dispatch<React.SetStateAction<CustomModelEntry[]>>;
@@ -83,15 +81,16 @@ interface ClearModelsArgs {
 }
 
 export async function clearProviderModels({
-  providerStorageAlias, customModels, modelAliases,
+  providerStorageAlias,
   setLiveModels, setSuggestedModels, setCustomModels, setModelAliases, setDisabledModelIds,
   onClearTestResults, notify,
 }: ClearModelsArgs): Promise<void> {
-  const providerCustomModels = customModels.filter((m) => m.providerAlias === providerStorageAlias && (m.kind || m.type || "llm") === "llm");
-  const providerAliases = Object.entries(modelAliases).filter(([, m]) => typeof m === "string" && m.startsWith(`${providerStorageAlias}/`)).map(([alias]) => alias);
+  // Two requests, whatever the catalogue size. This was one DELETE per model
+  // plus one per alias — with a discovered catalogue, hundreds of round-trips
+  // for a list the server can build itself.
   await Promise.all([
-    ...providerCustomModels.map((m) => fetch(`/api/models/custom?${new URLSearchParams({ providerAlias: providerStorageAlias, id: m.id, type: m.kind || m.type || "llm" })}`, { method: "DELETE" })),
-    ...providerAliases.map((alias) => fetch(`/api/models/alias?alias=${encodeURIComponent(alias)}`, { method: "DELETE" })),
+    fetch(`/api/models/custom?${new URLSearchParams({ providerAlias: providerStorageAlias, type: "llm", all: "1" })}`, { method: "DELETE" }),
+    fetch(`/api/models/alias?providerAlias=${encodeURIComponent(providerStorageAlias)}`, { method: "DELETE" }),
   ]);
 
   const clearDisabledResponse = await fetch(`/api/models/disabled?providerAlias=${encodeURIComponent(providerStorageAlias)}`, { method: "DELETE" });

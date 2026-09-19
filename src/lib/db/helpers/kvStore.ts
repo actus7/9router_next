@@ -1,6 +1,7 @@
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "./jsonCol";
+import { chunked, valuesRows } from "./batch";
 
 interface KvStore {
   get<T = unknown>(key: string, fallback?: T | null): Promise<T | null>;
@@ -30,11 +31,18 @@ export function makeKv(scope: string): KvStore {
       await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, ?, ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`, [currentTenantId(), scope, key, stringifyJson(value)]);
     },
     async setMany(obj: Record<string, unknown>): Promise<void> {
+      const entries = Object.entries(obj);
+      if (entries.length === 0) return;
       const db = await getAdapter();
       const userId = currentTenantId();
+      // One statement per batch: the name says "many", and a loop of single
+      // inserts made it one Neon round-trip per key.
       await db.transaction(async () => {
-        for (const [k, v] of Object.entries(obj)) {
-          await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, ?, ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`, [userId, scope, k, stringifyJson(v)]);
+        for (const batch of chunked(entries)) {
+          await db.run(
+            `INSERT INTO kv(userId, scope, key, value) VALUES ${valuesRows(batch.length, "(?, ?, ?, ?)")} ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`,
+            batch.flatMap(([k, v]) => [userId, scope, k, stringifyJson(v)]),
+          );
         }
       });
     },

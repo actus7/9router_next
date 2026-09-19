@@ -1,6 +1,6 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
-import { getCustomModels, addCustomModel, deleteCustomModel, pickDiscoveredMetadata } from "@/models";
+import { getCustomModels, addCustomModel, deleteCustomModel, deleteCustomModelsByProvider, pickDiscoveredMetadata } from "@/models";
 
 // GET /api/models/custom - List all custom models
 async function handleGET(): Promise<NextResponse> {
@@ -36,12 +36,19 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 }
 
 // DELETE /api/models/custom?providerAlias=xxx&id=yyy&type=zzz
+// DELETE /api/models/custom?providerAlias=xxx&all=1 - every model of a provider
 async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   try {
     const providerAlias = searchParams.get("providerAlias");
     const id = searchParams.get("id");
     const type = searchParams.get("type") || "llm";
+    // "Clear All Models" sent one request per model — hundreds of them once the
+    // catalogue is discovered rather than shipped.
+    if (providerAlias && !id && searchParams.get("all")) {
+      const deleted = await deleteCustomModelsByProvider(providerAlias, type);
+      return NextResponse.json({ success: true, deleted });
+    }
     if (!providerAlias || !id) {
       return NextResponse.json({ error: "providerAlias and id required" }, { status: 400 });
     }

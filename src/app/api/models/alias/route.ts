@@ -1,6 +1,6 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse } from "next/server";
-import { getModelAliases, setModelAlias, deleteModelAlias } from "@/models";
+import { getModelAliases, setModelAlias, deleteModelAlias, deleteModelAliasesByProvider } from "@/models";
 
 
 // GET /api/models/alias - Get all aliases
@@ -34,13 +34,22 @@ async function handlePUT(request: NextRequest): Promise<NextResponse> {
 }
 
 // DELETE /api/models/alias?alias=xxx - Delete alias
+// DELETE /api/models/alias?providerAlias=xxx - Delete every alias of a provider
 async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   try {
     const alias = searchParams.get("alias");
+    const providerAlias = searchParams.get("providerAlias");
+
+    // Clearing a provider used to be one request per alias, from a list the
+    // server can build itself.
+    if (!alias && providerAlias) {
+      const deleted = await deleteModelAliasesByProvider(providerAlias);
+      return NextResponse.json({ success: true, deleted });
+    }
 
     if (!alias) {
-      return NextResponse.json({ error: "Alias required" }, { status: 400 });
+      return NextResponse.json({ error: "Alias or providerAlias required" }, { status: 400 });
     }
 
     await deleteModelAlias(alias);

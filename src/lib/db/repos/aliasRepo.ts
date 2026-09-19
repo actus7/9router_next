@@ -2,6 +2,7 @@ import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { makeKv } from "../helpers/kvStore";
+import { chunked, placeholderList, valuesRows } from "../helpers/batch";
 
 const aliasKv = makeKv("modelAliases");
 const customKv = makeKv("customModels");
@@ -54,23 +55,6 @@ export interface CustomModelInput {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Rows per statement.
- *
- * One statement per model is one Neon round-trip per model — ~180ms measured,
- * so a 381-model catalogue (Kilo Gateway) spent over a minute inside an open
- * transaction while "Refreshing..." span with nothing to show for it. At 250
- * rows that is two statements, and 750 bound parameters, well under Postgres's
- * 65535 limit.
- */
-const SYNC_BATCH_ROWS = 250;
-
-function chunked<T>(items: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
-}
-
 // Reconciles a provider's live catalogue in one transaction. Manual entries are
 // deliberately left alone; a refresh owns only its discovered snapshot. Keeping
 // this in the repository avoids an HTTP request per model when large providers
@@ -100,9 +84,9 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
         !desired.has(key))
       .map(([key]) => key);
 
-    for (const batch of chunked(stale, SYNC_BATCH_ROWS)) {
+    for (const batch of chunked(stale)) {
       await db.run(
-        `DELETE FROM kv WHERE userId = ? AND scope = 'customModels' AND key IN (${batch.map(() => "?").join(", ")})`,
+        `DELETE FROM kv WHERE userId = ? AND scope = 'customModels' AND key IN (${placeholderList(batch.length)})`,
         [currentTenantId(), ...batch],
       );
     }
@@ -125,9 +109,9 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
 
     // `desired` is keyed by model, so no batch can hit the same row twice —
     // which ON CONFLICT DO UPDATE would reject within a single statement.
-    for (const batch of chunked(upserts, SYNC_BATCH_ROWS)) {
+    for (const batch of chunked(upserts)) {
       await db.run(
-        `INSERT INTO kv(userId, scope, key, value) VALUES ${batch.map(() => "(?, 'customModels', ?, ?)").join(", ")} ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`,
+        `INSERT INTO kv(userId, scope, key, value) VALUES ${valuesRows(batch.length, "(?, 'customModels', ?, ?)")} ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`,
         batch.flatMap(([key, value]) => [currentTenantId(), key, value]),
       );
     }
@@ -170,4 +154,59 @@ interface CustomModelDeleteInput {
 
 export async function deleteCustomModel({ providerAlias, id, type = "llm" }: CustomModelDeleteInput): Promise<void> {
   await customKv.remove(customKey(providerAlias, id, type));
+}
+
+/**
+ * Removes every custom model of one provider, and its aliases, in a few
+ * statements.
+ *
+ * "Clear All Models" sent one DELETE request per model and one per alias — with
+ * a discovered catalogue that is hundreds of requests, each its own round-trip.
+ * The keys are read once and deleted in batches.
+ */
+export async function deleteCustomModelsByProvider(providerAlias: string, type: string = "llm"): Promise<number> {
+  const db = await getAdapter();
+  const userId = currentTenantId();
+  const rows = await db.all("SELECT key, value FROM kv WHERE userId = ? AND scope = 'customModels'", [userId]) as Array<{ key: string; value: string }>;
+  const keys = rows
+    .filter((row) => {
+      const value = parseJson<Record<string, unknown>>(row.value, {}) || {};
+      return value.providerAlias === providerAlias && String(value.kind || value.type || "llm") === type;
+    })
+    .map((row) => row.key);
+  if (keys.length === 0) return 0;
+
+  let changes = 0;
+  await db.transaction(async () => {
+    for (const batch of chunked(keys)) {
+      changes += (await db.run(
+        `DELETE FROM kv WHERE userId = ? AND scope = 'customModels' AND key IN (${placeholderList(batch.length)})`,
+        [userId, ...batch],
+      )).changes;
+    }
+  });
+  return changes;
+}
+
+/** Removes every alias pointing at `providerAlias/...`, in one statement per batch. */
+export async function deleteModelAliasesByProvider(providerAlias: string): Promise<number> {
+  const db = await getAdapter();
+  const userId = currentTenantId();
+  const rows = await db.all("SELECT key, value FROM kv WHERE userId = ? AND scope = 'modelAliases'", [userId]) as Array<{ key: string; value: string }>;
+  const prefix = `${providerAlias}/`;
+  const keys = rows
+    .filter((row) => String(parseJson<unknown>(row.value, "") ?? "").startsWith(prefix))
+    .map((row) => row.key);
+  if (keys.length === 0) return 0;
+
+  let changes = 0;
+  await db.transaction(async () => {
+    for (const batch of chunked(keys)) {
+      changes += (await db.run(
+        `DELETE FROM kv WHERE userId = ? AND scope = 'modelAliases' AND key IN (${placeholderList(batch.length)})`,
+        [userId, ...batch],
+      )).changes;
+    }
+  });
+  return changes;
 }

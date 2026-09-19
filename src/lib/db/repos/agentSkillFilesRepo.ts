@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { chunked, valuesRows } from "../helpers/batch";
 import { currentTenantId } from "../tenant";
 
 export interface AgentSkillFileRow {
@@ -76,11 +77,12 @@ export async function replaceAgentSkillFiles(
   await db.transaction(async () => {
     await db.run("DELETE FROM agentSkillFiles WHERE userId = ? AND skillId = ?", [userId, skillId]);
     const now = new Date().toISOString();
-    for (const file of files) {
+    // A skill with 40 files was 40 round-trips inside an open transaction.
+    for (const batch of chunked(files)) {
       await db.run(
         `INSERT INTO agentSkillFiles(userId, skillId, filePath, content, createdAt, updatedAt)
-         VALUES(?, ?, ?, ?, ?, ?)`,
-        [userId, skillId, file.filePath, file.content, now, now],
+         VALUES ${valuesRows(batch.length, "(?, ?, ?, ?, ?, ?)")}`,
+        batch.flatMap((file) => [userId, skillId, file.filePath, file.content, now, now]),
       );
     }
   });

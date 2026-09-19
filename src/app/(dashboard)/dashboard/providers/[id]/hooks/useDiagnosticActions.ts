@@ -12,6 +12,8 @@ interface UseDiagnosticActionsArgs {
     update: (current: TestAllModelsState | null) => TestAllModelsState | null,
   ) => void;
   onDisableModel: (modelId: string) => Promise<void>;
+  /** Disables several models in one request. The API takes an id list; a loop here was N round-trips. */
+  onDisableModels: (modelIds: string[]) => Promise<void>;
   onDeleteCustomModel: (modelId: string) => Promise<void>;
 }
 
@@ -32,6 +34,7 @@ export function useDiagnosticActions({
   providerStorageAlias,
   setTestAllModels,
   onDisableModel,
+  onDisableModels,
   onDeleteCustomModel,
 }: UseDiagnosticActionsArgs) {
   const [bulkAction, setBulkAction] = useState<"retest" | "disable" | null>(null);
@@ -80,10 +83,21 @@ export function useDiagnosticActions({
     }
   };
 
+  /**
+   * One request for the whole set, not one per model.
+   *
+   * This ran a POST *and* a re-fetch per model, sequentially: disabling 60
+   * failures was 120 round-trips and about a minute of spinner. The endpoint
+   * has always taken an id list.
+   */
   const disableAll = async (modelIds: readonly string[]): Promise<void> => {
+    if (modelIds.length === 0) return;
     setBulkAction("disable");
     try {
-      for (const modelId of modelIds) await disableModel(modelId);
+      await onDisableModels([...modelIds]);
+      setTestAllModels((current) =>
+        current ? { ...current, results: current.results.filter((r) => !modelIds.includes(r.modelId)) } : current,
+      );
     } finally {
       setBulkAction(null);
     }

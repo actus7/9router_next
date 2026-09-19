@@ -143,15 +143,12 @@ export function useConnectionActions(
       if (!targetIds.length || bulkToggling) return;
       setBulkToggling(true);
       try {
-        await Promise.all(
-          targetIds.map((id: string) =>
-            fetch(`/api/providers/${id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ isActive }),
-            }),
-          ),
-        );
+        // One request for the set: this was one PUT per connection.
+        await fetch("/api/providers", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: targetIds, isActive }),
+        });
         await reconcileConnectionsPage(fetchConnections, page);
       } catch (error) {
         console.error("Error bulk toggling connections:", error);

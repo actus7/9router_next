@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getProviderConnections,
   createProviderConnection,
+  setProviderConnectionsActive,
+  updateProviderConnection,
+  deleteProviderConnection,
   getProviderNodeById,
   getProviderNodes,
   getProxyPoolById,
@@ -212,6 +215,70 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     console.error("Error creating provider:", error);
     return NextResponse.json({ error: "Failed to create provider" }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/providers - one gesture, one request, for several connections.
+ *
+ * Every bulk action in the dashboard sent one request per connection: the usage
+ * screen's activate/deactivate, and assigning a proxy pool to a whole provider.
+ *
+ * `isActive` is a plain column, so it is a single UPDATE. `proxyPoolId` lives
+ * inside `providerSpecificData` and has to be merged per row, so the loop stays
+ * — but on this side of the network, where it costs a query rather than a
+ * round-trip from the browser.
+ */
+export async function PATCH(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { ids, isActive, proxyPoolId } = await request.json();
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")) {
+      return NextResponse.json({ error: "ids[] required" }, { status: 400 });
+    }
+    const setsActive = typeof isActive === "boolean";
+    const setsProxy = proxyPoolId === null || typeof proxyPoolId === "string";
+    if (!setsActive && !setsProxy) {
+      return NextResponse.json({ error: "isActive or proxyPoolId required" }, { status: 400 });
+    }
+    if (ids.length === 0) return NextResponse.json({ success: true, updated: 0 });
+
+    let updated = 0;
+    if (setsActive) updated = await setProviderConnectionsActive(ids as string[], isActive);
+    if (setsProxy) {
+      const results = await Promise.all(
+        (ids as string[]).map((id) => updateProviderConnection(id, { proxyPoolId } as never).catch(() => null)),
+      );
+      updated = results.filter(Boolean).length;
+    }
+    return NextResponse.json({ success: true, updated });
+  } catch (error) {
+    console.error("Error updating providers:", error);
+    return NextResponse.json({ error: "Failed to update providers" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/providers - remove several connections in one request.
+ *
+ * The rows go one at a time on purpose: `deleteProviderConnection` also clears
+ * the child rows that no foreign key covers, and doing that in a batch would
+ * mean a second copy of the cascade. What this removes is N HTTP round-trips,
+ * not N queries.
+ */
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { ids } = await request.json();
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")) {
+      return NextResponse.json({ error: "ids[] required" }, { status: 400 });
+    }
+    let deleted = 0;
+    for (const id of ids as string[]) {
+      if (await deleteProviderConnection(id)) deleted += 1;
+    }
+    return NextResponse.json({ success: true, deleted, failed: ids.length - deleted });
+  } catch (error) {
+    console.error("Error deleting providers:", error);
+    return NextResponse.json({ error: "Failed to delete providers" }, { status: 500 });
   }
 }
 // Application HTTP use case extracted from the Next.js route adapter.

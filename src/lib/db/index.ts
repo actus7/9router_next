@@ -11,7 +11,7 @@ export {
 // Provider connections
 export {
   getProviderConnections, getProviderConnectionById,
-  createProviderConnection, updateProviderConnection,
+  createProviderConnection, updateProviderConnection, setProviderConnectionsActive,
   deleteProviderConnection, deleteProviderConnectionsByProvider,
   reorderProviderConnections, cleanupProviderConnections,
 } from "./repos/connectionsRepo";
@@ -25,7 +25,7 @@ export {
 // Proxy pools
 export {
   getProxyPools, getProxyPoolById,
-  createProxyPool, updateProxyPool, deleteProxyPool,
+  createProxyPool, updateProxyPool, deleteProxyPool, setProxyPoolsActive, deleteProxyPools,
 } from "./repos/proxyPoolsRepo";
 
 // Cloud deploy
@@ -63,6 +63,7 @@ export {
 export {
   getModelAliases, setModelAlias, deleteModelAlias,
   getCustomModels, addCustomModel, deleteCustomModel, syncDiscoveredCustomModels,
+  deleteCustomModelsByProvider, deleteModelAliasesByProvider,
 } from "./repos/aliasRepo";
 
 // Pricing

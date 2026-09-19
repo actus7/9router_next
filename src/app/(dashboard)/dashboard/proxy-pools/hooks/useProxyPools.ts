@@ -165,17 +165,18 @@ export function useProxyPools(initialProxyPools: ProxyPool[]) {
     if (targets.length === 0) return;
     setBulkBusy(true);
     try {
+      // One request for the set, instead of one PUT per pool in sequence.
       let ok = 0; let failed = 0;
-      for (const id of targets) {
-        try {
-          const res = await fetch(`/api/proxy-pools/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ isActive }),
-          });
-          if (res.ok) ok += 1; else failed += 1;
-        } catch { failed += 1; }
-      }
+      try {
+        const res = await fetch("/api/proxy-pools", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: targets, isActive }),
+        });
+        const data = res.ok ? await res.json().catch(() => ({})) : {};
+        ok = res.ok ? Number(data.updated ?? targets.length) : 0;
+        failed = targets.length - ok;
+      } catch { failed = targets.length; }
       await fetchProxyPools();
       notify.success(`${isActive ? "Activated" : "Deactivated"} ${ok}${failed ? `, failed ${failed}` : ""}`);
     } finally {
@@ -193,14 +194,17 @@ export function useProxyPools(initialProxyPools: ProxyPool[]) {
         setBulkBusy(true);
         try {
           let ok = 0; let blocked = 0; let failed = 0;
-          for (const id of selectedIds) {
-            try {
-              const res = await fetch(`/api/proxy-pools/${id}`, { method: "DELETE" });
-              if (res.ok) ok += 1;
-              else if (res.status === 409) blocked += 1;
-              else failed += 1;
-            } catch { failed += 1; }
-          }
+          try {
+            const res = await fetch("/api/proxy-pools", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids: selectedIds }),
+            });
+            const data = res.ok ? await res.json().catch(() => ({})) : {};
+            ok = Number(data.deleted ?? 0);
+            blocked = Array.isArray(data.blocked) ? data.blocked.length : 0;
+            failed = selectedIds.length - ok - blocked;
+          } catch { failed = selectedIds.length; }
           await fetchProxyPools();
           clearSelection();
           notify.success(`${translate("Deleted") || "Deleted"} ${ok}${blocked ? `, ${blocked} ${translate("bound") || "bound"}` : ""}${failed ? `, ${failed} ${translate("failed") || "failed"}` : ""}`);
@@ -253,15 +257,13 @@ export function useProxyPools(initialProxyPools: ProxyPool[]) {
           setConfirmState(null);
           setBulkBusy(true);
           try {
-            for (const id of deadIds) {
-              try {
-                await fetch(`/api/proxy-pools/${id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ isActive: false }),
-                });
-              } catch {}
-            }
+            try {
+              await fetch("/api/proxy-pools", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: deadIds, isActive: false }),
+              });
+            } catch {}
             await fetchProxyPools();
             notify.success(`${translate("Deactivated") || "Deactivated"} ${deadIds.length} ${translate("dead proxies") || "dead proxies"}`);
           } finally {

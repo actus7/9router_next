@@ -27,18 +27,28 @@ export function useBulkProxy({ connections, proxyPools, fetchConnections }: UseB
   const applyProxyAssignments = async (assignments: Array<{ connectionId: string; proxyPoolId: string | null }>) => {
     setBulkUpdatingProxy(true);
     try {
-      let failed = 0;
+      // Assignments that share a pool travel together: applying one pool to a
+      // whole provider was one PUT per connection, and that is the common case.
+      const byPool = new Map<string | null, string[]>();
       for (const { connectionId, proxyPoolId } of assignments) {
+        const group = byPool.get(proxyPoolId) ?? [];
+        group.push(connectionId);
+        byPool.set(proxyPoolId, group);
+      }
+
+      let failed = 0;
+      for (const [proxyPoolId, ids] of byPool) {
         try {
-          const res = await fetch(`/api/providers/${connectionId}`, {
-            method: "PUT",
+          const res = await fetch("/api/providers", {
+            method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ proxyPoolId }),
+            body: JSON.stringify({ ids, proxyPoolId }),
           });
-          if (!res.ok) failed += 1;
+          const data = res.ok ? await res.json().catch(() => ({})) : {};
+          failed += res.ok ? ids.length - Number(data.updated ?? ids.length) : ids.length;
         } catch (e) {
-          console.error("Error applying proxy for", connectionId, e);
-          failed += 1;
+          console.error("Error applying proxy pool", proxyPoolId, e);
+          failed += ids.length;
         }
       }
       if (failed > 0) notify.warning(translate("Updated with") + ` ${failed} ` + translate("failed request(s)") + ".");

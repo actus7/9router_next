@@ -1,6 +1,7 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
-import { createProxyPool, getProviderConnections, getProxyPools } from "@/models";
+import { createProxyPool, deleteProxyPools, getProviderConnections, getProxyPools, setProxyPoolsActive } from "@/models";
+import { countBoundConnections } from "./boundConnections";
 
 function toBoolean(value: string | null) {
   if (value === "true") return true;
@@ -93,5 +94,45 @@ async function handlePOST(request: NextRequest) {
   }
 }
 
+/**
+ * PATCH /api/proxy-pools - flip `isActive` for several pools at once.
+ * DELETE /api/proxy-pools - delete several pools, refusing the bound ones.
+ *
+ * Both were loops of single-pool requests in the dashboard, run one after the
+ * other: 50 pools meant 50 sequential round-trips per gesture.
+ */
+async function handlePATCH(request: NextRequest) {
+  try {
+    const { ids, isActive } = await request.json();
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string") || typeof isActive !== "boolean") {
+      return NextResponse.json({ error: "ids[] and isActive required" }, { status: 400 });
+    }
+    const updated = await setProxyPoolsActive(ids as string[], isActive);
+    return NextResponse.json({ success: true, updated });
+  } catch (error) {
+    console.error("Error updating proxy pools:", error);
+    return NextResponse.json({ error: "Failed to update proxy pools" }, { status: 500 });
+  }
+}
+
+async function handleDELETE(request: NextRequest) {
+  try {
+    const { ids } = await request.json();
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")) {
+      return NextResponse.json({ error: "ids[] required" }, { status: 400 });
+    }
+    // The binding check the single-pool route answers with a 409: read the
+    // connections once, then decide for every pool in the batch.
+    const connections = await getProviderConnections();
+    const result = await deleteProxyPools(ids as string[], (poolId) => countBoundConnections(connections, poolId) > 0);
+    return NextResponse.json({ success: true, deleted: result.deleted.length, blocked: result.blocked });
+  } catch (error) {
+    console.error("Error deleting proxy pools:", error);
+    return NextResponse.json({ error: "Failed to delete proxy pools" }, { status: 500 });
+  }
+}
+
 export const GET = tenantRoute(handleGET);
 export const POST = tenantRoute(handlePOST);
+export const PATCH = tenantRoute(handlePATCH);
+export const DELETE = tenantRoute(handleDELETE);

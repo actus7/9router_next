@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { chunked, valuesRows } from "../helpers/batch";
 import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 
@@ -132,11 +133,12 @@ export async function syncHarnessConversations(
       );
       await db.run(`DELETE FROM harnessConversations WHERE userId = ? AND id IN (${placeholders})`, [userId, ...ids]);
       const deletedAt = new Date().toISOString();
-      for (const id of ids) {
+      for (const batch of chunked(ids)) {
         await db.run(
-          `INSERT INTO harnessDeletedConversations(userId, id, deletedAt) VALUES(?, ?, ?)
+          `INSERT INTO harnessDeletedConversations(userId, id, deletedAt)
+           VALUES ${valuesRows(batch.length, "(?, ?, ?)")}
            ON CONFLICT(userId, id) DO UPDATE SET deletedAt = excluded.deletedAt`,
-          [userId, id, deletedAt],
+          batch.flatMap((id) => [userId, id, deletedAt]),
         );
       }
       // Swept here rather than on a schedule: this is the only place that adds
