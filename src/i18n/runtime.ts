@@ -144,26 +144,94 @@ function processTextNode(node: Text): void {
   translatedNode._translatedText = translated ?? original;
 }
 
-// Process all text nodes in element
-function processElement(element: Node): void {
-  if (!element) return;
+// ─── Hydration-safe scheduling ───────────────────────────────────────────────
+
+// React attaches `__reactFiber$…` to a DOM node only once it owns it: after
+// hydrating the server's HTML for it, or after creating it itself. Rewriting the
+// text of a node it has not claimed yet is exactly what it reports as a
+// hydration mismatch, and waiting N frames does not fix it — a streamed Suspense
+// boundary is hydrated whenever its client chunk finishes loading, which in dev
+// is however long Turbopack takes. So the gate is the fiber, not a timer.
+//
+// A node React never claims is not React's to begin with (markup injected
+// through `dangerouslySetInnerHTML`, a browser extension), so it is dropped
+// rather than translated once the wait runs out.
+const HYDRATION_WAIT_MS = 10_000;
+
+interface PendingNode {
+  node: Text;
+  since: number;
+}
+
+let fiberKey: string | null = null;
+let pending: PendingNode[] = [];
+let flushHandle: number | undefined;
+
+function isClaimedByReact(element: Element): boolean {
+  if (fiberKey && Object.prototype.hasOwnProperty.call(element, fiberKey)) {
+    return true;
+  }
+  const key: string | undefined = Object.keys(element).find((k: string) =>
+    k.startsWith("__reactFiber$"),
+  );
+  if (!key) return false;
+  fiberKey = key;
+  return true;
+}
+
+function collectTextNodes(root: Node): Text[] {
+  if (root.nodeType === Node.TEXT_NODE) {
+    return root.nodeValue?.trim() ? [root as Text] : [];
+  }
+  if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_NODE) {
+    return [];
+  }
 
   const walker: TreeWalker = document.createTreeWalker(
-    element,
+    root,
     NodeFilter.SHOW_TEXT,
     null,
   );
 
-  let node: Text | null;
-  const nodesToProcess: Text[] = [];
-
   // Collect all nodes first to avoid live collection issues
+  const nodes: Text[] = [];
+  let node: Text | null;
   while ((node = walker.nextNode() as Text | null)) {
-    nodesToProcess.push(node);
+    if (node.nodeValue?.trim()) nodes.push(node);
   }
+  return nodes;
+}
 
-  // Process collected nodes
-  nodesToProcess.forEach(processTextNode);
+function flushPending(): void {
+  flushHandle = undefined;
+  const queue: PendingNode[] = pending;
+  pending = [];
+  const now: number = Date.now();
+
+  queue.forEach((entry: PendingNode) => {
+    const parent: HTMLElement | null = entry.node.parentElement;
+    if (!entry.node.isConnected || !parent) return;
+    if (isClaimedByReact(parent)) {
+      processTextNode(entry.node);
+      return;
+    }
+    if (now - entry.since > HYDRATION_WAIT_MS) return;
+    pending.push(entry);
+  });
+
+  if (pending.length > 0) scheduleFlush();
+}
+
+function scheduleFlush(): void {
+  if (flushHandle !== undefined) return;
+  flushHandle = requestAnimationFrame(flushPending);
+}
+
+// Queue every text node under `root` for translation once React has claimed it.
+function scheduleNode(root: Node): void {
+  const since: number = Date.now();
+  collectTextNodes(root).forEach((node: Text) => pending.push({ node, since }));
+  if (pending.length > 0) scheduleFlush();
 }
 
 // Apply server-provided translations synchronously (before render).
@@ -196,17 +264,18 @@ export async function initRuntimeI18n(): Promise<void> {
   }
 
   // Process existing DOM
-  processElement(document.body);
+  scheduleNode(document.body);
 
   // Watch for new nodes
   const observer: MutationObserver = new MutationObserver(
     (mutations: MutationRecord[]) => {
       mutations.forEach((mutation: MutationRecord) => {
         mutation.addedNodes.forEach((node: Node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            processElement(node);
-          } else if (node.nodeType === Node.TEXT_NODE) {
-            processTextNode(node as Text);
+          if (
+            node.nodeType === Node.ELEMENT_NODE ||
+            node.nodeType === Node.TEXT_NODE
+          ) {
+            scheduleNode(node);
           }
         });
       });
@@ -228,5 +297,5 @@ export async function reloadTranslations(): Promise<void> {
   reloadCallbacks.forEach((callback: ReloadCallback) => callback());
 
   // Re-process entire DOM (will use stored original text)
-  processElement(document.body);
+  scheduleNode(document.body);
 }
