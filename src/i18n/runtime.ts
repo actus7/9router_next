@@ -13,6 +13,22 @@ interface TranslatedText extends Text {
   _translatedText?: string;
 }
 
+interface TranslatedElement extends HTMLElement {
+  _originalAttrs?: Record<string, string>;
+  _translatedAttrs?: Record<string, string>;
+}
+
+// Attributes that reach the user as prose. A text node is not the only place a
+// sentence shows up: a tooltip, a field hint and a screen reader label are all
+// English until these are rewritten too, and wrapping every one of them in
+// `translate()` by hand is the same job done several hundred times.
+const TRANSLATABLE_ATTRS: readonly string[] = [
+  "title",
+  "placeholder",
+  "aria-label",
+  "alt",
+];
+
 // ─── State ───────────────────────────────────────────────────────────────────
 
 // Check for server-injected translations (set via <script> tag before React hydrates)
@@ -82,6 +98,51 @@ export function onLocaleChange(callback: ReloadCallback): () => void {
   };
 }
 
+// Skip if the element or any ancestor carries data-i18n-skip
+function isSkipped(from: HTMLElement | null): boolean {
+  let element: HTMLElement | null = from;
+  while (element) {
+    if (element.hasAttribute && element.hasAttribute("data-i18n-skip")) {
+      return true;
+    }
+    element = element.parentElement;
+  }
+  return false;
+}
+
+// Process the translatable attributes of an element
+function processElementAttrs(element: HTMLElement): void {
+  const translated = element as TranslatedElement;
+  const originals: Record<string, string> = translated._originalAttrs ?? {};
+  const previous: Record<string, string> = translated._translatedAttrs ?? {};
+  let skipped: boolean | undefined;
+
+  TRANSLATABLE_ATTRS.forEach((attr: string) => {
+    const current: string | null = element.getAttribute(attr);
+    if (current === null || !current.trim()) return;
+
+    // React reuses DOM nodes across renders, so a value that no longer matches
+    // what we wrote is a new source string, not ours to keep translating.
+    if (originals[attr] === undefined || (previous[attr] !== undefined && current !== previous[attr])) {
+      originals[attr] = current;
+    }
+
+    // Only pay for the ancestor walk once an element actually has something to
+    // translate — most elements carry none of these attributes.
+    if (skipped === undefined) skipped = isSkipped(element);
+    if (skipped) return;
+
+    const next: string = translate(originals[attr]) ?? originals[attr];
+    if (next !== current) element.setAttribute(attr, next);
+    previous[attr] = next;
+  });
+
+  if (Object.keys(originals).length > 0) {
+    translated._originalAttrs = originals;
+    translated._translatedAttrs = previous;
+  }
+}
+
 // Process text node
 function processTextNode(node: Text): void {
   if (!node.nodeValue || !node.nodeValue.trim()) return;
@@ -90,14 +151,7 @@ function processTextNode(node: Text): void {
   const parent: HTMLElement | null = node.parentElement;
   if (!parent) return;
 
-  // Skip if parent or any ancestor has data-i18n-skip attribute
-  let element: HTMLElement | null = parent;
-  while (element) {
-    if (element.hasAttribute && element.hasAttribute("data-i18n-skip")) {
-      return;
-    }
-    element = element.parentElement;
-  }
+  if (isSkipped(parent)) return;
 
   const tagName: string | undefined = parent.tagName?.toLowerCase();
 
@@ -159,7 +213,7 @@ function processTextNode(node: Text): void {
 const HYDRATION_WAIT_MS = 10_000;
 
 interface PendingNode {
-  node: Text;
+  node: Text | HTMLElement;
   since: number;
 }
 
@@ -179,7 +233,12 @@ function isClaimedByReact(element: Element): boolean {
   return true;
 }
 
-function collectTextNodes(root: Node): Text[] {
+function hasTranslatableAttr(element: Element): boolean {
+  return TRANSLATABLE_ATTRS.some((attr: string) => element.hasAttribute(attr));
+}
+
+// Every text node plus every element carrying a translatable attribute.
+function collectTranslatable(root: Node): (Text | HTMLElement)[] {
   if (root.nodeType === Node.TEXT_NODE) {
     return root.nodeValue?.trim() ? [root as Text] : [];
   }
@@ -187,17 +246,25 @@ function collectTextNodes(root: Node): Text[] {
     return [];
   }
 
+  const nodes: (Text | HTMLElement)[] = [];
+  if (root.nodeType === Node.ELEMENT_NODE && hasTranslatableAttr(root as Element)) {
+    nodes.push(root as HTMLElement);
+  }
+
   const walker: TreeWalker = document.createTreeWalker(
     root,
-    NodeFilter.SHOW_TEXT,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
     null,
   );
 
   // Collect all nodes first to avoid live collection issues
-  const nodes: Text[] = [];
-  let node: Text | null;
-  while ((node = walker.nextNode() as Text | null)) {
-    if (node.nodeValue?.trim()) nodes.push(node);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.nodeValue?.trim()) nodes.push(node as Text);
+    } else if (hasTranslatableAttr(node as Element)) {
+      nodes.push(node as HTMLElement);
+    }
   }
   return nodes;
 }
@@ -209,10 +276,16 @@ function flushPending(): void {
   const now: number = Date.now();
 
   queue.forEach((entry: PendingNode) => {
-    const parent: HTMLElement | null = entry.node.parentElement;
-    if (!entry.node.isConnected || !parent) return;
-    if (isClaimedByReact(parent)) {
-      processTextNode(entry.node);
+    const isText: boolean = entry.node.nodeType === Node.TEXT_NODE;
+    // An element owns its own attributes, so it is the element React must have
+    // claimed; for a text node that gate belongs to its parent.
+    const owner: HTMLElement | null = isText
+      ? entry.node.parentElement
+      : (entry.node as HTMLElement);
+    if (!entry.node.isConnected || !owner) return;
+    if (isClaimedByReact(owner)) {
+      if (isText) processTextNode(entry.node as Text);
+      else processElementAttrs(entry.node as HTMLElement);
       return;
     }
     if (now - entry.since > HYDRATION_WAIT_MS) return;
@@ -227,10 +300,12 @@ function scheduleFlush(): void {
   flushHandle = requestAnimationFrame(flushPending);
 }
 
-// Queue every text node under `root` for translation once React has claimed it.
+// Queue everything translatable under `root` once React has claimed it.
 function scheduleNode(root: Node): void {
   const since: number = Date.now();
-  collectTextNodes(root).forEach((node: Text) => pending.push({ node, since }));
+  collectTranslatable(root).forEach((node: Text | HTMLElement) =>
+    pending.push({ node, since }),
+  );
   if (pending.length > 0) scheduleFlush();
 }
 

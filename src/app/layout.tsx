@@ -1,17 +1,21 @@
 import type { Metadata } from "next";
+import { localizedMetadata } from "@/i18n/metadata";
 import { RootShell } from "@/app/RootShell";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "ModelHub - AI Infrastructure Management",
-  description:
+export async function generateMetadata(): Promise<Metadata> {
+  return localizedMetadata(
+    "ModelHub - AI Infrastructure Management",
     "One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.",
-  icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/apple-icon.png",
-  },
-};
+    {
+      icons: {
+        icon: "/favicon.png",
+        shortcut: "/favicon.png",
+        apple: "/apple-icon.png",
+      },
+    },
+  );
+}
 
 export const viewport = {
   width: "device-width",

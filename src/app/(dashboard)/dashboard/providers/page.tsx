@@ -1,15 +1,18 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { localizedMetadata } from "@/i18n/metadata";
 import { getProviders, getProviderNodes } from "@/lib/data-access";
 import ProvidersClient from "./ProvidersClient";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { Spinner } from "@/shared/components/Loading";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
 
-export const metadata: Metadata = {
-  title: "Providers | ModelHub",
-  description: "Manage AI provider connections",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return localizedMetadata(
+    "Providers | ModelHub",
+    "Manage AI provider connections",
+  );
+}
 
 async function ProvidersContent() {
   return withTenantPage(async () => {

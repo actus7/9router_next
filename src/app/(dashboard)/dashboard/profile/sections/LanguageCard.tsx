@@ -4,7 +4,8 @@ import { Card } from "@/shared/components";
 import { Button } from "@/components/ui/button";
 import { Globe } from "lucide-react";
 import { translate } from "@/i18n/runtime";
-import { LOCALE_FLAGS } from "@/shared/constants/locales";
+import { getLocaleName } from "@/shared/constants/locales";
+import LocaleFlag from "@/shared/components/LocaleFlag";
 
 interface LanguageCardProps {
   locale: string;
@@ -27,7 +28,10 @@ export default function LanguageCard({ locale, setLangOpen }: LanguageCardProps)
         data-i18n-skip="true"
       >
         <span className="text-sm text-text-muted">{translate("Display language")}</span>
-        <span className="text-2xl">{(LOCALE_FLAGS as Record<string, string>)[locale] || "🌐"}</span>
+        <span className="flex items-center gap-2 text-sm font-medium text-text-main">
+          <LocaleFlag locale={locale} />
+          {getLocaleName(locale)}
+        </span>
       </Button>
     </Card>
   );

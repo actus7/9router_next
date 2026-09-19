@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
 import { reloadTranslations, translate } from "@/i18n/runtime";
-import { Globe } from "lucide-react";
-import { LanguageGrid, getLocaleInfo } from "./LanguageGrid";
+import { getLocaleName } from "@/shared/constants/locales";
+import { LanguageList } from "./LanguageList";
+import LocaleFlag from "./LocaleFlag";
 
 function getLocaleFromCookie(): string {
   if (typeof document === "undefined") return "en";
@@ -40,15 +41,16 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
     <div className={className}>
       {!hideTrigger && (
         <Button variant="ghost" onClick={() => { if (isControlled) { if (isOpen) onClose?.(locale); } else setInternalOpen((p) => !p); }} disabled={isPending}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface/60" title="Idioma" data-i18n-skip="true">
-          <Globe className="size-5" /><span className="text-sm font-medium">{getLocaleInfo(locale).name}</span>
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-muted hover:text-text-main hover:bg-surface/60" title={translate("Language") ?? "Language"} data-i18n-skip="true">
+          <LocaleFlag locale={locale} /><span className="text-sm font-medium">{getLocaleName(locale)}</span>
         </Button>
       )}
       <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { if (isControlled) onClose?.(locale); else setInternalOpen(false); } }}>
-        <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-2xl max-h-[80vh] flex flex-col" data-i18n-skip="true">
-          <DialogTitle className="sr-only">{translate("Select Language")}</DialogTitle>
-          <div className="flex items-center justify-between p-3 border-b border-black/5 dark:border-white/5"><h2 className="text-lg font-semibold text-text-main">{translate("Select Language")}</h2></div>
-          <LanguageGrid locale={locale} isPending={isPending} onSelect={handleSetLocale} />
+        <DialogContent className="flex max-h-[70vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg" data-i18n-skip="true">
+          <div className="border-b border-border px-4 py-3">
+            <DialogTitle className="text-base font-semibold text-text-main">{translate("Select Language")}</DialogTitle>
+          </div>
+          <LanguageList locale={locale} isPending={isPending} onSelect={handleSetLocale} />
         </DialogContent>
       </Dialog>
     </div>

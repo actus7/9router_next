@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { localizedMetadata } from "@/i18n/metadata";
 import Navigation from "./components/Navigation";
 import HeroSection from "./components/HeroSection";
 import FlowAnimation from "./components/FlowAnimation";
@@ -8,11 +9,12 @@ import GetStarted from "./components/GetStarted";
 import Footer from "./components/Footer";
 import LandingCtaSection from "./components/LandingCtaSection";
 
-export const metadata: Metadata = {
-  title: "ModelHub — One Endpoint for All AI Providers",
-  description:
+export async function generateMetadata(): Promise<Metadata> {
+  return localizedMetadata(
+    "ModelHub — One Endpoint for All AI Providers",
     "AI endpoint proxy with web dashboard. Route requests across Claude, OpenAI, and other providers from a single OpenAI-compatible API.",
-};
+  );
+}
 
 export default function LandingPage() {
   return (

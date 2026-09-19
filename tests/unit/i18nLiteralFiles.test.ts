@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { LOCALES } from "@/i18n/config";
+import { getLocaleFlagSrc, getLocaleName } from "@/shared/constants/locales";
 
 const literalsDir = join(process.cwd(), "public", "i18n", "literals");
 
@@ -38,5 +39,19 @@ describe("i18n literal files", () => {
     const parsed: unknown = JSON.parse(raw.replace(/^\uFEFF/, ""));
     expect(parsed).toBeTypeOf("object");
     expect(Object.keys(parsed as Record<string, string>).length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Flags are files, not emoji: Windows has no glyph for the regional-indicator
+ * pairs, so Chrome and Edge there render \uD83C\uDDE7\uD83C\uDDF7 as the letters "BR". A locale whose
+ * SVG is missing shows a broken image in the header, which nothing else catches.
+ */
+describe("locale flags", () => {
+  it.each(LOCALES)("%s has a flag file and a display name", (locale) => {
+    const src = getLocaleFlagSrc(locale);
+    expect(src).not.toBeNull();
+    expect(existsSync(join(process.cwd(), "public", src!))).toBe(true);
+    expect(getLocaleName(locale)).not.toBe(locale);
   });
 });

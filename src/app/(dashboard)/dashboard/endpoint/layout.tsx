@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { localizedMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Endpoint | ModelHub",
-  description: "Configure API endpoint, tunnels, and API keys",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return localizedMetadata(
+    "Endpoint | ModelHub",
+    "Configure API endpoint, tunnels, and API keys",
+  );
+}
 
 export default function EndpointLayout({ children }: { children: React.ReactNode }) {
   return children;
