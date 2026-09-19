@@ -21,8 +21,6 @@ export default {
   },
   // Anonymous endpoint starter model. The upstream catalogue is discovered
   // separately and can change without making the chat picker empty.
-  models: [
-    { id: "Mistral-7B-Instruct-v0.3", name: "Mistral 7B Instruct (OVH)" },
-  ],
+
   modelsFetcher: { url: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models", type: "openai" },
 };

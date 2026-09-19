@@ -22,11 +22,6 @@ function entryFor(providerRef: string): RegistryEntry | undefined {
   });
 }
 
-function declaresModel(entry: RegistryEntry, modelId: string): boolean {
-  const models = (entry as Record<string, unknown>).models as Array<{ id?: string }> | undefined;
-  return Array.isArray(models) && models.some((m) => m?.id === modelId);
-}
-
 /**
  * The browser-only provider behind `model`, or null when the server can test it.
  *
@@ -37,8 +32,10 @@ function declaresModel(entry: RegistryEntry, modelId: string): boolean {
  * endpoint), so judging by model id alone would have called it testable and
  * gone right back to the misleading 502.
  *
- * Falls back to the model id when there is no usable prefix, and only reports
- * browser-only if *every* provider offering it is.
+ * Without a usable prefix the answer is null. Scanning the registry for who
+ * declares the model used to cover that case, but providers with a models
+ * endpoint no longer ship a catalogue to scan — so the scan would now find only
+ * the browser-only half of a shared id and call a testable model untestable.
  */
 export function browserOnlyProviderForModel(model: string): string | null {
   if (!model) return null;
@@ -49,8 +46,5 @@ export function browserOnlyProviderForModel(model: string): string | null {
     if (entry) return isBrowserOnlyProvider(entry) ? String((entry as Record<string, unknown>).id ?? "") : null;
   }
 
-  const owners = (REGISTRY as RegistryEntry[]).filter((entry) => declaresModel(entry, model));
-  if (owners.length === 0) return null;
-  if (!owners.every(isBrowserOnlyProvider)) return null;
-  return String((owners[0] as Record<string, unknown>).id ?? "");
+  return null;
 }

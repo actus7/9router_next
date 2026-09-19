@@ -39,6 +39,50 @@ Each provider has a unique `id`, user-facing alias, category, optional explicit 
 
 Per-model failures (`402`, `429`, `502`, `503` and model-specific errors) create an availability record with reason, sanitized error and expiry. They never mark the entire connection unavailable. Batch operations must be bounded, cancellable in the UI and report progress; automated tests use mocks only.
 
+## O catálogo de modelos é descoberto, não embarcado
+
+Um provider que responde a um endpoint de listagem **não embarca** array
+`models:` no registry. A lista vem do provider; o que fica no repositório é só
+o que uma listagem nunca devolve.
+
+A regra vale para as três formas de listar que existem — `PROVIDER_MODELS_CONFIG`
+(com a credencial da conexão), um `customResolver`, ou o `modelsFetcher` público
+— e é verificada por `tests/unit/dynamicModelCatalog.test.ts`, que falha se um
+provider tiver as duas coisas. Os 147 providers sem endpoint algum mantêm o
+array: é o único catálogo que eles têm.
+
+O que motivou: o Kilo Gateway embarcava 6 modelos enquanto
+`api.kilo.ai/api/gateway/models` devolvia 381, e a tela mostrava os 6. Um
+catálogo escrito à mão ao lado de um ao vivo envelhece em silêncio.
+
+Três consequências que precisaram de código, não só de deleção:
+
+- **`modelOverrides`** carrega o que a listagem não diz: `upstreamModelId`,
+  `targetFormat`, `supportedFormats`, `quotaFamily`, `strip`, `kind`, `params`.
+  `findModel` (`engine/config/providerModels.ts`) mescla o override sobre o
+  modelo descoberto, então o roteamento continua mandando o id certo no formato
+  certo sem que exista uma lista. Um provider não pode ter `models` e
+  `modelOverrides` ao mesmo tempo — um é catálogo, o outro é metadado.
+- **A descoberta virou automática** (`use-cases/models/ensureProviderCatalog`).
+  Antes só o botão "Refresh Models" do dashboard escrevia modelos descobertos;
+  sem catálogo embarcado, isso deixaria o provider invisível no chat, nos
+  combos, no smart routing e no `/v1/models` até alguém abrir a tela dele. O
+  `/v1/models` **espera** a descoberta de um provider conectado que ninguém
+  conhece ainda e revalida os demais em `waitUntil`, com TTL de 6h gravado em
+  `kv(meta)` e um cache por processo — chaveados por conta, porque o catálogo é
+  descoberto com a credencial de uma conta e gravado nas linhas dela. A tela do
+  provider dispara a mesma descoberta uma vez quando encontra catálogo vazio.
+- **Listagem vazia é falha, não catálogo vazio.** Os resolvers que caíam no
+  array embarcado quando o provider não respondia (`kimchi`, `cursor`,
+  `grok-cli`, `zai-web`) devolvem erro 502 com mensagem. Servir uma lista
+  congelada como se fosse a atual é o problema que esta seção existe para
+  eliminar.
+
+`browserOnlyProviderForModel` perdeu a varredura "quem declara este modelo":
+com catálogo dinâmico ela só enxergaria a metade embarcada e chamaria de
+browser-only um modelo que outro provider serve. O prefixo `alias/modelo`
+decide; sem ele, a resposta é null.
+
 ## Durable runs
 
 A chat send does not depend on the browser that started it. `POST /api/harness/runs`

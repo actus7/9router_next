@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { buildGroupedModels } from "@/shared/components/buildGroupedModels";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
+import { getProviderAlias } from "@/shared/constants/providers";
+
+/**
+ * Providers with a models endpoint ship no catalogue, so a discovered model is
+ * what puts them in the picker at all. Every provider under test gets one —
+ * eligibility is what these cases are about, and a provider must not be hidden
+ * merely because nothing has been discovered for it yet.
+ */
+function discovered(providerIds: string[]) {
+  return providerIds.map((providerId) => ({
+    id: `${providerId}-model`,
+    name: `${providerId} model`,
+    providerAlias: getProviderAlias(providerId),
+    source: "discovered",
+  }));
+}
 
 function build(kindFilter: string | null, noAuthIds: string[], activeProviders: string[] = []) {
   return buildGroupedModels({
@@ -9,7 +25,7 @@ function build(kindFilter: string | null, noAuthIds: string[], activeProviders: 
     modelAliases: {},
     allProviders: AI_PROVIDERS as unknown as Record<string, Record<string, unknown>>,
     providerNodes: [],
-    customModels: [],
+    customModels: discovered([...noAuthIds, ...activeProviders]),
     disabledModels: {},
     kindFilter,
     cursorModels: [],

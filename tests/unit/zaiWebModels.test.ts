@@ -33,13 +33,20 @@ describe("zai-web models listing", () => {
     expect(result.error).toMatch(/chat\.z\.ai/);
   });
 
-  it("falls back to the static catalog when the session returns nothing", async () => {
+  /**
+   * There is no static catalogue to fall back to any more: a provider that
+   * answers a models endpoint does not ship one. A listing that comes back
+   * empty is therefore reported as a failure rather than quietly replaced by a
+   * frozen list that looks live.
+   */
+  it("reports an empty listing instead of serving a frozen catalogue", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: [] }), { status: 200 }));
 
     const result = await resolver()!(connection(JSON.stringify({ token: "jwt-token" })));
 
-    expect(result.models?.map((m) => m.id)).toContain("glm-5.3");
-    expect(result.warning).toBeTruthy();
+    expect(result.models).toBeUndefined();
+    expect(result.status).toBe(502);
+    expect(result.error).toMatch(/no models/i);
   });
 
   it("surfaces an expired session as an auth error", async () => {

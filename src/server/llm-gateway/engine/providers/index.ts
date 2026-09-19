@@ -25,6 +25,8 @@ const MEDIA_KEYS: Set<string> = new Set(MEDIA_ENTRY_KEYS);
 
 export const PROVIDERS: Record<string, Record<string, unknown>> = {};
 export const PROVIDER_MODELS: Record<string, Record<string, unknown>[]> = {};
+/** Per-model metadata a discovered catalogue cannot carry, keyed by alias then model id. */
+export const PROVIDER_MODEL_OVERRIDES: Record<string, Record<string, Record<string, unknown>>> = {};
 export const PROVIDER_OAUTH: Record<string, Record<string, unknown>> = {};
 export const PROVIDER_MEDIA: Record<string, Record<string, unknown>> = {};
 for (const entry of REGISTRY as Record<string, unknown>[]) {
@@ -34,6 +36,7 @@ for (const entry of REGISTRY as Record<string, unknown>[]) {
     if (e.transports) PROVIDERS[e.id as string].transports = e.transports;
   }
   if (e.models !== undefined) PROVIDER_MODELS[(e.alias as string) || (e.id as string)] = (e.models as (string | Record<string, unknown>)[]).map(normalizeModel);
+  if (e.modelOverrides !== undefined) PROVIDER_MODEL_OVERRIDES[(e.alias as string) || (e.id as string)] = e.modelOverrides as Record<string, Record<string, unknown>>;
   if (e.oauth) PROVIDER_OAUTH[e.id as string] = e.oauth as Record<string, unknown>;
   // Build PROVIDER_MEDIA from top-level fields (post-migration) + legacy entry.media
   const mediaFields: Record<string, unknown> = {};

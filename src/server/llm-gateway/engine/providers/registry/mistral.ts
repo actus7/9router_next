@@ -20,12 +20,9 @@ export default {
       dropClientMetadata: true,
     },
   },
-  models: [
-    { id: "mistral-large-latest", name: "Mistral Large 3" },
-    { id: "codestral-latest", name: "Codestral" },
-    { id: "mistral-medium-latest", name: "Mistral Medium 3" },
-    { id: "mistral-embed", name: "Mistral Embed", kind: "embedding" },
-  ],
+    modelOverrides: {
+    "mistral-embed": { "kind": "embedding" },
+  },
   serviceKinds: ["llm","imageToText","embedding"],
   embeddingConfig: { baseUrl: "https://api.mistral.ai/v1/embeddings", authType: "apikey", authHeader: "bearer" },
 };

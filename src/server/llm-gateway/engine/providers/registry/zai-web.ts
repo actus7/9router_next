@@ -19,11 +19,5 @@ export default {
     format: "openai",
     authType: "cookie",
   },
-  models: [
-    // chat.z.ai /api/config reports glm-5.3 as the account default.
-    { id: "glm-5.3", name: "GLM-5.3" },
-    { id: "glm-5.2", name: "GLM-5.2" },
-    { id: "glm-5.1", name: "GLM-5.1" },
-    { id: "glm-5-turbo", name: "GLM-5 Turbo" },
-  ],
+
 };

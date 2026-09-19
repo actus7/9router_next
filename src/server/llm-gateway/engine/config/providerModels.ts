@@ -1,7 +1,7 @@
 import { PROVIDERS } from "./providers";
 import REGISTRY from "../providers/registry/index";
 // PROVIDER_MODELS now built from providers/registry (transport + models co-located)
-import { PROVIDER_MODELS } from "../providers/index";
+import { PROVIDER_MODELS, PROVIDER_MODEL_OVERRIDES } from "../providers/index";
 import { modelQuotaFamily, modelStrip, modelTargetFormat, modelSupportedFormats, normalizeModelId } from "../providers/models/schema";
 import { CODEX_REVIEW_SUFFIX } from "../providers/models/helpers";
 export { PROVIDER_MODELS };
@@ -25,14 +25,24 @@ const DOT_VERSION_PROVIDERS = new Set(["kr", "kiro"]);
 
 // Find a registry entry by id. For Kiro models, tolerates dash/dot version separators
 // ("claude-sonnet-4-5" ~= "claude-sonnet-4.5"). Other providers use exact match only.
-function findModel(models: ModelEntry[] | undefined, modelId: string, aliasOrId: string) {
-  if (!models) return undefined;
-  const found = models.find((m: ModelEntry) => m.id === modelId);
-  if (found) return found;
+//
+// A provider whose catalogue is discovered ships no `models` array, so the entry
+// comes from `modelOverrides` instead — the transport metadata a `/models`
+// response does not carry. When both exist the override wins: it is the more
+// specific statement about a model the list only names.
+function findModel(models: ModelEntry[] | undefined, modelId: string, aliasOrId: string): ModelEntry | undefined {
+  const overrides = PROVIDER_MODEL_OVERRIDES[aliasOrId];
+  const listed = models?.find((m: ModelEntry) => m.id === modelId);
+  const override = overrides?.[modelId];
+  if (listed || override) return { id: modelId, ...listed, ...override };
+
   if (!DOT_VERSION_PROVIDERS.has(aliasOrId)) return undefined;
   const normalized = normalizeModelId(modelId);
   if (normalized === modelId) return undefined;
-  return models.find((m: ModelEntry) => m.id === normalized);
+  const listedAlt = models?.find((m: ModelEntry) => m.id === normalized);
+  const overrideAlt = overrides?.[normalized];
+  if (listedAlt || overrideAlt) return { id: normalized, ...listedAlt, ...overrideAlt };
+  return undefined;
 }
 
 export function isValidModel(aliasOrId: string, modelId: string, passthroughProviders: Set<string> = new Set()) {

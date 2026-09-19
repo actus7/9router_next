@@ -26,14 +26,10 @@ export default {
     tokenUrl: "https://auth.x.ai/oauth2/token",
     refreshUrl: "https://auth.x.ai/oauth2/token",
   },
-  models: [
-    { id: "grok-4", name: "Grok 4" },
-    { id: "grok-4-fast-reasoning", name: "Grok 4 Fast Reasoning" },
-    { id: "grok-code-fast-1", name: "Grok Code Fast" },
-    { id: "grok-3", name: "Grok 3" },
-    { id: "grok-2-image-1212", name: "Grok 2 Image", params: ["n","response_format"], kind: "image" },
-    { id: "grok-imagine-video", name: "Grok Imagine Video", params: ["duration","aspect_ratio","resolution"], kind: "video" },
-  ],
+    modelOverrides: {
+    "grok-2-image-1212": { "params": ["n", "response_format"], "kind": "image" },
+    "grok-imagine-video": { "params": ["duration", "aspect_ratio", "resolution"], "kind": "video" },
+  },
   serviceKinds: ["llm","imageToText","webSearch","image","video"],
   imageConfig: { baseUrl: "https://api.x.ai/v1/images/generations", bodyFields: ["model","prompt","n","response_format"] },
   // Async video jobs (POST returns { request_id }, GET polls until done/failed).

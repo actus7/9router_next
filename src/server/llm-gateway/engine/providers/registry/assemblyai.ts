@@ -22,12 +22,12 @@ export default {
     baseUrl: "https://api.assemblyai.com/v1/audio/transcriptions",
     validateUrl: "https://api.assemblyai.com/v1/account",
   },
-  models: [
-    { id: "universal-3-pro", name: "Universal 3 Pro", params: ["language"], kind: "stt" },
-    { id: "universal-2", name: "Universal 2", params: ["language"], kind: "stt" },
-    { id: "best", name: "Best (Nano + Universal)", kind: "stt" },
-    { id: "nano", name: "Nano (Fast)", kind: "stt" },
-  ],
+    modelOverrides: {
+    "universal-3-pro": { "params": ["language"], "kind": "stt" },
+    "universal-2": { "params": ["language"], "kind": "stt" },
+    "best": { "kind": "stt" },
+    "nano": { "kind": "stt" },
+  },
   serviceKinds: ["stt"],
   sttConfig: {
     baseUrl: "https://api.assemblyai.com/v2/transcript",

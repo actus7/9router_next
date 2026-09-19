@@ -10,7 +10,6 @@
 import {
   GROK_CLI_BASE_URL,
   GROK_CLI_CLIENT_IDENTIFIER,
-  GROK_CLI_MODEL,
   GROK_CLI_USER_AGENT,
   GROK_CLI_VERSION,
 } from "../../config/grokCli";
@@ -65,18 +64,12 @@ export default {
       503: { attempts: 2, delayMs: 1500 },
     },
   },
-  models: [
-    {
-      id: GROK_CLI_MODEL,
-      name: "Grok Build",
-      contextLength: 500000,
-      maxOutputTokens: 64000,
-    },
-    { id: "grok-4.5", name: "Grok 4.5" },
-    { id: "grok-4.5-high", name: "Grok 4.5 (High)", upstreamModelId: "grok-4.5" },
-    { id: "grok-4.5-medium", name: "Grok 4.5 (Medium)", upstreamModelId: "grok-4.5" },
-    { id: "grok-4.5-low", name: "Grok 4.5 (Low)", upstreamModelId: "grok-4.5" },
-  ],
+    modelOverrides: {
+    "grok-build": { "maxOutputTokens": 64000 },
+    "grok-4.5-high": { "upstreamModelId": "grok-4.5" },
+    "grok-4.5-medium": { "upstreamModelId": "grok-4.5" },
+    "grok-4.5-low": { "upstreamModelId": "grok-4.5" },
+  },
   features: {
     usage: true,
   },

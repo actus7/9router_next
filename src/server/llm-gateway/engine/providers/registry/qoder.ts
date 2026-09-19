@@ -25,21 +25,7 @@ export default {
       url: "https://openapi.qoder.sh/api/v2/quota/usage",
     },
   },
-  models: [
-    { id: "ultimate", name: "Ultimate" },
-    { id: "auto", name: "Auto" },
-    { id: "performance", name: "Performance" },
-    { id: "efficient", name: "Efficient" },
-    { id: "qmodel_preview", name: "Qwen3.8-Max-Preview" },
-    { id: "qmodel_latest", name: "Qwen3.7-Max" },
-    { id: "qmodel", name: "Qwen3.7-Plus" },
-    { id: "kmodel_latest", name: "Kimi-K3" },
-    { id: "kmodel", name: "Kimi-K2.7-Code" },
-    { id: "gm51model", name: "GLM-5.2" },
-    { id: "dmodel", name: "DeepSeek-V4-Pro" },
-    { id: "dfmodel", name: "DeepSeek-V4-Flash" },
-    { id: "mmodel", name: "MiniMax-M3" },
-  ],
+
   oauth: {
     openApiBaseUrl: "https://openapi.qoder.sh",
     centerBaseUrl: "https://center.qoder.sh",

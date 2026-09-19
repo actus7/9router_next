@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
 import { notify } from "@/store/notificationStore";
@@ -54,6 +54,25 @@ export function useProviderModels({
   });
 
   const models = catalogCleared ? [] : (discoveryHook.liveModels.length > 0 ? discoveryHook.liveModels : (discoveredModels.length > 0 ? discoveredModels : staticModels));
+
+  /**
+   * Discovers the catalogue the first time this page sees an empty one.
+   *
+   * A provider that answers a models endpoint ships no list, so before anything
+   * has been discovered there is nothing to show — and the user is looking at
+   * the very screen that can fix it. Runs once per mount, and only with a
+   * connection to ask through.
+   */
+  const autoDiscovered = useRef(false);
+  useEffect(() => {
+    if (autoDiscovered.current || catalogCleared || models.length > 0) return;
+    if (!connections.some((connection) => connection.isActive !== false)) return;
+    autoDiscovered.current = true;
+    void discoveryHook.handleRefreshModels();
+    // The refresh reads live state through its own hook; re-running it on every
+    // render of that state is exactly what the ref above prevents.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogCleared, models.length, connections]);
 
   const testingHook = useModelTesting({
     providerStorageAlias, providerId, models, kiloFreeModels: discoveryHook.kiloFreeModels,

@@ -19,6 +19,12 @@ vi.mock("@/server/security/safeFetch", () => ({
     throw new Error("offline");
   }),
 }));
+// A descoberta automática fala com o provider e com o banco; aqui só interessa
+// se ela é chamada para um provider cujo catálogo ninguém conhece ainda.
+vi.mock("@/server/application/use-cases/models/ensureProviderCatalog", () => ({
+  ensureProviderCatalog: vi.fn(async () => {}),
+}));
+vi.mock("@vercel/functions", () => ({ waitUntil: (promise: Promise<unknown>) => { void promise; } }));
 
 import { buildModelsList } from "@/server/application/use-cases/http/v1/models/route";
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
@@ -26,6 +32,7 @@ import { getCombos } from "@/lib/db/repos/combosRepo";
 import { getCustomModels, getModelAliases } from "@/lib/db/repos/aliasRepo";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { safePublicFetch } from "@/server/security/safeFetch";
+import { ensureProviderCatalog } from "@/server/application/use-cases/models/ensureProviderCatalog";
 import { FREE_PROVIDERS, resolveProviderId } from "@/shared/constants/providers";
 
 const OPENAI_CONNECTION = {
@@ -67,12 +74,31 @@ describe("buildModelsList — só o que o gateway consegue atender", () => {
 
   it("com uma conexão ativa, lista o provider conectado e também os sem credencial", async () => {
     vi.mocked(getProviderConnections).mockResolvedValue([OPENAI_CONNECTION] as never);
+    // O catálogo da OpenAI é descoberto, não embarcado: o que a lista publica
+    // são os modelos que a descoberta gravou na conta.
+    vi.mocked(getCustomModels).mockResolvedValue([
+      { providerAlias: "openai", id: "gpt-5", name: "GPT-5", type: "llm", source: "discovered" },
+    ] as never);
 
     const owners = ownersOf(await buildModelsList(["llm"]));
 
     expect(owners).toContain("openai");
     expect(owners.some(isKeyless)).toBe(true);
     expect(owners.filter((providerId) => providerId !== "openai" && !isKeyless(providerId))).toEqual([]);
+  });
+
+  /**
+   * O provider tem endpoint de listagem, então não embarca catálogo. Sem nada
+   * descoberto não há o que listar — e é por isso que a lista manda descobrir
+   * antes de responder, em vez de devolver o provider vazio e esperar que
+   * alguém abra o dashboard.
+   */
+  it("manda descobrir o catálogo de um provider conectado que ninguém conhece", async () => {
+    vi.mocked(getProviderConnections).mockResolvedValue([OPENAI_CONNECTION] as never);
+
+    await buildModelsList(["llm"]);
+
+    expect(ensureProviderCatalog).toHaveBeenCalledWith("openai");
   });
 
   it("com skipDynamicFetch, usa o catálogo embarcado sem buscar na rede", async () => {

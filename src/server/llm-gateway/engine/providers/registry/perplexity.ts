@@ -22,10 +22,7 @@ export default {
     baseUrl: "https://api.perplexity.ai/chat/completions",
     validateUrl: "https://api.perplexity.ai/models",
   },
-  models: [
-    { id: "sonar-pro", name: "Sonar Pro" },
-    { id: "sonar", name: "Sonar" },
-  ],
+
   serviceKinds: ["llm","webSearch"],
   searchViaChat: {
     defaultModel: "sonar",

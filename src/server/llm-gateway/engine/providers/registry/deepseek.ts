@@ -40,14 +40,10 @@ export default {
       auth: { combined: true, header: "x-api-key", scheme: "raw" },
     },
   ],
-  models: [
-    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
-    { id: "deepseek-v4-pro-max", name: "DeepSeek V4 Pro Max", upstreamModelId: "deepseek-v4-pro" },
-    { id: "deepseek-v4-pro-none", name: "DeepSeek V4 Pro No Thinking", upstreamModelId: "deepseek-v4-pro" },
-    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
-    { id: "deepseek-chat", name: "DeepSeek V3.2 Chat" },
-    { id: "deepseek-reasoner", name: "DeepSeek V3.2 Reasoner" },
-  ],
+    modelOverrides: {
+    "deepseek-v4-pro-max": { "upstreamModelId": "deepseek-v4-pro" },
+    "deepseek-v4-pro-none": { "upstreamModelId": "deepseek-v4-pro" },
+  },
   features: {
     usage: true,
     usageApikey: true,

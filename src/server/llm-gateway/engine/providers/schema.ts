@@ -61,6 +61,17 @@ export interface RegistryEntry extends Record<string, unknown> {
   passthroughModels?: boolean;
   // Models
   models?: unknown[];
+  /**
+   * Per-model transport metadata for a provider whose catalogue is discovered.
+   *
+   * A `/models` response carries ids and names; it never carries the upstream id
+   * a request must actually be sent with, the target wire format, the quota
+   * family or the content to strip. Those live here, keyed by model id, and are
+   * merged over the discovered model. A provider with a listing endpoint
+   * therefore keeps its quirks without shipping a catalogue that goes stale —
+   * see tests/unit/dynamicModelCatalog.test.ts.
+   */
+  modelOverrides?: Record<string, Record<string, unknown>>;
   modelsFetcher?: unknown;
   noModelDiscovery?: boolean;
   features?: Record<string, unknown>;
@@ -89,7 +100,7 @@ export const REGISTRY_TOP_LEVEL_KEYS: readonly string[] = [
   "hasProviderSpecificData", "oauth",
   "display", "notice", "hidden",
   "transport", "transports", "regions", "defaultRegion", "passthroughModels",
-  "models", "noModelDiscovery", "features", "thinkingConfig",
+  "models", "modelOverrides", "noModelDiscovery", "features", "thinkingConfig",
   ...MEDIA_ENTRY_KEYS,
 ];
 

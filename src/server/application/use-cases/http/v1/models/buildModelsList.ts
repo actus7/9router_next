@@ -1,4 +1,9 @@
+import { waitUntil } from "@vercel/functions";
+
+import { getCustomModels } from "@/lib/db/repos/aliasRepo";
 import { FREE_PROVIDERS } from "@/shared/constants/providers";
+import { PROVIDER_ID_TO_ALIAS, PROVIDER_MODELS } from "@/server/llm-gateway/catalog";
+import { ensureProviderCatalog } from "../../../models/ensureProviderCatalog";
 import { getEligibleFreeModelProviders, resolveFreeModelGroups, shippedFreeModels } from "./freeModelGroups";
 import type { ConnectionRecord } from "./liveModelResolvers";
 import { buildComboEntries, collectMergedModelIds, resolveProviderContext } from "./modelsListBuilders";
@@ -42,6 +47,29 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
   // noAuth providers with public credentials). An account without connections
   // used to get the whole registry here — ~150 providers every request to which
   // failed with "No credentials".
+  // A provider that answers a models endpoint ships no static list, so without
+  // a discovered catalogue there is nothing to list it with. Wait for the ones
+  // we know nothing about — a client's first request should see the provider,
+  // not see it appear on the second — and revalidate the rest in the background.
+  if (!skipDynamicFetch) {
+    const unknown: string[] = [];
+    for (const [providerId, conn] of activeConnectionByProvider.entries()) {
+      const alias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
+      const enabled = conn?.providerSpecificData?.enabledModels;
+      const known = (PROVIDER_MODELS[alias]?.length ?? 0) > 0
+        || (Array.isArray(enabled) && enabled.length > 0)
+        || data.customModels.some((model) => model.providerAlias === alias);
+      if (known) waitUntil(ensureProviderCatalog(providerId));
+      else unknown.push(providerId);
+    }
+    if (unknown.length > 0) {
+      await Promise.all(unknown.map((providerId) => ensureProviderCatalog(providerId)));
+      try {
+        data.customModels = (await getCustomModels()) as unknown as Record<string, unknown>[];
+      } catch { /* the list below simply stays as it was */ }
+    }
+  }
+
   for (const [providerId, conn] of activeConnectionByProvider.entries()) {
     await addProvider(conn, providerId);
   }

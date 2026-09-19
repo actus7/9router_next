@@ -86,7 +86,12 @@ export default {
   //   // hiddenKinds: ["image"],
   // },
 
-  // ── models (omit = no key; [] = explicit empty) ──────────────────────────
+  // ── models ───────────────────────────────────────────────────────────────
+  // ONLY for a provider with no models endpoint. If yours answers one (a
+  // `modelsFetcher` above, or an entry in PROVIDER_MODELS_CONFIG), ship no list
+  // at all — the catalogue is discovered. Pin what a listing cannot report with
+  // `modelOverrides: { "model-id": { upstreamModelId, targetFormat, kind, ... } }`.
+  // tests/unit/dynamicModelCatalog.test.ts fails if both are present.
   models: [
     { id: "example-large", name: "Example Large" },
     // { id: "example-img", name: "Example Image", type: "image", capabilities: ["text2img"], params: ["size"] },

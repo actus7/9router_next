@@ -21,10 +21,6 @@ export default {
       "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
     },
   },
-  models: [
-    { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
-    { id: "claude-opus-4-20250514", name: "Claude Opus 4" },
-    { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" },
-  ],
+
   serviceKinds: ["llm","imageToText"],
 };

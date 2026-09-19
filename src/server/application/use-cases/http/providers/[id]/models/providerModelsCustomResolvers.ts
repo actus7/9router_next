@@ -1,7 +1,6 @@
 import { GEMINI_CONFIG } from "@/lib/oauth/constants/oauth";
 import { refreshGoogleToken, refreshCodexToken, updateProviderCredentials } from "@/server/llm-gateway/auth";
 import {
-  getModelsByProviderId,
   resolveKiroModels,
   resolveKimchiModels,
   resolveQoderModels,
@@ -25,12 +24,18 @@ import {
 } from "./providerModelsParsers";
 import { fetchWithConnectionProxy } from "./providerModelsProxy";
 
-const getStaticProviderModels = (providerId: string) =>
-  getModelsByProviderId(providerId).map((model: Record<string, unknown>) => ({
-    ...model,
-    id: model.id as string,
-    name: (model.name as string) || (model.id as string),
-  }));
+/**
+ * A listing that answers nothing is a failure, not an empty catalogue.
+ *
+ * These resolvers used to fall back to the provider's shipped array, which is
+ * how a frozen catalogue kept being served as if it were live. The providers
+ * that own a listing endpoint no longer ship one, so there is nothing to fall
+ * back to — and saying so beats showing a stale list that looks current.
+ */
+const noLiveModels = (providerName: string, detail?: string) => ({
+  error: `${providerName} returned no models${detail ? ` (${detail})` : ""}. Nothing to list — try again, or check the connection.`,
+  status: 502,
+});
 
 export const PROVIDER_MODELS_CUSTOM_RESOLVERS: Record<string, Record<string, unknown>> = {
   codex: {
@@ -59,10 +64,7 @@ export const PROVIDER_MODELS_CUSTOM_RESOLVERS: Record<string, Record<string, unk
       if (result?.models?.length) {
         return { models: result.models };
       }
-      return {
-        models: getStaticProviderModels("kimchi"),
-        warning: "Kimchi returned no live models; falling back to static catalog.",
-      };
+      return noLiveModels("Kimchi");
     }
   },
   cursor: {
@@ -72,10 +74,7 @@ export const PROVIDER_MODELS_CUSTOM_RESOLVERS: Record<string, Record<string, unk
         providerSpecificData: (connection.providerSpecificData || {}) as Record<string, unknown>,
       }, { forceRefresh: true, log: console });
       if (result?.models?.length) return { models: result.models };
-      return {
-        models: getStaticProviderModels("cursor"),
-        warning: "Cursor returned no live models; falling back to static catalog.",
-      };
+      return noLiveModels("Cursor");
     },
   },
   kiro: {
@@ -203,14 +202,8 @@ export const PROVIDER_MODELS_CUSTOM_RESOLVERS: Record<string, Record<string, unk
         },
       });
       if (result.models.length) return result;
-      return {
-        models: getStaticProviderModels("grok-cli"),
-        warning: result.warning || "Grok CLI returned no live models; using static catalog.",
-      };
+      return noLiveModels("Grok CLI", result.warning);
     },
-  },
-  theoldllm: {
-    customResolver: async () => ({ models: getStaticProviderModels("theoldllm") })
   },
   // Web session, not an API key: the stored credential is the captured blob and
   // chat.z.ai answers its Open WebUI listing with whatever the account can use —
@@ -238,10 +231,7 @@ export const PROVIDER_MODELS_CUSTOM_RESOLVERS: Record<string, Record<string, unk
       }
       const models = parseOpenAIStyleModels(await response.json().catch(() => null));
       if (models.length) return { models };
-      return {
-        models: getStaticProviderModels("zai-web"),
-        warning: "Z.ai returned no live models; falling back to static catalog.",
-      };
+      return noLiveModels("Z.ai");
     },
   },
   "xiaomi-tokenplan": {

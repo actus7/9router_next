@@ -8,6 +8,7 @@ import {
   isFreeDefaultProvider,
 } from "@/shared/constants/freeDefault";
 import opencodeEntry from "@/server/llm-gateway/engine/providers/registry/opencode";
+import { filterDiscoveredNoAuthModels } from "@/server/application/use-cases/http/v1/models/freeModelGroups";
 import { __test__ as routerInternals } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import type { SmartModelProfile, SmartRoutingConfig } from "@/server/llm-gateway/engine/services/smart-routing/types";
 import { DEFAULT_SMART_ROUTING_CONFIG } from "@/server/llm-gateway/engine/services/smart-routing/types";
@@ -24,8 +25,21 @@ describe("credential-free default", () => {
     expect(opencodeEntry.noAuth).toBe(true);
   });
 
-  it("names a model the provider actually carries", () => {
-    expect(opencodeEntry.models.map((model) => model.id)).toContain(FREE_DEFAULT_MODEL);
+  /**
+   * The provider's catalogue is discovered now, so there is no array here to
+   * check the constant against. What still has to hold is that the discovery
+   * keeps this model: `filterDiscoveredNoAuthModels` admits only `-free` ids
+   * plus this one by name, so a rename upstream drops it from the picker and
+   * this assertion is what notices.
+   */
+  it("keeps the default model eligible in the free discovery filter", () => {
+    expect((opencodeEntry as Record<string, unknown>).models).toBeUndefined();
+    expect(opencodeEntry.modelsFetcher).toBeTruthy();
+    const kept = filterDiscoveredNoAuthModels(
+      [{ id: FREE_DEFAULT_MODEL, name: FREE_DEFAULT_MODEL }, { id: "paid-model", name: "Paid" }],
+      "opencode-free",
+    );
+    expect(kept.map((model) => model.id)).toEqual([FREE_DEFAULT_MODEL]);
   });
 
   it("builds the alias-qualified key used by chat, routing and the gateway", () => {

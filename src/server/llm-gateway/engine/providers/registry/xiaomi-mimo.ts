@@ -38,13 +38,9 @@ export default {
       auth: { combined: true, header: "x-api-key", scheme: "raw" },
     },
   ],
-  models: [
-    { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro" },
-    { id: "mimo-v2.5", name: "MiMo V2.5" },
-    { id: "mimo-v2-omni", name: "MiMo V2 Omni" },
-    { id: "mimo-v2-flash", name: "MiMo V2 Flash" },
-    { id: "mimo-v2.5-tts", name: "MiMo V2.5 TTS", kind: "tts" },
-  ],
+    modelOverrides: {
+    "mimo-v2.5-tts": { "kind": "tts" },
+  },
   ttsConfig: {
     baseUrl: "https://api.xiaomimimo.com/v1/chat/completions",
     authType: "apikey",
