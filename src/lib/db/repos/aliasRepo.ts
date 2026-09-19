@@ -54,10 +54,27 @@ export interface CustomModelInput {
   metadata?: Record<string, unknown>;
 }
 
-// Reconciles a provider's live catalogue in one SQLite transaction. Manual
-// entries are deliberately left alone; a refresh owns only its discovered
-// snapshot. Keeping this in the repository avoids an HTTP request per model
-// when large providers (such as OpenRouter) return hundreds of entries.
+/**
+ * Rows per statement.
+ *
+ * One statement per model is one Neon round-trip per model — ~180ms measured,
+ * so a 381-model catalogue (Kilo Gateway) spent over a minute inside an open
+ * transaction while "Refreshing..." span with nothing to show for it. At 250
+ * rows that is two statements, and 750 bound parameters, well under Postgres's
+ * 65535 limit.
+ */
+const SYNC_BATCH_ROWS = 250;
+
+function chunked<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+// Reconciles a provider's live catalogue in one transaction. Manual entries are
+// deliberately left alone; a refresh owns only its discovered snapshot. Keeping
+// this in the repository avoids an HTTP request per model when large providers
+// (such as OpenRouter) return hundreds of entries.
 export async function syncDiscoveredCustomModels(providerAlias: string, models: CustomModelInput[]): Promise<void> {
   const desired = new Map(
     models
@@ -75,22 +92,27 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
     const rows = await db.all("SELECT key, value FROM kv WHERE userId = ? AND scope = 'customModels'", [currentTenantId()]) as Array<{ key: string; value: string }>;
     const existing = new Map(rows.map((row) => [row.key, parseJson<Record<string, unknown>>(row.value, {}) || {}]));
 
-    for (const [key, value] of existing) {
-      if (
+    const stale = [...existing]
+      .filter(([key, value]) =>
         value.providerAlias === providerAlias &&
         (value.kind || value.type || "llm") === "llm" &&
         value.source === "discovered" &&
-        !desired.has(key)
-      ) {
-        await db.run("DELETE FROM kv WHERE userId = ? AND scope = 'customModels' AND key = ?", [currentTenantId(), key]);
-      }
+        !desired.has(key))
+      .map(([key]) => key);
+
+    for (const batch of chunked(stale, SYNC_BATCH_ROWS)) {
+      await db.run(
+        `DELETE FROM kv WHERE userId = ? AND scope = 'customModels' AND key IN (${batch.map(() => "?").join(", ")})`,
+        [currentTenantId(), ...batch],
+      );
     }
 
+    const upserts: Array<[string, string]> = [];
     for (const [key, model] of desired) {
       const current = existing.get(key);
       // A manually curated entry takes precedence over discovery.
       if (current && current.source !== "discovered") continue;
-      const value = stringifyJson({
+      upserts.push([key, stringifyJson({
         ...(current || {}),
         ...(model.metadata || {}),
         providerAlias,
@@ -98,10 +120,15 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
         type: "llm",
         name: model.name || model.id,
         source: "discovered",
-      });
+      })]);
+    }
+
+    // `desired` is keyed by model, so no batch can hit the same row twice —
+    // which ON CONFLICT DO UPDATE would reject within a single statement.
+    for (const batch of chunked(upserts, SYNC_BATCH_ROWS)) {
       await db.run(
-        "INSERT INTO kv(userId, scope, key, value) VALUES(?, 'customModels', ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value",
-        [currentTenantId(), key, value],
+        `INSERT INTO kv(userId, scope, key, value) VALUES ${batch.map(() => "(?, 'customModels', ?, ?)").join(", ")} ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`,
+        batch.flatMap(([key, value]) => [currentTenantId(), key, value]),
       );
     }
   });
