@@ -4,19 +4,24 @@ import { normalizeProviderId } from "@/lib/providerNormalization";
 /**
  * A model the account would be billed for.
  *
- * `isFree` is the provider's own answer when it gives one; otherwise a price
- * above zero is. A model that says nothing about price is treated as free —
- * most providers report no pricing at all, and guessing "paid" would hide
- * working models.
+ * `isFree` is the provider's own answer, and it is taken both ways: Kilo's
+ * routers say `isFree: false` while pricing `-1` (they cost whatever model
+ * they pick), and some paid models declare a price of zero and still answer
+ * `402 Credits Required`. Reading only the price let those through.
+ *
+ * Without `isFree`, any price other than zero counts — including `-1`, which
+ * means "variable", not "free". A model that says nothing about price is
+ * treated as free: most providers report no pricing at all, and guessing
+ * "paid" would hide working models.
  */
 function isPaidModel(model: unknown): boolean {
   if (!model || typeof model !== "object") return false;
   const entry = model as Record<string, unknown>;
-  if (entry.isFree === true) return false;
+  if (typeof entry.isFree === "boolean") return !entry.isFree;
 
   const pricing = entry.pricing as Record<string, unknown> | undefined;
   if (!pricing) return false;
-  return Number(pricing.prompt || 0) > 0 || Number(pricing.completion || 0) > 0;
+  return Number(pricing.prompt || 0) !== 0 || Number(pricing.completion || 0) !== 0;
 }
 
 /**

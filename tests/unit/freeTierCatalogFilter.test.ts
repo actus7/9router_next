@@ -18,6 +18,11 @@ const kiloPayload = [
   { id: "google/gemini-3-pro-image", isFree: false, pricing: { prompt: "0.000002", completion: "0.000012" } },
   { id: "openai/gpt-5.4-image-2", pricing: { prompt: "0.0000025", completion: "0.00001" } },
   { id: "kilo-auto/free", isFree: true },
+  // As duas formas de a Kilo dizer "pago" sem declarar um preço positivo: um
+  // roteador cobra o que o modelo escolhido custar (`-1`), e outros trazem
+  // preço zero mas exigem créditos. `isFree: false` é a resposta dela.
+  { id: "kilo-auto/efficient", isFree: false, pricing: { prompt: "-1", completion: "-1" } },
+  { id: "google/lyria-3-pro-preview", isFree: false, pricing: { prompt: "0", completion: "0" } },
 ];
 
 describe("dropPaidModelsOfFreeTierProvider", () => {
