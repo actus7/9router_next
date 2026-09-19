@@ -1,6 +1,7 @@
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { normalizeProviderId } from "@/lib/providerNormalization";
 import { PROVIDER_MODELS_CONFIG, fetchWithConnectionProxy } from "./providerModelsConfig";
+import { dropPaidModelsOfFreeTierProvider } from "./freeTierCatalog";
 
 /**
  * Asks one connection's provider for its catalogue.
@@ -28,7 +29,12 @@ async function readModels(response: Response, provider: unknown): Promise<Listed
     return { error: `Failed to fetch models: ${response.status}`, status: response.status };
   }
   const data = await response.json();
-  return { models: data.data || data.models || [] };
+  return { models: usable(provider, data.data || data.models || []) };
+}
+
+/** Everything leaves through here, so no discovery path keeps the paid half. */
+function usable(provider: unknown, models: unknown[]): unknown[] {
+  return dropPaidModelsOfFreeTierProvider(String(provider || ""), models);
 }
 
 export async function listConnectionModels(connection: Connection): Promise<ListedModels> {
@@ -74,7 +80,10 @@ export async function listConnectionModels(connection: Connection): Promise<List
   if (typeof config.customResolver === "function") {
     const result = await config.customResolver(connection) as ListedModels;
     if (result.error) return { error: result.error, status: result.status || 500 };
-    return { models: result.models, ...(result.warning ? { warning: result.warning } : {}) };
+    return {
+      models: usable(canonicalProviderId, result.models || []),
+      ...(result.warning ? { warning: result.warning } : {}),
+    };
   }
 
   const token = providerSpecificData?.copilotToken || connection.accessToken || connection.apiKey;
@@ -106,5 +115,5 @@ export async function listConnectionModels(connection: Connection): Promise<List
   }
 
   const data = await response.json();
-  return { models: (config.parseResponse as (data: unknown) => unknown[])(data) };
+  return { models: usable(canonicalProviderId, (config.parseResponse as (data: unknown) => unknown[])(data)) };
 }

@@ -11,6 +11,9 @@ vi.mock("@/models", () => ({ getProviderConnectionById }));
 vi.mock("@/shared/constants/providers", () => ({
   isOpenAICompatibleProvider: vi.fn(() => false),
   isAnthropicCompatibleProvider: vi.fn(() => false),
+  // The listing drops paid models of a free-tier provider, so it reads the
+  // catalogue's category. Kilo's real one, since one of the cases below is Kilo.
+  AI_PROVIDERS: { "kilo-gateway": { category: "freeTier" } },
 }));
 vi.mock("@/lib/oauth/constants/oauth", () => ({ GEMINI_CONFIG: {} }));
 vi.mock("@/server/llm-gateway/auth", () => ({
