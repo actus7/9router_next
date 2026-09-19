@@ -6,7 +6,7 @@ import { Loader2, RotateCcw, Trash2, EyeOff } from "lucide-react";
 import { Modal } from "@/shared/components";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
-import type { ModelDiagnostic } from "../../types";
+import type { ModelDiagnostic, TestAllModelsState } from "../../types";
 import DiagnosticRow, { type DiagnosticAction } from "./DiagnosticRow";
 import { sortForDisplay } from "./diagnosticStates";
 import type { UseDiagnosticActionsReturn } from "../../hooks/useDiagnosticActions";
@@ -14,10 +14,7 @@ import type { UseDiagnosticActionsReturn } from "../../hooks/useDiagnosticAction
 interface TestDiagnosticsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  testAllModels: {
-    running: boolean;
-    results: ModelDiagnostic[];
-  } | null;
+  testAllModels: TestAllModelsState | null;
   onCancelTests: () => void;
   actions: UseDiagnosticActionsReturn;
   /** Model ids the user added by hand. Only these can actually be deleted. */
@@ -40,7 +37,11 @@ export default function TestDiagnosticsModal({
   const passed = results.filter((r) => r.state === "passed");
   const failed = results.filter((r) => r.state === "failed");
   const cancelled = results.filter((r) => r.state === "cancelled");
+  const autoDisabled = results.filter((r) => r.autoDisabled);
   const settled = passed.length + failed.length + cancelled.length;
+  // A model the run already turned off is not something to disable again, and
+  // retesting it would not turn it back on. Bulk actions skip those rows.
+  const actionable = failed.filter((r) => !r.autoDisabled);
 
   const customIds = useMemo(() => new Set(customModelIds), [customModelIds]);
   const rows = useMemo(() => sortForDisplay(results), [results]);
@@ -50,7 +51,7 @@ export default function TestDiagnosticsModal({
    * Disabling a model mid-run would race the runner that is still testing it.
    */
   function actionsFor(result: ModelDiagnostic): DiagnosticAction[] {
-    if (running || result.state !== "failed") return [];
+    if (running || result.state !== "failed" || result.autoDisabled) return [];
     const list: DiagnosticAction[] = [
       {
         id: "retest",
@@ -81,7 +82,7 @@ export default function TestDiagnosticsModal({
 
   if (!testAllModels) return null;
 
-  const failedIds = failed.map((r) => r.modelId);
+  const actionableIds = actionable.map((r) => r.modelId);
   const busy = actions.bulkAction !== null;
 
   return (
@@ -112,42 +113,57 @@ export default function TestDiagnosticsModal({
           )}
         </div>
 
+        <p className="text-xs text-text-muted">
+          {translate("Retest runs the model again. Disable only hides it from routing — you can re-enable it under Disabled models. Delete removes a model you added by hand.")
+            || "Retest runs the model again. Disable only hides it from routing — you can re-enable it under Disabled models. Delete removes a model you added by hand."}
+        </p>
+
         {running && (
           <p className="text-xs text-text-muted">
             {translate("Closing this window keeps the tests running in the background.") || "Closing this window keeps the tests running in the background."}
           </p>
         )}
 
-        {/* With 25 models in a run, nobody clicks twelve buttons. */}
-        {!running && failed.length > 0 && (
+        {/* The run disables unreachable models on its own. Saying so here is the
+            difference between a diagnostic and a silent configuration change. */}
+        {autoDisabled.length > 0 && (
+          <p className="rounded-lg border border-warning-border/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+            {autoDisabled.length}{" "}
+            {translate("model(s) were disabled automatically: the provider answered that they do not exist. Re-enable them under Disabled models.")
+              || "model(s) were disabled automatically: the provider answered that they do not exist. Re-enable them under Disabled models."}
+          </p>
+        )}
+
+        {/* A catalogue can be hundreds of models, so nobody clicks per row. */}
+        {!running && actionable.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2">
             <span className="text-xs text-text-muted">
-              {failed.length} {translate("failed") || "failed"}
+              {actionable.length} {translate("failed and still enabled") || "failed and still enabled"}
             </span>
             <div className="ml-auto flex items-center gap-2">
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={busy}
-                onClick={() => void actions.retestAll(failedIds)}
+                onClick={() => void actions.retestAll(actionableIds)}
                 className="gap-1.5"
               >
                 {actions.bulkAction === "retest"
                   ? <Loader2 className="size-3.5 animate-spin" />
                   : <RotateCcw className="size-3.5" />}
-                {translate("Retest all") || "Retest all"}
+                {translate("Retest these") || "Retest these"} {actionable.length}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={busy}
-                onClick={() => void actions.disableAll(failedIds)}
+                onClick={() => void actions.disableAll(actionableIds)}
                 className="gap-1.5 text-destructive hover:text-destructive"
               >
                 {actions.bulkAction === "disable"
                   ? <Loader2 className="size-3.5 animate-spin" />
                   : <EyeOff className="size-3.5" />}
-                {translate("Disable all") || "Disable all"}
+                {translate("Disable these") || "Disable these"} {actionable.length}
               </Button>
             </div>
           </div>

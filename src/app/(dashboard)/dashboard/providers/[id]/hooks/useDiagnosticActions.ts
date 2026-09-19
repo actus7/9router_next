@@ -4,12 +4,12 @@ import { useState } from "react";
 
 import { saveModelTestLatency } from "@/shared/utils/modelTestLatency";
 import { pingModelWithRetry } from "./modelTestHelpers";
-import type { CustomModelEntry, ModelDiagnostic } from "../types";
+import type { CustomModelEntry, ModelDiagnostic, TestAllModelsState } from "../types";
 
 interface UseDiagnosticActionsArgs {
   providerStorageAlias: string;
   setTestAllModels: (
-    update: (current: { running: boolean; results: ModelDiagnostic[] } | null) => { running: boolean; results: ModelDiagnostic[] } | null,
+    update: (current: TestAllModelsState | null) => TestAllModelsState | null,
   ) => void;
   onDisableModel: (modelId: string) => Promise<void>;
   onDeleteCustomModel: (modelId: string) => Promise<void>;

@@ -2,14 +2,12 @@
 
 import { probeModel } from "../../probeModel";
 import { useRef, useState } from "react";
-import { getModelKind } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
 import { notify } from "@/store/notificationStore";
 import { saveModelTestLatency } from "@/shared/utils/modelTestLatency";
-import { pingModelWithRetry, isDefinitivelyUnavailableModel } from "./modelTestHelpers";
-import type { LiveModel, ModelDiagnostic } from "../types";
+import { eligibleTestIds, isDefinitivelyUnavailableModel, pingModelWithRetry } from "./modelTestHelpers";
+import type { LiveModel, ModelDiagnostic, TestAllModelsState } from "../types";
 
-const MAX_BATCH_MODEL_TESTS = 25;
 const TEST_TIMEOUT_SCHEDULE = [15000, 25000, 40000];
 
 interface UseModelTestingArgs {
@@ -27,19 +25,21 @@ export function useModelTesting({
   const [modelTestResults, setModelTestResults] = useState<Record<string, "ok" | "error">>({});
   const [modelsTestError, setModelsTestError] = useState<string>("");
   const [testingModelIds, setTestingModelIds] = useState<Set<string>>(() => new Set());
-  const [testAllModels, setTestAllModels] = useState<{ running: boolean; results: ModelDiagnostic[] } | null>(null);
+  const [testAllModels, setTestAllModels] = useState<TestAllModelsState | null>(null);
   const testAllAbortRef = useRef<AbortController | null>(null);
 
-  const handleTestAllModels = async () => {
-    if (testAllAbortRef.current) return;
-    const allModels = [...models, ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id))].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; });
-    const disabledSet = new Set(disabledModelIds);
-    const modelIds = [...new Set(allModels.map((model) => model.id).filter((id): id is string => typeof id === "string" && id.trim().length > 0).filter((id) => !disabledSet.has(id)))];
-    if (modelIds.length === 0) return;
-    const sampledModelIds = modelIds.slice(0, MAX_BATCH_MODEL_TESTS);
-    if (modelIds.length > sampledModelIds.length) notify.info(`Testing the first ${MAX_BATCH_MODEL_TESTS} of ${modelIds.length} enabled models.`);
+  /**
+   * Tests every model handed to it. A large catalogue (Kilo Gateway returns
+   * 381) takes a while, which is what Cancel and the background-running note
+   * in the modal are for — the run is not capped.
+   */
+  const runBatch = async (modelIds: string[]) => {
+    if (testAllAbortRef.current || modelIds.length === 0) return;
+    setTestAllModels({
+      running: true,
+      results: modelIds.map((id) => ({ modelId: id, ok: false, state: "queued", attempts: 0 })),
+    });
 
-    setTestAllModels({ running: true, results: sampledModelIds.map((id) => ({ modelId: id, ok: false, state: "queued", attempts: 0 })) });
     const controller = new AbortController();
     testAllAbortRef.current = controller;
     const maxConcurrent = providerId === "ollama" ? 1 : 3;
@@ -47,9 +47,9 @@ export function useModelTesting({
     const results: ModelDiagnostic[] = [];
     let nextIndex = 0;
     const runNext = async () => {
-      while (nextIndex < sampledModelIds.length) {
+      while (nextIndex < modelIds.length) {
         if (controller.signal.aborted) return;
-        const modelId = sampledModelIds[nextIndex++];
+        const modelId = modelIds[nextIndex++];
         const updateProgress = (d: ModelDiagnostic) => setTestAllModels((c) => c ? { ...c, results: c.results.map((i) => i.modelId === modelId ? d : i) } : c);
         const result = await pingModelWithRetry(providerStorageAlias, modelId, updateProgress, schedule, controller.signal);
         if (result.ok) saveModelTestLatency(providerStorageAlias, modelId, result.latencyMs);
@@ -58,11 +58,19 @@ export function useModelTesting({
         results.push(result);
       }
     };
-    await Promise.all(Array.from({ length: Math.min(maxConcurrent, sampledModelIds.length) }, runNext));
+    await Promise.all(Array.from({ length: Math.min(maxConcurrent, modelIds.length) }, runNext));
 
     const unavailableIds = controller.signal.aborted ? [] : results.filter(isDefinitivelyUnavailableModel).map((r) => r.modelId);
     if (unavailableIds.length > 0) await onDisableModels(unavailableIds);
-    setTestAllModels((prev) => prev ? { ...prev, running: false } : prev);
+    // Mark them where the user can see it. The run turning models off on its
+    // own is the part of this screen nobody could explain from the UI.
+    setTestAllModels((prev) => prev ? {
+      ...prev,
+      running: false,
+      results: unavailableIds.length === 0
+        ? prev.results
+        : prev.results.map((r) => unavailableIds.includes(r.modelId) ? { ...r, autoDisabled: true } : r),
+    } : prev);
     testAllAbortRef.current = null;
     if (!controller.signal.aborted) {
       const passed = results.filter((r) => r.state === "passed").length;
@@ -71,11 +79,16 @@ export function useModelTesting({
     }
   };
 
+  const handleTestAllModels = async () => {
+    await runBatch(eligibleTestIds(models, kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)), disabledModelIds));
+  };
+
   const handleCancelTestAllModels = () => {
     const controller = testAllAbortRef.current;
     if (!controller) return;
     controller.abort();
     setTestAllModels((current) => current ? {
+      ...current,
       running: false,
       results: current.results.map((r) => r.state === "queued" || r.state === "testing" || r.state === "retrying" ? { ...r, state: "cancelled", error: "Test cancelled" } : r),
     } : current);
@@ -97,7 +110,8 @@ export function useModelTesting({
 
   return {
     modelTestResults, setModelTestResults, modelsTestError, testingModelIds,
-    testAllModels, setTestAllModels, handleTestAllModels, handleCancelTestAllModels, handleTestModel,
+    testAllModels, setTestAllModels, handleTestAllModels,
+    handleCancelTestAllModels, handleTestModel,
   };
 }
 

@@ -6,6 +6,7 @@ import {
   sortForDisplay,
 } from "@/app/(dashboard)/dashboard/providers/[id]/sections/models/diagnosticStates";
 import { deletableModelIds } from "@/app/(dashboard)/dashboard/providers/[id]/hooks/useDiagnosticActions";
+import { eligibleTestIds } from "@/app/(dashboard)/dashboard/providers/[id]/hooks/modelTestHelpers";
 import type { CustomModelEntry, ModelDiagnostic } from "@/app/(dashboard)/dashboard/providers/[id]/types";
 
 function diagnostic(partial: Partial<ModelDiagnostic> & { modelId: string }): ModelDiagnostic {
@@ -78,5 +79,34 @@ describe("deletableModelIds", () => {
 
   it("never offers it for a discovered model", () => {
     expect(deletableModelIds(entries, "openai")).not.toContain("found-by-discovery");
+  });
+});
+
+/**
+ * A run tests every enabled model, so this list is the run: a model missing
+ * here is a model nobody tests, and a duplicate is a model tested twice.
+ */
+describe("eligibleTestIds", () => {
+  const models = [{ id: "llm-a" }, { id: "whisper-1" }, { id: "flux-schnell" }, { id: "llm-b" }, { id: "  " }];
+  const freeModels = [{ id: "llm-a" }, { id: "llm-c" }];
+
+  it("keeps LLMs only, deduped, minus the disabled ones", () => {
+    expect(eligibleTestIds(models, freeModels, ["llm-b"])).toEqual(["llm-a", "llm-c"]);
+  });
+
+  it("covers a whole catalogue, however large", () => {
+    const ids = Array.from({ length: 381 }, (_, i) => ({ id: `m-${i}` }));
+    expect(eligibleTestIds(ids, [], [])).toHaveLength(381);
+  });
+});
+
+/**
+ * The run disables models the provider says do not exist. That is a change to
+ * the account's configuration, so the row has to name it ahead of anything else.
+ */
+describe("auto-disabled rows", () => {
+  it("says so instead of reporting the attempt count", () => {
+    const badge = diagnosticBadge(diagnostic({ modelId: "gone", state: "failed", attempts: 3, autoDisabled: true }));
+    expect(badge).toBe("Disabled automatically");
   });
 });

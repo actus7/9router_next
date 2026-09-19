@@ -43,6 +43,9 @@ export function diagnosticStyle(result: ModelDiagnostic): DiagnosticStyle {
 
 /** The short text on the right of a row: latency, attempt count, or status. */
 export function diagnosticBadge(result: ModelDiagnostic): string | null {
+  // The run turned this one off by itself; say so before anything else, since
+  // it is the only state that changed the account's configuration.
+  if (result.autoDisabled) return translate("Disabled automatically") || "Disabled automatically";
   switch (result.state) {
     case "passed":
       return typeof result.latencyMs === "number" ? `${result.latencyMs}ms` : null;

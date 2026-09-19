@@ -75,7 +75,7 @@ export default function ModelsToolbar({
             title={m.testAllModels?.running ? translate("Show test progress") ?? undefined : undefined}
           >
             <Beaker className={`size-4 mr-1.5 ${m.testAllModels?.running ? "animate-pulse" : ""}`} />
-            {m.testAllModels?.running ? translate("Testing...") : translate("Test Model Sample")}
+            {m.testAllModels?.running ? translate("Testing...") : translate("Test All Models")}
           </Button>
           <Button
             variant="destructive"

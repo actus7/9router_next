@@ -1,10 +1,35 @@
 "use client";
 
 import { probeModel } from "../../probeModel";
+import { getModelKind } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
-import type { ModelDiagnostic } from "../types";
+import type { LiveModel, ModelDiagnostic } from "../types";
 
 const TEST_TIMEOUT_SCHEDULE = [15000, 25000, 40000];
+
+/**
+ * The models a run may test: LLMs only, no duplicates, nothing already disabled.
+ *
+ * Free Kilo models come from a separate fetch and overlap the main list, which
+ * is why the dedupe is here rather than left to the caller.
+ */
+export function eligibleTestIds(
+  models: readonly LiveModel[],
+  extraModels: readonly LiveModel[],
+  disabledModelIds: readonly string[],
+): string[] {
+  const disabled = new Set(disabledModelIds);
+  const all = [...models, ...extraModels].filter((model) => {
+    const kind = getModelKind(model);
+    return !kind || kind === "llm";
+  });
+  return [...new Set(
+    all
+      .map((model) => model.id)
+      .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      .filter((id) => !disabled.has(id)),
+  )];
+}
 
 export async function pingModelWithRetry(
   providerStorageAlias: string,

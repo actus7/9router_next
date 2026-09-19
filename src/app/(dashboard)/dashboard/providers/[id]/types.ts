@@ -107,6 +107,18 @@ export interface ModelDiagnostic {
   attempts: number;
   latencyMs?: number;
   status?: number;
+  /**
+   * The run disabled this model by itself, because the provider says it does
+   * not exist. The modal has to say so: a batch that silently turns models off
+   * is the one thing a diagnostics screen must not do quietly.
+   */
+  autoDisabled?: boolean;
+}
+
+/** A "Test All Models" run: one row per enabled model, all of them. */
+export interface TestAllModelsState {
+  running: boolean;
+  results: ModelDiagnostic[];
 }
 
 export interface LiveModel {
