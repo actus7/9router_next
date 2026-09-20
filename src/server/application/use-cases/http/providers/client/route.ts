@@ -78,17 +78,21 @@ function sortConnections(connections: Record<string, unknown>[], sort: string): 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   try {
-    await backfillCodexEmails();
-
     const provider = searchParams.get("provider") || "all";
     const accountStatus = searchParams.get("accountStatus") || "all";
     const sort = searchParams.get("sort") || "priority";
     const page = parsePositiveInt(searchParams.get("page"), 1);
     const pageSize = Math.min(parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
 
-    const allConnections = await getProviderConnections();
+    // As estatísticas saem de `usageHistory` e não dependem do backfill, que
+    // escreve em `providerConnections` — só a leitura das conexões tem que
+    // esperá-lo. Encadear dentro do `Promise.all` preserva essa ordem e evita
+    // deixar uma promise órfã se o backfill falhar.
+    const [usageStats, allConnections] = await Promise.all([
+      getUsageStats("all"),
+      backfillCodexEmails().then(() => getProviderConnections()),
+    ]);
     const quotaConnections = allConnections.filter(isUsageEligible);
-    const usageStats = await getUsageStats("all");
     const configuredProviders = new Set(allConnections.map((connection) => connection.provider));
     const observedConnections = Object.keys(usageStats.byProvider)
       .filter((provider) => provider && !configuredProviders.has(provider))

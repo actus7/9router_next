@@ -168,11 +168,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Track non-noAuth providers that already have a tested connection
       const testedProviders = new Set(results.map((r) => r.provider));
 
-      for (const [pId, pInfo] of Object.entries(allFreeProviders)) {
-        if (pInfo.hidden) continue;
+      // Um probe por provider, cada um contra um upstream diferente: o motivo de
+      // limitar concorrência acima (várias conexões do MESMO provider) não vale
+      // aqui. Este laço era a exceção esquecida à política que o topo do arquivo
+      // declara — "running them one at a time makes a single POST take minutes".
+      const visibleFreeProviders = Object.entries(allFreeProviders).filter(([, info]) => !info.hidden);
+      const noAuthResults = new Map(
+        await Promise.all(
+          visibleFreeProviders
+            .filter(([, info]) => info.noAuth)
+            .map(async ([pId]) => [pId, await testNoAuthProvider(pId)] as const),
+        ),
+      );
 
+      for (const [pId, pInfo] of visibleFreeProviders) {
         if (pInfo.noAuth) {
-          const testResult = await testNoAuthProvider(pId);
+          const testResult = noAuthResults.get(pId)!;
           results.push({
             provider: pId,
             connectionId: null,

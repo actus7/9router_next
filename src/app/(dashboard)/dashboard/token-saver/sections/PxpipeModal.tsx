@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal } from "@/shared/components";
+import Modal from "@/shared/components/Modal";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import type { PxpipeHealthData } from "../types";

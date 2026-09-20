@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { useGenericExampleState } from "./useGenericExampleState";
 import GenericFormFields from "./GenericFormFields";
 import GenericResponseSection from "./GenericResponseSection";

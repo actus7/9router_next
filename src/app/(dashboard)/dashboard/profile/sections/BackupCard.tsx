@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import { Input as ShadcnInput } from "@/components/ui/input";
 import { Database, Download, Upload } from "lucide-react";

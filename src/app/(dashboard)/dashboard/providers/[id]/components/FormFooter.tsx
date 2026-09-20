@@ -1,6 +1,6 @@
 "use client";
 
-import { Select } from "@/shared/components";
+import Select from "@/shared/components/Select";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";

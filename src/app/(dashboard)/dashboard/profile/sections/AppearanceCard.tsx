@@ -1,18 +1,20 @@
 "use client";
 
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import { Palette, Sun, Moon, Contrast } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { cn } from "@/lib/utils";
 import AccentColorPicker from "@/shared/components/AccentColorPicker";
+import type { AccentColorId } from "@/shared/constants/accentColors";
 
 interface AppearanceCardProps {
   theme: string;
   setTheme: (theme: "light" | "dark" | "system") => void;
+  initialAccent: AccentColorId;
 }
 
-export default function AppearanceCard({ theme, setTheme }: AppearanceCardProps) {
+export default function AppearanceCard({ theme, setTheme, initialAccent }: AppearanceCardProps) {
   return (
     <Card>
       <div className="flex items-center gap-3 mb-4">
@@ -47,7 +49,7 @@ export default function AppearanceCard({ theme, setTheme }: AppearanceCardProps)
 
       <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
         <p className="text-sm text-text-muted">{translate("Choose the highlight color used across the dashboard")}</p>
-        <AccentColorPicker />
+        <AccentColorPicker initialAccent={initialAccent} />
       </div>
     </Card>
   );

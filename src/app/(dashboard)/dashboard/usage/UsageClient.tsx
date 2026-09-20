@@ -2,7 +2,9 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { UsageStats, RequestLogger, CardSkeleton } from "@/shared/components";
+import { CardSkeleton } from "@/shared/components/Loading";
+import RequestLogger from "@/shared/components/RequestLogger";
+import UsageStats from "@/shared/components/UsageStats";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 import { translate } from "@/i18n/runtime";

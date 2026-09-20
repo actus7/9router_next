@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Modal, Select } from "@/shared/components";
+import Modal from "@/shared/components/Modal";
+import Select from "@/shared/components/Select";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

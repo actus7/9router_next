@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CardSkeleton } from "@/shared/components";
+import { CardSkeleton } from "@/shared/components/Loading";
 import { CLI_TOOLS } from "@/shared/constants/cliTools";
 import ToolSummaryCard from "./components/ToolSummaryCard";
 

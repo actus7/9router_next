@@ -1,4 +1,4 @@
-import { CapacityBadges } from "@/shared/components";
+import CapacityBadges from "@/shared/components/CapacityBadges";
 import { Button } from "@/components/ui/button";
 import { Beaker, Bot, Check, CheckCircle2, Copy, Loader2, X } from "lucide-react";
 import { translate } from "@/i18n/runtime";
@@ -41,7 +41,12 @@ export default function ModelRow({ model, fullModel, alias: _alias, copied, onCo
     : "text-text-muted";
 
   return (
-    <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 transition-colors ${borderColor} ${statusTint} hover:bg-sidebar/50`}>
+    // content-visibility: a grade não é paginada nem virtualizada e o catálogo
+    // agora é descoberto — um provider sozinho devolve centenas destas linhas,
+    // cada uma com ícones, badges e botões. Pular layout/paint das que estão
+    // fora da viewport não afeta find-in-page nem leitores de tela, e o `auto`
+    // do contain-intrinsic-size memoriza a altura real após o primeiro paint.
+    <div className={`group min-w-0 max-w-full rounded-lg border px-3 py-2 transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_56px] ${borderColor} ${statusTint} hover:bg-sidebar/50`}>
       <div className="flex min-w-0 items-start gap-2.5 sm:items-center">
         <span className={`flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/60 ${iconColorClass}`}>
           {probeStatus === "ok" ? <CheckCircle2 className="size-3.5" /> : probeStatus === "error" ? <X className="size-3.5" /> : <Bot className="size-3.5" />}

@@ -59,19 +59,22 @@ async function normalizeProxyPoolId(proxyPoolId: unknown): Promise<{ proxyPoolId
 // GET /api/providers - List all connections
 export async function GET(): Promise<NextResponse> {
   try {
-    const connections = await getProviderConnections();
+    // O cruzamento entre os dois é feito depois, em memória: nenhuma das leituras
+    // recebe o resultado da outra.
+    const [connections, nodes] = await Promise.all([
+      getProviderConnections(),
+      // Compatible providers then fall back to showing their raw id as the name,
+      // which looks like a data bug unless the real cause is recorded here.
+      getProviderNodes().catch((error) => {
+        console.error("Error in providers GET: node name lookup failed:", error);
+        return [];
+      }),
+    ]);
 
     // Build nodeNameMap for compatible providers (id → name)
     const nodeNameMap: Record<string, string> = {};
-    try {
-      const nodes = await getProviderNodes();
-      for (const node of nodes) {
-        if (node.id && node.name) nodeNameMap[node.id] = node.name;
-      }
-    } catch (error) {
-      // Compatible providers then fall back to showing their raw id as the name,
-      // which looks like a data bug unless the real cause is recorded here.
-      console.error("Error in providers GET: node name lookup failed:", error);
+    for (const node of nodes) {
+      if (node.id && node.name) nodeNameMap[node.id] = node.name;
     }
 
     // Hide sensitive fields, enrich name for compatible providers

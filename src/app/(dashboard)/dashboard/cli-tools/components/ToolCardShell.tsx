@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { ChevronDown, ChevronUp, Info, Loader2, TriangleAlert } from "lucide-react";

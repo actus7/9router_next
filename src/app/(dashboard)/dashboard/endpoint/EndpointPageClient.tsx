@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { CardSkeleton } from "@/shared/components";
+import { CardSkeleton } from "@/shared/components/Loading";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { clientPingUrl, clientPingAny } from "./endpointPing";
 import { STATUS_POLL_FAST_MS, CLIENT_PING_FAST_MS, REACHABLE_MISS_THRESHOLD } from "./endpointConstants";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,10 @@ import { buildProviderGroups } from "./buildProviderGroups";
 import { ProviderSidebar, priceTierBadge, priceLine } from "./TierModelPickerParts";
 
 const PROVIDER_ORDER = [...Object.keys(OAUTH_PROVIDERS), ...Object.keys(FREE_PROVIDERS), ...Object.keys(FREE_TIER_PROVIDERS), ...Object.keys(APIKEY_PROVIDERS)];
+// `indexOf` varria os ~194 providers do registry, quatro vezes por comparação
+// de um sort. A posição é fixa: dá para resolvê-la uma vez, no módulo.
+const PROVIDER_RANK = new Map(PROVIDER_ORDER.map((id, index) => [id, index]));
+const providerRank = (id: string) => PROVIDER_RANK.get(id) ?? 999;
 const NO_AUTH_PROVIDER_IDS = Object.keys(FREE_PROVIDERS).filter((id) => (FREE_PROVIDERS as Record<string, { noAuth?: boolean }>)[id].noAuth);
 
 export interface ModelPriceInfo { inputPrice: number | null; outputPrice: number | null; }
@@ -40,12 +44,13 @@ export default function TierModelPickerModal({ isOpen, onClose, onSelect, title,
   const allProviders = useMemo(() => ({ ...OAUTH_PROVIDERS, ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...APIKEY_PROVIDERS }), []);
   const availableProviderIds = useMemo(() => {
     const activeIds = activeProviders.map((p) => p.provider);
-    return [...new Set([...activeIds, ...NO_AUTH_PROVIDER_IDS])].sort((a, b) => (PROVIDER_ORDER.indexOf(a) === -1 ? 999 : PROVIDER_ORDER.indexOf(a)) - (PROVIDER_ORDER.indexOf(b) === -1 ? 999 : PROVIDER_ORDER.indexOf(b)));
+    return [...new Set([...activeIds, ...NO_AUTH_PROVIDER_IDS])].sort((a, b) => providerRank(a) - providerRank(b));
   }, [activeProviders]);
 
   const groups = useMemo(() => buildProviderGroups({ sortedProviderIds: availableProviderIds, allProviders, activeProviders, modelAliases, providerNodes, customModels }), [activeProviders, modelAliases, allProviders, providerNodes, customModels, availableProviderIds]);
   const totalCount = useMemo(() => Object.values(groups).reduce((s, g) => s + g.models.length, 0), [groups]);
-  const query = searchQuery.trim().toLowerCase();
+  // O input lê `searchQuery`; a filtragem do catálogo lê o valor adiado.
+  const query = useDeferredValue(searchQuery).trim().toLowerCase();
 
   const visibleGroups = useMemo(() => {
     return Object.entries(groups).filter(([pid]) => !selectedProviderId || pid === selectedProviderId)
@@ -53,7 +58,7 @@ export default function TierModelPickerModal({ isOpen, onClose, onSelect, title,
       .filter(([, g]) => g.models.length > 0);
   }, [groups, selectedProviderId, query]);
 
-  const sortedProviderIds = useMemo(() => Object.keys(groups).sort((a, b) => (PROVIDER_ORDER.indexOf(a) === -1 ? 999 : PROVIDER_ORDER.indexOf(a)) - (PROVIDER_ORDER.indexOf(b) === -1 ? 999 : PROVIDER_ORDER.indexOf(b))), [groups]);
+  const sortedProviderIds = useMemo(() => Object.keys(groups).sort((a, b) => providerRank(a) - providerRank(b)), [groups]);
 
   const flatModelsSorted = useMemo(() => {
     if (!selectedProviderId) return null;

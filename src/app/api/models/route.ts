@@ -9,8 +9,7 @@ import { getCapabilitiesForModel } from "@/server/llm-gateway/catalog";
 // GET /api/models - Get models with aliases
 async function handleGET(): Promise<NextResponse> {
   try {
-    const modelAliases = await getModelAliases();
-    const disabled = await getDisabledModels();
+    const [modelAliases, disabled] = await Promise.all([getModelAliases(), getDisabledModels()]);
 
     const models = AI_MODELS
       .filter((m) => {

@@ -3,7 +3,10 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard, ConfirmModal } from "@/shared/components";
+import AddCustomEmbeddingModal from "@/shared/components/AddCustomEmbeddingModal";
+import { ConfirmModal } from "@/shared/components/Modal";
+import NoAuthProxyCard from "@/shared/components/NoAuthProxyCard";
+import ProviderInfoCard from "@/shared/components/ProviderInfoCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ProviderIcon from "@/shared/components/ProviderIcon";

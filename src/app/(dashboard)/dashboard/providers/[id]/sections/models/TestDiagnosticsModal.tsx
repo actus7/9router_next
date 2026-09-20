@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Loader2, RotateCcw, Trash2, EyeOff } from "lucide-react";
 
-import { Modal } from "@/shared/components";
+import Modal from "@/shared/components/Modal";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 import type { ModelDiagnostic, TestAllModelsState } from "../../types";

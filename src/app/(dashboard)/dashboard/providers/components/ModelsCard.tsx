@@ -2,7 +2,8 @@
 
 import { probeModel } from "../probeModel";
 import { useState, useCallback, useEffect } from "react";
-import { Card, Modal } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import Modal from "@/shared/components/Modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

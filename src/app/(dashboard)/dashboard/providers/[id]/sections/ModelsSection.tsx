@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import AddCustomModelModal from "../AddCustomModelModal";
 import ModelsGrid from "./models/ModelsGrid";
 import ModelsToolbar from "./models/ModelsToolbar";

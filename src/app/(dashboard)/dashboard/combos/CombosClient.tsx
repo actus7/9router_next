@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Card, ConfirmModal } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import { ConfirmModal } from "@/shared/components/Modal";
 import { Button } from "@/components/ui/button";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
@@ -11,7 +12,10 @@ import { Layers, Plus } from "lucide-react";
 import type { CombosClientProps, ComboView, Strategy, ConfirmState, CapEntry } from "./combo-types";
 import { normalizeCombos, normalizeCapacityAdapter } from "./combo-types";
 import { ComboCard } from "./ComboCard";
-import { ComboFormModal } from "./ComboFormModal";
+import dynamic from "next/dynamic";
+// O modal é o único consumidor de @dnd-kit nesta rota (via SortableModelList)
+// e já só é montado sob clique; o import estático é que o prendia ao chunk.
+const ComboFormModal = dynamic(() => import("./ComboFormModal").then((m) => m.ComboFormModal), { ssr: false });
 import { CapacityAdapterSection } from "./CapacityAdapterSection";
 
 export default function CombosClient({ initialCombos, initialProviders, initialSettings, initialAliases }: CombosClientProps) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Switch } from "@/components/ui/switch";
 import { Route } from "lucide-react";

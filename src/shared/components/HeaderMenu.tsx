@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { useTheme } from "@/shared/hooks/useTheme";
-import ChangelogModal from "./ChangelogModal";
+import dynamic from "next/dynamic";
+// Este menu está no Header, ou seja em toda rota do dashboard, e o modal
+// arrasta react-markdown + remark-gfm + rehype-sanitize. Ele busca o conteúdo
+// por fetch quando abre, então nunca é necessário no primeiro paint.
+const ChangelogModal = dynamic(() => import("./ChangelogModal"), { ssr: false });
 import { History, LogOut, Moon, Sun, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -33,6 +37,14 @@ function getInitials(name: string): string {
 
 export default function HeaderMenu({ onLogout, displayName, email, avatarUrl }: HeaderMenuProps) {
   const [changelogOpen, setChangelogOpen] = useState(false);
+  // Latch em vez de `changelogOpen ? ... : null`: montar condicionalmente
+  // adiava o chunk (o que queremos), mas desmontava o modal ao fechar, o que
+  // corta a animação de saída do Dialog e joga fora o changelog já buscado —
+  // o guard do próprio modal (`!isOpen || markdown`) só evita o refetch
+  // enquanto ele continua montado. Mantê-lo sempre montado, por outro lado,
+  // baixaria o chunk em toda rota. O latch monta na primeira abertura e não
+  // desmonta mais.
+  const [changelogMounted, setChangelogMounted] = useState(false);
   const { toggleTheme, isDark } = useTheme();
 
   const name = displayName || translate("Local account") || "Local account";
@@ -59,7 +71,7 @@ export default function HeaderMenu({ onLogout, displayName, email, avatarUrl }: 
             <span className="truncate text-xs text-text-muted">{email || translate("No account connected") || "No account connected"}</span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setChangelogOpen(true)}>
+          <DropdownMenuItem onClick={() => { setChangelogMounted(true); setChangelogOpen(true); }}>
             <History className="size-4 text-text-muted" />
             <span className="flex-1 text-left">{translate("Change Log") || "Change Log"}</span>
           </DropdownMenuItem>
@@ -78,7 +90,7 @@ export default function HeaderMenu({ onLogout, displayName, email, avatarUrl }: 
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} />
+      {changelogMounted ? <ChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} /> : null}
     </>
   );
 }

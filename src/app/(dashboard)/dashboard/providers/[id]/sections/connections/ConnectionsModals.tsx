@@ -1,10 +1,8 @@
 "use client";
 
-import {
-  IFlowCookieModal,
-  EditConnectionModal,
-  ConfirmModal,
-} from "@/shared/components";
+import EditConnectionModal from "@/shared/components/EditConnectionModal";
+import IFlowCookieModal from "@/shared/components/IFlowCookieModal";
+import { ConfirmModal } from "@/shared/components/Modal";
 import { translate } from "@/i18n/runtime";
 import AddApiKeyModal from "../../AddApiKeyModal";
 import EditCompatibleNodeModal from "../../EditCompatibleNodeModal";

@@ -4,22 +4,11 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  ACCENT_COLOR_COOKIE,
   ACCENT_COLOR_OPTIONS,
   ACCENT_SWATCH,
-  isValidAccentColor,
   type AccentColorId,
 } from "@/shared/constants/accentColors";
 import { translate } from "@/i18n/runtime";
-
-function getAccentFromCookie(): AccentColorId {
-  if (typeof document === "undefined") return "default";
-  const cookie = document.cookie
-    .split(";")
-    .find((c) => c.trim().startsWith(`${ACCENT_COLOR_COOKIE}=`));
-  const value = cookie ? decodeURIComponent(cookie.split("=")[1]) : "default";
-  return isValidAccentColor(value) ? value : "default";
-}
 
 function applyAccentToDocument(accent: AccentColorId): void {
   const root = document.documentElement;
@@ -30,8 +19,11 @@ function applyAccentToDocument(accent: AccentColorId): void {
   }
 }
 
-export default function AccentColorPicker() {
-  const [accent, setAccent] = useState<AccentColorId>(() => getAccentFromCookie());
+// `initialAccent` vem do servidor (o mesmo cookie que o RootShell lê). Ler o
+// cookie no inicializador dava "default" no SSR e o valor real na hidratação —
+// o anel de selecionado renderizava na bolinha errada e pulava de lugar.
+export default function AccentColorPicker({ initialAccent }: { initialAccent: AccentColorId }) {
+  const [accent, setAccent] = useState<AccentColorId>(initialAccent);
   const [saving, setSaving] = useState(false);
 
   const handleSelect = async (next: AccentColorId) => {

@@ -9,7 +9,13 @@ import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/Overview
 import UsageTable, { fmt } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
 import dynamic from "next/dynamic";
 const ProviderTopology = dynamic(() => import("@/app/(dashboard)/dashboard/usage/components/ProviderTopology"), { ssr: false });
-import UsageChart from "@/app/(dashboard)/dashboard/usage/components/UsageChart";
+// `/dashboard` (a home pós-login) renderiza esta tela, então o recharts estava
+// no caminho crítico do primeiro paint. O gráfico só aparece depois do SWR dele
+// resolver — mesmo padrão do ProviderTopology acima.
+const UsageChart = dynamic(() => import("@/app/(dashboard)/dashboard/usage/components/UsageChart"), {
+  ssr: false,
+  loading: () => <div className="h-48 animate-pulse rounded-lg bg-muted" />,
+});
 import { Loader2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { buildTableConfig, TABLE_OPTIONS, PERIODS } from "./usageStatsHelpers";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { Switch } from "@/components/ui/switch";
 import { translate } from "@/i18n/runtime";
 import type { SmartRoutingConfig } from "@/shared/llm-catalog";

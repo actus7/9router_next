@@ -57,9 +57,12 @@ export default function ModelsGrid({
     );
   }
 
+  // `m.models` é o catálogo descoberto do provider — centenas de entradas — e
+  // este bloco roda a cada render da tela.
+  const baseModelIds = new Set(m.models.map((mm) => mm.id));
   const allModels = Array.from(new Map([
     ...m.models,
-    ...m.kiloFreeModels.filter((fm) => !m.models.some((mm) => mm.id === fm.id)),
+    ...m.kiloFreeModels.filter((fm) => !baseModelIds.has(fm.id)),
   ].filter((mm) => { const k = getModelKind(mm); return !k || k === "llm"; })
     .map((model) => [model.id, model] as const)).values());
   const disabledSet = new Set(m.disabledModelIds);

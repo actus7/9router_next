@@ -21,8 +21,15 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
   // cross-instance recursive loops.
   const skipDynamicFetch = options.skipDynamicFetch === true;
   const data = await fetchModelsData();
-  const isDisabled = (alias: string, modelId: string) =>
-    Array.isArray(data.disabledByAlias[alias]) && data.disabledByAlias[alias].includes(modelId);
+  // Chamado duas vezes por modelo (alias de saída e alias estático) para cada
+  // provider conectado, e a lista de desabilitados cresce sozinha: o "Test All"
+  // auto-desabilita todo modelo definitivamente indisponível.
+  const disabledSets = new Map<string, Set<string>>(
+    Object.entries(data.disabledByAlias)
+      .filter(([, ids]) => Array.isArray(ids))
+      .map(([alias, ids]) => [alias, new Set(ids)]),
+  );
+  const isDisabled = (alias: string, modelId: string) => disabledSets.get(alias)?.has(modelId) === true;
 
   const activeConnectionByProvider = new Map<string, ConnectionRecord>();
   for (const conn of data.connections) {
@@ -32,11 +39,14 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
   }
 
   const models: Record<string, unknown>[] = [];
-  const addProvider = async (conn: ConnectionRecord, providerId: string) => {
+  const providerEntries = async (conn: ConnectionRecord, providerId: string) => {
     const ctx = await resolveProviderContext(conn, providerId, kindFilter, skipDynamicFetch);
-    if (!ctx) return;
+    if (!ctx) return [];
     const { mergedModelIds, customModelKindById } = collectMergedModelIds(ctx, data.customModels, data.modelAliases, kindFilter);
-    models.push(...buildProviderModelEntries(ctx, mergedModelIds, customModelKindById, kindFilter, isDisabled));
+    return buildProviderModelEntries(ctx, mergedModelIds, customModelKindById, kindFilter, isDisabled);
+  };
+  const addProvider = async (conn: ConnectionRecord, providerId: string) => {
+    models.push(...(await providerEntries(conn, providerId)));
   };
 
   // Combos first (filtered by kind). Web combos expose `kind` so AI knows search vs fetch.
@@ -70,9 +80,14 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
     }
   }
 
-  for (const [providerId, conn] of activeConnectionByProvider.entries()) {
-    await addProvider(conn, providerId);
-  }
+  // Um provider não lê nada do outro — `resolveProviderContext` só usa a própria
+  // conexão e faz a chamada remota dele. Concatenar na ordem original preserva o
+  // dedup "primeiro id vence" de `deduplicateModels`.
+  const perProvider = await Promise.all(
+    Array.from(activeConnectionByProvider.entries())
+      .map(([providerId, conn]) => providerEntries(conn, providerId)),
+  );
+  for (const entries of perProvider) models.push(...entries);
 
   if (kindFilter.includes(LLM_KIND)) {
     const keyless = getEligibleFreeModelProviders(FREE_PROVIDERS)

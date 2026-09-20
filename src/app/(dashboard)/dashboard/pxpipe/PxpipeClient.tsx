@@ -1,26 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { Card } from "@/shared/components";
+import dynamic from "next/dynamic";
+// O recharts (~90-110 KB gz) sai do chunk desta rota: o gráfico é condicional a
+// dados carregados no cliente e, sem pxpipe instalado, nunca renderiza.
+const PxpipeTimelineChart = dynamic(() => import("./PxpipeTimelineChart"), {
+  ssr: false,
+  loading: () => <div className="h-[220px] animate-pulse rounded-lg bg-muted" />,
+});
+import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Image as ImageIcon } from "lucide-react";
-
-const fmtTokens = (n: number | undefined) => {
-  if (!n || n >= 1000000) return `${((n || 0) / 1000000).toFixed(2)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  return String(n || 0);
-};
+import { fmtTokens } from "./pxpipeFormat";
 
 const fmtUptime = (ms: number | undefined) => {
   if (!ms || ms <= 0) return "—";
@@ -228,21 +221,7 @@ export default function PxpipeClient() {
       <Card className="p-4">
         <h3 className="font-medium mb-3">{translate("Tokens saved — last 30 days") || "Tokens saved — last 30 days"}</h3>
         {stats?.timeline?.some((d) => d.tokensSavedEst > 0) ? (
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={stats.timeline} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradPxpipe" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={fmtTokens} width={48} />
-              <Tooltip formatter={(v) => [fmtTokens(Number(v)), "Tokens saved"]} labelFormatter={(d) => String(d)} />
-              <Area type="monotone" dataKey="tokensSavedEst" stroke="#10b981" fill="url(#gradPxpipe)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+          <PxpipeTimelineChart data={stats.timeline} />
         ) : (
           <div className="h-32 flex items-center justify-center text-text-muted text-sm">
             {translate("No savings recorded yet — enable PXPIPE in Token Saver and route a large request in Claude format.") || "No savings recorded yet — enable PXPIPE in Token Saver and route a large request in Claude format."}

@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import Modal from "@/shared/components/Modal";
 import { useTheme } from "@/shared/hooks/useTheme";
-import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
-import { translate } from "@/i18n/runtime";
+import { normalizeLocale } from "@/i18n/config";
+import { getCurrentLocale, translate } from "@/i18n/runtime";
 import { Button } from "@/components/ui/button";
 import type { ProfileClientProps } from "./types";
 import { useProfileSettings } from "./hooks/useProfileSettings";
@@ -22,19 +22,14 @@ import RoutingCard from "./sections/RoutingCard";
 import NetworkCard from "./sections/NetworkCard";
 import AccountActions from "./sections/AccountActions";
 
-function getLocaleFromCookie() {
-  if (typeof document === "undefined") return "en";
-  const cookie = document.cookie
-    .split(";")
-    .find((c) => c.trim().startsWith(`${LOCALE_COOKIE}=`));
-  const value = cookie ? decodeURIComponent(cookie.split("=")[1]) : "en";
-  return normalizeLocale(value);
-}
-
-export default function ProfileClient({ initialSettings }: ProfileClientProps) {
+export default function ProfileClient({ initialSettings, initialAccent }: ProfileClientProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const [locale, setLocale] = useState(() => getLocaleFromCookie());
+  // Ler o cookie aqui dava "en" no SSR (sem `document`) e o valor real na
+  // hidratação. `getCurrentLocale()` é o mesmo estado que todo `translate()`
+  // desta tela já lê, semeado pelo servidor antes da hidratação — coincide nos
+  // dois lados.
+  const [locale, setLocale] = useState(getCurrentLocale);
   const [langOpen, setLangOpen] = useState(false);
 
   const profileSettings = useProfileSettings(initialSettings);
@@ -55,7 +50,7 @@ export default function ProfileClient({ initialSettings }: ProfileClientProps) {
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
       <div className="flex flex-col gap-6">
-        <AppearanceCard theme={theme} setTheme={setTheme} />
+        <AppearanceCard theme={theme} setTheme={setTheme} initialAccent={initialAccent} />
 
         <BackupCard
           dbLoading={databaseBackup.dbLoading}

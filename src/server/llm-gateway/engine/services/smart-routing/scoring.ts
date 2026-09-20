@@ -93,11 +93,27 @@ const TASK_PATTERNS: Array<{ need: RouteNeed; patterns: RegExp[] }> = [
   { need: "embeddings", patterns: [/\b(embedding|vectori[sz]e|semantic vector)\b/i, /\b(vetorize|vetor sem[aâ]ntico)\b/i] },
 ];
 
+// A variante global de cada pattern é recompilada a cada classificação, e
+// `countMatches` roda ~8 vezes por requisição roteada pelo combo `smart`, mais
+// uma por candidato. Os patterns são literais de módulo, então servem de chave
+// estável. `String.prototype.match` com `g` não deixa `lastIndex` sujo — ao
+// contrário de `test`/`exec` —, então reusar a instância é seguro.
+const GLOBAL_VARIANT = new WeakMap<RegExp, RegExp>();
+
+function asGlobal(pattern: RegExp): RegExp {
+  if (pattern.flags.includes("g")) return pattern;
+  let global = GLOBAL_VARIANT.get(pattern);
+  if (!global) {
+    global = new RegExp(pattern.source, `${pattern.flags}g`);
+    GLOBAL_VARIANT.set(pattern, global);
+  }
+  return global;
+}
+
 function countMatches(text: string, patterns: RegExp[]): number {
-  return patterns.reduce((total, pattern) => {
-    const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
-    return total + (text.match(new RegExp(pattern.source, flags))?.length || 0);
-  }, 0);
+  let total = 0;
+  for (const pattern of patterns) total += text.match(asGlobal(pattern))?.length || 0;
+  return total;
 }
 
 function textFromContent(value: unknown): string[] {

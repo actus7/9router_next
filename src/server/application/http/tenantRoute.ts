@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { NextResponse, connection } from "next/server";
 
 import { auth } from "@/lib/auth/server";
@@ -25,8 +26,15 @@ export interface CurrentUser {
  * a 429, every dashboard write came back 401 and the UI reported being logged
  * out while the session was valid. `unavailable` is what lets the caller say
  * "try again" instead of "sign in".
+ *
+ * Memoizado por requisição: `tenantRoute` resolve a conta e o handler logo
+ * depois chama `requireDashboardAccess` → `hasDashboardAccess` →
+ * `currentUserId` → aqui de novo, perguntando a sessão duas vezes. Sem
+ * argumentos o `cache()` sempre acerta dentro do escopo da requisição; fora de
+ * um (um worker sob `waitUntil`) o React só repassa a chamada, que é
+ * exatamente o comportamento de hoje.
  */
-export async function resolveCurrentUser(): Promise<CurrentUser> {
+export const resolveCurrentUser = cache(async function resolveCurrentUser(): Promise<CurrentUser> {
   try {
     const { data, error } = await auth.getSession();
     const userId: string | null = data?.user?.id ?? null;
@@ -42,7 +50,7 @@ export async function resolveCurrentUser(): Promise<CurrentUser> {
     // Could not reach the auth service at all.
     return { userId: null, unavailable: true };
   }
-}
+});
 
 /**
  * The account behind the current request, or null when nobody is signed in.

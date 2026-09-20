@@ -1,11 +1,9 @@
 "use client";
 
-import {
-  OAuthModal,
-  KiroOAuthWrapper,
-  CursorAuthModal,
-  GitLabAuthModal,
-} from "@/shared/components";
+import CursorAuthModal from "@/shared/components/CursorAuthModal";
+import GitLabAuthModal from "@/shared/components/GitLabAuthModal";
+import KiroOAuthWrapper from "@/shared/components/KiroOAuthWrapper";
+import OAuthModal from "@/shared/components/OAuthModal";
 import type { ProviderInfo } from "../../types";
 
 interface OAuthModalSelectorProps {

@@ -60,16 +60,20 @@ export function useModelTesting({
     };
     await Promise.all(Array.from({ length: Math.min(maxConcurrent, modelIds.length) }, runNext));
 
-    const unavailableIds = controller.signal.aborted ? [] : results.filter(isDefinitivelyUnavailableModel).map((r) => r.modelId);
-    if (unavailableIds.length > 0) await onDisableModels(unavailableIds);
+    // Um batch cobre o catálogo inteiro do provider (centenas de modelos) e
+    // metade dele pode acabar aqui — `includes` por resultado era O(n²).
+    const unavailableSet = new Set(
+      controller.signal.aborted ? [] : results.filter(isDefinitivelyUnavailableModel).map((r) => r.modelId),
+    );
+    if (unavailableSet.size > 0) await onDisableModels([...unavailableSet]);
     // Mark them where the user can see it. The run turning models off on its
     // own is the part of this screen nobody could explain from the UI.
     setTestAllModels((prev) => prev ? {
       ...prev,
       running: false,
-      results: unavailableIds.length === 0
+      results: unavailableSet.size === 0
         ? prev.results
-        : prev.results.map((r) => unavailableIds.includes(r.modelId) ? { ...r, autoDisabled: true } : r),
+        : prev.results.map((r) => unavailableSet.has(r.modelId) ? { ...r, autoDisabled: true } : r),
     } : prev);
     testAllAbortRef.current = null;
     if (!controller.signal.aborted) {
@@ -80,7 +84,8 @@ export function useModelTesting({
   };
 
   const handleTestAllModels = async () => {
-    await runBatch(eligibleTestIds(models, kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)), disabledModelIds));
+    const modelIds = new Set(models.map((m) => m.id));
+    await runBatch(eligibleTestIds(models, kiloFreeModels.filter((fm) => !modelIds.has(fm.id)), disabledModelIds));
   };
 
   const handleCancelTestAllModels = () => {

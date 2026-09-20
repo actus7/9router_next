@@ -54,13 +54,31 @@ export function getProviderLabel(connection: Record<string, unknown>): string {
   return (connection?.name as string) || humanize((connection?.provider as string) || (connection?.id as string) || "provider");
 }
 
+/**
+ * Catálogo embarcado de um provider, indexado por id.
+ *
+ * `normalizeConfiguredModel` é chamado por modelo e varria a lista inteira em
+ * cada chamada. `PROVIDER_MODELS` é imutável em runtime — o catálogo descoberto
+ * vai para o banco, não para esse objeto —, então o índice vale pelo processo.
+ */
+const CATALOG_BY_PROVIDER = new Map<string, Map<string, Record<string, unknown>>>();
+
+function catalogIndex(providerId: string): Map<string, Record<string, unknown>> {
+  let index = CATALOG_BY_PROVIDER.get(providerId);
+  if (!index) {
+    index = new Map(getModelsByProviderId(providerId).map((model) => [String(model.id), model]));
+    CATALOG_BY_PROVIDER.set(providerId, index);
+  }
+  return index;
+}
+
 export function normalizeConfiguredModel(rawModel: string, connection: Record<string, unknown>): NormalizedModel | null {
   const providerId = connection.provider as string;
   const rawId = rawModel.trim();
   if (!providerId || !rawId) return null;
   const requestModel = qualifyModelId(rawId, connection);
   const modelId = requestModel.slice(providerId.length + 1);
-  const catalogModel = getModelsByProviderId(providerId).find((model) => model.id === modelId);
+  const catalogModel = catalogIndex(providerId).get(modelId);
   return {
     id: requestModel,
     requestModel,
@@ -165,11 +183,44 @@ function modelIdentity(rawModelId: string, connection: Record<string, unknown>):
   return modelId.toLowerCase();
 }
 
+/**
+ * Identidades permitidas de uma conexão, resolvidas uma vez por objeto.
+ *
+ * Os três predicados abaixo rodam por modelo sobre a resposta de
+ * `/api/providers/{id}/models` — um catálogo descoberto passa de 300 entradas —
+ * e cada um varria a lista inteira chamando `modelIdentity` em cada item. Isso
+ * é O(n²) sobre uma função que faz trim, replace e varredura de prefixos. O
+ * `WeakMap` chaveia pelo próprio objeto da conexão, então nada precisa ser
+ * invalidado: uma conexão recarregada é um objeto novo.
+ */
+type ConnectionIndex = { enabled: Set<string> | null; allowed: Set<string> | null };
+const CONNECTION_INDEX = new WeakMap<object, ConnectionIndex>();
+
+function connectionIndex(connection: Record<string, unknown>): ConnectionIndex {
+  const cached = CONNECTION_INDEX.get(connection);
+  if (cached) return cached;
+
+  const enabledIds = explicitEnabledModelIds(connection);
+  const configuredIds = selectableConfiguredModelIds(connection);
+  // Providers without a curated catalogue are explicitly dynamic; their live
+  // response is the only configuration source available.
+  const allowedIds = configuredIds.length > 0
+    ? configuredIds
+    : getModelsByProviderId(String(connection.provider || connection.id || ""))
+      .map((catalogModel) => String(catalogModel.id || ""));
+
+  const index: ConnectionIndex = {
+    enabled: enabledIds.length === 0 ? null : new Set(enabledIds.map((id) => modelIdentity(id, connection))),
+    allowed: allowedIds.length === 0 ? null : new Set(allowedIds.map((id) => modelIdentity(id, connection))),
+  };
+  CONNECTION_INDEX.set(connection, index);
+  return index;
+}
+
 export function isExplicitlyEnabledModel(model: NormalizedModel, connection: Record<string, unknown>): boolean {
-  const enabledModels = explicitEnabledModelIds(connection);
-  if (enabledModels.length === 0) return true;
-  const modelKey = modelIdentity(model.requestModel, connection);
-  return enabledModels.some((enabledModel) => modelIdentity(enabledModel, connection) === modelKey);
+  const { enabled } = connectionIndex(connection);
+  if (enabled === null) return true;
+  return enabled.has(modelIdentity(model.requestModel, connection));
 }
 
 // Discovery answers "what this account can see", not "what an administrator
@@ -177,17 +228,44 @@ export function isExplicitlyEnabledModel(model: NormalizedModel, connection: Rec
 // expose IDs already configured for the connection; when a connection has no
 // explicit list, the provider's curated catalogue is the configuration.
 export function isConfiguredChatModel(model: NormalizedModel, connection: Record<string, unknown>): boolean {
-  const configuredIds = selectableConfiguredModelIds(connection);
-  const allowedIds = configuredIds.length > 0
-    ? configuredIds
-    : getModelsByProviderId(String(connection.provider || connection.id || ""))
-      .map((catalogModel) => String(catalogModel.id || ""));
+  const { allowed } = connectionIndex(connection);
+  if (allowed === null) return true;
+  return allowed.has(modelIdentity(model.requestModel, connection));
+}
 
-  // Providers without a curated catalogue are explicitly dynamic; their live
-  // response is the only configuration source available.
-  if (allowedIds.length === 0) return true;
-  const modelKey = modelIdentity(model.requestModel, connection);
-  return allowedIds.some((allowedId) => modelIdentity(allowedId, connection) === modelKey);
+/**
+ * Identidades desabilitadas de uma conexão. `null` quer dizer "catálogo
+ * limpo" — nenhum modelo passa.
+ *
+ * Mesmo motivo do `connectionIndex`: sem isto a lista de desabilitados era
+ * remapeada por modelo, e ela cresce sozinha (o "Test All" desabilita todo
+ * modelo definitivamente indisponível). Chaveado pelo objeto
+ * `disabledByProvider`, que é estável dentro de um mesmo carregamento.
+ */
+const DISABLED_INDEX = new WeakMap<object, WeakMap<object, { keys: Set<string> | null }>>();
+
+function disabledIndex(
+  disabledByProvider: Record<string, string[]>,
+  connection: Record<string, unknown>,
+  aliases: Set<string>,
+): Set<string> | null {
+  let byConnection = DISABLED_INDEX.get(disabledByProvider);
+  if (!byConnection) {
+    byConnection = new WeakMap();
+    DISABLED_INDEX.set(disabledByProvider, byConnection);
+  }
+  // Chaveado pelo objeto da conexão, não pelos aliases: `modelIdentity` corta os
+  // prefixos *dela*, então duas conexões do mesmo provider podem produzir
+  // identidades diferentes para a mesma lista de ids.
+  const cached = byConnection.get(connection);
+  if (cached) return cached.keys;
+
+  const disabledIds = Array.from(aliases).flatMap((alias) => disabledByProvider[alias] || []);
+  const keys = disabledIds.includes("__catalog_cleared__")
+    ? null
+    : new Set(disabledIds.map((disabledId) => modelIdentity(disabledId, connection)));
+  byConnection.set(connection, { keys });
+  return keys;
 }
 
 export function isModelEnabledForChat(
@@ -197,10 +275,9 @@ export function isModelEnabledForChat(
 ): boolean {
   const providerId = String(connection.provider || connection.id || "");
   const aliases = new Set([providerId, PROVIDER_ID_TO_ALIAS[providerId] || providerId]);
-  const disabledIds = Array.from(aliases).flatMap((alias) => disabledByProvider[alias] || []);
-  if (disabledIds.includes("__catalog_cleared__")) return false;
-  const modelKey = modelIdentity(model.requestModel, connection);
-  return !disabledIds.some((disabledId) => modelIdentity(disabledId, connection) === modelKey);
+  const disabled = disabledIndex(disabledByProvider, connection, aliases);
+  if (disabled === null) return false;
+  return !disabled.has(modelIdentity(model.requestModel, connection));
 }
 
 // Fallback for a provider whose connection has no per-connection configured

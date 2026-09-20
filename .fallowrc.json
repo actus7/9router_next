@@ -25,10 +25,6 @@
       "exports": ["*"]
     },
     {
-      "file": "src/shared/components/index.ts",
-      "exports": ["*"]
-    },
-    {
       "file": "src/lib/data-access.ts",
       "exports": ["*"]
     },

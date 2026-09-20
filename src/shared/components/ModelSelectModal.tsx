@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useDeferredValue, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,9 @@ export default function ModelSelectModal({
   closeOnSelect = true,
 }: ModelSelectModalProps) {
   const [searchQuery, setSearchQuery] = useState<string>("");
+  // O input segue lendo `searchQuery`; a filtragem do catálogo inteiro lê o
+  // valor adiado, então a digitação não espera por ela.
+  const deferredQuery = useDeferredValue(searchQuery);
 
   const { filteredGroups, filteredCombos, getCaps } = useModelSelectData({
     isOpen,
@@ -57,7 +60,7 @@ export default function ModelSelectModal({
     kindFilter,
     capFilter,
     addedModelValues,
-    searchQuery,
+    searchQuery: deferredQuery,
   });
 
   const handleSelect = (model: ModelItem | { value?: string; name?: string }) => {

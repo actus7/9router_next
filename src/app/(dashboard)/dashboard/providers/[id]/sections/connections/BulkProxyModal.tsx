@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal } from "@/shared/components";
+import Modal from "@/shared/components/Modal";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 import { ArrowLeftRight, Network, Unlink } from "lucide-react";

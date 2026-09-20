@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { ChevronRight } from "lucide-react";
 
 interface ToolStatus {

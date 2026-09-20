@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { useTtsFormState } from "./useTtsFormState";
 import TtsFormFields from "./TtsFormFields";
 import TtsResponseSection from "./TtsResponseSection";

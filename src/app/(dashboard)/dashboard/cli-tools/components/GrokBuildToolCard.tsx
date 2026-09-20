@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Card, ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import ManualConfigModal from "@/shared/components/ManualConfigModal";
+import ModelSelectModal, { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ModelSelectModal, ActiveProvider, ManualConfigModal } from "@/shared/components";
+import ManualConfigModal from "@/shared/components/ManualConfigModal";
+import ModelSelectModal, { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BaseUrlSelect from "./BaseUrlSelect";

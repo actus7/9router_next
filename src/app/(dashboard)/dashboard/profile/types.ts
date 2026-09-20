@@ -1,3 +1,4 @@
+import type { AccentColorId } from "@/shared/constants/accentColors";
 export interface Settings {
   fallbackStrategy?: string;
   freeFallbackEnabled?: boolean;
@@ -18,4 +19,5 @@ export interface StatusMessage {
 
 export interface ProfileClientProps {
   initialSettings: Settings;
+  initialAccent: AccentColorId;
 }

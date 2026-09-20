@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Card, ModelSelectModal, ActiveProvider } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import ModelSelectModal, { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Image from "next/image";

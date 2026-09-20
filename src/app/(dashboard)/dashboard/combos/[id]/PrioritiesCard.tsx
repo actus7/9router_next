@@ -1,7 +1,8 @@
 "use client";
 
 import { ChevronRight, Plus } from "lucide-react";
-import { Card, Select } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import Select from "@/shared/components/Select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";

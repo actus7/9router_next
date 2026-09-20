@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { Select } from "@/shared/components";
+import Select from "@/shared/components/Select";
 import { CheckCircle2, AlertCircle, ChevronDown } from "lucide-react";
 import type { CredentialOrigin } from "../../utils/webSessionCredential";
 

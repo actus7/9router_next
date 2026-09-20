@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Gauge, Sparkles, Trophy } from "lucide-react";
-import { Modal } from "@/shared/components";
+import Modal from "@/shared/components/Modal";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
 import { ROUTING_TIERS, type RoutingTierOrDefault, type SmartModelProfile } from "@/shared/llm-catalog";

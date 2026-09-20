@@ -347,8 +347,20 @@ const PATTERN_PRICING = [
  * Match a model ID against a glob pattern (* = wildcard). Case-insensitive:
  * registry ids mix casing (e.g. "MiniMax-M2.5" vs "minimax-m2.5").
  */
+// Os patterns vêm de PATTERN_PRICING / PATTERN_CAPABILITIES / PATTERN_THINKING:
+// conjunto finito e fixo, então o cache é limitado por construção. Sem ele, um
+// `GET /v1/models` de conta com catálogo grande recompila a mesma expressão
+// dezenas de milhares de vezes — modelo descoberto cai sempre no caminho de
+// pattern, por não estar em MODEL_CAPABILITIES. Sem a flag `g` não há
+// `lastIndex` compartilhado entre chamadas.
+const PATTERN_REGEX_CACHE = new Map<string, RegExp>();
+
 export function matchPattern(pattern: string, model: string) {
-  const regex = new RegExp("^" + pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "i");
+  let regex = PATTERN_REGEX_CACHE.get(pattern);
+  if (!regex) {
+    regex = new RegExp("^" + pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "i");
+    PATTERN_REGEX_CACHE.set(pattern, regex);
+  }
   return regex.test(model);
 }
 

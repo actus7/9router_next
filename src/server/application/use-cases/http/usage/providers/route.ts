@@ -13,9 +13,10 @@ export async function GET() {
   try {
     // Query DISTINCT provider column directly — avoids parsing every row's
     // full JSON blob (can be hundreds of MB), which previously caused OOM.
-    const providerIds = await getDistinctProviders();
-
-    const providerNodes = await getProviderNodes();
+    const [providerIds, providerNodes] = await Promise.all([
+      getDistinctProviders(),
+      getProviderNodes(),
+    ]);
     const nodeMap: Record<string, string> = {};
     for (const node of providerNodes) {
       nodeMap[node.id as string] = node.name as string;

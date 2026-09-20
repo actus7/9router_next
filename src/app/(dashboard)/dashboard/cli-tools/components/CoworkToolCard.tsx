@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, ModelSelectModal, ActiveProvider, ManualConfigModal, ComboFormModal, McpMarketplaceModal } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import ComboFormModal from "@/shared/components/ComboFormModal";
+import ManualConfigModal from "@/shared/components/ManualConfigModal";
+import McpMarketplaceModal from "@/shared/components/McpMarketplaceModal";
+import ModelSelectModal, { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import Image from "next/image";

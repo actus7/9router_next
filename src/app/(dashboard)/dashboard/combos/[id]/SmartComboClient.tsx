@@ -1,6 +1,6 @@
 "use client";
 
-import { ModelSelectModal } from "@/shared/components";
+import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import type { Connection } from "@/lib/data-access";
 import type { SmartModelProfile } from "@/shared/llm-catalog";

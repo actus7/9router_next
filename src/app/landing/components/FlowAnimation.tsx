@@ -50,6 +50,44 @@ const PROVIDERS: Provider[] = [
   },
 ];
 
+// Nó estático, sem nenhuma prop ou state: recriá-lo a cada tick do intervalo de
+// 2s que anima os cards não tem motivo, e o React Compiler não está ligado.
+const cliFlowLines = (
+  <svg
+    className="absolute inset-0 w-full h-full z-10 pointer-events-none stroke-yellow-700"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      className="animate-[dash_2s_linear_infinite]"
+      d="M 60 50 C 250 70, 250 180, 360 180"
+      fill="none"
+      strokeDasharray="5,5"
+      strokeWidth="2"
+    ></path>
+    <path
+      className="animate-[dash_2s_linear_infinite]"
+      d="M 60 140 C 250 140, 250 180, 360 180"
+      fill="none"
+      strokeDasharray="5,5"
+      strokeWidth="2"
+    ></path>
+    <path
+      className="animate-[dash_2s_linear_infinite]"
+      d="M 60 210 C 250 210, 250 180, 360 180"
+      fill="none"
+      strokeDasharray="5,5"
+      strokeWidth="2"
+    ></path>
+    <path
+      className="animate-[dash_2s_linear_infinite]"
+      d="M 60 300 C 250 280, 250 180, 360 180"
+      fill="none"
+      strokeDasharray="5,5"
+      strokeWidth="2"
+    ></path>
+  </svg>
+);
+
 export default function FlowAnimation() {
   const [activeFlow, setActiveFlow] = useState(0);
 
@@ -92,39 +130,7 @@ export default function FlowAnimation() {
       </div>
 
       {/* SVG Lines from CLI to ModelHub */}
-      <svg
-        className="absolute inset-0 w-full h-full z-10 pointer-events-none stroke-yellow-700"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          className="animate-[dash_2s_linear_infinite]"
-          d="M 60 50 C 250 70, 250 180, 360 180"
-          fill="none"
-          strokeDasharray="5,5"
-          strokeWidth="2"
-        ></path>
-        <path
-          className="animate-[dash_2s_linear_infinite]"
-          d="M 60 140 C 250 140, 250 180, 360 180"
-          fill="none"
-          strokeDasharray="5,5"
-          strokeWidth="2"
-        ></path>
-        <path
-          className="animate-[dash_2s_linear_infinite]"
-          d="M 60 210 C 250 210, 250 180, 360 180"
-          fill="none"
-          strokeDasharray="5,5"
-          strokeWidth="2"
-        ></path>
-        <path
-          className="animate-[dash_2s_linear_infinite]"
-          d="M 60 300 C 250 280, 250 180, 360 180"
-          fill="none"
-          strokeDasharray="5,5"
-          strokeWidth="2"
-        ></path>
-      </svg>
+      {cliFlowLines}
 
       {/* SVG Lines from ModelHub to Providers */}
       <svg

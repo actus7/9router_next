@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 
-import { Card } from "@/shared/components";
+import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import { ACCOUNT_PATH } from "@/lib/auth/paths";
 import { translate } from "@/i18n/runtime";

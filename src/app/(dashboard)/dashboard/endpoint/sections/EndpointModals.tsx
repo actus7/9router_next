@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal, ConfirmModal } from "@/shared/components";
+import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import StatusAlert from "../components/StatusAlert";

@@ -1,6 +1,6 @@
 "use client";
 
-import { NoAuthProxyCard } from "@/shared/components";
+import NoAuthProxyCard from "@/shared/components/NoAuthProxyCard";
 import { translate } from "@/i18n/runtime";
 import { ChevronDown, Key } from "lucide-react";
 import type { ProviderInfo } from "../../types";

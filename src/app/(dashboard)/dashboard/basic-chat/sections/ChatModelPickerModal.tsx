@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Check, Search, SearchX, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -40,7 +40,10 @@ export default function ChatModelPickerModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(activeProviderId || null);
   const [sortMode, setSortMode] = useState<SortMode>("default");
-  const query = searchQuery.trim().toLowerCase();
+  // A conta que a busca dispara é sobre o catálogo inteiro — um provider
+  // sozinho passa de 300 modelos. O input lê `searchQuery` (urgente) e a lista
+  // lê o valor adiado, então digitar não espera o filtro.
+  const query = useDeferredValue(searchQuery).trim().toLowerCase();
   const latencies = useMemo(() => (isOpen ? getStoredModelTestLatencies() : {}), [isOpen]);
 
   useEffect(() => {
@@ -51,16 +54,24 @@ export default function ChatModelPickerModal({
     setSelectedProviderId(activeProviderId || null);
   }, [isOpen, activeProviderId]);
 
-  const visibleGroups = useMemo(() => providerGroups
+  // Filtrar e ordenar são passos independentes: juntos, trocar a ordenação
+  // refazia o filtro do catálogo inteiro. A ordenação não muda a cardinalidade,
+  // então descartar grupo vazio antes dela dá o mesmo resultado.
+  const matchedGroups = useMemo(() => providerGroups
     .filter((group) => !selectedProviderId || group.providerId === selectedProviderId)
     .map((group) => {
       const providerMatches = group.providerName.toLowerCase().includes(query);
       const models = query && !providerMatches
         ? group.models.filter((model) => `${model.name} ${model.id}`.toLowerCase().includes(query))
         : group.models;
-      return { ...group, models: sortModels(models, sortMode, latencies) };
+      return { ...group, models };
     })
-    .filter((group) => group.models.length > 0), [providerGroups, selectedProviderId, query, sortMode, latencies]);
+    .filter((group) => group.models.length > 0), [providerGroups, selectedProviderId, query]);
+
+  const visibleGroups = useMemo(
+    () => matchedGroups.map((group) => ({ ...group, models: sortModels(group.models, sortMode, latencies) })),
+    [matchedGroups, sortMode, latencies],
+  );
 
   const totalModels = useMemo(() => providerGroups.reduce((total, group) => total + group.models.length, 0), [providerGroups]);
   const selectedModels = selectedProviderId ? visibleGroups[0]?.models || [] : [];

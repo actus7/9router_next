@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal } from "@/shared/components";
+import Modal from "@/shared/components/Modal";
 import { translate } from "@/i18n/runtime";
 import AddCompatibleModal from "./AddCompatibleModal";
 import { ProviderTestResultsView } from "./ProviderTestResultsView";

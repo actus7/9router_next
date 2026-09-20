@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Modal } from "@/shared/components";
+import Modal from "@/shared/components/Modal";
 import { Button } from "@/components/ui/button";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import BulkAddForm from "./components/BulkAddForm";

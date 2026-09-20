@@ -157,10 +157,12 @@ export function buildGroupedModels(params: {
     [...activeConnectionIds, ...noAuthIds].filter((id) =>
       kindFilter ? true : providerSupportsKind(allProviders[id] || AI_PROVIDERS[id as keyof typeof AI_PROVIDERS] as Record<string, unknown> | undefined, "llm")),
   );
-  const sortedProviderIds = [...providerIdsToShow].sort((a, b) => {
-    const indexA = PROVIDER_ORDER.indexOf(a); const indexB = PROVIDER_ORDER.indexOf(b);
-    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-  });
+  // Uma varredura para resolver a posição de todos, em vez de um `indexOf` sobre
+  // os ~194 providers do registry por comparação do sort.
+  const providerRank = new Map(PROVIDER_ORDER.map((id, index) => [id, index]));
+  const sortedProviderIds = [...providerIdsToShow].sort(
+    (a, b) => (providerRank.get(a) ?? 999) - (providerRank.get(b) ?? 999),
+  );
 
   sortedProviderIds.forEach((providerId) => {
     const alias = getProviderAlias(providerId);

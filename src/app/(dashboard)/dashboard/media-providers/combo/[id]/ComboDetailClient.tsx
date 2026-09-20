@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, ModelSelectModal, ConfirmModal } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import { ConfirmModal } from "@/shared/components/Modal";
+import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { DynamicMedia } from "@/shared/components/DynamicMedia";

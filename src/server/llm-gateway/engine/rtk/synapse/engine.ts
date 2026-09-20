@@ -13,6 +13,10 @@ type CompiledRule = {
 
 type CompiledKeyword = {
   key: string;
+  /** Pré-compilado junto das regras: `transform` testa cada keyword contra cada
+   *  frase do prompt, e compilar ali dentro custava um RegExp novo por par
+   *  frase×keyword (47 keywords × N frases, a cada chamada). */
+  keyRegex: RegExp;
   priority: number;
   rules: CompiledRule[];
 };
@@ -102,6 +106,7 @@ export class SynapseDeterministicBot {
 
         return {
           key: keyword.key,
+          keyRegex: new RegExp(`\\b${this.escapeRegex(keyword.key)}\\b`, "i"),
           priority: keyword.priority,
           rules: compiledRules,
         };
@@ -157,11 +162,7 @@ export class SynapseDeterministicBot {
       }
 
       for (const keyword of this.data.keywords) {
-        const keyRegex = new RegExp(
-          `\\b${this.escapeRegex(keyword.key)}\\b`,
-          "i"
-        );
-        if (keyRegex.test(sentence)) {
+        if (keyword.keyRegex.test(sentence)) {
           for (const rule of keyword.rules) {
             const reply = this.applyRule(sentence, keyword, rule);
             if (reply) {

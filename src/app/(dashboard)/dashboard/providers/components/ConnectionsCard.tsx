@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, EditConnectionModal, ConfirmModal } from "@/shared/components";
+import Card from "@/shared/components/Card";
+import EditConnectionModal from "@/shared/components/EditConnectionModal";
+import { ConfirmModal } from "@/shared/components/Modal";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
