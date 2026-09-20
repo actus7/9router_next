@@ -5,6 +5,7 @@ import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ComboDetailClient from "./ComboDetailClient";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 async function ComboDetailContent({ params }: Pick<PageProps<"/dashboard/media-providers/combo/[id]">, "params">) {
   return withTenantPage(async () => {
@@ -38,5 +39,10 @@ async function ComboDetailContent({ params }: Pick<PageProps<"/dashboard/media-p
 }
 
 export default function ComboDetailPage(props: PageProps<"/dashboard/media-providers/combo/[id]">) {
-  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ComboDetailContent {...props} /></Suspense>;
+  return (
+    <>
+      <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ComboDetailContent {...props} /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
 }

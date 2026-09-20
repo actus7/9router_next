@@ -4,6 +4,7 @@ import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import WebMediaProvidersClient from "./WebMediaProvidersClient";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 async function WebMediaProvidersContent() {
   return withTenantPage(async () => {
@@ -18,5 +19,10 @@ async function WebMediaProvidersContent() {
 }
 
 export default function WebMediaProvidersPage() {
-  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><WebMediaProvidersContent /></Suspense>;
+  return (
+    <>
+      <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><WebMediaProvidersContent /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
 }

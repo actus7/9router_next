@@ -5,6 +5,7 @@ import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ProfileClient from "./ProfileClient";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
 import { readAccentColorAttribute } from "@/app/accentColor.server";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 async function ProfileContent() {
   return withTenantPage(async () => {
@@ -18,5 +19,10 @@ async function ProfileContent() {
 }
 
 export default function ProfilePage() {
-  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProfileContent /></Suspense>;
+  return (
+    <>
+      <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProfileContent /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
 }

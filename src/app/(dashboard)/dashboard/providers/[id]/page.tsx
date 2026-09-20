@@ -15,6 +15,7 @@ import ProviderDetailClient from "./ProviderDetailClient";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { notFound } from "next/navigation";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 async function ProviderDetailContent({
   params,
@@ -67,5 +68,10 @@ async function ProviderDetailContent({
 }
 
 export default function ProviderDetailPage(props: PageProps<"/dashboard/providers/[id]">) {
-  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProviderDetailContent {...props} /></Suspense>;
+  return (
+    <>
+      <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProviderDetailContent {...props} /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
 }

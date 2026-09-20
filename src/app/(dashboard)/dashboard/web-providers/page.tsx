@@ -6,6 +6,7 @@ import { withTenantPage } from "@/server/application/http/withTenantPage";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { Spinner } from "@/shared/components/Loading";
 import WebProvidersClient from "./WebProvidersClient";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   return localizedMetadata(
@@ -22,5 +23,10 @@ async function WebProvidersContent() {
 }
 
 export default function WebProvidersPage() {
-  return <Suspense fallback={<div className="flex justify-center p-10"><Spinner size="lg" /></div>}><WebProvidersContent /></Suspense>;
+  return (
+    <>
+      <Suspense fallback={<div className="flex justify-center p-10"><Spinner size="lg" /></div>}><WebProvidersContent /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
 }

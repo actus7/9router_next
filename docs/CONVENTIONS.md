@@ -101,6 +101,42 @@ através dos nossos executores, então não consegue escolher o outro caminho �
 que um rótulo no corpo nunca garantiu. Um XSS no dashboard continua fora do
 alcance deste gate, e sempre estará: ali o atacante é o próprio principal.
 
+## Toda page carrega `<MetadataIsDynamic />`
+
+O `generateMetadata` do root layout traduz o `<title>` a partir do cookie de
+locale, porque o tradutor de runtime só reescreve o que está sob
+`document.body` — a aba do navegador ficava em inglês. Isso torna a metadata de
+**toda** rota dependente da requisição, e o Cache Components se recusa a inferir
+que uma rota cuja *metadata sozinha* difere é intencional: normalmente é
+descuido. Ele pede que a intenção seja renderizada na árvore.
+
+Por isso `src/app/metadataIsDynamic.tsx` existe e por isso ele aparece em cada
+`page.tsx`. Duas coisas que custaram medição e valem estar escritas:
+
+- **Um marcador no layout não satisfaz a checagem.** Testado no 16.3.2 com uma
+  rota descartável: com `<Suspense><connection /></Suspense>` no `RootShell` o
+  insight continua idêntico; movido para a page, some. A doc do Next diz "on the
+  page" e diz literalmente.
+- **O insight dispara na navegação client, não no load direto.** `curl` da rota
+  não reproduz e o console do dev server não imprime nada; ele aparece no
+  overlay ao navegar de uma rota para outra. É por isso que ele passou
+  despercebido até alguém clicar no menu.
+- **`export const instant = false` isenta só o segmento que o exporta.** O do
+  root layout nunca cobriu as rotas filhas — a doc do Next é explícita
+  ("Descendant segments are still validated by the global default"). É a mesma
+  suposição errada do item acima: uma declaração no layout não desce, e cada
+  rota é validada por conta própria.
+
+O `npm run build` passa sem o marcador — é validação de desenvolvimento, não
+quebra produção. E uma page que esquecer o marcador não fica quebrada em
+silêncio: o overlay nomeia a rota na próxima navegação até ela.
+
+Duas pages ficam de fora, cada uma por um motivo:
+
+- `src/app/page.tsx` só faz `redirect()` e nunca renderiza metadata.
+- `src/app/callback/page.tsx` é `"use client"` — um Server Component não entra
+  ali, e ela é alcançada por redirect externo (load direto), não por navegação.
+
 ## Definição de pronto
 
 Antes de reportar qualquer tarefa como concluída, rodar `npm run check` (lint + contract:check + build + typecheck + test:coverage + check:static-routes + git diff --check) e confirmar que sai verde.
@@ -168,7 +204,6 @@ O commit `e3965291` atribui isso a uma diferença de versão entre o npm local e
 "o npm que vem com o Node 22" no CI. Está errado: o workflow instala `npm@11`
 explicitamente. A diferença é entre o que o npm 11 *escreve* e o que ele
 *valida*, e o npm 10 é a ferramenta que fecha essa lacuna.
-
 
 **O `next dev` responde 404 em todas as rotas.** Sintoma observado depois de
 rodar `npm run check` com o dev server no ar. A suspeita registrada era que o

@@ -1,4 +1,5 @@
 import { AccountSettingsCards } from "@neondatabase/auth/react/ui";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 /**
  * Password, email, connected providers and active sessions.
@@ -9,8 +10,11 @@ import { AccountSettingsCards } from "@neondatabase/auth/react/ui";
  */
 export default function AccountSettingsPage() {
   return (
-    <div className="w-full max-w-2xl">
-      <AccountSettingsCards />
-    </div>
+    <>
+      <div className="w-full max-w-2xl">
+        <AccountSettingsCards />
+      </div>
+      <MetadataIsDynamic />
+    </>
   );
 }

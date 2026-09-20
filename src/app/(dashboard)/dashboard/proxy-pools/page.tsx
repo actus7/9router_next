@@ -4,6 +4,7 @@ import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ProxyPoolsClient, { type ProxyPool } from "./ProxyPoolsClient";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 async function ProxyPoolsContent() {
   return withTenantPage(async () => {
@@ -15,5 +16,10 @@ async function ProxyPoolsContent() {
 }
 
 export default function ProxyPoolsPage() {
-  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProxyPoolsContent /></Suspense>;
+  return (
+    <>
+      <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><ProxyPoolsContent /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
 }

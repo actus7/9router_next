@@ -4,6 +4,7 @@ import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import CombosClient from "./CombosClient";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 async function CombosContent() {
   return withTenantPage(async () => {
@@ -27,5 +28,10 @@ async function CombosContent() {
 }
 
 export default function CombosPage() {
-  return <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><CombosContent /></Suspense>;
+  return (
+    <>
+      <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><CombosContent /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
 }
