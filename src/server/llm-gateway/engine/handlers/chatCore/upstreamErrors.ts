@@ -4,6 +4,7 @@ import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "../../
 import { getExecutor } from "../../executors/index";
 import { buildRequestDetail, extractRequestConfig } from "./requestDetail";
 import { refreshWithRetry } from "../../services/tokenRefresh";
+import { isToolUnsupportedError } from "../../services/accountFallback";
 import type { ChatCredentials, ChatLogger, PxpipeSummary, RequestLogger, StreamController } from "./types";
 
 type Executor = ReturnType<typeof getExecutor>;
@@ -153,3 +154,117 @@ export async function handleUpstreamError(params: {
   return createErrorResult(statusCode, errMsg, resetsAtMs);
 }
 
+
+// ---------------------------------------------------------------------------
+// Tool-unsupported retry
+// ---------------------------------------------------------------------------
+
+/**
+ * The tools ride along because the *session* has plugins enabled, not because
+ * the turn needs them, so the whole message failing is the wrong trade: retry
+ * once without them. `isToolUnsupportedError` owns what the error looks like —
+ * account rotation reads the same rule, so the two cannot drift.
+ */
+
+/** Whether the translated body is asking the provider for tool calling. */
+export function bodyHasTools(body: Record<string, unknown>): boolean {
+  const nested = body.request as Record<string, unknown> | undefined;
+  const tools = body.tools ?? nested?.tools ?? body.functions ?? nested?.functions;
+  return Array.isArray(tools) && tools.length > 0;
+}
+
+/** Copy without any tool-calling key, in any of the three target formats. */
+function stripTools(body: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...body };
+  for (const key of ["tools", "tool_choice", "toolConfig", "tool_config", "functions", "function_call"]) {
+    delete out[key];
+  }
+  // Gemini's translated body nests the payload under `request`.
+  if (out.request && typeof out.request === "object") {
+    out.request = stripTools(out.request as Record<string, unknown>);
+  }
+  return out;
+}
+
+/**
+ * Re-run the request with the tools removed when the upstream error says the
+ * model cannot do tool calling. Any other error is handed back untouched.
+ *
+ * Whatever the retry answers is what the caller gets, including a failure: once
+ * the tools are gone the first error has been dealt with, and the second one is
+ * the state of the world. Reporting the tool-use 404 over a 429 sent the user
+ * hunting a plugin switch when the real answer was to wait — and cost the
+ * account the rate-limit backoff, because cooldowns are classified from the
+ * status that is returned.
+ *
+ * The error body has to be read to decide, which consumes the response, so a
+ * response that is handed back is rebuilt from the text already read.
+ */
+export async function retryWithoutTools(params: {
+  executor: Executor;
+  providerResponse: Response;
+  providerUrl: string | undefined;
+  providerResponseFormat: string;
+  translatedBody: Record<string, unknown>;
+  executeParams: {
+    model: string;
+    stream: boolean;
+    credentials: ChatCredentials;
+    signal: AbortSignal;
+    log?: ChatLogger;
+    proxyOptions: Record<string, unknown>;
+  };
+  provider: string;
+  model: string;
+  reqTag: string;
+  log?: ChatLogger;
+}): Promise<{
+  providerResponse: Response;
+  providerUrl: string | undefined;
+  providerResponseFormat: string;
+  translatedBody: Record<string, unknown>;
+  finalBody?: Record<string, unknown>;
+}> {
+  const { executor, providerResponse, providerUrl, providerResponseFormat, translatedBody, executeParams, provider, model, reqTag, log } = params;
+  const unchanged = { providerResponse, providerUrl, providerResponseFormat, translatedBody };
+
+  let bodyText = "";
+  try { bodyText = await providerResponse.text(); } catch { /* empty body */ }
+
+  // Rebuild what was just consumed. `content-encoding`/`content-length` describe
+  // the wire bytes, which this body no longer is.
+  const headers = new Headers(providerResponse.headers);
+  headers.delete("content-encoding");
+  headers.delete("content-length");
+  const restored = () => ({
+    ...unchanged,
+    providerResponse: new Response(bodyText, {
+      status: providerResponse.status,
+      statusText: providerResponse.statusText,
+      headers,
+    }),
+  });
+
+  if (!isToolUnsupportedError(bodyText)) return restored();
+
+  const withoutTools = stripTools(translatedBody);
+  log?.warn?.("TOOLS", `${provider.toUpperCase()} | ${model} has no tool-calling endpoint — retrying without tools`);
+  try {
+    const retry = await executor.execute({ ...executeParams, body: withoutTools });
+    if (log?.line) {
+      const outcome = retry.response.ok ? "retry succeeded" : `retry failed ${retry.response.status}`;
+      log.line(reqTag, "🔧", `TOOLS DROPPED · ${provider}/${model} · ${outcome}`);
+    }
+    return {
+      providerResponse: retry.response,
+      providerUrl: retry.url,
+      providerResponseFormat: retry.responseFormat || providerResponseFormat,
+      translatedBody: withoutTools,
+      finalBody: retry.transformedBody,
+    };
+  } catch (e: unknown) {
+    // No second response at all: the first error is still the only thing to report.
+    log?.warn?.("TOOLS", `${provider.toUpperCase()} | retry without tools threw: ${e instanceof Error ? e.message : String(e)}`);
+    return restored();
+  }
+}

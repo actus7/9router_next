@@ -481,4 +481,4 @@ export function logProxyOptions(params: {
   }
 }
 
-export { handleExecutionError, attemptTokenRefresh, handleUpstreamError } from "./upstreamErrors";
+export { handleExecutionError, attemptTokenRefresh, handleUpstreamError, retryWithoutTools, bodyHasTools } from "./upstreamErrors";

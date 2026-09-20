@@ -27,6 +27,8 @@ import {
   handleExecutionError,
   attemptTokenRefresh,
   handleUpstreamError,
+  retryWithoutTools,
+  bodyHasTools,
 } from "./chatCore/phases";
 import type { HandleChatCoreOptions } from "./chatCore/types";
 
@@ -223,7 +225,8 @@ export async function handleChatCore({
     log,
     finalizeClaudeCache: passthrough && clientTool === "claude",
   });
-  const { translatedBody: finalTranslatedBody, pxpipeSummary } = saverResult;
+  let { translatedBody: finalTranslatedBody } = saverResult;
+  const { pxpipeSummary } = saverResult;
 
   // Plugin-provided executors (such as OpenCode) are registered during the
   // runtime bootstrap. Ensure it has completed before resolving the executor,
@@ -346,6 +349,35 @@ export async function handleChatCore({
     providerResponse = refreshed.providerResponse;
     providerUrl = refreshed.providerUrl;
     providerResponseFormat = refreshed.providerResponseFormat;
+  }
+
+  // The model has no tool-calling endpoint: drop the session's tools and retry
+  // once, rather than failing a turn that never needed them.
+  if (!providerResponse.ok && bodyHasTools(finalTranslatedBody)) {
+    const retried = await retryWithoutTools({
+      executor,
+      providerResponse,
+      providerUrl,
+      providerResponseFormat,
+      translatedBody: finalTranslatedBody,
+      executeParams: {
+        model,
+        stream,
+        credentials,
+        signal: streamController.signal,
+        log,
+        proxyOptions,
+      },
+      provider,
+      model,
+      reqTag,
+      log,
+    });
+    providerResponse = retried.providerResponse;
+    providerUrl = retried.providerUrl;
+    providerResponseFormat = retried.providerResponseFormat;
+    finalTranslatedBody = retried.translatedBody;
+    if (retried.finalBody) finalBody = retried.finalBody;
   }
 
   // Provider returned error

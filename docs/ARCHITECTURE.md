@@ -37,7 +37,26 @@
 
 Each provider has a unique `id`, user-facing alias, category, optional explicit authentication modes, capabilities and discovery flags. Categories organize the dashboard; commercial availability is derived by `getProviderAvailability`, and connection matching by `getProviderConnectionAuthTypes`.
 
-Per-model failures (`402`, `429`, `502`, `503` and model-specific errors) create an availability record with reason, sanitized error and expiry. They never mark the entire connection unavailable. Batch operations must be bounded, cancellable in the UI and report progress; automated tests use mocks only.
+Per-model failures (`402`, `429`, `502`, `503` and model-specific errors) create an availability record with reason, sanitized error and expiry. They never mark the entire connection unavailable.
+
+**"Este modelo não faz tool calling" é erro do request, não da conta.** Um alias
+que abre em vários upstreams (kilo-gateway, OpenRouter) responde `404 No
+endpoints found that support tool use` quando nada atrás dele faz tool calling —
+o caso comum é a variante `:free`. As `tools` vão na requisição porque a
+*conversa* tem plugins ligados, não porque o turno precisa delas, então o
+gateway as remove e repete a chamada uma vez (`retryWithoutTools`), e o que a
+segunda tentativa responder é o que chega ao chamador — inclusive uma falha:
+o primeiro erro já foi contornado, e devolver o 404 por cima de um `429` manda
+o usuário procurar um switch de plugin quando a resposta era esperar, além de
+tirar da conta o backoff que só é classificado a partir do status devolvido.
+
+Esse 404 também **não rotaciona contas** (`isClientRequestError`): a conta
+seguinte tem os mesmos endpoints atrás do mesmo alias, então travá-la por
+`COOLDOWN.long` só empurrava o prompt para o provider free default, que o
+usuário nunca escolheu. Um 404 comum continua rotacionando — esse sim quer
+dizer "não nesta conta".
+
+Batch operations must be bounded, cancellable in the UI and report progress; automated tests use mocks only.
 
 ## O catálogo de modelos é descoberto, não embarcado
 

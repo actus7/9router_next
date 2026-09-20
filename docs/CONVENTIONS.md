@@ -292,6 +292,15 @@ servidor diferente do que o navegador está lendo.
 `NEXT_DIST_DIR=.next-check` **não** resolve — o ESLint passa a varrer o
 diretório novo e o passo de lint falha com centenas de erros no output do build.
 
+**O `typecheck` falha em `.next/dev/types/validator.ts` com o dev server no ar.**
+Erros de sintaxe (`TS1005`, `TS1002 Unterminated string literal`) num arquivo que
+ninguém escreveu à mão: o `next build` do check e o `next dev` geram tipos ao
+mesmo tempo e o arquivo sai com linhas entrelaçadas — `const handler = {} as
+typeof import("…/route") type __Unused = __Check` numa linha só. Não é o código
+da mudança, e rodar o check de novo não limpa, porque o build de produção escreve
+`.next/types` e nunca reescreve `.next/dev/types`. `rm -rf .next/dev/types` antes
+do check resolve; o dev server regenera.
+
 ## O que pertence à conversa e o que pertence à conta
 
 Uma "sessão" é uma conversa. A regra que faltava estar escrita:

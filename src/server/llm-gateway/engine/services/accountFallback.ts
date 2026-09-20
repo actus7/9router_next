@@ -17,13 +17,35 @@ function getQuotaCooldown(backoffLevel = 0) {
 // so account rotation must not treat them as a reason to cool an account down.
 const CLIENT_REQUEST_ERROR_STATUSES: ReadonlySet<number> = new Set([400, 413, 422]);
 
+// A provider that fans an alias out to several upstreams (kilo-gateway,
+// OpenRouter) rejects a request carrying `tools` when nothing behind that alias
+// does tool calling — every `:free` variant tends to be one. It arrives as a
+// 404, but it is a statement about the body, not about the credential.
+const TOOL_UNSUPPORTED = [
+  /no endpoints? found that support tool use/i,
+  /(tool use|tool calling|tool_calls|function calling|tools) (is |are )?not supported/i,
+  /(does not|doesn't) support (tool|function)/i,
+  /unsupported .{0,24}(tool|function[ _-]?call)/i,
+];
+
+/** Whether an upstream error says the model cannot do tool calling. */
+export function isToolUnsupportedError(errorText: string | unknown): boolean {
+  const text = typeof errorText === "string" ? errorText : errorText ? JSON.stringify(errorText) : "";
+  return text ? TOOL_UNSUPPORTED.some((re) => re.test(text)) : false;
+}
+
 /**
  * True when the upstream rejected the request itself rather than the credential.
  * Scoped to account fallback: model-level fallback (combos) still retries these,
  * because a different model may accept a body the previous one rejected.
+ *
+ * "This model has no tool-calling endpoint" belongs here for the same reason a
+ * 400 does — the next account reproduces it — even though it arrives as a 404,
+ * which otherwise does mean "not on this account" and is worth rotating for.
  */
-export function isClientRequestError(status: number): boolean {
-  return CLIENT_REQUEST_ERROR_STATUSES.has(Number(status));
+export function isClientRequestError(status: number, errorText?: string | unknown): boolean {
+  if (CLIENT_REQUEST_ERROR_STATUSES.has(Number(status))) return true;
+  return isToolUnsupportedError(errorText);
 }
 
 /** What `getProviderCredentials` reports when it has nothing usable left. */

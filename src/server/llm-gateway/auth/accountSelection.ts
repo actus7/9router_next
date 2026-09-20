@@ -313,7 +313,7 @@ export async function markAccountUnavailable(
   // A malformed request fails identically on every account. Rotating would burn
   // one upstream call per account and hide the real 400 behind "all accounts
   // unavailable", so the error goes straight back to the caller.
-  if (isClientRequestError(status)) {
+  if (isClientRequestError(status, errorText)) {
     log.warn("AUTH", `client error ${status} — not rotating accounts for ${provider ?? "unknown"}`);
     return { shouldFallback: false, cooldownMs: 0 };
   }
