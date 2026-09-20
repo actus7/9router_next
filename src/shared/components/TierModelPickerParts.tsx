@@ -36,7 +36,7 @@ export function ProviderSidebar({ sortedProviderIds, groups, selectedProviderId,
   );
 }
 
-export function fmtPrice(n: number): string { return `$${n.toFixed(n < 1 ? 3 : 2)}`; }
+function fmtPrice(n: number): string { return `$${n.toFixed(n < 1 ? 3 : 2)}`; }
 
 export function priceTierBadge(price: ModelPriceInfo | undefined): { label: string; dotClassName: string } | null {
   if (!price || price.outputPrice === null) return null;

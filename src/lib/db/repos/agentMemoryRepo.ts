@@ -12,11 +12,6 @@ export interface AgentMemoryEntry {
   updatedAt: string;
 }
 
-export const MEMORY_CHAR_LIMITS: Record<MemoryScope, number> = {
-  agent: 2200,
-  user: 1375,
-};
-
 const REVISION_KEY = "agentMemoryRevision";
 
 function rowToEntry(row: Record<string, unknown>): AgentMemoryEntry {

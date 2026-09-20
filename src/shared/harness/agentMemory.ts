@@ -79,7 +79,7 @@ export function buildMemoryPromptBlock(snapshot: AgentMemorySnapshot): string {
   ].join("\n");
 }
 
-export function getMemoryRuntimeToolDefinitions(): RuntimeToolDefinition[] {
+function getMemoryRuntimeToolDefinitions(): RuntimeToolDefinition[] {
   return [
     memoryTool(
       "memory_add",

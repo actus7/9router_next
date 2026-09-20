@@ -169,5 +169,3 @@ export class PoeWebExecutor extends BaseExecutor {
     };
   }
 }
-
-export default PoeWebExecutor;

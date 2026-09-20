@@ -187,7 +187,7 @@ export async function refreshGoogleToken(refreshToken: string, clientId: string,
   }, log);
 }
 
-export function classifyOAuthRefreshError(errorText = "", status = 0): { status: number; code: string; description: string; permanent: boolean } {
+function classifyOAuthRefreshError(errorText = "", status = 0): { status: number; code: string; description: string; permanent: boolean } {
   let parsed: Record<string, unknown> | null = null;
   try {
     parsed = errorText ? JSON.parse(errorText) as Record<string, unknown> : null;

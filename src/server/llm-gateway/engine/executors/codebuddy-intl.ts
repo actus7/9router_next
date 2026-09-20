@@ -41,5 +41,3 @@ export class CodeBuddyIntlExecutor extends DefaultExecutor {
     return transformed;
   }
 }
-
-export default CodeBuddyIntlExecutor;

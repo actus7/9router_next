@@ -54,7 +54,7 @@ export const DEFAULT_MIN_TOKENS = 32000;
 export const TOKEN_SAVER_HEADER = "x-modelhub-token-saver";
 
 // Retry config for 429 responses (legacy - kept for backward compatibility)
-export const RETRY_CONFIG = {
+const RETRY_CONFIG = {
   maxAttempts: 2,
   delayMs: 2000
 };

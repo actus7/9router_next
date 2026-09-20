@@ -289,5 +289,3 @@ export class HuggingChatExecutor extends BaseExecutor {
     };
   }
 }
-
-export default HuggingChatExecutor;

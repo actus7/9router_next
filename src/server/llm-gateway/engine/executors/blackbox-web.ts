@@ -279,5 +279,3 @@ export class BlackboxWebExecutor extends BaseExecutor {
     return { response: finalResponse, url: BLACKBOX_CHAT_API, headers, transformedBody };
   }
 }
-
-export default BlackboxWebExecutor;

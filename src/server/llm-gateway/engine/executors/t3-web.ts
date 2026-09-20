@@ -337,5 +337,3 @@ export class T3WebExecutor extends BaseExecutor {
     return { response: finalResponse, url: T3_API, headers, transformedBody: t3Payload };
   }
 }
-
-export default T3WebExecutor;

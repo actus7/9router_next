@@ -500,5 +500,3 @@ export class CursorExecutor extends BaseExecutor {
     return null;
   }
 }
-
-export default CursorExecutor;

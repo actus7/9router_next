@@ -162,6 +162,3 @@ export class MimoFreeExecutor extends BaseExecutor {
     return { response, url, headers, transformedBody };
   }
 }
-
-
-export default MimoFreeExecutor;

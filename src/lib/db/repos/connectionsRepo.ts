@@ -316,11 +316,6 @@ export async function deleteProviderConnectionsByProvider(providerId: string): P
   return before?.n || 0;
 }
 
-export async function reorderProviderConnections(providerId: string): Promise<void> {
-  const db = await getAdapter();
-  await db.transaction(async () => { await reorderInTx(db, providerId); });
-}
-
 export async function cleanupProviderConnections(): Promise<number> {
   const db = await getAdapter();
   const fieldsToCheck: string[] = [

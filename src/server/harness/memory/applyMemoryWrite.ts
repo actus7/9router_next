@@ -21,14 +21,13 @@ import {
 import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
 import {
   MEMORY_CHAR_LIMITS,
-  MAX_MEMORY_ENTRY_CHARS,
   type AgentMemorySnapshot,
   type MemoryEntryView,
 } from "@/shared/harness/agentMemory";
 import { scanMemoryContent } from "./securityScan";
 
 export type MemoryApplyAction = "add" | "replace" | "remove";
-export type MemoryApplySource = "agent" | "ui" | "review";
+type MemoryApplySource = "agent" | "ui" | "review";
 
 export interface MemoryApplyRequest {
   action: MemoryApplyAction;
@@ -281,5 +280,3 @@ export async function rejectPendingWrite(id: string): Promise<MemoryApplyResult>
 export async function listPendingWrites() {
   return listHarnessPendingWrites(undefined, "pending");
 }
-
-export { scanMemoryContent, MAX_MEMORY_ENTRY_CHARS };

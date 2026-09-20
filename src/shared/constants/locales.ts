@@ -4,7 +4,7 @@
 // ships no glyph for the regional-indicator pairs, so Chrome and Edge there
 // render 🇧🇷 as the bare letters "BR" — which is what the header used to show.
 
-export const LOCALE_COUNTRIES = {
+const LOCALE_COUNTRIES = {
   "en": "us",
   "vi": "vn",
   "zh-CN": "cn",
@@ -42,7 +42,7 @@ export const LOCALE_COUNTRIES = {
   "fa": "ir",
 } as const;
 
-export type LocaleKey = keyof typeof LOCALE_COUNTRIES;
+type LocaleKey = keyof typeof LOCALE_COUNTRIES;
 
 export const LOCALE_NAMES: Record<string, string> = {
   "en": "English",

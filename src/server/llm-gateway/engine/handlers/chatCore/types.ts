@@ -48,7 +48,7 @@ export interface ProviderThinkingConfig {
 }
 
 /** Model info resolved by the caller. */
-export interface ModelInfo {
+interface ModelInfo {
   provider: string;
   model: string;
 }
@@ -122,7 +122,7 @@ export interface HandleChatCoreOptions {
 // ---------------------------------------------------------------------------
 
 /** Core context shared across all sub-handlers. */
-export interface SharedChatContext {
+interface SharedChatContext {
   provider: string;
   model: string;
   body: Record<string, unknown>;
@@ -213,13 +213,13 @@ export interface TransformStreamContext {
 // ---------------------------------------------------------------------------
 
 /** Latency breakdown. */
-export interface LatencyInfo {
+interface LatencyInfo {
   ttft: number;
   total: number;
 }
 
 /** Token usage summary. */
-export interface TokenUsage {
+interface TokenUsage {
   prompt_tokens?: number;
   completion_tokens?: number;
   input_tokens?: number;

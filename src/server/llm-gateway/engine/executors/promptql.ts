@@ -270,5 +270,3 @@ export class PromptQLExecutor extends BaseExecutor {
     };
   }
 }
-
-export default PromptQLExecutor;

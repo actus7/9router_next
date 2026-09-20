@@ -66,5 +66,3 @@ export class CodeBuddyExecutor extends DefaultExecutor {
     return transformed;
   }
 }
-
-export default CodeBuddyExecutor;

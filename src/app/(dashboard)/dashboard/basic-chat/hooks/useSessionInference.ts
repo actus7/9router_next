@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 
 import type { ChatSession } from "../types";
 
-export const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_TEMPERATURE = 0.7;
 
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 type ReasoningEffort = "low" | "medium" | "high" | null;

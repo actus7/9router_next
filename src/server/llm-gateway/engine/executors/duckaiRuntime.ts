@@ -14,7 +14,7 @@ const AUTH_TOKEN_URL = "https://duck.ai/duckchat/v1/auth/token";
 const STATUS_URL = "https://duck.ai/duckchat/v1/status";
 
 
-export const DUCKAI_TEMPORARY_ERROR_MESSAGE =
+const DUCKAI_TEMPORARY_ERROR_MESSAGE =
   "Duck.ai is temporarily unavailable. Please try again in a few moments.";
 
 export const DUCKAI_CHAT_MAX_ATTEMPTS = readNumberEnv("DUCKAI_CHAT_MAX_ATTEMPTS", 5);

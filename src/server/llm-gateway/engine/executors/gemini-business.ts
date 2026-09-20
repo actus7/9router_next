@@ -256,5 +256,3 @@ export class GeminiBusinessExecutor extends BaseExecutor {
     return { response: finalResponse, url: streamUrl, headers, transformedBody: { prompt } };
   }
 }
-
-export default GeminiBusinessExecutor;

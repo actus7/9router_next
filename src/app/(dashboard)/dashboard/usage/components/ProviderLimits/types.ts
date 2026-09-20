@@ -11,7 +11,7 @@ export interface CreditEntry {
   expiresAt?: string;
 }
 
-export interface ResetCreditsData {
+interface ResetCreditsData {
   credits?: CreditEntry[];
   availableCount?: number;
 }
@@ -115,5 +115,3 @@ export interface UseSettingsReturn {
   handleHideQuota: (provider: string, quota: QuotaEntry) => void;
   handleShowQuota: (provider: string, quota: QuotaEntry) => void;
 }
-
-export type { Connection, QuotaData, QuotaEntry } from "./quotaTypes";

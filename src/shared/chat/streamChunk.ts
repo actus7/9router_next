@@ -37,7 +37,7 @@ export function textValue(value: unknown): string {
   return String(value);
 }
 
-export function readAssistantText(chunk: Record<string, unknown>): string {
+function readAssistantText(chunk: Record<string, unknown>): string {
   if (!chunk || typeof chunk !== "object") return "";
   const choices = chunk.choices as Array<Record<string, unknown>> | undefined;
   const choice = choices?.[0];
@@ -50,7 +50,7 @@ export function readAssistantText(chunk: Record<string, unknown>): string {
 }
 
 /** Reasoning/thinking delta text, when the provider streams it alongside content. */
-export function readReasoningText(chunk: Record<string, unknown>): string {
+function readReasoningText(chunk: Record<string, unknown>): string {
   if (!chunk || typeof chunk !== "object") return "";
   const choices = chunk.choices as Array<Record<string, unknown>> | undefined;
   const delta = (choices?.[0]?.delta as Record<string, unknown>) || {};

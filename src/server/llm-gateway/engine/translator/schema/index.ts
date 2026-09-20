@@ -2,7 +2,7 @@
 export { ROLE, GEMINI_ROLE } from "./roles";
 export {
   OPENAI_BLOCK, CLAUDE_BLOCK, RESPONSES_ITEM,
-  VALID_OPENAI_CONTENT_TYPES, VALID_OPENAI_MESSAGE_TYPES,
+  VALID_OPENAI_CONTENT_TYPES,
 } from "./blocks";
 export { OPENAI_FINISH, GEMINI_FINISH } from "./finishReasons";
 export { MODEL_FALLBACK, DEFAULT_IMAGE_MIME } from "./defaults";

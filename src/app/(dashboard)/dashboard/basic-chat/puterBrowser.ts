@@ -4,7 +4,7 @@ import { textValue } from "./chatFormatUtils";
 import type { ChatMessage, NormalizedModel } from "./types";
 
 export const PUTER_PROVIDER_ID = "puter";
-export const PUTER_MODEL_ID = "xiaomi/mimo-v2.5";
+const PUTER_MODEL_ID = "xiaomi/mimo-v2.5";
 const PUTER_SCRIPT_URL = "https://js.puter.com/v2/";
 
 type PuterChatMessage = {

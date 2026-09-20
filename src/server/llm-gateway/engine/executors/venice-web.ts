@@ -28,5 +28,3 @@ export class VeniceWebExecutor extends BaseExecutor {
     return executePassThroughWeb(config, { model, body, stream, credentials, signal, log });
   }
 }
-
-export default VeniceWebExecutor;

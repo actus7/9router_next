@@ -4,8 +4,8 @@ import { RISK_NOTICE } from "@/shared/constants/providersDisplay";
 
 import { MEDIA_ENTRY_KEYS, type RegistryEntry } from "@/shared/llm-catalog";
 
-export const PROVIDER_CATEGORIES = ["free", "freeTier", "oauth", "apikey", "webCookie"] as const;
-export type ProviderCategory = typeof PROVIDER_CATEGORIES[number];
+const PROVIDER_CATEGORIES = ["free", "freeTier", "oauth", "apikey", "webCookie"] as const;
+type ProviderCategory = typeof PROVIDER_CATEGORIES[number];
 export type ProviderAuthMode = "oauth" | "apikey" | "api_key" | "cookie" | "none";
 export type ProviderAvailability = "free" | "freeTier" | "paid";
 

@@ -37,15 +37,6 @@ export async function listAgentSkillRows(): Promise<AgentSkillRow[]> {
   return rows.map(rowToSkill);
 }
 
-export async function getAgentSkillRow(id: string): Promise<AgentSkillRow | null> {
-  const db = await getAdapter();
-  const row = await db.get(
-    "SELECT id, name, description, body, enabled, source, origin FROM agentSkills WHERE userId = ? AND id = ?",
-    [currentTenantId(), id],
-  );
-  return row ? rowToSkill(row) : null;
-}
-
 export async function getAgentSkillsRevision(): Promise<number> {
   const db = await getAdapter();
   const value = Number(await getTenantMeta(db, REVISION_KEY));
@@ -80,15 +71,6 @@ export async function upsertAgentSkillRow(row: AgentSkillRow): Promise<void> {
         now,
       ],
     );
-    await bumpTenantMeta(db, REVISION_KEY);
-  });
-}
-
-export async function deleteAgentSkillRow(id: string): Promise<void> {
-  const db = await getAdapter();
-  const userId = currentTenantId();
-  await db.transaction(async () => {
-    await db.run("DELETE FROM agentSkills WHERE userId = ? AND id = ?", [userId, id]);
     await bumpTenantMeta(db, REVISION_KEY);
   });
 }

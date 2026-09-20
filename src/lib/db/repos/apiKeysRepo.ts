@@ -104,7 +104,7 @@ export async function createApiKey(
  * already issued for it, otherwise every click mints another row and the
  * inventory fills with keys nobody can account for.
  */
-export async function getActiveApiKeyBySink(sink: ApiKeySink): Promise<ApiKey | null> {
+async function getActiveApiKeyBySink(sink: ApiKeySink): Promise<ApiKey | null> {
   const db = await getAdapter();
   const row = (await db.get(
     `SELECT * FROM apiKeys WHERE userId = ? AND sink = ? AND isActive = 1 ORDER BY createdAt DESC`,

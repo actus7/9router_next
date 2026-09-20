@@ -16,8 +16,6 @@ import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
 const svc: TunnelServiceState = createTunnelServiceState();
 
 export function getTunnelService(): TunnelServiceState { return svc; }
-export function isTunnelManuallyDisabled(): boolean { return svc.cancelToken.cancelled; }
-export function isTunnelReconnecting(): boolean { return svc.spawnInProgress; }
 
 let onUnexpectedExit: (() => void) | null = null;
 export function setTunnelUnexpectedExitCallback(cb: (() => void) | null): void { onUnexpectedExit = cb; }

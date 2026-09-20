@@ -183,7 +183,4 @@ export const ZED_HOSTED_CONFIG: Record<string, unknown> = {
   oauthTimeoutMs: 600_000,
 };
 
-// OAuth timeout (5 minutes)
-export const OAUTH_TIMEOUT: number = 300000;
-
 // Provider list

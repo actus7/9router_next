@@ -16,27 +16,15 @@ import {
   refreshTraeToken,
   refreshZedToken,
   refreshWindsurfToken,
-  classifyOAuthRefreshError,
 } from "./tokenRefresh/providers";
 import type { Credentials, RefreshResult, Logger, VertexServiceAccount, RefreshHandler, ProviderConfig } from "./types";
 
 // Re-export all provider refresh functions (preserves public API for all consumers)
 export {
-  refreshAccessToken,
-  refreshKimiToken,
-  refreshClaudeOAuthToken,
   refreshGoogleToken,
   refreshCodexToken,
   refreshKiroToken,
-  refreshIflowToken,
-  refreshGitHubToken,
   refreshCopilotToken,
-  refreshCodebuddyToken,
-  refreshCodebuddyIntlToken,
-  refreshTraeToken,
-  refreshZedToken,
-  refreshWindsurfToken,
-  classifyOAuthRefreshError,
 };
 
 export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000;

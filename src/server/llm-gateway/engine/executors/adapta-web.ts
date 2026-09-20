@@ -315,5 +315,3 @@ export class AdaptaWebExecutor extends BaseExecutor {
     };
   }
 }
-
-export default AdaptaWebExecutor;

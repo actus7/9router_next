@@ -21,7 +21,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-export function extractClassifierText(payload: unknown): string {
+function extractClassifierText(payload: unknown): string {
   const root = asRecord(payload);
   if (!root) return "";
 
@@ -49,7 +49,7 @@ export function extractClassifierText(payload: unknown): string {
   return typeof root.response === "string" ? root.response : "";
 }
 
-export function parseRoutingClassification(
+function parseRoutingClassification(
   payload: unknown,
 ): LlmRoutingClassification | null {
   const raw = extractClassifierText(payload);

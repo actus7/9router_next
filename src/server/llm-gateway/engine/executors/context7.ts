@@ -152,5 +152,3 @@ export class Context7Executor extends BaseExecutor {
     }
   }
 }
-
-export default Context7Executor;

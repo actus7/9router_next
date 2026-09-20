@@ -537,5 +537,3 @@ export class GrokCliExecutor extends BaseExecutor {
     return super.execute(args);
   }
 }
-
-export default GrokCliExecutor;

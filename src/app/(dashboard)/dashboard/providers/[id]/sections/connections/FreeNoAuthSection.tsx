@@ -12,7 +12,7 @@ interface OptionalKeyToggleProps {
   onShow: () => void;
 }
 
-export function OptionalKeyToggle({ isFreeNoAuth, providerInfo, showOptionalKeySection, onShow }: OptionalKeyToggleProps) {
+function OptionalKeyToggle({ isFreeNoAuth, providerInfo, showOptionalKeySection, onShow }: OptionalKeyToggleProps) {
   if (!isFreeNoAuth || showOptionalKeySection || providerInfo?.authType !== "apikey") return null;
   return (
     <button

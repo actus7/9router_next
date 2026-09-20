@@ -5,21 +5,21 @@ import crypto from "crypto";
  *
  * @param bytes number of random bytes (xAI uses 96)
  */
-export function generateCodeVerifier(bytes: number = 32): string {
+function generateCodeVerifier(bytes: number = 32): string {
   return crypto.randomBytes(bytes).toString("base64url");
 }
 
 /**
  * Generate PKCE code challenge from verifier (S256 method)
  */
-export function generateCodeChallenge(verifier: string): string {
+function generateCodeChallenge(verifier: string): string {
   return crypto.createHash("sha256").update(verifier).digest("base64url");
 }
 
 /**
  * Generate random state for CSRF protection
  */
-export function generateState(): string {
+function generateState(): string {
   return crypto.randomBytes(32).toString("base64url");
 }
 

@@ -22,7 +22,7 @@ function comboKind(combo: ComboPayload): string {
   return typeof combo.kind === "string" ? combo.kind.trim().toLowerCase() : "";
 }
 
-export function isChatCombo(combo: ComboPayload): boolean {
+function isChatCombo(combo: ComboPayload): boolean {
   // The gateway only looks a combo up when the requested model has no "/", so a
   // name containing one could never be routed back to this combo.
   const name = comboName(combo);

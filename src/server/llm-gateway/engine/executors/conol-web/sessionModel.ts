@@ -8,8 +8,8 @@
 
 import { clampConolEffort, conolEffortsForModel, type ConolEffort } from "./models";
 
-export const CONOL_ORIGIN = "https://conol.ai";
-export const CONOL_DEFAULT_MODEL_PRESET = "pro";
+const CONOL_ORIGIN = "https://conol.ai";
+const CONOL_DEFAULT_MODEL_PRESET = "pro";
 
 export interface ConolSessionModelPlan {
   preset: { modelPreset: string; hasImageHistory: boolean };
@@ -27,7 +27,7 @@ export function buildConolSessionModelPlan(options: { model: string; effort: Con
   };
 }
 
-export function conolSessionModelUrl(sessionId: string): string {
+function conolSessionModelUrl(sessionId: string): string {
   return `${CONOL_ORIGIN}/api/sessions/${encodeURIComponent(sessionId)}/model`;
 }
 

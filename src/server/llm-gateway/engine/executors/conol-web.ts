@@ -458,5 +458,3 @@ export class ConolWebExecutor extends BaseExecutor {
     }
   }
 }
-
-export default ConolWebExecutor;

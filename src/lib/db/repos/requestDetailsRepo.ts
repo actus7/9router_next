@@ -108,7 +108,6 @@ function sanitizeHeaders(headers: Record<string, unknown>): Record<string, unkno
   return sanitized;
 }
 
-
 function generateDetailId(model?: string): string {
   const timestamp: string = new Date().toISOString();
   const random: string = Math.random().toString(36).substring(2, 8);
@@ -288,12 +287,6 @@ export async function getDistinctProviders(): Promise<string[]> {
   const db = await getAdapter();
   const rows = await db.all(`SELECT DISTINCT provider FROM requestDetails WHERE userId = ? AND provider IS NOT NULL ORDER BY provider ASC`, [currentTenantId()]) as Array<{ provider: string }>;
   return rows.map((r: { provider: string }) => r.provider);
-}
-
-export async function getRequestDetailById(id: string): Promise<Record<string, unknown> | null> {
-  const db = await getAdapter();
-  const row = await db.get(`SELECT data FROM requestDetails WHERE userId = ? AND id = ?`, [currentTenantId(), id]) as { data: string } | undefined;
-  return row ? (parseJson(row.data, null) as Record<string, unknown> | null) : null;
 }
 
 const _shutdownHandler: () => Promise<void> = async () => {

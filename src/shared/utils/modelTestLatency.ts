@@ -7,7 +7,7 @@ type SortableModel = { id: string; name: string };
 
 const STORAGE_KEY = "routerx:model-test-latencies:v1";
 
-export function modelTestLatencyKey(providerAlias: string, modelId: string): string {
+function modelTestLatencyKey(providerAlias: string, modelId: string): string {
   const alias = providerAlias.trim().toLowerCase();
   const rawModelId = modelId.trim();
   const model = rawModelId.toLowerCase().startsWith(`${alias}/`)

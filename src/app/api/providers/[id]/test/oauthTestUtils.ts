@@ -442,7 +442,3 @@ export async function testOAuthConnection(connection: Record<string, unknown>, e
     return { ok: false, error: (err as Error).message, refreshed };
   }
 }
-
-// Status classification and expiry are the two decisions worth pinning without
-// standing up a whole OAuth probe.
-export const __test__ = { classifyOAuthProbeResult, isTokenExpired };

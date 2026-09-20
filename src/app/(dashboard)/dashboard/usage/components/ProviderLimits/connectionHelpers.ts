@@ -7,7 +7,7 @@ export function getConnectionLabel(connection: Connection): string | null {
     || null;
 }
 
-export function getConnectionQuotaRemaining(connection: Connection, quotaData: Record<string, QuotaData>): number {
+function getConnectionQuotaRemaining(connection: Connection, quotaData: Record<string, QuotaData>): number {
   const quota = quotaData[connection.id]?.quotas?.[0];
   if (!quota) return Number.POSITIVE_INFINITY;
   if (typeof quota.remaining === "number") return quota.remaining;

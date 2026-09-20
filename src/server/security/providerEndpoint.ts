@@ -20,7 +20,7 @@ export function privateProviderEndpointsAllowed(): boolean {
   return process.env.ALLOW_PRIVATE_PROVIDER_ENDPOINTS === "true";
 }
 
-export class ProviderEndpointBlockedError extends Error {
+class ProviderEndpointBlockedError extends Error {
   constructor(url: string) {
     super(
       `Provider endpoint "${url}" points at a private or loopback address. ` +

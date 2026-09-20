@@ -57,7 +57,7 @@ export const STALE_RUN_MS = 60 * 1000;
  * floor: a row nobody ever collected still goes away, so the table cannot
  * grow without bound.
  */
-export const SETTLED_RUN_TTL_MS = 24 * 60 * 60 * 1000;
+const SETTLED_RUN_TTL_MS = 24 * 60 * 60 * 1000;
 
 function rowToRun(row: Record<string, unknown>): HarnessRun {
   return {

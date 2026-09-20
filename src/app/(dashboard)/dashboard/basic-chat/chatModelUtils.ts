@@ -38,7 +38,7 @@ function providerPrefixes(connection: Record<string, unknown>): string[] {
  * slash. For Kilo Gateway that shipped `openrouter/free` as the whole address,
  * and the gateway answered "No active credentials for provider: openrouter".
  */
-export function qualifyModelId(rawId: string, connection: Record<string, unknown>): string {
+function qualifyModelId(rawId: string, connection: Record<string, unknown>): string {
   const providerId = String(connection.provider || "");
   let modelId = rawId.trim();
   for (const prefix of providerPrefixes(connection)) {

@@ -77,7 +77,7 @@ const LOCAL_ONLY_PATHS: string[] = [
  */
 const PUBLIC_FILE: RegExp = /\.[^/]+$/;
 
-export function isPublicAsset(pathname: string): boolean {
+function isPublicAsset(pathname: string): boolean {
   return PUBLIC_FILE.test(pathname);
 }
 

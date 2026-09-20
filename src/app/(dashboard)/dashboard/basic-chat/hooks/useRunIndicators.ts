@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 /** What the history list shows next to a conversation. */
-export type RunIndicator = "working" | "finished" | "failed";
+type RunIndicator = "working" | "finished" | "failed";
 
 /** The badge plus, while it is working, the coarse stage the worker reported. */
 export interface RunState {

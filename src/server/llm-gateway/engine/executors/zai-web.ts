@@ -326,5 +326,3 @@ export class ZaiWebExecutor extends BaseExecutor {
     };
   }
 }
-
-export default ZaiWebExecutor;

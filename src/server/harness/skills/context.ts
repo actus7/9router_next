@@ -1,7 +1,6 @@
 import "server-only";
 
 import {
-  deleteAgentSkillRow,
   getAgentSkillsRevision,
   listAgentSkillRows,
   upsertAgentSkillRow,
@@ -9,8 +8,7 @@ import {
 } from "@/lib/db/repos/agentSkillsRepo";
 import {
   BUNDLE_SKILLS,
-  BUNDLE_SKILL_IDS,
-} from "@/shared/harness/bundleSkills";
+  } from "@/shared/harness/bundleSkills";
 import {
   composeSkills,
   setActiveSkillCatalog,
@@ -65,29 +63,9 @@ export async function reloadSkillTree(): Promise<SkillTreeState> {
   return state;
 }
 
-export function getSkillTreeState(): SkillTreeState {
-  const tenantId: string = currentTenantId();
-  const cached: SkillTreeState | undefined = cachedStates.get(tenantId);
-  if (cached) return cached;
-
-  const { skills, diagnostics } = composeSkills(BUNDLE_SKILLS, []);
-  const state: SkillTreeState = { revision: 0, skills, diagnostics };
-  cachedStates.set(tenantId, state);
-  setActiveSkillCatalog({ skills });
-  return state;
-}
-
-export function findComposedSkill(id: string): AgentSkillDefinition | undefined {
-  return getSkillTreeState().skills.find((skill) => skill.id === id);
-}
-
-export function isBundledSkillId(id: string): boolean {
-  return BUNDLE_SKILL_IDS.has(id);
-}
-
 export async function invalidateSkillTreeCache(): Promise<SkillTreeState> {
   cachedStates.delete(currentTenantId());
   return reloadSkillTree();
 }
 
-export { upsertAgentSkillRow, deleteAgentSkillRow };
+export { upsertAgentSkillRow };

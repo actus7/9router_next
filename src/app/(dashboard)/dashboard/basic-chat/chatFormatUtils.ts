@@ -4,12 +4,7 @@ import type { ChatMessage, ChatSession } from "./types";
 // One parser, two readers: the browser here and the durable-run worker on the
 // server both read the same OpenAI-compatible chunks. Re-exported rather than
 // re-implemented so a provider quirk fixed in one is fixed in both.
-export {
-  textValue,
-  readAssistantText,
-  readReasoningText,
-  readStreamUsage,
-} from "@/shared/chat/streamChunk";
+export { textValue, readStreamUsage } from "@/shared/chat/streamChunk";
 import { textValue } from "@/shared/chat/streamChunk";
 
 export function createId(): string {

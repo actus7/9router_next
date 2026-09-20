@@ -43,25 +43,6 @@ export const QODER_LOGIN_VERSION = "v2";
 export const QODER_MACHINE_OS = "x86_64_windows";
 export const QODER_MACHINE_TYPE = "5";
 
-// Canonical model identifiers. Identity map — keep as a map so callers can
-// cheaply test "is this a known qoder model?" before sending the request.
-export const QODER_MODEL_MAP = {
-  // Tier models
-  auto: "auto",
-  ultimate: "ultimate",
-  performance: "performance",
-  efficient: "efficient",
-  lite: "lite",
-  // Frontier models
-  qmodel: "qmodel",
-  qmodel_latest: "qmodel_latest",
-  dmodel: "dmodel",
-  dfmodel: "dfmodel",
-  gm51model: "gm51model",
-  kmodel: "kmodel",
-  mmodel: "mmodel",
-};
-
 // RSA public key for COSY encryption (extracted from Qoder IDE v0.9).
 // Matches the CLIProxyAPIPlus branch and live qodercli traffic.
 export const QODER_RSA_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----

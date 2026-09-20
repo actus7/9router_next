@@ -3,14 +3,14 @@
 import { useMemo } from "react";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { AI_PROVIDERS, FREE_PROVIDERS, OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_TIER_PROVIDERS } from "@/shared/constants/providers";
-import { buildGroupedModels, type ModelItem, type ModelGroup } from "./buildGroupedModels";
+import { buildGroupedModels } from "./buildGroupedModels";
 import { useModelDataFetcher, type ActiveProvider } from "./useModelDataFetcher";
 import { filterAndSortGroups } from "./filterAndSortGroups";
 
 const PROVIDER_ORDER = [...Object.keys(OAUTH_PROVIDERS), ...Object.keys(FREE_PROVIDERS), ...Object.keys(FREE_TIER_PROVIDERS), ...Object.keys(APIKEY_PROVIDERS)];
 const NO_AUTH_PROVIDER_IDS = Object.keys(FREE_PROVIDERS).filter((id) => (FREE_PROVIDERS as Record<string, { noAuth?: boolean }>)[id].noAuth);
 
-export type { ActiveProvider, ModelItem, ModelGroup };
+export type { ActiveProvider };
 
 export interface UseModelSelectDataProps {
   isOpen: boolean; activeProviders: ActiveProvider[]; modelAliases: Record<string, string>;

@@ -28,7 +28,7 @@ interface NotesSectionProps {
   tunnelEnabled: boolean;
 }
 
-export function NotesSection({ notes, cloudEnabled, tunnelEnabled }: NotesSectionProps) {
+function NotesSection({ notes, cloudEnabled, tunnelEnabled }: NotesSectionProps) {
   if (!notes || notes.length === 0) return null;
   return (
     <div className="flex flex-col gap-2 mb-4">
@@ -73,7 +73,7 @@ interface GuideModelSelectorProps {
   onCopy: (text: string, field: string) => void;
 }
 
-export function GuideModelSelector({
+function GuideModelSelector({
   modelValue, onModelChange, onOpenModelModal, hasActiveProviders, copiedField, onCopy,
 }: GuideModelSelectorProps) {
   return (

@@ -540,7 +540,5 @@ export class QoderExecutor extends BaseExecutor {
   }
 }
 
-export default QoderExecutor;
-
 // Internals exposed for unit tests. Not part of the public API — callers
 // should import QoderExecutor and use its public methods.

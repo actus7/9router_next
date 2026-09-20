@@ -8,5 +8,3 @@ export const MEDIA_ENTRY_KEYS = [
   "searchViaChat", "searchConfig", "fetchConfig",
   "modelsFetcher", "mediaPriority", "hiddenKinds",
 ] as const;
-
-export type MediaEntryKey = typeof MEDIA_ENTRY_KEYS[number];

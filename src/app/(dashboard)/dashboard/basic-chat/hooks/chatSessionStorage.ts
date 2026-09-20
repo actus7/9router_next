@@ -1,7 +1,7 @@
 import { safeParse } from "../chatFormatUtils";
 import type { ChatAttachment, ChatProject, ChatSession } from "../types";
 
-export const STORAGE_KEYS = {
+const STORAGE_KEYS = {
   sessions: "basic-chat.sessions",
   activeSessionId: "basic-chat.activeSessionId",
   activeProviderId: "basic-chat.activeProviderId",

@@ -265,5 +265,3 @@ export class BaseExecutor {
     throw lastError || new Error(`All ${fallbackCount} URLs failed with status ${lastStatus}`);
   }
 }
-
-export default BaseExecutor;

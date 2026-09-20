@@ -151,5 +151,3 @@ export class AnySearchExecutor extends BaseExecutor {
     }
   }
 }
-
-export default AnySearchExecutor;

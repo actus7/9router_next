@@ -3,7 +3,6 @@ import "server-only";
 
 export {
   translateRequest,
-  translateResponse,
   initTranslators,
 } from "@/server/llm-gateway/engine/translator/index";
 export { FORMATS } from "@/server/llm-gateway/engine/translator/formats";

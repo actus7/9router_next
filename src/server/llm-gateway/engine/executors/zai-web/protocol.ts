@@ -52,7 +52,7 @@ const ZAI_MODEL_CAPABILITIES: Record<string, ZaiModelCapabilities> = {
   "glm-5-turbo": { reasoningEffort: false, thinking: true, webSearch: true },
 };
 
-export function asRecord(value: unknown): Record<string, unknown> | null {
+function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
@@ -102,7 +102,7 @@ export function extractZaiToken(rawCredential: string): string {
 
 /** Read the short-lived CAPTCHA proof (captured by the user from a real chat.z.ai
  * network request — there is no browser here to mint one automatically). */
-export function extractZaiCaptchaVerifyParam(value: unknown): string {
+function extractZaiCaptchaVerifyParam(value: unknown): string {
   const record = asRecord(value);
   if (record) {
     const direct =
@@ -192,7 +192,7 @@ export function latestUserPrompt(messages: Array<{ role: string; content: unknow
   return "";
 }
 
-export function foldMessages(
+function foldMessages(
   messages: Array<{ role: string; content: unknown }>
 ): Array<{ role: string; content: string }> {
   return messages.map((message) => ({
@@ -201,7 +201,7 @@ export function foldMessages(
   }));
 }
 
-export function unprefixedModelId(modelId: string): string {
+function unprefixedModelId(modelId: string): string {
   return modelId.trim().split("/").at(-1) || modelId.trim();
 }
 

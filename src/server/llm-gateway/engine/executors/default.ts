@@ -358,5 +358,3 @@ export class DefaultExecutor extends BaseExecutor {
     return null;
   }
 }
-
-export default DefaultExecutor;

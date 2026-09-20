@@ -1,4 +1,3 @@
-import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 
 // Header sent by fetchCompatibleModelIds to detect cross-instance /models fetches
@@ -10,7 +9,7 @@ export const LLM_KIND = "llm";
 
 // Map per-model `type` field (in PROVIDER_MODELS) to service kind.
 // Models without `type` are treated as LLM.
-export const MODEL_TYPE_TO_KIND: Record<string, string> = {
+const MODEL_TYPE_TO_KIND: Record<string, string> = {
   image: "image",
   tts: "tts",
   embedding: "embedding",
@@ -70,5 +69,3 @@ export interface ProviderContext {
   liveModelKindById: Map<string, string>;
   liveCapabilitiesById: Map<string, Record<string, unknown>>;
 }
-
-export { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS };

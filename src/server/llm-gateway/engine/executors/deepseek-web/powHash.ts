@@ -12,7 +12,7 @@ const SHA3_256_OUTPUT_BYTES = 32;
 const DEEPSEEK_HASH_ROUNDS = 23;
 const DIGEST_HEX_PATTERN = /^[a-f0-9]{64}$/i;
 
-export const MAX_DEEPSEEK_POW_DIFFICULTY = 250_000;
+const MAX_DEEPSEEK_POW_DIFFICULTY = 250_000;
 
 // Indexed as x + 5*y, matching the FIPS 202 state coordinates.
 const ROTATION_OFFSETS = [
@@ -137,7 +137,7 @@ function parseDigestWords(digestHex: string): Uint32Array {
 
 /** Search `prefix + nonce` for the first value whose DeepSeekHashV1 digest
  * equals `challenge`. Returns -1 if no nonce below `difficulty` matches. */
-export function findDeepSeekPowNonce(prefix: string, challenge: string, difficulty: number): number {
+function findDeepSeekPowNonce(prefix: string, challenge: string, difficulty: number): number {
   if (typeof prefix !== "string") throw new TypeError("DeepSeek PoW prefix must be a string");
   if (!DIGEST_HEX_PATTERN.test(challenge)) throw new TypeError("DeepSeek PoW challenge must be a 64-character hex digest");
   if (!Number.isSafeInteger(difficulty) || difficulty < 1 || difficulty > MAX_DEEPSEEK_POW_DIFFICULTY) {

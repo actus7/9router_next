@@ -85,33 +85,6 @@ export interface VertexServiceAccount {
   [key: string]: unknown;
 }
 
-// ── Account / connection for fallback logic ──────────────────────────────────
-export interface Account {
-  [key: string]: unknown;
-  id?: string;
-  rateLimitedUntil?: string;
-  backoffLevel?: number;
-  lastError?: { status: number; message: string; timestamp: string } | null;
-  status?: string;
-  isActive?: boolean;
-  provider?: string;
-  refreshToken?: string;
-}
-
-// ── User info (for getAllAccessTokens) ───────────────────────────────────────
-export interface UserInfo {
-  connections?: Account[];
-  [key: string]: unknown;
-}
-
-// ── Error rule (from errorConfig) ────────────────────────────────────────────
-export interface ErrorRule {
-  text?: string;
-  status?: number;
-  cooldownMs: number;
-  backoff?: boolean;
-}
-
 // ── Refresh handler signature ────────────────────────────────────────────────
 export type RefreshHandler = (c: Credentials, log?: Logger) => Promise<RefreshResult | null> | null;
 

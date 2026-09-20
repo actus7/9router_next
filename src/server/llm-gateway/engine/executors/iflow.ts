@@ -87,5 +87,3 @@ export class IFlowExecutor extends BaseExecutor {
     return body;
   }
 }
-
-export default IFlowExecutor;

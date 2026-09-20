@@ -268,7 +268,7 @@ export async function prepareTranslatedBody(params: {
 // Modality normalization (strip unsupported media + prefetch remote images)
 // ---------------------------------------------------------------------------
 
-export async function normalizeModalities(params: {
+async function normalizeModalities(params: {
   body: Record<string, unknown>;
   sourceFormat: string;
   targetFormat: string;

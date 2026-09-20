@@ -13,7 +13,7 @@
 import { Buffer } from "node:buffer";
 import { findProtoField, parseProtoFields, serializeProtoFields, traverseAndMutate } from "./protoWire";
 
-export const META_WS_APP_ID = "1522763855472543";
+const META_WS_APP_ID = "1522763855472543";
 const META_WS_APP_VERSION = "1.0.0";
 const META_WS_AUTHTYPE = "15:0";
 const META_WS_DGW_VERSION = "5";
@@ -41,16 +41,6 @@ function encodeBase62(value: bigint, padLength: number): string {
   return encoded.padStart(padLength, "0");
 }
 
-function decodeBase62(value: string): bigint {
-  let decoded = 0n;
-  for (const char of value) {
-    const index = BASE62_ALPHABET.indexOf(char);
-    if (index < 0) throw new Error(`Invalid base62 character: ${char}`);
-    decoded = decoded * 62n + BigInt(index);
-  }
-  return decoded;
-}
-
 function randomBigInt(byteLength: number): bigint {
   const bytes = new Uint8Array(byteLength);
   crypto.getRandomValues(bytes);
@@ -64,20 +54,6 @@ export function generateMetaConversationId(): string {
   const random = randomBigInt(8) & ((1n << 64n) - 1n);
   const packed = (timestamp << 64n) | random;
   return `c.${encodeBase62(packed, 19)}`;
-}
-
-export function generateMetaEventId(conversationId: string): string | null {
-  if (!conversationId.startsWith("c.")) return null;
-  try {
-    const packedConversation = decodeBase62(conversationId.slice(2));
-    const conversationRandom = packedConversation & ((1n << 64n) - 1n);
-    const timestamp = BigInt(Date.now()) & ((1n << 44n) - 1n);
-    const eventRandom = randomBigInt(4) & ((1n << 32n) - 1n);
-    const packedEvent = (timestamp << (64n + 32n)) | (conversationRandom << 32n) | eventRandom;
-    return `e.${encodeBase62(packedEvent, 25)}`;
-  } catch {
-    return null;
-  }
 }
 
 function writeU24Le(value: number, arr: Uint8Array, offset: number): void {

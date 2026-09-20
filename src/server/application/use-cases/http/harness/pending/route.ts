@@ -5,7 +5,7 @@ import {
   listPendingWrites,
   rejectPendingWrite,
 } from "@/server/harness/memory/applyMemoryWrite";
-import { invalidateMemoryCache } from "@/server/harness/memory/context";
+import { buildMemorySnapshot } from "@/server/harness/memory/applyMemoryWrite";
 import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
 
 function badRequest(message: string) {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
-    const memory = result.kind === "memory" ? await invalidateMemoryCache() : {};
+    const memory = result.kind === "memory" ? await buildMemorySnapshot() : {};
     return NextResponse.json({ ok: true, kind: result.kind, action: result.action, outcome: result.outcome, ...memory });
   }
   if (decision === "reject") {

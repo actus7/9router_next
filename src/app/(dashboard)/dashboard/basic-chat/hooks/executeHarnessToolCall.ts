@@ -38,7 +38,7 @@ const HARNESS_TOOL_NAMES = new Set([
 ]);
 
 
-export function isHarnessTool(name: string): boolean {
+function isHarnessTool(name: string): boolean {
   return HARNESS_TOOL_NAMES.has(name);
 }
 

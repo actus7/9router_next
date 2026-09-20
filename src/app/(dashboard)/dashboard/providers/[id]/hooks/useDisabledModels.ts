@@ -82,5 +82,3 @@ export function useDisabledModels({
     handleEnableAll,
   };
 }
-
-export type UseDisabledModelsReturn = ReturnType<typeof useDisabledModels>;

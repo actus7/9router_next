@@ -432,5 +432,3 @@ export class GithubExecutor extends BaseExecutor {
     return super.needsRefresh(credentials);
   }
 }
-
-export default GithubExecutor;

@@ -5,7 +5,7 @@ import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
 import { BarChart3, Globe, Key, Languages, Layers, MessageCircle, Monitor, Network, PieChart, PiggyBank, Puzzle, Server, Settings, Terminal, Webhook } from "lucide-react";
 
-export interface Breadcrumb {
+interface Breadcrumb {
   label: string;
   href?: string;
   image?: string;

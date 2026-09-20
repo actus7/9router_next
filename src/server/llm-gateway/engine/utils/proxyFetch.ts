@@ -270,5 +270,3 @@ async function patchedFetch(url: string | URL | Request, options: RequestInit = 
 if (globalThis.fetch !== patchedFetch) {
   globalThis.fetch = patchedFetch;
 }
-
-export default patchedFetch;

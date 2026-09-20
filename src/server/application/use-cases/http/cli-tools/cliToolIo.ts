@@ -5,7 +5,7 @@ import os from "os";
 
 const execAsync = promisify(exec);
 
-export function stripJsonc(content: string): string {
+function stripJsonc(content: string): string {
   return content.replace(/,(\s*[}\]])/g, "$1");
 }
 

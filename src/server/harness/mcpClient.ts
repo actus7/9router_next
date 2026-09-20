@@ -261,7 +261,7 @@ export async function discoverMcpTools(
   }
 }
 
-export async function callMcpTool(
+async function callMcpTool(
   url: string,
   toolName: string,
   args: Record<string, unknown>,

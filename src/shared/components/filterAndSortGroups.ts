@@ -4,7 +4,7 @@ import type { ModelItem, ModelGroup } from "./buildGroupedModels";
 
 const byName = (a: ModelItem, b: ModelItem) => a.name.localeCompare(b.name);
 
-export function sortModels(models: ModelItem[], addedModelValues: string[]): ModelItem[] {
+function sortModels(models: ModelItem[], addedModelValues: string[]): ModelItem[] {
   // `includes` por modelo era O(n·m), em duas passagens sobre a mesma lista.
   // O catálogo é descoberto do provider — um só deles passa de 300 modelos.
   const addedValues = new Set(addedModelValues);

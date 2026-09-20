@@ -22,7 +22,7 @@ export const ROUTE_NEEDS = [
 ] as const;
 export type RouteNeed = (typeof ROUTE_NEEDS)[number];
 
-export interface SmartRoutingClassifierConfig {
+interface SmartRoutingClassifierConfig {
   enabled: boolean;
   confidenceThreshold: number;
   timeoutMs: number;

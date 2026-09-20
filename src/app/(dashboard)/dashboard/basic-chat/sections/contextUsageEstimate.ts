@@ -2,7 +2,7 @@ import type { ChatMessage } from "../types";
 
 const CHARS_PER_TOKEN = 4;
 /** Used when the model's real context window isn't known client-side. Conservative floor shared by most current-generation chat models. */
-export const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000;
+const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000;
 
 export interface ContextUsageEstimate {
   systemPromptTokens: number;

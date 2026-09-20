@@ -12,12 +12,6 @@ export async function getDisabledModels(): Promise<Record<string, string[]>> {
   return out;
 }
 
-export async function getDisabledByProvider(providerAlias: string): Promise<string[]> {
-  const db = await getAdapter();
-  const row = await db.get(`SELECT value FROM kv WHERE userId = ? AND scope = ? AND key = ?`, [currentTenantId(), SCOPE, providerAlias]) as { value: string } | undefined;
-  return row ? ((parseJson(row.value, []) as string[]) || []) : [];
-}
-
 // Atomic read-merge-write inside a transaction (no JS yield mid-transaction).
 export async function disableModels(providerAlias: string, ids: string[]): Promise<void> {
   if (!providerAlias || !Array.isArray(ids)) return;

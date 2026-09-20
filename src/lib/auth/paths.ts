@@ -4,5 +4,4 @@
  * `lib/auth/server.ts` is `server-only`.
  */
 export const SIGN_IN_PATH: string = "/auth/sign-in";
-export const SIGN_UP_PATH: string = "/auth/sign-up";
 export const ACCOUNT_PATH: string = "/auth/settings";

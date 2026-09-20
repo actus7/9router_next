@@ -13,7 +13,7 @@ interface ModelItemProps {
   onEdit: (v: string) => void; onMoveUp: () => void; onMoveDown: () => void; onRemove: () => void;
 }
 
-export function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown, onRemove }: ModelItemProps) {
+function ModelItem({ index, model, isFirst, isLast, onEdit, onMoveUp, onMoveDown, onRemove }: ModelItemProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(model);
   // Both lists key their rows by position, so dragging, reordering or removing

@@ -97,5 +97,3 @@ export function useModelDiscovery({
     handleRefreshModels, handleImportQoderModels, handleClearProviderModels,
   };
 }
-
-export type UseModelDiscoveryReturn = ReturnType<typeof useModelDiscovery>;

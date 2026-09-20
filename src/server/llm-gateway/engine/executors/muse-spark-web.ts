@@ -332,5 +332,3 @@ export class MuseSparkWebExecutor extends BaseExecutor {
     return { response: finalResponse, url: META_AI_GRAPHQL_API, headers, transformedBody: body };
   }
 }
-
-export default MuseSparkWebExecutor;

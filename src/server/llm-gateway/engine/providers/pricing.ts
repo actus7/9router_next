@@ -9,7 +9,7 @@
  * Canonical model pricing — provider-agnostic.
  * Cover all known models; deduplicated across providers.
  */
-export const MODEL_PRICING = {
+const MODEL_PRICING = {
   // === Anthropic / Claude ===
   "claude-opus-4-6":              { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  },
   "claude-opus-4-5-20251101":     { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  },
@@ -396,14 +396,6 @@ export function getPricingForModel(provider: string, model: string) {
   }
 
   return null;
-}
-
-/**
- * Get all provider pricing (for UI / API).
- * Returns PROVIDER_PRICING — consumers should fall back to MODEL_PRICING for unlisted models.
- */
-export function getDefaultPricing() {
-  return PROVIDER_PRICING;
 }
 
 /**

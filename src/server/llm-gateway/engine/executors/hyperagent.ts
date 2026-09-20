@@ -3,7 +3,6 @@ import { BaseExecutor } from "./base";
 import { PROVIDERS } from "../config/providers";
 import type { Credentials, Logger } from "../services/types";
 import {
-  HYPERAGENT_FALLBACK_MODELS,
   clientFacingHyperAgentModelId,
   wireHyperAgentModelId,
   wireHyperAgentRuntimeId,
@@ -17,7 +16,6 @@ import {
 // OpenAI's stateless multi-turn is bridged onto HyperAgent's stateful thread
 // via a sticky fingerprint cache (in-memory only — no disk persistence, same
 // as every other session cache in this codebase).
-export { HYPERAGENT_FALLBACK_MODELS };
 
 const ORIGIN = "https://hyperagent.com";
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
@@ -511,5 +509,3 @@ export class HyperAgentExecutor extends BaseExecutor {
     }
   }
 }
-
-export default HyperAgentExecutor;

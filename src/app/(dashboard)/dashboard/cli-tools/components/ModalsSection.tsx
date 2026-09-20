@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export interface CustomMcpPlugin {
+interface CustomMcpPlugin {
   name: string;
   url: string;
   transport?: string;

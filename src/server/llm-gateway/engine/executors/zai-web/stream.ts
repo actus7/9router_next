@@ -9,7 +9,7 @@
 
 import { sanitizeErrorMessage } from "./protocol";
 
-export interface ZaiDelta {
+interface ZaiDelta {
   content: string;
   reasoning: string;
   done: boolean;
@@ -71,7 +71,7 @@ function parseInternalEnvelopeFrame(
   return null;
 }
 
-export function parseZaiFrame(raw: unknown): ZaiDelta | null {
+function parseZaiFrame(raw: unknown): ZaiDelta | null {
   if (!raw || typeof raw !== "object") return null;
   const frame = raw as Record<string, unknown>;
 

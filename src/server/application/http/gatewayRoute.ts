@@ -11,7 +11,7 @@ import { RATE_LIMIT_WINDOW_MS, consumeRateLimit, gatewayRateLimit } from "./rate
  * bearer token, Anthropic `x-api-key`, Gemini `x-goog-api-key`, and Gemini's
  * REST clients a `?key=` query parameter.
  */
-export function extractApiKey(request: Request): string | null {
+function extractApiKey(request: Request): string | null {
   const authHeader: string | null = request.headers.get("authorization");
   if (authHeader?.toLowerCase().startsWith("bearer ")) return authHeader.slice(7).trim() || null;
   const apiKeyHeader: string | null = request.headers.get("x-api-key");

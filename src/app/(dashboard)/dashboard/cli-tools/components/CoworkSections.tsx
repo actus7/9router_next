@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X } from "lucide-react";
-import { AddMcpModal } from "./ModalsSection";
 
-export { AddMcpModal };
 
 interface Plugin { name: string; title?: string; oauth?: boolean; toolNames?: string[]; }
 interface CustomPlugin { name: string; url: string; transport?: string; custom?: boolean; }

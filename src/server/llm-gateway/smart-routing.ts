@@ -4,17 +4,9 @@ import "server-only";
 export {
   refreshDeterministicSmartProfiles,
   invalidateSmartProfileCache,
-  rankSmartProfiles,
-  resolveRequestedTier,
-  getSmartTierOrder,
 } from "@/server/llm-gateway/engine/services/smart-routing/inventory";
 export {
-  resolveSmartRouting,
-  getSmartCombo,
-  deriveRoutingSessionKey,
-  parseRoutingTierHeader,
   validateSmartRoutingConfig,
-  normalizeSmartRoutingConfig,
 } from "@/server/llm-gateway/engine/services/smart-routing/router";
 export {
   ROUTING_TIERS,
@@ -23,11 +15,6 @@ export {
 } from "@/server/llm-gateway/engine/services/smart-routing/types";
 export type {
   RoutingTier,
-  RoutingTierOrDefault,
   RouteNeed,
   SmartModelProfile,
-  RoutingReason,
-  RoutingDecisionMeta,
-  SmartComboEntry,
-  SmartRoutingConfig,
 } from "@/server/llm-gateway/engine/services/smart-routing/types";

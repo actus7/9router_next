@@ -397,5 +397,3 @@ export class CopilotWebExecutor extends BaseExecutor {
     };
   }
 }
-
-export default CopilotWebExecutor;

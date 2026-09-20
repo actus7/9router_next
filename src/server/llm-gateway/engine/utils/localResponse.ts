@@ -11,7 +11,7 @@ const DEFAULT_BYPASS_TEXT = "CLI Command Execution: Clear Terminal";
 /**
  * Create OpenAI standard format response
  */
-export function createOpenAIResponse(model: string, text = DEFAULT_BYPASS_TEXT) {
+function createOpenAIResponse(model: string, text = DEFAULT_BYPASS_TEXT) {
   const id = `chatcmpl-${Date.now()}`;
   const created = Math.floor(Date.now() / 1000);
 
@@ -39,7 +39,7 @@ export function createOpenAIResponse(model: string, text = DEFAULT_BYPASS_TEXT) 
 /**
  * Create OpenAI streaming chunks from complete response
  */
-export function createOpenAIStreamingChunks(completeResponse: Record<string, unknown>) {
+function createOpenAIStreamingChunks(completeResponse: Record<string, unknown>) {
   const { id, created, model, choices } = completeResponse as { id: string; created: number; model: string; choices: Array<{ message: { content: string } }> };
   const content = choices[0].message.content;
 
@@ -184,7 +184,7 @@ export function createNonStreamingResponse(sourceFormat: string, model: string, 
  * Merge translated chunks into final response object (for non-streaming)
  * Takes the last complete chunk as the final response
  */
-export function mergeChunksToResponse(chunks: unknown[], sourceFormat: string): Record<string, unknown> {
+function mergeChunksToResponse(chunks: unknown[], sourceFormat: string): Record<string, unknown> {
   if (!chunks || chunks.length === 0) {
     return createOpenAIResponse("unknown");
   }

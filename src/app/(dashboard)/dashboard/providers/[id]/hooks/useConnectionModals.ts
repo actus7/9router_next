@@ -72,5 +72,3 @@ export function useConnectionModals({
     handleSaveApiKey, handleUpdateConnection,
   };
 }
-
-export type UseConnectionModalsReturn = ReturnType<typeof useConnectionModals>;

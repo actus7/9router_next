@@ -14,5 +14,4 @@ export {
 // not decide it.
 export {
   FREE_DEFAULT_MODEL_KEY,
-  isFreeDefaultProvider,
 } from "@/shared/constants/freeDefault";

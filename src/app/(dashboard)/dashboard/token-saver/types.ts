@@ -1,6 +1,6 @@
 import { mutate } from "swr";
 
-export interface PxpipeCheck {
+interface PxpipeCheck {
   id: string;
   label: string;
   ok: boolean;

@@ -6,7 +6,7 @@ import type { ComponentType } from "react";
 import { translate } from "@/i18n/runtime";
 import type { ModelDiagnostic } from "../../types";
 
-export type DiagnosticState = NonNullable<ModelDiagnostic["state"]>;
+type DiagnosticState = NonNullable<ModelDiagnostic["state"]>;
 
 /**
  * How each test state looks, in one table.
@@ -26,7 +26,7 @@ export interface DiagnosticStyle {
   spin?: boolean;
 }
 
-export const DIAGNOSTIC_STYLES: Record<DiagnosticState, DiagnosticStyle> = {
+const DIAGNOSTIC_STYLES: Record<DiagnosticState, DiagnosticStyle> = {
   testing: { group: 0, tone: "border-info-border/30 bg-info/10 text-info", Icon: Loader2, spin: true },
   retrying: { group: 0, tone: "border-info-border/30 bg-info/10 text-info", Icon: Loader2, spin: true },
   queued: { group: 0, tone: "border-info-border/30 bg-info/10 text-info", Icon: Circle },

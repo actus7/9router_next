@@ -176,5 +176,3 @@ export class V0VercelWebExecutor extends BaseExecutor {
     return { response: finalResponse, url: V0_API, headers, transformedBody: payload };
   }
 }
-
-export default V0VercelWebExecutor;

@@ -47,15 +47,3 @@ export function requireStringField(
   }
   return value;
 }
-
-export function optionalStringField(
-  body: Record<string, unknown>,
-  field: string,
-): string | undefined {
-  const raw = body[field];
-  if (raw === undefined || raw === null) return undefined;
-  if (typeof raw !== "string") {
-    throw new HttpValidationError(`${field} must be a string`, 400, "VALIDATION_ERROR");
-  }
-  return raw.trim();
-}

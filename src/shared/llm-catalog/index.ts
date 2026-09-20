@@ -10,22 +10,12 @@
 export {
   PROVIDER_MODELS,
   PROVIDER_ID_TO_ALIAS,
-  OAUTH_ALIASES,
-  getProviderModels,
-  getDefaultModel,
-  isValidModel,
-  findModelName,
-  getModelType,
   getModelsByProviderId,
 } from "@/server/llm-gateway/engine/config/providerModels";
 
 // Model capabilities (pure pattern matching, no I/O)
 export {
-  DEFAULT_CAPABILITIES,
-  MODEL_CAPABILITIES,
-  PROVIDER_CAPABILITIES,
   getCapabilitiesForModel,
-  capabilitiesFromServiceKind,
 } from "@/server/llm-gateway/engine/providers/capabilities";
 
 // Provider registry display metadata (pure data definitions)
@@ -56,11 +46,6 @@ export type {
   RoutingTier,
   RoutingTierOrDefault,
   RouteNeed,
-  SmartRoutingClassifierConfig,
   SmartRoutingConfig,
-  SmartModelCapabilities,
   SmartModelProfile,
-  RoutingReason,
-  RoutingDecisionMeta,
-  SmartComboEntry,
 } from "@/server/llm-gateway/engine/services/smart-routing/types";

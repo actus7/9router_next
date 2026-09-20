@@ -28,7 +28,7 @@ import { matchPattern } from "./pricing";
  * Safe floor — every resolved result is merged over this so consumers
  * never need null-checks. Most modern LLMs meet these limits.
  */
-export const DEFAULT_CAPABILITIES = {
+const DEFAULT_CAPABILITIES = {
   // input modalities
   vision: false,        // read images
   pdf: false,           // read PDF / documents
@@ -70,7 +70,7 @@ export function capabilitiesFromServiceKind(kind: string) {
  * Canonical exact-id overrides — used for exceptions that patterns would
  * otherwise mis-match. Only declare deltas vs DEFAULT.
  */
-export const MODEL_CAPABILITIES = {
+const MODEL_CAPABILITIES = {
   // Claude Opus 5, 4.6/4.7/4.8, and Kiro Sonnet 5 have 1M context + adaptive thinking (override generic claude pattern)
   "claude-opus-5":     { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
   "claude-opus-5-thinking": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-adaptive", contextWindow: 1000000, maxOutput: 128000 },
@@ -120,7 +120,7 @@ const CODEX_GPT_56_DEFAULT_CAPS = { vision: true, reasoning: true, search: true,
 /**
  * Provider-specific capability overrides. Keyed by provider alias/id.
  */
-export const PROVIDER_CAPABILITIES = {
+const PROVIDER_CAPABILITIES = {
   // NVIDIA NIM is OpenAI-compatible → rejects MiniMax/GLM native `thinking` field.
   // Force openai reasoning_effort format for its reasoning models. #issue
   "nvidia": {

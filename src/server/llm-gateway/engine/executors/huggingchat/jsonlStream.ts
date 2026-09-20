@@ -3,7 +3,7 @@
 // object per line), never SSE; the previous version of this executor never
 // even reached this endpoint (see huggingchat.ts for the endpoint/flow fix).
 
-export function sseChunk(data: unknown): string {
+function sseChunk(data: unknown): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
@@ -14,7 +14,7 @@ interface ParsedJsonlLine {
   text?: string;
 }
 
-export function parseJsonlLine(line: string): ParsedJsonlLine {
+function parseJsonlLine(line: string): ParsedJsonlLine {
   try {
     const event = JSON.parse(line) as Record<string, unknown>;
 

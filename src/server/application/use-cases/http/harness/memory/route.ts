@@ -5,7 +5,6 @@ import {
   buildMemorySnapshot,
   type MemoryApplyAction,
 } from "@/server/harness/memory/applyMemoryWrite";
-import { invalidateMemoryCache } from "@/server/harness/memory/context";
 import {
   getHarnessLearningConfig,
   updateHarnessLearningConfig,
@@ -42,7 +41,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       config,
-      ...(await invalidateMemoryCache()),
+      ...(await buildMemorySnapshot()),
     });
   }
 
@@ -52,7 +51,7 @@ export async function PUT(request: NextRequest) {
     if (!id) return badRequest("id is required");
     const result = await applyMemoryWrite({ action: "remove", id, source: "ui" });
     if (!result.ok) return badRequest(result.error ?? "Failed to delete");
-    return NextResponse.json({ ok: true, ...(await invalidateMemoryCache()) });
+    return NextResponse.json({ ok: true, ...(await buildMemorySnapshot()) });
   }
 
   if (action === "create") {
@@ -65,7 +64,7 @@ export async function PUT(request: NextRequest) {
       source: "ui",
     });
     if (!result.ok) return badRequest(result.error ?? "Failed to create");
-    return NextResponse.json({ ok: true, ...(await invalidateMemoryCache()) });
+    return NextResponse.json({ ok: true, ...(await buildMemorySnapshot()) });
   }
 
   if (action === "update") {
@@ -79,7 +78,7 @@ export async function PUT(request: NextRequest) {
       source: "ui",
     });
     if (!result.ok) return badRequest(result.error ?? "Failed to update");
-    return NextResponse.json({ ok: true, ...(await invalidateMemoryCache()) });
+    return NextResponse.json({ ok: true, ...(await buildMemorySnapshot()) });
   }
 
   return badRequest("Unknown action");
@@ -120,6 +119,6 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const snapshot = result.pending ? await buildMemorySnapshot() : await invalidateMemoryCache();
+  const snapshot = await buildMemorySnapshot();
   return NextResponse.json({ ...snapshot, ...result, ok: true });
 }

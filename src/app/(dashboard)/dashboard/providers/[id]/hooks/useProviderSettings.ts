@@ -72,4 +72,3 @@ export function useProviderSettings({ providerId, initialSettings }: UseProvider
 }
 
 export { AUTO_PING_SETTINGS_KEYS };
-export type UseProviderSettingsReturn = ReturnType<typeof useProviderSettings>;

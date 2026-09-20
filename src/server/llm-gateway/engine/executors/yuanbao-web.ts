@@ -302,5 +302,3 @@ export class YuanbaoWebExecutor extends BaseExecutor {
     };
   }
 }
-
-export default YuanbaoWebExecutor;

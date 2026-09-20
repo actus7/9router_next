@@ -223,5 +223,3 @@ export class DuckAiExecutor extends BaseExecutor {
     return buildDuckAiTemporaryErrorResponse(body);
   }
 }
-
-export default DuckAiExecutor;

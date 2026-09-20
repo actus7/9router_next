@@ -8,8 +8,6 @@ export {
   deleteProviderConnection,
   deleteProviderConnectionsByProvider,
   TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
-  testStatusForValidation,
-  normalizeConnectionTestStatus,
 } from "@/lib/db/repos/connectionsRepo";
 export {
   getProviderNodes,

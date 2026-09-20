@@ -258,5 +258,3 @@ export class CopilotM365WebExecutor extends BaseExecutor {
     };
   }
 }
-
-export default CopilotM365WebExecutor;

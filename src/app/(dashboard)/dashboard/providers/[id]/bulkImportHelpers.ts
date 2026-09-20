@@ -8,7 +8,7 @@ interface BulkImportResult {
   results?: Array<{ ok: boolean; index: number; error?: string }>;
 }
 
-export function normalizeToArray(parsed: unknown): unknown[] | null {
+function normalizeToArray(parsed: unknown): unknown[] | null {
   if (Array.isArray(parsed)) return parsed;
   if (parsed && typeof parsed === "object") {
     const obj = parsed as Record<string, unknown>;

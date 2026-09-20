@@ -34,7 +34,7 @@ export function withTenant<T>(userId: string, fn: () => T): T {
  * a code path that never set one, and answering it with "no rows" hides the
  * bug until the day the same path answers with someone else's rows.
  */
-export class TenantContextError extends Error {
+class TenantContextError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "TenantContextError";
@@ -72,4 +72,3 @@ export function __setTenantForTesting(userId: string): void {
   if (!userId) throw new TenantContextError("__setTenantForTesting called with an empty user id");
   storage.enterWith(userId);
 }
-

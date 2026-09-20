@@ -9,9 +9,6 @@ import { captureSessionId } from "../utils/sessionManager";
 import { PROVIDERS } from "../providers/index";
 import { requestRegistry, responseRegistry } from "./registry";
 
-export { register } from "./registry";
-export type { RequestTranslatorFn, ResponseTranslatorFn } from "./registry";
-
 interface Credentials {
   accessToken?: string;
   apiKey?: string;

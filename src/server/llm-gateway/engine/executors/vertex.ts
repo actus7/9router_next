@@ -174,5 +174,3 @@ export class VertexExecutor extends BaseExecutor {
     return { response, url, headers, transformedBody };
   }
 }
-
-export default VertexExecutor;

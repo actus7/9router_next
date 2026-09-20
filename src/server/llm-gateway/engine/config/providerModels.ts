@@ -2,7 +2,7 @@ import { PROVIDERS } from "./providers";
 import REGISTRY from "../providers/registry/index";
 // PROVIDER_MODELS now built from providers/registry (transport + models co-located)
 import { PROVIDER_MODELS, PROVIDER_MODEL_OVERRIDES } from "../providers/index";
-import { modelQuotaFamily, modelStrip, modelTargetFormat, modelSupportedFormats, normalizeModelId } from "../providers/models/schema";
+import { modelStrip, modelTargetFormat, modelSupportedFormats, normalizeModelId } from "../providers/models/schema";
 import { CODEX_REVIEW_SUFFIX } from "../providers/models/helpers";
 export { PROVIDER_MODELS };
 
@@ -43,20 +43,6 @@ function findModel(models: ModelEntry[] | undefined, modelId: string, aliasOrId:
   const overrideAlt = overrides?.[normalized];
   if (listedAlt || overrideAlt) return { id: normalized, ...listedAlt, ...overrideAlt };
   return undefined;
-}
-
-export function isValidModel(aliasOrId: string, modelId: string, passthroughProviders: Set<string> = new Set()) {
-  if (passthroughProviders.has(aliasOrId)) return true;
-  const models = PROVIDER_MODELS[aliasOrId];
-  if (!models) return false;
-  return !!findModel(models, modelId, aliasOrId);
-}
-
-export function findModelName(aliasOrId: string, modelId: string) {
-  const models = PROVIDER_MODELS[aliasOrId];
-  if (!models) return modelId;
-  const found = findModel(models, modelId, aliasOrId);
-  return (found?.name as string) || modelId;
 }
 
 export function getModelTargetFormat(aliasOrId: string, modelId: string) {
@@ -101,14 +87,9 @@ export function getModelUpstreamId(aliasOrId: string, modelId: string) {
   return baseId + suffix;
 }
 
-export function getModelQuotaFamily(aliasOrId: string, modelId: string) {
-  const models = PROVIDER_MODELS[aliasOrId];
-  return modelQuotaFamily(findModel(models, modelId, aliasOrId));
-}
-
 // OAuth short aliases — derived from registry `alias` (single source). everything else: alias = id.
 // vertex/vertex-partner keep alias=id (kept via the `|| id` fallback in consumers).
-export const OAUTH_ALIASES: Record<string, string> = Object.fromEntries(
+const OAUTH_ALIASES: Record<string, string> = Object.fromEntries(
   (REGISTRY as Record<string, unknown>[]).filter((r: Record<string, unknown>) => r.alias && r.alias !== r.id).map((r: Record<string, unknown>) => [r.id, r.alias])
 );
 

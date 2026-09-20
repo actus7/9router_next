@@ -361,5 +361,3 @@ export class DevinCliExecutor extends BaseExecutor {
     };
   }
 }
-
-export default DevinCliExecutor;

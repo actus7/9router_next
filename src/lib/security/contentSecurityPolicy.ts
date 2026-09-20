@@ -79,7 +79,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
 export const CSP_REPORT_PATH = "/api/csp-report";
 
 /** The Reporting API group name, shared by `report-to` and the header below. */
-export const CSP_REPORT_GROUP = "csp";
+const CSP_REPORT_GROUP = "csp";
 
 /** The `Reporting-Endpoints` value that makes `report-to` resolvable. */
 export const REPORTING_ENDPOINTS = `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`;

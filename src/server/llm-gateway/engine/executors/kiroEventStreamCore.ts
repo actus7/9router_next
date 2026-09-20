@@ -35,7 +35,7 @@ export interface TransformOptions {
   onTerminalState?: (detail: SSEDiagnostics) => void;
 }
 
-export interface ToolEntry {
+interface ToolEntry {
   id: string;
   name: string;
   inputKind?: string;
@@ -525,6 +525,3 @@ export function handleMetricsEvent(event: EventFrame, ctx: TransformContext): vo
     if (cacheCreate) ctx.state.usage.cache_creation_input_tokens = cacheCreate;
   }
 }
-
-
-

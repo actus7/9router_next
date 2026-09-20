@@ -14,7 +14,7 @@ import type { HarnessToolArguments } from "./executeHarnessToolCall";
  * rather than applied.
  */
 
-export const SKILL_WRITE_TOOL_NAMES = new Set([
+const SKILL_WRITE_TOOL_NAMES = new Set([
   "create_skill",
   "update_skill",
   "patch_skill",

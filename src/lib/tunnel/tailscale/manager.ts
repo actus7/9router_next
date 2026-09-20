@@ -17,7 +17,6 @@ initDbHooks(getSettings, updateSettings);
 const svc: TunnelServiceState = createTunnelServiceState();
 
 export function getTailscaleService(): TunnelServiceState { return svc; }
-export function isTailscaleReconnecting(): boolean { return svc.spawnInProgress; }
 
 interface EnableResult {
   success: boolean;

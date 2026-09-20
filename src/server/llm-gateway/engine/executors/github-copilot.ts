@@ -156,5 +156,3 @@ export class GithubCopilotExecutor extends BaseExecutor {
     return super.execute({ ...opts, credentials: patchedCredentials });
   }
 }
-
-export default GithubCopilotExecutor;

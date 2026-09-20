@@ -62,7 +62,7 @@ export async function listHarnessConversations(): Promise<HarnessConversation[]>
  * stale copy. Past that the tombstone is swept and a very old device could
  * re-upload — which is strictly better than keeping a row per deletion forever.
  */
-export const DELETED_CONVERSATION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const DELETED_CONVERSATION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Conversations this account deleted, so a returning device can drop them. */
 export async function listDeletedConversationIds(): Promise<string[]> {

@@ -53,5 +53,3 @@ export function useOneByOneTest({ connections }: UseOneByOneTestArgs) {
     oneByOneResults, oneByOneSummary, handleRunOneByOneTest, handleStopOneByOneTest,
   };
 }
-
-export type UseOneByOneTestReturn = ReturnType<typeof useOneByOneTest>;

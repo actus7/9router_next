@@ -18,7 +18,7 @@ import { listConnectionModels } from "../http/providers/[id]/models/listConnecti
  */
 
 /** How long a discovered catalogue is trusted before it is asked for again. */
-export const CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
+const CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
 
 const meta = makeKv("meta");
 const stampKey = (alias: string) => `catalogDiscoveredAt:${alias}`;

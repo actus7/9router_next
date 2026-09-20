@@ -4,7 +4,7 @@
 // for `data: [DONE]` — this closes the stream reliably while still giving
 // trailing `search_results` a short window to arrive.
 
-export const DEEPSEEK_FINISHED_DRAIN_MS = 750;
+const DEEPSEEK_FINISHED_DRAIN_MS = 750;
 
 /** Wraps a stream-finishing callback so it runs at most once and never
  * throws past a controller that the client already cancelled/closed. */

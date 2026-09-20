@@ -99,5 +99,3 @@ export class ModelScopeExecutor extends DefaultExecutor {
     return true;
   }
 }
-
-export default ModelScopeExecutor;

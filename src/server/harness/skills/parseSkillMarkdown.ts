@@ -1,6 +1,6 @@
-export const MAX_SKILL_DESCRIPTION_LENGTH = 1024;
-export const MAX_SKILL_BODY_LENGTH = 64 * 1024;
-export const SKILL_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
+const MAX_SKILL_DESCRIPTION_LENGTH = 1024;
+const MAX_SKILL_BODY_LENGTH = 64 * 1024;
+const SKILL_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
 export interface ParsedSkillMarkdown {
   name: string;

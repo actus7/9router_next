@@ -30,8 +30,6 @@ export type RoutingTraceStep =
   | { kind: "attempt"; model: string; index: number; total: number; outcome: "ok" | "failed" | "aborted"; status?: number; error?: string }
   | { kind: "account"; provider: string; model: string; connection?: string; outcome: "selected" | "switched" | "exhausted" | "failed"; status?: number; error?: string };
 
-export type RoutingTraceStepKind = RoutingTraceStep["kind"];
-
 export interface RoutingTrace {
   requestedModel: string;
   steps: RoutingTraceStep[];

@@ -26,5 +26,3 @@ export class AdobeFireflyExecutor extends BaseExecutor {
     return { response: errResp, url: FIREFLY_API, headers: {} as Record<string, string>, transformedBody: body };
   }
 }
-
-export default AdobeFireflyExecutor;

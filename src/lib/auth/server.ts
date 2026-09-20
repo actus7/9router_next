@@ -2,8 +2,6 @@ import "server-only";
 
 import { createNeonAuth } from "@neondatabase/auth/next/server";
 
-export { SIGN_IN_PATH, SIGN_UP_PATH, ACCOUNT_PATH } from "./paths";
-
 /**
  * The one Neon Auth instance for the server.
  *

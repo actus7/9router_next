@@ -242,5 +242,3 @@ export class QuillbotExecutor extends BaseExecutor {
     return { response: finalResponse, url: chatUrl, headers, transformedBody: payload };
   }
 }
-
-export default QuillbotExecutor;

@@ -62,5 +62,3 @@ export class TencentAistudioWebExecutor extends BaseExecutor {
     };
   }
 }
-
-export default TencentAistudioWebExecutor;

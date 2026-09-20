@@ -131,7 +131,3 @@ export function getExecutor(provider: string) {
 export function hasSpecializedExecutor(provider: string) {
   return hasPluginExecutor(provider) || !!(executors as Record<string, unknown>)[provider];
 }
-
-export { default as TraeExecutor } from "./trae";
-export { default as ZedExecutor } from "./zed";
-export { default as WindsurfExecutor } from "./windsurf";

@@ -119,5 +119,3 @@ export function useModelTesting({
     handleCancelTestAllModels, handleTestModel,
   };
 }
-
-export type UseModelTestingReturn = ReturnType<typeof useModelTesting>;

@@ -398,5 +398,3 @@ export class InnerAiExecutor extends BaseExecutor {
     };
   }
 }
-
-export default InnerAiExecutor;

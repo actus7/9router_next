@@ -6,8 +6,6 @@ import { getTtsAdapter, synthesizeViaConfig } from "./ttsProviders/index";
 // Re-export voice fetchers + voices APIs for backward compat with existing routes
 export {
   VOICE_FETCHERS,
-  fetchEdgeTtsVoices,
-  fetchLocalDeviceVoices,
   fetchElevenLabsVoices,
 } from "./ttsProviders/index";
 

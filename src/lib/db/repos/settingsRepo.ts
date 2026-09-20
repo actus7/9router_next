@@ -157,11 +157,6 @@ export async function updateSettings(updates: Record<string, unknown>): Promise<
   return mergeWithDefaults(next!);
 }
 
-export async function isCloudEnabled(): Promise<boolean> {
-  const settings: Settings = await getSettings();
-  return settings.cloudEnabled === true;
-}
-
 export async function getCloudUrl(): Promise<string> {
   const settings: Settings = await getSettings();
   return (

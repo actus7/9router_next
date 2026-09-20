@@ -8,7 +8,7 @@ export interface ProtoField {
   value: Uint8Array | number | bigint;
 }
 
-export function encodeVarint(value: number): Uint8Array {
+function encodeVarint(value: number): Uint8Array {
   // BigInt arithmetic avoids 32-bit truncation from JS bitwise operators.
   let v = BigInt(value);
   const out: number[] = [];
@@ -20,7 +20,7 @@ export function encodeVarint(value: number): Uint8Array {
   return new Uint8Array(out);
 }
 
-export function decodeVarint(data: Uint8Array, offset: number): [number, number] {
+function decodeVarint(data: Uint8Array, offset: number): [number, number] {
   let shift = 0;
   let value = 0;
   let off = offset;

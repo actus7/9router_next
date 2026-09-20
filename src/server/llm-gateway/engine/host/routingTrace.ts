@@ -6,5 +6,4 @@ export {
   truncateTraceError,
   type RoutingTrace,
   type RoutingTraceStep,
-  type RoutingTraceSummary,
 } from "@/shared/observability/routingTrace";

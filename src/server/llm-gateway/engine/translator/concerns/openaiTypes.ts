@@ -85,11 +85,6 @@ export interface ImageRef {
   claudeBlock?: Record<string, unknown>;
 }
 
-/** Translator state (base) */
-export interface TranslatorState {
-  [key: string]: unknown;
-}
-
 /** Kiro tool use */
 export interface KiroToolUse {
   toolUseId?: string;
@@ -105,7 +100,7 @@ export interface KiroToolResult {
 }
 
 /** Kiro user input message context */
-export interface KiroUserInputMessageContext {
+interface KiroUserInputMessageContext {
   toolResults?: KiroToolResult[];
   tools?: unknown[];
 }

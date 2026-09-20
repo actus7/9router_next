@@ -34,7 +34,7 @@ export interface ProviderStats {
   allDisabled: boolean;
 }
 
-export interface TestResult {
+interface TestResult {
   connectionId?: string;
   connectionName?: string;
   provider?: string;

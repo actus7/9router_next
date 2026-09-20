@@ -11,7 +11,7 @@ export function isSearchModel(model: string): boolean {
   return m.includes("search") || m.includes("fold");
 }
 
-export function cleanDeepSeekToken(text: string): string {
+function cleanDeepSeekToken(text: string): string {
   return text.replace(/FINISHED/g, "").replace(/^(SEARCH|WEB_SEARCH|SEARCHING)\s*/i, "");
 }
 

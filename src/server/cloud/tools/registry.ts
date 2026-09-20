@@ -13,4 +13,4 @@ export function listCloudTools(): CloudToolManifest[] {
   return Object.values(CLOUD_TOOLS);
 }
 
-export type { CloudToolManifest, CloudToolStartup, CloudToolEnvInput, CloudToolInfo } from "./types";
+export type { CloudToolManifest } from "./types";

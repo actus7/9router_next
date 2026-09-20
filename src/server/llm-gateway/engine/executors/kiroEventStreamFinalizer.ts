@@ -22,7 +22,7 @@ import {
   type TransformContext,
 } from "./kiroEventStreamCore";
 
-export function processEvent(event: EventFrame, controller: ReadableStreamDefaultController<Uint8Array>, ctx: TransformContext): boolean {
+function processEvent(event: EventFrame, controller: ReadableStreamDefaultController<Uint8Array>, ctx: TransformContext): boolean {
   const messageType = event.headers[":message-type"];
   if (messageType === "error" || messageType === "exception") {
     failTransform(
@@ -286,7 +286,3 @@ export function finishStream(ctx: TransformContext, controller: ReadableStreamDe
     stop_disposition: final.truncatedAfterOutput ? "length" : final.disposition
   }));
 }
-
-
-
-

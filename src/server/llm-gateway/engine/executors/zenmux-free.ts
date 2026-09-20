@@ -217,5 +217,3 @@ async function collectAnthropicText(body: ReadableStream): Promise<string> {
   }
   return text;
 }
-
-export default ZenmuxFreeExecutor;

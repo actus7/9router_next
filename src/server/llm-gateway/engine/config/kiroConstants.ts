@@ -222,7 +222,6 @@ function buildKiroAdditionalModelRequestFields(body: KiroBody, effortPath: strin
 
 // Import from leaf module (breaks circular dep: kiroConstants→thinkingUnified→thinkingLevels→kiroConstants).
 import { resolveKiroEffortPath } from "./kiroEffortPath";
-export { resolveKiroEffortPath };
 
 
 export function usesKiroNativeGptEffort(body: KiroBody, model: string) {

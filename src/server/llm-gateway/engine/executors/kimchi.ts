@@ -120,5 +120,3 @@ export class KimchiExecutor extends DefaultExecutor {
     return transformed;
   }
 }
-
-export default KimchiExecutor;

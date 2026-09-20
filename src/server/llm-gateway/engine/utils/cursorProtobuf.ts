@@ -6,13 +6,6 @@
 import { v4 as uuidv4 } from "uuid";
 import zlib from "zlib";
 import { CLIENT_SIDE_TOOL_V2_MCP, FIELD, ROLE, THINKING_LEVEL, UNIFIED_MODE, WIRE_TYPE } from "./cursorProtobufSchema";
-import {
-  decodeField,
-  decodeMessage,
-  decodeVarint,
-  extractTextFromResponse,
-  parseConnectRPCFrame,
-} from "./cursorProtobufDecoder";
 
 const DEBUG = process.env.CURSOR_PROTOBUF_DEBUG === "1";
 const log = (tag: string, ...args: unknown[]) => DEBUG && console.log(`[PROTOBUF:${tag}]`, ...args);
@@ -465,26 +458,6 @@ export function generateCursorBody(messages: Record<string, unknown>[], modelNam
  */
 
 export {
-  decodeField,
   decodeMessage,
-  decodeVarint,
   extractTextFromResponse,
-  parseConnectRPCFrame,
 } from "./cursorProtobufDecoder";
-
-// ==================== EXPORTS ====================
-
-export default {
-  encodeVarint,
-  encodeField,
-  encodeMessage,
-  buildChatRequest,
-  wrapConnectRPCFrame,
-  generateCursorBody,
-  decodeVarint,
-  decodeField,
-  decodeMessage,
-  parseConnectRPCFrame,
-  extractTextFromResponse
-};
-

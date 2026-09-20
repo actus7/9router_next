@@ -56,7 +56,7 @@ export function isCredentialEncryptionEnabled(): boolean {
 }
 
 /** Whether the operator has declared encryption mandatory for this install. */
-export function isCredentialEncryptionRequired(): boolean {
+function isCredentialEncryptionRequired(): boolean {
   return process.env.CREDENTIAL_ENCRYPTION_REQUIRED?.trim().toLowerCase() === "true";
 }
 
@@ -109,7 +109,7 @@ export function encryptSecret(value: string): string {
  * the accurate "no active credentials" error. The failure is logged with the
  * reason, since it means the key changed or was removed.
  */
-export function decryptSecret(stored: string): string | undefined {
+function decryptSecret(stored: string): string | undefined {
   if (!isEncryptedValue(stored)) return stored;
   const key = resolveKey();
   if (!key) {
@@ -168,5 +168,3 @@ export function decryptConnectionSecrets(
   }
   return next;
 }
-
-export const CREDENTIAL_SECRET_FIELDS: readonly string[] = SECRET_FIELDS;

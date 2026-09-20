@@ -4,7 +4,6 @@ import {
   CREDENTIAL_REJECTED_STATUSES,
   probeFailed,
   probeOk,
-  type MaybeProbeResult,
   type ProbeResult,
 } from "./types";
 
@@ -19,7 +18,7 @@ export type ProbeFetch = (url: string, init?: RequestInit) => Promise<Response>;
  * How to ask one provider whether a credential works. Five shapes cover every
  * provider that used to carry its own hand-written request builder.
  */
-export type ProbeStrategy =
+type ProbeStrategy =
   | "bearer-get"      // GET a listing URL with an Authorization header
   | "custom-prefix"   // same, with a non-Bearer scheme such as Token or Key
   | "query-key"       // GET with the key in the query string
@@ -242,26 +241,3 @@ export async function runProbePlan(
     }
   }
 }
-
-/**
- * Probe a credential using the provider's declared plan.
- *
- * Returns null when no plan applies, so the caller falls through to a handler
- * for a provider that genuinely needs bespoke work: one that requires an
- * account id, a token exchange first, or a base URL stored on the connection.
- */
-export async function probeCredential(
-  provider: string,
-  apiKey: string,
-  doFetch: ProbeFetch,
-): Promise<MaybeProbeResult> {
-  const plan = resolveProbePlan(provider);
-  if (!plan) return null;
-  try {
-    return await runProbePlan(provider, plan, apiKey, doFetch);
-  } catch (err) {
-    return probeFailed((err as Error).message || REJECTED_KEY);
-  }
-}
-
-export const __test__ = { PLANS, PLAN_ALIASES };

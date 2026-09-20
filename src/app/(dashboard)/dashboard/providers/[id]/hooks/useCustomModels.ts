@@ -50,5 +50,3 @@ export function useCustomModels({ providerStorageAlias, initialAliases, initialC
     fetchAliases, fetchCustomModels, handleDeleteAlias, handleAddCustomModel, handleDeleteCustomModel,
   };
 }
-
-export type UseCustomModelsReturn = ReturnType<typeof useCustomModels>;

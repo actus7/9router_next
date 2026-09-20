@@ -59,7 +59,6 @@ function getPlatformEnum() {
   return PLATFORM.UNSPECIFIED;
 }
 
-
 export const CLIENT_METADATA = {
   ideType: IDE_TYPE.ANTIGRAVITY,
   platform: getPlatformEnum(),
@@ -73,31 +72,6 @@ export const AG_TOOL_SUFFIX = "_ide";
 
 // Suffix added to client tools when forwarding to Claude provider (anti-ban cloaking)
 export const CLAUDE_TOOL_SUFFIX = "_ide";
-
-// CC native default tools — these are Claude Code's own tools, kept as decoys
-// Client tools matching these names are skipped (not renamed), others get _cc suffix
-export const CC_DEFAULT_TOOLS = new Set([
-  "Task",
-  "TaskOutput",
-  "TaskStop",
-  "TaskCreate",
-  "TaskGet",
-  "TaskUpdate",
-  "TaskList",
-  "Bash",
-  "Glob",
-  "Grep",
-  "Read",
-  "Edit",
-  "Write",
-  "NotebookEdit",
-  "WebFetch",
-  "WebSearch",
-  "AskUserQuestion",
-  "Skill",
-  "EnterPlanMode",
-  "ExitPlanMode",
-]);
 
 // AG native default tools — kept as decoys with neutral description/properties
 // These names must match exactly what AG sends in the real request log

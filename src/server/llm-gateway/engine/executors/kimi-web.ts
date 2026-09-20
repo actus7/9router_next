@@ -362,5 +362,3 @@ export class KimiWebExecutor extends BaseExecutor {
     };
   }
 }
-
-export default KimiWebExecutor;

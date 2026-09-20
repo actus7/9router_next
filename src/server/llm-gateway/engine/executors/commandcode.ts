@@ -91,5 +91,3 @@ function wrapNdjsonAsOpenAISse(originalResponse: Response, model: string) {
     headers: originalResponse.headers,
   });
 }
-
-export default CommandCodeExecutor;

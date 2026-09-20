@@ -141,10 +141,3 @@ export function buildCursorHeaders(accessToken: string, machineId: string | null
     "x-session-id": sessionId
   };
 }
-
-export default {
-  generateCursorChecksum,
-  buildCursorHeaders,
-  generateHashed64Hex,
-  generateSessionId
-};

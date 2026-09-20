@@ -23,10 +23,6 @@ export interface AgentPresetDefinition {
   pluginIds: readonly string[];
 }
 
-export interface SessionMcpToolDefinition extends RuntimeToolDefinition {
-  function: RuntimeToolDefinition["function"];
-}
-
 interface McpServerLike {
   id: string;
   enabled: boolean;
@@ -441,7 +437,7 @@ export function resetActiveHarnessCatalog(): void {
   activeCatalog = BUNDLE_CATALOG;
 }
 
-export function getAgentPresetFrom(
+function getAgentPresetFrom(
   catalog: HarnessCatalog,
   id?: string,
 ): AgentPresetDefinition {

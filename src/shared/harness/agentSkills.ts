@@ -45,7 +45,7 @@ function isValidSkillSlug(id: string): boolean {
   return SLUG_PATTERN.test(id);
 }
 
-export const BUNDLE_CATALOG: SkillCatalog = {
+const BUNDLE_CATALOG: SkillCatalog = {
   skills: BUNDLE_SKILLS,
 };
 

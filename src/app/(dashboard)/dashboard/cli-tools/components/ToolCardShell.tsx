@@ -12,7 +12,7 @@ interface ToolActionCapability {
   loading: boolean;
 }
 
-export interface ToolCardCapabilities {
+interface ToolCardCapabilities {
   manualConfig: { execute: () => void };
   installGuide?: {
     expanded: boolean;

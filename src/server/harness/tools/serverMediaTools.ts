@@ -72,7 +72,7 @@ function gatewayRequest(path: string, body: unknown, authorization: string | nul
 }
 
 /** Models for a media kind, in catalogue order — the browser read the same list. */
-export async function mediaModels(kind: "image" | "tts" | "video"): Promise<string[]> {
+async function mediaModels(kind: "image" | "tts" | "video"): Promise<string[]> {
   const entries = (await buildModelsList([kind]).catch(() => [])) as Array<{ id?: unknown }>;
   const models: string[] = [];
   for (const entry of entries) {

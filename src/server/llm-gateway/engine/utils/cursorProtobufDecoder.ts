@@ -1,4 +1,3 @@
-import zlib from "zlib";
 import { FIELD, KNOWN_RESPONSE_FIELDS, PROTOBUF_SCHEMA_VERSION, WIRE_TYPE } from "./cursorProtobufSchema";
 
 const DEBUG = process.env.CURSOR_PROTOBUF_DEBUG === "1";
@@ -8,7 +7,7 @@ const log = (tag: string, ...args: unknown[]): void => {
 
 // ==================== PRIMITIVE DECODING ====================
 
-export function decodeVarint(buffer: Uint8Array, offset: number) {
+function decodeVarint(buffer: Uint8Array, offset: number) {
   let result = 0;
   let shift = 0;
   let pos = offset;
@@ -24,7 +23,7 @@ export function decodeVarint(buffer: Uint8Array, offset: number) {
   return [result, pos];
 }
 
-export function decodeField(buffer: Uint8Array, offset: number) {
+function decodeField(buffer: Uint8Array, offset: number) {
   if (offset >= buffer.length) return [null, null, null, offset];
 
   const [tag, pos1] = decodeVarint(buffer, offset);
@@ -70,28 +69,6 @@ export function decodeMessage(data: Uint8Array) {
 }
 
 // ==================== RESPONSE PARSING ====================
-
-export function parseConnectRPCFrame(buffer: Uint8Array) {
-  if (buffer.length < 5) return null;
-
-  const flags = buffer[0];
-  const length = (buffer[1] << 24) | (buffer[2] << 16) | (buffer[3] << 8) | buffer[4];
-
-  if (buffer.length < 5 + length) return null;
-
-  let payload = buffer.slice(5, 5 + length);
-
-  // Decompress if gzip
-  if (flags === 0x01) {
-    try {
-      payload = new Uint8Array(zlib.gunzipSync(Buffer.from(payload)));
-    } catch (err: unknown) {
-      log("PARSE", `Decompression failed: ${err instanceof Error ? err.message : err}`);
-    }
-  }
-
-  return { flags, length, payload, consumed: 5 + length };
-}
 
 function extractToolCall(toolCallData: Uint8Array) {
   const toolCall = decodeMessage(toolCallData);
@@ -227,5 +204,3 @@ export function extractTextFromResponse(payload: Uint8Array) {
     };
   }
 }
-
-

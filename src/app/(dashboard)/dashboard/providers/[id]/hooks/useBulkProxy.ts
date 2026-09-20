@@ -91,5 +91,3 @@ export function useBulkProxy({ connections, proxyPools, fetchConnections }: UseB
     handleApplyOneToOne,
   };
 }
-
-export type UseBulkProxyReturn = ReturnType<typeof useBulkProxy>;

@@ -3,8 +3,6 @@ export {
   enableTunnel,
   disableTunnel,
   getTunnelStatus,
-  isTunnelManuallyDisabled,
-  isTunnelReconnecting,
   getTunnelService,
   setTunnelUnexpectedExitCallback,
 } from "./cloudflare/manager";
@@ -20,7 +18,6 @@ export {
   enableTailscale,
   disableTailscale,
   getTailscaleStatus,
-  isTailscaleReconnecting,
   getTailscaleService,
 } from "./tailscale/manager";
 export {
@@ -40,7 +37,6 @@ export {
 // Shared
 export { loadState, generateShortId } from "./shared/state";
 export { checkInternet } from "./shared/internetCheck";
-export type { CancelToken, TunnelServiceState, DisableResult, HealthCheckConfig } from "./shared/types";
 export {
   RESTART_COOLDOWN_MS,
   NETWORK_SETTLE_MS,

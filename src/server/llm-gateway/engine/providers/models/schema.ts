@@ -25,10 +25,6 @@ export function normalizeModel(raw: string | Record<string, unknown>) {
   return { ...model, name: deriveModelName(model.id as string) };
 }
 
-// Resolve model kind with default (accepts legacy `type` field)
-export function modelQuotaFamily(model: Record<string, unknown> | undefined) {
-  return (model?.quotaFamily as string) || MODEL_DEFAULTS.quotaFamily;
-}
 export function modelStrip(model: Record<string, unknown> | undefined) {
   return (model?.strip as string[]) || [];
 }

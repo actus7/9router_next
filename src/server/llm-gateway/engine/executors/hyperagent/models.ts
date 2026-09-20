@@ -3,14 +3,14 @@
 // body; a bare pricing key like "fable" is rejected upstream (model_unknown).
 // Ported from OmniRoute's hyperagentModels.ts.
 
-export interface HyperAgentModel {
+interface HyperAgentModel {
   id: string;
   name: string;
   subagent: "fable" | "opus" | "sonnet" | "haiku";
   runtimeId?: string;
 }
 
-export const HYPERAGENT_FALLBACK_MODELS: HyperAgentModel[] = [
+const HYPERAGENT_FALLBACK_MODELS: HyperAgentModel[] = [
   { id: "fable-latest", name: "Fable 5", subagent: "fable", runtimeId: "claude-agents-sdk" },
   { id: "claude-fable-5", name: "Claude Fable 5", subagent: "fable", runtimeId: "claude-agents-sdk" },
   { id: "opus-latest", name: "Claude Opus Latest", subagent: "opus", runtimeId: "claude-agents-sdk" },
@@ -19,7 +19,7 @@ export const HYPERAGENT_FALLBACK_MODELS: HyperAgentModel[] = [
   { id: "claude-sonnet-5", name: "Claude Sonnet 5", subagent: "sonnet", runtimeId: "claude-agents-sdk" },
 ];
 
-export function stripHyperAgentModelPrefix(model: string): string {
+function stripHyperAgentModelPrefix(model: string): string {
   let m = (model || "").trim();
   if (m.startsWith("hyperagent/")) m = m.slice("hyperagent/".length);
   else if (m.startsWith("ha/")) m = m.slice(3);
@@ -39,7 +39,7 @@ const ALIASES: Record<string, string> = {
   haiku: "sonnet-latest", "haiku-4": "sonnet-latest", "claude-haiku-4": "sonnet-latest",
 };
 
-export function resolveHyperAgentModel(model: unknown): HyperAgentModel | null {
+function resolveHyperAgentModel(model: unknown): HyperAgentModel | null {
   const raw = typeof model === "string" ? stripHyperAgentModelPrefix(model) : "";
   if (!raw) return null;
   const lower = raw.toLowerCase().trim();

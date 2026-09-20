@@ -266,5 +266,3 @@ export class AIHordeExecutor extends BaseExecutor {
     });
   }
 }
-
-export default AIHordeExecutor;

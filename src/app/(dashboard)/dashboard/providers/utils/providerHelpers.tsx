@@ -29,7 +29,7 @@ export function getStatusDisplay(connected: number, error: number, errorCode: st
   return parts;
 }
 
-export function getConnectionErrorTag(connection: Connection) {
+function getConnectionErrorTag(connection: Connection) {
   if (!connection) return null;
 
   const explicitType = connection.lastErrorType;

@@ -10,7 +10,7 @@
  * limit even for a six-column row, and makes any realistic list one or two
  * statements.
  */
-export const SQL_BATCH_ROWS = 250;
+const SQL_BATCH_ROWS = 250;
 
 export function chunked<T>(items: readonly T[], size: number = SQL_BATCH_ROWS): T[][] {
   const out: T[][] = [];

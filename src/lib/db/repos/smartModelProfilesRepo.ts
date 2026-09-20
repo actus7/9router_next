@@ -38,11 +38,6 @@ export async function getSmartModelProfiles(): Promise<SmartModelProfile[]> {
   return rows.map(rowToProfile).filter((profile): profile is SmartModelProfile => profile !== null);
 }
 
-export async function getSmartModelProfile(modelKey: string): Promise<SmartModelProfile | null> {
-  const db = await getAdapter();
-  return rowToProfile(await db.get("SELECT * FROM smartModelProfiles WHERE userId = ? AND modelKey = ?", [currentTenantId(), modelKey]) as unknown as ProfileRow | undefined);
-}
-
 export async function upsertSmartModelProfiles(profiles: SmartModelProfile[]): Promise<void> {
   if (profiles.length === 0) return;
   const db = await getAdapter();

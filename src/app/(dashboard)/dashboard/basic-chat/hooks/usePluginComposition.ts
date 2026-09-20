@@ -15,7 +15,7 @@ export interface CompositionRow {
   origin: "bundle" | "override" | "user";
 }
 
-export interface CompositionDiagnostic {
+interface CompositionDiagnostic {
   rowId: string;
   reason: string;
 }
