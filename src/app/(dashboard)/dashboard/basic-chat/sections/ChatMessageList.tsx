@@ -183,7 +183,16 @@ export default function ChatMessageList({
             return (
               <div
                 key={message.id}
-                className={`group/msg flex w-full chat-message-enter ${isUser ? "justify-end" : "justify-start"}`}
+                // content-visibility: cada mensagem do assistente monta um
+                // SafeMarkdown inteiro, e a lista é reavaliada a cada tick do
+                // streaming. Pular layout/paint das que estão fora da viewport
+                // é seguro aqui porque o auto-scroll vai para `scrollHeight` —
+                // o fundo é o fundo mesmo com alturas estimadas acima — e
+                // `isNearBottom` se cancela no fundo. O `auto` do
+                // contain-intrinsic-size memoriza a altura real depois do
+                // primeiro paint, e o scroll anchoring do browser absorve a
+                // correção ao rolar para cima.
+                className={`group/msg flex w-full chat-message-enter [content-visibility:auto] [contain-intrinsic-size:auto_120px] ${isUser ? "justify-end" : "justify-start"}`}
               >
                 <div
                   className={`max-w-[min(90%,46rem)] ${isUser ? "rounded-2xl bg-primary px-5 py-3.5 text-primary-foreground shadow-sm" : "text-foreground"}`}

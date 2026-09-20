@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import useSWR from "swr";
 import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 import {
@@ -22,6 +22,14 @@ export function useSettings(): UseSettingsReturn {
     jsonFetcher,
   );
 
+  // Mesmo padrão de `useConnections.ts`: ter o valor corrente sem transformá-lo
+  // em dependência. Os callbacks abaixo precisam do mapa de forma síncrona para
+  // montar o corpo do PATCH, então a forma funcional de `setState` não serve.
+  const autoPingRef = useRef(autoPingMaps);
+  autoPingRef.current = autoPingMaps;
+  const quotaVisibilityRef = useRef(quotaVisibility);
+  quotaVisibilityRef.current = quotaVisibility;
+
   // Hydrate feature state from the same shared settings request used by the dashboard shell.
   useEffect(() => {
     if (!settings) return;
@@ -38,10 +46,9 @@ export function useSettings(): UseSettingsReturn {
     const settingsKey = AUTO_PING_SETTINGS_KEYS[provider];
     if (!settingsKey) return;
 
-    const previous = autoPingMaps;
-    const nextProviderMap = { ...(autoPingMaps[provider] || {}), [connectionId]: on };
-    const nextMaps = { ...autoPingMaps, [provider]: nextProviderMap };
-    setAutoPingMaps(nextMaps);
+    const previous = autoPingRef.current;
+    const nextProviderMap = { ...(previous[provider] || {}), [connectionId]: on };
+    setAutoPingMaps({ ...previous, [provider]: nextProviderMap });
     try {
       const currentConfig = (settings?.[settingsKey] as Record<string, unknown> | undefined) || {};
       const cfg = { ...currentConfig, connections: nextProviderMap };
@@ -58,7 +65,7 @@ export function useSettings(): UseSettingsReturn {
     } catch {
       setAutoPingMaps(previous);
     }
-  }, [autoPingMaps, mutateSettings, settings]);
+  }, [mutateSettings, settings]);
 
   const updateQuotaVisibility = useCallback(async (nextVisibility: Record<string, { hidden?: string[] }>, previousVisibility: Record<string, { hidden?: string[] }>) => {
     setQuotaVisibility(nextVisibility);
@@ -83,7 +90,7 @@ export function useSettings(): UseSettingsReturn {
     const key = getQuotaVisibilityKey(quota);
     if (!provider || !key) return;
 
-    const previous = quotaVisibility;
+    const previous = quotaVisibilityRef.current;
     const providerVisibility = previous[provider] || {};
     const hidden = new Set(providerVisibility.hidden || []);
     hidden.add(key);
@@ -95,13 +102,13 @@ export function useSettings(): UseSettingsReturn {
       },
     };
     updateQuotaVisibility(next, previous);
-  }, [quotaVisibility, updateQuotaVisibility]);
+  }, [updateQuotaVisibility]);
 
   const handleShowQuota = useCallback((provider: string, quota: QuotaEntry) => {
     const key = getQuotaVisibilityKey(quota);
     if (!provider || !key) return;
 
-    const previous = quotaVisibility;
+    const previous = quotaVisibilityRef.current;
     const providerVisibility = previous[provider] || {};
     const hidden = new Set(providerVisibility.hidden || []);
     hidden.delete(key);
@@ -113,7 +120,7 @@ export function useSettings(): UseSettingsReturn {
       },
     };
     updateQuotaVisibility(next, previous);
-  }, [quotaVisibility, updateQuotaVisibility]);
+  }, [updateQuotaVisibility]);
 
   return {
     autoPingMaps,
