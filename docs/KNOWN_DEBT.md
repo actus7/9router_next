@@ -108,9 +108,12 @@ para o provedor.
 
 O último resíduo — `PATCH /api/settings` aceitando `newPassword`, gravando um hash
 bcrypt em `settings.password` que nenhum autenticador lia — foi removido. Ficava
-parecendo caminho de credencial vivo em toda auditoria. `bcryptjs` continua em
-`package.json` sem uso; sai no próximo mexe-lockfile, não vale um `npm ci`
-vermelho para remover uma dependência inerte.
+parecendo caminho de credencial vivo em toda auditoria. `bcryptjs` saiu do
+`package.json` junto com `@node-saml/node-saml` — a outra dependência de um
+autenticador que não existe mais — na limpeza de código morto de 2026-09-19. O
+lockfile foi regenerado pela receita do `CONVENTIONS.md` (npm 10) e validado com
+`npm ci --dry-run`: 17 entradas removidas, nenhuma adicionada, nenhuma versão
+alterada.
 
 ## Custódia da chave de cifragem (detalhe do item 1)
 

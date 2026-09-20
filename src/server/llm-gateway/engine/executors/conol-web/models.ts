@@ -6,14 +6,7 @@
 
 export type ConolEffort = "minimal" | "low" | "medium" | "high" | "xhigh";
 
-export const CONOL_EFFORT_ORDER: readonly ConolEffort[] = ["minimal", "low", "medium", "high", "xhigh"];
-
-export interface ConolModel {
-  id: string;
-  name: string;
-  supportsVision?: boolean;
-  efforts?: ConolEffort[];
-}
+const CONOL_EFFORT_ORDER: readonly ConolEffort[] = ["minimal", "low", "medium", "high", "xhigh"];
 
 const EFFORTS_XHIGH: ConolEffort[] = ["low", "medium", "high", "xhigh"];
 const EFFORTS_STANDARD: ConolEffort[] = ["minimal", "low", "medium", "high"];
@@ -58,18 +51,6 @@ const FALLBACK_MODEL_SEEDS: FallbackModelSeed[] = [
   { id: "xiaomi/mimo-v2.5-pro", vision: false, efforts: EFFORTS_STANDARD },
 ];
 
-function modelName(id: string): string {
-  return id.split("/").pop()!.split("-").map((part) => {
-    const lower = part.toLowerCase();
-    if (["gpt", "ai", "glm"].includes(lower)) return lower.toUpperCase();
-    return part.length ? part[0]!.toUpperCase() + part.slice(1) : part;
-  }).join(" ");
-}
-
-export const CONOL_FALLBACK_MODELS: ConolModel[] = FALLBACK_MODEL_SEEDS.map((seed) => ({
-  id: seed.id, name: modelName(seed.id), supportsVision: seed.vision, efforts: [...seed.efforts],
-}));
-
 const CONOL_FALLBACK_EFFORTS = new Map<string, ConolEffort[]>(FALLBACK_MODEL_SEEDS.map((seed) => [seed.id, seed.efforts]));
 
 function readString(value: unknown): string {
@@ -93,7 +74,7 @@ export function conolEffortsForModel(modelId: string): ConolEffort[] {
   return [...(CONOL_FALLBACK_EFFORTS.get(modelId) ?? [])];
 }
 
-export const CONOL_DEFAULT_EFFORT: ConolEffort = "xhigh";
+const CONOL_DEFAULT_EFFORT: ConolEffort = "xhigh";
 
 export function resolveConolModelSelection(value: unknown): { model: string; effort: ConolEffort; effortExplicit: boolean } {
   let model = readString(value);

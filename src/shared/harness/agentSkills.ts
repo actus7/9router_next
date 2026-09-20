@@ -41,7 +41,7 @@ export interface SkillCompositionDiagnostic {
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
-export function isValidSkillSlug(id: string): boolean {
+function isValidSkillSlug(id: string): boolean {
   return SLUG_PATTERN.test(id);
 }
 
@@ -57,10 +57,6 @@ export function setActiveSkillCatalog(catalog: SkillCatalog): void {
 
 export function getActiveSkillCatalog(): SkillCatalog {
   return activeCatalog;
-}
-
-export function resetActiveSkillCatalog(): void {
-  activeCatalog = BUNDLE_CATALOG;
 }
 
 /** Merges bundled defaults with stored patch rows. Empty patch reproduces the bundle. */
@@ -162,7 +158,7 @@ const skillTool = (
   },
 });
 
-export function getUpdateSkillToolDefinition(): RuntimeToolDefinition {
+function getUpdateSkillToolDefinition(): RuntimeToolDefinition {
   return skillTool(
     "update_skill",
     "Update an existing user-created Agent Skill. Cannot modify bundled skill content.",
@@ -179,7 +175,7 @@ export function getUpdateSkillToolDefinition(): RuntimeToolDefinition {
   );
 }
 
-export function getPatchSkillToolDefinition(): RuntimeToolDefinition {
+function getPatchSkillToolDefinition(): RuntimeToolDefinition {
   return skillTool(
     "patch_skill",
     "Apply a partial markdown patch to an existing user skill body (append or replace section).",
@@ -199,7 +195,7 @@ export function getPatchSkillToolDefinition(): RuntimeToolDefinition {
   );
 }
 
-export function getLearnSkillToolDefinition(): RuntimeToolDefinition {
+function getLearnSkillToolDefinition(): RuntimeToolDefinition {
   return skillTool(
     "learn_skill",
     "Capture a reusable lesson as a new Agent Skill from a concise name, description, and instructions.",
@@ -233,63 +229,6 @@ export function getSupplementalSkillAuthoringTools(): RuntimeToolDefinition[] {
     getPatchSkillToolDefinition(),
     getLearnSkillToolDefinition(),
   ];
-}
-
-export function getSkillRuntimeToolDefinitions(options: {
-  includeLoad?: boolean;
-  includeAuthoring?: boolean;
-}): RuntimeToolDefinition[] {
-  const tools: RuntimeToolDefinition[] = [];
-  if (options.includeLoad) {
-    tools.push(
-      skillTool(
-        "load_skill",
-        "Load the full instructions for an Agent Skill by id. Call this before applying a skill listed in the system prompt.",
-        {
-          name: {
-            type: "string",
-            description: "Skill id (kebab-case slug from the available skills list).",
-          },
-        },
-        ["name"],
-      ),
-    );
-  }
-  if (options.includeAuthoring) {
-    tools.push(
-      skillTool(
-        "create_skill",
-        "Create a new Agent Skill stored in ModelHub. Use after drafting content with the skill-creator guidance.",
-        {
-          name: { type: "string", description: "Unique skill id (kebab-case)." },
-          description: {
-            type: "string",
-            description: "Short description shown before load_skill (~30 tokens).",
-          },
-          body: {
-            type: "string",
-            description: "Markdown body (instructions). Frontmatter optional.",
-          },
-        },
-        ["name", "description", "body"],
-      ),
-      skillTool(
-        "update_skill",
-        "Update an existing user-created Agent Skill. Cannot modify bundled skills except via UI toggle.",
-        {
-          name: { type: "string", description: "Skill id to update." },
-          description: { type: "string", description: "New description, if changing." },
-          body: { type: "string", description: "New markdown body, if changing." },
-          enabled: {
-            type: "boolean",
-            description: "Global enabled flag, if changing.",
-          },
-        },
-        ["name"],
-      ),
-    );
-  }
-  return tools;
 }
 
 export function getEnabledSkillIds(

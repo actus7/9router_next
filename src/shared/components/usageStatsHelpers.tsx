@@ -5,7 +5,7 @@ import { TableCell } from "@/components/ui/table";
 import { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
 import { translate } from "@/i18n/runtime";
 
-export interface DataItem {
+interface DataItem {
   promptTokens?: number;
   completionTokens?: number;
   cachedTokens?: number;
@@ -49,7 +49,7 @@ export interface GroupedData {
   items: SortedItem[];
 }
 
-export function sortData(
+function sortData(
   dataMap: Record<string, DataItem> | undefined,
   pendingMap: Record<string, number> = {},
   sortBy: string,
@@ -80,7 +80,7 @@ export function sortData(
     });
 }
 
-export function getGroupKey(item: SortedItem, keyField: string): string {
+function getGroupKey(item: SortedItem, keyField: string): string {
   switch (keyField) {
     case "rawModel": return item.rawModel || (translate("Unknown Model") ?? "Unknown Model");
     case "accountName": return item.accountName || (translate("Account") + " " + (item.connectionId?.slice(0, 8) ?? "") + "...") || (translate("Unknown Account") ?? "Unknown Account");
@@ -90,7 +90,7 @@ export function getGroupKey(item: SortedItem, keyField: string): string {
   }
 }
 
-export function groupDataByKey(data: SortedItem[], keyField: string): GroupedData[] {
+function groupDataByKey(data: SortedItem[], keyField: string): GroupedData[] {
   if (!Array.isArray(data)) return [];
   const groups: Record<string, GroupedData> = {};
   data.forEach((item) => {
@@ -121,14 +121,14 @@ export function groupDataByKey(data: SortedItem[], keyField: string): GroupedDat
   return Object.values(groups);
 }
 
-export const MODEL_COLUMNS = [
+const MODEL_COLUMNS = [
   { field: "rawModel", label: translate("Model") ?? "Model" },
   { field: "provider", label: translate("Provider") ?? "Provider" },
   { field: "requests", label: translate("Requests") ?? "Requests", align: "right" as const },
   { field: "lastUsed", label: translate("Last Used") ?? "Last Used", align: "right" as const },
 ];
 
-export const ACCOUNT_COLUMNS = [
+const ACCOUNT_COLUMNS = [
   { field: "rawModel", label: translate("Model") ?? "Model" },
   { field: "provider", label: translate("Provider") ?? "Provider" },
   { field: "accountName", label: translate("Account") ?? "Account" },
@@ -136,7 +136,7 @@ export const ACCOUNT_COLUMNS = [
   { field: "lastUsed", label: translate("Last Used") ?? "Last Used", align: "right" as const },
 ];
 
-export const API_KEY_COLUMNS = [
+const API_KEY_COLUMNS = [
   { field: "keyName", label: translate("API Key Name") ?? "API Key Name" },
   { field: "rawModel", label: translate("Model") ?? "Model" },
   { field: "provider", label: translate("Provider") ?? "Provider" },
@@ -144,7 +144,7 @@ export const API_KEY_COLUMNS = [
   { field: "lastUsed", label: translate("Last Used") ?? "Last Used", align: "right" as const },
 ];
 
-export const ENDPOINT_COLUMNS = [
+const ENDPOINT_COLUMNS = [
   { field: "endpoint", label: translate("Endpoint") ?? "Endpoint" },
   { field: "rawModel", label: translate("Model") ?? "Model" },
   { field: "provider", label: translate("Provider") ?? "Provider" },

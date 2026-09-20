@@ -1,5 +1,5 @@
 export type PendingWriteKind = "memory" | "skill" | "plugin";
-export type PendingWriteSource = "agent" | "review";
+type PendingWriteSource = "agent" | "review";
 export type PendingWriteStatus = "pending" | "applied" | "accepted" | "rejected";
 
 interface PendingWriteBase {
@@ -11,7 +11,7 @@ interface PendingWriteBase {
   createdAt: string;
 }
 
-export interface PendingMemoryWrite extends PendingWriteBase {
+interface PendingMemoryWrite extends PendingWriteBase {
   kind: "memory";
   action: "add" | "replace" | "remove";
   payload: {
@@ -23,19 +23,19 @@ export interface PendingMemoryWrite extends PendingWriteBase {
   };
 }
 
-export interface PendingPluginToggle extends PendingWriteBase {
+interface PendingPluginToggle extends PendingWriteBase {
   kind: "plugin";
   action: "toggle";
   payload: { pluginId: string; enabled: boolean };
 }
 
-export interface PendingCapabilityProposal extends PendingWriteBase {
+interface PendingCapabilityProposal extends PendingWriteBase {
   kind: "plugin";
   action: "propose";
   payload: { title: string; description: string; toolName: string };
 }
 
-export interface PendingSkillWrite extends PendingWriteBase {
+interface PendingSkillWrite extends PendingWriteBase {
   kind: "skill";
   action: string;
   payload: Record<string, unknown>;

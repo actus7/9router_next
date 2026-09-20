@@ -9,7 +9,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 
 type JsonRecord = Record<string, unknown>;
 
-export const M365_INDIVIDUAL_DEFAULTS = {
+const M365_INDIVIDUAL_DEFAULTS = {
   host: "substrate.office.com",
   source: "officeweb",
   product: "Office",
@@ -19,19 +19,19 @@ export const M365_INDIVIDUAL_DEFAULTS = {
   scenario: "OfficeWebPaidConsumerCopilot",
 } as const;
 
-export const M365_EDU_OVERRIDES = {
+const M365_EDU_OVERRIDES = {
   scenario: "OfficeWebIncludedCopilot",
   isEdu: "true",
   licenseType: "Starter",
 } as const;
 
-export const M365_ENTERPRISE_OVERRIDES = {
+const M365_ENTERPRISE_OVERRIDES = {
   agent: "work",
   scenario: "officeweb",
   licenseType: "Premium",
 } as const;
 
-export const M365_DEFAULT_VARIANTS = [
+const M365_DEFAULT_VARIANTS = [
   "EnableMcpServerWidgets", "feature.EnableMcpServerWidgets", "feature.EnableLuForChatCIQ", "feature.enableChatCIQPlugin",
   "EnableRequestPlugins", "feature.EnableSensitivityLabels", "EnableUnsupportedUrlDetector",
   "feature.IsCustomEngineCopilotEnabled", "feature.bizchatfluxv3", "feature.enablechatpages", "feature.enableCodeCanvas",
@@ -63,7 +63,7 @@ export interface M365ConnectionParams {
 }
 
 /** A new 32-hex chat session id (== XRoutingParameterSessionKey == clientrequestid). */
-export function newChatSessionId(): string {
+function newChatSessionId(): string {
   return randomBytes(16).toString("hex");
 }
 
@@ -189,7 +189,7 @@ function messageText(content: unknown): string {
 
 /** Flatten the FULL OpenAI message history into a single bracketed prompt so
  * multi-turn context survives the fold into BizChat's single-text protocol. */
-export function flattenMessages(body: JsonRecord | undefined): string {
+function flattenMessages(body: JsonRecord | undefined): string {
   const messages = (body?.messages as Array<JsonRecord>) || [];
   const parts: string[] = [];
   for (const m of messages) {

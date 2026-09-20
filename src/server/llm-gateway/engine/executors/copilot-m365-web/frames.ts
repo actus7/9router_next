@@ -9,12 +9,12 @@
 type JsonRecord = Record<string, unknown>;
 
 /** SignalR record separator (0x1e) terminating every JSON frame. */
-export const RECORD_SEPARATOR = String.fromCharCode(0x1e);
+const RECORD_SEPARATOR = String.fromCharCode(0x1e);
 
-export const HANDSHAKE_REQUEST = { protocol: "json", version: 1 } as const;
-export const KEEPALIVE_PING = { type: 6 } as const;
+const HANDSHAKE_REQUEST = { protocol: "json", version: 1 } as const;
+const KEEPALIVE_PING = { type: 6 } as const;
 
-export const ALLOWED_MESSAGE_TYPES = [
+const ALLOWED_MESSAGE_TYPES = [
   "Chat", "Suggestion", "InternalSearchQuery", "Disengaged", "InternalLoaderMessage", "Progress",
   "GeneratedCode", "RenderCardRequest", "AdsQuery", "SemanticSerp", "GenerateContentQuery",
   "GenerateGraphicArt", "SearchQuery", "ConfirmationCard", "AuthError", "DeveloperLogs",
@@ -23,17 +23,17 @@ export const ALLOWED_MESSAGE_TYPES = [
   "TriggerPluginAuth", "ResumePluginAuth", "SideBySide", "ReferencesListComplete", "SwitchRespondingEndpoint",
 ] as const;
 
-export const M365_ENTERPRISE_OPTION_SETS = [
+const M365_ENTERPRISE_OPTION_SETS = [
   "enterprise_flux_image", "enterprise_flux_web", "enterprise_flux_work", "enterprise_toolbox_with_skdsstore",
   "enterprise_pagination_support", "enterprise_flux_work_code_interpreter", "enterprise_code_interpreter_citation_fix",
   "bizchat_enable_federated_connectors", "at_mention_plugins_enable",
 ] as const;
 
-export const M365_ENTERPRISE_EXTRA_MESSAGE_TYPES = [
+const M365_ENTERPRISE_EXTRA_MESSAGE_TYPES = [
   "ReferencesListComplete", "EndOfRequest", "MemoryUpdate", "TriggerPlugin", "AuthError", "SwitchRespondingEndpoint",
 ] as const;
 
-export const M365_DEFAULT_OPTION_SETS = [
+const M365_DEFAULT_OPTION_SETS = [
   "search_result_progress_messages_with_search_queries", "update_textdoc_response_after_streaming",
   "deepleo_networking_timeout_10minutes_canmore", "cwc_flux_image", "cwc_code_interpreter",
   "cwc_code_interpreter_amsfix", "cwcfluxgptv", "flux_v3_gptv_enable_upload_multi_image_in_turn_wo_ch",
@@ -61,7 +61,7 @@ export function keepaliveFrame(): string {
 
 /** The browser follows the type:4 chat invocation with this type:1 target:"Metrics"
  * frame in the SAME socket write — an invocation without it is silently dropped. */
-export const CHAT_METRICS_FRAME = {
+const CHAT_METRICS_FRAME = {
   arguments: [{ Timestamps: { ConnectionEstablished: "", ConnectionStart: "", UserInputStart: "", UserInputSubmit: "" } }],
   target: "Metrics",
   type: 1,
@@ -137,7 +137,7 @@ export function resolveChatInvocationOverrides(tier: string | undefined): {
 }
 
 /** BizChat exposes several models via the `tone` field of the type:4 invocation. */
-export const M365_MODEL_TONE_MAP: Readonly<Record<string, string>> = {
+const M365_MODEL_TONE_MAP: Readonly<Record<string, string>> = {
   "copilot-m365-claude-opus": "Claude_Opus",
   "copilot-m365-gpt-5-6-reasoning": "Gpt_5_6_Reasoning",
   "copilot-m365-gpt-5-5-chat": "Gpt_5_5_Chat",
@@ -210,7 +210,7 @@ export function buildChatInvocation(opts: ChatInvocationOptions): Record<string,
   };
 }
 
-export function isUpdateFrame(frame: Record<string, unknown> | null): boolean {
+function isUpdateFrame(frame: Record<string, unknown> | null): boolean {
   return !!frame && frame.type === 1 && frame.target === "update";
 }
 export function isCompletionFrame(frame: Record<string, unknown> | null): boolean {

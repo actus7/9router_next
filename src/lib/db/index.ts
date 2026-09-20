@@ -1,92 +1,12 @@
-// Public API barrel — all DB functions
+// Whole-database export/import.
+//
+// This was a barrel re-exporting every repo function under `@/lib/db`. Nothing
+// imported it that way — callers reach `@/lib/db/repos/<name>` directly — so the
+// re-exports were 83 lines of indirection that only widened what a single import
+// pulled into a bundle.
 import { getAdapter } from "./driver";
 import { currentTenantId } from "./tenant";
 import { stringifyJson, parseJson } from "./helpers/jsonCol";
-
-// Settings
-export {
-  getSettings, updateSettings, isCloudEnabled, getCloudUrl, exportSettings,
-} from "./repos/settingsRepo";
-
-// Provider connections
-export {
-  getProviderConnections, getProviderConnectionById,
-  createProviderConnection, updateProviderConnection, setProviderConnectionsActive,
-  deleteProviderConnection, deleteProviderConnectionsByProvider,
-  reorderProviderConnections, cleanupProviderConnections,
-} from "./repos/connectionsRepo";
-
-// Provider nodes
-export {
-  getProviderNodes, getProviderNodeById,
-  createProviderNode, updateProviderNode, deleteProviderNode,
-} from "./repos/nodesRepo";
-
-// Proxy pools
-export {
-  getProxyPools, getProxyPoolById,
-  createProxyPool, updateProxyPool, deleteProxyPool, setProxyPoolsActive, deleteProxyPools,
-} from "./repos/proxyPoolsRepo";
-
-// Cloud deploy
-export {
-  getCloudConnections, getCloudConnectionByProvider, getCloudConnectionById,
-  createCloudConnection, deleteCloudConnection,
-} from "./repos/cloudConnectionsRepo";
-export {
-  getCloudDeployments, getCloudDeploymentById,
-  createCloudDeployment, updateCloudDeployment, deleteCloudDeployment,
-} from "./repos/cloudDeploymentsRepo";
-
-// API keys
-export {
-  getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey,
-} from "./repos/apiKeysRepo";
-
-// Combos
-export {
-  getCombos, getComboById, getComboByName,
-  createCombo, updateCombo, deleteCombo,
-} from "./repos/combosRepo";
-
-export {
-  getSmartModelProfiles, getSmartModelProfile,
-  upsertSmartModelProfiles, deleteSmartModelProfiles,
-} from "./repos/smartModelProfilesRepo";
-
-export {
-  getActiveModelAvailability, setModelAvailability, clearModelAvailability,
-  clearProviderModelAvailability, cleanupExpiredModelAvailability,
-} from "./repos/modelAvailabilityRepo";
-
-// Aliases (model + custom)
-export {
-  getModelAliases, setModelAlias, deleteModelAlias,
-  getCustomModels, addCustomModel, deleteCustomModel, syncDiscoveredCustomModels,
-  deleteCustomModelsByProvider, deleteModelAliasesByProvider,
-} from "./repos/aliasRepo";
-
-// Pricing
-export {
-  getPricing, updatePricing, resetPricing, resetAllPricing,
-} from "./repos/pricingRepo";
-
-// Disabled models
-export {
-  getDisabledModels, disableModels, enableModels,
-} from "./repos/disabledModelsRepo";
-
-// Usage
-export {
-  statsEmitter, statsEventName, trackPendingRequest, getActiveRequests,
-  saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
-  appendRequestLog, getRecentLogs,
-} from "./repos/usageRepo";
-
-// Request details
-export {
-  saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
-} from "./repos/requestDetailsRepo";
 
 // Export/import full DB
 export async function exportDb(): Promise<Record<string, unknown>> {

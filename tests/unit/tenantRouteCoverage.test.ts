@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
  */
 const apiRoot = resolve(__dirname, "../../src/app/api");
 const dashboardRoot = resolve(__dirname, "../../src/app/(dashboard)");
-const actionsRoot = resolve(__dirname, "../../src/server/application/actions");
+const srcRoot = resolve(__dirname, "../../src");
 
 /**
  * Routes that answer before anyone is signed in, each with the reason.
@@ -35,6 +35,9 @@ const UNSCOPED: ReadonlyArray<{ route: string; why: string }> = [
 ];
 
 const TENANT_WRAPPERS: readonly string[] = ["tenantRoute(", "gatewayRoute("];
+
+/** What a Server Action may use to establish the owner, since no route wraps it. */
+const ACTION_TENANT_WRAPPERS: readonly string[] = ["withDashboardSession(", "withTenant("];
 
 function listRouteFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -123,13 +126,22 @@ describe("tenant coverage outside route handlers", () => {
   });
 
   it("wraps every server action", () => {
-    const offenders = listFiles(actionsRoot, (e) => e.endsWith(".ts"))
-      .filter((path) => !path.endsWith("dashboardAuth.ts"))
+    // Scans for the directive rather than one directory. There are no Server
+    // Actions left — the dashboard reaches the domain through `tenantRoute`
+    // handlers — and the directory that used to hold them is gone, so a check
+    // rooted at that path would throw instead of guarding anything. A file
+    // carrying "use server" exports functions the browser calls directly, with
+    // no route wrapper above them, so each has to establish the owner itself.
+    const offenders = listFiles(srcRoot, (e) => e.endsWith(".ts") || e.endsWith(".tsx"))
       .filter((path) => {
         const source = readFileSync(path, "utf8");
-        return /^export async function /m.test(source) && !source.includes("withDashboardSession(");
+        if (!/^\s*["']use server["'];/m.test(source)) return false;
+        return (
+          /^export async function /m.test(source) &&
+          !ACTION_TENANT_WRAPPERS.some((wrapper) => source.includes(wrapper))
+        );
       })
-      .map((path) => relative(actionsRoot, path).replaceAll("\\", "/"));
+      .map((path) => relative(srcRoot, path).replaceAll("\\", "/"));
 
     expect(offenders).toEqual([]);
   });
@@ -138,11 +150,11 @@ describe("tenant coverage outside route handlers", () => {
     // `enterTenant` was removed for exactly this reason; a reintroduced one
     // would work in a script and fail in a Server Component.
     const all = [
-      ...listFiles(resolve(__dirname, "../../src"), (e) => e.endsWith(".ts") || e.endsWith(".tsx")),
+      ...listFiles(srcRoot, (e) => e.endsWith(".ts") || e.endsWith(".tsx")),
     ];
     const offenders = all
       .filter((path) => /enterTenant/.test(readFileSync(path, "utf8")))
-      .map((path) => relative(resolve(__dirname, "../../src"), path).replaceAll("\\", "/"));
+      .map((path) => relative(srcRoot, path).replaceAll("\\", "/"));
 
     expect(offenders).toEqual([]);
   });
