@@ -137,6 +137,58 @@ Duas pages ficam de fora, cada uma por um motivo:
 - `src/app/callback/page.tsx` é `"use client"` — um Server Component não entra
   ali, e ela é alcançada por redirect externo (load direto), não por navegação.
 
+## Nenhuma page espera dado acima do `<Suspense>`
+
+Corolário do item acima: como o `instant = false` do root layout não desce,
+toda rota tem que se defender sozinha. A forma é sempre a mesma — o componente
+de página é **síncrono** e só monta a boundary; quem espera é o componente de
+conteúdo abaixo dela:
+
+```tsx
+export default function Page({ params }: PageProps<"/rota/[x]">) {
+  return (
+    <>
+      <Suspense fallback={<Spinner … />}><Conteudo params={params} /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
+}
+```
+
+Isso vale para `await params`, `assertRequestRuntime()`, `withTenantPage()` e
+qualquer leitura de banco — e `notFound()` / `redirect()` vão junto, para dentro
+da boundary. O shell que sobra não é vazio: o chrome do `DashboardLayout`
+(sidebar, header, título) prerenderiza e só a região de dados streama, que é
+exatamente o que a doc do Next pede em "push the boundary as low as possible".
+
+Cinco pages estavam com o `await` no topo — `cli-tools`, `cli-tools/[toolId]`,
+`endpoint`, `combos/[id]` e `media-providers/[kind]/[id]` — e foram convertidas.
+A varredura que mostra se alguma voltou a espetar um `await` acima da boundary é
+direta: `await ` dentro do bloco `export default` de um `page.tsx`.
+
+## O escopo de tenant não atravessa um `<Suspense>`
+
+`withTenantPage` entra num `AsyncLocalStorage` pela duração do callback. O que o
+callback **espera** está dentro; o que o React renderiza **depois** não está —
+ele retoma um filho suspenso sob um snapshot de contexto capturado antes do
+escopo existir. Então isto compila, passa no build e estoura
+`TenantContextError` em toda visita:
+
+```tsx
+return withTenantPage(async () => <Suspense><LêTenant /></Suspense>);
+```
+
+O próprio `withTenantPage` documenta a mesma armadilha para `enterWith()`. O que
+faltava estar escrito é que um `<Suspense>` entre o `run()` e a leitura a
+reabre. A forma que funciona — a que `combos`, `providers`, `proxy-pools` e as
+outras listagens já usam — põe o `withTenantPage` **dentro** do componente que
+fica sob a boundary, onde o escopo cobre a leitura que precisa dele.
+
+`/dashboard/media-providers/[kind]` foi assim desde `0b72819e` e ninguém tinha
+aberto a rota. Nada na suíte notava: o tipo fecha, o build passa, e o erro só
+existe em runtime. Hoje `tests/unit/tenantSuspenseScope.test.ts` recusa a forma
+— falha nomeando o arquivo.
+
 ## Definição de pronto
 
 Antes de reportar qualquer tarefa como concluída, rodar `npm run check` (lint + contract:check + build + typecheck + test:coverage + check:static-routes + git diff --check) e confirmar que sai verde.

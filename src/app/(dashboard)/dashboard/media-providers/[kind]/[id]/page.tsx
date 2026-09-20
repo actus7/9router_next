@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getProviderNodes } from "@/lib/data-access";
 import MediaProviderDetailClient from "./MediaProviderDetailClient";
@@ -8,8 +9,10 @@ import {
   isValidMediaProviderKind,
 } from "../../validateDetailRoute";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
+import { Spinner } from "@/shared/components/Loading";
+import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
-export default async function MediaProviderDetailPage({ params }: PageProps<"/dashboard/media-providers/[kind]/[id]">) {
+async function MediaProviderDetailContent({ params }: { params: Promise<{ kind: string; id: string }> }) {
   return withTenantPage(async () => {
     await assertRequestRuntime();
     const { kind, id } = await params;
@@ -32,4 +35,13 @@ export default async function MediaProviderDetailPage({ params }: PageProps<"/da
       />
     );
   });
+}
+
+export default function MediaProviderDetailPage({ params }: PageProps<"/dashboard/media-providers/[kind]/[id]">) {
+  return (
+    <>
+      <Suspense fallback={<div className="flex items-center justify-center p-10"><Spinner size="lg" /></div>}><MediaProviderDetailContent params={params} /></Suspense>
+      <MetadataIsDynamic />
+    </>
+  );
 }
