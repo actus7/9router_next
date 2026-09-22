@@ -14,7 +14,7 @@ export default {
     website: "https://vercel.com/ai-gateway",
     notice: {
       text: "Unified OpenAI-compatible endpoint from Vercel. Use your AI Gateway API key, then pick models with provider/model IDs like anthropic/claude-sonnet-4.6 or openai/gpt-5.4.",
-      apiKeyUrl: "https://vercel.com/dashboard/~/ai-gateway",
+      apiKeyUrl: "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys",
     },
   },
   category: "apikey",

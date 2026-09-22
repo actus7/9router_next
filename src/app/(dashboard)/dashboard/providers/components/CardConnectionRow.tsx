@@ -5,8 +5,9 @@ import { getStatusVariant as getConnectionStatusVariant, getStatusClassName } fr
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Key, Loader2, Lock, Network } from "lucide-react";
 import { translate } from "@/i18n/runtime";
+import ConnectionActions from "../[id]/components/ConnectionActions";
 
 export interface CardConnection {
   id: string;
@@ -135,12 +136,11 @@ export default function CardConnectionRow({ connection, proxyPools, isOAuth, isF
         </div>
       </div>
       <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
-        <div className="flex flex-wrap gap-1">
+        <div className="flex items-center gap-1">
           {(proxyPools || []).length > 0 && (
             <div className="relative" ref={proxyDropdownRef}>
-              <Button variant="ghost" onClick={() => setShowProxyDropdown((v) => !v)} className={`flex-col ${hasAnyProxy ? "text-primary" : ""}`} disabled={updatingProxy}>
-                <span className="text-[18px]">{updatingProxy ? <Loader2 className="size-[18px] animate-spin" /> : <Network className="size-[18px]" />}</span>
-                <span className="text-[10px] leading-tight">Proxy</span>
+              <Button variant="ghost" size="icon-sm" title="Proxy" aria-label="Proxy" onClick={() => setShowProxyDropdown((v) => !v)} className={hasAnyProxy ? "text-primary" : ""} disabled={updatingProxy}>
+                {updatingProxy ? <Loader2 className="size-4 animate-spin" /> : <Network className="size-4" />}
               </Button>
               {showProxyDropdown && (
                 <div className="absolute right-0 top-full mt-1 z-50 bg-bg border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
@@ -152,14 +152,9 @@ export default function CardConnectionRow({ connection, proxyPools, isOAuth, isF
               )}
             </div>
           )}
-          <Button variant="ghost" onClick={onEdit} className="flex-col">
-            <Pencil className="size-5" />
-            <span className="text-[10px] leading-tight">Edit</span>
-          </Button>
-          <Button variant="destructive" onClick={onDelete} className="flex-col">
-            <Trash2 className="size-5" />
-            <span className="text-[10px] leading-tight">Delete</span>
-          </Button>
+          {/* Same menu as the provider page's rows: stacked icon-and-label
+              buttons overflowed the fixed button height. */}
+          <ConnectionActions onEdit={onEdit} onDelete={onDelete} />
         </div>
         <Switch checked={connection.isActive ?? true} onCheckedChange={onToggleActive} title={((connection.isActive ?? true) ? translate("Disable") : translate("Enable")) ?? undefined} />
       </div>

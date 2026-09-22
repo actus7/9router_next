@@ -13,8 +13,9 @@ import type { JevFeatureKey, useDecisionEngine } from "../hooks/useDecisionEngin
 // `translate` returns null for an unknown literal; ARIA props want a string.
 const t = (text: string): string => translate(text) ?? text;
 
-// Where the key is created. Same URL the Vercel AI Gateway provider card uses.
-const GATEWAY_KEY_URL = "https://vercel.com/dashboard/~/ai-gateway";
+// Vercel's own team-agnostic link (from its API-keys docs): `[team]` resolves
+// to whichever team the visitor is signed into. Same URL as the provider card.
+const GATEWAY_KEY_URL = "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys";
 
 const FEATURES: Array<{ key: JevFeatureKey; title: string; description: string }> = [
   {
