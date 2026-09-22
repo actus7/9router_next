@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
-import { insertHarnessPendingWrite } from "@/lib/db/repos/harnessPendingWritesRepo";
+import { queuePendingWrite } from "@/server/harness/governance/queuePendingWrite";
 import { replaceAgentSkillFiles } from "@/lib/db/repos/agentSkillFilesRepo";
 import type { AgentSkillRow } from "@/lib/db/repos/agentSkillsRepo";
 import { invalidateSkillTreeCache, upsertAgentSkillRow } from "./context";
@@ -37,7 +37,7 @@ export async function writeSkill({ row, files, initiator, action }: {
   if (initiator === "agent") {
     const { skillWriteApproval } = await getHarnessLearningConfig();
     if (skillWriteApproval) {
-      const pending = await insertHarnessPendingWrite({
+      const pending = await queuePendingWrite({
         id: randomUUID(),
         kind: "skill",
         action,

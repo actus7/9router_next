@@ -1,9 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import {
-  insertHarnessPendingWrite,
-} from "@/lib/db/repos/harnessPendingWritesRepo";
+import { queuePendingWrite } from "./queuePendingWrite";
 import { upsertPluginRow } from "@/lib/db/repos/pluginRowsRepo";
 import { HARNESS_PLUGINS } from "@/shared/harness/agentPlugins";
 import { HARNESS_CAPABILITY } from "@/server/plugin-core/factories";
@@ -22,7 +20,7 @@ export async function applyPluginToggle(input: {
   // independent of the memory write gate, which governs memory entries only.
   if (input.source === "agent") {
     const pendingId = randomUUID();
-    await insertHarnessPendingWrite({
+    await queuePendingWrite({
       id: pendingId,
       kind: "plugin",
       action: "toggle",
@@ -57,7 +55,7 @@ export async function proposeHarnessCapability(input: {
     return { ok: false, error: "title, description, and toolName are required" };
   }
   const pendingId = randomUUID();
-  await insertHarnessPendingWrite({
+  await queuePendingWrite({
     id: pendingId,
     kind: "plugin",
     action: "propose",

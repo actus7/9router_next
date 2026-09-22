@@ -88,6 +88,7 @@ export type RoutingReason =
   | "scored"
   | "momentum"
   | "llm_classifier"
+  | "jev_classifier"
   | "ambiguous"
   | "endpoint"
   | "default";

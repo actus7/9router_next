@@ -57,6 +57,17 @@ interface Settings {
    * prompt to a provider the operator did not configure.
    */
   freeFallbackEnabled: boolean;
+  /**
+   * Who makes the platform's small decisions (smart-routing tier, whether a
+   * turn is worth remembering, …): the built-in heuristics, or Jev through the
+   * account's Vercel AI Gateway connection. Each Jev feature has its own flag,
+   * and every one of them falls back to the heuristic when Jev is unreachable.
+   */
+  decisionEngine: "heuristic" | "jev";
+  jevSmartRouting: boolean;
+  jevMemoryReview: boolean;
+  jevPluginSelection: boolean;
+  jevWriteRisk: boolean;
   [key: string]: unknown;
 }
 
@@ -107,6 +118,12 @@ const DEFAULT_SETTINGS: Settings = {
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
   freeFallbackEnabled: true,
+  decisionEngine: "heuristic",
+  jevSmartRouting: true,
+  jevMemoryReview: true,
+  // Off by default: dropping a tool the model needed costs answer quality.
+  jevPluginSelection: false,
+  jevWriteRisk: false,
 };
 
 async function readRaw(): Promise<Record<string, unknown>> {

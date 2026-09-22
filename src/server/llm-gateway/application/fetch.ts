@@ -17,7 +17,8 @@ import { handleComboChat, getComboModelsFromData } from "@/server/llm-gateway/en
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
-import { classifySmartRouting } from "./smartRoutingClassifier";
+import { smartRoutingClassifiers } from "./routingClassifier";
+import { handleSingleModelChat } from "./chat";
 
 /**
  * Handle web fetch (URL extraction) request for the SSE/Next.js server.
@@ -83,7 +84,7 @@ export async function handleFetch(request: Request): Promise<Response> {
         headers: request.headers,
         endpointNeed: "web_fetch",
         sessionKey: deriveRoutingSessionKey(request.headers, body),
-        classifyWithModel: (model, prompt, timeoutMs) => classifySmartRouting(model, prompt, timeoutMs, request, apiKey),
+        ...smartRoutingClassifiers(request, apiKey, handleSingleModelChat),
       });
       const providers = [...new Set(routing.models.map((candidate) => candidate.split("/", 1)[0]).filter(Boolean))];
       if (providers.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible web fetch provider is active");

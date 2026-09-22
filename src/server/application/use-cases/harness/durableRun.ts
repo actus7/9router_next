@@ -17,6 +17,7 @@ import { handleChat } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
 import { StreamChunkAccumulator } from "@/shared/chat/streamChunk";
 import { truncateTraceError } from "@/shared/observability/routingTrace";
+import { selectToolsForTurn } from "@/server/harness/tools/toolSelection";
 
 /**
  * How often the run's text is written back while the provider streams.
@@ -139,6 +140,10 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
     await ensureTranslators();
 
     const authorization = await ownedAuthorization(input.authorization, currentTenantId());
+    // One selection per turn, shared by the first call and the tool loop's
+    // continuations, so a tool dropped here is also absent from the loop's
+    // allow-list rather than callable by name.
+    const body = await selectToolsForTurn(input.body);
     const request = new Request("http://durable-run.local/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -146,7 +151,7 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
         Accept: "text/event-stream",
         ...(authorization ? { Authorization: authorization } : {}),
       },
-      body: JSON.stringify({ ...input.body, stream: true, stream_options: { include_usage: true } }),
+      body: JSON.stringify({ ...body, stream: true, stream_options: { include_usage: true } }),
     });
 
     const response = await handleChat(request);
@@ -225,10 +230,10 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
     // picks up exactly those and never re-runs what this side already did.
     const loop = parsed.toolCalls.length
       ? await runServerToolLoop({
-          body: input.body,
+          body,
           authorization,
           sessionId: input.sessionId,
-          model: typeof input.body.model === "string" ? input.body.model : null,
+          model: typeof body.model === "string" ? body.model : null,
           deadline: startedAt + RUN_BUDGET_MS,
           enabledSkillIds: input.enabledSkillIds,
           firstTurnText: parsed.text,

@@ -9,6 +9,11 @@ export interface Settings {
   outboundProxyEnabled?: boolean;
   outboundProxyUrl?: string;
   outboundNoProxy?: string;
+  decisionEngine?: "heuristic" | "jev";
+  jevSmartRouting?: boolean;
+  jevMemoryReview?: boolean;
+  jevPluginSelection?: boolean;
+  jevWriteRisk?: boolean;
   [key: string]: unknown;
 }
 

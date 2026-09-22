@@ -14,11 +14,13 @@ import type { ProfileClientProps } from "./types";
 import { useProfileSettings } from "./hooks/useProfileSettings";
 import { useOutboundProxy } from "./hooks/useOutboundProxy";
 import { useDatabaseBackup } from "./hooks/useDatabaseBackup";
+import { useDecisionEngine } from "./hooks/useDecisionEngine";
 import AppearanceCard from "./sections/AppearanceCard";
 import BackupCard from "./sections/BackupCard";
 import LanguageCard from "./sections/LanguageCard";
 import SecurityCard from "./sections/SecurityCard";
 import RoutingCard from "./sections/RoutingCard";
+import DecisionEngineCard from "./sections/DecisionEngineCard";
 import NetworkCard from "./sections/NetworkCard";
 import AccountActions from "./sections/AccountActions";
 
@@ -37,6 +39,7 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
 
   const outboundProxy = useOutboundProxy(initialSettings, settings, setSettings);
   const databaseBackup = useDatabaseBackup(reloadSettings);
+  const decisionEngine = useDecisionEngine(setSettings);
 
   const handleLogout = async () => {
     try {
@@ -74,6 +77,8 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
           updateComboStickyLimit={profileSettings.updateComboStickyLimit}
           updateFreeFallbackEnabled={profileSettings.updateFreeFallbackEnabled}
         />
+
+        <DecisionEngineCard settings={settings} loading={loading} engine={decisionEngine} />
 
         <NetworkCard
           settings={settings}

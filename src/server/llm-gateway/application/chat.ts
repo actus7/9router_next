@@ -39,7 +39,7 @@ import {
   getSmartCombo,
   resolveSmartRouting,
 } from "@/server/llm-gateway/engine/services/smart-routing/router";
-import { buildClassifierCallback } from "./routingClassifier";
+import { smartRoutingClassifiers } from "./routingClassifier";
 import {
   checkNoAuthCooldownResponse,
   handleNoAuthCooldownResult,
@@ -81,7 +81,7 @@ async function trySmartComboRouting(
       headers: request.headers,
       endpointNeed: "general",
       sessionKey: deriveRoutingSessionKey(request.headers, body),
-      classifyWithModel: buildClassifierCallback(request, apiKey, handleSingleModelChat),
+      ...smartRoutingClassifiers(request, apiKey, handleSingleModelChat),
     });
   } catch (error) {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, error instanceof Error ? error.message : "Invalid smart routing configuration");

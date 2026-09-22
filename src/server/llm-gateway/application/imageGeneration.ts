@@ -15,7 +15,8 @@ import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
 import * as log from "../utils/logger";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
-import { classifySmartRouting } from "./smartRoutingClassifier";
+import { smartRoutingClassifiers } from "./routingClassifier";
+import { handleSingleModelChat } from "./chat";
 
 const NO_AUTH_PROVIDERS: Set<string> = new Set();
 
@@ -59,7 +60,7 @@ export async function handleImageGeneration(request: Request): Promise<Response>
         headers: request.headers,
         endpointNeed: "image_generation",
         sessionKey: deriveRoutingSessionKey(request.headers, body),
-        classifyWithModel: (model, prompt, timeoutMs) => classifySmartRouting(model, prompt, timeoutMs, request, apiKey),
+        ...smartRoutingClassifiers(request, apiKey, handleSingleModelChat),
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible image model is active");
       attachRoutingDecision(body, routing.meta);

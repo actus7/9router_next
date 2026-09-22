@@ -61,6 +61,15 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       }
     }
 
+    for (const key of ["jevSmartRouting", "jevMemoryReview", "jevPluginSelection", "jevWriteRisk"]) {
+      if (Object.prototype.hasOwnProperty.call(body, key) && typeof body[key] !== "boolean") {
+        return NextResponse.json({ error: `${key} must be a boolean` }, { status: 400 });
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "decisionEngine") && !["heuristic", "jev"].includes(body.decisionEngine)) {
+      return NextResponse.json({ error: "decisionEngine must be heuristic or jev" }, { status: 400 });
+    }
+
     // Strip protected secrets before any internal handling sets them
     for (const key of PROTECTED_SETTING_KEYS) delete body[key];
 

@@ -2,8 +2,18 @@ export type PendingWriteKind = "memory" | "skill" | "plugin";
 type PendingWriteSource = "agent" | "review";
 export type PendingWriteStatus = "pending" | "applied" | "accepted" | "rejected";
 
+/**
+ * Jev's reading of how risky a write is, 0 (harmless) to 3 (high). Shown to
+ * the operator beside the approve button; it never approves or rejects.
+ */
+export interface PendingWriteRisk {
+  score: number;
+  model: string;
+}
+
 interface PendingWriteBase {
   id: string;
+  risk?: PendingWriteRisk;
   source: PendingWriteSource;
   status: PendingWriteStatus;
   reviewedAt?: string;

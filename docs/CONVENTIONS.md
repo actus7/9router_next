@@ -189,6 +189,45 @@ aberto a rota. Nada na suíte notava: o tipo fecha, o build passa, e o erro só
 existe em runtime. Hoje `tests/unit/tenantSuspenseScope.test.ts` recusa a forma
 — falha nomeando o arquivo.
 
+## Motor de decisão: heurística ou Jev
+
+`settings.decisionEngine` escolhe quem toma as decisões pequenas da plataforma:
+as heurísticas de sempre (padrão) ou o **Jev** (TypeSafe AI), um modelo que
+responde perguntas tipadas — `boolean`, `choice`, `score` — com probabilidade
+calibrada, e não gera texto. Cada uso tem sua flag (`jevSmartRouting`,
+`jevMemoryReview`, `jevPluginSelection`, `jevWriteRisk`), editável no card
+"Motor de decisão" do perfil.
+
+Três regras que valem para todos os usos, e que um uso novo tem que seguir:
+
+- **Jev nunca é a única resposta.** `evaluateJev` (`src/server/decisions/jev.ts`)
+  não lança: sem chave, timeout, não-2xx ou formato desconhecido viram `null`,
+  e o chamador segue com a heurística que já tinha. O Jev melhora uma decisão
+  que já existia; nunca é o que faz uma requisição falhar.
+- **A chave é a da conexão `vercel-ai-gateway`.** O Jev é chamado pela Vercel
+  AI Gateway (`POST https://ai-gateway.vercel.sh/v1/evaluate`, modelo
+  `typesafe-ai/jev`), então a credencial é a mesma conexão que já serve os
+  modelos da gateway — por conta, criptografada, criada pelo mesmo
+  validate-then-create da tela de providers. Não existe segunda chave nem
+  fallback para uma chave da plataforma: o custo é da conta do usuário.
+- **Jev não aprova nada.** O `score` de risco das escritas pendentes
+  (`queuePendingWrite`) é gravado ao lado da escrita e mostrado ao operador;
+  nada o lê para decidir. O gate de aprovação continua do operador.
+
+Onde cada uso mora:
+
+| Flag | Onde | Substitui |
+|---|---|---|
+| `jevSmartRouting` | `llm-gateway/application/routingClassifier.ts` → `resolveSmartRouting` | o classificador LLM, quando a confiança do Jev passa o `confidenceThreshold` |
+| `jevMemoryReview` | `harness/learning/postTurnReview.ts` | as regex de "remember/lembre-se" |
+| `jevPluginSelection` | `harness/tools/toolSelection.ts`, chamado pelo worker de `durableRun` | mandar todas as `tools` da conversa (só remove com p < 0.1) |
+| `jevWriteRisk` | `harness/governance/queuePendingWrite.ts` | nada — é informação nova na fila de aprovação |
+
+O classificador do roteamento inteligente existia em dois arquivos quase
+iguais (`smartRoutingClassifier.ts` e `routingClassifier.ts`); ligar o Jev
+num só deixaria metade dos endpoints sem ele. Hoje todos passam por
+`smartRoutingClassifiers(request, apiKey, handleSingleModelChat)`.
+
 ## Definição de pronto
 
 Antes de reportar qualquer tarefa como concluída, rodar `npm run check` (lint + contract:check + build + typecheck + test:coverage + check:static-routes + git diff --check) e confirmar que sai verde.

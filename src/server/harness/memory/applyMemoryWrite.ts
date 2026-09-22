@@ -13,11 +13,11 @@ import {
 } from "@/lib/db/repos/agentMemoryRepo";
 import {
   getHarnessPendingWrite,
-  insertHarnessPendingWrite,
   listHarnessPendingWrites,
   resolveHarnessPendingWrite,
   type PendingWriteKind,
 } from "@/lib/db/repos/harnessPendingWritesRepo";
+import { queuePendingWrite } from "@/server/harness/governance/queuePendingWrite";
 import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
 import {
   MEMORY_CHAR_LIMITS,
@@ -170,7 +170,7 @@ export async function applyMemoryWrite(
       if (issues.length) return { ok: false, error: issues[0]!.message, issues };
     }
     const pendingId = randomUUID();
-    await insertHarnessPendingWrite({
+    await queuePendingWrite({
       id: pendingId,
       kind: "memory",
       action: request.action,
@@ -190,7 +190,7 @@ export async function applyMemoryWrite(
     request.action === "remove"
   ) {
     const pendingId = randomUUID();
-    await insertHarnessPendingWrite({
+    await queuePendingWrite({
       id: pendingId,
       kind: "memory",
       action: "remove",

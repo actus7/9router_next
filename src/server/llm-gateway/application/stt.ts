@@ -12,7 +12,8 @@ import * as log from "../utils/logger";
 import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
-import { classifySmartRouting } from "./smartRoutingClassifier";
+import { smartRoutingClassifiers } from "./routingClassifier";
+import { handleSingleModelChat } from "./chat";
 
 const CREDENTIALED_PROVIDERS: Set<string> = new Set(
   Object.entries(AI_PROVIDERS)
@@ -52,7 +53,7 @@ export async function handleStt(request: Request): Promise<Response> {
         headers: request.headers,
         endpointNeed: "stt",
         sessionKey: deriveRoutingSessionKey(request.headers, routingBody),
-        classifyWithModel: (model, prompt, timeoutMs) => classifySmartRouting(model, prompt, timeoutMs, request, apiKey),
+        ...smartRoutingClassifiers(request, apiKey, handleSingleModelChat),
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible transcription model is active");
       attachRoutingDecision(routingBody, routing.meta);

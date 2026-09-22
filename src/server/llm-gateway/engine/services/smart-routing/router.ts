@@ -24,6 +24,17 @@ export interface ResolveSmartRoutingOptions {
   endpointNeed?: RouteNeed;
   sessionKey?: string;
   classifyWithModel?: (model: string, prompt: string, timeoutMs: number) => Promise<LlmRoutingClassification | null>;
+  /**
+   * Asked before the LLM classifier when the account runs Jev. It answers from
+   * the raw request text, not the LLM prompt, and reports its own confidence;
+   * null (off, no key, timeout) falls through to the LLM classifier.
+   */
+  classifyWithJev?: (text: string, endpointNeed: RouteNeed, timeoutMs: number) => Promise<JevRoutingClassification | null>;
+}
+
+export interface JevRoutingClassification extends LlmRoutingClassification {
+  confidence: number;
+  model: string;
 }
 
 export interface SmartRoutingResolution {
@@ -171,7 +182,28 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
   let classifierLatencyMs: number | undefined;
   const profiles = await refreshDeterministicSmartProfiles();
 
-  if (assessment.confidence < config.classifier.confidenceThreshold && config.classifier.enabled && options.classifyWithModel) {
+  const lowConfidence = assessment.confidence < config.classifier.confidenceThreshold;
+  let jevAnswered = false;
+  if (lowConfidence && config.classifier.enabled && options.classifyWithJev) {
+    const startedAt = Date.now();
+    const classification = await options.classifyWithJev(
+      assessment.signals.lastUserText,
+      endpointNeed,
+      config.classifier.timeoutMs,
+    ).catch(() => null);
+    // Jev's confidence is calibrated, so it is held to the same bar the
+    // heuristic failed: an unsure Jev answer hands over to the LLM classifier.
+    if (classification && ROUTING_TIERS.includes(classification.tier) && classification.confidence >= config.classifier.confidenceThreshold) {
+      jevAnswered = true;
+      classifierModel = classification.model;
+      classifierLatencyMs = Date.now() - startedAt;
+      chosenTier = classification.tier;
+      if (classification.need && ROUTE_NEEDS.includes(classification.need)) chosenNeed = classification.need;
+      reason = "jev_classifier";
+    }
+  }
+
+  if (!jevAnswered && lowConfidence && config.classifier.enabled && options.classifyWithModel) {
     const model = chooseClassifierModel(config, profiles);
     if (model) {
       const startedAt = Date.now();
@@ -195,7 +227,7 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
         reason = "ambiguous";
       }
     }
-  } else if (assessment.confidence < config.classifier.confidenceThreshold) {
+  } else if (!jevAnswered && lowConfidence) {
     reason = "ambiguous";
   }
 

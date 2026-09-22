@@ -13,6 +13,27 @@ import type { HarnessEvent } from "../types";
 import { eventLabel } from "../runJournalHelpers";
 import { useAgentMemory } from "../hooks/useAgentMemory";
 
+// Jev's advisory read of the write (0 harmless … 3 high). Informs the
+// operator's decision; approving and rejecting stay manual.
+const RISK_LEVELS = [
+  { label: "Risco baixo", className: "bg-success/15 text-success" },
+  { label: "Risco baixo", className: "bg-success/15 text-success" },
+  { label: "Risco moderado", className: "bg-warning/15 text-warning" },
+  { label: "Risco alto", className: "bg-destructive/15 text-destructive" },
+] as const;
+
+function RiskBadge({ score }: { score: number }) {
+  const level = RISK_LEVELS[Math.min(3, Math.max(0, Math.round(score)))]!;
+  return (
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${level.className}`}
+      title={`Avaliação do Jev: ${score.toFixed(2)} de 3`}
+    >
+      {level.label}
+    </span>
+  );
+}
+
 function pendingCopy(item: HarnessPendingWrite): {
   title: string;
   detail: string;
@@ -269,7 +290,10 @@ export default function HarnessMemorySection({
                 key={item.id}
                 className="rounded-lg border border-border bg-muted/40 p-3 text-sm"
               >
-              <p className="font-medium">{copy.title}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium">{copy.title}</p>
+                {item.risk ? <RiskBadge score={item.risk.score} /> : null}
+              </div>
               {copy.detail ? (
                 <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{copy.detail}</p>
               ) : null}

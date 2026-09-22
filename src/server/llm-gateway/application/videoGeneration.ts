@@ -15,7 +15,8 @@ import * as log from "../utils/logger";
 import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
-import { classifySmartRouting } from "./smartRoutingClassifier";
+import { smartRoutingClassifiers } from "./routingClassifier";
+import { handleSingleModelChat } from "./chat";
 
 const DEFAULT_VIDEO_PROVIDER: string = "xai";
 
@@ -114,7 +115,7 @@ export async function handleVideoCreate(request: Request, action: string): Promi
         headers: request.headers,
         endpointNeed: "video_generation",
         sessionKey: deriveRoutingSessionKey(request.headers, parsedBody),
-        classifyWithModel: (classifierModel, prompt, timeoutMs) => classifySmartRouting(classifierModel, prompt, timeoutMs, request, apiKey),
+        ...smartRoutingClassifiers(request, apiKey, handleSingleModelChat),
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible video model is active");
       attachRoutingDecision(parsedBody, routing.meta);

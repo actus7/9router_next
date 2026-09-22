@@ -446,6 +446,8 @@ export const TABLES: Record<string, TableDefinition> = {
       status: "TEXT NOT NULL DEFAULT 'pending'",
       reviewedAt: "TEXT",
       result: "TEXT",
+      // Jev's risk read of the write, when the account runs Jev. Advisory only.
+      risk: "TEXT",
       createdAt: "TEXT NOT NULL",
     },
     indexes: [

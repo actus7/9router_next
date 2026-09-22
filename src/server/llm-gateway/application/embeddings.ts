@@ -16,7 +16,8 @@ import { saveRequestDetail, saveRequestUsage } from "@/lib/usageDb";
 import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import { deriveRoutingSessionKey, getSmartCombo, resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
-import { classifySmartRouting } from "./smartRoutingClassifier";
+import { smartRoutingClassifiers } from "./routingClassifier";
+import { handleSingleModelChat } from "./chat";
 
 interface EmbeddingUsage {
   prompt_tokens: number;
@@ -115,7 +116,7 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
         headers: request.headers,
         endpointNeed: "embeddings",
         sessionKey: deriveRoutingSessionKey(request.headers, body),
-        classifyWithModel: (model, prompt, timeoutMs) => classifySmartRouting(model, prompt, timeoutMs, request, apiKey),
+        ...smartRoutingClassifiers(request, apiKey, handleSingleModelChat),
       });
       if (routing.models.length === 0) return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "No compatible embedding model is active");
       attachRoutingDecision(body, routing.meta);
