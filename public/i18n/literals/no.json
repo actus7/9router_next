@@ -188,5 +188,6 @@
     "Sudo Password": "Sudo-passord",
   "Click to add, click again to remove. Changes are saved automatically.": "Klikk for å legge til, klikk igjen for å fjerne. Endringer lagres automatisk.",
   "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.": "⚠️ Risikovarsel: Denne leverandøren bruker en abonnements-/OAuth-økt som ikke er offisielt lisensiert for proxy-/ruterbruk. Kontoen kan bli begrenset eller utestengt. Bruk på eget ansvar.",
-    "Endpoint is exposed without an API key.": "Endepunktet er eksponert uten en API-nøkkel."
+    "Endpoint is exposed without an API key.": "Endepunktet er eksponert uten en API-nøkkel.",
+  "New chat": "Ny samtale"
 }

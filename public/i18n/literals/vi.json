@@ -188,5 +188,6 @@
     "Sudo Password": "Mật khẩu Sudo",
   "Click to add, click again to remove. Changes are saved automatically.": "Nhấp để thêm, nhấp lại để xóa. Thay đổi được lưu tự động.",
   "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.": "⚠️ Cảnh báo rủi ro: Provider này sử dụng subscription/OAuth không được cấp phép chính thức cho mục đích proxy/router. Tài khoản có thể bị hạn chế hoặc cấm. Người dùng tự chịu trách nhiệm.",
-    "Endpoint is exposed without an API key.": "Endpoint đang mở mà không có API key."
+    "Endpoint is exposed without an API key.": "Endpoint đang mở mà không có API key.",
+  "New chat": "Cuộc trò chuyện mới"
 }

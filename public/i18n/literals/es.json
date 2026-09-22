@@ -188,5 +188,6 @@
     "Sudo Password": "Contraseña de sudo",
   "Click to add, click again to remove. Changes are saved automatically.": "Haz clic para agregar, haz clic de nuevo para eliminar. Los cambios se guardan automáticamente.",
   "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.": "⚠️ Aviso de Riesgo: Este proveedor usa una sesión de suscripción/OAuth no licenciada oficialmente para uso de proxy/router. La cuenta puede ser restringida o baneada. Use bajo su propio riesgo.",
-    "Endpoint is exposed without an API key.": "El endpoint está expuesto sin una clave de API."
+    "Endpoint is exposed without an API key.": "El endpoint está expuesto sin una clave de API.",
+  "New chat": "Nueva conversación"
 }

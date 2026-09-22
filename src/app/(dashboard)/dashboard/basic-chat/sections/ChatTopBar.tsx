@@ -44,8 +44,10 @@ export default function ChatTopBar({
   const { showRunJournal, setShowRunJournal } = harnessHook;
 
   return (
-    <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="flex items-center gap-3">
+    // Three columns so "New chat" sits at the true center of the bar, not just
+    // midway between two groups of different widths.
+    <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="flex min-w-0 items-center gap-3">
         <Button
           type="button"
           variant="outline"
@@ -65,7 +67,18 @@ export default function ChatTopBar({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleNewChat}
+        disabled={!activeModel}
+        className="h-8 gap-1.5 px-3 text-xs font-medium"
+      >
+        <Plus className="size-4" />
+        {translate("New chat") || "New chat"}
+      </Button>
+
+      <div className="flex items-center justify-self-end gap-1">
         <IconActionButton
           tooltip="Configurações do Harness"
           onClick={onOpenPlugins}
@@ -80,14 +93,6 @@ export default function ChatTopBar({
           className="size-8"
         >
           <Terminal className="size-4" />
-        </IconActionButton>
-        <IconActionButton
-          tooltip={translate("New chat") || "New chat"}
-          onClick={handleNewChat}
-          disabled={!activeModel}
-          className="size-8"
-        >
-          <Plus className="size-4" />
         </IconActionButton>
         <IconActionButton
           tooltip={

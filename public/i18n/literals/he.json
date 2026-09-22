@@ -188,5 +188,6 @@
     "Sudo Password": "סיסמת Sudo",
   "Click to add, click again to remove. Changes are saved automatically.": "לחץ להוספה, לחץ שוב להסרה. השינויים נשמרים אוטומטית.",
   "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.": "⚠️ הודעת סיכון: ספק זה משתמש במנוי/הפעלת OAuth שאינה מורשית רשמית לשימוש פרוקסי/ראוטר. החשבון עלול להיות מוגבל או חסום. השימוש על אחריותך בלבד.",
-    "Endpoint is exposed without an API key.": "נקודת הקצה חשופה ללא מפתח API."
+    "Endpoint is exposed without an API key.": "נקודת הקצה חשופה ללא מפתח API.",
+  "New chat": "שיחה חדשה"
 }
