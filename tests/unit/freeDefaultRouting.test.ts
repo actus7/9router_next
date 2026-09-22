@@ -7,8 +7,8 @@ import {
   FREE_DEFAULT_PROVIDER_ID,
   isFreeDefaultProvider,
 } from "@/shared/constants/freeDefault";
-import opencodeEntry from "@/server/llm-gateway/engine/providers/registry/opencode";
-import { filterDiscoveredNoAuthModels } from "@/server/application/use-cases/http/v1/models/freeModelGroups";
+import kiloEntry from "@/server/llm-gateway/engine/providers/registry/kilo-gateway";
+import { isAnonymousFreeModel } from "@/shared/constants/providers";
 import { __test__ as routerInternals } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import type { SmartModelProfile, SmartRoutingConfig } from "@/server/llm-gateway/engine/services/smart-routing/types";
 import { DEFAULT_SMART_ROUTING_CONFIG } from "@/server/llm-gateway/engine/services/smart-routing/types";
@@ -19,31 +19,27 @@ import { DEFAULT_SMART_ROUTING_CONFIG } from "@/server/llm-gateway/engine/servic
  * install where this is the only model that answers.
  */
 describe("credential-free default", () => {
-  it("names the provider the registry declares as no-auth", () => {
-    expect(opencodeEntry.id).toBe(FREE_DEFAULT_PROVIDER_ID);
-    expect(opencodeEntry.alias).toBe(FREE_DEFAULT_PROVIDER_ALIAS);
-    expect(opencodeEntry.noAuth).toBe(true);
+  /**
+   * OpenCode Free was the default until it began answering every call from
+   * outside its own app with `403 FreeTierError`. Kilo documents anonymous
+   * access to its `:free` models, so the default is now Kilo's free router, and
+   * the registry has to keep saying it is reachable without an account.
+   */
+  it("names a provider the registry declares as serving free models anonymously", () => {
+    expect(kiloEntry.id).toBe(FREE_DEFAULT_PROVIDER_ID);
+    expect(kiloEntry.alias).toBe(FREE_DEFAULT_PROVIDER_ALIAS);
+    expect((kiloEntry.features as Record<string, unknown>).anonymousFreeModels).toBe(true);
   });
 
-  /**
-   * The provider's catalogue is discovered now, so there is no array here to
-   * check the constant against. What still has to hold is that the discovery
-   * keeps this model: `filterDiscoveredNoAuthModels` admits only `-free` ids
-   * plus this one by name, so a rename upstream drops it from the picker and
-   * this assertion is what notices.
-   */
-  it("keeps the default model eligible in the free discovery filter", () => {
-    expect((opencodeEntry as Record<string, unknown>).models).toBeUndefined();
-    expect(opencodeEntry.modelsFetcher).toBeTruthy();
-    const kept = filterDiscoveredNoAuthModels(
-      [{ id: FREE_DEFAULT_MODEL, name: FREE_DEFAULT_MODEL }, { id: "paid-model", name: "Paid" }],
-      "opencode-free",
-    );
-    expect(kept.map((model) => model.id)).toEqual([FREE_DEFAULT_MODEL]);
+  it("is a model the anonymous path accepts, and paid models are not", () => {
+    expect(isAnonymousFreeModel(FREE_DEFAULT_PROVIDER_ID, FREE_DEFAULT_MODEL)).toBe(true);
+    expect(isAnonymousFreeModel(FREE_DEFAULT_PROVIDER_ID, "nex-agi/nex-n2.5-pro:free")).toBe(true);
+    expect(isAnonymousFreeModel(FREE_DEFAULT_PROVIDER_ID, "openai/gpt-5")).toBe(false);
+    expect(isAnonymousFreeModel("openrouter", "some/model:free")).toBe(false);
   });
 
   it("builds the alias-qualified key used by chat, routing and the gateway", () => {
-    expect(FREE_DEFAULT_MODEL_KEY).toBe(`${opencodeEntry.alias}/${FREE_DEFAULT_MODEL}`);
+    expect(FREE_DEFAULT_MODEL_KEY).toBe(`${kiloEntry.alias}/${FREE_DEFAULT_MODEL}`);
   });
 
   it("recognizes both spellings callers see", () => {

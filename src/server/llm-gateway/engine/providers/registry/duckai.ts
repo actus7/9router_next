@@ -15,6 +15,8 @@ export default {
   },
   category: "free",
   noAuth: true,
+  // The duckai translator has no tool mapping, so `tools` are silently dropped.
+  features: { toolCalling: false },
   transport: {
     baseUrl: "https://duck.ai/duckchat/v1/chat",
     format: "duckai",

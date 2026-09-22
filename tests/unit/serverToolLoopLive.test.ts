@@ -34,7 +34,9 @@ import { getApiKeys } from "@/lib/db/repos/apiKeysRepo";
  * entirely from this account's own database, so the assertion is about the loop
  * rather than about whichever provider happens to be connected. A media tool
  * needs an image/audio/video provider on the account; when there is one, point
- * `LIVE_TOOL` at `generate_image` and give it a prompt instead.
+ * `LIVE_TOOL` at `generate_image` and give it a prompt instead. With an image
+ * provider connected, `LIVE_EXPECT_IMAGE=1` makes the media case require an
+ * actual image rather than accept the explained failure.
  */
 const live = process.env.LIVE_TOOL_RUN === "1" && !!process.env.LIVE_RUN_USER;
 
@@ -183,7 +185,14 @@ describe.skipIf(!live)("server-side tool loop against the real stack", () => {
       expect(results.length, "the media tool never ran in the worker").toBeGreaterThan(0);
       expect(results.every((event) => event.data.ranOn === "server")).toBe(true);
       // The result came from this side's catalogue read, not from a browser.
-      expect(String(results[0]?.data.content ?? "")).toMatch(/image generation provider|attempts/i);
+      // With an image provider on the account (LIVE_EXPECT_IMAGE=1) it has to
+      // be an image; without one, the explained failure.
+      const content = String(results[0]?.data.content ?? "");
+      if (process.env.LIVE_EXPECT_IMAGE === "1") {
+        expect(content, content.slice(0, 400)).toMatch(/"b64_json"|"url"/);
+      } else {
+        expect(content).toMatch(/image generation provider|attempts|"b64_json"|"url"/i);
+      }
     } finally {
       await withTenant(owner, () => deleteHarnessRuns([runId])).catch(() => undefined);
     }

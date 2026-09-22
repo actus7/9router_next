@@ -36,6 +36,7 @@ export {
   deleteModelAliasesByProvider,
   syncDiscoveredCustomModels,
   pickDiscoveredMetadata,
+  discoveredModelKind,
 } from "@/lib/db/repos/aliasRepo";
 export {
   getCloudConnections,

@@ -10,6 +10,7 @@ import { buildComboEntries, collectMergedModelIds, resolveProviderContext } from
 import { fetchModelsData } from "./modelsListData";
 import { buildNoAuthWebEntries, buildProviderModelEntries, deduplicateModels } from "./modelsListProviderEntries";
 import { LLM_KIND } from "./modelsListTypes";
+import { FREE_DEFAULT_MODEL, FREE_DEFAULT_PROVIDER_ID } from "@/shared/constants/freeDefault";
 
 /**
  * Build OpenAI-format models list filtered by service kinds.
@@ -106,6 +107,18 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
         provider: group.providerId,
         providerSpecificData: { enabledModels: group.models.map((model) => model.id) },
       }, group.providerId);
+    }
+
+    // The credential-free default is a free model of a provider that normally
+    // takes a key (Kilo). Without a connection nothing above lists it, and the
+    // chat's first-run model is looked up in this list.
+    if (!activeConnectionByProvider.has(FREE_DEFAULT_PROVIDER_ID)) {
+      await addProvider({
+        id: "noauth",
+        accessToken: "public",
+        provider: FREE_DEFAULT_PROVIDER_ID,
+        providerSpecificData: { enabledModels: [FREE_DEFAULT_MODEL] },
+      }, FREE_DEFAULT_PROVIDER_ID);
     }
   }
 

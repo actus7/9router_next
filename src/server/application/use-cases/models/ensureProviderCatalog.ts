@@ -1,7 +1,7 @@
 import { makeKv } from "@/lib/db/helpers/kvStore";
 import { currentTenantId } from "@/lib/db/tenant";
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
-import { syncDiscoveredCustomModels, pickDiscoveredMetadata } from "@/models";
+import { syncDiscoveredCustomModels, pickDiscoveredMetadata, discoveredModelKind } from "@/models";
 import { PROVIDER_ID_TO_ALIAS } from "@/server/llm-gateway/catalog";
 import { listConnectionModels } from "../http/providers/[id]/models/listConnectionModels";
 
@@ -21,7 +21,11 @@ import { listConnectionModels } from "../http/providers/[id]/models/listConnecti
 const CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
 
 const meta = makeKv("meta");
-const stampKey = (alias: string) => `catalogDiscoveredAt:${alias}`;
+// v2: discovery started storing each model's kind. Catalogues stamped before
+// hold every model as "llm", and the model list now trusts the stored kind, so
+// a new stamp makes every account rediscover once instead of hiding its image
+// models until the old stamp expires.
+const stampKey = (alias: string) => `catalogDiscoveredAt:v2:${alias}`;
 
 /**
  * In-process guard against two requests discovering the same provider at once.
@@ -54,10 +58,12 @@ async function discover(providerId: string, alias: string): Promise<void> {
     const entry = model as Record<string, unknown>;
     const id = typeof entry.id === "string" ? entry.id : typeof entry.name === "string" ? entry.name : "";
     if (!id) return [];
+    const type = discoveredModelKind(entry);
+    if (!type) return [];
     return [{
       providerAlias: alias,
       id,
-      type: "llm",
+      type,
       name: typeof entry.name === "string" ? entry.name : id,
       source: "discovered" as const,
       metadata: pickDiscoveredMetadata(entry),

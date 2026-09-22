@@ -300,6 +300,21 @@ export const USAGE_SUPPORTED_PROVIDERS: string[] = REGISTRY
   .filter((r) => (r.features as Record<string, unknown>)?.usage)
   .map((r) => r.id);
 
+/** Providers that serve their free models to anyone, with no credential. */
+const ANONYMOUS_FREE_MODEL_PROVIDERS: Set<string> = new Set(REGISTRY
+  .filter((r) => (r.features as Record<string, unknown>)?.anonymousFreeModels === true)
+  .map((r) => r.id as string));
+
+/**
+ * True when `model` can be called on `providerId` with no account at all.
+ * Kilo marks its free models with a `:free` suffix, and its router is
+ * `kilo-auto/free`; a paid model answers 401 anonymously, so nothing else is.
+ */
+export function isAnonymousFreeModel(providerId: string, model: string | null | undefined): boolean {
+  if (!model || !ANONYMOUS_FREE_MODEL_PROVIDERS.has(resolveProviderId(providerId))) return false;
+  return model.endsWith(":free") || model.endsWith("/free");
+}
+
 export const USAGE_APIKEY_PROVIDERS: string[] = REGISTRY
   .filter((r) => (r.features as Record<string, unknown>)?.usageApikey)
   .map((r) => r.id);

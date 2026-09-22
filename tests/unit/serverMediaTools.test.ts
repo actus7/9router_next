@@ -132,3 +132,48 @@ describe("generate_video", () => {
     expect(result).toMatchObject({ ok: false, error: "content policy" });
   });
 });
+
+describe("generate_image candidates", () => {
+  it("asks real image models before a combo that happens to match the kind", async () => {
+    buildModelsList.mockResolvedValue([
+      { id: "chat", owned_by: "combo", kind: "smart" },
+      { id: "vercel/bfl/flux-2-pro", owned_by: "vercel" },
+    ]);
+    handleImageGeneration.mockResolvedValue(ok({ data: [{ url: "https://img" }] }));
+
+    await generateImageServerSide({ prompt: "a cat" }, context);
+
+    const firstModel = JSON.parse(await (handleImageGeneration.mock.calls[0]![0] as Request).text()).model;
+    expect(firstModel).toBe("vercel/bfl/flux-2-pro");
+  });
+
+  it("keeps the combo as a last resort", async () => {
+    buildModelsList.mockResolvedValue([
+      { id: "chat", owned_by: "combo" },
+      { id: "gemini/flash-image", owned_by: "gemini" },
+    ]);
+    handleImageGeneration
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "denied" } }), { status: 403 }))
+      .mockResolvedValueOnce(ok({ data: [{ url: "https://img" }] }));
+
+    const result = JSON.parse(await generateImageServerSide({ prompt: "a cat" }, context));
+
+    expect(result.data[0].url).toBe("https://img");
+    const models = handleImageGeneration.mock.calls.map(([request]) => request as Request);
+    expect(await Promise.all(models.map(async (r) => JSON.parse(await r.clone().text()).model))).toEqual(["gemini/flash-image", "chat"]);
+  });
+
+  it("reports the upstream's reason for each failed attempt", async () => {
+    buildModelsList.mockResolvedValue([{ id: "gemini/flash-image", owned_by: "gemini" }]);
+    handleImageGeneration.mockResolvedValue(new Response(
+      JSON.stringify({ error: { message: "Your project has been denied access. Please contact support." } }),
+      { status: 403 },
+    ));
+
+    const result = JSON.parse(await generateImageServerSide({ prompt: "a cat" }, context));
+
+    expect(result.attempts).toEqual([
+      { provider: "gemini/flash-image", status: 403, error: "Your project has been denied access. Please contact support." },
+    ]);
+  });
+});

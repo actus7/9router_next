@@ -50,6 +50,26 @@ export interface MediaToolContext {
 interface Attempt {
   provider: string;
   status: number;
+  /** The upstream's own words, so the model can tell the user why. */
+  error?: string;
+}
+
+const MAX_ATTEMPT_ERROR_CHARS = 300;
+
+/**
+ * A failed attempt with the reason the gateway gave. Without it the model saw
+ * only `403` and made up an explanation — "you need to sign in" — when the
+ * upstream had said "your project has been denied access".
+ */
+async function failedAttempt(provider: string, response: Response | null): Promise<Attempt> {
+  if (!response) return { provider, status: 0 };
+  const body = (await response.json().catch(() => null)) as { error?: { message?: unknown } | unknown } | null;
+  const error = body && typeof body.error === "object" && body.error !== null
+    ? (body.error as { message?: unknown }).message
+    : body?.error;
+  return typeof error === "string" && error
+    ? { provider, status: response.status, error: error.slice(0, MAX_ATTEMPT_ERROR_CHARS) }
+    : { provider, status: response.status };
 }
 
 function failure(error: string, extra: Record<string, unknown> = {}): string {
@@ -71,14 +91,23 @@ function gatewayRequest(path: string, body: unknown, authorization: string | nul
   });
 }
 
-/** Models for a media kind, in catalogue order — the browser read the same list. */
+/**
+ * Models for a media kind: real models in catalogue order, then combos.
+ *
+ * `buildModelsList` puts combos first, and a smart combo matches every kind,
+ * so the chat's own `chat` combo was the first "image model" tried — it routed
+ * through its whole fallback chain and took 81s before a real image model was
+ * ever asked. A combo is still a valid last resort, so it moves, not goes.
+ */
 async function mediaModels(kind: "image" | "tts" | "video"): Promise<string[]> {
-  const entries = (await buildModelsList([kind]).catch(() => [])) as Array<{ id?: unknown }>;
-  const models: string[] = [];
+  const entries = (await buildModelsList([kind]).catch(() => [])) as Array<{ id?: unknown; owned_by?: unknown }>;
+  const direct = new Set<string>();
+  const combos = new Set<string>();
   for (const entry of entries) {
-    if (typeof entry.id === "string" && entry.id && !models.includes(entry.id)) models.push(entry.id);
+    if (typeof entry.id !== "string" || !entry.id || direct.has(entry.id) || combos.has(entry.id)) continue;
+    (entry.owned_by === "combo" ? combos : direct).add(entry.id);
   }
-  return models;
+  return [...direct, ...combos];
 }
 
 /** Resolves the model list for a call, honouring an explicit request. */
@@ -102,13 +131,8 @@ export async function generateImageServerSide(
     const response = await handleImageGeneration(
       gatewayRequest("/api/v1/images/generations", { model, prompt }, context.authorization),
     ).catch(() => null);
-    if (!response) {
-      attempts.push({ provider: model, status: 0 });
-      continue;
-    }
-    const text = await response.text();
-    if (response.ok) return truncate(text);
-    attempts.push({ provider: model, status: response.status });
+    if (response?.ok) return truncate(await response.text());
+    attempts.push(await failedAttempt(model, response));
   }
   return failure("All providers failed for image generation", { attempts });
 }
@@ -129,21 +153,18 @@ export async function textToSpeechServerSide(
     const response = await handleTts(
       gatewayRequest("/api/v1/audio/speech", { model, input, ...(voice ? { voice } : {}) }, context.authorization),
     ).catch(() => null);
-    if (!response) {
-      attempts.push({ provider: model, status: 0 });
+    if (!response?.ok) {
+      attempts.push(await failedAttempt(model, response));
       continue;
     }
-    if (response.ok) {
-      const bytes = Buffer.from(await response.arrayBuffer());
-      if (bytes.byteLength > MAX_AUDIO_BYTES) {
-        return failure("Generated audio exceeds the size limit", { bytes: bytes.byteLength });
-      }
-      const contentType = response.headers.get("content-type") || "audio/mpeg";
-      // `Buffer`, not `btoa`: the browser's helper walked the bytes in 32KB
-      // chunks through `String.fromCharCode` because that is all it had.
-      return JSON.stringify({ ok: true, audioUrl: `data:${contentType};base64,${bytes.toString("base64")}` });
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.byteLength > MAX_AUDIO_BYTES) {
+      return failure("Generated audio exceeds the size limit", { bytes: bytes.byteLength });
     }
-    attempts.push({ provider: model, status: response.status });
+    const contentType = response.headers.get("content-type") || "audio/mpeg";
+    // `Buffer`, not `btoa`: the browser's helper walked the bytes in 32KB
+    // chunks through `String.fromCharCode` because that is all it had.
+    return JSON.stringify({ ok: true, audioUrl: `data:${contentType};base64,${bytes.toString("base64")}` });
   }
   return failure("All providers failed for text to speech", { attempts });
 }
@@ -206,7 +227,7 @@ export async function generateVideoServerSide(
       "generations",
     ).catch(() => null);
     if (!response?.ok) {
-      attempts.push({ provider: model, status: response ? response.status : 0 });
+      attempts.push(await failedAttempt(model, response));
       continue;
     }
     const payload = (await response.json().catch(() => null)) as { request_id?: unknown } | null;

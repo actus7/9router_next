@@ -29,6 +29,13 @@ export const PROVIDER_MODELS: Record<string, Record<string, unknown>[]> = {};
 export const PROVIDER_MODEL_OVERRIDES: Record<string, Record<string, Record<string, unknown>>> = {};
 export const PROVIDER_OAUTH: Record<string, Record<string, unknown>> = {};
 export const PROVIDER_MEDIA: Record<string, Record<string, unknown>> = {};
+/**
+ * Providers whose upstream never sees `tools` (`features.toolCalling: false`),
+ * by id and every alias. A model there inherits `tools: true` from its
+ * canonical name — `da/claude-haiku-4-5` is "Claude" — which routed tool
+ * requests to a provider that answered in prose instead of calling the tool.
+ */
+export const NO_TOOL_CALLING_PROVIDERS: Set<string> = new Set();
 for (const entry of REGISTRY as Record<string, unknown>[]) {
   const e = entry as Record<string, unknown>;
   if (e.transport) {
@@ -38,6 +45,11 @@ for (const entry of REGISTRY as Record<string, unknown>[]) {
   if (e.models !== undefined) PROVIDER_MODELS[(e.alias as string) || (e.id as string)] = (e.models as (string | Record<string, unknown>)[]).map(normalizeModel);
   if (e.modelOverrides !== undefined) PROVIDER_MODEL_OVERRIDES[(e.alias as string) || (e.id as string)] = e.modelOverrides as Record<string, Record<string, unknown>>;
   if (e.oauth) PROVIDER_OAUTH[e.id as string] = e.oauth as Record<string, unknown>;
+  if ((e.features as Record<string, unknown> | undefined)?.toolCalling === false) {
+    for (const name of [e.id, e.alias, e.uiAlias, ...((e.aliases as unknown[]) || [])]) {
+      if (typeof name === "string" && name) NO_TOOL_CALLING_PROVIDERS.add(name);
+    }
+  }
   // Build PROVIDER_MEDIA from top-level fields (post-migration) + legacy entry.media
   const mediaFields: Record<string, unknown> = {};
   for (const k of MEDIA_KEYS) {

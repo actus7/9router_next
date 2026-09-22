@@ -13,5 +13,8 @@ export {
 // catalog above: the engine reads which model works with no account, it does
 // not decide it.
 export {
+  FREE_DEFAULT_MODEL,
   FREE_DEFAULT_MODEL_KEY,
+  FREE_DEFAULT_PROVIDER_ALIAS,
+  FREE_DEFAULT_PROVIDER_ID,
 } from "@/shared/constants/freeDefault";

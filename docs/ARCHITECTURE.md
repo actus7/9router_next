@@ -56,6 +56,40 @@ seguinte tem os mesmos endpoints atrás do mesmo alias, então travá-la por
 usuário nunca escolheu. Um 404 comum continua rotacionando — esse sim quer
 dizer "não nesta conta".
 
+**Um provider que descarta `tools` diz isso no registry.** `features:
+{ toolCalling: false }` (hoje `quillbot` e `duckai`) vira `tools: false` em
+`getCapabilitiesForModel`, acima do que o nome do modelo sugere —
+`da/claude-haiku-4-5` herdava `tools: true` do Claude canônico. O combo smart
+deixa de considerá-lo para `tool_use`, e num combo comum um pedido com `tools`
+o tenta por último, sem descartá-lo. O caso que motivou: um pedido de imagem caiu
+no Quillbot, que só repassa o texto da mensagem, e o `generate_image` nunca foi
+chamado.
+
+**O tipo de um modelo descoberto vem do provider.** A Vercel AI Gateway marca
+cada modelo (`language`, `image`, `video`, `speech`, …) e
+`discoveredModelKind` (`aliasRepo.ts`) traduz para os nossos tipos; sem marca
+continua `llm`. Antes tudo era gravado como `llm`, então os modelos de imagem
+da gateway nunca chegavam ao `generate_image`. No inventário do roteamento, um
+modelo com tipo é só aquele tipo: herdar os tipos do provider fazia todo modelo
+de chat da Vercel ser também "de imagem".
+
+**O padrão sem credencial é o roteador grátis do Kilo** (`kgw/kilo-auto/free`,
+`freeDefault.ts`). O Kilo documenta acesso anônimo aos modelos `:free` (200
+requisições/hora por IP), então uma conta sem conexão do Kilo recebe a
+credencial pública para esses ids (`isAnonymousFreeModel`) — e só para eles; a
+chave da conta, quando existe, sempre ganha. A OpenCode, que era o padrão,
+passou a recusar com `403 FreeTierError` toda chamada de fora do app dela; um
+401/403 de provider `noAuth` agora deixa o provider em cooldown por uma hora em
+vez de ser tentado de novo a cada requisição.
+
+Os "200/hora por IP" são do IP de saída, e na Vercel esse IP é compartilhado
+— com todas as contas deste servidor e com outros projetos da plataforma. O
+padrão sem credencial é portanto *melhor esforço*, não uma garantia: um 429
+dele entra no mesmo cooldown dos providers `noAuth` (`noAuthCooldown.ts`),
+aplicado só quando a chamada saiu mesmo sem chave (`credentials.id ===
+"noauth"`), para que uma conta com a própria chave do Kilo nunca fique presa
+nele. Quem precisa de previsibilidade conecta uma chave.
+
 Batch operations must be bounded, cancellable in the UI and report progress; automated tests use mocks only.
 
 ## O catálogo de modelos é descoberto, não embarcado

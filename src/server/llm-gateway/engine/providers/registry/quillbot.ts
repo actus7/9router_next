@@ -22,4 +22,6 @@ export default {
   ],
   // No models-list endpoint — single-model scraped web session, nothing to discover.
   noModelDiscovery: true,
+  // The executor posts only the last message's text; `tools` never leave here.
+  features: { toolCalling: false },
 };

@@ -8,7 +8,15 @@ import { getDisabledModels, getPricingOverrides } from "../../host/store";
 import { getModelsByProviderId } from "../../config/providerModels";
 import { getCapabilitiesForModel } from "../../providers/capabilities";
 import { getPricingForModel } from "../../providers/pricing";
-import { AI_PROVIDERS, getProviderAlias, resolveProviderId } from "../../host/catalog";
+import {
+  AI_PROVIDERS,
+  FREE_DEFAULT_MODEL,
+  FREE_DEFAULT_MODEL_KEY,
+  FREE_DEFAULT_PROVIDER_ALIAS,
+  FREE_DEFAULT_PROVIDER_ID,
+  getProviderAlias,
+  resolveProviderId,
+} from "../../host/catalog";
 import type {
   RouteNeed,
   RoutingTier,
@@ -71,11 +79,16 @@ function stableFingerprint(value: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+// A model that states its kind is that kind. Only an untyped model inherits
+// the provider's kinds — and merging both made every Vercel AI Gateway chat
+// model an "image" model too (the provider serves images), so a smart combo
+// asked for an image walked through chat models first.
 function normalizeKinds(providerKinds: unknown, modelKind: unknown): string[] {
+  if (typeof modelKind === "string" && modelKind) {
+    return modelKind === "imageToText" ? ["imageToText", "llm"] : [modelKind];
+  }
   const fromProvider = Array.isArray(providerKinds) ? providerKinds.filter((kind): kind is string => typeof kind === "string") : [];
-  const fromModel = typeof modelKind === "string" ? [modelKind] : [];
-  const values = [...fromModel, ...fromProvider];
-  return [...new Set(values.length > 0 ? values : ["llm"])];
+  return [...new Set(fromProvider.length > 0 ? fromProvider : ["llm"])];
 }
 
 async function loadInventory(): Promise<InventoryModel[]> {
@@ -140,6 +153,17 @@ async function loadInventory(): Promise<InventoryModel[]> {
       model,
       displayName: custom.name || model,
       serviceKinds: normalizeKinds(custom.serviceKinds || AI_PROVIDERS[providerId]?.serviceKinds, custom.kind || custom.type),
+    });
+  }
+  // The credential-free default answers without a connection, so it is always
+  // routable — the classifier's "auto" and the smart fallback both rely on it.
+  if (!seen.has(FREE_DEFAULT_MODEL_KEY)) {
+    inventory.push({
+      providerId: FREE_DEFAULT_PROVIDER_ID,
+      providerAlias: FREE_DEFAULT_PROVIDER_ALIAS,
+      model: FREE_DEFAULT_MODEL,
+      displayName: "Kilo Auto (free)",
+      serviceKinds: ["llm"],
     });
   }
   return inventory;
@@ -217,7 +241,7 @@ function resolvePricing(
   return getPricingForModel(providerAlias, model) as Record<string, unknown> | null;
 }
 
-export const __test__ = { resolvePricing };
+export const __test__ = { resolvePricing, normalizeKinds };
 
 function deterministicProfile(
   item: InventoryModel,

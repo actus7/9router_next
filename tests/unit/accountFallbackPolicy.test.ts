@@ -149,3 +149,43 @@ describe("noAuth cooldown scope", () => {
     expect(await checkNoAuthCooldownResponse(NOAUTH_PROVIDER, "gpt-4o-mini")).toBeNull();
   });
 });
+
+describe("noAuth provider that refuses us", () => {
+  // OpenCode answers every call from outside its app with 403 FreeTierError;
+  // retried on every request, each combo listing its models paid ~1s apiece.
+  it.each([401, 403])("cools a noAuth provider down for an hour after %i", async (status) => {
+    availabilityStore.clear();
+    const response = await handleNoAuthCooldownResult(
+      { status, error: "OpenCode's free tier can only be used from within OpenCode" },
+      NOAUTH_PROVIDER,
+      "big-pickle",
+    );
+
+    expect(response?.status).toBe(status);
+    const remaining = await isNoAuthOnCooldown(NOAUTH_PROVIDER);
+    expect(remaining).toBeGreaterThan(59 * 60 * 1000);
+    expect(remaining).toBeLessThanOrEqual(60 * 60 * 1000);
+  });
+
+  // Kilo serves its free models anonymously, rate-limited per IP. With no
+  // cooldown, every request after the limit paid another 429 round-trip.
+  it("cools down a keyed provider reached with the public credential", async () => {
+    const response = await handleNoAuthCooldownResult({ status: 429, error: "Too Many Requests" }, "kilo-gateway", "kilo-auto/free", true);
+
+    expect(response?.status).toBe(429);
+    expect((await checkNoAuthCooldownResponse("kilo-gateway", "kilo-auto/free", true))?.status).toBe(429);
+  });
+
+  it("never applies that cooldown to a call made with the account's own key", async () => {
+    await handleNoAuthCooldownResult({ status: 429, error: "Too Many Requests" }, "kilo-gateway", "kilo-auto/free", true);
+
+    expect(await checkNoAuthCooldownResponse("kilo-gateway", "kilo-auto/free")).toBeNull();
+    expect(await handleNoAuthCooldownResult({ status: 429, error: "Too Many Requests" }, "kilo-gateway", "kilo-auto/free")).toBeNull();
+  });
+
+  it("does not cool down on an ordinary server error", async () => {
+    availabilityStore.clear();
+    expect(await handleNoAuthCooldownResult({ status: 500, error: "boom" }, NOAUTH_PROVIDER, "big-pickle")).toBeNull();
+    expect(await isNoAuthOnCooldown(NOAUTH_PROVIDER)).toBe(0);
+  });
+});

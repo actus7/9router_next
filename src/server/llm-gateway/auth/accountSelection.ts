@@ -6,7 +6,7 @@ import { getActiveModelAvailability, setModelAvailability, clearModelAvailabilit
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isClientRequestError } from "@/server/llm-gateway/engine/services/accountFallback";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/server/llm-gateway/engine/config/errorConfig";
-import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers";
+import { resolveProviderId, FREE_PROVIDERS, isAnonymousFreeModel } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
 import { tryCurrentTenantId } from "@/lib/db/tenant";
 import type { Connection, Settings } from "@/lib/data-access";
@@ -118,6 +118,37 @@ interface GetCredentialsOptions {
 }
 
 /**
+ * The synthetic credential for a provider that needs no account: the executor
+ * sends no Authorization header for it, and the operator's proxy strategy for
+ * the provider still applies.
+ */
+async function publicCredentials(providerId: string): Promise<CredentialsResult> {
+  const settings = await getSettings() as AuthSettings;
+  const override: ProviderStrategy = settings.providerStrategies[providerId] || {};
+  const strategy: string = override.rotateStrategy || "none";
+  let pickedId: string | null = override.proxyPoolId || null;
+  if (strategy !== "none") {
+    const allPools = await getProxyPools({ isActive: true }) as AuthProxyPool[];
+    const poolIds = allPools.filter((pool) => Boolean(pool.proxyUrl)).map((pool) => pool.id);
+    pickedId = pickProxyPoolId(poolIds, strategy, providerId);
+  }
+  const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" }) as ResolvedProxyConfig;
+  return {
+    id: "noauth",
+    connectionName: "Public",
+    isActive: true,
+    accessToken: "public",
+    providerSpecificData: {
+      connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
+      connectionProxyUrl: resolvedProxy.connectionProxyUrl,
+      connectionNoProxy: resolvedProxy.connectionNoProxy,
+      connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
+      vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
+    },
+  };
+}
+
+/**
  * Get provider credentials from localDb
  */
 export async function getProviderCredentials(
@@ -134,36 +165,16 @@ export async function getProviderCredentials(
   const releaseSelectionLock: () => void = await acquireSelectionLock(providerId);
 
   try {
-    if (FREE_PROVIDERS[providerId]?.noAuth) {
-      const settings = await getSettings() as AuthSettings;
-      const override: ProviderStrategy = settings.providerStrategies[providerId] || {};
-      const strategy: string = override.rotateStrategy || "none";
-      let pickedId: string | null = override.proxyPoolId || null;
-      if (strategy !== "none") {
-        const allPools = await getProxyPools({ isActive: true }) as AuthProxyPool[];
-        const poolIds = allPools.filter((pool) => Boolean(pool.proxyUrl)).map((pool) => pool.id);
-        pickedId = pickProxyPoolId(poolIds, strategy, providerId);
-      }
-      const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" }) as ResolvedProxyConfig;
-      return {
-        id: "noauth",
-        connectionName: "Public",
-        isActive: true,
-        accessToken: "public",
-        providerSpecificData: {
-          connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
-          connectionProxyUrl: resolvedProxy.connectionProxyUrl,
-          connectionNoProxy: resolvedProxy.connectionNoProxy,
-          connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
-          vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
-        },
-      };
-    }
+    if (FREE_PROVIDERS[providerId]?.noAuth) return await publicCredentials(providerId);
 
     const connections = await getProviderConnections({ provider: providerId, isActive: true }) as AuthConnection[];
     log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
     if (connections.length === 0) {
+      // An account's own Kilo key always wins; with none, the free models are
+      // still reachable anonymously — which is what makes Kilo's router the
+      // credential-free default.
+      if (isAnonymousFreeModel(providerId, model)) return await publicCredentials(providerId);
       log.warn("AUTH", `No credentials for ${provider}`);
       return null;
     }

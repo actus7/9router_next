@@ -26,13 +26,7 @@ export function modelKind(model: Record<string, unknown>) {
 
 // For dynamic/unknown model IDs (compatible providers, alias map, custom models)
 // fall back to provider-level kind matching when per-model type is unavailable.
-export function inferKindFromUnknownModelId(modelId: string) {
-  const lower = String(modelId).toLowerCase();
-  if (/embed/.test(lower)) return "embedding";
-  if (/tts|speech|audio|voice/.test(lower)) return "tts";
-  if (/image|imagen|dall-?e|flux|sdxl|sd-|stable-diffusion/.test(lower)) return "image";
-  return LLM_KIND;
-}
+export { inferKindFromModelId as inferKindFromUnknownModelId } from "@/shared/constants/modelKind";
 
 // Provider matches kindFilter when its serviceKinds intersect the requested kinds.
 // LLM is the default kind for providers missing serviceKinds.

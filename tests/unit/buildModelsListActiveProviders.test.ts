@@ -33,7 +33,8 @@ import { getCustomModels, getModelAliases } from "@/lib/db/repos/aliasRepo";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { safePublicFetch } from "@/server/security/safeFetch";
 import { ensureProviderCatalog } from "@/server/application/use-cases/models/ensureProviderCatalog";
-import { FREE_PROVIDERS, resolveProviderId } from "@/shared/constants/providers";
+import { FREE_PROVIDERS, isAnonymousFreeModel, resolveProviderId } from "@/shared/constants/providers";
+import { FREE_DEFAULT_MODEL_KEY } from "@/shared/constants/freeDefault";
 
 const OPENAI_CONNECTION = {
   id: "conn-openai",
@@ -45,9 +46,20 @@ const OPENAI_CONNECTION = {
   providerSpecificData: {},
 };
 
-/** O critério do próprio gateway (`getProviderCredentials`): sem conexão, só provider noAuth. */
-function isKeyless(providerId: string): boolean {
-  return FREE_PROVIDERS[providerId]?.noAuth === true;
+/**
+ * O critério do próprio gateway (`getProviderCredentials`): sem conexão, só
+ * provider noAuth — ou o modelo grátis de um provider que serve os grátis sem
+ * conta (o Kilo, que é o padrão sem credencial).
+ */
+function isKeyless(providerId: string, modelId = ""): boolean {
+  return FREE_PROVIDERS[providerId]?.noAuth === true
+    || isAnonymousFreeModel(providerId, modelId.split("/").slice(1).join("/"));
+}
+
+function keyedModels(models: Record<string, unknown>[]): string[] {
+  return models
+    .filter((model) => !isKeyless(resolveProviderId(String(model.owned_by)), String(model.id)))
+    .map((model) => String(model.id));
 }
 
 function ownersOf(models: Record<string, unknown>[]): string[] {
@@ -69,7 +81,9 @@ describe("buildModelsList — só o que o gateway consegue atender", () => {
     const models = await buildModelsList(["llm"]);
 
     expect(models.length).toBeGreaterThan(0);
-    expect(ownersOf(models).filter((providerId) => !isKeyless(providerId))).toEqual([]);
+    expect(keyedModels(models)).toEqual([]);
+    // e o padrão sem credencial está na lista, que é onde o chat o procura
+    expect(models.map((model) => model.id)).toContain(FREE_DEFAULT_MODEL_KEY);
   });
 
   it("com uma conexão ativa, lista o provider conectado e também os sem credencial", async () => {
@@ -80,11 +94,12 @@ describe("buildModelsList — só o que o gateway consegue atender", () => {
       { providerAlias: "openai", id: "gpt-5", name: "GPT-5", type: "llm", source: "discovered" },
     ] as never);
 
-    const owners = ownersOf(await buildModelsList(["llm"]));
+    const models = await buildModelsList(["llm"]);
+    const owners = ownersOf(models);
 
     expect(owners).toContain("openai");
-    expect(owners.some(isKeyless)).toBe(true);
-    expect(owners.filter((providerId) => providerId !== "openai" && !isKeyless(providerId))).toEqual([]);
+    expect(owners.some((providerId) => isKeyless(providerId))).toBe(true);
+    expect(keyedModels(models).filter((id) => !id.startsWith("openai/"))).toEqual([]);
   });
 
   /**

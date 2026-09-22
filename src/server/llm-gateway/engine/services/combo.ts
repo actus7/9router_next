@@ -299,6 +299,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
 
   if (autoSwitch) {
     const required = detectRequiredCapabilities(body);
+    // Soft, and added here rather than in detectRequiredCapabilities (which
+    // also drives the capacity adapter): a provider that drops `tools` moves
+    // behind every one that keeps them, but stays as the prose-only last resort
+    // — the same call `retryWithoutTools` makes.
+    if (Array.isArray(body.tools) && body.tools.length > 0) required.add("tools");
     if (required.size > 0) {
       const reordered = reorderByCapabilities(rotatedModels, required);
       if (reordered[0] !== rotatedModels[0]) {

@@ -3,6 +3,7 @@ import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { makeKv } from "../helpers/kvStore";
 import { chunked, placeholderList, valuesRows } from "../helpers/batch";
+import { inferKindFromModelId } from "@/shared/constants/modelKind";
 
 const aliasKv = makeKv("modelAliases");
 const customKv = makeKv("customModels");
@@ -46,6 +47,33 @@ export function pickDiscoveredMetadata(value: unknown): Record<string, unknown> 
     .filter(([key]) => DISCOVERED_MODEL_METADATA_KEYS.has(key)));
 }
 
+// What a provider's model list says a model is, mapped to our service kinds.
+// The Vercel AI Gateway tags every entry (`language`, `image`, `video`, …), and
+// ignoring that is how its 33 image models were stored as chat models and never
+// reached `generate_image`. A tag we have no endpoint for is dropped. A list
+// with no tag at all (Gemini's) is guessed from the id, the same guess the model
+// list made before the kind was stored — storing a flat "llm" there would have
+// overridden it and hidden `gemini-3.1-flash-image` from image generation.
+const DISCOVERED_TYPE_TO_KIND: Record<string, string | null> = {
+  language: "llm", chat: "llm", llm: "llm", text: "llm",
+  image: "image",
+  video: "video",
+  speech: "tts", tts: "tts",
+  transcription: "stt", stt: "stt",
+  embedding: "embedding",
+  imagetotext: "imageToText",
+  reranking: null, rerank: null, moderation: null, realtime: null, evaluation: null,
+};
+
+/** The service kind of a discovered model, or null when we cannot serve it. */
+export function discoveredModelKind(entry: Record<string, unknown>): string | null {
+  const raw = entry.kind ?? entry.type;
+  const tag = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (Object.hasOwn(DISCOVERED_TYPE_TO_KIND, tag)) return DISCOVERED_TYPE_TO_KIND[tag]!;
+  const id = typeof entry.id === "string" ? entry.id : typeof entry.name === "string" ? entry.name : "";
+  return inferKindFromModelId(id);
+}
+
 export interface CustomModelInput {
   providerAlias: string;
   id: string;
@@ -62,13 +90,16 @@ export interface CustomModelInput {
 export async function syncDiscoveredCustomModels(providerAlias: string, models: CustomModelInput[]): Promise<void> {
   const desired = new Map(
     models
-      .filter((model) => model.id && (model.type || "llm") === "llm")
-      .map((model) => [customKey(providerAlias, model.id, "llm"), {
-        ...model,
-        providerAlias,
-        type: "llm",
-        source: "discovered" as const,
-      }]),
+      .filter((model) => model.id)
+      .map((model) => {
+        const type = model.type || "llm";
+        return [customKey(providerAlias, model.id, type), {
+          ...model,
+          providerAlias,
+          type,
+          source: "discovered" as const,
+        }] as const;
+      }),
   );
   const db = await getAdapter();
 
@@ -79,7 +110,6 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
     const stale = [...existing]
       .filter(([key, value]) =>
         value.providerAlias === providerAlias &&
-        (value.kind || value.type || "llm") === "llm" &&
         value.source === "discovered" &&
         !desired.has(key))
       .map(([key]) => key);
@@ -101,7 +131,7 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
         ...(model.metadata || {}),
         providerAlias,
         id: model.id,
-        type: "llm",
+        type: model.type,
         name: model.name || model.id,
         source: "discovered",
       })]);

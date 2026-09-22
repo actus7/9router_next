@@ -1,6 +1,6 @@
 "use client";
 
-import { getModelKind, getModelsByProviderId } from "@/shared/constants/models";
+import { getModelsByProviderId } from "@/shared/constants/models";
 import { translate } from "@/i18n/runtime";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { fetchSuggestedModels } from "@/shared/utils/providerModelsFetcher";
@@ -53,14 +53,17 @@ export async function refreshModels({
   if (fetched.length === 0) { notify.warning(translate("No models returned") || ""); return; }
 
   const fetchedIds = new Set(fetched.map((m) => m.id || m.name).filter((id): id is string => typeof id === "string" && id.length > 0));
-  const fetchedLlmModels = fetched.filter((m) => !!(m.id || m.name) && (getModelKind(m) || "llm") === "llm");
+  // Every kind goes to the server, which maps the provider's own tag
+  // (`discoveredModelKind`); filtering to "llm" here dropped image models and,
+  // for tags like Vercel's `language`, could drop the whole list.
+  const fetchedModels = fetched.filter((m) => !!(m.id || m.name));
   const restoredIds = [...fetchedIds, CLEAR_ALL_MODELS_SENTINEL];
   if (restoredIds.length > 0) {
     const restoreResponse = await fetch("/api/models/disabled", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerAlias: providerStorageAlias, ids: restoredIds, action: "enable" }) });
     if (restoreResponse.ok) await onFetchDisabledModels();
   }
 
-  const syncResponse = await fetch("/api/models/discovered", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerAlias: providerStorageAlias, models: fetchedLlmModels }) });
+  const syncResponse = await fetch("/api/models/discovered", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerAlias: providerStorageAlias, models: fetchedModels }) });
   const syncData = await syncResponse.json();
   if (!syncResponse.ok) { notify.error(syncData.error || "Failed to synchronize models"); return; }
   if (Array.isArray(syncData.models)) setCustomModels(syncData.models);

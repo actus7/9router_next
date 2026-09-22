@@ -23,6 +23,7 @@
 // 2.0+, Grok, Perplexity). Verify with: curl -s https://models.dev/api.json
 
 import { matchPattern } from "./pricing";
+import { NO_TOOL_CALLING_PROVIDERS } from "./index";
 
 /**
  * Safe floor — every resolved result is merged over this so consumers
@@ -326,6 +327,12 @@ const PATTERN_CAPABILITIES = [
  * @returns {object} full capabilities object
  */
 export function getCapabilitiesForModel(provider: string, model: string) {
+  const caps = resolveCapabilitiesForModel(provider, model);
+  // A provider that drops `tools` overrides whatever the model's name implies.
+  return NO_TOOL_CALLING_PROVIDERS.has(provider) ? { ...caps, tools: false } : caps;
+}
+
+function resolveCapabilitiesForModel(provider: string, model: string) {
   if (!model) return { ...DEFAULT_CAPABILITIES };
 
   // Canonical exact lookup strips vendor prefix: "anthropic/claude-opus-4.7" -> "claude-opus-4.7".

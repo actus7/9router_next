@@ -128,22 +128,28 @@ export function collectMergedModelIds(
     })
     .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "");
 
+  // The kind of every stored model of this provider, not only of those this
+  // list includes: the same id also arrives from the live listing, and without
+  // its stored kind it fell through to the name heuristic — which is how the
+  // Vercel image models showed up in the chat list after discovery typed them.
   const customModelKindById = new Map<string, string>();
-  const customModelIds = customModels
+  const ownModels = customModels.filter((m: Record<string, unknown>) => {
+    if (!m?.id) return false;
+    const alias = m.providerAlias;
+    return alias === staticAlias || alias === outputAlias || alias === providerId;
+  });
+  for (const m of ownModels) {
+    const modelId = String(m.id).trim();
+    if (modelId) customModelKindById.set(modelId, getModelKind(m) || LLM_KIND);
+  }
+  const customModelIds = ownModels
     .filter((m: Record<string, unknown>) => {
-      if (!m?.id) return false;
       const kind = getModelKind(m) || LLM_KIND;
       // imageToText custom models are vision-capable chat models: expose them
       // both in the default LLM list and in /v1/models/image-to-text.
-      if (!kindFilter.includes(kind) && !(kind === "imageToText" && kindFilter.includes(LLM_KIND))) return false;
-      const alias = m.providerAlias;
-      return alias === staticAlias || alias === outputAlias || alias === providerId;
+      return kindFilter.includes(kind) || (kind === "imageToText" && kindFilter.includes(LLM_KIND));
     })
-    .map((m) => {
-      const modelId = String(m.id).trim();
-      if (modelId) customModelKindById.set(modelId, getModelKind(m) || LLM_KIND);
-      return modelId;
-    })
+    .map((m) => String(m.id).trim())
     .filter((modelId) => modelId !== "");
 
   const aliasModelIds = (Object.values(modelAliases || {}) as string[])

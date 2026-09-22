@@ -463,9 +463,6 @@ export async function handleSingleModelChat(
   const disabledResponse = await assertModelEnabled(provider, model);
   if (disabledResponse) return disabledResponse;
 
-  const cooldownResponse = await checkNoAuthCooldownResponse(provider, model);
-  if (cooldownResponse) return cooldownResponse;
-
     const excludeConnectionIds: Set<string> = new Set();
   let lastError: string | null = null;
   let lastStatus: number | null = null;
@@ -499,6 +496,14 @@ export async function handleSingleModelChat(
       return errorResponse(exhaustion.status, exhaustion.message);
     }
 
+    // Checked here, not before the loop: whether a call is anonymous depends on
+    // the credential, and an account's own Kilo key must skip the public cooldown.
+    const anonymous = credentials.id === "noauth";
+    if (anonymous) {
+      const cooldownResponse = await checkNoAuthCooldownResponse(provider, model, true);
+      if (cooldownResponse) return cooldownResponse;
+    }
+
     const connectionId: string = credentials.connectionId || "";
     const refreshedCredentials = await checkAndRefreshToken(provider, credentials) as CredentialsResult;
 
@@ -527,7 +532,7 @@ export async function handleSingleModelChat(
       return result.response;
     }
 
-    const noAuthResponse = await handleNoAuthCooldownResult(result, provider, model);
+    const noAuthResponse = await handleNoAuthCooldownResult(result, provider, model, anonymous);
     if (noAuthResponse) return noAuthResponse;
 
     const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null);
