@@ -16,7 +16,7 @@ import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 import { getTransform as getPxpipeTransform } from "@/lib/pxpipe/loader";
 import { appendPxpipeEvent } from "@/lib/pxpipe/events";
 import { errorResponse, unavailableResponse } from "@/server/llm-gateway/engine/utils/error";
-import { handleComboChat, handleFusionChat, detectRequiredCapabilities } from "@/server/llm-gateway/engine/services/combo";
+import { handleComboChat, handleFusionChat, detectRequiredCapabilities, modelSupportsTools } from "@/server/llm-gateway/engine/services/combo";
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/server/llm-gateway/engine/services/capacityAdapter";
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
@@ -62,6 +62,25 @@ interface ComboStrategyConfig {
 
 // ── Routing helpers ─────────────────────────────────────────────────────────
 
+/**
+ * The smart candidates for a request that carries `tools`.
+ *
+ * The smart path runs its combo without auto-switch, so nothing moved a web
+ * session that drops `tools` behind a model that keeps them — and a combo whose
+ * overrides list only such sessions answered a tool turn in prose (Quillbot
+ * commenting on an image it never saw). Tool-capable candidates go first; when
+ * there are none, the credential-free default leads, under the same switch
+ * that already lets it answer for an exhausted provider.
+ */
+async function orderForTools(body: ChatBody, models: string[]): Promise<string[]> {
+  if (!Array.isArray(body.tools) || body.tools.length === 0) return models;
+  const capable = models.filter(modelSupportsTools);
+  if (capable.length > 0) return [...capable, ...models.filter((model) => !capable.includes(model))];
+  const settings = await getSettings();
+  if (settings.freeFallbackEnabled === false) return models;
+  return [FREE_DEFAULT_MODEL_KEY, ...models.filter((model) => model !== FREE_DEFAULT_MODEL_KEY)];
+}
+
 /** Try smart combo routing. Returns Response if matched, null otherwise. */
 async function trySmartComboRouting(
   modelStr: string,
@@ -103,10 +122,11 @@ async function trySmartComboRouting(
     classifierLatencyMs: routing.meta.classifierLatencyMs,
     candidates: routing.models,
   });
-  log.info("ROUTING", `Smart combo "${modelStr}" → ${routing.meta.need}/${routing.meta.tier} → ${routing.models[0]}`);
+  const models = await orderForTools(body, routing.models);
+  log.info("ROUTING", `Smart combo "${modelStr}" → ${routing.meta.need}/${routing.meta.tier} → ${models[0]}`);
   return handleComboChat({
     body,
-    models: routing.models,
+    models,
     handleSingleModel: (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
     log,
     comboName: modelStr,
@@ -558,3 +578,5 @@ export async function handleSingleModelChat(
     return result.response;
   }
 }
+
+export const __test__ = { orderForTools };

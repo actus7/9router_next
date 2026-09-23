@@ -43,7 +43,7 @@ vi.mock("@/server/llm-gateway/engine/services/smart-routing/router", () => ({
 }));
 
 import { getSettings } from "@/lib/db/repos/settingsRepo";
-import { handleSingleModelChat } from "@/server/llm-gateway/application/chat";
+import { handleSingleModelChat, __test__ as chatInternals } from "@/server/llm-gateway/application/chat";
 import { getProviderCredentials } from "@/server/llm-gateway/auth/accountSelection";
 import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
 import {
@@ -134,5 +134,32 @@ describe("gateway last-resort free fallback", () => {
     expect(response.status).toBe(404);
     // One lookup, and no second attempt at the same provider.
     expect(credentialsMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// A smart combo whose overrides list only web sessions answered a tool turn in
+// prose: the smart path runs without auto-switch, so nothing moved them back.
+describe("smart candidates for a request with tools", () => {
+  const tools = [{ type: "function", function: { name: "generate_image" } }];
+
+  it("puts tool-capable candidates first", async () => {
+    const order = await chatInternals.orderForTools({ tools } as never, ["da/gpt-5.4-mini", "quillbot/quillbot-ai", "vercel/alibaba/qwen-3-235b"]);
+    expect(order).toEqual(["vercel/alibaba/qwen-3-235b", "da/gpt-5.4-mini", "quillbot/quillbot-ai"]);
+  });
+
+  it("leads with the credential-free default when no candidate keeps tools", async () => {
+    const order = await chatInternals.orderForTools({ tools } as never, ["da/gpt-5.4-mini", "quillbot/quillbot-ai"]);
+    expect(order).toEqual([FREE_DEFAULT_MODEL_KEY, "da/gpt-5.4-mini", "quillbot/quillbot-ai"]);
+  });
+
+  it("respects the free fallback switch", async () => {
+    settingsMock.mockResolvedValueOnce({ freeFallbackEnabled: false } as Settings);
+    const models = ["da/gpt-5.4-mini", "quillbot/quillbot-ai"];
+    expect(await chatInternals.orderForTools({ tools } as never, models)).toEqual(models);
+  });
+
+  it("leaves a request without tools alone", async () => {
+    const models = ["quillbot/quillbot-ai", "vercel/alibaba/qwen-3-235b"];
+    expect(await chatInternals.orderForTools({} as never, models)).toBe(models);
   });
 });

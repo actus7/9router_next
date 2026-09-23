@@ -38,6 +38,14 @@ function reorderByCapabilities(models: string[], required: Set<string> | null | 
     .map((x: { m: string; i: number; t: number }) => x.m);
 }
 
+/** Whether `provider/model` keeps `tools` on the way upstream. */
+export function modelSupportsTools(modelStr: string): boolean {
+  const slash = modelStr.indexOf("/");
+  const provider = slash > 0 ? modelStr.slice(0, slash) : "";
+  const model = slash > 0 ? modelStr.slice(slash + 1) : modelStr;
+  return (getCapabilitiesForModel(provider, model) as Record<string, unknown>).tools !== false;
+}
+
 /**
  * Track rotation state per combo (for round-robin strategy)
  * @type {Map<string, { index: number, consecutiveUseCount: number }>}
