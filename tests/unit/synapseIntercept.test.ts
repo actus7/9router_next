@@ -140,13 +140,25 @@ describe("trySynapseIntercept", () => {
     expect(result).toBeNull();
   });
 
-  it("body.tools não-vazio → null (Claude Code nunca é interceptado)", () => {
+  // O chat do dashboard manda `tools` sempre que a conversa tem plugins, não
+  // porque o turno precise delas: uma saudação sem histórico de tool é trivial.
+  it("body.tools presente, sem histórico de tool → intercepta", () => {
     const body = {
       messages: [{ role: "user", content: "oi" }],
       tools: [{ type: "function", function: { name: "test" } }],
     };
-    const result = trySynapseIntercept({ ...baseParams, body });
-    expect(result).toBeNull();
+    expect(trySynapseIntercept({ ...baseParams, body })).not.toBeNull();
+  });
+
+  it("tool_choice que obriga uma tool → null", () => {
+    for (const tool_choice of ["required", { type: "function", function: { name: "test" } }, { type: "any" }, { type: "tool", name: "test" }]) {
+      const body = {
+        messages: [{ role: "user", content: "oi" }],
+        tools: [{ type: "function", function: { name: "test" } }],
+        tool_choice,
+      };
+      expect(trySynapseIntercept({ ...baseParams, body })).toBeNull();
+    }
   });
 
   it("histórico claude com bloco tool_use → null", () => {
@@ -233,22 +245,22 @@ describe("trySynapseIntercept", () => {
     expect(result).toBeNull();
   });
 
-  it("gemini tools com functionDeclarations não-vazio → null", () => {
+  it("gemini com functionCallingConfig mode ANY → null", () => {
     const body = {
       messages: [{ role: "user", content: "oi" }],
       tools: [{ functionDeclarations: [{ name: "fn" }] }],
+      toolConfig: { functionCallingConfig: { mode: "ANY" } },
     };
-    const result = trySynapseIntercept({ ...baseParams, body });
-    expect(result).toBeNull();
+    expect(trySynapseIntercept({ ...baseParams, body })).toBeNull();
   });
 
-  it("body.functions não-vazio → null", () => {
+  it("body.functions com function_call forçada → null", () => {
     const body = {
       messages: [{ role: "user", content: "oi" }],
       functions: [{ name: "fn" }],
+      function_call: { name: "fn" },
     };
-    const result = trySynapseIntercept({ ...baseParams, body });
-    expect(result).toBeNull();
+    expect(trySynapseIntercept({ ...baseParams, body })).toBeNull();
   });
 
   it("gírias pt-BR: 'vlw' → intercepta (preTransform normaliza para 'valeu')", () => {
@@ -344,5 +356,40 @@ describe("trySynapseIntercept — sessão mista (parcial vs total)", () => {
       },
     });
     expect(turn2).toBeNull();
+  });
+});
+
+// ── falsos positivos: resposta enlatada no lugar de uma pergunta real ─────
+describe("Synapse — não engole pedido real", () => {
+  const params = (messages: unknown[], level = "full") => ({
+    body: { messages } as Record<string, unknown>,
+    sourceFormat: "openai",
+    stream: false,
+    model: "gpt-4o",
+    provider: "openai",
+    enabled: true,
+    level,
+    log: undefined,
+    reqTag: "[test]",
+  });
+
+  it("saudação seguida de pergunta na mesma mensagem → null", () => {
+    expect(matchSynapseDeterministic("Oi. Qual a capital da França?", "lite")).toBeNull();
+    expect(matchSynapseDeterministic("bom dia! me explica closures em JS", "lite")).toBeNull();
+  });
+
+  it("'ok' respondendo a uma pergunta do assistente → null (é continuação, não ack)", () => {
+    const r = trySynapseIntercept(params([
+      { role: "user", content: "gera um script de backup" },
+      { role: "assistant", content: "Quer que eu inclua compressão?" },
+      { role: "user", content: "ok" },
+    ]));
+    expect(r).toBeNull();
+  });
+
+  it("saudação em inglês recebe resposta em inglês", () => {
+    expect(matchSynapseDeterministic("hello", "lite")).toMatch(/hello|hi|help/i);
+    expect(matchSynapseDeterministic("hello", "lite")).not.toMatch(/olá|ajudar/i);
+    expect(matchSynapseDeterministic("thanks", "lite")).not.toMatch(/de nada|disponha|por nada/i);
   });
 });

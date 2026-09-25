@@ -4,3 +4,4 @@ import "server-only";
 
 export { handleChat, handleSingleModelChat } from "./application/chat";
 export { transformToOllama } from "@/server/llm-gateway/engine/utils/ollamaTransform";
+export { toAnthropicErrorResponse } from "@/server/llm-gateway/engine/utils/error";

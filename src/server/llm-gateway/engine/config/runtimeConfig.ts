@@ -61,11 +61,13 @@ const RETRY_CONFIG = {
 
 // Default retry config by status code: { attempts, delayMs }
 // Backward compat: if value is a number, treated as attempts with RETRY_CONFIG.delayMs
+// One quick retry at most: the account loop in chat.ts is the real fallback,
+// and every second spent retrying the same URL is time-to-first-token.
 export const DEFAULT_RETRY_CONFIG = {
   429: { attempts: 0, delayMs: 0 },
-  502: { attempts: 3, delayMs: 3000 },
-  503: { attempts: 3, delayMs: 2000 },
-  504: { attempts: 2, delayMs: 3000 }
+  502: { attempts: 1, delayMs: 500 },
+  503: { attempts: 1, delayMs: 500 },
+  504: { attempts: 1, delayMs: 500 }
 };
 
 // Normalize a retry entry to { attempts, delayMs }

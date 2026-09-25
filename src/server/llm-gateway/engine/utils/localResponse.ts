@@ -36,6 +36,39 @@ function createOpenAIResponse(model: string, text = DEFAULT_BYPASS_TEXT) {
   };
 }
 
+function createClaudeMessage(model: string, text: string) {
+  return {
+    id: `msg_${Date.now()}`,
+    type: "message",
+    role: "assistant",
+    model,
+    content: [{ type: "text", text }],
+    stop_reason: "end_turn",
+    stop_sequence: null,
+    usage: { input_tokens: 1, output_tokens: 1 },
+  };
+}
+
+function createResponsesObject(model: string, text: string) {
+  const id = `resp_${Date.now()}`;
+  return {
+    id,
+    object: "response",
+    created_at: Math.floor(Date.now() / 1000),
+    status: "completed",
+    model,
+    error: null,
+    output: [{
+      id: `msg_${id}_0`,
+      type: "message",
+      status: "completed",
+      role: "assistant",
+      content: [{ type: "output_text", annotations: [], text }],
+    }],
+    usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+  };
+}
+
 /**
  * Create OpenAI streaming chunks from complete response
  */
@@ -90,25 +123,20 @@ export function createStreamingResponse(sourceFormat: string, model: string, tex
   // Translate each chunk to sourceFormat using translator
   const translatedChunks = [];
 
-  for (const chunk of openaiChunks) {
+  // O flush de openai→openai devolve [null]; serializado virava `data: null`,
+  // que o SDK da OpenAI parseia e quebra lendo `chunk.choices`.
+  for (const chunk of [...openaiChunks, null]) {
     const translated = translateResponse(FORMATS.OPENAI, sourceFormat, chunk, state);
-    if (translated?.length > 0) {
-      for (const item of translated) {
-        translatedChunks.push(formatSSE(item, sourceFormat));
-      }
+    for (const item of translated || []) {
+      if (item) translatedChunks.push(formatSSE(item, sourceFormat));
     }
   }
 
-  // Flush remaining events
-  const flushed = translateResponse(FORMATS.OPENAI, sourceFormat, null, state);
-  if (flushed?.length > 0) {
-    for (const item of flushed) {
-      translatedChunks.push(formatSSE(item, sourceFormat));
-    }
+  // Mesma regra do streaming real (clientExpectsDoneSentinel em stream.ts):
+  // só a família OpenAI termina com o sentinela.
+  if (sourceFormat === FORMATS.OPENAI || sourceFormat === FORMATS.OPENAI_RESPONSES) {
+    translatedChunks.push("data: [DONE]\n\n");
   }
-
-  // Add [DONE]
-  translatedChunks.push("data: [DONE]\n\n");
 
   return {
     success: true,
@@ -131,11 +159,20 @@ export function createStreamingResponse(sourceFormat: string, model: string, tex
 export function createNonStreamingResponse(sourceFormat: string, model: string, text?: string, extraHeaders?: Record<string, string>) {
   const openaiResponse = createOpenAIResponse(model, text);
 
-  // If sourceFormat is OpenAI, return directly
-  if (sourceFormat === FORMATS.OPENAI) {
+  // Claude e Responses: o objeto final é montado direto. Mesclar os chunks
+  // traduzidos pegava o `message_start` (content vazio, stop_reason null) e,
+  // no Responses, o envelope SSE `{event, data}` em vez do `response`.
+  const direct = sourceFormat === FORMATS.OPENAI
+    ? openaiResponse
+    : sourceFormat === FORMATS.CLAUDE
+      ? createClaudeMessage(model, openaiResponse.choices[0].message.content)
+      : sourceFormat === FORMATS.OPENAI_RESPONSES
+        ? createResponsesObject(model, openaiResponse.choices[0].message.content)
+        : null;
+  if (direct) {
     return {
       success: true,
-      response: new Response(JSON.stringify(openaiResponse), {
+      response: new Response(JSON.stringify(direct), {
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
@@ -166,7 +203,7 @@ export function createNonStreamingResponse(sourceFormat: string, model: string, 
   }
 
   // For non-streaming, merge all chunks into final response
-  const finalResponse = mergeChunksToResponse(allTranslated, sourceFormat);
+  const finalResponse = mergeChunksToResponse(allTranslated);
 
   return {
     success: true,
@@ -180,51 +217,11 @@ export function createNonStreamingResponse(sourceFormat: string, model: string, 
   };
 }
 
-/**
- * Merge translated chunks into final response object (for non-streaming)
- * Takes the last complete chunk as the final response
- */
-function mergeChunksToResponse(chunks: unknown[], sourceFormat: string): Record<string, unknown> {
+/** Merge translated chunks into final response object (Gemini-family and
+ * other formats): the last translated chunk carries the complete response. */
+function mergeChunksToResponse(chunks: unknown[]): Record<string, unknown> {
   if (!chunks || chunks.length === 0) {
     return createOpenAIResponse("unknown");
   }
-
-  // For most formats, the last chunk before done contains the complete response
-  // Find the most complete chunk (usually the last one with content)
-  let finalChunk: Record<string, unknown> = chunks[chunks.length - 1] as Record<string, unknown>;
-
-  // For Claude format, find the message_stop or final message
-  if (sourceFormat === FORMATS.CLAUDE) {
-    const messageStop = chunks.find((c) => (c as Record<string, unknown>).type === "message_stop");
-    if (messageStop) {
-      // Reconstruct complete message from chunks
-      const messageDelta = chunks.find((c) => (c as Record<string, unknown>).type === "message_delta") as Record<string, unknown> | undefined;
-      const messageStart = chunks.find((c) => (c as Record<string, unknown>).type === "message_start") as Record<string, unknown> | undefined;
-
-      if (messageStart?.message) {
-        finalChunk = messageStart.message as Record<string, unknown>;
-        // message_start.usage has input + cache; message_delta.usage has the
-        // final output_tokens. Merge so cache survives (delta omits it).
-        const startUsage = (messageStart.message as Record<string, unknown>)?.usage as Record<string, unknown> | undefined;
-        const deltaUsage = messageDelta?.usage as Record<string, unknown> | undefined;
-        if (startUsage || deltaUsage) {
-          finalChunk.usage = {
-            ...(startUsage || {}),
-            ...(deltaUsage || {}),
-            ...(startUsage?.cache_read_input_tokens !== undefined
-              ? { cache_read_input_tokens: startUsage.cache_read_input_tokens }
-              : {}),
-            ...(startUsage?.cache_creation_input_tokens !== undefined
-              ? { cache_creation_input_tokens: startUsage.cache_creation_input_tokens }
-              : {}),
-            ...(startUsage?.input_tokens !== undefined
-              ? { input_tokens: startUsage.input_tokens }
-              : {})
-          };
-        }
-      }
-    }
-  }
-
-  return finalChunk;
+  return chunks[chunks.length - 1] as Record<string, unknown>;
 }

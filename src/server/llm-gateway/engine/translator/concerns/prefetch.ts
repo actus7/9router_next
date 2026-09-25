@@ -11,6 +11,8 @@ const TARGETS_NEED_BASE64 = new Set([
   FORMATS.ANTIGRAVITY, FORMATS.OLLAMA, FORMATS.KIRO,
 ]);
 
+const PREFETCH_CONCURRENCY = 4;
+
 function isRemoteUrl(url: unknown): url is string {
   return typeof url === "string" && (url.startsWith("http://") || url.startsWith("https://"));
 }
@@ -82,16 +84,27 @@ export async function prefetchRemoteImages(body: Record<string, unknown>, source
   const refs = collectImageRefs(body, sourceFormat);
   if (!refs.length) return 0;
 
+  const pending = refs.filter((ref) => !parseDataUri(ref.get())); // skip already-inline
+  // Parallel, but capped: one message can carry dozens of images and each is a
+  // full download held in memory until the upstream call goes out.
+  const fetched: Array<Awaited<ReturnType<typeof fetchImageAsBase64>>> = new Array(pending.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < pending.length) {
+      const i = next++;
+      fetched[i] = await fetchImageAsBase64(pending[i].get(), options);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(PREFETCH_CONCURRENCY, pending.length) }, worker));
+
   let converted = 0;
-  for (const ref of refs) {
-    const url = ref.get();
-    if (parseDataUri(url)) continue; // already inline
-    const fetched = await fetchImageAsBase64(url, options);
-    if (!fetched) continue;
-    if (ref.set) ref.set(fetched.url);
-    else if (ref.part) { delete ref.part.fileData; ref.part.inlineData = { mimeType: fetched.mimeType, data: fetched.url.split(",")[1] }; }
-    else if (ref.claudeBlock) ref.claudeBlock.source = { type: "base64", media_type: fetched.mimeType, data: fetched.url.split(",")[1] };
+  pending.forEach((ref, i) => {
+    const image = fetched[i];
+    if (!image) return;
+    if (ref.set) ref.set(image.url);
+    else if (ref.part) { delete ref.part.fileData; ref.part.inlineData = { mimeType: image.mimeType, data: image.url.split(",")[1] }; }
+    else if (ref.claudeBlock) ref.claudeBlock.source = { type: "base64", media_type: image.mimeType, data: image.url.split(",")[1] };
     converted++;
-  }
+  });
   return converted;
 }

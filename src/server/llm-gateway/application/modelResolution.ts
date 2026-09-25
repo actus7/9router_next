@@ -58,6 +58,8 @@ function parseModel(modelStr: string): ParsedModel {
  * Resolve model alias from localDb
  */
 
+const NODE_TYPE_PRECEDENCE: readonly string[] = ["openai-compatible", "anthropic-compatible", "custom-embedding"];
+
 /**
  * Get full model info (parse or resolve)
  */
@@ -66,22 +68,12 @@ export async function getModelInfo(modelStr: string): Promise<ModelInfo> {
 
   if (!parsed.isAlias) {
     if (!RESERVED_PROVIDER_PREFIXES.has(parsed.providerAlias!)) {
-      const openaiNodes = await getProviderNodes({ type: "openai-compatible" }) as unknown as ProviderNode[];
-      const matchedOpenAI: ProviderNode | undefined = openaiNodes.find((node: ProviderNode) => node.prefix === parsed.providerAlias);
-      if (matchedOpenAI) {
-        return { provider: matchedOpenAI.id, model: parsed.model };
-      }
-
-      const anthropicNodes = await getProviderNodes({ type: "anthropic-compatible" }) as unknown as ProviderNode[];
-      const matchedAnthropic: ProviderNode | undefined = anthropicNodes.find((node: ProviderNode) => node.prefix === parsed.providerAlias);
-      if (matchedAnthropic) {
-        return { provider: matchedAnthropic.id, model: parsed.model };
-      }
-
-      const embeddingNodes = await getProviderNodes({ type: "custom-embedding" }) as unknown as ProviderNode[];
-      const matchedEmbedding: ProviderNode | undefined = embeddingNodes.find((node: ProviderNode) => node.prefix === parsed.providerAlias);
-      if (matchedEmbedding) {
-        return { provider: matchedEmbedding.id, model: parsed.model };
+      // One query for every node type instead of one per type; the order below
+      // is the precedence the three sequential lookups used to give.
+      const nodes = await getProviderNodes() as unknown as ProviderNode[];
+      for (const type of NODE_TYPE_PRECEDENCE) {
+        const matched: ProviderNode | undefined = nodes.find((node: ProviderNode) => node.type === type && node.prefix === parsed.providerAlias);
+        if (matched) return { provider: matched.id, model: parsed.model };
       }
     }
     return {

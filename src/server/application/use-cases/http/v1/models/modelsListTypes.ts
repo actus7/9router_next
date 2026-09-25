@@ -7,6 +7,11 @@ export const INTERNAL_MODELS_FETCH_HEADER = "x-9r-internal-models-fetch";
 // LLM kind sentinel — combos/models with no explicit kind default to LLM
 export const LLM_KIND = "llm";
 
+// OpenAI's model object requires `created`. We know no real release date for
+// most models, so every entry carries the same fixed epoch (2024-01-01 UTC) —
+// stable across requests, which is what clients that sort or cache on it need.
+export const MODEL_CREATED = 1704067200;
+
 // Map per-model `type` field (in PROVIDER_MODELS) to service kind.
 // Models without `type` are treated as LLM.
 const MODEL_TYPE_TO_KIND: Record<string, string> = {

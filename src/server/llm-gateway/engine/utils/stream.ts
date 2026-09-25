@@ -2,7 +2,7 @@
 import { FORMATS } from "../translator/formats";
 import { captureTenant, type TenantReentry } from "../host/tenant";
 import type { RequestLogger } from "./requestLogger";
-import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking";
+import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, filterUsageForFormat, COLORS } from "./usageTracking";
 import { settleStream } from "./streamSettle";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers";
@@ -209,12 +209,10 @@ function emitTranslatedItems(ctx: StreamContext, translated: TranslatedArray, co
         const isFinishChunk = itemRec.type === "message_delta" || ((itemRec.choices as Record<string, unknown>[])?.[0] as Record<string, unknown>)?.finish_reason;
         if (ctx.state?.finishReason && isFinishChunk && !hasValidUsage(itemRec.usage as Record<string, unknown>) && ctx.totalContentLength > 0) {
           const estimated = estimateUsage(ctx.body, ctx.totalContentLength, ctx.sourceFormat!);
-          itemRec.usage = filterUsageForFormat(estimated, ctx.sourceFormat!); // Filter + already has buffer
+          itemRec.usage = filterUsageForFormat(estimated, ctx.sourceFormat!);
           ctx.state.usage = estimated;
         } else if (ctx.state?.finishReason && isFinishChunk && ctx.state.usage) {
-          // Add buffer and filter usage for client (but keep original in state.usage for logging)
-          const buffered = addBufferToUsage(ctx.state.usage as Record<string, unknown>);
-          itemRec.usage = filterUsageForFormat(buffered, ctx.sourceFormat!);
+          itemRec.usage = filterUsageForFormat(ctx.state.usage as Record<string, unknown>, ctx.sourceFormat!);
         }
       }
 
@@ -230,6 +228,10 @@ function emitTranslatedItems(ctx: StreamContext, translated: TranslatedArray, co
 function processPassthroughLine(ctx: StreamContext, line: string, trimmed: string, controller: TransformStreamDefaultController) {
   let output: string | undefined;
   let injectedUsage = false;
+
+  // The upstream's own sentinel is forwarded below; remember it so the flush
+  // doesn't send a second one.
+  if (trimmed.startsWith("data:") && trimmed.slice(5).trim() === "[DONE]") ctx.streamDoneSent = true;
 
   if (trimmed.startsWith("data:") && trimmed.slice(5).trim() !== "[DONE]") {
     try {
@@ -259,20 +261,11 @@ function processPassthroughLine(ctx: StreamContext, line: string, trimmed: strin
         ctx.usage = mergeUsage(ctx.usage, extracted);
       }
 
-      // Finish chunk handling
-      const isFinishChunk = parsed.choices?.[0]?.finish_reason;
-      if (isFinishChunk && !hasValidUsage(parsed.usage)) {
-        const estimated = estimateUsage(ctx.body, ctx.totalContentLength, FORMATS.OPENAI);
-        parsed.usage = filterUsageForFormat(estimated, FORMATS.OPENAI);
-        output = `data: ${JSON.stringify(parsed)}\n`;
-        ctx.usage = estimated;
-        injectedUsage = true;
-      } else if (isFinishChunk && ctx.usage) {
-        const buffered = addBufferToUsage(ctx.usage);
-        parsed.usage = filterUsageForFormat(buffered, FORMATS.OPENAI);
-        output = `data: ${JSON.stringify(parsed)}\n`;
-        injectedUsage = true;
-      } else if (idFixed || fieldsInjected) {
+      // Passthrough forwards the upstream's own usage untouched: injecting an
+      // estimate into the finish chunk showed the client a made-up number even
+      // when the real one arrived in the next chunk. settleStream estimates for
+      // our own accounting when the upstream never sends one.
+      if (idFixed || fieldsInjected) {
         output = `data: ${JSON.stringify(parsed)}\n`;
         injectedUsage = true;
       }

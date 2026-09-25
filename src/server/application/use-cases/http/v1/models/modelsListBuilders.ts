@@ -8,6 +8,7 @@ import { fetchCompatibleModelIds } from "./compatibleModelFetch";
 import { LIVE_MODEL_RESOLVERS, type ConnectionRecord } from "./liveModelResolvers";
 import {
   LLM_KIND,
+  MODEL_CREATED,
   comboMatchesKinds,
   modelKind,
   providerMatchesKinds,
@@ -25,6 +26,7 @@ export function buildComboEntries(
     const entry: Record<string, unknown> = {
       id: combo.name,
       object: "model",
+      created: MODEL_CREATED,
       owned_by: "combo",
     };
     if (combo.kind === "webSearch" || combo.kind === "webFetch" || combo.kind === "smart") {

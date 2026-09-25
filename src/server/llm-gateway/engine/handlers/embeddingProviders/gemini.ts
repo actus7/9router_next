@@ -32,7 +32,7 @@ export default {
       ...(hasOutputDimensionality ? { outputDimensionality } : {}),
     };
   },
-  normalize: (responseBody: Record<string, unknown>, model: string) => {
+  normalize: (responseBody: Record<string, unknown>, model: string, { encoding_format }: { encoding_format?: unknown } = {}) => {
     if (responseBody.object === "list" && Array.isArray(responseBody.data)) return responseBody;
     let items: Record<string, unknown>[] = [];
     if (Array.isArray(responseBody.embeddings)) {
@@ -43,6 +43,10 @@ export default {
       }));
     } else if ((responseBody.embedding as Record<string, unknown>)?.values) {
       items = [{ object: "embedding", index: 0, embedding: (responseBody.embedding as Record<string, unknown>).values }];
+    }
+    // Gemini has no encoding option; OpenAI's base64 is the raw float32 bytes (little-endian, as on every JS host we run).
+    if (encoding_format === "base64") {
+      items = items.map((item) => ({ ...item, embedding: Buffer.from(new Float32Array(item.embedding as number[]).buffer).toString("base64") }));
     }
     return {
       object: "list",

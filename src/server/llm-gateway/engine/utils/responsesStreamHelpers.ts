@@ -49,3 +49,25 @@ export function formatIncompleteOpenAIResponsesStreamFailure() {
     }
   }, FORMATS.OPENAI_RESPONSES);
 }
+
+/**
+ * What to send when the upstream dies mid-stream (stall timeout, reset), in
+ * the client's own dialect. Closing the stream quietly made a truncated answer
+ * look like a finished one: the OpenAI SDK only raises on a `data: {"error":…}`
+ * line and the Anthropic SDK only on `event: error`.
+ */
+export function abortTerminalFor(sourceFormat: string): (() => Uint8Array) | null {
+  const message = "upstream stream interrupted before completion";
+  if (sourceFormat === FORMATS.OPENAI_RESPONSES) return buildAbortedResponsesTerminalBytes;
+  if (sourceFormat === FORMATS.OPENAI) {
+    return () => sharedEncoder.encode(
+      `data: ${JSON.stringify({ error: { message, type: "server_error", code: "stream_interrupted" } })}\n\ndata: [DONE]\n\n`,
+    );
+  }
+  if (sourceFormat === FORMATS.CLAUDE) {
+    return () => sharedEncoder.encode(
+      `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message } })}\n\n`,
+    );
+  }
+  return null;
+}

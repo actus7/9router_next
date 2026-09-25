@@ -45,6 +45,11 @@ export function matchSynapseDeterministic(text: string, level: string): string |
   if (!norm || norm.length > 120) {
     return null;
   }
+  // O engine responde à primeira frase que casa: "oi. qual a capital da
+  // França?" virava só "Olá!". Mais de uma frase nunca é trivial.
+  if (norm.split(/[!.;?]+/).filter((s) => s.trim()).length > 1) {
+    return null;
+  }
   const bot = level === "full" ? getFullBot() : getLiteBot();
   return bot.transform(norm);
 }
@@ -104,19 +109,21 @@ export function trySynapseIntercept(params: SynapseInterceptParams): SynapseResu
     const text = extractText(lastMsg, contents !== null);
     if (!text) return null;
 
-    // 6. SEM tools no request
-    const tools = body.tools;
-    const functions = body.functions;
-    if (Array.isArray(tools) && tools.length > 0) return null;
-    if (Array.isArray(functions) && functions.length > 0) return null;
-    // gemini: body.tools com functionDeclarations também cai aqui
-    if (tools && typeof tools === "object" && !Array.isArray(tools)) {
-      const toolObj = tools as Record<string, unknown>;
-      if (Array.isArray(toolObj.functionDeclarations) && toolObj.functionDeclarations.length > 0) return null;
-    }
+    // 6. Tools presentes não bloqueiam: o chat manda `tools` sempre que a
+    // conversa tem plugins ligados, não porque o turno precise delas. Só um
+    // pedido que OBRIGA uma tool deixa de ser uma saudação trivial.
+    if (forcesToolCall(body)) return null;
 
     // 7. SEM atividade de tool no histórico
     if (hasToolActivity(msgList, contents !== null)) return null;
+
+    // 7b. "ok"/"certo" depois de uma pergunta do assistente é resposta a ela
+    // ("Quer que eu inclua compressão?" → "ok"), não um ack para agradecer.
+    const prevMsg = msgList[msgList.length - 2] as Record<string, unknown> | undefined;
+    if (prevMsg && (prevMsg.role === "assistant" || prevMsg.role === "model")) {
+      const prevText = extractText(prevMsg, contents !== null);
+      if (prevText?.trim().endsWith("?")) return null;
+    }
 
     // 8. Match determinístico
     const match = matchSynapseDeterministic(text, level || "lite");
@@ -174,6 +181,18 @@ function extractText(msg: Record<string, unknown>, isGemini: boolean): string | 
   }
 
   return null;
+}
+
+/** tool_choice / function_call / toolConfig que exigem uma chamada de tool. */
+function forcesToolCall(body: Record<string, unknown>): boolean {
+  const choice = body.tool_choice ?? body.function_call;
+  if (choice && typeof choice === "object") {
+    const type = (choice as Record<string, unknown>).type;
+    return type !== "auto" && type !== "none";
+  }
+  if (choice === "required" || choice === "any") return true;
+  const mode = ((body.toolConfig as Record<string, unknown> | undefined)?.functionCallingConfig as Record<string, unknown> | undefined)?.mode;
+  return mode === "ANY";
 }
 
 /** Verifica se há atividade de tool em qualquer mensagem do histórico. */

@@ -7,6 +7,7 @@
 import { getAdapter } from "./driver";
 import { currentTenantId } from "./tenant";
 import { stringifyJson, parseJson } from "./helpers/jsonCol";
+import { invalidateSettingsCache } from "./repos/settingsRepo";
 
 // Export/import full DB
 export async function exportDb(): Promise<Record<string, unknown>> {
@@ -170,6 +171,7 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
       await db.run(`INSERT INTO kv(userId, scope, key, value) VALUES(?, 'pricing', ?, ?) ON CONFLICT(userId, scope, key) DO UPDATE SET value = excluded.value`, [userId, provider, stringifyJson(models || {})]);
     }
   });
+  invalidateSettingsCache(userId);
 
   return await exportDb();
 }

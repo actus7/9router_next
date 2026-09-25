@@ -6,7 +6,7 @@ import { ERROR_TYPES, DEFAULT_ERROR_MESSAGES } from "../config/errorConfig";
  * @param {string} message - Error message
  * @returns {object} Error response object
  */
-function buildErrorBody(statusCode: number, message: string) {
+export function buildErrorBody(statusCode: number, message: string) {
   const errorInfo = ERROR_TYPES[statusCode as keyof typeof ERROR_TYPES] || 
     (statusCode >= 500 
       ? { type: "server_error", code: "internal_server_error" }
@@ -37,12 +37,50 @@ export function errorResponse(statusCode: number, message: string) {
   });
 }
 
+/** Anthropic `error.type` for an HTTP status (docs: api/errors). */
+function anthropicErrorType(statusCode: number): string {
+  switch (statusCode) {
+    case 400: return "invalid_request_error";
+    case 401: return "authentication_error";
+    case 403: return "permission_error";
+    case 404: return "not_found_error";
+    case 413: return "request_too_large";
+    case 429: return "rate_limit_error";
+    case 503:
+    case 529: return "overloaded_error";
+    default: return statusCode >= 500 ? "api_error" : "invalid_request_error";
+  }
+}
+
+export function anthropicErrorBody(statusCode: number, message: string) {
+  return { type: "error", error: { type: anthropicErrorType(statusCode), message } };
+}
+
 /**
- * Write error to SSE stream (for streaming)
- * @param {WritableStreamDefaultWriter} writer - Stream writer
- * @param {number} statusCode - HTTP status code
- * @param {string} message - Error message
+ * Re-shape an OpenAI-style error Response into Anthropic's envelope, keeping
+ * status and headers (Retry-After). Applied once at the /v1/messages boundary
+ * instead of threading sourceFormat through every error site: errors come from
+ * the route wrapper, chat.ts, chatCore and the streaming guards alike, and the
+ * SDK classifies failures by `error.type`, so one missed site is a wrong class.
  */
+export async function toAnthropicErrorResponse(response: Response): Promise<Response> {
+  if (response.ok || !(response.headers.get("content-type") || "").includes("application/json")) return response;
+  let body: { type?: string; error?: unknown; message?: unknown };
+  try {
+    body = await response.clone().json();
+  } catch {
+    return response;
+  }
+  if (body?.type === "error") return response;
+  const err = body?.error;
+  const message = typeof err === "string" ? err
+    : (err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string") ? (err as { message: string }).message
+    : typeof body?.message === "string" ? body.message
+    : DEFAULT_ERROR_MESSAGES[response.status as keyof typeof DEFAULT_ERROR_MESSAGES] || "An error occurred";
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  return new Response(JSON.stringify(anthropicErrorBody(response.status, message)), { status: response.status, statusText: response.statusText, headers });
+}
 
 /**
  * Parse upstream provider error response
@@ -112,7 +150,7 @@ export function unavailableResponse(statusCode: number, message: string, retryAf
   const retryAfterSec = Math.max(Math.ceil((new Date(retryAfter).getTime() - Date.now()) / 1000), 1);
   const msg = `${message} (${retryAfterHuman})`;
   return new Response(
-    JSON.stringify({ error: { message: msg } }),
+    JSON.stringify(buildErrorBody(statusCode, msg)),
     {
       status: statusCode,
       headers: {

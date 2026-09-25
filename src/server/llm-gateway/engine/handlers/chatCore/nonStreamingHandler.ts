@@ -1,8 +1,9 @@
 ﻿import { FORMATS } from "../../translator/formats";
 import { needsTranslation } from "../../translator/index";
-import { fromOpenAIFinish } from "../../translator/concerns/finishReason";
+import { fromOpenAIFinish, toOpenAIFinish } from "../../translator/concerns/finishReason";
+import { toOpenAIUsage } from "../../translator/concerns/usage";
 import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai";
-import { addBufferToUsage, filterUsageForFormat } from "../../utils/usageTracking";
+import { filterUsageForFormat } from "../../utils/usageTracking";
 import { createErrorResult } from "../../utils/error";
 import { HTTP_STATUS } from "../../config/runtimeConfig";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler";
@@ -59,7 +60,9 @@ function openAICompletionToClaudeMessage(responseBody: JsonObject): JsonObject {
     role: "assistant",
     model: responseBody.model || "unknown",
     content,
-    stop_reason: fromOpenAIFinish(choice.finish_reason as string, FORMATS.CLAUDE),
+    // Some providers answer tool calls with "stop"; Anthropic clients only run
+    // tools when stop_reason says so.
+    stop_reason: content.some((b) => b.type === "tool_use") ? "tool_use" : fromOpenAIFinish(choice.finish_reason as string, FORMATS.CLAUDE),
     stop_sequence: null,
     usage: {
       input_tokens: (usage.prompt_tokens as number) || (usage.input_tokens as number) || 0,
@@ -126,14 +129,17 @@ function openAICompletionToResponses(responseBody: JsonObject, customToolNames: 
   }
 
   const usage = (responseBody.usage as JsonObject) || {};
-  const status = choice.finish_reason === "tool_calls" ? "completed" : (choice.finish_reason === "stop" ? "completed" : (choice.finish_reason || "completed"));
+  // Responses has no "length" status: a cut-off reply is `incomplete` with the reason.
+  const incompleteReason = choice.finish_reason === "length" ? "max_output_tokens"
+    : choice.finish_reason === "content_filter" ? "content_filter" : null;
 
   return {
     id: `resp_${responseBody.id || ""}`.replace(/^resp_chatcmpl-/, "resp_"),
     object: "response",
     created_at: responseBody.created || Math.floor(Date.now() / 1000),
     model: responseBody.model || "unknown",
-    status,
+    status: incompleteReason ? "incomplete" : "completed",
+    ...(incompleteReason ? { incomplete_details: { reason: incompleteReason } } : {}),
     background: false,
     error: null,
     output,
@@ -198,7 +204,7 @@ function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: s
     if (toolCalls.length > 0) message.tool_calls = toolCalls;
     if (!message.content && !message.tool_calls) message.content = "";
 
-    let finishReason = ((candidate.finishReason as string) || "stop").toLowerCase();
+    let finishReason = toOpenAIFinish((candidate.finishReason as string) || "STOP", FORMATS.GEMINI);
     if (finishReason === "stop" && toolCalls.length > 0) finishReason = "tool_calls";
 
     const result: JsonObject = {
@@ -256,9 +262,7 @@ function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: s
     if (toolCalls.length > 0) message.tool_calls = toolCalls;
     if (!message.content && !message.tool_calls) message.content = "";
 
-    let finishReason = (responseBody.stop_reason as string) || "stop";
-    if (finishReason === "end_turn") finishReason = "stop";
-    if (finishReason === "tool_use") finishReason = "tool_calls";
+    const finishReason = toOpenAIFinish(responseBody.stop_reason as string, FORMATS.CLAUDE);
 
     const result: JsonObject = {
       id: `chatcmpl-${responseBody.id || Date.now()}`,
@@ -268,14 +272,8 @@ function translateNonStreamingResponse(responseBody: JsonObject, targetFormat: s
       choices: [{ index: 0, message, finish_reason: finishReason }]
     };
 
-    if (responseBody.usage) {
-      const usage = responseBody.usage as JsonObject;
-      result.usage = {
-        prompt_tokens: (usage.input_tokens as number) || 0,
-        completion_tokens: (usage.output_tokens as number) || 0,
-        total_tokens: ((usage.input_tokens as number) || 0) + ((usage.output_tokens as number) || 0)
-      };
-    }
+    // Same math as the streaming path: cache reads/writes are prompt tokens.
+    if (responseBody.usage) result.usage = toOpenAIUsage(responseBody.usage, "claude");
     return result;
   }
 
@@ -382,7 +380,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   }
 
   if (translatedResponse?.usage) {
-    translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage as Record<string, unknown>), sourceFormat);
+    translatedResponse.usage = filterUsageForFormat(translatedResponse.usage as Record<string, unknown>, sourceFormat);
   }
 
   // Strip reasoning_content only when content is non-empty.

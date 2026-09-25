@@ -1,4 +1,4 @@
-import { DEFAULT_MAX_TOKENS, DEFAULT_MIN_TOKENS } from "../../config/runtimeConfig";
+import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig";
 
 /**
  * Adjust max_tokens based on request context
@@ -10,14 +10,9 @@ import { DEFAULT_MAX_TOKENS, DEFAULT_MIN_TOKENS } from "../../config/runtimeConf
  * @returns {number} Adjusted max_tokens
  */
 export function adjustMaxTokens(body: Record<string, unknown>, ceiling = DEFAULT_MAX_TOKENS) {
+  // The client's limit is a budget it pays for; only fill one when absent.
+  // (A tools-only bump to 32000 used to live here, undocumented by any test.)
   let maxTokens = (body.max_tokens as number | undefined) || DEFAULT_MAX_TOKENS;
-
-  // Auto-increase for tool calling to prevent truncated arguments (min never above max)
-  if (body.tools && Array.isArray(body.tools) && body.tools.length > 0) {
-    if (maxTokens < DEFAULT_MIN_TOKENS) {
-      maxTokens = DEFAULT_MIN_TOKENS;
-    }
-  }
 
   // Ensure max_tokens > thinking.budget_tokens (Claude API requirement)
   // Claude API requires strictly greater, so add buffer instead of using the

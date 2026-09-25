@@ -27,6 +27,10 @@ export function claudeToOpenAIRequest(model: string, body: Record<string, unknow
   if (body.temperature !== undefined) {
     result.temperature = body.temperature;
   }
+  if (body.top_p !== undefined) result.top_p = body.top_p;
+  if (Array.isArray(body.stop_sequences) && body.stop_sequences.length > 0) {
+    result.stop = body.stop_sequences;
+  }
 
   // System message
   if (body.system) {
@@ -78,6 +82,9 @@ export function claudeToOpenAIRequest(model: string, body: Record<string, unknow
   // Tool choice
   if (body.tool_choice) {
     result.tool_choice = convertToolChoice(body.tool_choice);
+    if ((body.tool_choice as Record<string, unknown>).disable_parallel_tool_use === true) {
+      result.parallel_tool_calls = false;
+    }
   }
 
   if (body.reasoning_effort !== undefined) {
@@ -160,6 +167,7 @@ function convertClaudeMessage(msg: Record<string, unknown>): Record<string, unkn
     const parts: Record<string, unknown>[] = [];
     const toolCalls: Record<string, unknown>[] = [];
     const toolResults: Record<string, unknown>[] = [];
+    const toolImages: Record<string, unknown>[] = [];
 
     for (const block of msg.content as Record<string, unknown>[]) {
       switch (block.type) {
@@ -167,17 +175,11 @@ function convertClaudeMessage(msg: Record<string, unknown>): Record<string, unkn
           parts.push({ type: OPENAI_BLOCK.TEXT, text: block.text });
           break;
 
-        case CLAUDE_BLOCK.IMAGE:
-          if ((block.source as Record<string, unknown>)?.type === "base64") {
-            const source = block.source as Record<string, unknown>;
-            parts.push({
-              type: OPENAI_BLOCK.IMAGE_URL,
-              image_url: {
-                url: encodeDataUri(source.media_type as string, source.data as string)
-              }
-            });
-          }
+        case CLAUDE_BLOCK.IMAGE: {
+          const imagePart = claudeImageToOpenAI(block);
+          if (imagePart) parts.push(imagePart);
           break;
+        }
 
         case CLAUDE_BLOCK.TOOL_USE:
           toolCalls.push({
@@ -190,18 +192,25 @@ function convertClaudeMessage(msg: Record<string, unknown>): Record<string, unkn
           });
           break;
 
-        case CLAUDE_BLOCK.TOOL_RESULT:
+        case CLAUDE_BLOCK.TOOL_RESULT: {
           let resultContent = "";
           if (typeof block.content === "string") {
             resultContent = block.content;
           } else if (Array.isArray(block.content)) {
-            resultContent = (block.content as Record<string, unknown>[])
+            const items = block.content as Record<string, unknown>[];
+            // OpenAI tool messages are text-only. Images (Claude Code
+            // screenshots) follow as a user turn instead of being serialized
+            // as base64 text, which cost the whole image in tokens.
+            const images = items.map(claudeImageToOpenAI).filter((p): p is Record<string, unknown> => !!p);
+            toolImages.push(...images);
+            resultContent = items
               .filter((c: Record<string, unknown>) => c.type === CLAUDE_BLOCK.TEXT)
               .map((c: Record<string, unknown>) => c.text)
-              .join("\n") || JSON.stringify(block.content);
+              .join("\n") || (images.length ? "[image attached below]" : JSON.stringify(block.content));
           } else if (block.content) {
             resultContent = JSON.stringify(block.content);
           }
+          if (block.is_error === true) resultContent = `Error: ${resultContent}`;
           
           toolResults.push({
             role: ROLE.TOOL,
@@ -209,13 +218,15 @@ function convertClaudeMessage(msg: Record<string, unknown>): Record<string, unkn
             content: resultContent
           });
           break;
+        }
       }
     }
 
     // If has tool results, return array of tool messages
     if (toolResults.length > 0) {
-      if (parts.length > 0) {
-        return [...toolResults, { role: ROLE.USER, content: collapseTextParts(parts) }];
+      const userParts = [...toolImages, ...parts];
+      if (userParts.length > 0) {
+        return [...toolResults, { role: ROLE.USER, content: collapseTextParts(userParts) }];
       }
       return toolResults;
     }
@@ -247,6 +258,18 @@ function convertClaudeMessage(msg: Record<string, unknown>): Record<string, unkn
   return null;
 }
 
+function claudeImageToOpenAI(block: Record<string, unknown>): Record<string, unknown> | null {
+  if (block?.type !== CLAUDE_BLOCK.IMAGE) return null;
+  const source = block.source as Record<string, unknown> | undefined;
+  if (source?.type === "base64") {
+    return { type: OPENAI_BLOCK.IMAGE_URL, image_url: { url: encodeDataUri(source.media_type as string, source.data as string) } };
+  }
+  if (source?.type === "url" && typeof source.url === "string") {
+    return { type: OPENAI_BLOCK.IMAGE_URL, image_url: { url: source.url } };
+  }
+  return null;
+}
+
 // Convert tool choice
 function convertToolChoice(choice: unknown): unknown {
   if (!choice) return "auto";
@@ -256,6 +279,7 @@ function convertToolChoice(choice: unknown): unknown {
   switch (choiceObj.type) {
     case "auto": return "auto";
     case "any": return "required";
+    case "none": return "none";
     case "tool": return { type: OPENAI_BLOCK.FUNCTION, function: { name: (choiceObj as Record<string, unknown>).name } };
     default: return "auto";
   }

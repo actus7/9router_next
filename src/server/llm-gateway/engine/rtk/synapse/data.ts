@@ -36,6 +36,17 @@ const GREETING_RESPONSES = [
   "Oi! Precisa de alguma ajuda?",
 ];
 
+// Cliente que escreve em inglês recebe resposta em inglês — "hello" → "Olá!"
+// trocava o idioma da conversa.
+const GREETING_RESPONSES_EN = [
+  "Hello! How can I help?",
+  "Hi! What can I do for you today?",
+];
+
+const FAREWELL_RESPONSES_EN = ["Goodbye! Have a great day.", "Bye! Reach out anytime."];
+
+const THANKS_RESPONSES_EN = ["You're welcome! Happy to help.", "Anytime! Let me know if you need anything else."];
+
 const FAREWELL_RESPONSES = [
   "Até mais! Tenha um ótimo dia.",
   "Tchau! Precisando, é só chamar.",
@@ -128,19 +139,19 @@ export const synapseDeterministicData: SynapseDeterministicData = {
       key: "hello",
       priority: 10,
       level: "lite",
-      rules: [{ pattern: /^hello[!.?]*$/i, responses: GREETING_RESPONSES }],
+      rules: [{ pattern: /^hello[!.?]*$/i, responses: GREETING_RESPONSES_EN }],
     },
     {
       key: "hi",
       priority: 10,
       level: "lite",
-      rules: [{ pattern: /^hi[!.?]*$/i, responses: GREETING_RESPONSES }],
+      rules: [{ pattern: /^hi[!.?]*$/i, responses: GREETING_RESPONSES_EN }],
     },
     {
       key: "hey",
       priority: 10,
       level: "lite",
-      rules: [{ pattern: /^hey[!.?]*$/i, responses: GREETING_RESPONSES }],
+      rules: [{ pattern: /^hey[!.?]*$/i, responses: GREETING_RESPONSES_EN }],
     },
     {
       key: "bom dia",
@@ -213,13 +224,13 @@ export const synapseDeterministicData: SynapseDeterministicData = {
       key: "bye",
       priority: 10,
       level: "lite",
-      rules: [{ pattern: /^bye[!.?]*$/i, responses: FAREWELL_RESPONSES }],
+      rules: [{ pattern: /^bye[!.?]*$/i, responses: FAREWELL_RESPONSES_EN }],
     },
     {
       key: "goodbye",
       priority: 10,
       level: "lite",
-      rules: [{ pattern: /^goodbye[!.?]*$/i, responses: FAREWELL_RESPONSES }],
+      rules: [{ pattern: /^goodbye[!.?]*$/i, responses: FAREWELL_RESPONSES_EN }],
     },
     {
       key: "falou",
@@ -253,19 +264,19 @@ export const synapseDeterministicData: SynapseDeterministicData = {
       key: "thanks",
       priority: 9,
       level: "lite",
-      rules: [{ pattern: /^thanks[!.?]*$/i, responses: THANKS_RESPONSES }],
+      rules: [{ pattern: /^thanks[!.?]*$/i, responses: THANKS_RESPONSES_EN }],
     },
     {
       key: "thank you",
       priority: 9,
       level: "lite",
-      rules: [{ pattern: /^thank you[!.?]*$/i, responses: THANKS_RESPONSES }],
+      rules: [{ pattern: /^thank you[!.?]*$/i, responses: THANKS_RESPONSES_EN }],
     },
     {
       key: "thx",
       priority: 9,
       level: "lite",
-      rules: [{ pattern: /^thx[!.?]*$/i, responses: THANKS_RESPONSES }],
+      rules: [{ pattern: /^thx[!.?]*$/i, responses: THANKS_RESPONSES_EN }],
     },
     {
       key: "agradecido",

@@ -13,7 +13,7 @@ interface EmbeddingAdapter {
   buildUrl: (model: string, creds: Record<string, unknown>, ctx?: { input?: unknown }) => string;
   buildHeaders: (creds: Record<string, unknown>, ctx?: { input?: unknown }) => Record<string, string>;
   buildBody: (model: string, params: Record<string, unknown>) => Record<string, unknown>;
-  normalize: (responseBody: Record<string, unknown>, model: string) => Record<string, unknown>;
+  normalize: (responseBody: Record<string, unknown>, model: string, opts?: { encoding_format?: unknown }) => Record<string, unknown>;
 }
 
 const ADAPTERS: Record<string, EmbeddingAdapter> = {

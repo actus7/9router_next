@@ -8,6 +8,7 @@ import {
   FEATURED_LIBRARY_SKILLS,
   formatInstallCount,
   getSkillLibrary,
+  SKILL_LIBRARIES,
 } from "@/shared/harness/skillLibraries";
 
 describe("skillLibraries", () => {
@@ -15,6 +16,21 @@ describe("skillLibraries", () => {
     expect(getSkillLibrary("anthropics")?.source).toBe("anthropics/skills");
     expect(getSkillLibrary("superpowers")?.source).toBe("obra/superpowers");
     expect(getSkillLibrary("vercel")?.owner).toBe("vercel-labs");
+    expect(getSkillLibrary("mattpocock")?.source).toBe("mattpocock/skills");
+    expect(getSkillLibrary("awesome-copilot")?.source).toBe("github/awesome-copilot");
+    expect(getSkillLibrary("remotion")?.source).toBe("remotion-dev/skills");
+    expect(getSkillLibrary("cloudflare")?.source).toBe("cloudflare/skills");
+    expect(getSkillLibrary("firecrawl")?.source).toBe("firecrawl/cli");
+  });
+
+  it("has no duplicate library or featured skill ids", () => {
+    const libraryIds = SKILL_LIBRARIES.map((library) => library.id);
+    expect(new Set(libraryIds).size).toBe(libraryIds.length);
+    const featuredIds = FEATURED_LIBRARY_SKILLS.map((skill) => skill.id);
+    expect(new Set(featuredIds).size).toBe(featuredIds.length);
+    for (const skill of FEATURED_LIBRARY_SKILLS) {
+      expect(getSkillLibrary(skill.libraryId ?? "")?.source ?? skill.source).toBe(skill.source);
+    }
   });
 
   it("formats install counts for display", () => {

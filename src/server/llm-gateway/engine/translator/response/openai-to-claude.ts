@@ -117,7 +117,8 @@ function ensureMessageStart(chunk: Record<string, unknown>, state: Record<string
       content: [],
       stop_reason: null,
       stop_sequence: null,
-      usage: { input_tokens: 0, output_tokens: 0 }
+      // trackChunkUsage already ran on this chunk: some upstreams send usage first.
+      usage: { input_tokens: (state.usage as { input_tokens?: number } | undefined)?.input_tokens ?? 0, output_tokens: 0 }
     }
   });
 }
@@ -216,6 +217,10 @@ function handleToolCallDeltas(delta: Record<string, unknown>, state: Record<stri
 
 // Handle finish reason — emit buffered tool args, stop blocks, emit message_delta + message_stop
 function handleFinish(choice: Record<string, unknown>, state: Record<string, unknown>, results: Record<string, unknown>[]) {
+  // Some upstreams repeat finish_reason; a second message_stop after the
+  // first one is a protocol error for the Anthropic SDK.
+  if (state.finished) return;
+  state.finished = true;
   stopThinkingBlock(state, results);
   stopTextBlock(state, results);
 
@@ -254,7 +259,28 @@ function handleFinish(choice: Record<string, unknown>, state: Record<string, unk
 
 // Convert OpenAI stream chunk to Claude format
 function openaiToClaudeResponse(chunk: Record<string, unknown>, state: Record<string, unknown>) {
-  if (!chunk || !(chunk.choices as unknown[])?.[0]) return null;
+  // Flush: an upstream that ends without finish_reason (truncated, or a
+  // provider that just stops) still has to close the message, or the client
+  // waits for a message_stop that never comes.
+  if (!chunk) {
+    if (!state.messageStartSent || state.finished) return null;
+    const results: Record<string, unknown>[] = [];
+    handleFinish({ finish_reason: state.toolCalls ? "tool_calls" : "stop" }, state, results);
+    return results;
+  }
+
+  // A mid-stream error has no choices; dropping it made a failed answer look
+  // like a short one.
+  if (chunk.error && !(chunk.choices as unknown[])?.length) {
+    state.finished = true;
+    const err = chunk.error as Record<string, unknown>;
+    return [{
+      type: "error",
+      error: { type: "api_error", message: String(err?.message || "Upstream error") },
+    }];
+  }
+
+  if (!(chunk.choices as unknown[])?.[0]) return null;
 
   const results: Record<string, unknown>[] = [];
   const choice = (chunk.choices as Record<string, unknown>[])[0];

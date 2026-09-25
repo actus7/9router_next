@@ -116,6 +116,29 @@ export async function handleChatCore({
     clientRawRequest,
   });
 
+  // Per-request opt-out: client can bypass all token savers via header
+  const tokenSaverEnabled =
+    (clientRawRequest?.headers as Record<string, string> | undefined)?.[
+      TOKEN_SAVER_HEADER
+    ]?.toLowerCase() !== "off";
+
+  // Synapse: deterministic zero-cost replies for trivial pt-BR patterns.
+  // Short-circuits the provider call entirely — never when a tool is forced or
+  // the conversation already has tool activity.
+  // Runs before the logger and the body translation: neither is needed here.
+  const synapseResponse = trySynapseIntercept({
+    body,
+    sourceFormat,
+    stream,
+    model,
+    provider,
+    enabled: tokenSaverEnabled && (synapseEnabled ?? false),
+    level: synapseLevel,
+    log,
+    reqTag,
+  });
+  if (synapseResponse) return synapseResponse;
+
   const reqLogger = await createRequestLogger(
     sourceFormat,
     targetFormat,
@@ -178,27 +201,6 @@ export async function handleChatCore({
   });
 
   applyTtsCleanup({ alias, model, translatedBody });
-
-  // Per-request opt-out: client can bypass all token savers via header
-  const tokenSaverEnabled =
-    (clientRawRequest?.headers as Record<string, string> | undefined)?.[
-      TOKEN_SAVER_HEADER
-    ]?.toLowerCase() !== "off";
-
-  // Synapse: deterministic zero-cost replies for trivial pt-BR patterns.
-  // Short-circuits the provider call entirely — only fires on tools-free chat.
-  const synapseResponse = trySynapseIntercept({
-    body,
-    sourceFormat,
-    stream,
-    model,
-    provider,
-    enabled: tokenSaverEnabled && (synapseEnabled ?? false),
-    level: synapseLevel,
-    log,
-    reqTag,
-  });
-  if (synapseResponse) return synapseResponse;
 
   const saverResult = await runTokenSavers({
     translatedBody,

@@ -152,9 +152,25 @@ function mergeWithDefaults(raw: Record<string, unknown>): Settings {
   return merged;
 }
 
+// ponytail: per-process memo with a short TTL. A gateway request read settings
+// ~5 times before dispatch, one Neon round trip each. Writes through this repo
+// (and the backup import) invalidate; another instance's write is seen within
+// SETTINGS_TTL_MS. Per-request scoping instead if that window ever matters.
+const SETTINGS_TTL_MS = 2000;
+const settingsMemo = new Map<string, { at: number; value: Promise<Settings> }>();
+
+export function invalidateSettingsCache(userId: string = currentTenantId()): void {
+  settingsMemo.delete(userId);
+}
+
 export async function getSettings(): Promise<Settings> {
-  const raw: Record<string, unknown> = await readRaw();
-  return mergeWithDefaults(raw);
+  const userId = currentTenantId();
+  const hit = settingsMemo.get(userId);
+  if (hit && Date.now() - hit.at < SETTINGS_TTL_MS) return structuredClone(await hit.value);
+  const value = readRaw().then(mergeWithDefaults);
+  settingsMemo.set(userId, { at: Date.now(), value });
+  value.catch(() => settingsMemo.delete(userId));
+  return structuredClone(await value);
 }
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
@@ -162,6 +178,7 @@ export async function updateSettings(updates: Record<string, unknown>): Promise<
   const db = await getAdapter();
   const userId = currentTenantId();
   let next: Settings;
+  invalidateSettingsCache(userId);
   await db.transaction(async () => {
     const row = (await db.get(`SELECT data FROM settings WHERE userId = ?`, [userId])) as { data: string } | undefined;
     const current: Record<string, unknown> = row ? (parseJson(row.data, {}) as Record<string, unknown>) : {};
@@ -171,6 +188,7 @@ export async function updateSettings(updates: Record<string, unknown>): Promise<
       [userId, stringifyJson(next)],
     );
   });
+  invalidateSettingsCache(userId);
   return mergeWithDefaults(next!);
 }
 

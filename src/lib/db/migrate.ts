@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { TABLES, buildCreateTableSql } from "./schema";
 import {
   assertCredentialEncryptionPolicy,
@@ -51,7 +52,22 @@ async function createTable(
   }
 }
 
-async function syncSchema(adapter: DbAdapter): Promise<void> {
+/**
+ * Fingerprint of what `syncSchema` would converge the database to.
+ *
+ * Hashes the generated CREATE statements alongside the declarations, so a
+ * change to `buildCreateTableSql` counts as a schema change too.
+ */
+function schemaHash(): string {
+  const declared = Object.entries(TABLES).map(([name, def]) => [buildCreateTableSql(name, def), def]);
+  return createHash("sha256").update(JSON.stringify(declared)).digest("hex");
+}
+
+export const __test__ = { schemaHash };
+
+/** @returns false when some DDL failed and the sync must be retried next boot. */
+async function syncSchema(adapter: DbAdapter): Promise<boolean> {
+  let clean: boolean = true;
   for (const [tableName, def] of Object.entries(TABLES)) {
     await createTable(adapter, tableName, def);
 
@@ -79,6 +95,7 @@ async function syncSchema(adapter: DbAdapter): Promise<void> {
       } catch (e: unknown) {
         // Reachable when the new column is NOT NULL and the table already has
         // rows. Loud, not fatal: the app still boots on every other table.
+        clean = false;
         console.warn(`[DB][sync] add column ${tableName}.${colName} failed: ${(e as Error).message}`);
       }
     }
@@ -87,9 +104,26 @@ async function syncSchema(adapter: DbAdapter): Promise<void> {
       try {
         await adapter.exec(idx);
       } catch (e: unknown) {
+        clean = false;
         console.warn(`[DB][sync] index failed: ${(e as Error).message}`);
       }
     }
+  }
+  return clean;
+}
+
+/**
+ * Reads the instance keys this boot compares against. A fresh database has no
+ * `_meta` yet, which is the same answer as "nothing recorded".
+ */
+async function readBootMeta(adapter: DbAdapter): Promise<Map<string, string>> {
+  try {
+    const rows = (await adapter.all(
+      `SELECT key, value FROM _meta WHERE key IN ('schemaHash', 'appVersion')`,
+    )) as unknown as Array<{ key: string; value: string }>;
+    return new Map(rows.map((row) => [row.key, row.value]));
+  } catch {
+    return new Map();
   }
 }
 
@@ -97,7 +131,18 @@ export async function runMigrationOnce(adapter: DbAdapter): Promise<void> {
   if (_migratedAdapters.has(adapter)) return;
   _migratedAdapters.add(adapter);
 
-  await syncSchema(adapter);
+  // The full sync is ~90 sequential round trips and it blocks the first
+  // request of every cold instance, so it only runs when the declared schema
+  // differs from the one last synced. Concurrent cold starts may both sync:
+  // every statement is additive and idempotent, and both write the same hash.
+  // ponytail: a column dropped by hand is not re-added until schema.ts changes.
+  const meta: Map<string, string> = await readBootMeta(adapter);
+  const hash: string = schemaHash();
+  const writes: Array<[string, string]> = [];
+  if (meta.get("schemaHash") !== hash) {
+    // A failed DDL leaves the hash unrecorded, so the next boot retries it.
+    if (await syncSchema(adapter)) writes.push(["schemaHash", hash]);
+  }
 
   // Say it out loud on every boot when provider credentials are stored in the
   // clear. Running unencrypted is a supported mode — refusing to boot would
@@ -114,8 +159,10 @@ export async function runMigrationOnce(adapter: DbAdapter): Promise<void> {
   // Informational only — nothing branches on it, but it makes "which build
   // last touched this database" answerable from the database itself.
   const version: string = getAppVersion();
+  if (meta.get("appVersion") !== version) writes.push(["appVersion", version]);
+  if (writes.length === 0) return;
   await adapter.run(
-    `INSERT INTO _meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    ["appVersion", version],
+    `INSERT INTO _meta(key, value) VALUES${writes.map(() => "(?, ?)").join(", ")} ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    writes.flat(),
   );
 }

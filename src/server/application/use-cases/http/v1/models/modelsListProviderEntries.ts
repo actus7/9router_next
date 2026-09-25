@@ -3,6 +3,7 @@ import { capabilitiesFromServiceKind, getCapabilitiesForModel } from "@/server/l
 import { PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import {
   LLM_KIND,
+  MODEL_CREATED,
   inferKindFromUnknownModelId,
   type ProviderContext,
 } from "./modelsListTypes";
@@ -31,6 +32,7 @@ export function buildProviderModelEntries(
     const model: Record<string, unknown> = {
       id: `${outputAlias}/${modelId}`,
       object: "model",
+      created: MODEL_CREATED,
       owned_by: outputAlias,
     };
     // Live-catalog resolvers (kiro/qoder/github/clinepass) mostly only return
@@ -71,6 +73,7 @@ export function buildProviderModelEntries(
     entries.push({
       id: `${outputAlias}/search`,
       object: "model",
+      created: MODEL_CREATED,
       kind: "webSearch",
       owned_by: outputAlias,
     });
@@ -79,6 +82,7 @@ export function buildProviderModelEntries(
     entries.push({
       id: `${outputAlias}/fetch`,
       object: "model",
+      created: MODEL_CREATED,
       kind: "webFetch",
       owned_by: outputAlias,
     });
@@ -118,6 +122,7 @@ export function buildNoAuthWebEntries(
         entries.push({
           id: `${alias}/search`,
           object: "model",
+          created: MODEL_CREATED,
           kind: "webSearch",
           owned_by: alias,
         });
@@ -128,6 +133,7 @@ export function buildNoAuthWebEntries(
         entries.push({
           id: `${alias}/fetch`,
           object: "model",
+          created: MODEL_CREATED,
           kind: "webFetch",
           owned_by: alias,
         });

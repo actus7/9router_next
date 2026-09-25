@@ -7,10 +7,10 @@ vi.mock("@/lib/db/driver", () => ({ getAdapter: async () => ({
   transaction: async (fn: () => Promise<void>) => fn(),
 }) }));
 
-import { exportSettings, getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
+import { exportSettings, getSettings, invalidateSettingsCache, updateSettings } from "@/lib/db/repos/settingsRepo";
 
 describe("MetaBreak settings compatibility", () => {
-  beforeEach(() => { store.data = {}; });
+  beforeEach(() => { store.data = {}; invalidateSettingsCache(); });
   it("defaults to disabled", async () => {
     expect((await getSettings()).metaBreakEnabled).toBe(false);
   });

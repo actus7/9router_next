@@ -148,6 +148,53 @@ async function publicCredentials(providerId: string): Promise<CredentialsResult>
   };
 }
 
+function byLastUsed(direction: 1 | -1): (a: AuthConnection, b: AuthConnection) => number {
+  return (a, b) => {
+    if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
+    if (!a.lastUsedAt) return direction;
+    if (!b.lastUsedAt) return -direction;
+    return direction * (new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime());
+  };
+}
+
+/**
+ * The round-robin read-modify-write, and the only part of a pick that holds
+ * the selection lock. The connections are re-read inside it: the copy read
+ * before the lock may predate the bookkeeping the previous holder just wrote,
+ * and picking from it is how two concurrent requests both land on one account.
+ */
+async function pickRoundRobin(
+  providerId: string,
+  available: AuthConnection[],
+  stickyLimit: number,
+): Promise<AuthConnection> {
+  const release: () => void = await acquireSelectionLock(providerId);
+  try {
+    const availableIds: Set<string> = new Set(available.map((connection) => connection.id));
+    const fresh = (await getProviderConnections({ provider: providerId, isActive: true }) as AuthConnection[])
+      .filter((connection) => availableIds.has(connection.id));
+    const candidates: AuthConnection[] = fresh.length > 0 ? fresh : available;
+
+    const current = [...candidates].sort(byLastUsed(1))[0];
+    const currentCount: number = current?.consecutiveUseCount || 0;
+    if (current && current.lastUsedAt && currentCount < stickyLimit) {
+      await updateProviderConnection(current.id, {
+        lastUsedAt: new Date().toISOString(),
+        consecutiveUseCount: currentCount + 1
+      });
+      return current;
+    }
+    const oldest = [...candidates].sort(byLastUsed(-1))[0];
+    await updateProviderConnection(oldest.id, {
+      lastUsedAt: new Date().toISOString(),
+      consecutiveUseCount: 1
+    });
+    return oldest;
+  } finally {
+    release();
+  }
+}
+
 /**
  * Get provider credentials from localDb
  */
@@ -162,146 +209,112 @@ export async function getProviderCredentials(
     : (excludeConnectionIds ? new Set([excludeConnectionIds]) : new Set());
   const preferredConnectionId: string | null = options?.preferredConnectionId || null;
   const providerId: string = resolveProviderId(provider);
-  const releaseSelectionLock: () => void = await acquireSelectionLock(providerId);
 
-  try {
-    if (FREE_PROVIDERS[providerId]?.noAuth) return await publicCredentials(providerId);
+  if (FREE_PROVIDERS[providerId]?.noAuth) return await publicCredentials(providerId);
 
-    const connections = await getProviderConnections({ provider: providerId, isActive: true }) as AuthConnection[];
-    log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
+  // Independent reads, so they go out together; neither needs the lock.
+  const [connectionRows, rawSettings] = await Promise.all([
+    getProviderConnections({ provider: providerId, isActive: true }),
+    getSettings(),
+  ]);
+  const connections = connectionRows as AuthConnection[];
+  const settings = rawSettings as AuthSettings;
+  log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
-    if (connections.length === 0) {
-      // An account's own Kilo key always wins; with none, the free models are
-      // still reachable anonymously — which is what makes Kilo's router the
-      // credential-free default.
-      if (isAnonymousFreeModel(providerId, model)) return await publicCredentials(providerId);
-      log.warn("AUTH", `No credentials for ${provider}`);
-      return null;
-    }
-
-    const activeAvailability = await getActiveModelAvailability(connections.map((connection) => connection.id), model);
-    const availabilityByConnection = new Map(activeAvailability.map((availability) => [availability.connectionId, availability]));
-    const availableConnections = connections.filter((connection) => {
-      if (excludeSet.has(connection.id)) return false;
-      if (availabilityByConnection.has(connection.id)) return false;
-      return true;
-    });
-
-    log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
-    connections.forEach((connection) => {
-      const excluded: boolean = excludeSet.has(connection.id);
-      const availability = availabilityByConnection.get(connection.id);
-      const locked: boolean = Boolean(availability);
-      if (excluded || locked) {
-        const lockUntil = availability?.until;
-        log.debug("AUTH", `  → ${connection.id.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
-      }
-    });
-
-    if (availableConnections.length === 0) {
-      const lockedConns = connections.filter((connection) => availabilityByConnection.has(connection.id));
-      const expiries = lockedConns.map((connection) => availabilityByConnection.get(connection.id)?.until).filter((expiry): expiry is string => Boolean(expiry));
-      const earliest: string | null = expiries.sort()[0] || null;
-      if (earliest) {
-        // Report the error of the account that unlocks first, not of whichever
-        // account happened to sort first in the connection list.
-        const earliestConn = lockedConns.find(
-          (connection) => availabilityByConnection.get(connection.id)?.until === earliest
-        ) ?? lockedConns[0];
-        log.warn("AUTH", `${provider} | all ${connections.length} accounts locked for ${model || "all"} (${formatRetryAfter(earliest)}) | lastError=${earliestConn?.lastError?.slice(0, 50)}`);
-        return {
-          allRateLimited: true,
-          retryAfter: Date.parse(earliest),
-          retryAfterHuman: formatRetryAfter(earliest),
-          lastError: earliestConn?.lastError ?? undefined,
-          lastErrorCode: earliestConn?.errorCode ?? undefined
-        };
-      }
-      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
-      return null;
-    }
-
-    const settings = await getSettings() as AuthSettings;
-    const providerOverride: ProviderStrategy = settings.providerStrategies[providerId] || {};
-    const strategy: string = providerOverride.fallbackStrategy || settings.fallbackStrategy || "fill-first";
-
-    let connection: AuthConnection | undefined;
-    if (preferredConnectionId) {
-      connection = availableConnections.find((candidate) => candidate.id === preferredConnectionId);
-      if (connection) {
-        log.info("AUTH", `${provider} | pinned to ${connection.id?.slice(0, 8)} (${connection.name || connection.email || "unnamed"})`);
-      }
-    }
-    if (connection) {
-      // skip strategy
-    } else if (strategy === "round-robin") {
-      const stickyLimit: number = providerOverride.stickyRoundRobinLimit || settings.stickyRoundRobinLimit || 3;
-
-      const byRecency = [...availableConnections].sort((a, b) => {
-        if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
-        if (!a.lastUsedAt) return 1;
-        if (!b.lastUsedAt) return -1;
-        return new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime();
-      });
-
-      const current = byRecency[0];
-      const currentCount: number = current?.consecutiveUseCount || 0;
-
-      if (current && current.lastUsedAt && currentCount < stickyLimit) {
-        connection = current;
-        await updateProviderConnection(connection.id, {
-          lastUsedAt: new Date().toISOString(),
-          consecutiveUseCount: (connection.consecutiveUseCount || 0) + 1
-        });
-      } else {
-        const sortedByOldest = [...availableConnections].sort((a, b) => {
-          if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
-          if (!a.lastUsedAt) return -1;
-          if (!b.lastUsedAt) return 1;
-          return new Date(a.lastUsedAt).getTime() - new Date(b.lastUsedAt).getTime();
-        });
-
-        connection = sortedByOldest[0];
-
-        await updateProviderConnection(connection.id, {
-          lastUsedAt: new Date().toISOString(),
-          consecutiveUseCount: 1
-        });
-      }
-    } else {
-      connection = availableConnections[0];
-    }
-
-    const resolvedProxy = await resolveConnectionProxyConfig(connection.providerSpecificData || {}) as ResolvedProxyConfig;
-
-    return {
-      authType: connection.authType,
-      apiKey: connection.apiKey,
-      accessToken: connection.accessToken,
-      refreshToken: connection.refreshToken,
-      idToken: connection.idToken,
-      expiresAt: connection.expiresAt,
-      expiresIn: connection.expiresIn,
-      lastRefreshAt: connection.lastRefreshAt,
-      projectId: connection.projectId,
-      connectionName: connection.displayName || connection.name || connection.email || connection.id,
-      copilotToken: typeof connection.providerSpecificData?.copilotToken === "string" ? connection.providerSpecificData.copilotToken : undefined,
-      providerSpecificData: {
-        ...(connection.providerSpecificData || {}),
-        connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
-        connectionProxyUrl: resolvedProxy.connectionProxyUrl,
-        connectionNoProxy: resolvedProxy.connectionNoProxy,
-        connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
-        vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
-      },
-      connectionId: connection.id,
-      testStatus: connection.testStatus,
-      lastError: connection.lastError,
-      _connection: connection
-    };
-  } finally {
-    releaseSelectionLock();
+  if (connections.length === 0) {
+    // An account's own Kilo key always wins; with none, the free models are
+    // still reachable anonymously — which is what makes Kilo's router the
+    // credential-free default.
+    if (isAnonymousFreeModel(providerId, model)) return await publicCredentials(providerId);
+    log.warn("AUTH", `No credentials for ${provider}`);
+    return null;
   }
+
+  const activeAvailability = await getActiveModelAvailability(connections.map((connection) => connection.id), model);
+  const availabilityByConnection = new Map(activeAvailability.map((availability) => [availability.connectionId, availability]));
+  const availableConnections = connections.filter((connection) => {
+    if (excludeSet.has(connection.id)) return false;
+    if (availabilityByConnection.has(connection.id)) return false;
+    return true;
+  });
+
+  log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
+  connections.forEach((connection) => {
+    const excluded: boolean = excludeSet.has(connection.id);
+    const availability = availabilityByConnection.get(connection.id);
+    const locked: boolean = Boolean(availability);
+    if (excluded || locked) {
+      const lockUntil = availability?.until;
+      log.debug("AUTH", `  → ${connection.id.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
+    }
+  });
+
+  if (availableConnections.length === 0) {
+    const lockedConns = connections.filter((connection) => availabilityByConnection.has(connection.id));
+    const expiries = lockedConns.map((connection) => availabilityByConnection.get(connection.id)?.until).filter((expiry): expiry is string => Boolean(expiry));
+    const earliest: string | null = expiries.sort()[0] || null;
+    if (earliest) {
+      // Report the error of the account that unlocks first, not of whichever
+      // account happened to sort first in the connection list.
+      const earliestConn = lockedConns.find(
+        (connection) => availabilityByConnection.get(connection.id)?.until === earliest
+      ) ?? lockedConns[0];
+      log.warn("AUTH", `${provider} | all ${connections.length} accounts locked for ${model || "all"} (${formatRetryAfter(earliest)}) | lastError=${earliestConn?.lastError?.slice(0, 50)}`);
+      return {
+        allRateLimited: true,
+        retryAfter: Date.parse(earliest),
+        retryAfterHuman: formatRetryAfter(earliest),
+        lastError: earliestConn?.lastError ?? undefined,
+        lastErrorCode: earliestConn?.errorCode ?? undefined
+      };
+    }
+    log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
+    return null;
+  }
+
+  const providerOverride: ProviderStrategy = settings.providerStrategies[providerId] || {};
+  const strategy: string = providerOverride.fallbackStrategy || settings.fallbackStrategy || "fill-first";
+
+  let connection: AuthConnection | undefined;
+  if (preferredConnectionId) {
+    connection = availableConnections.find((candidate) => candidate.id === preferredConnectionId);
+    if (connection) {
+      log.info("AUTH", `${provider} | pinned to ${connection.id?.slice(0, 8)} (${connection.name || connection.email || "unnamed"})`);
+    }
+  }
+  if (!connection) {
+    connection = strategy === "round-robin"
+      ? await pickRoundRobin(providerId, availableConnections, providerOverride.stickyRoundRobinLimit || settings.stickyRoundRobinLimit || 3)
+      : availableConnections[0];
+  }
+
+  const resolvedProxy = await resolveConnectionProxyConfig(connection.providerSpecificData || {}) as ResolvedProxyConfig;
+
+  return {
+    authType: connection.authType,
+    apiKey: connection.apiKey,
+    accessToken: connection.accessToken,
+    refreshToken: connection.refreshToken,
+    idToken: connection.idToken,
+    expiresAt: connection.expiresAt,
+    expiresIn: connection.expiresIn,
+    lastRefreshAt: connection.lastRefreshAt,
+    projectId: connection.projectId,
+    connectionName: connection.displayName || connection.name || connection.email || connection.id,
+    copilotToken: typeof connection.providerSpecificData?.copilotToken === "string" ? connection.providerSpecificData.copilotToken : undefined,
+    providerSpecificData: {
+      ...(connection.providerSpecificData || {}),
+      connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
+      connectionProxyUrl: resolvedProxy.connectionProxyUrl,
+      connectionNoProxy: resolvedProxy.connectionNoProxy,
+      connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
+      vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
+    },
+    connectionId: connection.id,
+    testStatus: connection.testStatus,
+    lastError: connection.lastError,
+    _connection: connection
+  };
 }
 
 interface MarkUnavailableResult {

@@ -1,6 +1,6 @@
 import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
-import { handleChat } from "@/server/llm-gateway/chat";
+import { handleChat, toAnthropicErrorResponse } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
 
 let initialized = false;
@@ -36,4 +36,9 @@ async function handlePOST(request: NextRequest) {
   return await handleChat(request);
 }
 
-export const POST = gatewayRoute(handlePOST);
+const gatewayPOST = gatewayRoute(handlePOST);
+
+// Outermost, so the wrapper's own 401/429 are re-shaped too.
+export async function POST(request: NextRequest) {
+  return toAnthropicErrorResponse(await gatewayPOST(request));
+}

@@ -2,6 +2,7 @@ import { NextResponse, connection } from "next/server";
 
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { withTenant } from "@/lib/db/tenant";
+import { withVerifiedGatewayKey } from "@/server/llm-gateway/application/gatewayApiKey";
 import { RATE_LIMIT_WINDOW_MS, consumeRateLimit, gatewayRateLimit } from "./rateLimit";
 
 /**
@@ -51,7 +52,7 @@ export function gatewayRoute<R extends Request, A extends unknown[]>(
     }
     const owner = await resolveApiKeyOwner(key);
     if (!owner) {
-      return NextResponse.json({ error: { message: "Invalid API key", type: "invalid_request_error" } }, { status: 401 });
+      return NextResponse.json({ error: { message: "Invalid API key", type: "invalid_request_error", code: "invalid_api_key" } }, { status: 401 });
     }
     // Keyed by account, not by key: several keys belong to one account and the
     // ceiling is meant to bound what that account can spend.
@@ -62,6 +63,8 @@ export function gatewayRoute<R extends Request, A extends unknown[]>(
         { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
       );
     }
-    return withTenant(owner.userId, async () => handler(request, ...rest));
+    // Recording the key spares the application gate a second apiKeys lookup
+    // for the key that was just resolved (see requireGatewayApiKey).
+    return withTenant(owner.userId, () => withVerifiedGatewayKey(key, async () => handler(request, ...rest)));
   };
 }

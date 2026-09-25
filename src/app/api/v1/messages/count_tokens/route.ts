@@ -30,6 +30,19 @@ function countValueChars(value: unknown): number {
   return 0;
 }
 
+// Images/PDFs are billed by pixels/pages, not by their base64 length — counting
+// the characters made a 1MB screenshot ~250k tokens. Fixed per-block estimates
+// (Anthropic: ~1600 tokens for a typical image), expressed in chars for the /4 below.
+const IMAGE_TOKENS_ESTIMATE = 1600;
+const DOCUMENT_TOKENS_ESTIMATE = 3000;
+const CHARS_PER_TOKEN = 4;
+
+function countContentChars(content: unknown): number {
+  return Array.isArray(content)
+    ? content.reduce((total, block) => total + countContentBlockChars(block), 0)
+    : countValueChars(content);
+}
+
 function countContentBlockChars(block: unknown): number {
   if (block == null) return 0;
   if (typeof block === "string") return block.length;
@@ -42,7 +55,14 @@ function countContentBlockChars(block: unknown): number {
     case "tool_use":
       return countValueChars(b.name) + countValueChars(b.input);
     case "tool_result":
-      return countValueChars(b.content);
+      return countContentChars(b.content);
+    case "image":
+      return IMAGE_TOKENS_ESTIMATE * CHARS_PER_TOKEN;
+    case "document": {
+      // A plain-text document is its text; anything else (base64 PDF, URL) is opaque.
+      const source = b.source as Record<string, unknown> | undefined;
+      return source?.type === "text" ? countValueChars(source.data) : DOCUMENT_TOKENS_ESTIMATE * CHARS_PER_TOKEN;
+    }
     case "thinking":
       return countValueChars(b.thinking);
     default:
@@ -54,11 +74,7 @@ function countMessageChars(message: unknown): number {
   if (!message || typeof message !== "object") return 0;
   const content = (message as Record<string, unknown>).content;
 
-  if (typeof content === "string") return content.length;
-  if (Array.isArray(content)) {
-    return content.reduce((total, block) => total + countContentBlockChars(block), 0);
-  }
-  return countValueChars(content);
+  return countContentChars(content);
 }
 
 function estimateAnthropicInputTokens(body: Record<string, unknown> = {}) {
@@ -69,7 +85,7 @@ function estimateAnthropicInputTokens(body: Record<string, unknown> = {}) {
     totalChars += countMessageChars(msg);
   }
 
-  return Math.ceil(totalChars / 4);
+  return Math.ceil(totalChars / CHARS_PER_TOKEN);
 }
 
 /**
@@ -80,7 +96,7 @@ async function handlePOST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+    return new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "Invalid JSON body" } }), {
       status: 400,
       headers: { "Content-Type": "application/json", ...CORS_HEADERS }
     });

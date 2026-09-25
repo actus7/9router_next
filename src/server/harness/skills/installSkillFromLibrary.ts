@@ -14,16 +14,14 @@ import {
 
 const MAX_IMPORT_BYTES = 128 * 1024;
 // Locating a SKILL.md means probing candidate paths and, failing that, walking
-// the repo's skills/ folders — one request each. These two bound what a single
+// the repo's SKILL.md tree — one request each. These two bound what a single
 // install request can spend upstream, whatever shape the remote repo has.
 const MAX_INSTALL_MS = 25_000;
 const MAX_SCANNED_FOLDERS = 12;
 
-interface GitHubContentEntry {
-  name: string;
+interface GitHubTreeEntry {
   path: string;
   type: string;
-  download_url: string | null;
 }
 
 function isValidSkillMarkdown(text: string): boolean {
@@ -51,7 +49,11 @@ async function fetchSkillMarkdownFromUrl(url: string): Promise<string | null> {
   }
 }
 
-/** Fallback when slug ≠ folder name — scan skills/ via GitHub API. */
+/**
+ * Fallback when the fixed paths miss: slug ≠ folder name, or the repo nests
+ * skills under category folders (mattpocock/skills: skills/<category>/<name>).
+ * One recursive tree request lists every SKILL.md at any depth.
+ */
 async function discoverSkillMarkdownViaGithub(
   source: string,
   skillId: string,
@@ -62,10 +64,10 @@ async function discoverSkillMarkdownViaGithub(
 
   for (const branch of ["main", "master"] as const) {
     if (Date.now() > deadline) return null;
-    const listUrl = `https://api.github.com/repos/${ownerRepo.owner}/${ownerRepo.repo}/contents/skills?ref=${branch}`;
-    let listing: GitHubContentEntry[];
+    const treeUrl = `https://api.github.com/repos/${ownerRepo.owner}/${ownerRepo.repo}/git/trees/${branch}?recursive=1`;
+    let tree: GitHubTreeEntry[];
     try {
-      const response = await safePublicFetch(listUrl, {
+      const response = await safePublicFetch(treeUrl, {
         destinationPolicy: "public-only",
         timeoutMs: 12_000,
         headers: {
@@ -74,30 +76,32 @@ async function discoverSkillMarkdownViaGithub(
         },
       });
       if (!response.ok) continue;
-      const payload = await response.json();
-      // A repo without skills/ answers 200 with an object, not an array.
-      if (!Array.isArray(payload)) continue;
-      listing = payload as GitHubContentEntry[];
+      const payload = (await response.json()) as { tree?: unknown };
+      if (!Array.isArray(payload.tree)) continue;
+      tree = payload.tree as GitHubTreeEntry[];
     } catch {
       continue;
     }
 
-    const folders = listing.filter((entry) => entry.type === "dir");
-    const preferred = folders.filter((entry) =>
-      entry.name === skillId || entry.name.endsWith(skillId),
+    const folderOf = (path: string) => path.split("/").at(-2) ?? "";
+    const skillFiles = tree.filter(
+      (entry) => entry.type === "blob" && entry.path.endsWith("/SKILL.md"),
+    );
+    const preferred = skillFiles.filter((entry) =>
+      folderOf(entry.path).endsWith(skillId),
     );
     const ordered = [
       ...preferred,
-      ...folders.filter((entry) => !preferred.includes(entry)),
+      ...skillFiles.filter((entry) => !preferred.includes(entry)),
     ].slice(0, MAX_SCANNED_FOLDERS);
 
-    for (const folder of ordered) {
+    for (const file of ordered) {
       if (Date.now() > deadline) return null;
-      const rawUrl = `https://raw.githubusercontent.com/${ownerRepo.owner}/${ownerRepo.repo}/${branch}/${folder.path}/SKILL.md`;
+      const rawUrl = `https://raw.githubusercontent.com/${ownerRepo.owner}/${ownerRepo.repo}/${branch}/${file.path}`;
       const raw = await fetchSkillMarkdownFromUrl(rawUrl);
       if (!raw) continue;
       const parsed = parseSkillMarkdown(raw);
-      if (parsed.name === skillId || folder.name === skillId) {
+      if (parsed.name === skillId || folderOf(file.path) === skillId) {
         return { raw, url: rawUrl };
       }
     }

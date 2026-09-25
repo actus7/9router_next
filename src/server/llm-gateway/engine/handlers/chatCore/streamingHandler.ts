@@ -4,12 +4,13 @@ import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger }
 import { pipeWithDisconnect } from "../../utils/streamHandler";
 import { PROVIDERS } from "../../config/providers";
 import { STREAM_FIRST_CHUNK_TIMEOUT_MS, STREAM_STALL_TIMEOUT_MS } from "../../config/runtimeConfig";
-import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers";
+import { abortTerminalFor } from "../../utils/responsesStreamHelpers";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail";
 import { saveRequestDetail } from "../../host/usage";
 import { summarizeRoutingTrace } from "../../host/routingTrace";
 import { getRoutingTrace } from "../../services/routingTrace";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants";
+import { buildErrorBody } from "../../utils/error";
 import type { StreamingHandlerContext, OnStreamCompleteContext, TransformStreamContext } from "./types";
 
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
@@ -78,7 +79,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     streamController?.handleError?.(new Error(`upstream non-SSE: ${status}`));
     return {
       success: false,
-      response: new Response(JSON.stringify({ error: { message: `[${status}]: ${shortMsg}` } }), {
+      response: new Response(JSON.stringify(buildErrorBody(status, `[${status}]: ${shortMsg}`)), {
         status,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       }),
@@ -97,7 +98,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     streamController?.handleError?.(new Error(`upstream empty body: ${status}`));
     return {
       success: false,
-      response: new Response(JSON.stringify({ error: { message: `[${status}]: upstream returned an empty body` } }), {
+      response: new Response(JSON.stringify(buildErrorBody(status === 204 ? 502 : status, `[${status}]: upstream returned an empty body`)), {
         status: status === 204 ? 502 : status,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       }),
@@ -106,8 +107,9 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 
   const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey });
 
-  const isResponsesPassthrough = sourceFormat === FORMATS.OPENAI_RESPONSES && targetFormat === FORMATS.OPENAI_RESPONSES;
-  const onAbortTerminal = isResponsesPassthrough ? buildAbortedResponsesTerminalBytes : null;
+  // Every client dialect gets a protocol-level error when the upstream dies
+  // mid-stream, instead of a stream that just ends and reads as complete.
+  const onAbortTerminal = abortTerminalFor(sourceFormat);
   const stallTimeoutMs = ((PROVIDERS[provider] as Record<string, unknown>)?.stallTimeoutMs as number) || STREAM_STALL_TIMEOUT_MS;
   const firstChunkTimeoutMs = ((PROVIDERS[provider] as Record<string, unknown>)?.firstChunkTimeoutMs as number) || STREAM_FIRST_CHUNK_TIMEOUT_MS;
   const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal as unknown as Parameters<typeof pipeWithDisconnect>[3], stallTimeoutMs, firstChunkTimeoutMs);

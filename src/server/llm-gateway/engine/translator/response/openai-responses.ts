@@ -6,6 +6,7 @@ import { register } from "../registry";
 import { FORMATS } from "../formats";
 import { buildChunk } from "../concerns/chunk";
 import { buildUsage } from "../concerns/usage";
+import { toResponsesUsage, outIndex, recordDoneItem, completedOutput } from "../concerns/responsesOutput";
 import { fallbackToolCallId } from "../concerns/toolCall";
 import { reasoningDelta, extractReasoningText } from "../concerns/reasoning";
 import { ROLE, OPENAI_BLOCK, RESPONSES_ITEM, OPENAI_FINISH, MODEL_FALLBACK } from "../schema/index";
@@ -24,8 +25,6 @@ function openaiToOpenAIResponsesResponse(chunk: unknown, state: unknown) {
   const c = chunk as Record<string, unknown>;
   const s = state as Record<string, unknown>;
 
-  if (!(c.choices as unknown[])?.length) return [];
-
   const events: Array<{ event: string; data: Record<string, unknown> }> = [];
   const nextSeq = () => ++(s.seq as number);
 
@@ -33,6 +32,10 @@ function openaiToOpenAIResponsesResponse(chunk: unknown, state: unknown) {
     data.sequence_number = nextSeq();
     events.push({ event: eventType, data });
   };
+
+  // include_usage sends usage in its own chunk after finish_reason: response.completed waits for it (or the flush).
+  if (c.usage && typeof c.usage === "object") s.responsesUsage = toResponsesUsage(c.usage as Record<string, unknown>);
+  if (!(c.choices as unknown[])?.length) { if (s.completedPending) sendCompleted(s, emit); return events; }
 
   const choice = (c.choices as Record<string, unknown>[])[0];
   const idx = (choice.index as number) || 0;
@@ -42,6 +45,7 @@ function openaiToOpenAIResponsesResponse(chunk: unknown, state: unknown) {
   if (!s.started) {
     s.started = true;
     s.responseId = c.id ? `resp_${c.id}` : s.responseId;
+    if (c.model && !s.model) s.model = c.model;
 
     emit("response.created", {
       type: "response.created",
@@ -117,7 +121,8 @@ function openaiToOpenAIResponsesResponse(chunk: unknown, state: unknown) {
     for (const i in s.msgItemAdded as Record<string, unknown>) closeMessage(s, emit, i);
     closeReasoning(s, emit);
     for (const i in s.funcCallIds as Record<string, unknown>) closeToolCall(s, emit, i);
-    sendCompleted(s, emit);
+    if (s.responsesUsage) sendCompleted(s, emit);
+    else s.completedPending = true;
   }
 
   return events;
@@ -127,18 +132,18 @@ function openaiToOpenAIResponsesResponse(chunk: unknown, state: unknown) {
 function startReasoning(state: Record<string, unknown>, emit: EmitFn, idx: number) {
   if (!state.reasoningId) {
     state.reasoningId = `rs_${state.responseId}_${idx}`;
-    state.reasoningIndex = idx;
+    state.reasoningIndex = outIndex(state, "rs");
 
     emit("response.output_item.added", {
       type: "response.output_item.added",
-      output_index: idx,
+      output_index: state.reasoningIndex,
       item: { id: state.reasoningId, type: RESPONSES_ITEM.REASONING, summary: [] }
     });
 
     emit("response.reasoning_summary_part.added", {
       type: "response.reasoning_summary_part.added",
       item_id: state.reasoningId,
-      output_index: idx,
+      output_index: state.reasoningIndex,
       summary_index: 0,
       part: { type: RESPONSES_ITEM.SUMMARY_TEXT, text: "" }
     });
@@ -178,14 +183,16 @@ function closeReasoning(state: Record<string, unknown>, emit: EmitFn) {
       part: { type: RESPONSES_ITEM.SUMMARY_TEXT, text: state.reasoningBuf }
     });
 
+    const reasoningItem = {
+      id: state.reasoningId,
+      type: RESPONSES_ITEM.REASONING,
+      summary: [{ type: RESPONSES_ITEM.SUMMARY_TEXT, text: state.reasoningBuf }]
+    };
+    recordDoneItem(state, state.reasoningIndex as number, reasoningItem);
     emit("response.output_item.done", {
       type: "response.output_item.done",
       output_index: state.reasoningIndex,
-      item: {
-        id: state.reasoningId,
-        type: RESPONSES_ITEM.REASONING,
-        summary: [{ type: RESPONSES_ITEM.SUMMARY_TEXT, text: state.reasoningBuf }]
-      }
+      item: reasoningItem
     });
   }
 }
@@ -197,7 +204,7 @@ function emitTextContent(state: Record<string, unknown>, emit: EmitFn, idx: numb
 
     emit("response.output_item.added", {
       type: "response.output_item.added",
-      output_index: idx,
+      output_index: outIndex(state, `msg:${idx}`),
       item: { id: msgId, type: RESPONSES_ITEM.MESSAGE, content: [], role: ROLE.ASSISTANT }
     });
   }
@@ -208,7 +215,7 @@ function emitTextContent(state: Record<string, unknown>, emit: EmitFn, idx: numb
     emit("response.content_part.added", {
       type: "response.content_part.added",
       item_id: `msg_${state.responseId}_${idx}`,
-      output_index: idx,
+      output_index: outIndex(state, `msg:${idx}`),
       content_index: 0,
       part: { type: RESPONSES_ITEM.OUTPUT_TEXT, annotations: [], logprobs: [], text: "" }
     });
@@ -217,7 +224,7 @@ function emitTextContent(state: Record<string, unknown>, emit: EmitFn, idx: numb
   emit("response.output_text.delta", {
     type: "response.output_text.delta",
     item_id: `msg_${state.responseId}_${idx}`,
-    output_index: idx,
+    output_index: outIndex(state, `msg:${idx}`),
     content_index: 0,
     delta: content,
     logprobs: []
@@ -236,7 +243,7 @@ function closeMessage(state: Record<string, unknown>, emit: EmitFn, idx: number 
     emit("response.output_text.done", {
       type: "response.output_text.done",
       item_id: msgId,
-      output_index: parseInt(idx as string),
+      output_index: outIndex(state, `msg:${idx}`),
       content_index: 0,
       text: fullText,
       logprobs: []
@@ -245,20 +252,23 @@ function closeMessage(state: Record<string, unknown>, emit: EmitFn, idx: number 
     emit("response.content_part.done", {
       type: "response.content_part.done",
       item_id: msgId,
-      output_index: parseInt(idx as string),
+      output_index: outIndex(state, `msg:${idx}`),
       content_index: 0,
       part: { type: RESPONSES_ITEM.OUTPUT_TEXT, annotations: [], logprobs: [], text: fullText }
     });
 
+    const msgItem = {
+      id: msgId,
+      type: RESPONSES_ITEM.MESSAGE,
+      status: "completed",
+      content: [{ type: RESPONSES_ITEM.OUTPUT_TEXT, annotations: [], logprobs: [], text: fullText }],
+      role: ROLE.ASSISTANT
+    };
+    recordDoneItem(state, outIndex(state, `msg:${idx}`), msgItem);
     emit("response.output_item.done", {
       type: "response.output_item.done",
-      output_index: parseInt(idx as string),
-      item: {
-        id: msgId,
-        type: RESPONSES_ITEM.MESSAGE,
-        content: [{ type: RESPONSES_ITEM.OUTPUT_TEXT, annotations: [], logprobs: [], text: fullText }],
-        role: ROLE.ASSISTANT
-      }
+      output_index: outIndex(state, `msg:${idx}`),
+      item: msgItem
     });
   }
 }
@@ -294,7 +304,7 @@ function emitToolCall(state: Record<string, unknown>, emit: EmitFn, tc: Record<s
 
     emit("response.output_item.added", {
       type: "response.output_item.added",
-      output_index: tcIdx,
+      output_index: outIndex(state, `fc:${tcIdx}`),
       item: {
         id: `${custom ? "ctc" : "fc"}_${callId}`,
         type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
@@ -313,7 +323,7 @@ function emitToolCall(state: Record<string, unknown>, emit: EmitFn, tc: Record<s
       emit("response.function_call_arguments.delta", {
         type: "response.function_call_arguments.delta",
         item_id: `fc_${refCallId}`,
-        output_index: tcIdx,
+        output_index: outIndex(state, `fc:${tcIdx}`),
         delta: (tc.function as Record<string, unknown>).arguments
       });
     }
@@ -335,34 +345,37 @@ function closeToolCall(state: Record<string, unknown>, emit: EmitFn, idx: number
       emit("response.custom_tool_call_input.delta", {
         type: "response.custom_tool_call_input.delta",
         item_id: `ctc_${callId}`,
-        output_index: parseInt(idx as string),
+        output_index: outIndex(state, `fc:${idx}`),
         delta: input
       });
       emit("response.custom_tool_call_input.done", {
         type: "response.custom_tool_call_input.done",
         item_id: `ctc_${callId}`,
-        output_index: parseInt(idx as string),
+        output_index: outIndex(state, `fc:${idx}`),
         input
       });
     } else {
       emit("response.function_call_arguments.done", {
         type: "response.function_call_arguments.done",
         item_id: `fc_${callId}`,
-        output_index: parseInt(idx as string),
+        output_index: outIndex(state, `fc:${idx}`),
         arguments: args
       });
     }
 
+    const callItem = {
+      id: `${custom ? "ctc" : "fc"}_${callId}`,
+      type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
+      status: "completed",
+      ...(custom ? { input: extractCustomToolInput(args) } : { arguments: args }),
+      call_id: callId,
+      name: (state.funcNames as Record<string, unknown>)[idx] || ""
+    };
+    recordDoneItem(state, outIndex(state, `fc:${idx}`), callItem);
     emit("response.output_item.done", {
       type: "response.output_item.done",
-      output_index: parseInt(idx as string),
-      item: {
-        id: `${custom ? "ctc" : "fc"}_${callId}`,
-        type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
-        ...(custom ? { input: extractCustomToolInput(args) } : { arguments: args }),
-        call_id: callId,
-        name: (state.funcNames as Record<string, unknown>)[idx] || ""
-      }
+      output_index: outIndex(state, `fc:${idx}`),
+      item: callItem
     });
 
     (state.funcItemDone as Record<string, unknown>)[idx] = true;
@@ -381,7 +394,10 @@ function sendCompleted(state: Record<string, unknown>, emit: EmitFn) {
         created_at: state.created,
         status: "completed",
         background: false,
-        error: null
+        error: null,
+        ...(state.model ? { model: state.model } : {}),
+        output: completedOutput(state),
+        ...(state.responsesUsage ? { usage: state.responsesUsage } : {})
       }
     });
   }
