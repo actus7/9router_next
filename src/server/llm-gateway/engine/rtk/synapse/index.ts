@@ -7,6 +7,7 @@ import { synapseDeterministicData } from "./data";
 import { SynapseDeterministicBot } from "./engine";
 import { PROVIDER_ID_TO_ALIAS, getModelType } from "../../config/providerModels";
 import { createStreamingResponse, createNonStreamingResponse } from "../../utils/localResponse";
+import { TOKEN_SAVERS_APPLIED_HEADER } from "../appliedHeader";
 
 // ── normalize ──────────────────────────────────────────────────────────────
 export function normalize(text: string): string {
@@ -131,7 +132,7 @@ export function trySynapseIntercept(params: SynapseInterceptParams): SynapseResu
 
     // 9. Log e resposta
     log?.line?.(reqTag, "⚙", `SYNAPSE:${level || "lite"}`);
-    const synapseHeaders = { "X-ModelHub-Response-Source": "synapse" };
+    const synapseHeaders = { "X-ModelHub-Response-Source": "synapse", [TOKEN_SAVERS_APPLIED_HEADER]: "synapse" };
     const result = stream
       ? createStreamingResponse(sourceFormat, model, match, synapseHeaders)
       : createNonStreamingResponse(sourceFormat, model, match, synapseHeaders);

@@ -365,6 +365,8 @@ export const TABLES: Record<string, TableDefinition> = {
       reasoning: "TEXT",
       toolCalls: "TEXT",
       usage: "TEXT",
+      // Token savers the gateway reported acting on this answer (JSON id list).
+      tokenSavers: "TEXT",
       error: "TEXT",
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",

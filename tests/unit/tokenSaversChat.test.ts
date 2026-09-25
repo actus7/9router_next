@@ -15,44 +15,44 @@ function streamResponse(body: string, headers: Record<string, string> = {}): Res
   });
 }
 
-describe("executeChatFetch — responseSource", () => {
+describe("executeChatFetch — tokenSavers", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("resposta com header X-ModelHub-Response-Source: synapse → responseSource='synapse'", async () => {
+  it("resposta com header X-ModelHub-Token-Savers: synapse → tokenSavers=['synapse']", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      streamResponse(sseBody("Olá! Como posso ajudar?"), { "X-ModelHub-Response-Source": "synapse" }),
+      streamResponse(sseBody("Olá! Como posso ajudar?"), { "X-ModelHub-Token-Savers": "synapse" }),
     ));
 
     const result = await executeChatFetch("/api/v1/chat/completions", {}, () => {});
 
-    expect(result.responseSource).toBe("synapse");
+    expect(result.tokenSavers).toEqual(["synapse"]);
     expect(result.text).toBe("Olá! Como posso ajudar?");
   });
 
-  it("resposta real do LLM sem o header → responseSource=null", async () => {
+  it("resposta real do LLM sem o header → tokenSavers=[]", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
       streamResponse(sseBody("Recursão é quando uma função chama a si mesma.")),
     ));
 
     const result = await executeChatFetch("/api/v1/chat/completions", {}, () => {});
 
-    expect(result.responseSource).toBeNull();
+    expect(result.tokenSavers).toEqual([]);
   });
 
-  it("header com valor diferente de 'synapse' é ignorado → responseSource=null", async () => {
+  it("id desconhecido no header é ignorado → tokenSavers=[]", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      streamResponse(sseBody("texto"), { "X-ModelHub-Response-Source": "bypass" }),
+      streamResponse(sseBody("texto"), { "X-ModelHub-Token-Savers": "bypass" }),
     ));
 
     const result = await executeChatFetch("/api/v1/chat/completions", {}, () => {});
 
-    expect(result.responseSource).toBeNull();
+    expect(result.tokenSavers).toEqual([]);
   });
 });
 
-describe("finalizeStreamSuccess — grava responseSource na mensagem", () => {
+describe("finalizeStreamSuccess — grava tokenSavers na mensagem", () => {
   function makeSession(): ChatSession {
     return {
       id: "s1",
@@ -67,29 +67,29 @@ describe("finalizeStreamSuccess — grava responseSource na mensagem", () => {
     } as ChatSession;
   }
 
-  it("turno determinístico (Synapse): mensagem final fica com responseSource='synapse'", () => {
+  it("turno determinístico (Synapse): mensagem final fica com tokenSavers=['synapse']", () => {
     let session = makeSession();
     const updateSession = (_id: string, updater: (s: ChatSession) => ChatSession) => { session = updater(session); };
     const recordHarnessEvent = () => {};
 
     finalizeStreamSuccess("s1", "assistant-1", "Olá! Como posso ajudar?", "oi", updateSession, recordHarnessEvent, {
       usage: null,
-      responseSource: "synapse",
+      tokenSavers: ["synapse"],
     });
 
-    expect(session.messages[0].responseSource).toBe("synapse");
+    expect(session.messages[0].tokenSavers).toEqual(["synapse"]);
   });
 
-  it("turno real do LLM: mensagem final fica com responseSource=null (sem badge)", () => {
+  it("turno real do LLM: mensagem final fica sem tokenSavers (sem pills)", () => {
     let session = makeSession();
     const updateSession = (_id: string, updater: (s: ChatSession) => ChatSession) => { session = updater(session); };
     const recordHarnessEvent = () => {};
 
     finalizeStreamSuccess("s1", "assistant-1", "Recursão é...", "explica recursao", updateSession, recordHarnessEvent, {
       usage: null,
-      responseSource: null,
+      tokenSavers: [],
     });
 
-    expect(session.messages[0].responseSource).toBeNull();
+    expect(session.messages[0].tokenSavers ?? []).toEqual([]);
   });
 });

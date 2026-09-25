@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { watchDurableRun } from "./executeDurableChat";
 import type { ChatMessage, ChatSession } from "../types";
+import { normalizeTokenSavers } from "@/shared/chat/tokenSavers";
 
 /** The run row as `/api/harness/runs` serializes it. */
 interface RunRow {
@@ -14,6 +15,7 @@ interface RunRow {
   partialText: string;
   reasoning: string | null;
   usage: Record<string, unknown> | null;
+  tokenSavers?: string[];
   error: string | null;
 }
 
@@ -61,6 +63,7 @@ function applySettled(message: ChatMessage, run: RunRow): ChatMessage {
     status: "done",
     ...(run.reasoning ? { reasoning: run.reasoning } : {}),
     ...(run.usage ? { tokenUsage: run.usage as ChatMessage["tokenUsage"] } : {}),
+    ...(normalizeTokenSavers(run.tokenSavers).length ? { tokenSavers: normalizeTokenSavers(run.tokenSavers) } : {}),
   };
 }
 
@@ -161,6 +164,7 @@ export function useDurableRunRecovery({ activeSessionId, isReady, updateSession,
                 status: "done",
                 ...(result.reasoning ? { reasoning: result.reasoning } : {}),
                 ...(result.usage ? { tokenUsage: result.usage } : {}),
+                ...(result.tokenSavers?.length ? { tokenSavers: result.tokenSavers } : {}),
               }));
               await drop([run.id]);
             } catch (error) {

@@ -1,6 +1,7 @@
 import { translate } from "@/i18n/runtime";
 import { makeSessionTitle, textValue } from "../chatFormatUtils";
 import type { ChatSession, MessageTiming, TokenUsage } from "../types";
+import type { TokenSaverId } from "@/shared/chat/tokenSavers";
 
 type UpdateSessionFn = (sessionId: string, updater: (session: ChatSession) => ChatSession) => void;
 type RecordEventFn = (sessionId: string, type: string, data: Record<string, unknown>) => void;
@@ -8,7 +9,7 @@ type RecordEventFn = (sessionId: string, type: string, data: Record<string, unkn
 export interface StreamTelemetry {
   reasoning?: string;
   usage?: TokenUsage | null;
-  responseSource?: "synapse" | null;
+  tokenSavers?: TokenSaverId[];
   timing?: MessageTiming | null;
 }
 
@@ -25,7 +26,7 @@ export function finalizeStreamSuccess(
   updateSession(sessionId, (current) => ({
     ...current,
     messages: current.messages.map((m) =>
-      m.id === assistantMessageId ? { ...m, content: assistantText || m.content, status: "done" as const, tokenUsage: telemetry.usage ?? m.tokenUsage, timing: telemetry.timing ?? m.timing, responseSource: telemetry.responseSource !== undefined ? telemetry.responseSource : m.responseSource, reasoning: telemetry.reasoning || m.reasoning } : m,
+      m.id === assistantMessageId ? { ...m, content: assistantText || m.content, status: "done" as const, tokenUsage: telemetry.usage ?? m.tokenUsage, timing: telemetry.timing ?? m.timing, tokenSavers: telemetry.tokenSavers ?? m.tokenSavers, reasoning: telemetry.reasoning || m.reasoning } : m,
     ),
     updatedAt: new Date().toISOString(),
   }));

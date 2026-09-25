@@ -163,7 +163,7 @@ function withNextUrl(request: unknown, url: URL): never {
   return request as never;
 }
 
-function sseResponse(chunks: readonly string[], hold = false): Response {
+function sseResponse(chunks: readonly string[], hold = false, extraHeaders: Record<string, string> = {}): Response {
   const encoder = new TextEncoder();
   return new Response(
     new ReadableStream({
@@ -176,7 +176,7 @@ function sseResponse(chunks: readonly string[], hold = false): Response {
         controller.close();
       },
     }),
-    { status: 200, headers: { "Content-Type": "text/event-stream" } },
+    { status: 200, headers: { "Content-Type": "text/event-stream", ...extraHeaders } },
   );
 }
 
@@ -301,4 +301,14 @@ describe("durable run, client through server", () => {
 
     await expect(started).rejects.toThrow(/interrupted/i);
   }, 20_000);
+
+  it("carries the token savers the gateway reported through to the answer", async () => {
+    // The chat shows a pill per saver under the answer; on the durable path the
+    // only witness is the header on the worker's own gateway response.
+    handleChat.mockResolvedValue(sseResponse([frame("Olá!")], false, { "X-ModelHub-Token-Savers": "synapse" }));
+
+    const result = await send();
+
+    expect(result.tokenSavers).toEqual(["synapse"]);
+  });
 });

@@ -2039,5 +2039,12 @@
   "Per-turn plugin selection": "Seleção de plugins por turno",
   "Before each chat turn, Jev drops tools that clearly do not apply. Fewer tokens; a wrong drop costs quality.": "Antes de cada turno do chat, o Jev remove as ferramentas que claramente não se aplicam. Menos tokens; uma remoção errada custa qualidade.",
   "Risk of pending writes": "Risco das escritas pendentes",
-  "Jev rates how risky each agent write awaiting approval is. Advisory only: you still approve or reject.": "O Jev avalia o risco de cada escrita do agente que aguarda aprovação. É só um aviso: quem aprova ou rejeita continua sendo você."
+  "Jev rates how risky each agent write awaiting approval is. Advisory only: you still approve or reject.": "O Jev avalia o risco de cada escrita do agente que aguarda aprovação. É só um aviso: quem aprova ou rejeita continua sendo você.",
+  "Token savers": "Economizadores de tokens",
+  "Answered locally by Synapse, without calling the model.": "Respondido localmente pelo Synapse, sem chamar o modelo.",
+  "RTK compressed tool output before sending it to the model.": "O RTK comprimiu a saída das ferramentas antes de enviar ao modelo.",
+  "Headroom compressed the conversation context.": "O Headroom comprimiu o contexto da conversa.",
+  "Caveman asked the model for a terse answer.": "O Caveman pediu ao modelo uma resposta curta.",
+  "Ponytail asked the model for the simplest solution.": "O Ponytail pediu ao modelo a solução mais simples.",
+  "PXPIPE sent bulky context as images to save tokens.": "O PXPIPE enviou contexto volumoso como imagem para economizar tokens."
 }

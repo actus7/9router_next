@@ -16,6 +16,7 @@ import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { handleChat } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
 import { StreamChunkAccumulator } from "@/shared/chat/streamChunk";
+import { readTokenSavers } from "@/shared/chat/tokenSavers";
 import { truncateTraceError } from "@/shared/observability/routingTrace";
 import { selectToolsForTurn } from "@/server/harness/tools/toolSelection";
 
@@ -172,6 +173,9 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
       return;
     }
 
+    // ponytail: only the first call's savers. Tool-loop continuations go
+    // through the same gateway but their headers aren't surfaced by the loop.
+    const tokenSavers = readTokenSavers(response.headers);
     const reader = response.body?.getReader();
     if (!reader) {
       // A provider that answered without streaming: the whole body is the answer.
@@ -183,9 +187,10 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
         status: "completed",
         partialText: text,
         usage: (data.usage as Record<string, unknown> | undefined) ?? null,
+        tokenSavers,
       });
       if (settled) {
-        await mirrorAnswer(input, { content: text, status: "done" });
+        await mirrorAnswer(input, { content: text, status: "done", tokenSavers });
       }
       return;
     }
@@ -269,6 +274,7 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
       reasoning: (loop?.reasoning || parsed.reasoning) || null,
       toolCalls: finalToolCalls,
       usage: (loop?.usage ?? (parsed.usage as Record<string, unknown> | null)) ?? null,
+      tokenSavers,
     });
     if (settled) {
       // A turn that asked for tools is not finished: the loop that continues it
@@ -289,6 +295,7 @@ _${TOOL_TURN_INTERRUPTED}_`
         reasoning: (loop?.reasoning || parsed.reasoning) || null,
         toolCalls: unfinished ? finalToolCalls : undefined,
         tokenUsage: (loop?.usage ?? (parsed.usage as Record<string, unknown> | null)) ?? null,
+        tokenSavers,
       });
     }
   } catch (error) {

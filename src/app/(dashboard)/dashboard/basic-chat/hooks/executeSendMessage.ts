@@ -358,7 +358,7 @@ export async function executeSendMessage({
             toolCalls: [],
             reasoning: "",
             usage: null,
-            responseSource: null as "synapse" | null,
+            tokenSavers: [],
             routingTrace: null,
           };
         })()
@@ -386,7 +386,7 @@ export async function executeSendMessage({
         {
           reasoning: result.reasoning,
           usage: result.usage,
-          responseSource: result.responseSource,
+          tokenSavers: result.tokenSavers,
           timing: {
             ttftMs: (firstTokenAt ?? completedAt) - requestStartedAt,
             totalMs: completedAt - requestStartedAt,
@@ -402,7 +402,7 @@ export async function executeSendMessage({
                 ...m,
                 content: result.text,
                 status: "done" as const,
-                responseSource: result.responseSource,
+                tokenSavers: result.tokenSavers,
               }
             : m,
         ),

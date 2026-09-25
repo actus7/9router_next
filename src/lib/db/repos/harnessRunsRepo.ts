@@ -1,6 +1,7 @@
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
+import { normalizeTokenSavers, type TokenSaverId } from "@/shared/chat/tokenSavers";
 
 /**
  * A chat run that survives the browser that started it.
@@ -27,6 +28,7 @@ export interface HarnessRun {
   reasoning: string | null;
   toolCalls: HarnessRunToolCall[];
   usage: Record<string, unknown> | null;
+  tokenSavers: TokenSaverId[];
   error: string | null;
   createdAt: string;
   updatedAt: string;
@@ -70,6 +72,7 @@ function rowToRun(row: Record<string, unknown>): HarnessRun {
     reasoning: row.reasoning == null ? null : String(row.reasoning),
     toolCalls: parseJson<HarnessRunToolCall[]>(row.toolCalls, []) || [],
     usage: parseJson<Record<string, unknown>>(row.usage, null),
+    tokenSavers: normalizeTokenSavers(parseJson<unknown[]>(row.tokenSavers, [])),
     error: row.error == null ? null : String(row.error),
     createdAt: String(row.createdAt),
     updatedAt: String(row.updatedAt),
@@ -96,6 +99,7 @@ export async function createHarnessRun(run: {
     reasoning: null,
     toolCalls: [],
     usage: null,
+    tokenSavers: [],
     error: null,
     createdAt: now,
     updatedAt: now,
@@ -155,6 +159,7 @@ export async function settleHarnessRun(
     reasoning?: string | null;
     toolCalls?: HarnessRunToolCall[];
     usage?: Record<string, unknown> | null;
+    tokenSavers?: readonly string[];
     error?: string | null;
   },
 ): Promise<boolean> {
@@ -166,7 +171,7 @@ export async function settleHarnessRun(
     // progress interval was overwritten by `completed`, and the answer the user
     // interrupted was delivered in full.
     `UPDATE harnessRuns SET status = ?, partialText = COALESCE(?, partialText), reasoning = ?,
-       toolCalls = ?, usage = ?, error = ?, updatedAt = ?
+       toolCalls = ?, usage = ?, error = ?, tokenSavers = ?, updatedAt = ?
      WHERE userId = ? AND id = ? AND status = ?`,
     [
       result.status,
@@ -175,6 +180,7 @@ export async function settleHarnessRun(
       result.toolCalls?.length ? stringifyJson(result.toolCalls) : null,
       result.usage ? stringifyJson(result.usage) : null,
       result.error ?? null,
+      result.tokenSavers?.length ? stringifyJson(result.tokenSavers) : null,
       new Date().toISOString(),
       currentTenantId(),
       id,

@@ -343,6 +343,7 @@ export async function runToolCallLoop(
             status: "done",
             toolCalls: continuationResult.toolCalls,
             tokenUsage: continuationResult.usage ?? message.tokenUsage,
+            tokenSavers: continuationResult.tokenSavers?.length ? continuationResult.tokenSavers : message.tokenSavers,
             reasoning: continuationResult.reasoning || message.reasoning,
           }
         : message,

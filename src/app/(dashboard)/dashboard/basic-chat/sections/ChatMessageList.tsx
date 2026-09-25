@@ -27,12 +27,12 @@ import {
   RefreshCw,
   ThumbsDown,
   ThumbsUp,
-  Zap,
 } from "lucide-react";
 import { textValue } from "../chatFormatUtils";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import type { UseSendMessageReturn } from "../hooks/useSendMessage";
 import ToolCallList from "./ToolCallList";
+import TokenSaverPills from "./TokenSaverPills";
 
 const STARTER_SUGGESTIONS = [
   "Resuma este projeto em tópicos.",
@@ -209,21 +209,6 @@ export default function ChatMessageList({
                           translate("Assistant") ||
                           "Assistant"}
                     </span>
-                    {isAssistant && message.responseSource === "synapse" && (
-                      <Badge
-                        variant="secondary"
-                        className="gap-1 text-[10px] px-1.5 py-0"
-                        title={
-                          translate(
-                            "Resposta local determinística (Synapse) — não usou o modelo.",
-                          ) ||
-                          "Resposta local determinística (Synapse) — não usou o modelo."
-                        }
-                      >
-                        <Zap className="size-2.5" />
-                        {translate("Local") || "Local"}
-                      </Badge>
-                    )}
                     {isError && (
                       <Badge
                         variant="destructive"
@@ -295,6 +280,11 @@ export default function ChatMessageList({
                       compact={compact}
                     />
                   )}
+
+                  {/* Token savers that acted on this answer */}
+                  {isAssistant && !isStreaming && message.tokenSavers?.length ? (
+                    <TokenSaverPills savers={message.tokenSavers} />
+                  ) : null}
 
                   {/* Message actions */}
                   {isAssistant && !isStreaming && content && (

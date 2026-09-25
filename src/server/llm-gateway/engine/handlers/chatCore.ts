@@ -4,6 +4,7 @@ import { createRequestLogger } from "../utils/requestLogger";
 import { HTTP_STATUS, TOKEN_SAVER_HEADER } from "../config/runtimeConfig";
 import { handleBypassRequest } from "../utils/bypassHandler";
 import { trySynapseIntercept } from "../rtk/synapse";
+import { tagTokenSavers } from "../rtk/appliedHeader";
 import { trackPendingRequest, appendRequestLog } from "../host/usage";
 import { captureTenant } from "../host/tenant";
 import { getExecutor } from "../executors/index";
@@ -228,7 +229,7 @@ export async function handleChatCore({
     finalizeClaudeCache: passthrough && clientTool === "claude",
   });
   let { translatedBody: finalTranslatedBody } = saverResult;
-  const { pxpipeSummary } = saverResult;
+  const { pxpipeSummary, applied: appliedSavers } = saverResult;
 
   // Plugin-provided executors (such as OpenCode) are registered during the
   // runtime bootstrap. Ensure it has completed before resolving the executor,
@@ -438,7 +439,7 @@ export async function handleChatCore({
     });
     if (result) {
       streamController.handleComplete();
-      return result;
+      return tagTokenSavers(result, appliedSavers);
     }
     // handleForcedSSEToJson only declines when the upstream answered with a
     // non-SSE content type, and it does that before reading the body. The
@@ -461,14 +462,14 @@ export async function handleChatCore({
       appendLog,
     });
     streamController.handleComplete();
-    return result;
+    return tagTokenSavers(result, appliedSavers);
   }
 
   // Streaming response
   const { onStreamComplete, streamDetailId } = buildOnStreamComplete({
     ...sharedCtx,
   });
-  return handleStreamingResponse({
+  return tagTokenSavers(await handleStreamingResponse({
     ...sharedCtx,
     providerResponse,
     sourceFormat,
@@ -480,5 +481,5 @@ export async function handleChatCore({
     streamController,
     onStreamComplete,
     streamDetailId,
-  });
+  }), appliedSavers);
 }

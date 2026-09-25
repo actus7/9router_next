@@ -2,6 +2,7 @@ import { textValue } from "../chatFormatUtils";
 import { ROUTING_TRACE_HEADER, parseRoutingTrace, type RoutingTrace } from "@/shared/observability/routingTrace";
 import { StreamChunkAccumulator, collectToolCallDeltas } from "@/shared/chat/streamChunk";
 import type { TokenUsage, ToolCall } from "../types";
+import { readTokenSavers, type TokenSaverId } from "@/shared/chat/tokenSavers";
 
 export { collectToolCallDeltas };
 
@@ -11,7 +12,8 @@ export interface ChatFetchResult {
   toolCalls: ToolCall[];
   reasoning: string;
   usage: TokenUsage | null;
-  responseSource: "synapse" | null;
+  /** Token savers the gateway reported acting on this answer. */
+  tokenSavers: TokenSaverId[];
   routingTrace: RoutingTrace | null;
 }
 
@@ -33,7 +35,7 @@ export async function executeChatFetch(
   onStreamText: (text: string) => void,
 ): Promise<ChatFetchResult> {
   const response = await fetch(url, fetchOptions);
-  const responseSource = response.headers.get("x-modelhub-response-source") === "synapse" ? "synapse" : null;
+  const tokenSavers = readTokenSavers(response.headers);
   const routingTrace = parseRoutingTrace(response.headers.get(ROUTING_TRACE_HEADER));
 
   if (!response.ok) {
@@ -53,11 +55,11 @@ export async function executeChatFetch(
       ((data?.choices as Array<Record<string, unknown>> | undefined)?.[0] as Record<string, unknown> | undefined)
         ?.message || data?.output_text || data?.error || data?.message || "",
     );
-    return { text: fallbackText, streamed: false, toolCalls: [], reasoning: "", usage: null, responseSource, routingTrace };
+    return { text: fallbackText, streamed: false, toolCalls: [], reasoning: "", usage: null, tokenSavers, routingTrace };
   }
 
   const { text, toolCalls, reasoning, usage } = await consumeSSEStream(reader, onStreamText);
-  return { text, streamed: true, toolCalls, reasoning, usage, responseSource, routingTrace };
+  return { text, streamed: true, toolCalls, reasoning, usage, tokenSavers, routingTrace };
 }
 
 /** Read an SSE stream, invoking `onText` with the accumulated text on every chunk. */

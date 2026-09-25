@@ -319,14 +319,16 @@ export async function runTokenSavers(params: {
   reqTag: string;
   log?: ChatLogger;
   finalizeClaudeCache?: boolean;
-}): Promise<{ translatedBody: Record<string, unknown>; pxpipeSummary: PxpipeSummary | null }> {
+}): Promise<{ translatedBody: Record<string, unknown>; pxpipeSummary: PxpipeSummary | null; applied: string[] }> {
   const { translatedBody, finalFormat, upstreamModel, tokenSaverEnabled, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, metaBreakEnabled, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, provider, model, reqTag, log } = params;
   let body = translatedBody;
+  // Savers that actually changed this request — reported to the chat.
+  const applied: string[] = [];
 
   // RTK: compress tool_result content
   const rtkStats = compressMessages(body, tokenSaverEnabled && (rtkEnabled ?? false));
   const rtkLine = formatRtkLog(rtkStats);
-  if (rtkLine) console.log(rtkLine);
+  if (rtkLine) { console.log(rtkLine); applied.push("rtk"); }
 
   // Headroom: optional external proxy compression; fail open if proxy is absent.
   const headroomDiagnostics: HeadroomDiagnostics = {};
@@ -334,6 +336,7 @@ export async function runTokenSavers(params: {
   const headroomLine = formatHeadroomLog(headroomStats);
   const headroomSizeLine = formatHeadroomSizeLog(headroomDiagnostics as unknown as Parameters<typeof formatHeadroomSizeLog>[0]);
   if (headroomLine) {
+    applied.push("headroom");
     log?.info?.("HEADROOM", `${headroomLine}${headroomSizeLine ? ` | ${headroomSizeLine}` : ""}`);
     if (isHeadroomPhantomSavings(headroomStats, headroomDiagnostics as unknown as Parameters<typeof isHeadroomPhantomSavings>[1])) {
       log?.warn?.("HEADROOM", `reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload | ${formatHeadroomSizeLog(headroomDiagnostics as unknown as Parameters<typeof formatHeadroomSizeLog>[0])}`);
@@ -347,12 +350,14 @@ export async function runTokenSavers(params: {
   if (tokenSaverEnabled && cavemanEnabled && cavemanLevel) {
     injectCaveman(body, finalFormat, cavemanLevel);
     xf.push(`CAVEMAN:${cavemanLevel}`);
+    applied.push("caveman");
   }
 
   // Ponytail: inject lazy-senior-dev system prompt
   if (tokenSaverEnabled && ponytailEnabled && ponytailLevel) {
     injectPonytail(body, finalFormat, ponytailLevel);
     xf.push(`PONYTAIL:${ponytailLevel}`);
+    applied.push("ponytail");
   }
 
   // PXPIPE: image bulky context (Claude-format bodies only), last saver before dispatch
@@ -364,7 +369,10 @@ export async function runTokenSavers(params: {
     });
     pxpipeSummary = pxpipeResult.summary;
     if (pxpipeResult.body) body = pxpipeResult.body;
-    if (pxpipeSummary?.applied) xf.push(`PXPIPE:${(pxpipeSummary as PxpipeSummary).imageCount ?? 0}img`);
+    if (pxpipeSummary?.applied) {
+      xf.push(`PXPIPE:${(pxpipeSummary as PxpipeSummary).imageCount ?? 0}img`);
+      applied.push("pxpipe");
+    }
     try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
   }
 
@@ -381,7 +389,7 @@ export async function runTokenSavers(params: {
   // system/tools/messages, and a stale anchor costs a full prefix rewrite.
   if (params.finalizeClaudeCache) anchorClaudeCache(body);
 
-  return { translatedBody: body, pxpipeSummary };
+  return { translatedBody: body, pxpipeSummary, applied };
 }
 
 // ---------------------------------------------------------------------------

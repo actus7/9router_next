@@ -17,6 +17,7 @@ export interface ToolCall {
 // Defined in shared so the server worker that writes a durable run and the UI
 // that renders it cannot disagree about the shape.
 import type { TokenUsage } from "@/shared/chat/streamChunk";
+import type { TokenSaverId } from "@/shared/chat/tokenSavers";
 
 export type { TokenUsage };
 
@@ -45,7 +46,8 @@ export interface ChatMessage {
   modelName?: string;
   providerId?: string;
   providerName?: string;
-  responseSource?: "synapse" | null;
+  /** Token savers the gateway reported acting on this answer (one pill each). */
+  tokenSavers?: TokenSaverId[];
 }
 
 export interface ChatSession {

@@ -1,5 +1,6 @@
 import type { ChatFetchError, ChatFetchResult } from "./consumeSSEStream";
 import type { TokenUsage } from "../types";
+import { normalizeTokenSavers } from "@/shared/chat/tokenSavers";
 
 /** The run row as `/api/harness/runs/[runId]/stream` serializes it. */
 interface RunFrame {
@@ -9,6 +10,7 @@ interface RunFrame {
   reasoning: string | null;
   toolCalls?: Array<{ id: string; name: string; arguments: string }>;
   usage: TokenUsage | null;
+  tokenSavers?: string[];
   error: string | null;
 }
 
@@ -161,7 +163,7 @@ export async function watchDurableRun(
     toolCalls: (last.toolCalls ?? []).map((call) => ({ ...call, status: "pending" as const })),
     reasoning: last.reasoning || "",
     usage: last.usage,
-    responseSource: null,
+    tokenSavers: normalizeTokenSavers(last.tokenSavers),
     routingTrace: null,
   };
 }

@@ -191,6 +191,7 @@ export interface RunAnswerPatch {
   reasoning?: string | null;
   toolCalls?: unknown[];
   tokenUsage?: Record<string, unknown> | null;
+  tokenSavers?: readonly string[];
 }
 
 /**
@@ -241,6 +242,7 @@ export async function appendRunAnswerToConversation(
       ...(patch.reasoning ? { reasoning: patch.reasoning } : {}),
       ...(patch.toolCalls?.length ? { toolCalls: patch.toolCalls } : {}),
       ...(patch.tokenUsage ? { tokenUsage: patch.tokenUsage } : {}),
+      ...(patch.tokenSavers?.length ? { tokenSavers: patch.tokenSavers } : {}),
     };
     if (index >= 0) messages[index] = answer;
     else messages.push(answer);
