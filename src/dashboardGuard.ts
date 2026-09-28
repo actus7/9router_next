@@ -35,7 +35,9 @@ const PUBLIC_API_PATHS: string[] = [
 // Every rewrite in next.config.ts that targets /api/v1* must appear here: the
 // proxy matches the pre-rewrite path, so a missing prefix skips the API-key
 // check entirely. tests/unit/dashboardGuard.test.ts enforces the pairing.
-const PUBLIC_PREFIXES: string[] = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "/responses"];
+// `/api/chat` and `/api/tags` are the Ollama API at the host root, which is
+// where Ollama clients point; both routes authenticate the key via gatewayRoute.
+const PUBLIC_PREFIXES: string[] = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex", "/responses", "/api/chat", "/api/tags"];
 
 const ALWAYS_PROTECTED: string[] = [
   "/api/settings/database",

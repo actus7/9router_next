@@ -23,8 +23,6 @@ export {
   resolveXiaomiTokenplanBaseUrl,
 } from "@/server/llm-gateway/engine/config/providers";
 
-// Ollama static tags
-export { ollamaModels } from "@/server/llm-gateway/engine/config/ollamaModels";
 
 // Live model resolvers (fetch from provider APIs with credentials)
 export { resolveKiroModels } from "@/server/llm-gateway/engine/services/kiroModels";

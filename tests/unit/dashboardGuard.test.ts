@@ -27,6 +27,23 @@ describe("gateway edge allowlist", () => {
   });
 });
 
+// Clientes Ollama falam com a raiz do host (`/api/chat`, `/api/tags`) e só
+// mandam API key; a rota autentica pela key via gatewayRoute. Sem estar aqui,
+// o middleware respondia 401 antes da rota por falta de cookie.
+describe("Ollama root paths", () => {
+  it("reach the API-key-gated routes without a dashboard session", () => {
+    for (const path of ["/api/tags", "/api/chat"]) {
+      expect(__test__.isPublicLlmApi(path), path).toBe(true);
+    }
+  });
+
+  it("do not open neighbouring dashboard APIs", () => {
+    for (const path of ["/api/settings", "/api/tagsx", "/api/chatbot"]) {
+      expect(__test__.isPublicLlmApi(path), path).toBe(false);
+    }
+  });
+});
+
 /**
  * Files under `public/` must not be answered with a redirect to sign-in.
  *

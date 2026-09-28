@@ -3,5 +3,6 @@
 import "server-only";
 
 export { handleChat, handleSingleModelChat } from "./application/chat";
-export { transformToOllama } from "@/server/llm-gateway/engine/utils/ollamaTransform";
+export { transformToOllama, ollamaError } from "@/server/llm-gateway/engine/utils/ollamaTransform";
+export { ollamaChatToOpenAI } from "@/server/llm-gateway/engine/utils/ollamaRequest";
 export { toAnthropicErrorResponse } from "@/server/llm-gateway/engine/utils/error";
