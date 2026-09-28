@@ -46,4 +46,16 @@ describe("usage devolvido ao cliente", () => {
     const usage = jsonLines(text).map((c) => c.usage).filter(Boolean).at(-1);
     expect(usage.prompt_tokens).toBe(10);
   });
+
+  // Achado pelo teste ao vivo (xiaomiGatewayLive): Claude → Claude é
+  // passthrough, e o flush acrescentava o sentinela da OpenAI a um stream
+  // Anthropic, que termina em message_stop.
+  it("passthrough Anthropic não ganha `data: [DONE]`", async () => {
+    const text = await pipe(createPassthroughStreamWithLogger("anthropic-compatible-x", null, null, null, null, null, null, "claude"), [
+      `event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","model":"m","content":[],"usage":{"input_tokens":3,"output_tokens":0}}}\n\n`,
+      `event: message_stop\ndata: {"type":"message_stop"}\n\n`,
+    ].join(""));
+    expect(text).not.toContain("[DONE]");
+    expect(text).toContain("message_stop");
+  });
 });

@@ -246,6 +246,10 @@ export async function retryWithoutTools(params: {
   });
 
   if (!isToolUnsupportedError(bodyText)) return restored();
+  // A turn that *requires* a tool can't be answered without one — the reply
+  // would break the contract the client asked for. The upstream error is the
+  // honest answer (and lets model-level fallback try a model that has tools).
+  if (forcesToolCall(translatedBody.tool_choice)) return restored();
 
   const withoutTools = stripTools(translatedBody);
   log?.warn?.("TOOLS", `${provider.toUpperCase()} | ${model} has no tool-calling endpoint — retrying without tools`);
@@ -267,4 +271,12 @@ export async function retryWithoutTools(params: {
     log?.warn?.("TOOLS", `${provider.toUpperCase()} | retry without tools threw: ${e instanceof Error ? e.message : String(e)}`);
     return restored();
   }
+}
+
+/** OpenAI `required`/named function, Claude `any`/named tool. */
+function forcesToolCall(choice: unknown): boolean {
+  if (choice === "required" || choice === "any") return true;
+  if (!choice || typeof choice !== "object") return false;
+  const type = (choice as Record<string, unknown>).type;
+  return type === "function" || type === "any" || type === "tool";
 }

@@ -46,6 +46,17 @@ const withTools = () => ({
 });
 
 describe("retryWithoutTools", () => {
+  // Um pedido que EXIGE uma tool não pode ser respondido sem ela: a resposta
+  // violaria o que o cliente pediu. O erro do upstream é a resposta honesta.
+  it("keeps the upstream error when the client forced a tool call", async () => {
+    for (const tool_choice of ["required", { type: "function", function: { name: "web_search" } }, { type: "any" }, { type: "tool", name: "web_search" }]) {
+      const execute = vi.fn();
+      const result = await callRetry({ execute }, new Response(KILO_404, { status: 404 }), { ...withTools(), tool_choice });
+      expect(execute, JSON.stringify(tool_choice)).not.toHaveBeenCalled();
+      expect(result.providerResponse.status).toBe(404);
+    }
+  });
+
   it("re-sends the turn without tools when the upstream says no endpoint supports them", async () => {
     const execute = vi.fn(async ({ body }: ExecuteArgs) => ({
       response: new Response("{}", { status: 200 }),

@@ -1,71 +1,30 @@
 import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
-import { AI_PROVIDERS } from "@/shared/constants/providers";
+import { listGatewayVoices } from "@/server/application/use-cases/http/v1/audio/voices";
 
-// Provider → internal voices API. Edge/local-device share the generic endpoint.
-const PROVIDER_API: Record<string, (origin: string) => string> = {
-  elevenlabs: (origin: string) => `${origin}/api/media-providers/tts/elevenlabs/voices`,
-  deepgram: (origin: string) => `${origin}/api/media-providers/tts/deepgram/voices`,
-  inworld: (origin: string) => `${origin}/api/media-providers/tts/inworld/voices`,
-  "edge-tts": (origin: string) => `${origin}/api/media-providers/tts/voices?provider=edge-tts`,
-  "local-device": (origin: string) => `${origin}/api/media-providers/tts/voices?provider=local-device`,
-};
+const CORS = { "Access-Control-Allow-Origin": "*" };
 
 export async function OPTIONS() {
   return new Response(null, {
-    headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, OPTIONS" },
+    headers: { ...CORS, "Access-Control-Allow-Methods": "GET, OPTIONS" },
   });
 }
 
 // GET /v1/audio/voices?provider={p}[&lang=xx]
 // Returns OpenAI-style list with each voice's full model id ready for /v1/audio/speech
 async function handleGET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   try {
-    const provider = searchParams.get("provider");
-    const lang = searchParams.get("lang");
-
-    if (!provider || !PROVIDER_API[provider]) {
-      return Response.json(
-        { error: { message: `provider must be one of: ${Object.keys(PROVIDER_API).join(", ")}`, type: "invalid_request_error" } },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
-      );
+    const result = await listGatewayVoices(searchParams.get("provider") || "", searchParams.get("lang"));
+    if (!result.ok) {
+      const type = result.status === 400 ? "invalid_request_error" : "server_error";
+      return Response.json({ error: { message: result.message, type } }, { status: result.status, headers: CORS });
     }
-
-    const baseUrl = PROVIDER_API[provider](origin);
-    const url = lang ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}lang=${encodeURIComponent(lang)}` : baseUrl;
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      return Response.json(
-        { error: { message: data.error || `Upstream ${res.status}`, type: "server_error" } },
-        { status: res.status, headers: { "Access-Control-Allow-Origin": "*" } },
-      );
-    }
-
-    // Internal API shape: { voices } when lang filter, else { byLang, languages }
-    type VoiceEntry = { id: string; name: string; lang?: string; gender?: string };
-    const rawVoices: VoiceEntry[] = lang
-      ? (data.voices || [])
-      : (Object.values(data.byLang || {}) as Array<{ voices?: VoiceEntry[] }>).flatMap((l) => l.voices || []);
-
-    // Use provider alias for /v1/audio/speech model param (matches skill convention e.g. el/, dg/, edge-tts/)
-    const alias = AI_PROVIDERS[provider]?.alias || provider;
-    const data_out = rawVoices.map((v) => ({
-      id: v.id,
-      name: v.name,
-      lang: v.lang || "",
-      gender: v.gender || "",
-      model: `${alias}/${v.id}`,
-    }));
-
-    return Response.json({ object: "list", data: data_out }, {
-      headers: { "Access-Control-Allow-Origin": "*" },
-    });
+    return Response.json({ object: "list", data: result.data }, { headers: CORS });
   } catch (err: unknown) {
     return Response.json(
       { error: { message: err instanceof Error ? err.message : String(err), type: "server_error" } },
-      { status: 502, headers: { "Access-Control-Allow-Origin": "*" } },
+      { status: 502, headers: CORS },
     );
   }
 }

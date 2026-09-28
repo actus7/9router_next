@@ -1,5 +1,3 @@
-import { gatewayRoute } from "@/server/application/http/gatewayRoute";
-import { GET as implGET } from "./models/route";
-export { OPTIONS } from "./models/route";
-
-export const GET = gatewayRoute(implGET);
+// `./models/route` already exports its GET wrapped in `gatewayRoute`; wrapping
+// it again here counted the rate limit and resolved the key twice per request.
+export { GET, OPTIONS } from "./models/route";

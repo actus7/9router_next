@@ -371,8 +371,11 @@ function flushPassthrough(ctx: StreamContext, controller: TransformStreamDefault
   //   data: [DONE]\n\n
   // Without it they can hang until timeout and trigger failover.
   // Gemini-family clients (Antigravity, Vertex, Gemini) reject this sentinel with 400 syntax errors.
+  // A known non-OpenAI client (Claude → Claude passthrough) ends on its own
+  // terminal event; the sentinel is foreign to it.
   const isGeminiFamily = ctx.provider === "antigravity" || ctx.provider === "gemini" || ctx.provider === "vertex";
-  if (!ctx.streamDoneSent && !isGeminiFamily) {
+  const clientRejectsSentinel = !!ctx.sourceFormat && !clientExpectsDoneSentinel(ctx);
+  if (!ctx.streamDoneSent && !isGeminiFamily && !clientRejectsSentinel) {
     const doneOutput = "data: [DONE]\n\n";
     ctx.reqLogger?.appendConvertedChunk?.(doneOutput);
     controller.enqueue(sharedEncoder.encode(doneOutput));
@@ -563,9 +566,10 @@ export function createSSETransformStreamWithLogger(targetFormat: string, sourceF
   });
 }
 
-export function createPassthroughStreamWithLogger(provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null) {
+export function createPassthroughStreamWithLogger(provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null, sourceFormat: string | null = null) {
   return createSSEStream({
     mode: STREAM_MODE.PASSTHROUGH,
+    ...(sourceFormat ? { sourceFormat } : {}),
     provider,
     reqLogger,
     model,
