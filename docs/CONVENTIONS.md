@@ -222,6 +222,12 @@ Onde cada uso mora:
 | `jevMemoryReview` | `harness/learning/postTurnReview.ts` | as regex de "remember/lembre-se" |
 | `jevPluginSelection` | `harness/tools/toolSelection.ts`, chamado pelo worker de `durableRun` | mandar todas as `tools` da conversa (só remove com p < 0.1) |
 | `jevWriteRisk` | `harness/governance/queuePendingWrite.ts` | nada — é informação nova na fila de aprovação |
+| `jevSynapse` | `server/synapse/loop.ts` (Synapse Loop) | similaridade de tokens (equivalência); na estabilidade o Jev só **acrescenta** cautela — o "não" da heurística é final |
+
+**Decisão de 2026-09-28:** com o motor em `jev`, todo uso vem ligado por padrão
+(inclusive `jevPluginSelection`, que antes vinha desligado); os switches existem
+só para desligar um uso. O Synapse Loop está em
+`docs/superpowers/specs/2026-09-28-synapse-loop-design.md`.
 
 O classificador do roteamento inteligente existia em dois arquivos quase
 iguais (`smartRoutingClassifier.ts` e `routingClassifier.ts`); ligar o Jev

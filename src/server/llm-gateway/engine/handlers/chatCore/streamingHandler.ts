@@ -137,7 +137,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 /**
  * Build onStreamComplete callback for streaming usage tracking.
  */
-export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }: OnStreamCompleteContext) {
+export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log, onAnswer }: OnStreamCompleteContext) {
   const streamDetailId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
   const onStreamComplete = (contentObj: Record<string, unknown>, usage: Record<string, unknown> | null, ttftAt: number | null) => {
@@ -164,6 +164,7 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
 
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, label: "STREAM USAGE", silent: true, meta: routingMeta(body) });
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
+    onAnswer?.(typeof contentObj?.content === "string" ? contentObj.content : "", contentObj?.sawToolCall === true);
   };
 
   return { onStreamComplete, streamDetailId };

@@ -5,6 +5,7 @@ import { textValue } from "../chatFormatUtils";
 import type { ChatSession, NormalizedModel } from "../types";
 import { exportConversation } from "./exportConversation";
 import { prepareRetryMessage } from "./prepareRetryMessage";
+import { rejectSynapseAnswer } from "./rejectSynapseAnswer";
 import type { SendMessageOptions } from "../types";
 
 export interface UseSendMessageActionsArgs {
@@ -61,6 +62,7 @@ export function useSendMessageActions({
 
   const handleRetryMessage = useCallback(
     (messageId: string) => {
+      rejectSynapseAnswer(sessions.find((s) => s.id === activeSessionId), messageId);
       const opts = prepareRetryMessage(
         sessions,
         activeSessionId,
@@ -74,6 +76,9 @@ export function useSendMessageActions({
 
   const handleFeedback = useCallback(
     (messageId: string, feedback: "up" | "down") => {
+      const session = sessions.find((s) => s.id === activeSessionId);
+      const current = session?.messages.find((m) => m.id === messageId)?.feedback;
+      if (feedback === "down" && current !== "down") rejectSynapseAnswer(session, messageId);
       updateSession(activeSessionId, (session) => ({
         ...session,
         messages: session.messages.map((m) =>
@@ -83,7 +88,7 @@ export function useSendMessageActions({
         ),
       }));
     },
-    [activeSessionId, updateSession],
+    [sessions, activeSessionId, updateSession],
   );
 
   const handleExportConversation = useCallback(

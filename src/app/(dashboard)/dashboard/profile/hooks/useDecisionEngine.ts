@@ -9,7 +9,7 @@ import type { Settings } from "../types";
 // `providerConnections`, encrypted, and serves the gateway's models too.
 const GATEWAY_PROVIDER = "vercel-ai-gateway";
 
-export type JevFeatureKey = "jevSmartRouting" | "jevMemoryReview" | "jevPluginSelection" | "jevWriteRisk";
+export type JevFeatureKey = "jevSmartRouting" | "jevMemoryReview" | "jevPluginSelection" | "jevWriteRisk" | "jevSynapse";
 
 export type JevTestResult =
   | { ok: true; latencyMs: number }

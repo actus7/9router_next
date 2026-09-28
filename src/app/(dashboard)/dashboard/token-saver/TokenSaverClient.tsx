@@ -14,6 +14,8 @@ import { useTokenSaverSettings } from "./hooks/useTokenSaverSettings";
 import PxpipeSection from "./sections/PxpipeSection";
 import PxpipeModal from "./sections/PxpipeModal";
 import MetaBreakSection from "./sections/MetaBreakSection";
+import SynapseLearningSection from "./sections/SynapseLearningSection";
+import { useSynapseLearning } from "./hooks/useSynapseLearning";
 
 function t(text: string): string {
   return translate(text) || text;
@@ -22,6 +24,7 @@ function t(text: string): string {
 export default function TokenSaverClient() {
   const settings = useTokenSaverSettings();
   const pxpipe = usePxpipe();
+  const learning = useSynapseLearning(false);
   const { data } = useSWR<Record<string, unknown>>("/api/settings", jsonFetcher);
   const statusChecksStartedRef = useRef(false);
   const [, setLocaleTick] = useState(() => getCurrentLocale());
@@ -37,6 +40,7 @@ export default function TokenSaverClient() {
     settings.setPonytailLevel((data.ponytailLevel as string) || "full");
     settings.setSynapseEnabled(!!data.synapseEnabled);
     settings.setSynapseLevel((data.synapseLevel as string) || "lite");
+    learning.syncEnabled(data.synapseLearningEnabled === true);
     pxpipe.setPxpipeEnabled(!!data.pxpipeEnabled);
     if (typeof data.pxpipeMinChars === "number") pxpipe.setPxpipeMinChars(data.pxpipeMinChars);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setters are stable; only settings data should hydrate local state
@@ -189,7 +193,7 @@ export default function TokenSaverClient() {
             </p>
             <p className="text-sm text-text-muted">
               {t(
-                "Answers greetings, thanks and goodbyes at the gateway without spending tokens; with no clear match, the message continues to the model. Never runs in tool conversations",
+                "Answers greetings, thanks and goodbyes at the gateway without spending tokens; with no clear match, the message continues to the model. Never runs when a tool is required or already in use",
               )}
             </p>
           </div>
@@ -222,6 +226,8 @@ export default function TokenSaverClient() {
             />
           </div>
         </div>
+
+        {settings.synapseEnabled && <SynapseLearningSection learning={learning} />}
 
         <PxpipeSection
           pxpipeEnabled={pxpipe.pxpipeEnabled}

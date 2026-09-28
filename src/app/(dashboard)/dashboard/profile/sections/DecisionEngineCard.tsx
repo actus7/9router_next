@@ -44,6 +44,11 @@ const FEATURES: Array<{ key: JevFeatureKey; title: string; description: string }
     description: "Before each chat turn, Jev drops tools that clearly do not apply. Fewer tokens; a wrong drop costs quality.",
   },
   {
+    key: "jevSynapse",
+    title: "Synapse learning",
+    description: "Jev judges whether an answer is stable enough to reuse and whether two answers say the same thing, so paraphrases can be learned.",
+  },
+  {
     key: "jevWriteRisk",
     title: "Risk of pending writes",
     description: "Jev rates how risky each agent write awaiting approval is. Advisory only: you still approve or reject.",

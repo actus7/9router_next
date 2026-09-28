@@ -68,6 +68,8 @@ interface Settings {
   jevMemoryReview: boolean;
   jevPluginSelection: boolean;
   jevWriteRisk: boolean;
+  jevSynapse: boolean;
+  synapseLearningEnabled: boolean;
   [key: string]: unknown;
 }
 
@@ -121,9 +123,13 @@ const DEFAULT_SETTINGS: Settings = {
   decisionEngine: "heuristic",
   jevSmartRouting: true,
   jevMemoryReview: true,
-  // Off by default: dropping a tool the model needed costs answer quality.
-  jevPluginSelection: false,
-  jevWriteRisk: false,
+  // With the decision engine on Jev, every decision uses it (operator decision
+  // 2026-09-28); the per-use switches only exist to turn one off.
+  jevPluginSelection: true,
+  jevWriteRisk: true,
+  jevSynapse: true,
+  // Off by default: it stores this account's short questions and answers.
+  synapseLearningEnabled: false,
 };
 
 async function readRaw(): Promise<Record<string, unknown>> {

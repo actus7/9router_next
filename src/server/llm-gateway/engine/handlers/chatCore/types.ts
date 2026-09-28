@@ -108,6 +108,10 @@ export interface HandleChatCoreOptions {
   metaBreakEnabled?: boolean;
   synapseEnabled?: boolean;
   synapseLevel?: string;
+  /** Synapse Loop: learn and serve this account's recurring answers. */
+  synapseLearningEnabled?: boolean;
+  /** The Loop's judgements go to Jev (decision engine = jev, jevSynapse on). */
+  synapseLearningUseJev?: boolean;
   pxpipeEnabled?: boolean;
   pxpipeMinChars?: number;
   pxpipeTimeoutMs?: number;
@@ -190,6 +194,8 @@ export interface OnStreamCompleteContext {
   pxpipe: PxpipeSummary | null;
   reqTag: string;
   log: ChatLogger | undefined;
+  /** The final answer text, for the Synapse Loop to observe. */
+  onAnswer?: ((text: string, sawToolCall: boolean) => void) | null;
 }
 
 /** Context for buildTransformStream. */

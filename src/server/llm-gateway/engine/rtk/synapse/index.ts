@@ -73,74 +73,92 @@ type SynapseResult = { success: true; response: Response } | null;
 export function trySynapseIntercept(params: SynapseInterceptParams): SynapseResult {
   try {
     const { body, sourceFormat, stream, model, provider, enabled, level, log, reqTag } = params;
-
-    // 1. Guard: disabled
     if (!enabled) return null;
-
-    // 2. Guard: imageGen model (espelha resolveStreamMode phases.ts:129-131)
-    const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
-    const modelType = getModelType(alias, model);
-    if (modelType === "imageGen" || /image|imagen|image-generation/i.test(model)) {
-      return null;
-    }
-
-    // 3. Extrair lista de mensagens format-aware
-    const messages = Array.isArray(body.messages) ? body.messages as unknown[] : null;
-    const input = Array.isArray(body.input) ? body.input as unknown[] : null;
-    const contents = Array.isArray(body.contents) ? body.contents as unknown[] : null;
-    const msgList = messages || input || contents;
-    if (!msgList || msgList.length === 0) return null;
-
-    // 4. Última mensagem deve ser do usuário
-    const lastMsg = msgList[msgList.length - 1] as Record<string, unknown>;
-    if (!lastMsg) return null;
-
-    let isUser = false;
-    if (messages) {
-      isUser = lastMsg.role === "user";
-    } else if (contents) {
-      isUser = lastMsg.role === "user";
-    } else if (input) {
-      // openai-responses: item.role === "user" OU item.type === "message" com role user
-      isUser = lastMsg.role === "user" || (lastMsg.type === "message" && (lastMsg as Record<string, unknown>).role === "user");
-    }
-    if (!isUser) return null;
-
-    // 5. Extrair texto da última mensagem (defensivo)
-    const text = extractText(lastMsg, contents !== null);
+    const text = synapseEligibleText({ body, model, provider });
     if (!text) return null;
 
-    // 6. Tools presentes não bloqueiam: o chat manda `tools` sempre que a
-    // conversa tem plugins ligados, não porque o turno precise delas. Só um
-    // pedido que OBRIGA uma tool deixa de ser uma saudação trivial.
-    if (forcesToolCall(body)) return null;
-
-    // 7. SEM atividade de tool no histórico
-    if (hasToolActivity(msgList, contents !== null)) return null;
-
-    // 7b. "ok"/"certo" depois de uma pergunta do assistente é resposta a ela
-    // ("Quer que eu inclua compressão?" → "ok"), não um ack para agradecer.
-    const prevMsg = msgList[msgList.length - 2] as Record<string, unknown> | undefined;
-    if (prevMsg && (prevMsg.role === "assistant" || prevMsg.role === "model")) {
-      const prevText = extractText(prevMsg, contents !== null);
-      if (prevText?.trim().endsWith("?")) return null;
-    }
-
-    // 8. Match determinístico
     const match = matchSynapseDeterministic(text, level || "lite");
     if (!match) return null;
 
-    // 9. Log e resposta
     log?.line?.(reqTag, "⚙", `SYNAPSE:${level || "lite"}`);
-    const synapseHeaders = { "X-ModelHub-Response-Source": "synapse", [TOKEN_SAVERS_APPLIED_HEADER]: "synapse" };
-    const result = stream
-      ? createStreamingResponse(sourceFormat, model, match, synapseHeaders)
-      : createNonStreamingResponse(sourceFormat, model, match, synapseHeaders);
-    return { success: true as const, response: result.response };
+    return synapseLocalResponse(sourceFormat, stream, model, match);
   } catch {
     // synapse: fail-open — qualquer erro → null
     return null;
   }
+}
+
+/** A local answer in the client's dialect, tagged so the chat shows the Synapse pill. */
+export function synapseLocalResponse(sourceFormat: string, stream: boolean, model: string, text: string): { success: true; response: Response } {
+  const synapseHeaders = { "X-ModelHub-Response-Source": "synapse", [TOKEN_SAVERS_APPLIED_HEADER]: "synapse" };
+  const result = stream
+    ? createStreamingResponse(sourceFormat, model, text, synapseHeaders)
+    : createNonStreamingResponse(sourceFormat, model, text, synapseHeaders);
+  return { success: true as const, response: result.response };
+}
+
+/**
+ * The user's text when this turn is one Synapse may answer locally — shared by
+ * the fixed patterns and the Synapse Loop (which also observes only these
+ * turns). Null for anything that isn't a plain, self-contained user message.
+ */
+export function synapseEligibleText({ body, model, provider }: { body: Record<string, unknown>; model: string; provider: string }): string | null {
+  // imageGen model (espelha resolveStreamMode phases.ts:129-131)
+  const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
+  if (getModelType(alias, model) === "imageGen" || /image|imagen|image-generation/i.test(model)) return null;
+
+  const messages = Array.isArray(body.messages) ? body.messages as unknown[] : null;
+  const input = Array.isArray(body.input) ? body.input as unknown[] : null;
+  const contents = Array.isArray(body.contents) ? body.contents as unknown[] : null;
+  const msgList = messages || input || contents;
+  if (!msgList || msgList.length === 0) return null;
+
+  // Última mensagem deve ser do usuário
+  const lastMsg = msgList[msgList.length - 1] as Record<string, unknown>;
+  if (!lastMsg) return null;
+  const isUser = input
+    // openai-responses: item.role === "user" OU item.type === "message" com role user
+    ? lastMsg.role === "user" || (lastMsg.type === "message" && lastMsg.role === "user")
+    : lastMsg.role === "user";
+  if (!isUser) return null;
+
+  const text = extractText(lastMsg, contents !== null);
+  if (!text) return null;
+
+  // Tools presentes não bloqueiam: o chat manda `tools` sempre que a
+  // conversa tem plugins ligados, não porque o turno precise delas. Só um
+  // pedido que OBRIGA uma tool deixa de ser uma saudação trivial.
+  if (forcesToolCall(body)) return null;
+
+  // SEM atividade de tool no histórico
+  if (hasToolActivity(msgList, contents !== null)) return null;
+
+  // "ok"/"certo" depois de uma pergunta do assistente é resposta a ela
+  // ("Quer que eu inclua compressão?" → "ok"), não um ack para agradecer.
+  const prevMsg = msgList[msgList.length - 2] as Record<string, unknown> | undefined;
+  if (prevMsg && (prevMsg.role === "assistant" || prevMsg.role === "model")) {
+    const prevText = extractText(prevMsg, contents !== null);
+    if (prevText?.trim().endsWith("?")) return null;
+  }
+  return text;
+}
+
+/** The request's system instructions in any dialect, or null. */
+export function systemTextOf(body: Record<string, unknown>): string | null {
+  const parts: string[] = [];
+  const push = (value: unknown) => {
+    if (typeof value === "string") parts.push(value);
+    else if (Array.isArray(value)) for (const v of value) push((v as Record<string, unknown>)?.text ?? v);
+    else if (value && typeof value === "object") push((value as Record<string, unknown>).parts ?? (value as Record<string, unknown>).text);
+  };
+  push(body.system);
+  push(body.instructions);
+  push(body.systemInstruction);
+  for (const m of [...(Array.isArray(body.messages) ? body.messages : []), ...(Array.isArray(body.input) ? body.input : [])] as Array<Record<string, unknown>>) {
+    if (m?.role === "system" || m?.role === "developer") push(m.content);
+  }
+  const text = parts.filter((p) => typeof p === "string" && p.trim()).join("\n\n");
+  return text || null;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────

@@ -3,7 +3,8 @@ import { createStreamController } from "../utils/streamHandler";
 import { createRequestLogger } from "../utils/requestLogger";
 import { HTTP_STATUS, TOKEN_SAVER_HEADER } from "../config/runtimeConfig";
 import { handleBypassRequest } from "../utils/bypassHandler";
-import { trySynapseIntercept } from "../rtk/synapse";
+import { trySynapseIntercept, synapseEligibleText, synapseLocalResponse, systemTextOf } from "../rtk/synapse";
+import { lookupLearned, observeInBackground, observeResponseInBackground } from "../host/synapseLoop";
 import { tagTokenSavers } from "../rtk/appliedHeader";
 import { trackPendingRequest, appendRequestLog } from "../host/usage";
 import { captureTenant } from "../host/tenant";
@@ -65,6 +66,8 @@ export async function handleChatCore({
   metaBreakEnabled,
   synapseEnabled,
   synapseLevel,
+  synapseLearningEnabled,
+  synapseLearningUseJev,
   pxpipeEnabled,
   pxpipeMinChars,
   pxpipeTimeoutMs,
@@ -139,6 +142,33 @@ export async function handleChatCore({
     reqTag,
   });
   if (synapseResponse) return synapseResponse;
+
+  // Synapse Loop: this account's learned answers. Same eligibility as the
+  // fixed patterns; a turn that doesn't qualify is neither served nor observed.
+  const learningInput = tokenSaverEnabled && synapseEnabled && synapseLearningEnabled
+    ? synapseEligibleText({ body, model, provider })
+    : null;
+  const learningTurn = learningInput ? { input: learningInput, systemText: systemTextOf(body) } : null;
+  if (learningTurn) {
+    const learned = await lookupLearned(learningTurn).catch(() => null);
+    if (learned) {
+      log?.line?.(reqTag, "⚙", "SYNAPSE:learned");
+      return synapseLocalResponse(sourceFormat, stream, model, learned.answer);
+    }
+  }
+  const loopOptions = { useJev: !!synapseLearningUseJev };
+  const onAnswer = learningTurn
+    ? (text: string, sawToolCall: boolean) => {
+        if (!sawToolCall && text.trim()) observeInBackground({ ...learningTurn, answer: text, model }, loopOptions);
+      }
+    : null;
+  // JSON answers are observed from the final response, whatever handler built it.
+  const observeJson = <T extends { response?: Response }>(result: T): T => {
+    if (learningTurn && result?.response?.ok) {
+      observeResponseInBackground(result.response.clone(), { ...learningTurn, model }, loopOptions);
+    }
+    return result;
+  };
 
   const reqLogger = await createRequestLogger(
     sourceFormat,
@@ -439,7 +469,7 @@ export async function handleChatCore({
     });
     if (result) {
       streamController.handleComplete();
-      return tagTokenSavers(result, appliedSavers);
+      return observeJson(tagTokenSavers(result, appliedSavers));
     }
     // handleForcedSSEToJson only declines when the upstream answered with a
     // non-SSE content type, and it does that before reading the body. The
@@ -462,12 +492,13 @@ export async function handleChatCore({
       appendLog,
     });
     streamController.handleComplete();
-    return tagTokenSavers(result, appliedSavers);
+    return observeJson(tagTokenSavers(result, appliedSavers));
   }
 
   // Streaming response
   const { onStreamComplete, streamDetailId } = buildOnStreamComplete({
     ...sharedCtx,
+    onAnswer,
   });
   return tagTokenSavers(await handleStreamingResponse({
     ...sharedCtx,

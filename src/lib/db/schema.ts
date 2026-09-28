@@ -426,6 +426,61 @@ export const TABLES: Record<string, TableDefinition> = {
     },
     primaryKey: "PRIMARY KEY (userId, skillId, filePath)",
   },
+  // Synapse Loop (docs/superpowers/specs/2026-09-28-synapse-loop-design.md).
+  // Per account like everything else: an answer learned from one account's
+  // conversations is never served to another.
+  synapseObservations: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      userId: "TEXT NOT NULL",
+      key: "TEXT NOT NULL",
+      personaHash: "TEXT NOT NULL",
+      input: "TEXT NOT NULL",
+      answer: "TEXT NOT NULL",
+      model: "TEXT",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_so_key ON synapseObservations(userId, key, personaHash, createdAt DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_so_ts ON synapseObservations(userId, createdAt)",
+    ],
+  },
+  synapseCapabilities: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      userId: "TEXT NOT NULL",
+      key: "TEXT NOT NULL",
+      personaHash: "TEXT NOT NULL",
+      canonicalInput: "TEXT NOT NULL",
+      answer: "TEXT NOT NULL",
+      // shadow | active | deprecated
+      status: "TEXT NOT NULL",
+      shadowRuns: "INTEGER NOT NULL DEFAULT 0",
+      shadowAgreements: "INTEGER NOT NULL DEFAULT 0",
+      served: "INTEGER NOT NULL DEFAULT 0",
+      rejections: "INTEGER NOT NULL DEFAULT 0",
+      // heuristic | jev — which engine judged stability/equivalence
+      source: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_sc_key ON synapseCapabilities(userId, key, personaHash)",
+      "CREATE INDEX IF NOT EXISTS idx_sc_status ON synapseCapabilities(userId, status)",
+    ],
+  },
+  synapseEvents: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      userId: "TEXT NOT NULL",
+      capabilityId: "TEXT NOT NULL",
+      // shadow_evaluated | promoted | served | audited | rejected | deprecated
+      type: "TEXT NOT NULL",
+      payload: "TEXT",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_se_cap ON synapseEvents(userId, capabilityId, createdAt DESC)"],
+  },
   agentMemoryEntries: {
     columns: {
       id: "TEXT PRIMARY KEY",

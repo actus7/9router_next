@@ -14,6 +14,8 @@ export interface Settings {
   jevMemoryReview?: boolean;
   jevPluginSelection?: boolean;
   jevWriteRisk?: boolean;
+  jevSynapse?: boolean;
+  synapseLearningEnabled?: boolean;
   [key: string]: unknown;
 }
 

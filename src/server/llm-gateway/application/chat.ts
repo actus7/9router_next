@@ -336,6 +336,8 @@ async function buildChatCoreOptions(
     metaBreakEnabled: chatSettings.metaBreakEnabled === true,
     synapseEnabled: !!chatSettings.synapseEnabled,
     synapseLevel: chatSettings.synapseLevel || "lite",
+    synapseLearningEnabled: chatSettings.synapseLearningEnabled === true,
+    synapseLearningUseJev: chatSettings.decisionEngine === "jev" && chatSettings.jevSynapse !== false,
     pxpipeEnabled: !!chatSettings.pxpipeEnabled,
     pxpipeMinChars: chatSettings.pxpipeMinChars,
     pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,

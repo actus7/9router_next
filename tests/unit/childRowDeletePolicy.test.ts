@@ -33,6 +33,13 @@ interface Declared {
 }
 
 const POLICY: Record<string, Declared> = {
+  "synapseEvents.capabilityId": {
+    policy: "cleans",
+    parent: "synapseCapabilities",
+    why:
+      "deleteCapability and forgetAllLearning (synapseLoopRepo) delete a " +
+      "capability's events in the same transaction as the capability.",
+  },
   "modelAvailability.connectionId": {
     policy: "cleans",
     parent: "providerConnections",
