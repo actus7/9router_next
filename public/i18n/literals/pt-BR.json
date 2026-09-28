@@ -2046,5 +2046,12 @@
   "Headroom compressed the conversation context.": "O Headroom comprimiu o contexto da conversa.",
   "Caveman asked the model for a terse answer.": "O Caveman pediu ao modelo uma resposta curta.",
   "Ponytail asked the model for the simplest solution.": "O Ponytail pediu ao modelo a solução mais simples.",
-  "PXPIPE sent bulky context as images to save tokens.": "O PXPIPE enviou contexto volumoso como imagem para economizar tokens."
+  "PXPIPE sent bulky context as images to save tokens.": "O PXPIPE enviou contexto volumoso como imagem para economizar tokens.",
+  "Test Jev": "Testar Jev",
+  "Jev answered": "O Jev respondeu",
+  "Add credits on Vercel": "Adicionar créditos na Vercel",
+  "Your Vercel account is on the free tier, which has no access to Jev. Add paid credits to use it.": "Sua conta Vercel está no plano gratuito, que não tem acesso ao Jev. Adicione créditos pagos para usar.",
+  "The Vercel AI Gateway rejected the key. Replace it on the providers page.": "A Vercel AI Gateway recusou a chave. Troque-a na página de providers.",
+  "No Vercel AI Gateway connection on this account.": "Nenhuma conexão da Vercel AI Gateway nesta conta.",
+  "Jev did not answer in time.": "O Jev não respondeu a tempo."
 }

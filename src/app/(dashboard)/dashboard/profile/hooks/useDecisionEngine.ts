@@ -11,6 +11,10 @@ const GATEWAY_PROVIDER = "vercel-ai-gateway";
 
 export type JevFeatureKey = "jevSmartRouting" | "jevMemoryReview" | "jevPluginSelection" | "jevWriteRisk";
 
+export type JevTestResult =
+  | { ok: true; latencyMs: number }
+  | { ok: false; reason: string; status?: number; message: string };
+
 async function patchSettings(updates: Record<string, unknown>): Promise<boolean> {
   const res = await fetch("/api/settings", {
     method: "PATCH",
@@ -24,6 +28,25 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
   const [hasGatewayKey, setHasGatewayKey] = useState<boolean | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<JevTestResult | null>(null);
+
+  // One real, billed Jev call. Every feature silently falls back to the
+  // heuristic when Jev fails, so this is the only way to see that it does.
+  const testJev = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/decisions/jev/test", { method: "POST" });
+      setTestResult(res.ok
+        ? ((await res.json()) as JevTestResult)
+        : { ok: false, reason: "http", status: res.status, message: `HTTP ${res.status}` });
+    } catch {
+      setTestResult({ ok: false, reason: "http", message: "Could not reach the server." });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const refreshKeyStatus = useCallback(async () => {
     try {
@@ -75,6 +98,7 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
         return false;
       }
       setHasGatewayKey(true);
+      setTestResult(null);
       return true;
     } catch (err) {
       console.error("Falha ao conectar a Vercel AI Gateway:", err);
@@ -92,5 +116,8 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
     setEngine: (engine: "heuristic" | "jev") => update({ decisionEngine: engine }),
     setFeature: (key: JevFeatureKey, enabled: boolean) => update({ [key]: enabled }),
     connectGatewayKey,
+    testing,
+    testResult,
+    testJev,
   };
 }

@@ -5,7 +5,7 @@ import Card from "@/shared/components/Card";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { BrainCircuit, CheckCircle2, ExternalLink } from "lucide-react";
+import { BrainCircuit, CheckCircle2, ExternalLink, XCircle } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { Settings } from "../types";
 import type { JevFeatureKey, useDecisionEngine } from "../hooks/useDecisionEngine";
@@ -16,6 +16,16 @@ const t = (text: string): string => translate(text) ?? text;
 // Vercel's own team-agnostic link (from its API-keys docs): `[team]` resolves
 // to whichever team the visitor is signed into. Same URL as the provider card.
 const GATEWAY_KEY_URL = "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys";
+
+// Where Vercel sends a free-tier account to buy credits (from its own 403).
+const GATEWAY_TOP_UP_URL = "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up";
+
+const FAILURE_TEXT: Record<string, string> = {
+  free_tier: "Your Vercel account is on the free tier, which has no access to Jev. Add paid credits to use it.",
+  unauthorized: "The Vercel AI Gateway rejected the key. Replace it on the providers page.",
+  no_key: "No Vercel AI Gateway connection on this account.",
+  timeout: "Jev did not answer in time.",
+};
 
 const FEATURES: Array<{ key: JevFeatureKey; title: string; description: string }> = [
   {
@@ -89,10 +99,18 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
           <>
             <div className="pt-2 border-t border-border/50">
               {engine.hasGatewayKey ? (
-                <p className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="size-4 text-success shrink-0" />
-                  {t("Using the key of your Vercel AI Gateway connection.")}
-                </p>
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="size-4 text-success shrink-0" />
+                      {t("Using the key of your Vercel AI Gateway connection.")}
+                    </p>
+                    <Button variant="outline" size="sm" loading={engine.testing} onClick={() => engine.testJev()}>
+                      {t("Test Jev")}
+                    </Button>
+                  </div>
+                  <JevTestStatus result={engine.testResult} />
+                </div>
               ) : engine.hasGatewayKey === false ? (
                 <form onSubmit={handleConnect} className="flex flex-col gap-3">
                   <p className="text-sm">
@@ -149,5 +167,38 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
         )}
       </div>
     </Card>
+  );
+}
+
+/** Result of the card's test call: every feature falls back silently, so this is where a broken setup shows. */
+function JevTestStatus({ result }: { result: ReturnType<typeof useDecisionEngine>["testResult"] }) {
+  if (!result) return null;
+  if (result.ok) {
+    return (
+      <p role="status" className="flex items-center gap-2 text-sm text-success">
+        <CheckCircle2 className="size-4 shrink-0" />
+        {t("Jev answered")} · {result.latencyMs} ms
+      </p>
+    );
+  }
+  const text = FAILURE_TEXT[result.reason];
+  return (
+    <div role="status" className="flex flex-col gap-1 text-sm text-destructive">
+      <p className="flex items-start gap-2">
+        <XCircle className="size-4 shrink-0 mt-0.5" />
+        <span>{text ? t(text) : result.message}</span>
+      </p>
+      {result.reason === "free_tier" && (
+        <a
+          href={GATEWAY_TOP_UP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 font-medium text-primary hover:underline w-fit ml-6"
+        >
+          {t("Add credits on Vercel")}
+          <ExternalLink className="size-3.5" />
+        </a>
+      )}
+    </div>
   );
 }

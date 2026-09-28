@@ -115,3 +115,42 @@ export async function evaluateJev<Q extends Record<string, JevQuestion>>(
     return null;
   }
 }
+
+export type JevProbeResult =
+  | { ok: true; latencyMs: number }
+  | { ok: false; reason: "no_key" | "free_tier" | "unauthorized" | "http" | "timeout" | "shape"; status?: number; message: string };
+
+const PROBE_QUESTION = { ping: { type: "boolean", instructions: "Is this a greeting?" } } as const;
+
+/**
+ * One tiny Jev call that says *why* it failed. `evaluateJev` swallows every
+ * failure so callers keep their heuristic — which also made a broken setup
+ * invisible: a free-tier Vercel account answers 403 on every call while the
+ * profile card still read "using your key". The card's test button uses this.
+ */
+export async function probeJev(timeoutMs = 15_000): Promise<JevProbeResult> {
+  const apiKey = await getJevApiKey().catch(() => null);
+  if (!apiKey) return { ok: false, reason: "no_key", message: "No Vercel AI Gateway connection on this account." };
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(JEV_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ model: JEV_MODEL, state: "hello", questions: PROBE_QUESTION }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { answers?: Record<string, unknown>; error?: { message?: string } };
+    // The upstream message can quote the request; never hand the key back.
+    const message = String(payload?.error?.message || `HTTP ${response.status}`).replaceAll(apiKey, "***").slice(0, 300);
+    if (response.status === 401) return { ok: false, reason: "unauthorized", status: 401, message };
+    if (response.status === 403 && /free tier/i.test(message)) return { ok: false, reason: "free_tier", status: 403, message };
+    if (!response.ok) return { ok: false, reason: "http", status: response.status, message };
+    if (!parseAnswer(payload?.answers?.ping, PROBE_QUESTION.ping)) {
+      return { ok: false, reason: "shape", status: response.status, message: "Jev answered in an unrecognised shape." };
+    }
+    return { ok: true, latencyMs: Date.now() - startedAt };
+  } catch (error) {
+    const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    return { ok: false, reason: timedOut ? "timeout" : "http", message: timedOut ? "Jev did not answer in time." : "Could not reach the Vercel AI Gateway." };
+  }
+}

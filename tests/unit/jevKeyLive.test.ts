@@ -53,4 +53,12 @@ describe.skipIf(!live)("Jev with the gateway key", () => {
     expect(answers?.remember.type).toBe("boolean");
     expect((answers!.remember as { probability: number }).probability).toBeGreaterThan(0.5);
   }, 60_000);
+
+  it("probe reports the real state of the key", async () => {
+    const { probeJev } = await import("@/server/decisions/jev");
+    const result = await probeJev(20_000);
+    // Either works, or says exactly why — never a bare failure.
+    if (!result.ok) expect(["free_tier", "unauthorized", "http", "timeout", "shape"]).toContain(result.reason);
+    process.stdout.write(`probeJev: ${JSON.stringify(result)}\n`);
+  }, 60_000);
 });
