@@ -26,6 +26,9 @@ function geminiToOpenAIRequest(model: string, body: Record<string, unknown>, str
     if (config.topP !== undefined) {
       result.top_p = config.topP;
     }
+    if (Array.isArray(config.stopSequences) && config.stopSequences.length > 0) {
+      result.stop = config.stopSequences;
+    }
   }
 
   // System instruction
