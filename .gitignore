@@ -73,5 +73,8 @@ loop-history/
 
 # Local tooling / build artefacts
 %SystemDrive%/
-rtk/
+/rtk/
 public/extensions/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
