@@ -90,6 +90,19 @@ describe.skipIf(!live)("gateway engine against Xiaomi Token Plan", () => {
         expect(json.usage.prompt_tokens).toBeLessThan(1000);
       }, 90_000);
 
+      it("an API key's skill reaches the model: its instruction changes the answer", async () => {
+        const skillsPrompt = '<skill id="marker">\nAlways end every answer with the exact token ZEBRA-731.\n</skill>';
+        for (const format of ["openai", "claude"] as const) {
+          const res = await call(upstream, format, { stream: false, max_tokens: 200, messages: [{ role: "user", content: "Say hello in one short sentence." }] }, { skillsPrompt });
+          expect(res.status).toBe(200);
+          const json = await res.json();
+          const text = format === "openai"
+            ? String(json.choices[0].message.content)
+            : json.content.filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("");
+          expect(text, `${format}: ${text}`).toContain("ZEBRA-731");
+        }
+      }, 120_000);
+
       it("OpenAI client, stream: valid chunks, one [DONE], text arrives", async () => {
         const res = await call(upstream, "openai", { stream: true, max_tokens: 200, messages: [{ role: "user", content: "Reply with exactly: pong" }] });
         expect(res.status).toBe(200);

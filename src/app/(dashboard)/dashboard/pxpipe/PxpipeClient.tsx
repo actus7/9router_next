@@ -153,8 +153,8 @@ export default function PxpipeClient() {
           PXPIPE Dashboard
         </h2>
         <div className="flex items-center gap-2">
-          <a href="/dashboard/token-saver" className="text-xs text-primary underline hover:opacity-80">
-            {translate("Token Saver settings") || "Token Saver settings"}
+          <a href="/dashboard/endpoint" className="text-xs text-primary underline hover:opacity-80">
+            {translate("API key abilities") || "API key abilities"}
           </a>
           <Button size="sm" variant="ghost" onClick={refresh} disabled={loading}>
             {loading ? (translate("Refreshing…") || "Refreshing…") : (translate("Refresh") || "Refresh")}
@@ -224,7 +224,7 @@ export default function PxpipeClient() {
           <PxpipeTimelineChart data={stats.timeline} />
         ) : (
           <div className="h-32 flex items-center justify-center text-text-muted text-sm">
-            {translate("No savings recorded yet — enable PXPIPE in Token Saver and route a large request in Claude format.") || "No savings recorded yet — enable PXPIPE in Token Saver and route a large request in Claude format."}
+            {translate("No savings recorded yet — enable PXPIPE in an API key's abilities and route a large request in Claude format.") || "No savings recorded yet — enable PXPIPE in an API key's abilities and route a large request in Claude format."}
           </div>
         )}
       </Card>

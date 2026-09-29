@@ -17,6 +17,7 @@ import { supportsGrokCliReasoningEffort } from "../../config/grokCli";
 import { detectClientTool, isNativePassthrough } from "../../utils/clientDetector";
 import { dedupeTools } from "../../utils/toolDeduper";
 import { injectCaveman } from "../../rtk/caveman";
+import { injectSystemPrompt } from "../../rtk/systemInject";
 import { applyMetaBreak } from "./metabreak";
 import { injectPonytail } from "../../rtk/ponytail";
 import { compressMessages, formatRtkLog } from "../../rtk/index";
@@ -314,6 +315,7 @@ export async function runTokenSavers(params: {
   pxpipeTimeoutMs?: number;
   pxpipeTransform?: unknown;
   onPxpipeEvent?: (event: Record<string, unknown>) => void;
+  skillsPrompt?: string;
   provider: string;
   model: string;
   reqTag: string;
@@ -345,6 +347,14 @@ export async function runTokenSavers(params: {
 
   // Token-saver flags accumulator for the single "⚙" log line below.
   const xf = [];
+
+  // Skills an API key selected. Not a saver — the key asked for them, so the
+  // per-request token-saver opt-out header does not drop them.
+  if (params.skillsPrompt) {
+    injectSystemPrompt(body, finalFormat, params.skillsPrompt);
+    xf.push("SKILLS");
+    applied.push("skills");
+  }
 
   // Caveman: inject terse-style system prompt
   if (tokenSaverEnabled && cavemanEnabled && cavemanLevel) {

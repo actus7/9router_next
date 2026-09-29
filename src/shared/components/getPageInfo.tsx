@@ -3,7 +3,7 @@
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
-import { BarChart3, Globe, Key, Languages, Layers, MessageCircle, Monitor, Network, PieChart, PiggyBank, Puzzle, Server, Settings, Terminal, Webhook } from "lucide-react";
+import { BarChart3, Globe, Key, Languages, Layers, MessageCircle, Monitor, Network, PieChart, Puzzle, Server, Settings, Terminal, Webhook } from "lucide-react";
 
 interface Breadcrumb {
   label: string;
@@ -67,7 +67,6 @@ const SIMPLE_ROUTES: { test: (p: string) => boolean; title: string; desc: string
   { test: (p) => p.includes("/usage"), title: "Usage & Analytics", desc: "Monitor your API usage, token consumption, and request logs", icon: <BarChart3 className="size-6" /> },
   { test: (p) => p.includes("/auth-files"), title: "Auth Files", desc: "Map provider credentials stored in the local database", icon: <Key className="size-6" /> },
   { test: (p) => p.includes("/quota"), title: "Quota Tracker", desc: "Track and manage your API quota limits", icon: <PieChart className="size-6" /> },
-  { test: (p) => p.includes("/token-saver"), title: "Token Saver", desc: "Compress prompts and outputs to save tokens", icon: <PiggyBank className="size-6" /> },
   { test: (p) => p.includes("/cli-tools"), title: "CLI Tools", desc: "Configure CLI tools", icon: <Terminal className="size-6" /> },
   { test: (p) => p.includes("/proxy-pools"), title: "Proxy Pools", desc: "Manage your proxy pool settings", icon: <Network className="size-6" /> },
   { test: (p) => p.includes("/skills"), title: "Agent Skills", desc: "Copy a link and paste into your AI to use ModelHub — no installation", icon: <Puzzle className="size-6" /> },

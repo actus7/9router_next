@@ -2,9 +2,9 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import SynapseLearningSection from "@/app/(dashboard)/dashboard/token-saver/sections/SynapseLearningSection";
+import LearnedAnswersCard from "@/app/(dashboard)/dashboard/endpoint/sections/LearnedAnswersCard";
 
-type Learning = Parameters<typeof SynapseLearningSection>[0]["learning"];
+type Learning = Parameters<typeof LearnedAnswersCard>[0]["learning"];
 
 const cap = (over: Record<string, unknown> = {}) => ({
   id: "c1", key: "k", personaHash: "p", canonicalInput: "Qual é a capital da França?", answer: "Paris.",
@@ -14,25 +14,28 @@ const cap = (over: Record<string, unknown> = {}) => ({
 
 function learning(over: Partial<Learning> = {}): Learning {
   return {
-    enabled: true, saving: false, capabilities: [cap()] as never, loading: false,
-    setEnabled: vi.fn(), retire: vi.fn(), reactivate: vi.fn(), remove: vi.fn(), forgetAll: vi.fn(),
+    capabilities: [cap()] as never, loading: false,
+    retire: vi.fn(), reactivate: vi.fn(), remove: vi.fn(), forgetAll: vi.fn(),
     ...over,
   } as Learning;
 }
 
-describe("SynapseLearningSection", () => {
+describe("LearnedAnswersCard", () => {
   afterEach(cleanup);
 
-  it("liga/desliga o aprendizado automático", () => {
-    const l = learning({ enabled: false });
-    render(<SynapseLearningSection learning={l} />);
-    fireEvent.click(screen.getByRole("switch", { name: /automatic learning/i }));
-    expect(l.setEnabled).toHaveBeenCalledWith(true);
+  it("não tem switch: o aprendizado liga por chave ou por conversa", () => {
+    render(<LearnedAnswersCard learning={learning()} />);
+    expect(screen.queryByRole("switch")).toBeNull();
+  });
+
+  it("sem nada aprendido, explica como começar", () => {
+    render(<LearnedAnswersCard learning={learning({ capabilities: [] as never })} />);
+    expect(screen.getByText(/nothing learned yet/i)).toBeTruthy();
   });
 
   it("lista o que aprendeu com status e números, e permite aposentar", () => {
     const l = learning();
-    render(<SynapseLearningSection learning={l} />);
+    render(<LearnedAnswersCard learning={l} />);
     expect(screen.getByText("Qual é a capital da França?")).toBeTruthy();
     expect(screen.getByText(/active/i)).toBeTruthy();
     expect(screen.getByText(/7/)).toBeTruthy();
@@ -42,7 +45,7 @@ describe("SynapseLearningSection", () => {
 
   it("aposentada pode ser reativada", () => {
     const l = learning({ capabilities: [cap({ status: "deprecated" })] as never });
-    render(<SynapseLearningSection learning={l} />);
+    render(<LearnedAnswersCard learning={l} />);
     fireEvent.click(screen.getByRole("button", { name: /reactivate/i }));
     expect(l.reactivate).toHaveBeenCalledWith("c1");
   });
@@ -50,7 +53,7 @@ describe("SynapseLearningSection", () => {
   it("esquecer tudo pede confirmação", () => {
     const l = learning();
     vi.stubGlobal("confirm", vi.fn(() => true));
-    render(<SynapseLearningSection learning={l} />);
+    render(<LearnedAnswersCard learning={l} />);
     fireEvent.click(screen.getByRole("button", { name: /forget everything/i }));
     expect(l.forgetAll).toHaveBeenCalled();
     vi.unstubAllGlobals();

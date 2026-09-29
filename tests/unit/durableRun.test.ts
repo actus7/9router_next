@@ -10,7 +10,8 @@ vi.mock("@/lib/db/driver", () => ({
 }));
 
 const handleChat = vi.hoisted(() => vi.fn());
-vi.mock("@/server/llm-gateway/chat", () => ({ handleChat }));
+const withGatewayProfile = vi.hoisted(() => vi.fn((_profile: unknown, fn: () => unknown) => fn()));
+vi.mock("@/server/llm-gateway/chat", () => ({ handleChat, withGatewayProfile }));
 // The worker only forwards an API key it can prove the caller owns.
 vi.mock("@/lib/db/repos/apiKeysRepo", () => ({
   resolveApiKeyOwner: vi.fn(async () => ({ userId: "test-user", id: "key-1" })),

@@ -115,6 +115,10 @@ export const TABLES: Record<string, TableDefinition> = {
       // Audit timestamp. `isActive` stays the gate `validateApiKey` reads, so a
       // revoked row keeps its usage history resolvable instead of vanishing.
       revokedAt: "TEXT",
+      // GatewayProfile JSON: abilities + skills this key's requests get.
+      // NULL means "never edited" and reads as the account's `settings` flags,
+      // which is what every key did before profiles existed.
+      profile: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",

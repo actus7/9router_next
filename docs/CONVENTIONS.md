@@ -78,6 +78,27 @@ em `profile/sections/RoutingCard.tsx`.
 A regra: uma chave sem UI **documentada como decisão** não é gap. O gap era não
 saber a diferença.
 
+**Molde, não configuração (decisão de 2026-09-29)**: `rtkEnabled`,
+`cavemanEnabled`/`cavemanLevel`, `ponytailEnabled`/`ponytailLevel`,
+`synapseEnabled`/`synapseLevel`, `synapseLearningEnabled`, `pxpipeEnabled` e
+`metaBreakEnabled` perderam a tela (a página "Economizador de Tokens" saiu).
+Nenhuma requisição com origem conhecida as lê mais: a API usa o perfil da chave
+(`apiKeys.profile`) e o chat usa `pluginSettings.abilities` da conversa. Elas
+ficaram como o molde que uma chave nova copia e o padrão de uma conversa (ou
+chave antiga, `profile` NULL) que nunca foi ajustada. Ver
+`docs/superpowers/specs/2026-09-29-api-key-profiles-design.md`.
+
+## Habilidades e skills do gateway vêm da origem da requisição
+
+Mesmo princípio de "o caminho, não o corpo" abaixo. Quem abre o escopo do
+`GatewayProfile` é quem sabe de onde a requisição veio: `gatewayRoute` para a
+API (perfil da chave), `startDurableRun` para o chat (perfil da conversa). O
+escopo do chat vence o da chave — o worker pode repassar uma chave da conta, e
+ela não decide as habilidades de um turno de chat
+(`sessionGatewayProfile.test.ts` segura isso). Um caminho novo que chame
+`handleChat` em processo tem que abrir o próprio escopo; sem escopo, vale
+`settings`, que é o comportamento antigo e não o da origem.
+
 ## Quem pediu uma escrita: o caminho, não o corpo
 
 As três escritas governadas do harness — skill, memória e toggle de plugin —

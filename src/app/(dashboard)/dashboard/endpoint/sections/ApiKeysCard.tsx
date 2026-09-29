@@ -4,7 +4,7 @@ import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import SecurityWarning from "../components/SecurityWarning";
-import { Check, Copy, Eye, EyeOff, KeyRound, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Check, Copy, Eye, EyeOff, KeyRound, Plus, Sparkles, Trash2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { ApiKey, ConfirmState } from "../types";
 
@@ -20,12 +20,15 @@ interface ApiKeysCardProps {
   setConfirmState: (state: ConfirmState | null) => void;
   handleToggleKey: (id: string, isActive: boolean) => void;
   handleDeleteKey: (id: string) => void;
+  onOpenAbilities: (key: ApiKey) => void;
+  onOpenSkills: (key: ApiKey) => void;
 }
 
 export default function ApiKeysCard({
   keys, setShowAddModal,
   isRemoteHost, visibleKeys, copied, copy,
   maskKey, toggleKeyVisibility, setConfirmState, handleToggleKey, handleDeleteKey,
+  onOpenAbilities, onOpenSkills,
 }: ApiKeysCardProps) {
   return (
     <Card id="require-api-key">
@@ -102,6 +105,24 @@ export default function ApiKeysCard({
                 )}
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Sparkles className="size-4" />}
+                  onClick={() => onOpenAbilities(key)}
+                  aria-label={`Habilidades da chave ${key.name || key.id}`}
+                >
+                  <span className="hidden sm:inline">Habilidades</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<BookOpen className="size-4" />}
+                  onClick={() => onOpenSkills(key)}
+                  aria-label={`Skills da chave ${key.name || key.id}`}
+                >
+                  <span className="hidden sm:inline">Skills</span>
+                </Button>
                 <Switch
                   size="sm"
                   checked={key.isActive ?? true}

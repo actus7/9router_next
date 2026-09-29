@@ -30,7 +30,7 @@ const dbRoot = resolve(__dirname, "../../src/lib/db");
 const UNSCOPED: ReadonlyArray<{ file: string; contains: string; why: string }> = [
   {
     file: "repos/apiKeysRepo.ts",
-    contains: "SELECT id, userId, isActive FROM apiKeys WHERE key = ?",
+    contains: "SELECT id, userId, isActive, profile FROM apiKeys WHERE key = ?",
     why: "Resolves which account a gateway request belongs to from its key. The key is globally unique precisely so this lookup needs no tenant.",
   },
 ];

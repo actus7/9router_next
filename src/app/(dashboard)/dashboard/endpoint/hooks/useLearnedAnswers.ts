@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import useSWR from "swr";
 import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
 
@@ -27,22 +26,13 @@ async function send(url: string, init: RequestInit): Promise<boolean> {
   }
 }
 
-/** Synapse Loop controls: the auto-learning switch and what this account learned. */
-export function useSynapseLearning(initialEnabled: boolean) {
-  const [enabled, setEnabledState] = useState(initialEnabled);
-  const [saving, setSaving] = useState(false);
+/**
+ * What the Synapse Loop learned for this account. The learning switch itself
+ * moved to each API key and each conversation; what was learned stays shared
+ * by the account, so it is reviewed here once.
+ */
+export function useLearnedAnswers() {
   const { data, isLoading, mutate } = useSWR<{ capabilities: LearnedCapability[] }>(CAPS_URL, jsonFetcher);
-
-  const setEnabled = async (value: boolean) => {
-    setSaving(true);
-    const ok = await send("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ synapseLearningEnabled: value }),
-    });
-    if (ok) setEnabledState(value);
-    setSaving(false);
-  };
 
   const setStatus = async (id: string, status: "shadow" | "deprecated") => {
     await send(`${CAPS_URL}/${encodeURIComponent(id)}`, {
@@ -54,12 +44,8 @@ export function useSynapseLearning(initialEnabled: boolean) {
   };
 
   return {
-    enabled,
-    syncEnabled: setEnabledState,
-    saving,
     loading: isLoading,
     capabilities: data?.capabilities ?? [],
-    setEnabled,
     retire: (id: string) => setStatus(id, "deprecated"),
     reactivate: (id: string) => setStatus(id, "shadow"),
     remove: async (id: string) => {

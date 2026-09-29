@@ -107,6 +107,8 @@ export interface HandleChatCoreOptions {
   ponytailLevel?: string;
   metaBreakEnabled?: boolean;
   synapseEnabled?: boolean;
+  /** Skills an API key selected, full bodies, appended to the system prompt. */
+  skillsPrompt?: string;
   synapseLevel?: string;
   /** Synapse Loop: learn and serve this account's recurring answers. */
   synapseLearningEnabled?: boolean;

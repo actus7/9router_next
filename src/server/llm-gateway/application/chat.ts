@@ -9,6 +9,8 @@ import {
   type CredentialsResult,
 } from "../auth/accountSelection";
 import { requireGatewayApiKey } from "./gatewayApiKey";
+import { currentGatewayProfile } from "./gatewayProfile";
+import { buildGatewaySkillsPrompt } from "./gatewaySkills";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getModelInfo, getComboModels, assertModelEnabled } from "./modelResolution";
 import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
@@ -313,6 +315,9 @@ async function buildChatCoreOptions(
   apiKey: string | null,
 ) {
   const chatSettings = await getSettings();
+  // Abilities and skills come from where the request came from (the API key or
+  // the chat conversation); `settings` keeps only tuning and account features.
+  const { abilities, skillIds } = await currentGatewayProfile();
   const providerThinkingById = chatSettings.providerThinking as Record<string, ProviderThinkingConfig> | undefined;
   const providerThinking = providerThinkingById?.[provider] ?? null;
   return {
@@ -325,23 +330,24 @@ async function buildChatCoreOptions(
     userAgent: request?.headers?.get("user-agent") || "",
     apiKey: apiKey ?? undefined,
     ccFilterNaming: !!chatSettings.ccFilterNaming,
-    rtkEnabled: !!chatSettings.rtkEnabled,
+    rtkEnabled: abilities.rtk,
     headroomEnabled: !!chatSettings.headroomEnabled,
     headroomUrl: chatSettings.headroomUrl || DEFAULT_HEADROOM_URL,
     headroomCompressUserMessages: !!chatSettings.headroomCompressUserMessages,
-    cavemanEnabled: !!chatSettings.cavemanEnabled,
-    cavemanLevel: chatSettings.cavemanLevel || "full",
-    ponytailEnabled: !!chatSettings.ponytailEnabled,
-    ponytailLevel: chatSettings.ponytailLevel || "full",
-    metaBreakEnabled: chatSettings.metaBreakEnabled === true,
-    synapseEnabled: !!chatSettings.synapseEnabled,
-    synapseLevel: chatSettings.synapseLevel || "lite",
-    synapseLearningEnabled: chatSettings.synapseLearningEnabled === true,
+    cavemanEnabled: abilities.caveman.enabled,
+    cavemanLevel: abilities.caveman.level,
+    ponytailEnabled: abilities.ponytail.enabled,
+    ponytailLevel: abilities.ponytail.level,
+    metaBreakEnabled: abilities.metaBreak,
+    synapseEnabled: abilities.synapse.enabled,
+    synapseLevel: abilities.synapse.level,
+    synapseLearningEnabled: abilities.synapse.learning,
     synapseLearningUseJev: chatSettings.decisionEngine === "jev" && chatSettings.jevSynapse !== false,
-    pxpipeEnabled: !!chatSettings.pxpipeEnabled,
+    pxpipeEnabled: abilities.pxpipe,
     pxpipeMinChars: chatSettings.pxpipeMinChars,
     pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
-    pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
+    pxpipeTransform: abilities.pxpipe ? await getPxpipeTransform() : null,
+    skillsPrompt: await buildGatewaySkillsPrompt(skillIds),
     onPxpipeEvent: appendPxpipeEvent,
     providerThinking,
     sourceFormatOverride: request?.url ? (detectFormatByEndpoint(new URL(request.url).pathname, body) ?? undefined) : undefined,

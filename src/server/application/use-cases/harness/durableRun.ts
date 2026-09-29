@@ -13,7 +13,8 @@ import { appendHarnessEvent, appendRunAnswerToConversation } from "@/lib/db/repo
 import { runServerToolLoop } from "@/server/harness/tools/serverToolLoop";
 import { ANSWERING_STAGE, runStageFor } from "@/server/harness/tools/runStage";
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
-import { handleChat } from "@/server/llm-gateway/chat";
+import { handleChat, withGatewayProfile } from "@/server/llm-gateway/chat";
+import { sessionGatewayProfile } from "@/server/harness/tools/sessionGatewayProfile";
 import { initTranslators } from "@/server/llm-gateway/translator";
 import { StreamChunkAccumulator } from "@/shared/chat/streamChunk";
 import { readTokenSavers } from "@/shared/chat/tokenSavers";
@@ -110,7 +111,12 @@ export async function startDurableRun(input: StartDurableRunInput): Promise<{ ru
   // after the response, where the ambient tenant is whatever the next request
   // happens to establish.
   const owner = currentTenantId();
-  waitUntil(withTenant(owner, () => executeRun(runId, input)));
+  // The whole run — first call and every tool-loop continuation — is scoped to
+  // the conversation's abilities, so a forwarded API key never decides them.
+  waitUntil(withTenant(owner, async () => {
+    const profile = await sessionGatewayProfile(input.sessionId).catch(() => null);
+    return profile ? withGatewayProfile(profile, () => executeRun(runId, input)) : executeRun(runId, input);
+  }));
 
   return { runId };
 }

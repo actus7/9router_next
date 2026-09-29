@@ -12,6 +12,7 @@ import {
 import type { ChatSession } from "../types";
 import { PluginConfiguration } from "./PluginConfiguration";
 import PluginCompositionPanel from "./PluginCompositionPanel";
+import ChatAbilitiesPanel from "./ChatAbilitiesPanel";
 
 export function PluginsSection({
   presetTitle,
@@ -92,6 +93,10 @@ export function PluginsSection({
         </p>
         {tabs}
         <PluginConfiguration
+          session={session}
+          onUpdate={onUpdatePluginSettings}
+        />
+        <ChatAbilitiesPanel
           session={session}
           onUpdate={onUpdatePluginSettings}
         />

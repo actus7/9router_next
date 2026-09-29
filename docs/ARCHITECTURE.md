@@ -33,6 +33,25 @@
 - **Every row belongs to an account.** Each table but `_meta` carries `userId`, every repo filters on it, and the owner rides an `AsyncLocalStorage` established at four entry points: `tenantRoute` (dashboard API), `gatewayRoute` (API key), `assertDashboardSession` / `requireTenantPage` (Server Actions and Components), and `forEachTenant` (background jobs). Reaching tenant data with no owner throws rather than returning rows. Two tests hold the line: `tenantIsolation` reads the SQL, `tenantRouteCoverage` reads the routes. See `docs/NEON-MIGRATION.md`.
 - Identity is Neon Auth and only Neon Auth. There is no operator password, no OIDC/SAML and no way to disable login, because "logged out" would mean "owns nothing".
 
+## Gateway profile: abilities and skills by origin
+
+What the gateway does to a request beyond routing it — the token savers (RTK,
+Caveman, Ponytail, Synapse, pxpipe, MetaBreak) and, on the public API, which
+Agent Skills ride in the system prompt — is a `GatewayProfile` scoped by where
+the request came from, never global and never read from the body:
+
+- `gatewayRoute` scopes a public request to its key's `apiKeys.profile`,
+  resolved lazily so routes that never reach the chat pipeline pay nothing;
+- `startDurableRun` scopes a whole chat run to the conversation's
+  `pluginSettings.abilities` (`sessionGatewayProfile`), and that scope wins over
+  any key the worker forwards;
+- outside both, `settings` answers — the pre-profile behaviour, now only a
+  template for new keys and the default for an unadjusted conversation.
+
+Skills on the API are injected with their full body: the client, not the
+gateway, executes tools, so the chat's `load_skill` cannot work there. See
+`docs/superpowers/specs/2026-09-29-api-key-profiles-design.md`.
+
 ## Provider model
 
 Each provider has a unique `id`, user-facing alias, category, optional explicit authentication modes, capabilities and discovery flags. Categories organize the dashboard; commercial availability is derived by `getProviderAvailability`, and connection matching by `getProviderConnectionAuthTypes`.

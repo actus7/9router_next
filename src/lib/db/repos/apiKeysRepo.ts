@@ -1,6 +1,12 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
+import {
+  normalizeGatewayProfile,
+  parseStoredProfile,
+  profileFromSettings,
+  type GatewayProfile,
+} from "@/shared/gateway/gatewayProfile";
 
 /**
  * Where a key was propagated to. One key per destination is what makes the
@@ -27,6 +33,7 @@ interface ApiKeyRow {
   sink: string | null;
   sinkRef: string | null;
   revokedAt: string | null;
+  profile?: string | null;
 }
 
 interface ApiKey {
@@ -89,10 +96,13 @@ export async function createApiKey(
     sinkRef,
     revokedAt: null,
   };
+  // A new key starts from the account's current flags, written out, so later
+  // edits to `settings` never reach into a key that already exists.
+  const profile: GatewayProfile = profileFromSettings(await accountSaverSettings());
   await db.run(
-    `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt, sink, sinkRef, revokedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-    [apiKey.id, currentTenantId(), apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, sink, sinkRef]
+    `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt, sink, sinkRef, revokedAt, profile)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+    [apiKey.id, currentTenantId(), apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, sink, sinkRef, JSON.stringify(profile)]
   );
   return apiKey;
 }
@@ -184,14 +194,56 @@ export async function deleteApiKey(id: string): Promise<boolean> {
  * That is why `apiKeys.key` is globally unique — the lookup has to be
  * unambiguous across the whole table.
  */
-export async function resolveApiKeyOwner(key: string): Promise<{ userId: string; id: string } | null> {
+export async function resolveApiKeyOwner(
+  key: string,
+): Promise<{ userId: string; id: string; profile: string | null } | null> {
   const db = await getAdapter();
-  const row = (await db.get(`SELECT id, userId, isActive FROM apiKeys WHERE key = ?`, [key])) as
-    | { id: string; userId: string; isActive: number | boolean }
+  // `profile` rides along so the gateway scopes the request without a second
+  // read of the row it just found.
+  const row = (await db.get(`SELECT id, userId, isActive, profile FROM apiKeys WHERE key = ?`, [key])) as
+    | { id: string; userId: string; isActive: number | boolean; profile: string | null }
     | undefined;
   if (!row) return null;
   if (!(row.isActive === 1 || row.isActive === true)) return null;
-  return { userId: row.userId, id: row.id };
+  return { userId: row.userId, id: row.id, profile: row.profile ?? null };
+}
+
+async function accountSaverSettings() {
+  const { getSettings } = await import("./settingsRepo");
+  return getSettings();
+}
+
+/**
+ * The profile a key's requests run with. A key whose profile was never written
+ * reads as the account's `settings` flags — that is how every key behaved
+ * before profiles existed, and it keeps them behaving that way until edited.
+ */
+async function resolveKeyProfile(storedProfile: string | null): Promise<GatewayProfile> {
+  const legacy = profileFromSettings(await accountSaverSettings());
+  return parseStoredProfile(storedProfile, legacy) ?? legacy;
+}
+
+export async function getApiKeyProfile(id: string): Promise<GatewayProfile | null> {
+  const db = await getAdapter();
+  const row = (await db.get(`SELECT profile FROM apiKeys WHERE userId = ? AND id = ?`, [currentTenantId(), id])) as
+    | { profile: string | null }
+    | undefined;
+  if (!row) return null;
+  return resolveKeyProfile(row.profile ?? null);
+}
+
+/** Merges `patch` over the key's current profile. Null when the key is not this account's. */
+export async function updateApiKeyProfile(id: string, patch: unknown): Promise<GatewayProfile | null> {
+  const current = await getApiKeyProfile(id);
+  if (!current) return null;
+  const next = normalizeGatewayProfile(patch, current);
+  const db = await getAdapter();
+  const res = await db.run(`UPDATE apiKeys SET profile = ? WHERE userId = ? AND id = ?`, [
+    JSON.stringify(next),
+    currentTenantId(),
+    id,
+  ]);
+  return (res?.changes ?? 0) > 0 ? next : null;
 }
 
 export async function validateApiKey(key: string): Promise<boolean> {

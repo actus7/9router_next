@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { CardSkeleton } from "@/shared/components/Loading";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { clientPingUrl, clientPingAny } from "./endpointPing";
@@ -12,7 +12,12 @@ import { useTailscale } from "./hooks/useTailscale";
 import EndpointCard from "./sections/EndpointCard";
 import ApiKeysCard from "./sections/ApiKeysCard";
 import EndpointModals from "./sections/EndpointModals";
-import type { APIPageClientProps } from "./types";
+import KeyAbilitiesModal from "./sections/KeyAbilitiesModal";
+import KeySkillsModal from "./sections/KeySkillsModal";
+import LearnedAnswersCard from "./sections/LearnedAnswersCard";
+import { useKeyProfile } from "./hooks/useKeyProfile";
+import { useLearnedAnswers } from "./hooks/useLearnedAnswers";
+import type { ApiKey, APIPageClientProps } from "./types";
 
 export default function APIPageClient({ machineId: _machineId }: APIPageClientProps) {
   const apiKeys = useApiKeys();
@@ -20,6 +25,11 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
   const tunnel = useTunnel();
   const tailscale = useTailscale();
   const { copied, copy } = useCopyToClipboard();
+  // One key's profile editor open at a time: abilities or skills.
+  const [profileTarget, setProfileTarget] = useState<{ key: ApiKey; mode: "abilities" | "skills" } | null>(null);
+  const keyProfile = useKeyProfile(profileTarget?.key.id ?? null);
+  const learnedAnswers = useLearnedAnswers();
+  const closeProfile = () => setProfileTarget(null);
   const { fetchData } = apiKeys;
   const {
     tunnelEnabled, tunnelReachable, tunnelUrl, tunnelPublicUrl,
@@ -177,6 +187,21 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
         setConfirmState={apiKeys.setConfirmState}
         handleToggleKey={apiKeys.handleToggleKey}
         handleDeleteKey={apiKeys.handleDeleteKey}
+        onOpenAbilities={(key) => setProfileTarget({ key, mode: "abilities" })}
+        onOpenSkills={(key) => setProfileTarget({ key, mode: "skills" })}
+      />
+
+      <LearnedAnswersCard learning={learnedAnswers} />
+
+      <KeyAbilitiesModal
+        keyName={profileTarget?.mode === "abilities" ? profileTarget.key.name : null}
+        state={keyProfile}
+        onClose={closeProfile}
+      />
+      <KeySkillsModal
+        keyName={profileTarget?.mode === "skills" ? profileTarget.key.name : null}
+        state={keyProfile}
+        onClose={closeProfile}
       />
 
       <EndpointModals

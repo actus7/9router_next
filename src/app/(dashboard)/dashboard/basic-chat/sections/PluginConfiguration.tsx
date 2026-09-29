@@ -12,8 +12,11 @@ interface PluginConfigurationProps {
   onUpdate: (settings: HarnessPluginSettings) => void;
 }
 
+/** The numeric limits; `abilities` has its own panel (ChatAbilitiesPanel). */
+type NumericPluginSetting = Exclude<keyof HarnessPluginSettings, "abilities">;
+
 interface PluginConfigField {
-  key: keyof HarnessPluginSettings;
+  key: NumericPluginSetting;
   id: string;
   label: string;
   defaultValue: number;

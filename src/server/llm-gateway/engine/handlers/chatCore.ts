@@ -75,6 +75,7 @@ export async function handleChatCore({
   onPxpipeEvent,
   sourceFormatOverride,
   providerThinking,
+  skillsPrompt,
 }: HandleChatCoreOptions) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
@@ -252,6 +253,7 @@ export async function handleChatCore({
     pxpipeTimeoutMs,
     pxpipeTransform,
     onPxpipeEvent,
+    skillsPrompt,
     provider,
     model,
     reqTag,

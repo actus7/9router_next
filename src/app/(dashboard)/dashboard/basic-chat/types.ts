@@ -1,3 +1,5 @@
+import type { GatewayAbilities } from "@/shared/gateway/gatewayProfile";
+
 export interface ChatAttachment {
   id: string;
   name: string;
@@ -91,6 +93,12 @@ export interface HarnessPluginSettings {
   maxSubagentCalls?: number;
   webSearchMaxResults?: number;
   webFetchMaxCharacters?: number;
+  /**
+   * Gateway abilities for this conversation (formerly the account-wide Token
+   * Saver page). Absent means the account default. The worker reads it from
+   * the persisted conversation — see `sessionGatewayProfile`.
+   */
+  abilities?: GatewayAbilities;
 }
 
 export interface HarnessMcpTool {

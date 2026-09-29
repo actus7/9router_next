@@ -54,6 +54,13 @@ const nextConfig: NextConfig = {
       { source: "/v1", destination: "/api/v1" }
     ];
   },
+  async redirects() {
+    return [
+      // The Token Saver page split in two: per-key abilities on the Endpoint
+      // page, per-conversation abilities in the chat's plugin settings.
+      { source: "/dashboard/token-saver", destination: "/dashboard/endpoint", permanent: true },
+    ];
+  },
   async headers() {
     return [{
       source: "/(.*)",

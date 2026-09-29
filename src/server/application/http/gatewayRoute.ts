@@ -3,6 +3,7 @@ import { NextResponse, connection } from "next/server";
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { withTenant } from "@/lib/db/tenant";
 import { withVerifiedGatewayKey } from "@/server/llm-gateway/application/gatewayApiKey";
+import { withStoredKeyProfile } from "@/server/llm-gateway/application/gatewayProfile";
 import { RATE_LIMIT_WINDOW_MS, consumeRateLimit, gatewayRateLimit } from "./rateLimit";
 
 /**
@@ -65,6 +66,10 @@ export function gatewayRoute<R extends Request, A extends unknown[]>(
     }
     // Recording the key spares the application gate a second apiKeys lookup
     // for the key that was just resolved (see requireGatewayApiKey).
-    return withTenant(owner.userId, () => withVerifiedGatewayKey(key, async () => handler(request, ...rest)));
+    // The key's own abilities and skills, not the account's: two keys of one
+    // account can ask for different treatment (see gatewayProfile).
+    return withTenant(owner.userId, () =>
+      withStoredKeyProfile(owner.profile ?? null, () => withVerifiedGatewayKey(key, async () => handler(request, ...rest))),
+    );
   };
 }
