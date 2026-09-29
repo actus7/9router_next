@@ -30,7 +30,11 @@ export function useHarnessEvents(activeSessionId: string): UseHarnessEventsRetur
     }
     let cancelled = false;
     void fetch(`/api/harness/sessions/${encodeURIComponent(activeSessionId)}/events`, { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Failed to load run journal")))
+      .then(async (response) => {
+        if (response.ok) return response.json();
+        const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+        throw new Error(`Failed to load run journal (${response.status}${typeof payload.error === "string" ? `: ${payload.error}` : ""})`);
+      })
       .then((data: Record<string, unknown>) => {
         if (!cancelled && Array.isArray(data.events)) setHarnessEvents(data.events as HarnessEvent[]);
       })
