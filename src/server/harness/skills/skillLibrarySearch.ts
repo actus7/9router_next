@@ -48,38 +48,44 @@ export async function searchSkillLibrary(options: {
   const query = options.query?.trim() ?? "";
   const limit = Math.min(Math.max(options.limit ?? 20, 1), 50);
   const library = getSkillLibrary(libraryId);
+  const owner = library?.owner ?? library?.source?.split("/")[0];
 
+  // Sem busca: "Todas" mostra os destaques; uma biblioteca lista o próprio
+  // catálogo (buscar pelo owner devolve o repo inteiro), destaques primeiro.
   if (!query) {
-    return {
-      query,
-      libraryId,
-      skills: featuredForLibrary(libraryId).slice(0, limit),
-    };
+    const featured = featuredForLibrary(libraryId);
+    if (!owner) return { query, libraryId, skills: featured.slice(0, limit) };
+    const listed = await fetchLibrary(owner, owner, 50, library?.source, libraryId);
+    const seen = new Set(featured.map((skill) => skill.id));
+    const skills = [...featured, ...(listed ?? []).filter((skill) => !seen.has(skill.id))];
+    return { query, libraryId, skills: skills.slice(0, 50) };
   }
 
+  const skills = await fetchLibrary(query, owner, limit, library?.source, libraryId);
+  return { query, libraryId, skills: (skills ?? featuredForLibrary(libraryId)).slice(0, limit) };
+}
+
+/** null quando o skills.sh falha — o chamador cai nos destaques. */
+async function fetchLibrary(
+  query: string,
+  owner: string | undefined,
+  limit: number,
+  source: string | undefined,
+  libraryId: string,
+): Promise<SkillLibraryEntry[] | null> {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
-  if (library?.owner) params.set("owner", library.owner);
-  else if (library?.source) params.set("owner", library.source.split("/")[0]!);
+  if (owner) params.set("owner", owner);
 
   try {
     const response = await fetch(`${SKILLS_SH_SEARCH}?${params.toString()}`, {
       headers: { accept: "application/json" },
       next: { revalidate: 300 },
     });
-    if (!response.ok) {
-      return { query, libraryId, skills: featuredForLibrary(libraryId).slice(0, limit) };
-    }
+    if (!response.ok) return null;
     const data = (await response.json()) as SkillsShResponse;
     const skills = (data.skills ?? []).map((skill) => mapResult(skill, libraryId));
-    if (library?.source) {
-      return {
-        query,
-        libraryId,
-        skills: skills.filter((skill) => skill.source === library.source).slice(0, limit),
-      };
-    }
-    return { query, libraryId, skills: skills.slice(0, limit) };
+    return source ? skills.filter((skill) => skill.source === source) : skills;
   } catch {
-    return { query, libraryId, skills: featuredForLibrary(libraryId).slice(0, limit) };
+    return null;
   }
 }

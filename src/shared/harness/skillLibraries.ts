@@ -97,6 +97,15 @@ export const SKILL_LIBRARIES: readonly SkillLibrary[] = [
     badge: "Web",
     recommended: false,
   },
+  {
+    id: "humanlayer",
+    title: "HumanLayer",
+    description: "Loops agênticos, PRs visuais e controle de design",
+    owner: "humanlayer",
+    source: "humanlayer/skills",
+    badge: "Agentes",
+    recommended: false,
+  },
 ] as const;
 
 /** Curated picks shown before the user types a query. */
@@ -236,6 +245,22 @@ export const FEATURED_LIBRARY_SKILLS: readonly SkillLibraryEntry[] = [
     source: "firecrawl/cli",
     installs: 82_358,
     libraryId: "firecrawl",
+  },
+  {
+    id: "humanlayer/skills/show-me",
+    skillId: "show-me",
+    name: "show-me",
+    source: "humanlayer/skills",
+    installs: 22_572,
+    libraryId: "humanlayer",
+  },
+  {
+    id: "humanlayer/skills/build-iterated-agentic-loop",
+    skillId: "build-iterated-agentic-loop",
+    name: "build-iterated-agentic-loop",
+    source: "humanlayer/skills",
+    installs: 897,
+    libraryId: "humanlayer",
   },
 ] as const;
 
