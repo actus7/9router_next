@@ -2068,5 +2068,14 @@
   "Forget everything Synapse learned": "Esquecer tudo que o Synapse aprendeu",
   "Nothing learned yet. A question needs two equivalent answers to start being validated.": "Nada aprendido ainda. Uma pergunta precisa de duas respostas equivalentes para começar a ser validada.",
   "Synapse learning": "Aprendizado do Synapse",
-  "Jev judges whether an answer is stable enough to reuse and whether two answers say the same thing, so paraphrases can be learned.": "O Jev avalia se uma resposta é estável o bastante para reutilizar e se duas respostas dizem a mesma coisa, permitindo aprender paráfrases."
+  "Jev judges whether an answer is stable enough to reuse and whether two answers say the same thing, so paraphrases can be learned.": "O Jev avalia se uma resposta é estável o bastante para reutilizar e se duas respostas dizem a mesma coisa, permitindo aprender paráfrases.",
+  "Ideological neutrality": "Neutralidade ideológica",
+  "Keep answers evidence-based and ideologically neutral: jargon is rewritten as technical description, no activism or value prescription": "Mantém as respostas baseadas em evidências e ideologicamente neutras: jargão é reescrito como descrição técnica, sem ativismo ou prescrição de valores",
+  "Core neutrality principles only": "Apenas os princípios centrais de neutralidade",
+  "+ prohibited terms and rewrite criteria": "+ termos proibidos e critérios de reescrita",
+  "+ full verification checklist": "+ checklist completo de verificação",
+  "Neutrality": "Neutralidade",
+  "Neutrality asked the model for evidence-based, jargon-free answers.": "A Neutralidade pediu ao modelo respostas baseadas em evidências e sem jargão.",
+  "Content guardrail": "Salvaguarda de conteúdo",
+  "Scans user input on this key's requests (adds latency)": "Analisa a entrada do usuário nas requisições desta chave (adiciona latência)"
 }

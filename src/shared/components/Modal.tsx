@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { translate } from "@/i18n/runtime";
 
-type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
+type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 
 interface ModalProps {
   isOpen: boolean;
@@ -49,6 +49,10 @@ export default function Modal({
     md: "max-w-md",
     lg: "max-w-lg",
     xl: "max-w-xl",
+    // 2xl: dense editors made of full-page rows (level pickers + switches).
+    // The min() keeps 1rem margins on narrow viewports: DialogContent's own
+    // max-w-[calc(100%-2rem)] is dropped by tailwind-merge when a size wins.
+    "2xl": "max-w-[min(48rem,calc(100%_-_2rem))]",
     full: "max-w-4xl",
   };
 

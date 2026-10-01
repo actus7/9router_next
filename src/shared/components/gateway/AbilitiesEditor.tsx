@@ -35,8 +35,8 @@ function Row({
   children,
 }: {
   title: string;
-  link: string;
-  linkLabel: string;
+  link?: string;
+  linkLabel?: string;
   description: string;
   checked: boolean;
   onToggle: (next: boolean) => void;
@@ -45,21 +45,23 @@ function Row({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border py-4 first:border-t-0 first:pt-0">
-      <div className="min-w-0 flex-1">
+      <div className="min-w-56 flex-1">
         <p className="font-medium">
           {t(title)}{" "}
-          <a
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-normal text-primary underline hover:opacity-80"
-          >
-            ({linkLabel})
-          </a>
+          {link ? (
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-normal text-primary underline hover:opacity-80"
+            >
+              ({linkLabel})
+            </a>
+          ) : null}
         </p>
         <p className="text-sm text-muted-foreground">{t(description)}</p>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="ms-auto flex flex-wrap items-center justify-end gap-3">
         {checked ? children : null}
         <Switch
           checked={checked}
@@ -84,7 +86,7 @@ function LevelPicker({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex w-60 max-w-full shrink-0 flex-col items-end gap-1">
       <div className="flex flex-wrap items-center justify-end gap-1.5">
         {levels.map((level) => (
           <Button
@@ -100,7 +102,7 @@ function LevelPicker({
           </Button>
         ))}
       </div>
-      <p className="text-xs text-primary">
+      <p className="text-end text-xs text-primary">
         {t(levels.find((level) => level.id === ability.level)?.desc || "")}
       </p>
     </div>
@@ -166,8 +168,6 @@ export default function AbilitiesEditor({ value, onChange, disabled }: Props) {
       </Row>
       <Row
         title="Ideological neutrality"
-        link="https://github.com/actus7/teach"
-        linkLabel="Teach"
         description="Keep answers evidence-based and ideologically neutral: jargon is rewritten as technical description, no activism or value prescription"
         checked={value.neutrality.enabled}
         disabled={disabled}
@@ -197,14 +197,15 @@ export default function AbilitiesEditor({ value, onChange, disabled }: Props) {
         />
       </Row>
       {value.synapse.enabled ? (
-        <label className="-mt-2 mb-4 flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
-          <span>
+        <label className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+          <span className="flex-1">
             <span className="font-medium">{t("Learn answers (Synapse Loop)")}</span>
             <span className="block text-xs text-muted-foreground">
               {t("Repeated questions are answered from what this account already learned")}
             </span>
           </span>
           <Switch
+            className="ms-auto"
             checked={value.synapse.learning}
             disabled={disabled}
             onCheckedChange={(learning) => set({ synapse: { ...value.synapse, learning } })}

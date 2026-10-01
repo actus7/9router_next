@@ -70,7 +70,7 @@ export default function TokenSaverPills({ savers }: { savers: readonly TokenSave
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${saver.tone}`}
           >
             <Icon className="size-3" aria-hidden />
-            {saver.label}
+            {translate(saver.label) || saver.label}
             <span className="sr-only">: {description}</span>
           </li>
         );

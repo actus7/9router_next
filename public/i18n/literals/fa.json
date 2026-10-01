@@ -1374,5 +1374,17 @@
   "✓ Confirm Add": "✓ تأیید افزودن",
   "📝 Configure providers in dashboard or use environment variables": "📝 ارائه‌دهندگان را در داشبورد پیکربندی کنید یا از متغیرهای محیطی استفاده کنید",
   "🔐 OAuth required. Add now and authenticate after Apply; tool list will be discovered after first connect.": "🔐 نیاز به OAuth. اکنون اضافه کنید و پس از اعمال، احراز هویت کنید؛ لیست ابزارها پس از اولین اتصال کشف می‌شود.",
-  "New chat": "گفتگوی جدید"
+  "New chat": "گفتگوی جدید",
+  "Ideological neutrality": "بی‌طرفی ایدئولوژیک",
+  "Keep answers evidence-based and ideologically neutral: jargon is rewritten as technical description, no activism or value prescription": "پاسخ‌ها را مبتنی بر شواهد و از نظر ایدئولوژیک بی‌طرف نگه می‌دارد: اصطلاحات به توصیف فنی بازنویسی می‌شوند، بدون فعالیت‌گرایی یا تجویز ارزش‌ها",
+  "Core neutrality principles only": "فقط اصول اصلی بی‌طرفی",
+  "+ prohibited terms and rewrite criteria": "+ اصطلاحات ممنوع و معیارهای بازنویسی",
+  "+ full verification checklist": "+ چک‌لیست کامل تأیید",
+  "Lite": "سبک",
+  "Full": "کامل",
+  "Ultra": "نهایی",
+  "Neutrality": "بی‌طرفی",
+  "Neutrality asked the model for evidence-based, jargon-free answers.": "بی‌طرفی از مدل پاسخ‌های مبتنی بر شواهد و بدون اصطلاحات تخصصی می‌خواهد.",
+  "Content guardrail": "محافظ محتوا",
+  "Scans user input on this key's requests (adds latency)": "ورودی کاربر را در درخواست‌های این کلید بررسی می‌کند (تاخیر اضافه می‌کند)"
 }

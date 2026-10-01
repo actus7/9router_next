@@ -1374,5 +1374,17 @@
   "✓ Confirm Add": "✓ 确认添加",
   "📝 Configure providers in dashboard or use environment variables": "📝 在仪表盘中配置提供商或使用环境变量",
   "🔐 OAuth required. Add now and authenticate after Apply; tool list will be discovered after first connect.": "🔐 需要 OAuth。立即添加并在应用后认证；工具列表将在首次连接后自动发现。",
-  "New chat": "新对话"
+  "New chat": "新对话",
+  "Ideological neutrality": "意识形态中立",
+  "Keep answers evidence-based and ideologically neutral: jargon is rewritten as technical description, no activism or value prescription": "保持回答基于证据且意识形态中立：行话会改写为技术性描述，不带行动主义或价值倡导",
+  "Core neutrality principles only": "仅核心中立原则",
+  "+ prohibited terms and rewrite criteria": "+ 禁用术语与改写准则",
+  "+ full verification checklist": "+ 完整核查清单",
+  "Lite": "轻量",
+  "Full": "完整",
+  "Ultra": "极致",
+  "Neutrality": "中立",
+  "Neutrality asked the model for evidence-based, jargon-free answers.": "中立让模型给出基于证据、不含行话的回答。",
+  "Content guardrail": "内容护栏",
+  "Scans user input on this key's requests (adds latency)": "扫描此密钥请求中的用户输入（会增加延迟）"
 }

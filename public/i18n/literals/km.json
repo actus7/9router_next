@@ -1379,5 +1379,17 @@
   "✓ Confirm Add": "✓ បញ្ជាក់ការបន្ថែម",
   "📝 Configure providers in dashboard or use environment variables": "📝 កំណត់អ្នកផ្តល់សេវាក្នុងផ្ទាំងគ្រប់គ្រង ឬប្រើ Environment Variables",
   "🔐 OAuth required. Add now and authenticate after Apply; tool list will be discovered after first connect.": "🔐 ត្រូវការ OAuth។ បន្ថែមឥឡូវ ហើយផ្ទៀងផ្ទាត់បន្ទាប់ពីចុច អនុវត្ត; បញ្ជីឧបករណ៍នឹងត្រូវបានរកឃើញបន្ទាប់ពីការតភ្ជាប់លើកដំបូង។",
-  "New chat": "ការសន្ទនាថ្មី"
+  "New chat": "ការសន្ទនាថ្មី",
+  "Ideological neutrality": "ភាពអព្យាក្រឹតផ្នែកឧត្តមគតិ",
+  "Keep answers evidence-based and ideologically neutral: jargon is rewritten as technical description, no activism or value prescription": "រក្សាចម្លើយឱ្យផ្អែកលើភស្តុតាង និងអព្យាក្រឹតផ្នែកឧត្តមគតិ៖ ពាក្យជំនាញត្រូវបានសរសេរឡើងវិញជាការពណ៌នាបច្ចេកទេស ដោយគ្មានសកម្មភាពនយោបាយ ឬការចាត់ទុកតម្លៃ",
+  "Core neutrality principles only": "តែគោលការណ៍សំខាន់នៃភាពអព្យាក្រឹត",
+  "+ prohibited terms and rewrite criteria": "+ ពាក្យហាមឃាត់ និងលក្ខណៈវិនិច្ឆ័យសរសេរឡើងវិញ",
+  "+ full verification checklist": "+ បញ្ជីពិនិត្យពេញលេញ",
+  "Lite": "ស្រាល",
+  "Full": "ពេញលេញ",
+  "Ultra": "ខ្លាំងបំផុត",
+  "Neutrality": "ភាពអព្យាក្រឹត",
+  "Neutrality asked the model for evidence-based, jargon-free answers.": "ភាពអព្យាក្រឹតស្នើឱ្យម៉ូដែលផ្តល់ចម្លើយផ្អែកលើភស្តុតាង ដោយគ្មានពាក្យជំនាញ។",
+  "Content guardrail": "ការពារមាតិកា",
+  "Scans user input on this key's requests (adds latency)": "ស្កេនទិន្នន័យបញ្ចូលរបស់អ្នកប្រើនៅក្នុងសំណើរបស់ API Key នេះ (បន្ថែមពេលវេលាឆ្លើយតប)"
 }
