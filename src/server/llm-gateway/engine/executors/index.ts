@@ -52,6 +52,7 @@ import { AdobeFireflyExecutor } from "./adobe-firefly";
 import { ZenmuxFreeExecutor } from "./zenmux-free";
 import { TheOldLLMExecutor } from "./theoldllm";
 import { CloudflareAIExecutor } from "./cloudflare-ai";
+import { OpenCodeGoExecutor } from "./opencode-go";
 import { getPluginExecutor, hasPluginExecutor } from "@/server/plugin-core/pluginRegistry";
 
 const executors = {
@@ -114,6 +115,8 @@ const executors = {
   "zenmux-free": new ZenmuxFreeExecutor(),
   theoldllm: new TheOldLLMExecutor(),
   "cloudflare-ai": new CloudflareAIExecutor(),
+  "opencode-go": new OpenCodeGoExecutor(),
+  ocg: new OpenCodeGoExecutor(), // Alias for opencode-go
   puter: new PuterExecutor(),
 };
 
