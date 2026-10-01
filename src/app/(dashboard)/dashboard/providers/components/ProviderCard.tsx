@@ -20,7 +20,7 @@ interface ProviderCardProps {
 }
 
 export function ProviderCard({ providerId, provider, stats, onToggle, availability }: ProviderCardProps) {
-  const { connected, error, errorCode, errorTime, allDisabled } = stats;
+  const { connected, error, errorCode, errorTime, allDisabled, total } = stats;
   const isNoAuth = !!provider.noAuth;
 
   return (
@@ -62,7 +62,7 @@ export function ProviderCard({ providerId, provider, stats, onToggle, availabili
                   <Badge variant="success">{translate("Ready")}</Badge>
                 ) : (
                   <>
-                    {getStatusDisplay(connected, error, errorCode)}
+                    {getStatusDisplay(connected, error, errorCode, total)}
                     {errorTime && (
                       <span className="text-text-muted">{errorTime}</span>
                     )}

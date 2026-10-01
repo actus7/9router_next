@@ -28,7 +28,7 @@ export function ApiKeyProviderCard({
   onToggle,
   availability,
 }: ApiKeyProviderCardProps) {
-  const { connected, error, errorCode, errorTime, allDisabled } = stats;
+  const { connected, error, errorCode, errorTime, allDisabled, total } = stats;
   const isCompatible = providerId.startsWith(OPENAI_COMPATIBLE_PREFIX);
   const isAnthropicCompatible = providerId.startsWith(
     ANTHROPIC_COMPATIBLE_PREFIX,
@@ -80,7 +80,7 @@ export function ApiKeyProviderCard({
                   </Badge>
                 ) : (
                   <>
-                    {getStatusDisplay(connected, error, errorCode)}
+                    {getStatusDisplay(connected, error, errorCode, total)}
                     {isCompatible && (
                       <Badge variant="default" >
                         {provider.apiType === "responses"

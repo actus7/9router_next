@@ -4,7 +4,7 @@ import { getProviderAvailability } from "@/shared/constants/providers";
 import { translate } from "@/i18n/runtime";
 import type { Connection, ProviderInfo, ProviderStats, Availability, AvailabilityFilter } from "../types";
 
-export function getStatusDisplay(connected: number, error: number, errorCode: string | null) {
+export function getStatusDisplay(connected: number, error: number, errorCode: string | null, total = 0) {
   const parts = [];
   if (connected > 0) {
     parts.push(
@@ -24,6 +24,17 @@ export function getStatusDisplay(connected: number, error: number, errorCode: st
     );
   }
   if (parts.length === 0) {
+    // Connections exist, but none has been connection-tested yet (testStatus
+    // "unknown" — the state a fresh OAuth/import leaves behind). Saying "No
+    // connections" here reads as the accounts having vanished; the honest
+    // answer is how many are waiting for their first test.
+    if (total > 0) {
+      return (
+        <Badge key="untested" variant="secondary">
+          {total} {translate("Connections")}
+        </Badge>
+      );
+    }
     return <span className="text-text-muted">{translate("No connections")}</span>;
   }
   return parts;
