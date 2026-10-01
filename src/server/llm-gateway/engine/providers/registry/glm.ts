@@ -44,14 +44,17 @@ export default {
       auth: { combined: true, header: "x-api-key", scheme: "raw" },
     },
   ],
-  models: [
-    { id: "glm-5.3", name: "GLM 5.3" },
-    { id: "glm-5.2", name: "GLM 5.2" },
-    { id: "glm-5.1", name: "GLM 5.1" },
-    { id: "glm-5", name: "GLM 5" },
-    { id: "glm-4.7", name: "GLM 4.7" },
-    { id: "glm-4.6v", name: "GLM 4.6V (Vision)" },
-  ],
+  // Discovered catalogue (see PROVIDER_MODELS_CONFIG — the coding plan answers a
+  // live OpenAI listing at /api/coding/paas/v4/models). modelOverrides carries
+  // only the display names, which the listing does not return.
+  modelOverrides: {
+    "glm-5.3": { name: "GLM 5.3" },
+    "glm-5.2": { name: "GLM 5.2" },
+    "glm-5.1": { name: "GLM 5.1" },
+    "glm-5": { name: "GLM 5" },
+    "glm-4.7": { name: "GLM 4.7" },
+    "glm-4.6v": { name: "GLM 4.6V (Vision)" },
+  },
   features: {
     usage: true,
     usageApikey: true,

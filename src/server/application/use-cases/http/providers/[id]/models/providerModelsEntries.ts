@@ -51,6 +51,8 @@ const PROVIDER_MODELS_STATIC_ENTRIES: Record<string, Record<string, unknown>> = 
     }
   },
   openai: createOpenAIModelsConfig("https://api.openai.com/v1/models"),
+  "opencode-go": createOpenAIModelsConfig("https://opencode.ai/zen/go/v1/models"),
+  glm: createOpenAIModelsConfig("https://api.z.ai/api/coding/paas/v4/models"),
   openrouter: createOpenAIModelsConfig("https://openrouter.ai/api/v1/models"),
   "api-airforce": createOpenAIModelsConfig("https://api.airforce/v1/models"),
   "kilo-gateway": createOpenAIModelsConfig("https://api.kilo.ai/api/gateway/models"),

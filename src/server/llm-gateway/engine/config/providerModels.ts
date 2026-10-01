@@ -15,7 +15,12 @@ export function getProviderModels(aliasOrId: string) {
 
 export function getDefaultModel(aliasOrId: string) {
   const models = PROVIDER_MODELS[aliasOrId];
-  return (models?.[0] as ModelEntry)?.id || null;
+  if (models?.length) return (models[0] as ModelEntry).id;
+  // Discovered providers ship no array; their `modelOverrides` still names the
+  // models the account sees, and probes need some model to send.
+  const overrides = PROVIDER_MODEL_OVERRIDES[aliasOrId];
+  const firstOverride = overrides && Object.keys(overrides)[0];
+  return firstOverride || null;
 }
 
 // Providers whose registry uses dots in version numbers (e.g. "claude-sonnet-4.5").
@@ -46,23 +51,17 @@ function findModel(models: ModelEntry[] | undefined, modelId: string, aliasOrId:
 }
 
 export function getModelTargetFormat(aliasOrId: string, modelId: string) {
-  const models = PROVIDER_MODELS[aliasOrId];
-  if (!models) return null;
-  return modelTargetFormat(findModel(models, modelId, aliasOrId));
+  return modelTargetFormat(findModel(PROVIDER_MODELS[aliasOrId], modelId, aliasOrId));
 }
 
 // Declared upstream formats for a model (registry `supportedFormats`). Drives the
 // per-model guard on the sourceFormat-matched transport; null when undeclared.
 export function getModelSupportedFormats(aliasOrId: string, modelId: string) {
-  const models = PROVIDER_MODELS[aliasOrId];
-  if (!models) return null;
-  return modelSupportedFormats(findModel(models, modelId, aliasOrId));
+  return modelSupportedFormats(findModel(PROVIDER_MODELS[aliasOrId], modelId, aliasOrId));
 }
 
 export function getModelType(aliasOrId: string, modelId: string) {
-  const models = PROVIDER_MODELS[aliasOrId];
-  if (!models) return null;
-  const found = findModel(models, modelId, aliasOrId);
+  const found = findModel(PROVIDER_MODELS[aliasOrId], modelId, aliasOrId);
   return (found?.kind as string) || (found?.type as string) || null;
 }
 
