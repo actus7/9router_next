@@ -32,6 +32,14 @@ COPY . .
 # VERCEL is present, because Vercel's adapter expects the normal tracing layout.
 ENV VERCEL=""
 ENV NEXT_TELEMETRY_DISABLED=1
+# Placeholders, never real values: `next build`'s page-data collection
+# evaluates route modules, and src/lib/auth/server.ts refuses to import
+# without these two names present (.dockerignore keeps .env out of the
+# context, so nothing else can supply them at build time). createNeonAuth
+# only parses them here — no request is made — and the runner stage gets
+# the real values through docker-compose.yml.
+ENV NEON_AUTH_BASE_URL="https://neon.invalid/auth"
+ENV NEON_AUTH_COOKIE_SECRET="build-time-placeholder-secret-not-used-at-runtime"
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runner
