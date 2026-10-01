@@ -2,7 +2,7 @@
  * OAuth Configuration Constants — static data lives in registry, re-exported here for consumers.
  */
 import { platform, arch } from "os";
-import { ANTIGRAVITY_OAUTH_CLIENT, GOOGLE_OAUTH_CLIENT } from "@/server/llm-gateway/engine/providers/shared";
+import { ANTIGRAVITY_IDE_VERSION, ANTIGRAVITY_OAUTH_CLIENT, GOOGLE_OAUTH_CLIENT } from "@/server/llm-gateway/engine/providers/shared";
 import { PROVIDER_OAUTH, PROVIDERS as REGISTRY_PROVIDERS } from "@/server/llm-gateway/engine/providers/index";
 
 /**
@@ -38,6 +38,7 @@ export const ANTIGRAVITY_CONFIG: Record<string, unknown> = {
   ...(ANTIGRAVITY_OAUTH_CLIENT as Record<string, unknown>),
   ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["antigravity"],
   loadCodeAssistClientMetadata: JSON.stringify({ ideType: 9, platform: getOAuthPlatformEnum(), pluginType: 2 }),
+  clientVersion: ANTIGRAVITY_IDE_VERSION,
 };
 
 /**

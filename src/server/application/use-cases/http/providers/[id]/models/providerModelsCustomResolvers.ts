@@ -1,4 +1,4 @@
-import { GEMINI_CONFIG } from "@/lib/oauth/constants/oauth";
+import { ANTIGRAVITY_CONFIG, GEMINI_CONFIG } from "@/lib/oauth/constants/oauth";
 import { refreshGoogleToken, refreshCodexToken, updateProviderCredentials } from "@/server/llm-gateway/auth";
 import {
   resolveKiroModels,
@@ -177,6 +177,32 @@ export const PROVIDER_MODELS_CUSTOM_RESOLVERS: Record<string, Record<string, unk
       },
       parseFn: (data) => parseGeminiCliModels(data as Record<string, unknown>),
       errorLabel: "Failed to fetch Gemini CLI models"
+    })
+  },
+  // Antigravity answers its catalogue through the same Cloud Code endpoint as
+  // gemini-cli — the old `v1internal:models` path on the sandbox host never
+  // existed and came back as a bare Google 404 HTML page. The IDE fingerprint
+  // headers are required: a plain Bearer call is rejected.
+  antigravity: {
+    customResolver: buildOAuthResolver({
+      refreshFn: (conn) => refreshGoogleToken(conn.refreshToken as string, ANTIGRAVITY_CONFIG.clientId as string, ANTIGRAVITY_CONFIG.clientSecret as string),
+      fetchFn: (token, conn) => {
+        const projectId = (conn.projectId || (conn.providerSpecificData as Record<string, unknown>)?.projectId) as string;
+        const body = projectId ? { project: projectId } : {};
+        return fetch(GEMINI_CLI_MODELS_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+            "User-Agent": ANTIGRAVITY_CONFIG.loadCodeAssistUserAgent as string,
+            "X-Client-Name": "antigravity",
+            "X-Client-Version": ANTIGRAVITY_CONFIG.clientVersion as string
+          },
+          body: JSON.stringify(body)
+        });
+      },
+      parseFn: (data) => parseGeminiCliModels(data as Record<string, unknown>),
+      errorLabel: "Failed to fetch Antigravity models"
     })
   },
   "grok-cli": {

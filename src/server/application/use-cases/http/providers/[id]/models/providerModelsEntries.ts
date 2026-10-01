@@ -24,15 +24,6 @@ const PROVIDER_MODELS_STATIC_ENTRIES: Record<string, Record<string, unknown>> = 
     authQuery: "key",
     parseResponse: parseGeminiModels
   },
-  antigravity: {
-    url: "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:models",
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    authHeader: "Authorization",
-    authPrefix: "Bearer ",
-    body: {},
-    parseResponse: (data: Record<string, unknown>) => data.models || []
-  },
   github: {
     url: "https://api.githubcopilot.com/models",
     method: "GET",
