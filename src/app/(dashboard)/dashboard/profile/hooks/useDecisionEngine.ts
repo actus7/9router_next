@@ -9,7 +9,24 @@ import type { Settings } from "../types";
 // `providerConnections`, encrypted, and serves the gateway's models too.
 const GATEWAY_PROVIDER = "vercel-ai-gateway";
 
-export type JevFeatureKey = "jevSmartRouting" | "jevMemoryReview" | "jevPluginSelection" | "jevWriteRisk" | "jevSynapse";
+export type JevFeatureKey =
+  | "jevSmartRouting"
+  | "jevMemoryReview"
+  | "jevPluginSelection"
+  | "jevWriteRisk"
+  | "jevSynapse"
+  | "jevErrorClassification"
+  | "jevGuardrails"
+  | "jevSkillScan"
+  | "jevLoopControl"
+  | "jevDelegateModel"
+  | "jevRerank"
+  | "jevInventory"
+  | "jevSuggestRouting"
+  | "jevUsageTaxonomy";
+
+/** Every switch this card flips: the per-use Jev flags and the standalone ones. */
+export type FeatureKey = JevFeatureKey | "guardrailsPublicApi";
 
 export type JevTestResult =
   | { ok: true; latencyMs: number }
@@ -114,7 +131,7 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
     connecting,
     error,
     setEngine: (engine: "heuristic" | "jev") => update({ decisionEngine: engine }),
-    setFeature: (key: JevFeatureKey, enabled: boolean) => update({ [key]: enabled }),
+    setFeature: (key: FeatureKey, enabled: boolean) => update({ [key]: enabled }),
     connectGatewayKey,
     testing,
     testResult,

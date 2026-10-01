@@ -105,6 +105,8 @@ export interface HandleChatCoreOptions {
   cavemanLevel?: string;
   ponytailEnabled?: boolean;
   ponytailLevel?: string;
+  neutralityEnabled?: boolean;
+  neutralityLevel?: string;
   metaBreakEnabled?: boolean;
   synapseEnabled?: boolean;
   /** Skills an API key selected, full bodies, appended to the system prompt. */

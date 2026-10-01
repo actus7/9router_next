@@ -53,6 +53,51 @@ const FEATURES: Array<{ key: JevFeatureKey; title: string; description: string }
     title: "Risk of pending writes",
     description: "Jev rates how risky each agent write awaiting approval is. Advisory only: you still approve or reject.",
   },
+  {
+    key: "jevErrorClassification",
+    title: "Error classification",
+    description: "Jev labels upstream errors (expired key, rate limit, outage), so retries and cooldowns target the right cause.",
+  },
+  {
+    key: "jevGuardrails",
+    title: "Content guardrails",
+    description: "Jev scans untrusted content for prompt injection before it reaches the model. Secrets are always caught by pattern.",
+  },
+  {
+    key: "jevSkillScan",
+    title: "Skill selection",
+    description: "Jev picks which installed skills apply to a request, instead of keyword matching.",
+  },
+  {
+    key: "jevLoopControl",
+    title: "Loop control",
+    description: "Jev judges each agent step: when to continue and when to stop, instead of fixed limits.",
+  },
+  {
+    key: "jevDelegateModel",
+    title: "Delegated model choice",
+    description: "Jev picks the model for a delegated subtask, instead of a fixed rule.",
+  },
+  {
+    key: "jevRerank",
+    title: "Reranking",
+    description: "Jev reranks the candidate models for a request by fit, instead of the static order.",
+  },
+  {
+    key: "jevInventory",
+    title: "Inventory tagging",
+    description: "Jev tags models, tools and skills in the inventory, instead of rule-based labels.",
+  },
+  {
+    key: "jevSuggestRouting",
+    title: "Routing suggestions",
+    description: "Jev proposes routing setups to review, instead of the fixed heuristics.",
+  },
+  {
+    key: "jevUsageTaxonomy",
+    title: "Usage taxonomy",
+    description: "Jev categorises requests into the usage taxonomy, instead of keyword matching.",
+  },
 ];
 
 interface DecisionEngineCardProps {
@@ -170,6 +215,21 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
             </div>
           </>
         )}
+
+        <div className="flex items-start sm:items-center justify-between gap-4 pt-2 border-t border-border/50">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm sm:text-base">{t("Public API content scan")}</p>
+            <p className="text-xs sm:text-sm text-text-muted">
+              {t("Also scan untrusted content coming through the public API. Adds a small check to every public API request.")}
+            </p>
+          </div>
+          <Switch
+            aria-label={t("Public API content scan")}
+            checked={settings.guardrailsPublicApi === true}
+            onCheckedChange={(checked) => engine.setFeature("guardrailsPublicApi", checked)}
+            disabled={loading}
+          />
+        </div>
       </div>
     </Card>
   );

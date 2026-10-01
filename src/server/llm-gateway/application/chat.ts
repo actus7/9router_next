@@ -22,7 +22,8 @@ import { handleComboChat, handleFusionChat, detectRequiredCapabilities, modelSup
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/server/llm-gateway/engine/services/capacityAdapter";
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
-import { resolveAccountExhaustion } from "@/server/llm-gateway/engine/services/accountFallback";
+import { judgeUpstreamError, resolveAccountExhaustion } from "@/server/llm-gateway/engine/services/accountFallback";
+import { enforcePublicApiGuardrail } from "./publicApiGuardrail";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
 import * as log from "../utils/logger";
 import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
@@ -122,6 +123,7 @@ async function trySmartComboRouting(
     degraded: routing.meta.degraded,
     classifierModel: routing.meta.classifierModel,
     classifierLatencyMs: routing.meta.classifierLatencyMs,
+    classifierSource: routing.meta.classifierSource,
     candidates: routing.models,
   });
   const models = await orderForTools(body, routing.models);
@@ -338,6 +340,8 @@ async function buildChatCoreOptions(
     cavemanLevel: abilities.caveman.level,
     ponytailEnabled: abilities.ponytail.enabled,
     ponytailLevel: abilities.ponytail.level,
+    neutralityEnabled: abilities.neutrality.enabled,
+    neutralityLevel: abilities.neutrality.level,
     metaBreakEnabled: abilities.metaBreak,
     synapseEnabled: abilities.synapse.enabled,
     synapseLevel: abilities.synapse.level,
@@ -395,6 +399,9 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
 
   const authError = await requireGatewayApiKey(apiKey);
   if (authError) return authError;
+
+  const guardrailResponse = await enforcePublicApiGuardrail(body);
+  if (guardrailResponse) return guardrailResponse;
 
   if (!modelStr) {
     log.warn("CHAT", "Missing model");
@@ -563,7 +570,10 @@ export async function handleSingleModelChat(
     const noAuthResponse = await handleNoAuthCooldownResult(result, provider, model, anonymous);
     if (noAuthResponse) return noAuthResponse;
 
-    const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null);
+    // One judge verdict per failure, shared by the client-request check, the
+    // cooldown map and the monthly reset. null keeps every regex untouched.
+    const judged = await judgeUpstreamError({ status: result.status, errorText: result.error, provider });
+    const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null, judged);
 
     recordRoutingStep(body, {
       kind: "account",

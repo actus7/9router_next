@@ -11,6 +11,7 @@ import "server-only";
 
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
+import { currentTenantId } from "@/lib/db/tenant";
 
 export const JEV_MODEL = "typesafe-ai/jev";
 const JEV_URL = "https://ai-gateway.vercel.sh/v1/evaluate";
@@ -28,18 +29,71 @@ export type JevAnswer =
   | { type: "choice"; choice: string; confidence: number; probabilities: Record<string, number> }
   | { type: "score"; score: number; confidence: number; probabilities: Record<string, number> };
 
-export type JevFeature = "smartRouting" | "memoryReview" | "pluginSelection" | "writeRisk";
+export type JevFeature =
+  | "smartRouting"
+  | "memoryReview"
+  | "pluginSelection"
+  | "writeRisk"
+  | "errorClassification"
+  | "guardrails"
+  | "skillScan"
+  | "loopControl"
+  | "delegateModel"
+  | "rerank"
+  | "inventory"
+  | "suggestRouting"
+  | "usageTaxonomy";
 
 export const JEV_FEATURE_SETTING: Record<JevFeature, string> = {
   smartRouting: "jevSmartRouting",
   memoryReview: "jevMemoryReview",
   pluginSelection: "jevPluginSelection",
   writeRisk: "jevWriteRisk",
+  errorClassification: "jevErrorClassification",
+  guardrails: "jevGuardrails",
+  skillScan: "jevSkillScan",
+  loopControl: "jevLoopControl",
+  delegateModel: "jevDelegateModel",
+  rerank: "jevRerank",
+  inventory: "jevInventory",
+  suggestRouting: "jevSuggestRouting",
+  usageTaxonomy: "jevUsageTaxonomy",
 };
+
+// `getSettings()` is a database read, and the decision features ask once per
+// decision — several per request. Settings change rarely, so the answer is held
+// for 30s. Keyed by tenant: settings are per account through AsyncLocalStorage,
+// and one account's flags must never answer another's question.
+const SETTINGS_CACHE_TTL_MS = 30_000;
+type JevSettings = Awaited<ReturnType<typeof getSettings>>;
+const settingsCache = new Map<string, { at: number; value: JevSettings }>();
+
+function settingsCacheKey(): string {
+  try {
+    return currentTenantId();
+  } catch {
+    // Unscoped caller (a test): one shared bucket is safe, nothing cross-tenant.
+    return "";
+  }
+}
+
+/** Test hook: the 30s TTL would otherwise outlive a settings change. */
+export function resetJevSettingsCache(): void {
+  settingsCache.clear();
+}
+
+async function cachedSettings(): Promise<JevSettings> {
+  const key = settingsCacheKey();
+  const hit = settingsCache.get(key);
+  if (hit && Date.now() - hit.at < SETTINGS_CACHE_TTL_MS) return hit.value;
+  const value = await getSettings();
+  settingsCache.set(key, { at: Date.now(), value });
+  return value;
+}
 
 export async function isJevFeatureEnabled(feature: JevFeature): Promise<boolean> {
   try {
-    const settings = await getSettings();
+    const settings = await cachedSettings();
     return settings.decisionEngine === "jev" && settings[JEV_FEATURE_SETTING[feature]] === true;
   } catch {
     return false;
@@ -47,6 +101,11 @@ export async function isJevFeatureEnabled(feature: JevFeature): Promise<boolean>
 }
 
 export async function getJevApiKey(): Promise<string | null> {
+  // The environment key wins when present: the decision engine then works with
+  // no `vercel-ai-gateway` connection row at all. The account's connection
+  // stays the fallback, so nothing that works today breaks.
+  const envKey = process.env.AI_GATEWAY_API_KEY?.trim();
+  if (envKey) return envKey;
   const connections = await getProviderConnections({ provider: JEV_CONNECTION_PROVIDER, isActive: true });
   const key = connections.map((connection) => connection.apiKey).find((value) => typeof value === "string" && value.trim());
   return typeof key === "string" ? key.trim() : null;
@@ -111,6 +170,33 @@ export async function evaluateJev<Q extends Record<string, JevQuestion>>(
       answers[id] = parsed;
     }
     return answers as { [K in keyof Q]: JevAnswer };
+  } catch {
+    return null;
+  }
+}
+
+export type JevDecision<Q extends Record<string, JevQuestion>> = {
+  answers: { [K in keyof Q]: JevAnswer };
+  source: "jev";
+};
+
+/**
+ * Jev-first: returns null whenever the caller must fall back to its heuristic
+ * (feature off, no key, timeout, non-2xx, unrecognised shape). Never throws.
+ *
+ * Confidence is NOT filtered here — each caller holds `answers.X.confidence`
+ * (or a boolean's probability) to the threshold its own decision needs.
+ */
+export async function decideWithJev<Q extends Record<string, JevQuestion>>(
+  feature: JevFeature,
+  state: string | Record<string, unknown>,
+  questions: Q,
+  options: { timeoutMs: number },
+): Promise<JevDecision<Q> | null> {
+  try {
+    if (!(await isJevFeatureEnabled(feature))) return null;
+    const answers = await evaluateJev(state, questions, options.timeoutMs);
+    return answers ? { answers, source: "jev" } : null;
   } catch {
     return null;
   }

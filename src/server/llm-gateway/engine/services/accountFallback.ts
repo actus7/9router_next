@@ -1,4 +1,5 @@
-import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig";
+import { ERROR_RULES, BACKOFF_CONFIG, COOLDOWN, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig";
+import { getErrorJudge, type ErrorJudgement } from "../host/errorJudge";
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -28,8 +29,36 @@ const TOOL_UNSUPPORTED = [
   /unsupported .{0,24}(tool|function[ _-]?call)/i,
 ];
 
+/**
+ * Ask the installed error judge what kind of upstream failure this was.
+ *
+ * Jev-first wrapper over the host seam: serialises the error exactly like the
+ * regexes below do, and answers null whenever there is no judge, the judge
+ * declines (off, timeout, low confidence) or anything throws — so every caller
+ * keeps its existing heuristics untouched.
+ */
+export async function judgeUpstreamError(input: {
+  status?: number | null;
+  errorText: string | unknown;
+  provider: string;
+}): Promise<ErrorJudgement | null> {
+  const judge = getErrorJudge();
+  if (!judge) return null;
+  const text = typeof input.errorText === "string"
+    ? input.errorText
+    : input.errorText ? JSON.stringify(input.errorText) : "";
+  try {
+    return (await judge({ status: input.status ?? null, errorText: text, provider: input.provider })) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Whether an upstream error says the model cannot do tool calling. */
-export function isToolUnsupportedError(errorText: string | unknown): boolean {
+export function isToolUnsupportedError(errorText: string | unknown, judged?: ErrorJudgement | null): boolean {
+  // Jev first: it catches phrasings the patterns below never listed. A null
+  // judgement keeps the regexes exactly as they were.
+  if (judged?.kind === "tool_unsupported") return true;
   const text = typeof errorText === "string" ? errorText : errorText ? JSON.stringify(errorText) : "";
   return text ? TOOL_UNSUPPORTED.some((re) => re.test(text)) : false;
 }
@@ -43,7 +72,8 @@ export function isToolUnsupportedError(errorText: string | unknown): boolean {
  * 400 does — the next account reproduces it — even though it arrives as a 404,
  * which otherwise does mean "not on this account" and is worth rotating for.
  */
-export function isClientRequestError(status: number, errorText?: string | unknown): boolean {
+export function isClientRequestError(status: number, errorText?: string | unknown, judged?: ErrorJudgement | null): boolean {
+  if (judged?.kind === "tool_unsupported") return true;
   if (CLIENT_REQUEST_ERROR_STATUSES.has(Number(status))) return true;
   return isToolUnsupportedError(errorText);
 }
@@ -115,15 +145,67 @@ export function resolveAccountExhaustion(
   };
 }
 
+/** What a failure means for account rotation: rotate (and for how long) or not. */
+export interface FallbackDecision {
+  shouldFallback: boolean;
+  cooldownMs: number;
+  newBackoffLevel?: number;
+}
+
+/**
+ * Map a judge verdict onto the fallback decision, Jev-first.
+ *
+ * The kind list below is the whole point of unifying the ~21 regex/status rules:
+ * one calibrated classification replaces guessing which rule a message hit.
+ * A null judgement never reaches here — `checkFallbackError` keeps the rules.
+ */
+export function fallbackDecisionFromJudgement(judged: ErrorJudgement, backoffLevel = 0): FallbackDecision {
+  switch (judged.kind) {
+    // Spent for now: same exponential backoff the `backoff: true` rules use.
+    case "rate_limit":
+    case "quota":
+    case "capacity": {
+      const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
+      return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
+    }
+    // The credential or the bill is broken: rotating may still serve the
+    // request, but this account is out for the long cooldown.
+    case "auth_expired":
+    case "billing":
+    case "permanent":
+    case "github_monthly":
+      return { shouldFallback: true, cooldownMs: COOLDOWN.long };
+    // Temporary infrastructure failure: retry, but not for long.
+    case "transient":
+      return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS };
+    // A refused prompt is not a spent account — long would punish the next
+    // innocent request for one bad message. Rotate without a 2min lockout.
+    case "moderation":
+      return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS };
+    // The body is wrong: every account reproduces it, so no rotation and no
+    // cooldown (same verdict as `isClientRequestError`).
+    case "client_request":
+    case "tool_unsupported":
+      return { shouldFallback: false, cooldownMs: 0 };
+    default:
+      return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS };
+  }
+}
+
 /**
  * Check if error should trigger account fallback (switch to next account)
- * Config-driven: matches ERROR_RULES top-to-bottom (text rules first, then status)
+ * Jev-first: a present `judged` verdict decides through
+ * `fallbackDecisionFromJudgement`; otherwise, config-driven as always —
+ * matches ERROR_RULES top-to-bottom (text rules first, then status).
  * @param {number} status - HTTP status code
  * @param {string} errorText - Error message text
  * @param {number} backoffLevel - Current backoff level for exponential backoff
+ * @param {ErrorJudgement | null} judged - Judge verdict, when one was asked
  * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number }}
  */
-export function checkFallbackError(status: number, errorText: string | unknown, backoffLevel = 0) {
+export function checkFallbackError(status: number, errorText: string | unknown, backoffLevel = 0, judged?: ErrorJudgement | null): FallbackDecision {
+  if (judged) return fallbackDecisionFromJudgement(judged, backoffLevel);
+
   const lowerError = errorText
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
@@ -135,7 +217,7 @@ export function checkFallbackError(status: number, errorText: string | unknown, 
         const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
         return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
       }
-      return { shouldFallback: true, cooldownMs: rule.cooldownMs };
+      return { shouldFallback: true, cooldownMs: rule.cooldownMs ?? 0 };
     }
 
     // Status-based rule: match HTTP status code
@@ -144,7 +226,7 @@ export function checkFallbackError(status: number, errorText: string | unknown, 
         const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
         return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
       }
-      return { shouldFallback: true, cooldownMs: rule.cooldownMs };
+      return { shouldFallback: true, cooldownMs: rule.cooldownMs ?? 0 };
     }
   }
 

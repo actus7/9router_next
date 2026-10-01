@@ -24,11 +24,12 @@ beforeEach(() => {
 
 describe("chat turn gateway profile", () => {
   it("reads the conversation's own abilities over the account default", async () => {
-    state.settings = { cavemanEnabled: true, ponytailEnabled: true };
+    state.settings = { cavemanEnabled: true, ponytailEnabled: true, neutralityEnabled: true };
     state.conversation = { id: "s1", pluginSettings: { abilities: { caveman: { enabled: false } } } };
     const profile = await sessionGatewayProfile("s1");
     expect(profile.abilities.caveman.enabled).toBe(false);
     expect(profile.abilities.ponytail.enabled).toBe(true);
+    expect(profile.abilities.neutrality.enabled).toBe(true);
     expect(profile.skillIds).toEqual([]);
   });
 

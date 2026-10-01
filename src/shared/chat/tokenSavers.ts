@@ -2,7 +2,7 @@
 // gateway (which tags responses), the durable-run worker (which stores them)
 // and the chat UI (which renders one pill per id).
 
-export const TOKEN_SAVER_IDS = ["synapse", "rtk", "headroom", "caveman", "ponytail", "pxpipe"] as const;
+export const TOKEN_SAVER_IDS = ["synapse", "rtk", "headroom", "caveman", "ponytail", "neutrality", "pxpipe"] as const;
 
 export type TokenSaverId = (typeof TOKEN_SAVER_IDS)[number];
 

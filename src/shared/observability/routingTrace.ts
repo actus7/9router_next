@@ -24,6 +24,7 @@ export type RoutingTraceStep =
     degraded?: boolean;
     classifierModel?: string;
     classifierLatencyMs?: number;
+    classifierSource?: "jev" | "heuristic" | "llm";
     candidates: string[];
   }
   | { kind: "adapter"; requested: string; capabilities: string[]; models: string[]; strategy: string }

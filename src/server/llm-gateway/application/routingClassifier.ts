@@ -138,7 +138,9 @@ const JEV_NEED_CRITERIA: Record<RouteNeed, string> = {
 
 // Jev answers the same two questions the LLM classifier is prompted for, but
 // as typed choices: no JSON to dig out of a chat envelope, and a calibrated
-// confidence the router can hold to its threshold.
+// confidence the router can hold to its threshold. It is the primary
+// classifier — asked on every smart-routed request — and the heuristic score
+// and this file's LLM classifier are its fallbacks, in that order.
 export function buildJevClassifierCallback() {
   return async (text: string, endpointNeed: RouteNeed, timeoutMs: number): Promise<JevRoutingClassification | null> => {
     if (!(await isJevFeatureEnabled("smartRouting"))) return null;

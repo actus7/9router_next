@@ -1,12 +1,14 @@
 import "server-only";
 
 import { handleChat } from "@/server/llm-gateway/chat";
+import { decideWithJev } from "@/server/decisions/jev";
 import {
   SERVER_EXECUTABLE_TOOLS,
   executeServerToolCall,
   type ServerToolCall,
   type ServerToolContext,
 } from "./serverToolCall";
+import { guardUntrustedContent } from "./contentGuardrail";
 
 /**
  * The tool-call loop, running in the worker instead of the browser.
@@ -48,6 +50,31 @@ export interface ServerToolLoopResult {
 
 function canRunServerSide(name: string, context: ServerToolContext): boolean {
   return context.mcpRuntimeNames.has(name) || SERVER_EXECUTABLE_TOOLS.has(name);
+}
+
+/** Jev answers for the loop's two judgements get a short leash, not a stall. */
+const LOOP_CONTROL_TIMEOUT_MS = 2_000;
+
+/** Tool results are `{"ok":false,...}` when the call failed — the retry's cue. */
+function isFailureResult(result: string | null): boolean {
+  return typeof result === "string" && result.startsWith('{"ok":false');
+}
+
+/** The user's own words, copied from `toolSelection.ts` rather than imported. */
+function lastUserText(messages: unknown): string {
+  if (!Array.isArray(messages)) return "";
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index] as { role?: unknown; content?: unknown };
+    if (message?.role !== "user") continue;
+    if (typeof message.content === "string") return message.content;
+    if (Array.isArray(message.content)) {
+      return message.content
+        .map((part) => (typeof (part as { text?: unknown })?.text === "string" ? (part as { text: string }).text : ""))
+        .join("\n");
+    }
+    return "";
+  }
+  return "";
 }
 
 /**
@@ -105,6 +132,8 @@ export async function runServerToolLoop(input: RunServerToolLoopInput): Promise<
   let usage: Record<string, unknown> | null = null;
   let pending: ServerToolCall[] = [...input.firstTurnToolCalls];
   let executed = 0;
+  // Call ids already given their one retry, so no call ever runs three times.
+  const retriedCallIds = new Set<string>();
 
   for (let step = 0; step < MAX_TOOL_STEPS && pending.length > 0; step += 1) {
     // Out of budget: stop in a state that can be reported rather than being
@@ -112,6 +141,32 @@ export async function runServerToolLoop(input: RunServerToolLoopInput): Promise<
     // the next reader to settle as dead — losing everything accumulated here.
     if (Date.now() >= input.deadline) {
       return { text, leftoverToolCalls: [], reasoning, usage, exhausted: true, executed };
+    }
+    // Early stop: the model asked for more tools, but the answer may already
+    // say everything the user asked for. Judged only from the second step on —
+    // the first turn's own text is a plan, not an answer — and never past the
+    // deadline, so this can only shorten a healthy run.
+    if (step > 0) {
+      const decision = await decideWithJev(
+        "loopControl",
+        {
+          userRequest: lastUserText(input.body.messages).slice(0, 1_000),
+          answerSoFar: text.slice(0, 2_000),
+          pendingTools: pending.map((call) => call.name),
+        },
+        {
+          complete: {
+            type: "boolean",
+            instructions:
+              "The model asked for more tool calls. Is the user's request already fully answered by the answer so far?",
+          },
+        },
+        { timeoutMs: LOOP_CONTROL_TIMEOUT_MS },
+      );
+      const complete = decision?.answers.complete;
+      if (complete?.type === "boolean" && complete.probability >= 0.9) {
+        return { text, leftoverToolCalls: [], reasoning, usage, exhausted: false, executed };
+      }
     }
     if (!pending.every((call) => canRunServerSide(call.name, context))) {
       // Handing calls back is only safe before this side has run any: the tool
@@ -136,27 +191,66 @@ export async function runServerToolLoop(input: RunServerToolLoopInput): Promise<
     });
 
     for (const call of pending) {
-      await input.onToolEvent?.("tool/call", {
-        toolCallId: call.id,
-        name: call.name,
-        arguments: call.arguments,
-        ranOn: "server",
-      });
-      const result = await executeServerToolCall(call, context).catch((error: unknown) =>
-        JSON.stringify({ ok: false, error: error instanceof Error ? error.message : "Tool execution failed" }),
-      );
-      await input.onToolEvent?.("tool/result", {
-        toolCallId: call.id,
-        name: call.name,
-        content: result ?? "",
-        ranOn: "server",
-      });
+      // One attempt, journaled as it happens. The retry below reuses this, so
+      // the journal records both runs of the call through the normal path.
+      const attempt = async (): Promise<string | null> => {
+        await input.onToolEvent?.("tool/call", {
+          toolCallId: call.id,
+          name: call.name,
+          arguments: call.arguments,
+          ranOn: "server",
+        });
+        const result = await executeServerToolCall(call, context).catch((error: unknown) =>
+          JSON.stringify({ ok: false, error: error instanceof Error ? error.message : "Tool execution failed" }),
+        );
+        await input.onToolEvent?.("tool/result", {
+          toolCallId: call.id,
+          name: call.name,
+          content: result ?? "",
+          ranOn: "server",
+        });
+        return result;
+      };
+
+      let result = await attempt();
+      // One retry for a failed call that produced nothing useful: transient
+      // upstream errors are common and a second identical attempt is cheap.
+      // Null from Jev means no opinion and never a retry.
+      if (isFailureResult(result) && !retriedCallIds.has(call.id)) {
+        const decision = await decideWithJev(
+          "loopControl",
+          {
+            toolName: call.name,
+            arguments: call.arguments.slice(0, 500),
+            result: (result ?? "").slice(0, 1500),
+          },
+          {
+            useful: {
+              type: "boolean",
+              instructions:
+                "This tool call failed. Did it still produce information that advances the task, or is the exact same call worth retrying once?",
+            },
+          },
+          { timeoutMs: LOOP_CONTROL_TIMEOUT_MS },
+        );
+        const useful = decision?.answers.useful;
+        if (useful?.type === "boolean" && useful.probability <= 0.2) {
+          retriedCallIds.add(call.id);
+          result = await attempt();
+        }
+      }
+
+      // Tool output is untrusted: content the scan flags carries a warning
+      // prefix into the conversation. Results the provider side already
+      // prefixed pass through untouched — one warning, not two.
+      const guarded = await guardUntrustedContent(result ?? "", "tool_result");
       // `canRunServerSide` was already checked, so null here would be a bug in
       // that agreement rather than a browser-only tool. Reported, not skipped.
       messages.push({
         role: "tool",
         tool_call_id: call.id,
-        content: result ?? JSON.stringify({ ok: false, error: `No server-side executor for ${call.name}` }),
+        content:
+          result === null ? JSON.stringify({ ok: false, error: `No server-side executor for ${call.name}` }) : guarded,
       });
       executed += 1;
     }

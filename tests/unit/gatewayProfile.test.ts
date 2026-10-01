@@ -50,6 +50,15 @@ describe("GatewayProfile normalization", () => {
     expect(next.abilities.caveman.level).toBe("full");
     expect(next.skillIds).toEqual(["tdd"]);
   });
+
+  it("reads neutrality flags and normalizes its level like ponytail", () => {
+    const profile = profileFromSettings({ neutralityEnabled: true, neutralityLevel: "ultra" });
+    expect(profile.abilities.neutrality).toEqual({ enabled: true, level: "ultra" });
+    expect(profileFromSettings({ neutralityLevel: "extreme" }).abilities.neutrality).toEqual({ enabled: false, level: "full" });
+    const base = { abilities: { ...DEFAULT_ABILITIES, neutrality: { enabled: true, level: "lite" } }, skillIds: [] };
+    const next = normalizeGatewayProfile({ abilities: { neutrality: { level: "ultra" } } }, base);
+    expect(next.abilities.neutrality).toEqual({ enabled: true, level: "ultra" });
+  });
 });
 
 describe("profile scope", () => {

@@ -14,6 +14,7 @@ import {
   getActiveModelAvailability,
   setModelAvailability,
 } from "@/lib/db/repos/modelAvailabilityRepo";
+import { judgeUpstreamError } from "@/server/llm-gateway/engine/services/accountFallback";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
 import { FREE_PROVIDERS, isAnonymousFreeModel, resolveProviderId } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
@@ -28,6 +29,12 @@ const BILLING_COOLDOWN_MS = 30000;
  * over in one chat turn. An hour lets a lifted block come back on its own.
  */
 const REFUSED_COOLDOWN_MS = 60 * 60 * 1000;
+/**
+ * The judge says the 401/403 was really one refused prompt (moderation), not a
+ * refusal of us. One bad message must not bench the provider for an hour —
+ * the next request is a different prompt.
+ */
+const MODERATION_COOLDOWN_MS = 30000;
 
 function cooldownFor(status: number): number | null {
   if (status === 429) return RATE_LIMIT_COOLDOWN_MS;
@@ -47,7 +54,10 @@ function cooldownFor(status: number): number | null {
  * The 1h refusal cooldown is also taken on a 403 that was really about one
  * prompt (a moderation refusal). Accepted: no free provider tells the two
  * apart in a stable way, and the cost of guessing wrong is one provider
- * sitting out for an hour, not a failed request — the combo moves on.
+ * sitting out for an hour, not a failed request — the combo moves on. The
+ * guess now has a calibrated second opinion: when the error judge reads the
+ * failure as `moderation`, the cooldown is short instead (see
+ * `handleNoAuthCooldownResult`).
  */
 function noAuthConnectionId(provider: string): string {
   return `noauth:${resolveProviderId(provider)}`;
@@ -151,8 +161,15 @@ export async function handleNoAuthCooldownResult(
 ): Promise<Response | null> {
   if (!coolsDown(provider, model, anonymous)) return null;
   if (!("status" in result) || typeof result.status !== "number") return null;
-  const cooldownMs = cooldownFor(result.status);
+  let cooldownMs = cooldownFor(result.status);
   if (cooldownMs === null) return null;
+  // Jev-first on the one guess above: a 401/403 that the judge reads as a
+  // refused prompt (moderation) gets the short cooldown. null (judge off,
+  // timeout, unsure) keeps the 1h refusal cooldown exactly as before.
+  if (result.status === 401 || result.status === 403) {
+    const judged = await judgeUpstreamError({ status: result.status, errorText: result.error ?? "", provider });
+    if (judged?.kind === "moderation") cooldownMs = MODERATION_COOLDOWN_MS;
+  }
   await setNoAuthCooldown(provider, cooldownMs, result.status, result.error ?? null);
   const retryAfterSec = Math.ceil(cooldownMs / 1000);
   log.warn("CHAT", `[${provider}/${model}] noAuth cooldown set (${retryAfterSec}s) after ${result.status}`);

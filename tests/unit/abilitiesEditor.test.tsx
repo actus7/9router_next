@@ -27,6 +27,22 @@ describe("AbilitiesEditor", () => {
     expect(onChange.mock.calls[0]![0].ponytail).toEqual({ enabled: true, level: "ultra" });
   });
 
+  it("toggles neutrality without touching the others", () => {
+    const onChange = vi.fn();
+    render(<AbilitiesEditor value={DEFAULT_ABILITIES} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("switch", { name: /ideological neutrality/i }));
+    expect(onChange.mock.calls[0]![0].neutrality).toEqual({ enabled: true, level: "full" });
+    expect(onChange.mock.calls[0]![0].ponytail).toEqual(DEFAULT_ABILITIES.ponytail);
+  });
+
+  it("changes the neutrality level", () => {
+    const onChange = vi.fn();
+    const value = { ...DEFAULT_ABILITIES, neutrality: { enabled: true, level: "full" } };
+    render(<AbilitiesEditor value={value} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ultra" }));
+    expect(onChange.mock.calls[0]![0].neutrality).toEqual({ enabled: true, level: "ultra" });
+  });
+
   it("offers Synapse learning only while Synapse is on", () => {
     const { rerender } = render(<AbilitiesEditor value={DEFAULT_ABILITIES} onChange={vi.fn()} />);
     expect(screen.queryByRole("switch", { name: /learn answers/i })).toBeNull();

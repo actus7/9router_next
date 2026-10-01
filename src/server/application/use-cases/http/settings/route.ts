@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { serializeHttpError } from "@/server/application/http/httpError";
 import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
+import { resetJevSettingsCache } from "@/server/decisions/jev";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "@/server/llm-gateway/catalog";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
@@ -61,7 +62,22 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    for (const key of ["jevSmartRouting", "jevMemoryReview", "jevPluginSelection", "jevWriteRisk"]) {
+    for (const key of [
+      "jevSmartRouting",
+      "jevMemoryReview",
+      "jevPluginSelection",
+      "jevWriteRisk",
+      "jevErrorClassification",
+      "jevGuardrails",
+      "jevSkillScan",
+      "jevLoopControl",
+      "jevDelegateModel",
+      "jevRerank",
+      "jevInventory",
+      "jevSuggestRouting",
+      "jevUsageTaxonomy",
+      "guardrailsPublicApi",
+    ]) {
       if (Object.prototype.hasOwnProperty.call(body, key) && typeof body[key] !== "boolean") {
         return NextResponse.json({ error: `${key} must be a boolean` }, { status: 400 });
       }
@@ -86,6 +102,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
 
     const settings = await updateSettings(body);
+    // The decision flags are read through a 30s cache (decisions/jev); a toggle
+    // must not wait out the TTL to take effect.
+    resetJevSettingsCache();
 
     // Apply outbound proxy settings immediately (no restart required)
     if (

@@ -42,7 +42,7 @@ export const TRANSIENT_COOLDOWN_MS = 30 * 1000;
 export const MAX_RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
 
 // Cooldown durations (ms)
-const COOLDOWN = {
+export const COOLDOWN = {
   long: 2 * 60 * 1000,
   short: 5 * 1000,
 };

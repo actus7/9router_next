@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { getCurrentLocale, onLocaleChange, translate } from "@/i18n/runtime";
 import {
   CAVEMAN_LEVELS,
+  NEUTRALITY_LEVELS,
   PONYTAIL_LEVELS,
   SYNAPSE_LEVELS,
   WENYAN_LOCALES,
@@ -161,6 +162,22 @@ export default function AbilitiesEditor({ value, onChange, disabled }: Props) {
           ability={value.ponytail}
           disabled={disabled}
           onChange={(level) => set({ ponytail: { ...value.ponytail, level } })}
+        />
+      </Row>
+      <Row
+        title="Ideological neutrality"
+        link="https://github.com/actus7/teach"
+        linkLabel="Teach"
+        description="Keep answers evidence-based and ideologically neutral: jargon is rewritten as technical description, no activism or value prescription"
+        checked={value.neutrality.enabled}
+        disabled={disabled}
+        onToggle={(enabled) => set({ neutrality: { ...value.neutrality, enabled } })}
+      >
+        <LevelPicker
+          levels={NEUTRALITY_LEVELS}
+          ability={value.neutrality}
+          disabled={disabled}
+          onChange={(level) => set({ neutrality: { ...value.neutrality, level } })}
         />
       </Row>
       <Row

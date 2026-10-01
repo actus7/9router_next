@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { refreshDeterministicSmartProfiles, type SmartModelProfile } from "@/server/llm-gateway/smart-routing";
 import { handleSingleModelChat } from "@/server/llm-gateway/chat";
 import { handleSearch } from "@/server/llm-gateway/search";
+import {
+  jevSuggestionOverrides,
+  overlayJevSuggestion,
+  type JevSuggestionOverride,
+} from "@/server/application/use-cases/smart-routing/suggestJev";
 
 const BATCH_SIZE = 30;
 const MAX_PROFILES = 180;
@@ -131,11 +136,26 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     const research = body.webResearch === false ? { evidence: "" } : await researchInventory(request, targets);
     const suggestions: Array<Record<string, unknown>> = [];
+    // The hybrid: Jev answers the typed categories (tier, dominant need) for a
+    // whole batch in one call and the LLM keeps the numeric scores it wrote —
+    // see suggestJev. No Jev verdict and everything stays as the LLM said.
+    const jevOverrides = new Map<string, JevSuggestionOverride>();
     for (let offset = 0; offset < targets.length; offset += BATCH_SIZE) {
-      suggestions.push(...await classifyBatch(classifier, targets.slice(offset, offset + BATCH_SIZE), research.evidence));
+      const batch = targets.slice(offset, offset + BATCH_SIZE);
+      suggestions.push(...await classifyBatch(classifier, batch, research.evidence));
+      const judged = await jevSuggestionOverrides(batch.map((profile) => ({
+        modelKey: profile.modelKey,
+        description: profile.displayName,
+        pricing: { inputPrice: profile.inputPrice, outputPrice: profile.outputPrice },
+        deterministicTier: profile.recommendedTier,
+      })));
+      for (const [modelKey, override] of judged) jevOverrides.set(modelKey, override);
     }
     const suggestionByKey = new Map(suggestions.map((suggestion) => [String(suggestion.modelKey || ""), suggestion]));
-    const preview = targets.map((profile) => ({ ...profile, ...(suggestionByKey.get(profile.modelKey) || {}), modelKey: profile.modelKey }));
+    const preview = targets.map((profile) => overlayJevSuggestion(
+      { ...profile, ...(suggestionByKey.get(profile.modelKey) || {}), modelKey: profile.modelKey },
+      jevOverrides.get(profile.modelKey),
+    ));
     const researchedAt = new Date().toISOString();
     return NextResponse.json({
       profiles: preview,

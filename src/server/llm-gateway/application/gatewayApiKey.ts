@@ -20,6 +20,16 @@ export function withVerifiedGatewayKey<T>(apiKey: string, fn: () => T): T {
 }
 
 /**
+ * True when this request entered through `gatewayRoute` with a verified key —
+ * the public API-key path. In-process callers (the durable-run worker) have no
+ * scope around them and answer false, which is how the public-only guardrail
+ * in `chat.ts` stays out of the harness pipeline.
+ */
+export function hasVerifiedGatewayKey(): boolean {
+  return verifiedKeyStorage.getStore() != null;
+}
+
+/**
  * Enforce `settings.requireApiKey` for a gateway request.
  * @param apiKey key already extracted from the request (see `extractApiKey`)
  * @returns an error Response to return immediately, or null when allowed

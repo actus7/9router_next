@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Brush, FileImage, Minimize2, Scissors, Shrink, Zap } from "lucide-react";
+import { Brush, FileImage, Minimize2, Scale, Scissors, Shrink, Zap } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { TokenSaverId } from "@/shared/chat/tokenSavers";
 
@@ -39,6 +39,12 @@ const SAVERS: Record<TokenSaverId, SaverStyle> = {
     description: "Ponytail asked the model for the simplest solution.",
     icon: Brush,
     tone: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  },
+  neutrality: {
+    label: "Neutrality",
+    description: "Neutrality asked the model for evidence-based, jargon-free answers.",
+    icon: Scale,
+    tone: "border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
   },
   pxpipe: {
     label: "PXPIPE",

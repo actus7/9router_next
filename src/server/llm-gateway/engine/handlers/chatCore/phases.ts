@@ -20,6 +20,7 @@ import { injectCaveman } from "../../rtk/caveman";
 import { injectSystemPrompt } from "../../rtk/systemInject";
 import { applyMetaBreak } from "./metabreak";
 import { injectPonytail } from "../../rtk/ponytail";
+import { injectNeutrality } from "../../rtk/neutrality";
 import { compressMessages, formatRtkLog } from "../../rtk/index";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../../rtk/headroom";
 import { compressWithPxpipe } from "../../rtk/pxpipe";
@@ -293,7 +294,7 @@ async function normalizeModalities(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Token savers (RTK / Headroom / Caveman / Ponytail / PXPIPE)
+// Token savers (RTK / Headroom / Caveman / Ponytail / Neutrality / PXPIPE)
 // ---------------------------------------------------------------------------
 
 export async function runTokenSavers(params: {
@@ -309,6 +310,8 @@ export async function runTokenSavers(params: {
   cavemanLevel?: string;
   ponytailEnabled?: boolean;
   ponytailLevel?: string;
+  neutralityEnabled?: boolean;
+  neutralityLevel?: string;
   metaBreakEnabled?: boolean;
   pxpipeEnabled?: boolean;
   pxpipeMinChars?: number;
@@ -322,7 +325,7 @@ export async function runTokenSavers(params: {
   log?: ChatLogger;
   finalizeClaudeCache?: boolean;
 }): Promise<{ translatedBody: Record<string, unknown>; pxpipeSummary: PxpipeSummary | null; applied: string[] }> {
-  const { translatedBody, finalFormat, upstreamModel, tokenSaverEnabled, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, metaBreakEnabled, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, provider, model, reqTag, log } = params;
+  const { translatedBody, finalFormat, upstreamModel, tokenSaverEnabled, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, neutralityEnabled, neutralityLevel, metaBreakEnabled, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, provider, model, reqTag, log } = params;
   let body = translatedBody;
   // Savers that actually changed this request — reported to the chat.
   const applied: string[] = [];
@@ -368,6 +371,13 @@ export async function runTokenSavers(params: {
     injectPonytail(body, finalFormat, ponytailLevel);
     xf.push(`PONYTAIL:${ponytailLevel}`);
     applied.push("ponytail");
+  }
+
+  // Neutrality: inject ideological-neutrality system prompt (teach)
+  if (tokenSaverEnabled && neutralityEnabled && neutralityLevel) {
+    injectNeutrality(body, finalFormat, neutralityLevel);
+    xf.push(`NEUTRALITY:${neutralityLevel}`);
+    applied.push("neutrality");
   }
 
   // PXPIPE: image bulky context (Claude-format bodies only), last saver before dispatch

@@ -34,9 +34,11 @@ describe("API key profiles", () => {
   });
 
   it("a key never edited reads as the account's settings", async () => {
-    settings.value = { ponytailEnabled: true };
+    settings.value = { ponytailEnabled: true, neutralityEnabled: true };
     get.mockReturnValue({ profile: null });
-    expect((await getApiKeyProfile("k1"))?.abilities.ponytail.enabled).toBe(true);
+    const profile = (await getApiKeyProfile("k1"))!;
+    expect(profile.abilities.ponytail.enabled).toBe(true);
+    expect(profile.abilities.neutrality.enabled).toBe(true);
   });
 
   it("an update merges over the current profile and is tenant-scoped", async () => {

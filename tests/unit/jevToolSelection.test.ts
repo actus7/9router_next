@@ -25,8 +25,37 @@ describe("selectToolsForTurn", () => {
       t2: { type: "boolean", probability: 0.02 },
     });
     const result = await selectToolsForTurn(body);
-    expect((result.tools as Array<{ function: { name: string } }>).map((t) => t.function.name)).toEqual(["web_search", "translate"]);
+    // Kept tools are also reordered by probability, most relevant first.
+    expect((result.tools as Array<{ function: { name: string } }>).map((t) => t.function.name)).toEqual(["translate", "web_search"]);
     expect(jev.evaluateJev.mock.calls[0]![0]).toEqual({ request: "translate 'bom dia' to English" });
+  });
+
+  it("puts the kept tools in probability order, dropping the rest", async () => {
+    jev.evaluateJev.mockResolvedValue({
+      t0: { type: "boolean", probability: 0.9 },
+      t1: { type: "boolean", probability: 0.05 },
+      t2: { type: "boolean", probability: 0.5 },
+    });
+    const result = await selectToolsForTurn(body);
+    expect((result.tools as Array<{ function: { name: string } }>).map((t) => t.function.name)).toEqual([
+      "web_search",
+      "generate_image",
+    ]);
+  });
+
+  it("keeps the original order between tools with equal probabilities", async () => {
+    jev.evaluateJev.mockResolvedValue({
+      t0: { type: "boolean", probability: 0.5 },
+      t1: { type: "boolean", probability: 0.5 },
+      t2: { type: "boolean", probability: 0.5 },
+    });
+    const result = await selectToolsForTurn(body);
+    expect((result.tools as Array<{ function: { name: string } }>).map((t) => t.function.name)).toEqual([
+      "web_search",
+      "translate",
+      "generate_image",
+    ]);
+    expect(result).toBe(body);
   });
 
   it("removes tools and tool_choice entirely when none survive", async () => {

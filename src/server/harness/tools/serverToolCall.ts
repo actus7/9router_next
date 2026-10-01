@@ -5,6 +5,7 @@ import { handleFetch } from "@/server/llm-gateway/application/fetch";
 import { handleSearch } from "@/server/llm-gateway/application/search";
 import { buildModelsList } from "@/server/application/use-cases/http/v1/models/route";
 import { callSessionMcpTool } from "@/server/harness/mcpClient";
+import { decideWithJev } from "@/server/decisions/jev";
 import {
   generateImageServerSide,
   generateVideoServerSide,
@@ -14,6 +15,7 @@ import {
   SERVER_HARNESS_TOOLS,
   executeHarnessToolServerSide,
 } from "./serverHarnessTools";
+import { guardUntrustedContent } from "./contentGuardrail";
 
 /**
  * Runs a tool call inside the durable worker, with no browser involved.
@@ -158,16 +160,71 @@ async function withProviderFallback(
   path: string,
   body: (provider: string) => Record<string, unknown>,
   authorization: string | null,
+  guardSurface?: "web_fetch",
 ): Promise<string> {
   const attempts: string[] = [];
   for (const provider of providers) {
     const result = await callGateway(handler, path, body(provider), authorization).catch(() => null);
     if (result?.ok) {
-      return truncate(JSON.stringify({ ok: true, provider, result: result.payload }));
+      const serialized = JSON.stringify({ ok: true, provider, result: result.payload });
+      // The page a fetch provider returns is untrusted: flagged content gets a
+      // warning prefix before the truncation that closes the result.
+      return truncate(guardSurface ? await guardUntrustedContent(serialized, guardSurface) : serialized);
     }
     attempts.push(`${provider}: ${result ? result.status : "unreachable"}`);
   }
   return failure(`No ${label} provider answered (${attempts.join(", ") || "none configured"})`);
+}
+
+// Delegated subtasks are the cheapest place to experiment with model choice:
+// one shot, no tools, no conversation to corrupt. The shortlist is capped so
+// the choice question stays small and the pick is never among hundreds.
+const DELEGATE_CANDIDATES = 12;
+const DELEGATE_MODEL_TIMEOUT_MS = 1_500;
+const MIN_DELEGATE_CONFIDENCE = 0.6;
+
+/** LLM model keys for `delegate_task`, the run's own model first. */
+async function delegateModelCandidates(currentModel: string | null): Promise<string[]> {
+  const entries = (await buildModelsList(["llm"]).catch(() => [])) as Array<{
+    id?: unknown;
+    kind?: unknown;
+  }>;
+  const keys: string[] = [];
+  for (const entry of entries) {
+    // The LLM list carries no `kind` on ordinary models; anything explicit and
+    // not `llm` (a smart combo) is a routing mode, not a concrete model.
+    if (entry.kind != null && entry.kind !== "llm") continue;
+    if (typeof entry.id === "string" && entry.id && !keys.includes(entry.id)) keys.push(entry.id);
+  }
+  if (!currentModel) return keys.slice(0, DELEGATE_CANDIDATES);
+  return [currentModel, ...keys.filter((key) => key !== currentModel)].slice(0, DELEGATE_CANDIDATES);
+}
+
+/**
+ * Jev picks the delegate's model when the caller did not name one. A choice
+ * inside the shortlist with enough confidence wins; anything else — no Jev,
+ * a weak answer, a key outside the shortlist — keeps the run's own model.
+ */
+async function pickDelegateModel(task: string, currentModel: string | null): Promise<string | null> {
+  const candidates = await delegateModelCandidates(currentModel);
+  if (candidates.length === 0) return currentModel;
+  const decision = await decideWithJev(
+    "delegateModel",
+    { task: task.slice(0, 800), candidates },
+    {
+      model: {
+        type: "choice",
+        instructions:
+          "Which model should run this delegated subtask in one shot, with no tools? Prefer the cheapest model that reliably completes it.",
+        criteria: Object.fromEntries(candidates.map((key) => [key, `Model ${key}`])),
+      },
+    },
+    { timeoutMs: DELEGATE_MODEL_TIMEOUT_MS },
+  );
+  const answer = decision?.answers.model;
+  return answer?.type === "choice" && candidates.includes(answer.choice) && answer.confidence >= MIN_DELEGATE_CONFIDENCE
+    ? answer.choice
+    : currentModel;
 }
 
 export async function executeServerToolCall(
@@ -190,7 +247,9 @@ export async function executeServerToolCall(
         runtimeName: call.name,
         args,
       });
-      return truncate(JSON.stringify({ ok: true, result }));
+      // MCP servers are third-party code answering with third-party content:
+      // flagged results get a warning prefix before they reach the model.
+      return truncate(await guardUntrustedContent(JSON.stringify({ ok: true, result }), "mcp_result"));
     } catch (error) {
       return failure(error instanceof Error ? error.message : "MCP tool call failed");
     }
@@ -238,6 +297,7 @@ export async function executeServerToolCall(
       "/api/v1/web/fetch",
       (provider) => ({ provider, url, ...(maxCharacters ? { max_characters: maxCharacters } : {}) }),
       context.authorization,
+      "web_fetch",
     );
   }
 
@@ -245,7 +305,11 @@ export async function executeServerToolCall(
   // tools of its own, so it cannot recurse into another loop.
   const task = typeof args.task === "string" ? args.task.trim() : "";
   if (!task) return failure("delegate_task requires a task");
-  const model = typeof args.model === "string" && args.model.trim() ? args.model.trim() : context.model;
+  // An explicit `model` always wins; only the default is worth a Jev call.
+  const model =
+    typeof args.model === "string" && args.model.trim()
+      ? args.model.trim()
+      : await pickDelegateModel(task, context.model);
   if (!model) return failure("delegate_task has no model to run on");
   const result = await callGateway(
     handleChat,

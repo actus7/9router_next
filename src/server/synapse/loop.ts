@@ -5,6 +5,10 @@
 // whole module is built around: a false positive that swallows a real question
 // is worse than spending tokens — every gate here fails towards the LLM.
 //
+// Who decides: Jev is the decisor where the account opted in, the heuristic is
+// its fallback when Jev is silent, and clocks/years/clarifying questions are
+// vetoes held in code either way (Jev is weak at exactly those).
+//
 // Life cycle: observe → (2 equivalent answers) shadow → (≥10 runs, ≥90% agree)
 // active → served; one in `auditEvery` matches still goes to the LLM and is
 // compared, and a divergence or a 👎/Regenerate counts as a rejection;
@@ -36,7 +40,9 @@ export const LOOP_LIMITS = {
   similarity: 0.8,
   jevStable: 0.8,
   jevEquivalent: 0.85,
-  jevTimeoutMs: 8000,
+  // Per message, not per decision batch: Jev answers this in ~315ms at p50, so
+  // the old 8s budget just hid outages instead of bounding them.
+  jevTimeoutMs: 1200,
 } as const;
 
 export interface LoopOptions {
@@ -85,14 +91,20 @@ const REFERS_TO_CONVERSATION = /^(e|and|mas|but)\b|\b(isso|esse|essa|este|esta|a
 const ABOUT_THE_ASKER = /\b(meu|minha|meus|minhas|eu|mim|comigo|my|mine|me|myself)\b/;
 const CLOCK_OR_YEAR = /\b\d{1,2}:\d{2}\b|\b20\d{2}\b/;
 
+/**
+ * Vetoes written in code, not asked of Jev: a clock/year in the answer dates it
+ * instantly, and a question back is a clarification, not an answer to reuse.
+ * Jev is weak at exactly these, so they hold even when it approves.
+ */
+export function deterministicUnstable(answer: string): boolean {
+  return CLOCK_OR_YEAR.test(answer) || answer.trim().endsWith("?");
+}
+
 /** Conservative: false whenever the answer could depend on anything but the question. */
 export function heuristicStable(input: string, answer: string): boolean {
   const q = normalize(input);
   if (TIME_BOUND.test(q) || REFERS_TO_CONVERSATION.test(q) || ABOUT_THE_ASKER.test(q)) return false;
-  if (CLOCK_OR_YEAR.test(answer)) return false;
-  // A question back is a clarification, not an answer to reuse.
-  if (answer.trim().endsWith("?")) return false;
-  return true;
+  return !deterministicUnstable(answer);
 }
 
 /** Dice coefficient over the answers' normalized word sets. */
@@ -113,16 +125,23 @@ async function jevBoolean(state: Record<string, unknown>, instructions: string, 
   return typeof p === "number" ? p >= threshold : null;
 }
 
+/**
+ * Jev is the decisor: asked first, a non-null answer stands on its own (high
+ * probability → stable, low → unstable). When Jev is silent the conservative
+ * heuristic decides instead, and with `useJev` off it decides outright. The
+ * deterministic vetoes (dates, years, a question back) hold on every path.
+ */
 async function isStable(input: string, answer: string, opts: LoopOptions): Promise<boolean> {
-  // The heuristic's "no" is final: Jev may only add caution, never remove it.
-  if (!heuristicStable(input, answer)) return false;
-  if (!opts.useJev) return true;
-  const jev = await jevBoolean(
-    { question: input, answer },
-    "Would this exact answer still be correct and appropriate if anyone asked the same question on any other day, in a new conversation? False if it depends on the current time or date, prices, weather, news, earlier messages, or personal data about the asker.",
-    LOOP_LIMITS.jevStable,
-  );
-  return jev ?? true;
+  if (deterministicUnstable(answer)) return false;
+  if (opts.useJev) {
+    const jev = await jevBoolean(
+      { question: input, answer },
+      "Would this exact answer still be correct and appropriate if anyone asked the same question on any other day, in a new conversation? False if it depends on the current time or date, prices, weather, news, earlier messages, or personal data about the asker.",
+      LOOP_LIMITS.jevStable,
+    );
+    if (jev !== null) return jev;
+  }
+  return heuristicStable(input, answer);
 }
 
 async function areEquivalent(question: string, a: string, b: string, opts: LoopOptions): Promise<Verdict> {

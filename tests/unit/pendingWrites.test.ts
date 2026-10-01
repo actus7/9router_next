@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getPending = vi.hoisted(() => vi.fn());
-const listPending = vi.hoisted(() => vi.fn(async () => []));
+const listPending = vi.hoisted(() =>
+  vi.fn(async (): Promise<Array<{ id: string; createdAt: string }>> => []),
+);
 const resolvePending = vi.hoisted(() => vi.fn(async () => {}));
 const applyPluginToggle = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
 
@@ -45,6 +47,19 @@ describe("pending write governance", () => {
   it("lists all pending kinds", async () => {
     await listPendingWrites();
     expect(listPending).toHaveBeenCalledWith(undefined, "pending");
+  });
+
+  it("includes auto_applied writes in the same audit list", async () => {
+    const pendingRow = { id: "p1", createdAt: "2026-10-01T10:00:00.000Z" };
+    const autoRow = { id: "a1", createdAt: "2026-10-01T09:00:00.000Z" };
+    listPending
+      .mockImplementationOnce(async () => [pendingRow])
+      .mockImplementationOnce(async () => [autoRow]);
+
+    const rows = await listPendingWrites();
+
+    expect(listPending).toHaveBeenCalledWith(undefined, "auto_applied");
+    expect(rows.map((row) => row.id)).toEqual(["a1", "p1"]);
   });
 
   it("accepts capability proposals without installing executable code", async () => {

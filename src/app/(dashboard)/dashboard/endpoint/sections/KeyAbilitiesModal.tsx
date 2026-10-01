@@ -2,6 +2,8 @@
 
 import Modal from "@/shared/components/Modal";
 import AbilitiesEditor from "@/shared/components/gateway/AbilitiesEditor";
+import { Switch } from "@/components/ui/switch";
+import { translate } from "@/i18n/runtime";
 import type { UseKeyProfileReturn } from "../hooks/useKeyProfile";
 
 type Props = {
@@ -22,11 +24,30 @@ export default function KeyAbilitiesModal({ keyName, state, onClose }: Props) {
       {loading || !profile ? (
         <p className="text-sm text-muted-foreground">{error || "Carregando…"}</p>
       ) : (
-        <AbilitiesEditor
-          value={profile.abilities}
-          disabled={saving}
-          onChange={(abilities) => void save({ abilities })}
-        />
+        <>
+          <AbilitiesEditor
+            value={profile.abilities}
+            disabled={saving}
+            onChange={(abilities) => void save({ abilities })}
+          />
+          {/* The guardrail sits on the key's profile, not on the shared abilities
+              editor: the chat has its own scanning and must not see this. */}
+          <label className="mt-2 flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+            <span>
+              <span className="font-medium">{translate("Content guardrail") || "Content guardrail"}</span>
+              <span className="block text-xs text-muted-foreground">
+                {translate("Scans user input on this key's requests (adds latency)") ||
+                  "Scans user input on this key's requests (adds latency)"}
+              </span>
+            </span>
+            <Switch
+              checked={profile.guardrails === true}
+              disabled={saving}
+              onCheckedChange={(guardrails) => void save({ guardrails })}
+              aria-label={translate("Content guardrail") || "Content guardrail"}
+            />
+          </label>
+        </>
       )}
       {error && profile ? (
         <p role="alert" className="mt-3 text-sm text-destructive">

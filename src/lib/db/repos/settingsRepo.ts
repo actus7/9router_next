@@ -43,6 +43,8 @@ interface Settings {
   cavemanLevel: string;
   ponytailEnabled: boolean;
   ponytailLevel: string;
+  neutralityEnabled: boolean;
+  neutralityLevel: string;
   synapseEnabled: boolean;
   synapseLevel: string;
   metaBreakEnabled: boolean;
@@ -68,6 +70,20 @@ interface Settings {
   jevMemoryReview: boolean;
   jevPluginSelection: boolean;
   jevWriteRisk: boolean;
+  jevErrorClassification: boolean;
+  jevGuardrails: boolean;
+  jevSkillScan: boolean;
+  jevLoopControl: boolean;
+  jevDelegateModel: boolean;
+  jevRerank: boolean;
+  jevInventory: boolean;
+  jevSuggestRouting: boolean;
+  jevUsageTaxonomy: boolean;
+  /**
+   * Scan untrusted content arriving through the public API too. Off by default
+   * because it adds a (small) check to every public API request's latency.
+   */
+  guardrailsPublicApi: boolean;
   jevSynapse: boolean;
   synapseLearningEnabled: boolean;
   [key: string]: unknown;
@@ -112,6 +128,8 @@ const DEFAULT_SETTINGS: Settings = {
   cavemanLevel: "full",
   ponytailEnabled: false,
   ponytailLevel: "full",
+  neutralityEnabled: false,
+  neutralityLevel: "full",
   synapseEnabled: false,
   synapseLevel: "lite",
   metaBreakEnabled: false,
@@ -127,6 +145,17 @@ const DEFAULT_SETTINGS: Settings = {
   // 2026-09-28); the per-use switches only exist to turn one off.
   jevPluginSelection: true,
   jevWriteRisk: true,
+  jevErrorClassification: true,
+  jevGuardrails: true,
+  jevSkillScan: true,
+  jevLoopControl: true,
+  jevDelegateModel: true,
+  jevRerank: true,
+  jevInventory: true,
+  jevSuggestRouting: true,
+  jevUsageTaxonomy: true,
+  // Off by default: it adds latency to every public API request.
+  guardrailsPublicApi: false,
   jevSynapse: true,
   // Off by default: it stores this account's short questions and answers.
   synapseLearningEnabled: false,

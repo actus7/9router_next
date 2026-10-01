@@ -13,12 +13,13 @@ function parameters() {
 
 describe("MetaBreak gateway phase", () => {
   it("applies the preset after other prompt additions and reports it", async () => {
-    const params = { ...parameters(), cavemanEnabled: true, cavemanLevel: "full", ponytailEnabled: true, ponytailLevel: "full" };
+    const params = { ...parameters(), cavemanEnabled: true, cavemanLevel: "full", ponytailEnabled: true, ponytailLevel: "full", neutralityEnabled: true, neutralityLevel: "full" };
     const result = await runTokenSavers(params);
     const messages = result.translatedBody.messages as Array<{ role: string; content: string }>;
     expect(messages[0].role).toBe("system");
     expect(messages[1]).toEqual({ role: "user", content: "Explain recursion." });
     expect(messages).toHaveLength(2);
+    expect(messages[0].content).toContain("Total ideological neutrality");
     expect(messages[0].content).toContain("METABREAK OPERATING PROFILE");
     expect(params.log.line).toHaveBeenCalledWith("test", "⚙", expect.stringContaining("METABREAK"));
   });

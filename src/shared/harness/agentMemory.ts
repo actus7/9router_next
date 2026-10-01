@@ -35,6 +35,7 @@ export interface HarnessLearningConfigView {
   learningReviewModel: string;
   learningDeferWhenBusy: boolean;
   memoryNotifications: boolean;
+  writeRiskMode: "advisory" | "auto";
 }
 
 const memoryTool = (

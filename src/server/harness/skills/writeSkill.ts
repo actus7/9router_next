@@ -3,14 +3,21 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
-import { queuePendingWrite } from "@/server/harness/governance/queuePendingWrite";
+import {
+  assessWriteRisk,
+  canAutoApplyWrite,
+  queuePendingWrite,
+  recordAutoAppliedWrite,
+} from "@/server/harness/governance/queuePendingWrite";
 import { replaceAgentSkillFiles } from "@/lib/db/repos/agentSkillFilesRepo";
 import type { AgentSkillRow } from "@/lib/db/repos/agentSkillsRepo";
+import type { NewHarnessPendingWrite } from "@/shared/harness/pendingWrites";
 import { invalidateSkillTreeCache, upsertAgentSkillRow } from "./context";
 
 export interface SkillWriteOutcome {
   pending: boolean;
   pendingId?: string;
+  autoApplied?: boolean;
   state?: Awaited<ReturnType<typeof invalidateSkillTreeCache>>;
 }
 
@@ -34,17 +41,29 @@ export async function writeSkill({ row, files, initiator, action }: {
   initiator: "user" | "agent";
   action: string;
 }): Promise<SkillWriteOutcome> {
+  let autoApplied = false;
   if (initiator === "agent") {
-    const { skillWriteApproval } = await getHarnessLearningConfig();
-    if (skillWriteApproval) {
-      const pending = await queuePendingWrite({
+    const config = await getHarnessLearningConfig();
+    if (config.skillWriteApproval) {
+      const pendingWrite: NewHarnessPendingWrite = {
         id: randomUUID(),
         kind: "skill",
         action,
         source: "agent",
         payload: { row, files },
-      });
-      return { pending: true, pendingId: pending.id };
+      };
+      // The Jev score is the semantic defence here ("High: tries to override
+      // instructions, exfiltrate data..."); the skill INSTALL scan is another
+      // lane.
+      const risk = await assessWriteRisk(pendingWrite);
+      if (!canAutoApplyWrite(config.writeRiskMode, risk)) {
+        const pending = await queuePendingWrite(pendingWrite, { risk });
+        return { pending: true, pendingId: pending.id };
+      }
+      // Confidently Harmless/Low in auto mode: apply now and leave an
+      // `auto_applied` row as the audit trail.
+      await recordAutoAppliedWrite(pendingWrite, risk);
+      autoApplied = true;
     }
   }
 
@@ -55,5 +74,5 @@ export async function writeSkill({ row, files, initiator, action }: {
       content: file.content,
     })));
   }
-  return { pending: false, state: await invalidateSkillTreeCache() };
+  return { pending: false, autoApplied, state: await invalidateSkillTreeCache() };
 }

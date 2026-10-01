@@ -50,12 +50,15 @@ export async function listHarnessPendingWrites(
 
 export async function insertHarnessPendingWrite(
   write: NewHarnessPendingWrite,
+  // "auto_applied" rows are already executed; they share the table so the
+  // operator's queue is also the audit trail.
+  status: Extract<PendingWriteStatus, "pending" | "auto_applied"> = "pending",
 ): Promise<HarnessPendingWrite> {
   const db = await getAdapter();
   const now = new Date().toISOString();
   await db.run(
     `INSERT INTO harnessPendingWrites(id, userId, kind, action, payload, source, status, risk, createdAt)
-     VALUES(?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       write.id,
       currentTenantId(),
@@ -63,11 +66,12 @@ export async function insertHarnessPendingWrite(
       write.action,
       stringifyJson(write.payload),
       write.source,
+      status,
       write.risk ? stringifyJson(write.risk) : null,
       now,
     ],
   );
-  return { ...write, status: "pending", createdAt: now };
+  return { ...write, status, createdAt: now };
 }
 
 export async function resolveHarnessPendingWrite(

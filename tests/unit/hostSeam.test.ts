@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { getErrorJudge, setErrorJudge, type ErrorJudge } from "@/server/llm-gateway/engine/host/errorJudge";
 
 /**
  * Gateway architecture contract:
@@ -48,7 +49,25 @@ describe("engine/host seam", () => {
     const adapters = readdirSync(hostDir)
       .filter((f) => f.endsWith(".ts"))
       .sort();
-    expect(adapters).toEqual(["catalog.ts", "oauth.ts", "routingTrace.ts", "ssrf.ts", "store.ts", "synapseLoop.ts", "tenant.ts", "usage.ts"]);
+    expect(adapters).toEqual(["catalog.ts", "errorJudge.ts", "oauth.ts", "routingTrace.ts", "ssrf.ts", "store.ts", "synapseLoop.ts", "tenant.ts", "usage.ts"]);
+  });
+
+  it("errorJudge seam is a registry: the application installs the judge, the engine reads it", () => {
+    expect(getErrorJudge()).toBeNull();
+    const judge: ErrorJudge = async () => ({ kind: "rate_limit", confidence: 0.9 });
+    setErrorJudge(judge);
+    expect(getErrorJudge()).toBe(judge);
+    setErrorJudge(null);
+    expect(getErrorJudge()).toBeNull();
+  });
+
+  it("errorJudge seam carries no host imports of its own", () => {
+    const content = readFileSync(join(ENGINE_ROOT, "host", "errorJudge.ts"), "utf8");
+    for (const pattern of FORBIDDEN) {
+      expect(content, `errorJudge seam references ${pattern}`).not.toContain(pattern);
+    }
+    // Pure contract: no db, no Next, no implementation — just types and a registry.
+    expect(content).not.toMatch(/from ["']@\//);
   });
 
   it("engine is self-contained: no imports of removed legacy namespaces", () => {

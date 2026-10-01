@@ -1,6 +1,7 @@
 ﻿import { PROVIDERS, PROVIDER_OAUTH } from "../../config/providers";
 import { OAUTH_ENDPOINTS, GITHUB_COPILOT, buildKimiHeaders } from "../../config/appConstants";
 import { proxyAwareFetch } from "../../utils/proxyFetch";
+import { judgeUpstreamError } from "../accountFallback";
 import { dedupRefresh } from "./dedup";
 import { buildExternalIdpRefreshParams, getXaiRefreshService, fetchKiroProfileArn } from "../../host/oauth";
 import type { Credentials, RefreshResult, Logger, ProviderSpecificData, OAuthProviderConfig, ProviderConfig, RefreshProfile } from "../types";
@@ -209,6 +210,26 @@ function classifyOAuthRefreshError(errorText = "", status = 0): { status: number
   return { status, code, description, permanent };
 }
 
+/**
+ * Jev-first wrapper over `classifyOAuthRefreshError` for async callers.
+ *
+ * A judge verdict overrides the keywords: `auth_expired`/`permanent` mean the
+ * refresh token is dead (re-auth), `rate_limit`/`transient` mean retry later.
+ * No verdict keeps the keyword result exactly as before.
+ */
+export async function classifyOAuthRefreshErrorJudged(
+  errorText = "",
+  status = 0,
+  provider = "codex",
+): Promise<{ status: number; code: string; description: string; permanent: boolean }> {
+  const base = classifyOAuthRefreshError(errorText, status);
+  const judged = await judgeUpstreamError({ status, errorText, provider });
+  if (!judged) return base;
+  if (judged.kind === "auth_expired" || judged.kind === "permanent") return { ...base, permanent: true };
+  if (judged.kind === "rate_limit" || judged.kind === "transient") return { ...base, permanent: false };
+  return base;
+}
+
 export async function refreshCodexToken(refreshToken: string, log?: Logger): Promise<RefreshResult | null> {
   if (!refreshToken) return null;
   return dedupRefresh<RefreshResult | null>("codex", refreshToken, async () => {
@@ -228,7 +249,7 @@ export async function refreshCodexToken(refreshToken: string, log?: Logger): Pro
 
       if (!response.ok) {
         const errorText = await response.text();
-        const failure = classifyOAuthRefreshError(errorText, response.status);
+        const failure = await classifyOAuthRefreshErrorJudged(errorText, response.status, "codex");
         if (failure.permanent) {
           log?.error?.("TOKEN_REFRESH", "Codex refresh token already used or invalid. Re-auth required.", {
             status: response.status,

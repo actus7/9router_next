@@ -6,7 +6,7 @@ const getSettings = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/repos/connectionsRepo", () => ({ getProviderConnections }));
 vi.mock("@/lib/db/repos/settingsRepo", () => ({ getSettings }));
 
-import { evaluateJev, isJevFeatureEnabled } from "@/server/decisions/jev";
+import { evaluateJev, isJevFeatureEnabled, resetJevSettingsCache } from "@/server/decisions/jev";
 
 const questions = {
   team: { type: "choice", instructions: "Which team?", criteria: { billing: "Money", tech: "Bugs" } },
@@ -19,6 +19,10 @@ function respond(body: unknown, status = 200) {
 
 describe("evaluateJev", () => {
   beforeEach(() => {
+    // These tests pin the account-connection path, and an `AI_GATEWAY_API_KEY`
+    // in the environment would win over it (see getJevApiKey). The key must not
+    // speak for them.
+    delete process.env.AI_GATEWAY_API_KEY;
     getProviderConnections.mockResolvedValue([{ provider: "vercel-ai-gateway", apiKey: "vk_test" }]);
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -63,6 +67,30 @@ describe("evaluateJev", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("uses the environment key first, without touching the connections repo", async () => {
+    process.env.AI_GATEWAY_API_KEY = "env_key";
+    try {
+      getProviderConnections.mockClear();
+      getProviderConnections.mockResolvedValue([]);
+      const fetchMock = respond({
+        answers: {
+          team: { type: "choice", choice: "tech", probabilities: { billing: 0.1, tech: 0.9 } },
+          refund: { type: "boolean", probability: 0.2 },
+        },
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const answers = await evaluateJev("x", questions, 1000);
+
+      expect(answers?.refund).toEqual({ type: "boolean", probability: 0.2 });
+      expect(getProviderConnections).not.toHaveBeenCalled();
+      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      expect((init.headers as Record<string, string>).authorization).toBe("Bearer env_key");
+    } finally {
+      delete process.env.AI_GATEWAY_API_KEY;
+    }
+  });
+
   it.each([
     ["a non-2xx status", respond({ error: "rate limited" }, 429)],
     ["a choice outside the criteria", respond({ answers: { team: { choice: "sales" }, refund: { probability: 0.1 } } })],
@@ -76,11 +104,15 @@ describe("evaluateJev", () => {
 });
 
 describe("isJevFeatureEnabled", () => {
+  // The 30s settings cache would outlive each test's settings change.
+  beforeEach(() => resetJevSettingsCache());
+
   it("needs both the Jev engine and the feature flag", async () => {
     getSettings.mockResolvedValue({ decisionEngine: "jev", jevSmartRouting: true, jevMemoryReview: false });
     expect(await isJevFeatureEnabled("smartRouting")).toBe(true);
     expect(await isJevFeatureEnabled("memoryReview")).toBe(false);
 
+    resetJevSettingsCache();
     getSettings.mockResolvedValue({ decisionEngine: "heuristic", jevSmartRouting: true });
     expect(await isJevFeatureEnabled("smartRouting")).toBe(false);
   });

@@ -23,6 +23,12 @@ export const PONYTAIL_LEVELS: readonly AbilityLevelOption[] = [
   { id: "ultra", label: "Ultra", desc: "YAGNI extremist, deletion first" },
 ];
 
+export const NEUTRALITY_LEVELS: readonly AbilityLevelOption[] = [
+  { id: "lite", label: "Lite", desc: "Core neutrality principles only" },
+  { id: "full", label: "Full", desc: "+ prohibited terms and rewrite criteria" },
+  { id: "ultra", label: "Ultra", desc: "+ full verification checklist" },
+];
+
 export const SYNAPSE_LEVELS: readonly AbilityLevelOption[] = [
   { id: "lite", label: "Lite", desc: "Answer only unambiguous social patterns: greetings, thanks and goodbyes" },
   { id: "full", label: "Full", desc: "Adds identity, ping and short confirmations — more coverage, still conservative" },

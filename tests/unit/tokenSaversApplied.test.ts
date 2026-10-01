@@ -25,6 +25,17 @@ describe("economizadores aplicados", () => {
     expect(applied).toEqual(["caveman"]);
   });
 
+  it("injectNeutrality é aplicado quando habilitado", async () => {
+    const body = { messages: [{ role: "user", content: "explique closures" }] };
+    const { applied, translatedBody } = await runTokenSavers({
+      ...base, translatedBody: body, neutralityEnabled: true, neutralityLevel: "lite",
+    });
+    expect(applied).toEqual(["neutrality"]);
+    const messages = translatedBody.messages as Array<{ role: string; content: string }>;
+    expect(messages[0]!.role).toBe("system");
+    expect(messages[0]!.content).toContain("Total ideological neutrality");
+  });
+
   it("nada ligado → lista vazia", async () => {
     const { applied } = await runTokenSavers({ ...base, translatedBody: { messages: [{ role: "user", content: "x" }] } });
     expect(applied).toEqual([]);

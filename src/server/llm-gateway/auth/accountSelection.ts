@@ -6,6 +6,7 @@ import { getActiveModelAvailability, setModelAvailability, clearModelAvailabilit
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isClientRequestError } from "@/server/llm-gateway/engine/services/accountFallback";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/server/llm-gateway/engine/config/errorConfig";
+import type { ErrorJudgement } from "@/server/llm-gateway/engine/host/errorJudge";
 import { resolveProviderId, FREE_PROVIDERS, isAnonymousFreeModel } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
 import { tryCurrentTenantId } from "@/lib/db/tenant";
@@ -37,9 +38,14 @@ export const __test__ = { acquireSelectionLock };
 
 const GITHUB_MONTHLY_USAGE_LIMIT: string = "you've reached your additional usage limit for your plan";
 
-function githubMonthlyResetMs(status: number, errorText: string, provider: string): number | null {
+function githubMonthlyResetMs(status: number, errorText: string, provider: string, judged?: ErrorJudgement | null): number | null {
   if (resolveProviderId(provider) !== "github" || Number(status) !== 402) return null;
-  if (!String(errorText || "").toLowerCase().includes(GITHUB_MONTHLY_USAGE_LIMIT)) return null;
+  // Jev-first on the detection only: the judge's `github_monthly` kind stands
+  // in for the keyword match, and the keyword stays as the fallback. The next
+  // 1st-of-month date is still computed here — the judge classifies, it does
+  // not do calendar arithmetic.
+  const keywordHit = String(errorText || "").toLowerCase().includes(GITHUB_MONTHLY_USAGE_LIMIT);
+  if (!keywordHit && judged?.kind !== "github_monthly") return null;
   const now: Date = new Date();
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
 }
@@ -324,6 +330,10 @@ interface MarkUnavailableResult {
 
 /**
  * Mark an account's model availability without changing connection health.
+ *
+ * `judged` is the caller's one judge verdict for this failure (see
+ * `judgeUpstreamError`): when present it drives the decision through
+ * `checkFallbackError`'s kind map; null keeps every regex/status rule as-is.
  */
 export async function markAccountUnavailable(
   connectionId: string,
@@ -331,13 +341,14 @@ export async function markAccountUnavailable(
   errorText: string,
   provider: string | null = null,
   model: string | null = null,
-  resetsAtMs: number | null = null
+  resetsAtMs: number | null = null,
+  judged: ErrorJudgement | null = null
 ): Promise<MarkUnavailableResult> {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
   // A malformed request fails identically on every account. Rotating would burn
   // one upstream call per account and hide the real 400 behind "all accounts
   // unavailable", so the error goes straight back to the caller.
-  if (isClientRequestError(status, errorText)) {
+  if (isClientRequestError(status, errorText, judged)) {
     log.warn("AUTH", `client error ${status} — not rotating accounts for ${provider ?? "unknown"}`);
     return { shouldFallback: false, cooldownMs: 0 };
   }
@@ -345,7 +356,7 @@ export async function markAccountUnavailable(
   const conn = connections.find((connection) => connection.id === connectionId);
   const backoffLevel: number = conn?.backoffLevel || 0;
 
-  const githubResetAtMs: number | null = githubMonthlyResetMs(status, errorText, provider!);
+  const githubResetAtMs: number | null = githubMonthlyResetMs(status, errorText, provider!, judged);
 
   let shouldFallback: boolean, cooldownMs: number, newBackoffLevel: number;
   if (githubResetAtMs) {
@@ -357,7 +368,7 @@ export async function markAccountUnavailable(
     cooldownMs = Math.min(resetsAtMs - Date.now(), MAX_RATE_LIMIT_COOLDOWN_MS);
     newBackoffLevel = 0;
   } else {
-    ({ shouldFallback, cooldownMs = 0, newBackoffLevel = 0 } = checkFallbackError(status, errorText, backoffLevel));
+    ({ shouldFallback, cooldownMs = 0, newBackoffLevel = 0 } = checkFallbackError(status, errorText, backoffLevel, judged));
   }
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 

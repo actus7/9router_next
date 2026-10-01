@@ -20,6 +20,14 @@ export interface HarnessLearningConfig {
   learningReviewModel: string;
   learningDeferWhenBusy: boolean;
   memoryNotifications: boolean;
+  /**
+   * What the Jev write-risk score does with agent writes.
+   *
+   * `auto` (default): a confidently Harmless/Low write is applied outright and
+   * recorded as `auto_applied`; everything else queues for the operator.
+   * `advisory`: the score is shown to the operator and every write queues.
+   */
+  writeRiskMode: "advisory" | "auto";
 }
 
 const KEYS = {
@@ -31,6 +39,7 @@ const KEYS = {
   learningReviewModel: "harness.learning.reviewModel",
   learningDeferWhenBusy: "harness.learning.deferWhenBusy",
   memoryNotifications: "harness.memory.notifications",
+  writeRiskMode: "harness.writeRiskMode",
 } as const;
 
 const DEFAULTS: HarnessLearningConfig = {
@@ -42,12 +51,18 @@ const DEFAULTS: HarnessLearningConfig = {
   learningReviewModel: "",
   learningDeferWhenBusy: true,
   memoryNotifications: true,
+  writeRiskMode: "auto",
 };
 
 function readBool(value: unknown, fallback: boolean): boolean {
   if (value === "true" || value === true) return true;
   if (value === "false" || value === false) return false;
   return fallback;
+}
+
+function readWriteRiskMode(value: unknown): HarnessLearningConfig["writeRiskMode"] {
+  // Unknown or unset (accounts that predate the field) land on the default.
+  return value === "advisory" ? "advisory" : value === "auto" ? "auto" : DEFAULTS.writeRiskMode;
 }
 
 export async function getHarnessLearningConfig(): Promise<HarnessLearningConfig> {
@@ -63,6 +78,7 @@ export async function getHarnessLearningConfig(): Promise<HarnessLearningConfig>
     learningReviewModel: reviewModel ?? DEFAULTS.learningReviewModel,
     learningDeferWhenBusy: readBool(await read(KEYS.learningDeferWhenBusy), DEFAULTS.learningDeferWhenBusy),
     memoryNotifications: readBool(await read(KEYS.memoryNotifications), DEFAULTS.memoryNotifications),
+    writeRiskMode: readWriteRiskMode(await read(KEYS.writeRiskMode)),
   };
 }
 
@@ -81,6 +97,7 @@ export async function updateHarnessLearningConfig(
     await setTenantMeta(db, KEYS.learningReviewModel, next.learningReviewModel);
     await setTenantMeta(db, KEYS.learningDeferWhenBusy, next.learningDeferWhenBusy);
     await setTenantMeta(db, KEYS.memoryNotifications, next.memoryNotifications);
+    await setTenantMeta(db, KEYS.writeRiskMode, next.writeRiskMode);
   });
   return next;
 }

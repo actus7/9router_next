@@ -47,7 +47,7 @@ const evaluateJev = vi.hoisted(() => vi.fn());
 vi.mock("@/server/decisions/jev", () => ({ evaluateJev }));
 
 import {
-  LOOP_LIMITS, learningKey, personaHash, heuristicStable, observeAnswer, lookupLearned, rejectLearned,
+  LOOP_LIMITS, learningKey, personaHash, heuristicStable, deterministicUnstable, observeAnswer, lookupLearned, rejectLearned,
 } from "@/server/synapse/loop";
 import { buildMemoryPromptBlock } from "@/shared/harness/agentMemory";
 import { buildSkillsPromptBlock } from "@/shared/harness/agentSkills";
@@ -201,10 +201,47 @@ describe("modo Jev", () => {
     expect(store.caps[0].source).toBe("heuristic");
   });
 
-  it("Jev não salva uma resposta que a heurística já sabe ser instável", async () => {
-    evaluateJev.mockResolvedValue({ stable: { type: "boolean", probability: 0.99 } });
-    await observeAnswer({ input: "que horas são agora?", systemText: null, answer: "São 14:32.", model: "m" }, { useJev: true });
-    await observeAnswer({ input: "que horas são agora?", systemText: null, answer: "São 14:32.", model: "m" }, { useJev: true });
+  it("Jev decide; a heurística só decide quando Jev é null", async () => {
+    const jev = { useJev: true };
+    // The heuristic alone rejects this (TIME_BOUND on "hoje"). Jev-first means
+    // Jev's verdict stands on its own: it approves, the turn is learned.
+    evaluateJev.mockImplementation(async (_state: unknown, questions: Record<string, unknown>) => {
+      const out: Record<string, unknown> = {};
+      for (const id of Object.keys(questions)) out[id] = { type: "boolean", probability: 0.99 };
+      return out;
+    });
+    await observeAnswer({ input: "qual o preço do bitcoin hoje?", systemText: null, answer: "Um bitcoin.", model: "m" }, jev);
+    await observeAnswer({ input: "qual o preço do bitcoin hoje?", systemText: null, answer: "Bitcoin é um ativo digital.", model: "m" }, jev);
+    expect(store.caps).toHaveLength(1);
+    expect(store.caps[0].source).toBe("jev");
+
+    // Jev null hands the decision back to the heuristic, which says no.
+    store.caps.length = 0;
+    evaluateJev.mockResolvedValue(null);
+    await observeAnswer({ input: "qual o preço do petróleo hoje?", systemText: null, answer: "Um barril.", model: "m" }, jev);
+    await observeAnswer({ input: "qual o preço do petróleo hoje?", systemText: null, answer: "Barril de petróleo.", model: "m" }, jev);
     expect(store.caps).toHaveLength(0);
+  });
+
+  it("relógio/ano/pergunta de volta vetam mesmo com Jev aprovando", async () => {
+    const jev = { useJev: true };
+    evaluateJev.mockImplementation(async (_state: unknown, questions: Record<string, unknown>) => {
+      const out: Record<string, unknown> = {};
+      for (const id of Object.keys(questions)) out[id] = { type: "boolean", probability: 0.99 };
+      return out;
+    });
+    for (const answer of ["São 14:32.", "Em 2030.", "Sobre o quê?"]) {
+      expect(deterministicUnstable(answer)).toBe(true);
+      await observeAnswer({ input: Q, systemText: null, answer, model: "m" }, jev);
+      await observeAnswer({ input: Q, systemText: null, answer, model: "m" }, jev);
+    }
+    expect(deterministicUnstable(A)).toBe(false);
+    expect(store.caps).toHaveLength(0);
+  });
+
+  it("sem useJev a heurística decide como antes, sem consultar Jev", async () => {
+    await learnToActive();
+    expect(store.caps[0].status).toBe("active");
+    expect(evaluateJev).not.toHaveBeenCalled();
   });
 });

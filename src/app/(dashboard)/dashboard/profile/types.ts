@@ -15,6 +15,16 @@ export interface Settings {
   jevPluginSelection?: boolean;
   jevWriteRisk?: boolean;
   jevSynapse?: boolean;
+  jevErrorClassification?: boolean;
+  jevGuardrails?: boolean;
+  jevSkillScan?: boolean;
+  jevLoopControl?: boolean;
+  jevDelegateModel?: boolean;
+  jevRerank?: boolean;
+  jevInventory?: boolean;
+  jevSuggestRouting?: boolean;
+  jevUsageTaxonomy?: boolean;
+  guardrailsPublicApi?: boolean;
   synapseLearningEnabled?: boolean;
   [key: string]: unknown;
 }

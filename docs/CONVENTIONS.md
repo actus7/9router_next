@@ -79,7 +79,7 @@ A regra: uma chave sem UI **documentada como decisão** não é gap. O gap era n
 saber a diferença.
 
 **Molde, não configuração (decisão de 2026-09-29)**: `rtkEnabled`,
-`cavemanEnabled`/`cavemanLevel`, `ponytailEnabled`/`ponytailLevel`,
+`cavemanEnabled`/`cavemanLevel`, `ponytailEnabled`/`ponytailLevel`, `neutralityEnabled`/`neutralityLevel`,
 `synapseEnabled`/`synapseLevel`, `synapseLearningEnabled`, `pxpipeEnabled` e
 `metaBreakEnabled` perderam a tela (a página "Economizador de Tokens" saiu).
 Nenhuma requisição com origem conhecida as lê mais: a API usa o perfil da chave

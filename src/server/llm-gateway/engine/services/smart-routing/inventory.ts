@@ -5,6 +5,7 @@
   upsertSmartModelProfiles,
 } from "../../host/store";
 import { getDisabledModels, getPricingOverrides } from "../../host/store";
+import { decideWithJev, type JevQuestion } from "@/server/decisions/jev";
 import { getModelsByProviderId } from "../../config/providerModels";
 import { getCapabilitiesForModel } from "../../providers/capabilities";
 import { getPricingForModel } from "../../providers/pricing";
@@ -203,6 +204,64 @@ function recommendedTier(model: string, quality: number, caps: SmartModelCapabil
   return "standard";
 }
 
+// The judge's wording, copied from routingClassifier.ts (which imports nothing
+// from here): the criteria must stay the same question everywhere Jev classifies
+// a tier, and neither file may depend on the other.
+const JEV_TIER_CRITERIA: Record<RoutingTier, string> = {
+  simple: "Lookup, greeting, rewording or a one-step answer any small model gets right",
+  standard: "Ordinary multi-step work: explain, summarize, write or edit code of modest size",
+  complex: "Large or multi-part work needing strong models: architecture, long code, deep analysis",
+  reasoning: "Formal reasoning: proofs, math, logic puzzles, planning where each step must be verified",
+};
+
+const JEV_TIER_BATCH = 20;
+const JEV_TIER_MIN_CONFIDENCE = 0.7;
+const JEV_TIER_TIMEOUT_MS = 30_000;
+
+export type JevModelTier = { tier: RoutingTier; confidence: number };
+
+/**
+ * Capability tiers judged by Jev from each model's name, description and
+ * pricing — what the name regex in `recommendedTier` can only approximate.
+ * Batches of `JEV_TIER_BATCH` models per call; only well-formed answers at
+ * confidence >= 0.7 land in the map. Anything else (feature off, no key,
+ * timeout, low confidence) leaves that model to the heuristics: fail-open,
+ * like every other Jev caller.
+ */
+export async function jevModelTiers(
+  models: Array<{ modelKey: string; description?: string; pricing?: unknown }>,
+): Promise<Map<string, JevModelTier>> {
+  const tiers = new Map<string, JevModelTier>();
+  for (let offset = 0; offset < models.length; offset += JEV_TIER_BATCH) {
+    const batch = models.slice(offset, offset + JEV_TIER_BATCH);
+    const state = {
+      models: batch.map((model, index) => ({
+        id: `m${index}`,
+        modelKey: model.modelKey,
+        ...(model.description ? { description: model.description } : {}),
+        ...(model.pricing === undefined ? {} : { pricing: model.pricing }),
+      })),
+    };
+    const questions: Record<string, JevQuestion> = {};
+    for (let index = 0; index < batch.length; index += 1) {
+      questions[`m${index}`] = {
+        type: "choice",
+        instructions: "Which capability tier does this model belong to, judged from its name, description and pricing? Ignore marketing suffixes.",
+        criteria: JEV_TIER_CRITERIA,
+      };
+    }
+    const decision = await decideWithJev("inventory", state, questions, { timeoutMs: JEV_TIER_TIMEOUT_MS });
+    if (!decision) continue;
+    for (const [index, model] of batch.entries()) {
+      const answer = decision.answers[`m${index}`];
+      if (!answer || answer.type !== "choice" || answer.confidence < JEV_TIER_MIN_CONFIDENCE) continue;
+      if (!Object.hasOwn(JEV_TIER_CRITERIA, answer.choice)) continue;
+      tiers.set(model.modelKey, { tier: answer.choice as RoutingTier, confidence: answer.confidence });
+    }
+  }
+  return tiers;
+}
+
 function buildNeedScores(model: string, caps: SmartModelCapabilities, kinds: string[]): Partial<Record<RouteNeed, number>> {
   const id = model.toLowerCase();
   return {
@@ -310,9 +369,24 @@ export async function refreshDeterministicSmartProfiles(persist = false): Promis
   // One read for the whole inventory; the store caches for a few seconds.
   const pricingOverrides = await getPricingOverrides().catch(() => ({}));
   const deterministic = inventory.map((item) => deterministicProfile(item, pricingOverrides));
+  // The cold path (cache empty or explicit refresh): Jev judges the tiers once
+  // for the whole inventory and lands in the same `recommendedTier` field the
+  // name regex fills, so it caches and persists exactly like the heuristic
+  // value did. No Jev answer for a model keeps its regex tier (fail-open).
+  const jevTiers = await jevModelTiers(
+    deterministic.map((profile) => ({
+      modelKey: profile.modelKey,
+      description: profile.displayName,
+      pricing: { inputPrice: profile.inputPrice, outputPrice: profile.outputPrice },
+    })),
+  );
+  const decided = deterministic.map((profile) => {
+    const jev = jevTiers.get(profile.modelKey);
+    return jev ? { ...profile, recommendedTier: jev.tier } : profile;
+  });
   const persisted = await getSmartModelProfiles();
   const storedByKey = new Map(persisted.map((profile) => [profile.modelKey, profile]));
-  const profiles = deterministic.map((base) => {
+  const profiles = decided.map((base) => {
     const stored = storedByKey.get(base.modelKey);
     if (!stored || stored.inventoryFingerprint !== base.inventoryFingerprint || stored.source === "deterministic") return base;
     return {

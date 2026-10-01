@@ -7,6 +7,8 @@ import { resolveSessionId } from "../utils/sessionManager";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { cleanJSONSchemaForAntigravity } from "../translator/formats/gemini";
 import { DEFAULT_THINKING_AG_SIGNATURE } from "../config/defaultThinkingSignature";
+import { judgeUpstreamError } from "../services/accountFallback";
+import type { ErrorJudgement } from "../host/errorJudge";
 import type { Credentials, Logger, RefreshResult } from "../services/types";
 import { AG_DECOY_TOOLS } from "./antigravityDecoyTools";
 
@@ -391,7 +393,10 @@ export class AntigravityExecutor extends BaseExecutor {
     ].filter(Boolean).map(v => typeof v === "string" ? v : JSON.stringify(v)).join("\n");
   }
 
-  isTransientAntigravityError(status: number, message: string) {
+  isTransientAntigravityError(status: number, message: string, judged?: ErrorJudgement | null) {
+    // Jev-first: `transient`/`capacity` say retry without matching any phrase
+    // below; any other (or no) verdict keeps the status/regex check as before.
+    if (judged?.kind === "transient" || judged?.kind === "capacity") return true;
     if (status === HTTP_STATUS.RATE_LIMITED) return true;
     if (ANTIGRAVITY_TRANSIENT_STATUSES.has(status)) return true;
     return ANTIGRAVITY_TRANSIENT_ERROR_PATTERNS.some(pattern => pattern.test(message || ""));
@@ -419,7 +424,8 @@ export class AntigravityExecutor extends BaseExecutor {
     }
     if (retryMs) return retryMs <= MAX_RETRY_AFTER_MS ? retryMs : false;
 
-    if (!this.isTransientAntigravityError(response.status, errorMessage)) return false;
+    const judged = await judgeUpstreamError({ status: response.status, errorText: errorMessage, provider: "antigravity" });
+    if (!this.isTransientAntigravityError(response.status, errorMessage, judged)) return false;
 
     const cap = response.status === HTTP_STATUS.RATE_LIMITED
       ? MAX_RETRY_AFTER_MS

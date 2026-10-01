@@ -3,6 +3,7 @@ import "server-only";
 import { upsertAgentSkillRow } from "@/lib/db/repos/agentSkillsRepo";
 import { safePublicFetch } from "@/server/security/safeFetch";
 import { invalidateSkillTreeCache } from "@/server/harness/skills/context";
+import { decideWithJev } from "@/server/decisions/jev";
 import {
   parseSkillMarkdown,
   validateSkillFields,
@@ -18,6 +19,17 @@ const MAX_IMPORT_BYTES = 128 * 1024;
 // install request can spend upstream, whatever shape the remote repo has.
 const MAX_INSTALL_MS = 25_000;
 const MAX_SCANNED_FOLDERS = 12;
+
+// A SKILL.md becomes standing instructions for every agent turn it applies
+// to — the one import that changes what agents *do*, not just what they read.
+// The install path is cold (a human asked for this), so the scan gets a
+// generous timeout, and only a confident High verdict blocks the install.
+// Null or a weak answer installs as before: the scan is a filter, not a gate
+// that can wedge the pipeline.
+const SKILL_SCAN_TIMEOUT_MS = 5_000;
+const SKILL_SCAN_MAX_STATE_CHARS = 50_000;
+const SKILL_SCAN_BLOCK_SCORE = 2.5;
+const SKILL_SCAN_BLOCK_CONFIDENCE = 0.8;
 
 interface GitHubTreeEntry {
   path: string;
@@ -174,6 +186,33 @@ export async function installSkillFromLibrary(options: {
   });
   if (errors.length) {
     return { ok: false, error: errors.map((entry) => entry.message).join("; ") };
+  }
+
+  const scan = await decideWithJev(
+    "skillScan",
+    { name: id, source, body: raw.slice(0, SKILL_SCAN_MAX_STATE_CHARS) },
+    {
+      malicious: {
+        type: "score",
+        instructions:
+          "An AI agent will follow this SKILL.md as standing instructions. How dangerous is installing and enabling it?",
+        criteria: [
+          "Harmless: ordinary helpful instructions for a coding or productivity task",
+          "Low: minor unwanted or overly broad behaviour changes",
+          "Notable: broadly rewrites agent behaviour, hides intent, or asks for sensitive access",
+          "High: instructs data exfiltration, credential theft, overriding safety rules, or destructive actions",
+        ],
+      },
+    },
+    { timeoutMs: SKILL_SCAN_TIMEOUT_MS },
+  );
+  const verdict = scan?.answers.malicious;
+  if (
+    verdict?.type === "score" &&
+    verdict.score >= SKILL_SCAN_BLOCK_SCORE &&
+    verdict.confidence >= SKILL_SCAN_BLOCK_CONFIDENCE
+  ) {
+    return { ok: false, error: "Skill blocked by security scan" };
   }
 
   await upsertAgentSkillRow({

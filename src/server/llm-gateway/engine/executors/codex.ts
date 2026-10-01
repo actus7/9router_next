@@ -7,6 +7,7 @@ import {
   refreshProviderCredentials,
   shouldRefreshCredentials,
 } from "../services/oauthCredentialManager";
+import { judgeUpstreamError } from "../services/accountFallback";
 import { normalizeResponsesInput } from "../translator/formats/responsesApi";
 import { fetchImageAsBase64 } from "../translator/concerns/image";
 import { getModelUpstreamId } from "../config/providerModels";
@@ -410,6 +411,13 @@ export class CodexExecutor extends BaseExecutor {
     if (matched) {
       try { await reader.cancel(); } catch { /* noop */ }
       try { reader.releaseLock(); } catch { /* noop */ }
+      // Jev-first on the verdict, substring fallback: `capacity` rotates the
+      // account the way "model_at_capacity" does, `transient`/`rate_limit`
+      // retry the same account, and any other (or no) verdict keeps whatever
+      // the matched substring decided.
+      const judged = await judgeUpstreamError({ status: null, errorText: text, provider: "codex" });
+      if (judged?.kind === "capacity") accountFallback = true;
+      else if (judged?.kind === "transient" || judged?.kind === "rate_limit") accountFallback = false;
       return { matched, message: extractSseErrorMessage(text, matched), accountFallback, replacementBody: null };
     }
 

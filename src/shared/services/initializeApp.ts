@@ -112,6 +112,13 @@ export async function initializeApp(): Promise<void> {
       safeRestartTunnel("unexpected-exit").catch(() => {});
     });
 
+    // Engine seam registration (cheap and idempotent): the Jev-backed upstream
+    // error judge. Installed up front so the first request's failures are
+    // classified too — with no judge the engine keeps its own heuristics.
+    import("@/server/llm-gateway/application/errorJudge")
+      .then(({ installErrorJudge }) => installErrorJudge())
+      .catch((e: Error) => console.error("[ErrorJudge] install failed:", e.message));
+
     // Defer the heavy work — nothing here blocks incoming requests.
     setTimeout(() => {
       runHeavyStartup().catch((e: Error) => console.error("[InitApp] deferred startup failed:", e.message));

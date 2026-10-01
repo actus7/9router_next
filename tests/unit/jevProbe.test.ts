@@ -16,6 +16,9 @@ const respond = (body: unknown, status = 200) =>
 
 describe("probeJev", () => {
   beforeEach(() => {
+    // These tests pin the account-connection path; an `AI_GATEWAY_API_KEY` in
+    // the environment would win over it (see getJevApiKey). Silence it.
+    delete process.env.AI_GATEWAY_API_KEY;
     getProviderConnections.mockResolvedValue([{ provider: "vercel-ai-gateway", apiKey: "vck_test" }]);
   });
   afterEach(() => vi.unstubAllGlobals());

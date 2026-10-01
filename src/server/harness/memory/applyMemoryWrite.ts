@@ -17,14 +17,20 @@ import {
   resolveHarnessPendingWrite,
   type PendingWriteKind,
 } from "@/lib/db/repos/harnessPendingWritesRepo";
-import { queuePendingWrite } from "@/server/harness/governance/queuePendingWrite";
+import {
+  assessWriteRisk,
+  canAutoApplyWrite,
+  queuePendingWrite,
+  recordAutoAppliedWrite,
+} from "@/server/harness/governance/queuePendingWrite";
 import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
 import {
   MEMORY_CHAR_LIMITS,
   type AgentMemorySnapshot,
   type MemoryEntryView,
 } from "@/shared/harness/agentMemory";
-import { scanMemoryContent } from "./securityScan";
+import type { NewHarnessPendingWrite } from "@/shared/harness/pendingWrites";
+import { scanMemoryContentAsync, type MemorySecurityIssue } from "./securityScan";
 
 export type MemoryApplyAction = "add" | "replace" | "remove";
 type MemoryApplySource = "agent" | "ui" | "review";
@@ -41,9 +47,10 @@ export interface MemoryApplyResult {
   ok: boolean;
   pending?: boolean;
   pendingId?: string;
+  autoApplied?: boolean;
   entry?: MemoryEntryView;
   error?: string;
-  issues?: ReturnType<typeof scanMemoryContent>;
+  issues?: MemorySecurityIssue[];
   kind?: PendingWriteKind;
   action?: string;
   outcome?: "applied" | "accepted_for_implementation" | "rejected";
@@ -92,7 +99,7 @@ async function applyDirect(
   if (request.action === "add") {
     const scope = request.scope ?? "agent";
     const content = request.content?.trim() ?? "";
-    const issues = scanMemoryContent(content);
+    const issues = await scanMemoryContentAsync(content);
     if (issues.length) return { ok: false, error: issues[0]!.message, issues };
     const entries = await scopeEntries(scope);
     if (wouldExceedLimit(scope, entries, content.length)) {
@@ -122,7 +129,7 @@ async function applyDirect(
   }
 
   const content = request.content?.trim() ?? "";
-  const issues = scanMemoryContent(content);
+  const issues = await scanMemoryContentAsync(content);
   if (issues.length) return { ok: false, error: issues[0]!.message, issues };
   const scopeEntriesList = await scopeEntries(existing!.scope);
   const delta = content.length - existing!.content.length;
@@ -166,12 +173,11 @@ export async function applyMemoryWrite(
   ) {
     const content = request.content?.trim() ?? "";
     if (request.action === "add" || request.action === "replace") {
-      const issues = scanMemoryContent(content);
+      const issues = await scanMemoryContentAsync(content);
       if (issues.length) return { ok: false, error: issues[0]!.message, issues };
     }
-    const pendingId = randomUUID();
-    await queuePendingWrite({
-      id: pendingId,
+    const pendingWrite: NewHarnessPendingWrite = {
+      id: randomUUID(),
       kind: "memory",
       action: request.action,
       payload: {
@@ -180,8 +186,25 @@ export async function applyMemoryWrite(
         content: request.content,
       },
       source: "agent",
-    });
-    return { ok: true, pending: true, pendingId };
+    };
+    // A write passes through two Jev judgements here: the injection scan above
+    // and this risk score. They are distinct questions (content safety vs.
+    // write risk) and both are fail-open with short timeouts, so the double
+    // call is accepted. The scan runs again inside `applyDirect` — the same
+    // total of calls as queue-then-approve, just compressed into one moment.
+    const risk = await assessWriteRisk(pendingWrite);
+    if (canAutoApplyWrite(config.writeRiskMode, risk)) {
+      const applied = await applyDirect({ ...request, scope });
+      if (applied.ok) {
+        await recordAutoAppliedWrite(pendingWrite, risk);
+        return { ...applied, autoApplied: true };
+      }
+      // Could not execute (limit reached, entry vanished...): queue it anyway
+      // rather than dropping the write — the operator meets the same failure
+      // at approval time as before.
+    }
+    await queuePendingWrite(pendingWrite, { risk });
+    return { ok: true, pending: true, pendingId: pendingWrite.id };
   }
 
   if (
@@ -278,5 +301,13 @@ export async function rejectPendingWrite(id: string): Promise<MemoryApplyResult>
 }
 
 export async function listPendingWrites() {
-  return listHarnessPendingWrites(undefined, "pending");
+  // Auto-applied writes share the operator's view as an audit trail: same
+  // table, same list, just already executed.
+  const [pending, autoApplied] = await Promise.all([
+    listHarnessPendingWrites(undefined, "pending"),
+    listHarnessPendingWrites(undefined, "auto_applied"),
+  ]);
+  return [...pending, ...autoApplied].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  );
 }

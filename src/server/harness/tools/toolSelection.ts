@@ -59,12 +59,30 @@ export async function selectToolsForTurn(body: Record<string, unknown>): Promise
   const answers = await evaluateJev({ request }, questions, SELECTION_TIMEOUT_MS);
   if (!answers) return body;
 
-  const kept = tools.filter((_tool, index) => {
-    const answer = answers[`t${index}`];
-    return answer?.type !== "boolean" || answer.probability >= DROP_BELOW;
-  });
-  if (kept.length === tools.length) return body;
-  if (kept.length > 0) return { ...body, tools: kept };
+  const kept = tools
+    .map((tool, index) => {
+      const answer = answers[`t${index}`];
+      return { tool, probability: answer?.type === "boolean" ? answer.probability : null };
+    })
+    .filter((entry) => entry.probability === null || entry.probability >= DROP_BELOW);
+
+  // Most relevant first: the model reads the prompt's tool list in order, so
+  // the likely ones go up front. Stable — ties keep the plugin order — and
+  // tools Jev never answered about sink below the ranked ones instead of
+  // leaping them at random.
+  const ordered = kept
+    .map((entry, index) => ({ ...entry, index }))
+    .sort((a, b) => {
+      if (a.probability === null || b.probability === null) {
+        if (a.probability === b.probability) return a.index - b.index;
+        return a.probability === null ? 1 : -1;
+      }
+      return b.probability - a.probability || a.index - b.index;
+    })
+    .map((entry) => entry.tool);
+
+  if (ordered.length === tools.length && ordered.every((tool, index) => tool === tools[index])) return body;
+  if (ordered.length > 0) return { ...body, tools: ordered };
   // No tools at all: drop the key and its companion, since some providers
   // reject an empty `tools` array or a tool_choice with nothing to choose.
   const { tools: _tools, tool_choice: _choice, ...rest } = body;

@@ -45,7 +45,13 @@ describe("smart routing with Jev", () => {
 
     expect(classifyWithJev).toHaveBeenCalledWith("prove that sqrt(2) is irrational", "general", 5000);
     expect(classifyWithModel).not.toHaveBeenCalled();
-    expect(meta).toMatchObject({ tier: "reasoning", need: "coding", reason: "jev_classifier", classifierModel: "typesafe-ai/jev" });
+    expect(meta).toMatchObject({
+      tier: "reasoning",
+      need: "coding",
+      reason: "jev_primary",
+      classifierSource: "jev",
+      classifierModel: "typesafe-ai/jev",
+    });
   });
 
   it("hands an unsure Jev answer to the LLM classifier", async () => {

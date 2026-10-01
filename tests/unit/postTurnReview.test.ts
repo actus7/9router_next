@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const insertPending = vi.hoisted(() => vi.fn(async () => ({})));
-const jev = vi.hoisted(() => ({ isJevFeatureEnabled: vi.fn(async () => false), evaluateJev: vi.fn() }));
+const jev = vi.hoisted(() => ({
+  isJevFeatureEnabled: vi.fn(async () => false),
+  evaluateJev: vi.fn(),
+  decideWithJev: vi.fn(async () => null),
+  JEV_MODEL: "typesafe-ai/jev",
+}));
 
 vi.mock("@/server/decisions/jev", () => jev);
 

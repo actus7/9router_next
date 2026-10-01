@@ -16,6 +16,7 @@
 // request body) is also ported, cached per cookie for 5 minutes.
 import { BaseExecutor } from "./base";
 import type { Credentials, Logger } from "../services/types";
+import { judgeUpstreamError } from "../services/accountFallback";
 
 const BLACKBOX_CHAT_API = "https://app.blackbox.ai/api/chat";
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
@@ -255,6 +256,18 @@ export class BlackboxWebExecutor extends BaseExecutor {
     // Blackbox sometimes answers with HTTP 200 and an in-band error sentence
     // instead of a real status code — without this check those become
     // "successful" assistant replies containing an error message.
+    // Jev-first: the judge maps the sentence onto a status, and the regexes
+    // below stay as the fallback whenever it is off, unsure or unreachable.
+    const judged = await judgeUpstreamError({ status: null, errorText: responseText, provider: "blackbox" });
+    if (judged?.kind === "billing") {
+      return errorResponse(402, "Blackbox reports your account lacks a premium subscription. If you have a paid plan, re-paste your session cookie from app.blackbox.ai.", BLACKBOX_CHAT_API, headers, transformedBody);
+    }
+    if (judged?.kind === "auth_expired") {
+      return errorResponse(401, "Blackbox session is not authenticated — re-paste next-auth.session-token from app.blackbox.ai", BLACKBOX_CHAT_API, headers, transformedBody);
+    }
+    if (judged?.kind === "rate_limit") {
+      return errorResponse(429, "Blackbox Web rate limited the session. Wait a moment and retry.", BLACKBOX_CHAT_API, headers, transformedBody);
+    }
     const lowerText = responseText.toLowerCase();
     const isSubscriptionError = /not upgraded|upgrade to a premium plan|upgrade.required/i.test(responseText) || lowerText.includes("please upgrade");
     const isAuthError = /please login|login required|authentication required/i.test(responseText) && !isSubscriptionError;

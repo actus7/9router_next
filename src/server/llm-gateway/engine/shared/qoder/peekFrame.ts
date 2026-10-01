@@ -1,5 +1,7 @@
 import "server-only";
 
+import { judgeUpstreamError } from "../../services/accountFallback";
+
 /**
  * Billing-block detection and first-frame peek for the qoder SSE envelope.
  *
@@ -10,9 +12,13 @@ import "server-only";
 /**
  * Check if a qoder error message indicates a billing/quota block.
  * Signatures: code 112 (quota exhausted), code 10605 (queue throttle), pricingUrl field.
+ * Jev-first: a judge `billing` verdict blocks even when the codes below do not
+ * appear; null keeps the code/pricingUrl signatures exactly as before.
  */
-function isBillingBlock(inner: string) {
+async function isBillingBlock(inner: string) {
   if (!inner || typeof inner !== "string") return false;
+  const judged = await judgeUpstreamError({ status: null, errorText: inner, provider: "qoder" });
+  if (judged?.kind === "billing") return true;
   const lowerMsg = inner.toLowerCase();
   // Match: {"code":"112",...}, {"code":"10605",...}, or pricingUrl field
   return /\"code\"\s*:\s*\"(112|10605)\"/.test(inner) || lowerMsg.includes("pricingurl");
@@ -57,7 +63,7 @@ export async function peekFirstQoderFrame(reader: ReadableStreamDefaultReader<Ui
       const statusVal = typeof envelope.statusCodeValue === "number" ? envelope.statusCodeValue : 200;
       const inner = typeof envelope.body === "string" ? envelope.body : "";
 
-      if (statusVal !== 200 && isBillingBlock(inner)) {
+      if (statusVal !== 200 && (await isBillingBlock(inner))) {
         return { isBilling: true, statusVal, message: inner || `qoder billing block (${statusVal})` };
       }
       return { isBilling: false, consumed };

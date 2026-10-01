@@ -7,7 +7,9 @@ import { applyPluginToggle, proposeHarnessCapability } from "@/server/harness/go
 import { searchPastSessionMessages } from "@/lib/db/repos/harnessMessageIndexRepo";
 import { writeSkill } from "@/server/harness/skills/writeSkill";
 import { validateSkillFields } from "@/server/harness/skills/parseSkillMarkdown";
+import { scanUntrustedContent } from "@/server/decisions/guardrails";
 import { sessionHasPlugin } from "./sessionCapability";
+import { rerankSessionHits } from "./rerank";
 
 /**
  * The harness's own tools, running in the durable worker.
@@ -26,6 +28,11 @@ import { sessionHasPlugin } from "./sessionCapability";
  */
 
 const MAX_RESULT_CHARS = 30_000;
+
+// A skill body is standing instructions, not data — it gets a stricter bar
+// than the content guardrail's prefix: a confident injection verdict refuses
+// to load it at all.
+const SKILL_INJECTION_PROBABILITY = 0.85;
 
 export interface HarnessToolContext {
   sessionId: string;
@@ -116,12 +123,21 @@ export async function executeHarnessToolServerSide(
     if (!skill) return failure("Skill not found");
 
     if (name === "load_skill") {
+      const body = String(skill.body ?? "");
+      // The body becomes instructions for the rest of the turn, so a likely
+      // injection refuses the load instead of being prefixed and handed over.
+      // Fail-open: a scan that cannot run loads the skill as before.
+      const { issues } = await scanUntrustedContent(body, "skill_body");
+      const flagged = issues.some(
+        (issue) => issue.code === "injection" && (issue.probability ?? 0) >= SKILL_INJECTION_PROBABILITY,
+      );
+      if (flagged) return failure("Skill body flagged as prompt injection");
       const files = await listAgentSkillFiles(skillId).catch(() => []);
       return JSON.stringify({
         ok: true,
         name: skillId,
         description: skill.description ?? "",
-        body: String(skill.body ?? "").slice(0, MAX_RESULT_CHARS),
+        body: body.slice(0, MAX_RESULT_CHARS),
         files: files.map((file) => file.filePath),
       });
     }
@@ -234,7 +250,10 @@ export async function executeHarnessToolServerSide(
       excludeSessionId: text(args.exclude_session_id) || context.sessionId,
     }).catch(() => null);
     if (!results) return failure("Session search failed");
-    return JSON.stringify({ ok: true, results });
+    // Text relevance ranks "how do I deploy?" by word overlap; Jev reorders by
+    // whether the snippet actually answers, and keeps the search's order when
+    // it has no opinion.
+    return JSON.stringify({ ok: true, results: await rerankSessionHits(query, results) });
   }
 
   if (name === "toggle_plugin") {

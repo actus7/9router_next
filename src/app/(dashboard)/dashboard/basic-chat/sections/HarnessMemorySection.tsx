@@ -34,6 +34,17 @@ function RiskBadge({ score }: { score: number }) {
   );
 }
 
+function AutoAppliedBadge() {
+  return (
+    <span
+      className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+      title="Aplicado automaticamente pelo modo auto (risco baixo e confianca alta)"
+    >
+      auto-applied
+    </span>
+  );
+}
+
 function pendingCopy(item: HarnessPendingWrite): {
   title: string;
   detail: string;
@@ -292,28 +303,33 @@ export default function HarnessMemorySection({
               >
               <div className="flex items-center justify-between gap-2">
                 <p className="font-medium">{copy.title}</p>
-                {item.risk ? <RiskBadge score={item.risk.score} /> : null}
+                <span className="flex shrink-0 items-center gap-1">
+                  {item.status === "auto_applied" ? <AutoAppliedBadge /> : null}
+                  {item.risk ? <RiskBadge score={item.risk.score} /> : null}
+                </span>
               </div>
               {copy.detail ? (
                 <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{copy.detail}</p>
               ) : null}
-              <div className="mt-2 flex gap-2">
-                <Button
-                  size="sm"
-                  disabled={memory.busy}
-                  onClick={() => void memory.approvePending(item.id)}
-                >
-                  {copy.approveLabel}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={memory.busy}
-                  onClick={() => void memory.rejectPending(item.id)}
-                >
-                  Rejeitar
-                </Button>
-              </div>
+              {item.status === "pending" ? (
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={memory.busy}
+                    onClick={() => void memory.approvePending(item.id)}
+                  >
+                    {copy.approveLabel}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={memory.busy}
+                    onClick={() => void memory.rejectPending(item.id)}
+                  >
+                    Rejeitar
+                  </Button>
+                </div>
+              ) : null}
               </div>
             );
           })}

@@ -23,6 +23,13 @@ vi.mock("@/server/harness/tools/serverToolCall", () => ({
   executeServerToolCall,
   SERVER_EXECUTABLE_TOOLS: new Set(["web_search", "web_fetch", "delegate_task"]),
 }));
+// The loop's Jev judgements stay out of the way here: these cases are about
+// the loop's own rules, so Jev answers nothing and behaviour is exactly the
+// pre-Jev one (no retry, no early stop, no content warnings).
+vi.mock("@/server/decisions/jev", () => ({ decideWithJev: vi.fn(async () => null) }));
+vi.mock("@/server/decisions/guardrails", () => ({
+  scanUntrustedContent: vi.fn(async () => ({ issues: [], source: "heuristic" })),
+}));
 
 import { runServerToolLoop, toolNamesFromBody } from "@/server/harness/tools/serverToolLoop";
 

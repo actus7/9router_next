@@ -4,6 +4,7 @@ import { ROUTE_NEEDS, ROUTING_TIERS, DEFAULT_SMART_ROUTING_CONFIG } from "./type
 import { rankSmartProfilesForEndpoint, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
 import { recordRoutingTier, scoreRoutingRequest } from "./scoring";
 import type {
+  ClassifierSource,
   RouteNeed,
   RoutingDecisionMeta,
   RoutingTier,
@@ -25,9 +26,11 @@ export interface ResolveSmartRoutingOptions {
   sessionKey?: string;
   classifyWithModel?: (model: string, prompt: string, timeoutMs: number) => Promise<LlmRoutingClassification | null>;
   /**
-   * Asked before the LLM classifier when the account runs Jev. It answers from
-   * the raw request text, not the LLM prompt, and reports its own confidence;
-   * null (off, no key, timeout) falls through to the LLM classifier.
+   * The primary classifier, asked first on every request when the account runs
+   * Jev. It answers from the raw request text, not the LLM prompt, and reports
+   * its own calibrated confidence: a confident answer decides outright. null
+   * (off, no key, timeout) or an unsure answer falls through to the heuristic
+   * score, and only then to the LLM classifier.
    */
   classifyWithJev?: (text: string, endpointNeed: RouteNeed, timeoutMs: number) => Promise<JevRoutingClassification | null>;
 }
@@ -166,6 +169,15 @@ function mergeLegacyModels(config: SmartRoutingConfig, need: RouteNeed, models: 
   };
 }
 
+/**
+ * Resolve one smart-combined request to an ordered model list.
+ *
+ * Classifier order is Jev-first: the heuristic score always runs (it is cheap
+ * and feeds `meta.score`), but a confident Jev answer decides the tier and need
+ * outright. Jev null/unsure falls back to the heuristic when its own confidence
+ * clears the threshold, and only when neither is sure does the LLM classifier
+ * run, exactly as before. The `x-router-tier` header still overrides last.
+ */
 export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): Promise<SmartRoutingResolution> {
   const endpointNeed = options.endpointNeed || "general";
   const assessment = scoreRoutingRequest(options.body, endpointNeed, options.sessionKey);
@@ -180,29 +192,35 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
   let reason = assessment.reason;
   let classifierModel: string | undefined;
   let classifierLatencyMs: number | undefined;
+  let classifierSource: ClassifierSource = "heuristic";
   const profiles = await refreshDeterministicSmartProfiles();
 
   const lowConfidence = assessment.confidence < config.classifier.confidenceThreshold;
   let jevAnswered = false;
-  if (lowConfidence && config.classifier.enabled && options.classifyWithJev) {
+  // Jev runs on every request, not only the ambiguous ones: its confidence is
+  // calibrated, so a confident answer beats a heuristic that may also look
+  // sure. An unsure Jev answer hands over exactly where it used to — the same
+  // bar the heuristic is held to below.
+  if (config.classifier.enabled && options.classifyWithJev) {
     const startedAt = Date.now();
     const classification = await options.classifyWithJev(
       assessment.signals.lastUserText,
       endpointNeed,
       config.classifier.timeoutMs,
     ).catch(() => null);
-    // Jev's confidence is calibrated, so it is held to the same bar the
-    // heuristic failed: an unsure Jev answer hands over to the LLM classifier.
     if (classification && ROUTING_TIERS.includes(classification.tier) && classification.confidence >= config.classifier.confidenceThreshold) {
       jevAnswered = true;
       classifierModel = classification.model;
       classifierLatencyMs = Date.now() - startedAt;
       chosenTier = classification.tier;
       if (classification.need && ROUTE_NEEDS.includes(classification.need)) chosenNeed = classification.need;
-      reason = "jev_classifier";
+      reason = "jev_primary";
+      classifierSource = "jev";
     }
   }
 
+  // Heuristic fallback: when Jev is null/unsure and the score is sure enough,
+  // its assessment already holds (tier/need/reason above) and no classifier runs.
   if (!jevAnswered && lowConfidence && config.classifier.enabled && options.classifyWithModel) {
     const model = chooseClassifierModel(config, profiles);
     if (model) {
@@ -219,6 +237,7 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
           chosenTier = classification.tier;
           if (classification.need && ROUTE_NEEDS.includes(classification.need)) chosenNeed = classification.need;
           reason = "llm_classifier";
+          classifierSource = "llm";
         } else {
           reason = "ambiguous";
         }
@@ -266,6 +285,7 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
     candidateDetails: ranked.map((candidate) => ({ model: candidate.modelKey, tier: candidate.tier, degraded: candidate.degraded, source: candidate.source })),
     classifierModel,
     classifierLatencyMs,
+    classifierSource,
     profileSources: [...sourceSet],
   };
   recordRoutingTier(options.sessionKey, chosenTier);

@@ -14,6 +14,7 @@
 
 export const CAVEMAN_LEVEL_IDS = ["lite", "full", "ultra", "wenyan-lite", "wenyan", "wenyan-ultra"] as const;
 export const PONYTAIL_LEVEL_IDS = ["lite", "full", "ultra"] as const;
+export const NEUTRALITY_LEVEL_IDS = ["lite", "full", "ultra"] as const;
 export const SYNAPSE_LEVEL_IDS = ["lite", "full"] as const;
 
 export interface LeveledAbility {
@@ -25,6 +26,7 @@ export interface GatewayAbilities {
   rtk: boolean;
   caveman: LeveledAbility;
   ponytail: LeveledAbility;
+  neutrality: LeveledAbility;
   synapse: LeveledAbility & { learning: boolean };
   pxpipe: boolean;
   metaBreak: boolean;
@@ -34,6 +36,12 @@ export interface GatewayProfile {
   abilities: GatewayAbilities;
   /** Skill ids injected with their full body. Only the API uses this. */
   skillIds: string[];
+  /**
+   * Scans this key's user input for prompt injection before any model is
+   * spent (adds latency). Absent means off — the account-wide
+   * `settings.guardrailsPublicApi` is read live and needs no per-key copy.
+   */
+  guardrails?: boolean;
 }
 
 export type AbilityId = keyof GatewayAbilities;
@@ -45,6 +53,8 @@ export interface LegacySaverSettings {
   cavemanLevel?: unknown;
   ponytailEnabled?: unknown;
   ponytailLevel?: unknown;
+  neutralityEnabled?: unknown;
+  neutralityLevel?: unknown;
   synapseEnabled?: unknown;
   synapseLevel?: unknown;
   synapseLearningEnabled?: unknown;
@@ -63,6 +73,7 @@ export const DEFAULT_ABILITIES: GatewayAbilities = {
   rtk: true,
   caveman: { enabled: false, level: "full" },
   ponytail: { enabled: false, level: "full" },
+  neutrality: { enabled: false, level: "full" },
   synapse: { enabled: false, level: "lite", learning: false },
   pxpipe: false,
   metaBreak: false,
@@ -80,6 +91,10 @@ export function profileFromSettings(settings: LegacySaverSettings): GatewayProfi
       ponytail: {
         enabled: settings.ponytailEnabled === true,
         level: pickLevel(settings.ponytailLevel, PONYTAIL_LEVEL_IDS, "full"),
+      },
+      neutrality: {
+        enabled: settings.neutralityEnabled === true,
+        level: pickLevel(settings.neutralityLevel, NEUTRALITY_LEVEL_IDS, "full"),
       },
       synapse: {
         enabled: settings.synapseEnabled === true,
@@ -123,6 +138,7 @@ export function normalizeGatewayProfile(input: unknown, fallback: GatewayProfile
       rtk: typeof abilities.rtk === "boolean" ? abilities.rtk : base.rtk,
       caveman: leveled(abilities.caveman, CAVEMAN_LEVEL_IDS, base.caveman),
       ponytail: leveled(abilities.ponytail, PONYTAIL_LEVEL_IDS, base.ponytail),
+      neutrality: leveled(abilities.neutrality, NEUTRALITY_LEVEL_IDS, base.neutrality),
       synapse: {
         ...leveled(abilities.synapse, SYNAPSE_LEVEL_IDS, base.synapse),
         learning: typeof synapse.learning === "boolean" ? synapse.learning : base.synapse.learning,
@@ -131,6 +147,7 @@ export function normalizeGatewayProfile(input: unknown, fallback: GatewayProfile
       metaBreak: typeof abilities.metaBreak === "boolean" ? abilities.metaBreak : base.metaBreak,
     },
     skillIds,
+    guardrails: typeof raw.guardrails === "boolean" ? raw.guardrails : fallback.guardrails,
   };
 }
 

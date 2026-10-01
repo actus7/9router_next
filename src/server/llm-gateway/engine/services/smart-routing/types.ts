@@ -89,9 +89,13 @@ export type RoutingReason =
   | "momentum"
   | "llm_classifier"
   | "jev_classifier"
+  | "jev_primary"
   | "ambiguous"
   | "endpoint"
   | "default";
+
+/** Which classifier produced the decided tier/need (or the values that stood). */
+export type ClassifierSource = "jev" | "heuristic" | "llm";
 
 export interface RoutingDecisionMeta {
   comboName: string;
@@ -107,6 +111,7 @@ export interface RoutingDecisionMeta {
   selectedModel?: string;
   classifierModel?: string;
   classifierLatencyMs?: number;
+  classifierSource?: ClassifierSource;
   profileSources: Array<"manual" | "llm" | "deterministic">;
 }
 
