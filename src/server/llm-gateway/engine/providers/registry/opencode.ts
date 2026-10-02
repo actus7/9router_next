@@ -14,6 +14,9 @@ export default {
   noAuth: true,
   transport: {
     baseUrl: "https://opencode.ai",
+    // The free tier answers SSE even without stream:true; chatCore then
+    // converts forced SSE back to JSON when the client asked for it.
+    forceStream: true,
     headers: {
       "x-opencode-client": "desktop",
     },

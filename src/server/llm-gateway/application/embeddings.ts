@@ -205,32 +205,38 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
 
     if (result.success) {
       const usage = normalizeEmbeddingUsage(result.usage);
-      if (usage) {
-        saveRequestUsage({
-          provider,
-          model,
-          connectionId,
-          apiKey: apiKey ?? undefined,
-          endpoint: url.pathname,
-          tokens: usage as unknown as Record<string, unknown>,
-          status: "success",
-        }).catch(() => {});
-      }
       // Embeddings never wrote a request detail, so an embedding showed up in
       // the Usage totals but never in the request-detail drill-down — anyone
       // debugging one concluded the call had not happened. Best-effort like
       // every other caller: a failed detail write must not fail the request.
-      saveRequestDetail({
-        provider,
-        model,
-        connectionId,
-        timestamp: new Date().toISOString(),
-        status: "success",
-        latency: { ttft: 0, total: 0 },
-        tokens: (usage ?? {}) as unknown as Record<string, unknown>,
-        request: { endpoint: url.pathname, body },
-        response: {},
-      });
+      // Written once the usage row exists so it can carry its id as `usageId`
+      // (the Requests list → drawer link); one reaction on the usage promise,
+      // so a resolved write still lands in this turn.
+      const writeDetail = (usageId: number | null) =>
+        Promise.resolve(saveRequestDetail({
+          provider,
+          model,
+          connectionId,
+          usageId,
+          timestamp: new Date().toISOString(),
+          status: "success",
+          latency: { ttft: 0, total: 0 },
+          tokens: (usage ?? {}) as unknown as Record<string, unknown>,
+          request: { endpoint: url.pathname, body },
+          response: {},
+        })).catch(() => {});
+      const usageSaved: Promise<unknown> = usage
+        ? Promise.resolve(saveRequestUsage({
+            provider,
+            model,
+            connectionId,
+            apiKey: apiKey ?? undefined,
+            endpoint: url.pathname,
+            tokens: usage as unknown as Record<string, unknown>,
+            status: "success",
+          }))
+        : Promise.resolve(undefined);
+      void usageSaved.then((id) => void writeDetail((id as number | null) ?? null), () => void writeDetail(null));
       return result.response as Response;
     }
 

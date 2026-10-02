@@ -8,6 +8,7 @@ import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./str
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers";
 import { dbg, isDebugEnabled } from "./debugLog";
 import { chunkHasToolCall } from "./answerText";
+import { restoreToolNames } from "./opencodeFingerprint";
 
 
 export { COLORS, formatSSE };
@@ -51,6 +52,7 @@ export interface StreamContext {
   sourceFormat?: string;
   provider: string | null;
   reqLogger: SSEStreamOptions["reqLogger"];
+  toolNameMap: Map<string, string> | null;
   model: string | null;
   connectionId: string | null;
   body: Record<string, unknown> | null;
@@ -240,7 +242,9 @@ function processPassthroughLine(ctx: StreamContext, line: string, trimmed: strin
   if (trimmed.startsWith("data:") && trimmed.slice(5).trim() !== "[DONE]") {
     try {
       const parsed = JSON.parse(trimmed.slice(5).trim());
-      const { idFixed, fieldsInjected } = normalizePassthroughChunk(parsed);
+      // Restore fingerprinted tool names before forwarding (clone only on change)
+      const restored = restoreToolNames(parsed, ctx.toolNameMap);
+      const { idFixed, fieldsInjected } = normalizePassthroughChunk(restored);
 
       if (!hasValuableContent(parsed, FORMATS.OPENAI)) {
         return;
@@ -270,8 +274,8 @@ function processPassthroughLine(ctx: StreamContext, line: string, trimmed: strin
       // estimate into the finish chunk showed the client a made-up number even
       // when the real one arrived in the next chunk. settleStream estimates for
       // our own accounting when the upstream never sends one.
-      if (idFixed || fieldsInjected) {
-        output = `data: ${JSON.stringify(parsed)}\n`;
+      if (idFixed || fieldsInjected || restored !== parsed) {
+        output = `data: ${JSON.stringify(restored)}\n`;
         injectedUsage = true;
       }
     } catch {
@@ -300,8 +304,11 @@ function processPassthroughLine(ctx: StreamContext, line: string, trimmed: strin
 function processTranslateLine(ctx: StreamContext, _line: string, trimmed: string, controller: TransformStreamDefaultController) {
   if (!trimmed) return;
 
-  const parsed = parseSSELine(trimmed, ctx.targetFormat);
+  let parsed = parseSSELine(trimmed, ctx.targetFormat);
   if (!parsed) return;
+  // Restore fingerprinted tool names on the raw provider event, before any
+  // response translation copies names into the client format.
+  if (ctx.toolNameMap?.size) parsed = restoreToolNames(parsed, ctx.toolNameMap);
 
   // Responses API same-format passthrough: preserve event framing + track terminal state
   const isOpenAIResponsesStream = ctx.targetFormat === FORMATS.OPENAI_RESPONSES;
@@ -462,7 +469,7 @@ function createSSEStream(options: SSEStreamOptions = {}) {
     : null;
 
   const ctx: StreamContext = {
-    mode, targetFormat, sourceFormat, provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey,
+    mode, targetFormat, sourceFormat, provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey, toolNameMap,
     buffer: "",
     usage: null,
     decoder,
@@ -572,12 +579,13 @@ export function createSSETransformStreamWithLogger(targetFormat: string, sourceF
   });
 }
 
-export function createPassthroughStreamWithLogger(provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null, sourceFormat: string | null = null) {
+export function createPassthroughStreamWithLogger(provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null, sourceFormat: string | null = null, toolNameMap: SSEStreamOptions["toolNameMap"] = null) {
   return createSSEStream({
     mode: STREAM_MODE.PASSTHROUGH,
     ...(sourceFormat ? { sourceFormat } : {}),
     provider,
     reqLogger,
+    toolNameMap,
     model,
     connectionId,
     body,

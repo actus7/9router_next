@@ -72,12 +72,18 @@ async function getObservabilityConfig(): Promise<ObservabilityConfig> {
 interface WriteBufferItem {
   /**
    * Stamped when the detail is enqueued, because the flush runs on a timer
-   * with no request around it — `currentTenantId()` would have nothing to
+   * with no request around it - `currentTenantId()` would have nothing to
    * read by then. Optional in the public shape so callers do not pass it;
    * `saveRequestDetail` is what fills it in.
    */
   userId?: string;
   id?: string;
+  /**
+   * `usageHistory.id` of the same request - the list→drawer link. Filled by
+   * the settle path once the usage row exists; null for details that have no
+   * usage row (upstream errors, or usage below the accounting threshold).
+   */
+  usageId?: number | null;
   timestamp?: string;
   provider?: string;
   model?: string;
@@ -158,6 +164,7 @@ async function flushToDatabase(): Promise<void> {
 
             const record: Record<string, unknown> = {
               id: item.id,
+              usageId: item.usageId ?? null,
               provider: item.provider || null,
               model: item.model || null,
               connectionId: item.connectionId || null,
@@ -281,6 +288,48 @@ export async function getRequestDetails(filter: RequestDetailsFilter = {}): Prom
     details,
     pagination: { page, pageSize, totalItems, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
   };
+}
+
+/**
+ * The full record (bodies included) of the request recorded under this
+ * `usageHistory` id. Null when there is none: observability off, a record
+ * pruned by `observabilityMaxRecords`, or a usage row written before the
+ * link existed.
+ */
+export async function getRequestDetailByUsageId(usageId: number): Promise<Record<string, unknown> | null> {
+  const db = await getAdapter();
+  const rows = await db.all(
+    `SELECT data FROM requestDetails WHERE userId = ? AND data::jsonb->>'usageId' = ?`,
+    [currentTenantId(), String(usageId)],
+  ) as Array<{ data: string }>;
+  const row = rows[0];
+  return row ? (parseJson(row.data, {}) as Record<string, unknown>) : null;
+}
+
+/**
+ * `usageHistory.id` → `requestDetails.id` for one page of the Requests list.
+ * Rows without a linked detail are simply absent from the map.
+ *
+ * Reads only the ids out of the record (`data::jsonb->>'usageId'`), not the
+ * records themselves: a detail holds up to four truncated request bodies, and
+ * the list would be dragging those across the wire to answer one id per row.
+ */
+export async function mapRequestDetailIds(usageIds: readonly number[]): Promise<Map<number, string>> {
+  const map = new Map<number, string>();
+  if (!usageIds.length) return map;
+  const db = await getAdapter();
+  const rows = await db.all(
+    `SELECT id, data::jsonb->>'usageId' AS usageId FROM requestDetails WHERE userId = ? AND data::jsonb->>'usageId' IS NOT NULL`,
+    [currentTenantId()],
+  ) as Array<{ id: string; usageId?: unknown; usageid?: unknown }>;
+  const wanted = new Set(usageIds.map((value) => Number(value)));
+  for (const row of rows) {
+    // The alias folds to lowercase through the adapter's column remap.
+    const key = Number(row.usageId ?? row.usageid);
+    if (!Number.isFinite(key) || !wanted.has(key)) continue;
+    map.set(key, row.id);
+  }
+  return map;
 }
 
 export async function getDistinctProviders(): Promise<string[]> {

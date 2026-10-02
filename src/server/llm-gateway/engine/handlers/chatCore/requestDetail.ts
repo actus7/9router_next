@@ -99,13 +99,18 @@ export function formatDoneLine({ usage, latency }: { usage: Record<string, unkno
   return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
 }
 
-export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false, meta }: SaveUsageStatsOptions): void {
-  if (!tokens || typeof tokens !== "object") return;
+/**
+ * Records one request in `usageHistory`, best-effort like before, and answers
+ * the row id so the caller can stamp it into the request-detail record (the
+ * list→drawer link). Null when nothing was recorded or the write failed.
+ */
+export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false, meta }: SaveUsageStatsOptions): Promise<number | null> {
+  if (!tokens || typeof tokens !== "object") return Promise.resolve(null);
 
   const inTokens = (tokens as Record<string, unknown>).input_tokens ?? (tokens as Record<string, unknown>).prompt_tokens ?? 0;
   const outTokens = (tokens as Record<string, unknown>).output_tokens ?? (tokens as Record<string, unknown>).completion_tokens ?? 0;
 
-  if (inTokens === 0 && outTokens === 0) return;
+  if (inTokens === 0 && outTokens === 0) return Promise.resolve(null);
 
   if (!silent) {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -120,7 +125,7 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     completion_tokens: (tokens as Record<string, unknown>).completion_tokens ?? (tokens as Record<string, unknown>).output_tokens ?? 0
   };
 
-  saveRequestUsage({
+  return saveRequestUsage({
     provider: provider || "unknown",
     model: model || "unknown",
     tokens: normalized,
@@ -129,5 +134,5 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     apiKey: apiKey || undefined,
     endpoint: endpoint || undefined,
     meta
-  }).catch(() => {});
+  }).then((usageId) => usageId ?? null).catch(() => null);
 }

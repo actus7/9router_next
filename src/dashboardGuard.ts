@@ -103,7 +103,15 @@ function isLoopbackPeer(request: Request): boolean {
   if (hasTrustedPeerHeaders(request)) {
     return isLoopbackHostname(request.headers.get("x-9r-real-ip"));
   }
-  if (process.env.NODE_ENV === "development") {
+  // NINEROUTER_LOOPBACK_BOUND_PORT attests that the deploy's port is bound to
+  // loopback ON THE HOST (the compose `ports:` line), so a loopback Host
+  // header is real evidence: off-host clients get connection refused before
+  // any header is sent. Read per call, like trustedPeer. The flag and the bind
+  // are one invariant — whoever reopens the port to 0.0.0.0 must turn it off.
+  if (
+    process.env.NODE_ENV === "development" ||
+    process.env.NINEROUTER_LOOPBACK_BOUND_PORT === "1"
+  ) {
     return isLoopbackHostname(request.headers.get("host"));
   }
   return false;

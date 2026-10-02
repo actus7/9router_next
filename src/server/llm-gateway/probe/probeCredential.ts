@@ -1,5 +1,6 @@
 import { getDefaultModel, PROVIDERS } from "@/server/llm-gateway/catalog";
 import { ZAI_MODELS_URL, ZAI_USER_AGENT, extractZaiToken } from "@/server/llm-gateway/engine/executors/zai-web/protocol";
+import { buildOpencodeZenProbeRequest, OPENCODE_ZEN_PROBE_MODEL } from "@/server/llm-gateway/engine/executors/opencode";
 import {
   CREDENTIAL_REJECTED_STATUSES,
   probeFailed,
@@ -47,6 +48,12 @@ export interface ProbePlan {
    * upstream only wants the bearer token.
    */
   credential?: (raw: string) => string;
+  /**
+   * Full custom request for fingerprints that need more than headers (the
+   * OpenCode free-tier gate validates client identity from the body too).
+   * Owns its URL and auth when present.
+   */
+  request?: (model: string) => { headers: Record<string, string>; body: Record<string, unknown> };
 }
 
 const REJECTED_KEY = "Invalid API key";
@@ -116,6 +123,16 @@ const PLANS: Record<string, ProbePlan> = {
   "alicode-intl": { strategy: "chat-post", url: "https://coding-intl.dashscope.aliyuncs.com/v1/chat/completions" },
   "alims-intl": { strategy: "chat-post", url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions" },
   "opencode-go": { strategy: "chat-post", url: "https://opencode.ai/zen/go/v1/chat/completions" },
+  // Free Zen tier: the console gate fingerprint-checks the client identity
+  // headers and the canonical tools quartet in the body, so the probe reuses
+  // the executor's request builder instead of a hand-copied shape.
+  opencode: {
+    strategy: "chat-post",
+    url: "https://opencode.ai/zen/v1/chat/completions",
+    model: OPENCODE_ZEN_PROBE_MODEL,
+    request: (model) => buildOpencodeZenProbeRequest(model),
+    error: "OpenCode free tier rejected the probe fingerprint",
+  },
   "volcengine-ark": { strategy: "chat-post", url: "" },
   byteplus: { strategy: "chat-post", url: "" },
 
@@ -165,9 +182,13 @@ export function resolveProbePlan(provider: string): ProbePlan | null {
   const key = PLAN_ALIASES[provider] || provider;
   const declared = PLANS[key];
   if (declared) {
-    const url = declared.strategy === "chat-post"
-      ? registryChatUrl(key, declared.url)
-      : registryUrl(key, declared.url);
+    // A custom request owns its URL (no registry path rewriting — the opencode
+    // registry base is an origin, the probe URL carries the full path).
+    const url = declared.request
+      ? declared.url
+      : declared.strategy === "chat-post"
+        ? registryChatUrl(key, declared.url)
+        : registryUrl(key, declared.url);
     return url ? { ...declared, url } : null;
   }
 
@@ -200,6 +221,14 @@ export async function runProbePlan(
   if (plan.credential) {
     apiKey = plan.credential(apiKey);
     if (!apiKey) return probeFailed(error);
+  }
+
+  // Custom request builders own headers, auth and body (client fingerprint).
+  if (plan.request) {
+    const model = (plan.model || getDefaultModel(provider) || "test") as string;
+    const built = plan.request(model);
+    const res = await doFetch(plan.url, { method: "POST", headers: built.headers, body: JSON.stringify(built.body) });
+    return rejected.has(res.status) ? probeFailed(error, { status: res.status }) : probeOk({ status: res.status });
   }
 
   switch (plan.strategy) {

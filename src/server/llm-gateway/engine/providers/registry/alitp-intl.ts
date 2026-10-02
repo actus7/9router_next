@@ -24,12 +24,6 @@ export default {
     headers: {},
     quirks: { preserveCacheControl: true },
   },
-  models: [
-    { id: "qwen3.8-max-preview", name: "Qwen3.8 Max Preview" },
-    { id: "qwen3.7-max", name: "Qwen3.7 Max" },
-    { id: "qwen3.7-plus", name: "Qwen3.7 Plus" },
-    { id: "qwen3.6-flash", name: "Qwen3.6 Flash" },
-    { id: "glm-5.2", name: "GLM 5.2" },
-    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
-  ],
+  // The plan gateway answers `/compatible-mode/v1/models`, so the catalogue is
+  // discovered (PROVIDER_MODELS_CONFIG) — no shipped list, per REGISTRY_TEMPLATE.
 };

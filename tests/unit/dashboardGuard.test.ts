@@ -4,11 +4,20 @@ import { NEON_AUTH_COOKIE_PREFIX } from "@neondatabase/auth/server";
 import nextConfig from "../../next.config";
 
 const originalPeerToken = process.env.NINEROUTER_PEER_TOKEN;
+const originalLoopbackFlag = process.env.NINEROUTER_LOOPBACK_BOUND_PORT;
+const originalNodeEnv = process.env.NODE_ENV;
 
+// Index-signature write: `process.env.NODE_ENV` is narrowed by Next's types,
+// and restoring a `string | undefined` back into it would not typecheck.
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
 
 afterEach(() => {
-  if (originalPeerToken === undefined) delete process.env.NINEROUTER_PEER_TOKEN;
-  else process.env.NINEROUTER_PEER_TOKEN = originalPeerToken;
+  restoreEnv("NINEROUTER_PEER_TOKEN", originalPeerToken);
+  restoreEnv("NINEROUTER_LOOPBACK_BOUND_PORT", originalLoopbackFlag);
+  restoreEnv("NODE_ENV", originalNodeEnv);
 });
 
 describe("gateway edge allowlist", () => {
@@ -96,5 +105,84 @@ describe("session cookie detection", () => {
 
   it("ignores unrelated cookies", () => {
     expect(__test__.hasSessionCookie(withCookies(["locale", "theme", "neon-auth."]))).toBe(false);
+  });
+});
+
+/**
+ * Single-host deploy: the compose `ports:` line binds 127.0.0.1 and
+ * `NINEROUTER_LOOPBACK_BOUND_PORT` attests that fact. While it holds, a
+ * loopback Host header is real evidence (off-host clients cannot even open the
+ * socket), so production accepts it like development does. The flag and the
+ * bind are one invariant — this suite pins both directions.
+ */
+describe("loopback-bound deploy flag", () => {
+  function req(headers: Record<string, string>, cookies: string[] = []) {
+    return {
+      headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+      cookies: { getAll: () => cookies.map((name) => ({ name, value: "x" })) },
+    } as never;
+  }
+
+  function withFlag(flag: "1" | "0" | undefined): void {
+    // Production on purpose: development already accepts Host loopback, so it
+    // could never tell the flag apart from the old behaviour.
+    restoreEnv("NODE_ENV", "production");
+    restoreEnv("NINEROUTER_LOOPBACK_BOUND_PORT", flag);
+  }
+
+  it("flag ON + production + Host localhost is local and passes a local-only route", async () => {
+    withFlag("1");
+    const request = req(
+      { host: "localhost" },
+      [`${NEON_AUTH_COOKIE_PREFIX}.session_token`],
+    );
+    expect(__test__.isLocalRequest(request)).toBe(true);
+    expect(await __test__.canAccessLocalOnlyRoute(request)).toBe(true);
+  });
+
+  it("flag ON does not bless a public or tunnel hostname", () => {
+    withFlag("1");
+    expect(__test__.isLocalRequest(req({ host: "ninerouter.example.trycloudflare.com" }))).toBe(false);
+    expect(__test__.isLocalRequest(req({ host: "192.168.1.10:20128" }))).toBe(false);
+  });
+
+  it("flag ON does not override the via-proxy marker", () => {
+    withFlag("1");
+    expect(__test__.isLocalRequest(req({ host: "localhost", "x-9r-via-proxy": "1" }))).toBe(false);
+  });
+
+  it("flag ON does not override a non-loopback Origin", () => {
+    withFlag("1");
+    expect(__test__.isLocalRequest(req({ host: "localhost", origin: "https://evil.example.com" }))).toBe(false);
+    // A loopback Origin is consistent with the loopback Host and stays local.
+    expect(__test__.isLocalRequest(req({ host: "localhost", origin: "http://localhost:20128" }))).toBe(true);
+  });
+
+  it("flag OFF + production + Host localhost is NOT local", () => {
+    // Regression pin for the pre-flag behaviour: "0" and unset both stay closed.
+    withFlag("0");
+    expect(__test__.isLocalRequest(req({ host: "localhost" }))).toBe(false);
+    withFlag(undefined);
+    expect(__test__.isLocalRequest(req({ host: "localhost" }))).toBe(false);
+  });
+
+  it("trusted-peer headers keep precedence over the flag", () => {
+    restoreEnv("NINEROUTER_PEER_TOKEN", "peer-secret");
+    // Trusted verdict wins even when the flag is off: real-ip loopback is local
+    // on the strength of the stamped header alone.
+    withFlag("0");
+    expect(
+      __test__.isLocalRequest(
+        req({ host: "tunnel.example.com", "x-9r-peer-token": "peer-secret", "x-9r-real-ip": "127.0.0.1" }),
+      ),
+    ).toBe(true);
+    // ...and wins the other way too: a stamped public real-ip is NOT local even
+    // with the flag on and a loopback Host.
+    withFlag("1");
+    expect(
+      __test__.isLocalRequest(
+        req({ host: "localhost", "x-9r-peer-token": "peer-secret", "x-9r-real-ip": "203.0.113.9" }),
+      ),
+    ).toBe(false);
   });
 });

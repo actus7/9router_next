@@ -13,6 +13,7 @@ import { saveRequestDetail } from "../../host/usage";
 import { summarizeRoutingTrace } from "../../host/routingTrace";
 import { getRoutingTrace } from "../../services/routingTrace";
 import { decloakToolNames } from "../../utils/claudeCloaking";
+import { restoreToolNames, takeRenamedToolNames } from "../../utils/opencodeFingerprint";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index";
 import type { NonStreamingHandlerContext } from "./types";
 
@@ -333,10 +334,17 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
 
   // Decloak tool_use names once on raw Claude body, before any translation (INPUT side)
   responseBody = decloakToolNames(responseBody, toolNameMap as Map<string, string>) as JsonObject;
+  // Restore OpenCode-fingerprinted tool names on the raw provider body — covers
+  // OpenAI choices[].message.tool_calls and Responses output[]/item, which
+  // decloakToolNames (Claude content[] only) does not.
+  responseBody = restoreToolNames(responseBody, takeRenamedToolNames(finalBody)) as JsonObject;
 
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });
-  saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true, meta: routingMeta(body) });
+  // The usage row id becomes the detail's `usageId`, so the Requests list can
+  // open this request's bodies. Resolves null when nothing was recorded; the
+  // detail is written either way.
+  const usageIdSaved = Promise.resolve(saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true, meta: routingMeta(body) })).then((id) => id ?? null);
   if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
   const translatedResponse = needsTranslation(targetFormat, sourceFormat)
@@ -398,7 +406,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   reqLogger.logConvertedResponse(translatedResponse);
 
   const totalLatency = Date.now() - requestStartTime;
-  saveRequestDetail(buildRequestDetail({
+  void usageIdSaved.then((usageId) => Promise.resolve(saveRequestDetail(buildRequestDetail({
     provider, model, connectionId,
     latency: { ttft: totalLatency, total: totalLatency },
     tokens: usage || { prompt_tokens: 0, completion_tokens: 0 },
@@ -412,9 +420,9 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     },
     pxpipe,
     status: "success"
-  }, { endpoint: clientRawRequest?.endpoint || null })).catch((err: unknown) => {
+  }, { endpoint: clientRawRequest?.endpoint || null, usageId }))).catch((err: unknown) => {
     console.error("[RequestDetail] Failed to save:", (err as Error).message);
-  });
+  }));
 
   return {
     success: true,

@@ -5,6 +5,7 @@ import { join } from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { createRequire } from "node:module";
+import { CURSOR_STATE_DB_ENV, getCandidatePaths } from "./stateDbPaths";
 
 const execFileAsync = promisify(execFile);
 
@@ -14,54 +15,6 @@ const MACHINE_ID_KEYS = [
   "storage.machineId",
   "telemetry.machineId",
 ];
-
-/** Get candidate db paths by platform */
-function getCandidatePaths(platform: string) {
-  const home = homedir();
-
-  if (platform === "darwin") {
-    return [
-      join(
-        home,
-        "Library/Application Support/Cursor/User/globalStorage/state.vscdb",
-      ),
-      join(
-        home,
-        "Library/Application Support/Cursor - Insiders/User/globalStorage/state.vscdb",
-      ),
-    ];
-  }
-
-  if (platform === "win32") {
-    const appData = process.env.APPDATA || join(home, "AppData", "Roaming");
-    const localAppData =
-      process.env.LOCALAPPDATA || join(home, "AppData", "Local");
-    return [
-      join(appData, "Cursor", "User", "globalStorage", "state.vscdb"),
-      join(
-        appData,
-        "Cursor - Insiders",
-        "User",
-        "globalStorage",
-        "state.vscdb",
-      ),
-      join(localAppData, "Cursor", "User", "globalStorage", "state.vscdb"),
-      join(
-        localAppData,
-        "Programs",
-        "Cursor",
-        "User",
-        "globalStorage",
-        "state.vscdb",
-      ),
-    ];
-  }
-
-  return [
-    join(home, ".config/Cursor/User/globalStorage/state.vscdb"),
-    join(home, ".config/cursor/User/globalStorage/state.vscdb"),
-  ];
-}
 
 
 /**
@@ -195,8 +148,15 @@ export async function GET() {
       });
     }
 
-    // On Linux, verify Cursor is actually installed (not just leftover config)
-    if (platform === "linux") {
+    // On Linux, verify Cursor is actually installed (not just leftover config).
+    // Skipped when the database lives on the Windows side: a path under
+    // /mnt/c/ or one named by CURSOR_STATE_DB belongs to a Cursor this process
+    // cannot probe — the Windows install sits on the other side of the mount,
+    // so `which cursor` and cursor.desktop say nothing about it.
+    const windowsSideDb =
+      dbPath === process.env[CURSOR_STATE_DB_ENV]?.trim() ||
+      dbPath.startsWith("/mnt/c/");
+    if (platform === "linux" && !windowsSideDb) {
       let cursorInstalled = false;
       try {
         await execFileAsync("which", ["cursor"], { timeout: 5000 });

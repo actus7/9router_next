@@ -2077,5 +2077,19 @@
   "Neutrality": "Neutralidade",
   "Neutrality asked the model for evidence-based, jargon-free answers.": "A Neutralidade pediu ao modelo respostas baseadas em evidências e sem jargão.",
   "Content guardrail": "Salvaguarda de conteúdo",
-  "Scans user input on this key's requests (adds latency)": "Analisa a entrada do usuário nas requisições desta chave (adiciona latência)"
+  "Scans user input on this key's requests (adds latency)": "Analisa a entrada do usuário nas requisições desta chave (adiciona latência)",
+  "文 Lite": "文 Leve",
+  "文 Full": "文 Completo",
+  "文 Ultra": "文 Ultra",
+  "Drop filler, keep grammar": "Remove enrolação, mantém a gramática",
+  "Drop articles, fragments OK": "Remove artigos; fragmentos são aceitos",
+  "Telegraphic, max compression": "Telegráfico, compressão máxima",
+  "Classical Chinese, light compression": "Chinês clássico, compressão leve",
+  "Maximum 文言文, 80-90% reduction": "Máximo de 文言文, redução de 80-90%",
+  "Extreme classical compression": "Compressão clássica extrema",
+  "Build asked, name lazier option": "Constrói o pedido e aponta a alternativa mais preguiçosa",
+  "Ladder enforced: stdlib/native first": "Escada aplicada: stdlib/native primeiro",
+  "YAGNI extremist, deletion first": "Extremista YAGNI, deletar primeiro",
+  "Learn answers (Synapse Loop)": "Aprender respostas (Synapse Loop)",
+  "Repeated questions are answered from what this account already learned": "Perguntas repetidas são respondidas com o que esta conta já aprendeu"
 }

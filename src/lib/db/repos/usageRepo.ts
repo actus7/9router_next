@@ -406,7 +406,15 @@ export async function getActiveRequests(): Promise<ActiveRequestsResult> {
   return { activeRequests, recentRequests, errorProvider };
 }
 
-export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
+/**
+ * Records one request in `usageHistory` and answers the row id it belongs to.
+ *
+ * The id is what links a row to the `requestDetails` record of the same
+ * request (`data.usageId`), so the Requests list can open the full bodies for
+ * one row. Null when nothing usable came back - callers treat the link as
+ * optional and write the detail without it.
+ */
+export async function saveRequestUsage(entry: UsageEntry): Promise<number | null> {
   try {
     const db = await getAdapter();
 
@@ -430,7 +438,7 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
     const userId: string = currentTenantId();
     let inserted: boolean = false;
 
-    await db.transaction(async () => {
+    const usageId: number | null = await db.transaction(async () => {
       const existing = await db.get(
         `SELECT id, endpoint FROM usageHistory
          WHERE userId = ?
@@ -453,18 +461,18 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
         if (!existing.endpoint && entry.endpoint) {
           await db.run(`UPDATE usageHistory SET endpoint = ? WHERE userId = ? AND id = ?`, [entry.endpoint, userId, existing.id]);
         }
-        return;
+        return Number(existing.id) || null;
       }
 
-      await db.run(
-        `INSERT INTO usageHistory(userId, timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      const insertedRow = await db.get(
+        `INSERT INTO usageHistory(userId, timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
         [
           userId, entry.timestamp, entry.provider || null, entry.model || null,
           entry.connectionId || null, entry.apiKey || null, entry.endpoint || null,
           promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
           stringifyJson(tokens), stringifyJson(entry.meta || {}),
         ]
-      );
+      ) as { id?: number | string } | undefined;
 
       const dateKey: string = getLocalDateKey(entry.timestamp);
       const row = await db.get(`SELECT data FROM usageDaily WHERE userId = ? AND dateKey = ?`, [userId, dateKey]) as { data: string } | undefined;
@@ -477,11 +485,13 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<void> {
 
       await bumpTenantMeta(db, "totalRequestsLifetime");
       inserted = true;
+      return insertedRow?.id != null ? Number(insertedRow.id) : null;
     });
 
     if (inserted) {
       scheduleStatsEvent("update", 250);
     }
+    return usageId;
   } catch (error) {
     throw toPersistenceError("usage.saveRequest", error);
   }

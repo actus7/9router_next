@@ -18,9 +18,18 @@ services:
     image: modelhub:latest
     restart: unless-stopped
     ports:
-      - "20128:20128"
+      # Bound to loopback: LAN/internet clients get connection refused, and the
+      # owner's browser arrives via the localhost forwarding WSL2/Docker
+      # Desktop already provide. Paired with NINEROUTER_LOOPBACK_BOUND_PORT
+      # below — the two lines are one invariant. To reopen the LAN, go back to
+      # "0.0.0.0:20128:20128" AND turn the flag off.
+      - "127.0.0.1:20128:20128"
     volumes:
       - modelhub-data:/data
+      # Optional. Bind-mount the Cursor IDE `User/globalStorage` directory from
+      # the Windows host (adjust <you>) and set CURSOR_STATE_DB below to enable
+      # the dashboard's "Conectar Cursor IDE" auto-detect inside the container.
+      # - /mnt/c/Users/<you>/AppData/Roaming/Cursor/User/globalStorage:/cursor-global-storage:ro
     environment:
       # Must match the volume mount above.
       DATA_DIR: /data
@@ -45,5 +54,18 @@ services:
       # Refuses to boot without CREDENTIAL_KEY. Off by default so an existing
       # install that never opted in is not bricked by an upgrade.
       CREDENTIAL_ENCRYPTION_REQUIRED: ${CREDENTIAL_ENCRYPTION_REQUIRED:-}
+      #
+      # Optional. Full path to Cursor's `state.vscdb` as seen from inside the
+      # container — the first candidate of the "Conectar Cursor IDE" auto-detect.
+      # Pairs with the commented bind mount above, e.g.
+      # /cursor-global-storage/state.vscdb. Empty scans the standard locations.
+      CURSOR_STATE_DB: ${CURSOR_STATE_DB:-}
+      #
+      # Attests that the port above is bound to loopback on the host, so a
+      # loopback Host header counts as local evidence for the local-only
+      # routes. Defaults to on HERE only (the image default stays off); set to
+      # 0 together with rebinding the port to 0.0.0.0 — one invariant, two
+      # lines.
+      NINEROUTER_LOOPBACK_BOUND_PORT: ${NINEROUTER_LOOPBACK_BOUND_PORT:-1}
 volumes:
   modelhub-data:

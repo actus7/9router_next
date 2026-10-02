@@ -41,7 +41,7 @@ export default function UsageClient() {
         <Tabs value={activeTab} onValueChange={handleTabChange} className="inline-flex w-full sm:w-auto">
           <TabsList variant="default" className="rounded-[10px] bg-surface-2 p-1">
             <TabsTrigger value="overview" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">{translate("Overview")}</TabsTrigger>
-            <TabsTrigger value="details" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">{translate("Details")}</TabsTrigger>
+            <TabsTrigger value="details" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">{translate("Requests")}</TabsTrigger>
           </TabsList>
         </Tabs>
         {activeTab === "overview" && (

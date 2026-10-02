@@ -10,7 +10,7 @@ export {
 } from "@/lib/db/repos/usageRepo";
 
 export {
-  saveRequestDetail, getRequestDetails,
+  saveRequestDetail, getRequestDetails, getRequestDetailByUsageId,
 } from "@/lib/db/repos/requestDetailsRepo";
 
 // getRequestDetailById is now exported from requestDetailsRepo

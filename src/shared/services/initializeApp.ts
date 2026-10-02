@@ -95,6 +95,13 @@ export async function initializeApp(): Promise<void> {
   if (g.initialized) return;
   g.initialized = true;
   try {
+    // Single-host mode leaves a trace in the log: the port is bound to loopback
+    // on the host and loopback Host headers pass the local-only guard.
+    if (process.env.NINEROUTER_LOOPBACK_BOUND_PORT === "1") {
+      console.warn(
+        "[InitApp] NINEROUTER_LOOPBACK_BOUND_PORT=1: port bound to loopback on the host; loopback Host headers are treated as local. Turn the flag off if the bind is ever reopened to 0.0.0.0.",
+      );
+    }
     // Register cleanup + exit-respawn callback immediately so signals and
     // unexpected cloudflared exits are handled even during the deferred window.
     if (!g.signalHandlersRegistered) {

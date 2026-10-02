@@ -1,11 +1,15 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
-import { getRequestDetails } from "@/lib/usageDb";
+import { getRequestDetails, getRequestDetailByUsageId } from "@/lib/usageDb";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 
 /**
  * GET /api/usage/request-details
  * Query parameters: page, pageSize (1-100), provider, model, connectionId, status, startDate, endDate
+ *
+ * Or, for the Requests drawer: usageId — the `usageHistory.id` of one request.
+ * Answers that request's complete record (bodies included) or 404 when there is
+ * none (observability off, a pruned record, or a row older than the link).
  */
 async function handleGET(request: NextRequest) {
   // Opt out before the try block: reading `request.url` inside it makes Next throw
@@ -13,7 +17,19 @@ async function handleGET(request: NextRequest) {
   await assertRequestRuntime();
   const { searchParams } = new URL(request.url);
   try {
-    
+    const usageIdRaw = searchParams.get("usageId");
+    if (usageIdRaw !== null) {
+      const usageId = Number(usageIdRaw);
+      if (!Number.isInteger(usageId) || usageId < 1) {
+        return NextResponse.json({ error: "usageId must be a positive integer" }, { status: 400 });
+      }
+      const detail = await getRequestDetailByUsageId(usageId);
+      if (!detail) {
+        return NextResponse.json({ error: "Request detail not found" }, { status: 404 });
+      }
+      return NextResponse.json({ detail });
+    }
+
     const pageRaw = parseInt(searchParams.get("page") ?? "");
     const page = Number.isNaN(pageRaw) ? 1 : pageRaw;
     const pageSizeRaw = parseInt(searchParams.get("pageSize") ?? "");

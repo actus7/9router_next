@@ -1,6 +1,7 @@
 import type { ProbeResult } from "@/server/llm-gateway/probe/types";
 import { getDefaultModel, PROVIDERS, resolveQoderCredentials, resolveQoderModels } from "@/server/llm-gateway/catalog";
 import { openaiToCommandCodeRequest } from "@/server/llm-gateway/translator";
+import { buildOpencodeZenProbeRequest } from "@/server/llm-gateway/engine/executors/opencode";
 import { providerValidateFetch } from "./providerValidateFetch";
 import {
   validateByConfigUrl,
@@ -117,6 +118,19 @@ export async function validateProviderKey(
           max_tokens: 1,
           stream: false,
         }),
+      }, { providerId: provider });
+      return { ok: res.status !== 401 && res.status !== 403, error: null };
+    }
+
+    case "opencode": {
+      // Free Zen tier: the console gate only answers the official client
+      // fingerprint (headers + canonical tools quartet). Shared request
+      // builder — the same one the executor and the test button use.
+      const probe = buildOpencodeZenProbeRequest();
+      const res = await providerValidateFetch(probe.url, {
+        method: "POST",
+        headers: probe.headers,
+        body: JSON.stringify(probe.body),
       }, { providerId: provider });
       return { ok: res.status !== 401 && res.status !== 403, error: null };
     }

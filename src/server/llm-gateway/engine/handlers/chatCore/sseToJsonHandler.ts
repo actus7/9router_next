@@ -1,4 +1,5 @@
 ﻿import { convertResponsesStreamToJson } from "../../transformer/streamToJsonConverter";
+import { restoreToolNames, takeRenamedToolNames } from "../../utils/opencodeFingerprint";
 import { createErrorResult } from "../../utils/error";
 import { HTTP_STATUS } from "../../config/runtimeConfig";
 import { FORMATS } from "../../translator/formats";
@@ -201,12 +202,15 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
   const isCodexResponsesApi = isResponsesProvider(provider) || targetFormat === FORMATS.OPENAI_RESPONSES;
   if (isCodexResponsesApi) {
     try {
-      const jsonResponse = await convertResponsesStreamToJson(providerResponse.body) as JsonObject;
+      const responsesRaw = await convertResponsesStreamToJson(providerResponse.body) as JsonObject;
+      // Restore fingerprinted tool names (output[] function_call items) before
+      // any client-format conversion reads them.
+      const jsonResponse = restoreToolNames(responsesRaw, takeRenamedToolNames(finalBody)) as JsonObject;
       if (onRequestSuccess) await onRequestSuccess();
 
       const usage = (jsonResponse.usage as JsonObject) || {};
       appendLog({ tokens: usage, status: "200 OK" });
-      saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
+      const usageIdSaved = Promise.resolve(saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true })).then((id) => id ?? null);
       if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
       const inTokensForLog = ((usage.input_tokens as number) || 0)
@@ -215,13 +219,13 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       const { textContent } = pickAssistantMessageForChatCompletion(jsonResponse.output as unknown[]);
       const totalLatency = Date.now() - requestStartTime;
 
-      saveRequestDetail(buildRequestDetail({
+      void usageIdSaved.then((usageId) => Promise.resolve(saveRequestDetail(buildRequestDetail({
         ...ctx,
         latency: { ttft: totalLatency, total: totalLatency },
         tokens: { prompt_tokens: inTokensForLog, completion_tokens: (usage.output_tokens as number) || 0 },
         response: { content: textContent, thinking: null, finish_reason: (jsonResponse.status as string) || "unknown" },
         status: "success"
-      }, { endpoint: clientRawRequest?.endpoint || null })).catch(() => {});
+      }, { endpoint: clientRawRequest?.endpoint || null, usageId }))).catch(() => {}));
 
       if (sourceFormat === FORMATS.OPENAI_RESPONSES) {
         return { success: true, response: new Response(JSON.stringify(jsonResponse), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
@@ -283,8 +287,11 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
   // Standard Chat Completions SSE path
   try {
     const sseText = await providerResponse.text();
-    const parsed = parseSSEToOpenAIResponse(sseText, model);
+    let parsed = parseSSEToOpenAIResponse(sseText, model);
     if (!parsed) return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid SSE response for non-streaming request");
+    // Restore fingerprinted tool names on the raw chat.completion shape
+    // (choices[].message.tool_calls) before the client-format conversion.
+    parsed = restoreToolNames(parsed, takeRenamedToolNames(finalBody));
     if (parsed.error) {
       return createErrorResult(
         HTTP_STATUS.BAD_GATEWAY,
@@ -296,11 +303,11 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
 
     const usage = (parsed.usage as JsonObject) || {};
     appendLog({ tokens: usage, status: "200 OK" });
-    saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
+    const usageIdSaved = Promise.resolve(saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true })).then((id) => id ?? null);
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
     const totalLatency = Date.now() - requestStartTime;
-    saveRequestDetail(buildRequestDetail({
+    void usageIdSaved.then((usageId) => Promise.resolve(saveRequestDetail(buildRequestDetail({
       ...ctx,
       latency: { ttft: totalLatency, total: totalLatency },
       tokens: usage,
@@ -310,7 +317,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
         finish_reason: ((parsed.choices as JsonObject[])?.[0]?.finish_reason as string) || "unknown"
       },
       status: "success"
-    }, { endpoint: clientRawRequest?.endpoint || null })).catch(() => {});
+    }, { endpoint: clientRawRequest?.endpoint || null, usageId }))).catch(() => {}));
 
     if (usage && Object.keys(usage).length > 0) parsed.usage = usage;
 
@@ -323,11 +330,11 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
       }
     }
 
-    const finalBody = sourceFormat === FORMATS.OPENAI_RESPONSES
+    const clientPayload = sourceFormat === FORMATS.OPENAI_RESPONSES
       ? chatCompletionToResponses(parsed, customToolNames)
       : parsed;
 
-    return { success: true, response: new Response(JSON.stringify(finalBody), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
+    return { success: true, response: new Response(JSON.stringify(clientPayload), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
   } catch (err: unknown) {
     console.error("[ChatCore] Chat Completions SSE→JSON failed:", err);
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Failed to convert streaming response to JSON");

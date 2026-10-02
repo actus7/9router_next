@@ -4,6 +4,7 @@ import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { testProxyUrl } from "@/lib/network/proxyTest";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { getDefaultModel, PROVIDERS } from "@/server/llm-gateway/catalog";
+import { buildOpencodeZenProbeRequest } from "@/server/llm-gateway/engine/executors/opencode";
 import { KIMCHI_CONFIG } from "@/lib/oauth/constants/oauth";
 import { testOAuthConnection } from "./oauthTestUtils";
 import { fetchWithConnectionProxy } from "./providerTestTransport";
@@ -182,6 +183,11 @@ async function testApiKeyConnection(connection: Record<string, unknown>, effecti
       case "opencode-go": return probeChatCompletions("https://opencode.ai/zen/go/v1/chat/completions",
         { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         { model: getDefaultModel("opencode-go"), messages: [{ role: "user", content: "ping" }], max_tokens: 1, stream: false }, effectiveProxy);
+      case "opencode": {
+        // Free Zen tier fingerprint (shared with the executor/probe builder).
+        const probe = buildOpencodeZenProbeRequest();
+        return probeChatCompletions(probe.url, probe.headers, probe.body, effectiveProxy, "OpenCode free tier rejected the probe fingerprint");
+      }
       case "blackbox": return probeBearerGet(
         `${((PROVIDERS["blackbox"]?.baseUrl as string)?.replace(/\/chat\/completions$/, "") || "https://api.blackbox.ai/v1")}/models`, apiKey, effectiveProxy);
       case "qoder": {

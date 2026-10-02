@@ -93,6 +93,7 @@ const PROVIDER_MODELS_STATIC_ENTRIES: Record<string, Record<string, unknown>> = 
     authPrefix: "Bearer ",
     parseResponse: (data: Record<string, unknown>) => data.data || []
   },
+  "alitp-intl": createOpenAIModelsConfig("https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/models"),
   "volcengine-ark": createArkModelsConfig("https://ark.cn-beijing.volces.com/api/coding/v3/models"),
   byteplus: createArkModelsConfig("https://ark.ap-southeast.bytepluses.com/api/v3/models"),
   deepseek: createOpenAIModelsConfig("https://api.deepseek.com/models"),
