@@ -1,3 +1,4 @@
+import { GOOGLE_OAUTH_CLIENT } from "../shared";
 
 export default {
   id: "gemini-cli",
@@ -26,8 +27,8 @@ export default {
       quotaUrl: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
       loadCodeAssistUrl: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
     },
-    clientId: process.env.GOOGLE_OAUTH_CLIENT_ID || "",
-    clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || "",
+    clientId: GOOGLE_OAUTH_CLIENT.clientId,
+    clientSecret: GOOGLE_OAUTH_CLIENT.clientSecret,
   },
 
   oauth: {

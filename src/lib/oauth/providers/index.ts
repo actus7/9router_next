@@ -134,8 +134,9 @@ function assertAuthUrlIsUsable(providerName: string, authUrl: string): void {
   if (params.has("client_id") && !params.get("client_id")) {
     throw new Error(
       `OAuth for "${providerName}" has no client id configured, so the sign-in page would reject the request. ` +
-      `Set the provider's OAuth client credentials in the environment — for the Google-based providers ` +
-      `(gemini, gemini-cli, antigravity) those are GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET. ` +
+      `Set the provider's OAuth client credentials in the environment — for gemini/gemini-cli those are ` +
+      `GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, and for antigravity ` +
+      `ANTIGRAVITY_OAUTH_CLIENT_ID and ANTIGRAVITY_OAUTH_CLIENT_SECRET. ` +
       `See .env.example.`,
     );
   }

@@ -1,4 +1,4 @@
-import { ANTIGRAVITY_IDE_BASE_URL, ANTIGRAVITY_IDE_USER_AGENT } from "../shared";
+import { ANTIGRAVITY_IDE_BASE_URL, ANTIGRAVITY_IDE_USER_AGENT, ANTIGRAVITY_OAUTH_CLIENT } from "../shared";
 
 export default {
   id: "antigravity",
@@ -41,8 +41,8 @@ export default {
       loadProjectApiUrl: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
       tokenUrl: "https://oauth2.googleapis.com/token",
     },
-    clientId: process.env.ANTIGRAVITY_OAUTH_CLIENT_ID || "",
-    clientSecret: process.env.ANTIGRAVITY_OAUTH_CLIENT_SECRET || "",
+    clientId: ANTIGRAVITY_OAUTH_CLIENT.clientId,
+    clientSecret: ANTIGRAVITY_OAUTH_CLIENT.clientSecret,
   },
     modelOverrides: {
     "gemini-3.7-flash-high": { "upstreamModelId": "gemini-3.7-flash-tiered(high)" },
