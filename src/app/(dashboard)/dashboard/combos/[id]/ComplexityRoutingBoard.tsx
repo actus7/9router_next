@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -133,6 +133,9 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
     onChange(arrayMove(models, oldIndex, newIndex));
   };
 
+  // dnd-kit numbers its aria-describedby with a global counter that differs between SSR and hydration; a stable id fixes it.
+  const dndId = useId();
+
   const handlePick = (value: string) => {
     if (pickerMode?.index === null || pickerMode?.index === undefined) {
       onChange([...models, value]);
@@ -156,7 +159,7 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
         </Button>
       </div>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
+      <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-1">
             {models.map((model, index) => {

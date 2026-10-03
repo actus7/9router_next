@@ -28,6 +28,7 @@ vi.mock("@/server/llm-gateway/engine/providers/pricing", () => ({
 }));
 
 import {
+  __test__,
   invalidateSmartProfileCache,
   jevModelTiers,
   refreshDeterministicSmartProfiles,
@@ -56,6 +57,7 @@ const models = [
 beforeEach(() => {
   decideWithJev.mockReset();
   invalidateSmartProfileCache();
+  __test__.resetJevTierCache();
 });
 
 describe("jevModelTiers", () => {
@@ -92,28 +94,39 @@ describe("jevModelTiers", () => {
 });
 
 describe("inventory profiles", () => {
-  it("a confident Jev tier lands in recommendedTier and survives the cache", async () => {
+  it("a confident Jev tier lands in recommendedTier and later reads reuse it without calling Jev", async () => {
     decideWithJev.mockImplementation(
       jevTierAnswers((modelKey) => (modelKey === "oc/m1" ? { choice: "complex", confidence: 0.8 } : null)),
     );
-    const profiles = await refreshDeterministicSmartProfiles();
+    // Only an explicit refresh (persist) asks Jev.
+    const profiles = await refreshDeterministicSmartProfiles(true);
     const target = profiles.find((profile) => profile.modelKey === "oc/m1");
     // The regex would say "standard" for a plain small-ish name.
     expect(target?.recommendedTier).toBe("complex");
 
-    const cached = await refreshDeterministicSmartProfiles();
-    expect(cached.find((profile) => profile.modelKey === "oc/m1")?.recommendedTier).toBe("complex");
+    invalidateSmartProfileCache();
+    const reread = await refreshDeterministicSmartProfiles();
+    expect(reread.find((profile) => profile.modelKey === "oc/m1")?.recommendedTier).toBe("complex");
     expect(decideWithJev).toHaveBeenCalledTimes(1);
+  });
+
+  it("a plain read never calls Jev", async () => {
+    decideWithJev.mockImplementation(
+      jevTierAnswers(() => ({ choice: "complex", confidence: 0.9 })),
+    );
+    const profiles = await refreshDeterministicSmartProfiles();
+    expect(profiles.find((p) => p.modelKey === "oc/m1")?.recommendedTier).toBe("standard");
+    expect(decideWithJev).not.toHaveBeenCalled();
   });
 
   it("low confidence or a silent Jev keeps the regex tier", async () => {
     decideWithJev.mockImplementation(
       jevTierAnswers((modelKey) => (modelKey === "oc/m1" ? { choice: "reasoning", confidence: 0.5 } : null)),
     );
-    expect((await refreshDeterministicSmartProfiles()).find((p) => p.modelKey === "oc/m1")?.recommendedTier).toBe("standard");
+    expect((await refreshDeterministicSmartProfiles(true)).find((p) => p.modelKey === "oc/m1")?.recommendedTier).toBe("standard");
 
     invalidateSmartProfileCache();
     decideWithJev.mockResolvedValue(null);
-    expect((await refreshDeterministicSmartProfiles()).find((p) => p.modelKey === "oc/m1")?.recommendedTier).toBe("standard");
+    expect((await refreshDeterministicSmartProfiles(true)).find((p) => p.modelKey === "oc/m1")?.recommendedTier).toBe("standard");
   });
 });

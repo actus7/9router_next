@@ -300,7 +300,7 @@ function resolvePricing(
   return getPricingForModel(providerAlias, model) as Record<string, unknown> | null;
 }
 
-export const __test__ = { resolvePricing, normalizeKinds };
+export const __test__ = { resolvePricing, normalizeKinds, resetJevTierCache: () => jevTierCache.clear() };
 
 function deterministicProfile(
   item: InventoryModel,
@@ -355,6 +355,8 @@ function deterministicProfile(
 // and bypass on persist=true (explicit "refresh inventory" / profile-confirm calls).
 const PROFILE_CACHE_TTL_MS = 10_000;
 let profileCache: { expiresAt: number; profiles: SmartModelProfile[] } | null = null;
+// ponytail: per-process; lost on restart until the next explicit refresh (falls back to the regex tier).
+const jevTierCache = new Map<string, JevModelTier>();
 
 /** Drop the cached inventory so the next call recomputes it (e.g. after confirming profiles directly via upsertSmartModelProfiles). */
 export function invalidateSmartProfileCache(): void {
@@ -369,19 +371,23 @@ export async function refreshDeterministicSmartProfiles(persist = false): Promis
   // One read for the whole inventory; the store caches for a few seconds.
   const pricingOverrides = await getPricingOverrides().catch(() => ({}));
   const deterministic = inventory.map((item) => deterministicProfile(item, pricingOverrides));
-  // The cold path (cache empty or explicit refresh): Jev judges the tiers once
-  // for the whole inventory and lands in the same `recommendedTier` field the
-  // name regex fills, so it caches and persists exactly like the heuristic
-  // value did. No Jev answer for a model keeps its regex tier (fail-open).
-  const jevTiers = await jevModelTiers(
-    deterministic.map((profile) => ({
-      modelKey: profile.modelKey,
-      description: profile.displayName,
-      pricing: { inputPrice: profile.inputPrice, outputPrice: profile.outputPrice },
-    })),
-  );
+  // Jev judges the tiers (one sequential network call per 20 models) and lands
+  // in the same `recommendedTier` field the name regex fills. That is far too
+  // slow for a page load or a chat request, so only an explicit refresh
+  // (persist) asks Jev; every other cold read reuses what it last answered.
+  // No Jev answer for a model keeps its regex tier (fail-open).
+  if (persist) {
+    const fresh = await jevModelTiers(
+      deterministic.map((profile) => ({
+        modelKey: profile.modelKey,
+        description: profile.displayName,
+        pricing: { inputPrice: profile.inputPrice, outputPrice: profile.outputPrice },
+      })),
+    );
+    for (const [key, tier] of fresh) jevTierCache.set(key, tier);
+  }
   const decided = deterministic.map((profile) => {
-    const jev = jevTiers.get(profile.modelKey);
+    const jev = jevTierCache.get(profile.modelKey);
     return jev ? { ...profile, recommendedTier: jev.tier } : profile;
   });
   const persisted = await getSmartModelProfiles();
