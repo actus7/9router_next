@@ -184,6 +184,34 @@ describe("indexAaModels", () => {
   });
 });
 
+describe("AA's default configuration (the unsuffixed slug)", () => {
+  // Real rows from the 2026-10 snapshot: AA files a model's default config
+  // under the plain slug and every other config under a suffixed one.
+  const rows = indexAaModels([
+    aaMetrics({ name: "GPT-5.6 Luna (Non-reasoning)", slug: "gpt-5-6-luna-non-reasoning", intelligence: 15.5 }),
+    aaMetrics({ name: "GPT-5.6 Luna (High)", slug: "gpt-5-6-luna-high", intelligence: 32.1 }),
+    aaMetrics({ name: "GPT-5.6 Luna (Max)", slug: "gpt-5-6-luna", intelligence: 37.3 }),
+    aaMetrics({ name: "MiMo-V2.5-Pro (Non-reasoning)", slug: "mimo-v2-5-pro-non-reasoning", intelligence: 18.3 }),
+    aaMetrics({ name: "MiMo-V2.5-Pro (Reasoning)", slug: "mimo-v2-5-pro", intelligence: 26 }),
+    aaMetrics({ name: "Qwen3.8 Max (0902)", slug: "qwen3-8-max", intelligence: 45.4 }),
+  ]);
+
+  it("represents an unqualified catalog id, not the non-reasoning row", () => {
+    expect(matchAaToProfile(profile({ model: "gpt-5.6-luna", displayName: "GPT-5.6 Luna" }), rows)?.intelligence).toBe(37.3);
+    expect(matchAaToProfile(profile({ model: "mimo-v2.5-pro", displayName: "mimo-v2.5-pro" }), rows)?.intelligence).toBe(26);
+  });
+
+  it("still honours an explicit variant in the catalog name", () => {
+    const explicit = profile({ model: "gpt-5.6-luna-high", displayName: "GPT-5.6 Luna (High)" });
+    expect(matchAaToProfile(explicit, rows)?.intelligence).toBe(32.1);
+  });
+
+  it("matches through provider prefixes, free tags and dated snapshots", () => {
+    expect(matchAaToProfile(profile({ model: "xiaomi/mimo-v2.5-pro:free", displayName: "MiMo free" }), rows)?.intelligence).toBe(26);
+    expect(matchAaToProfile(profile({ model: "qwen3.8-max-0902", displayName: "Qwen3.8 Max 0902" }), rows)?.intelligence).toBe(45.4);
+  });
+});
+
 describe("matchAaToProfile against classified AA rows", () => {
   const rows = indexAaModels([
     aaMetrics({ name: "Gemini 2.5 Flash (Reasoning)", slug: "gemini-2.5-flash-reasoning", intelligence: 55 }),

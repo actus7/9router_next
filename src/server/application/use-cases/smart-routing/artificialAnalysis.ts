@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getAaModels, getAaSnapshotMeta, saveAaSnapshot } from "@/lib/db/repos/aaSnapshotRepo";
-import type { AaModelMetrics, AaSnapshotMeta, SmartModelProfile } from "@/server/llm-gateway/smart-routing";
+import { canonicalModelKey, type AaModelMetrics, type AaSnapshotMeta, type SmartModelProfile } from "@/server/llm-gateway/smart-routing";
 
 // Artificial Analysis free tier: 100 requests/24h. One sync a day (the TTL
 // below) keeps the suggestion pipeline fed without ever burning that budget —
@@ -149,9 +149,11 @@ function classificationRank(fullKey: string, baseKey: string): number {
  */
 export function indexAaModels(models: AaModelMetrics[]): Record<string, AaModelMetrics> {
   const byNormName: Record<string, AaModelMetrics> = {};
+  const fullNameKeys = new Set<string>();
   for (const model of models) {
     const key = normalizeModelName(model.name);
     if (!key) continue;
+    fullNameKeys.add(key);
     if (!(key in byNormName)) byNormName[key] = model;
     const base = baseModelName(model.name);
     if (!base || base === key) continue;
@@ -159,6 +161,15 @@ export function indexAaModels(models: AaModelMetrics[]): Record<string, AaModelM
     if (!current || classificationRank(key, base) > classificationRank(normalizeModelName(current.name), base)) {
       byNormName[base] = model;
     }
+  }
+  // AA files a model's default configuration under the unsuffixed slug
+  // ("gpt-5-6-luna" is Luna at Max) and every other config under a suffixed
+  // one. That beats the non-reasoning guess above for a catalog id that names
+  // no configuration — the guess put GPT-5.6 Luna at intel 15.5 instead of
+  // 37.3. A row's own full-name key is never overwritten.
+  for (const model of models) {
+    const slugKey = normalizeModelName(model.slug);
+    if (slugKey && !fullNameKeys.has(slugKey)) byNormName[slugKey] = model;
   }
   return byNormName;
 }
@@ -215,8 +226,10 @@ export function matchAaToProfile(
   byNormName: Record<string, AaModelMetrics>,
 ): AaModelMetrics | undefined {
   // Provider-prefixed ids ("anthropic/claude-sonnet-4-5") rarely normalize to
-  // an AA name, but the display name usually does — try both.
-  for (const candidate of [profile.model, profile.displayName]) {
+  // an AA name, but the display name usually does — try both, then the bare id
+  // and its canonical key (no prefix, no ":free", no dated snapshot).
+  const bare = String(profile.model ?? "").split("/").pop()?.split(":")[0] ?? "";
+  for (const candidate of [profile.model, profile.displayName, bare, canonicalModelKey(profile.model)]) {
     const key = normalizeModelName(candidate);
     const base = baseModelName(candidate);
     // The candidate names an explicit AA variant ("Gemini 2.5 Flash

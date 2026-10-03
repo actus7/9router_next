@@ -123,7 +123,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
 
       <PreviewModal
         preview={s.preview}
-        cappedPreviewProfiles={s.cappedPreviewProfiles}
+        lanes={s.previewLanes}
         tierLabels={s.TIER_LABELS}
         onConfirm={s.handleConfirmProfiles}
         confirming={s.confirming}

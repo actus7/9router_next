@@ -109,8 +109,17 @@ export interface SmartModelProfile {
   updatedAt?: string;
   /** Artificial Analysis metrics, present only when the model matched the AA snapshot. */
   aa?: AaModelMetrics;
-  /** Per-tier AA composite score for the suggestion board (see aaScoring); only with `aa`. */
-  aaScores?: Partial<Record<RoutingTier, number>>;
+  /**
+   * Suggestion board (see laneAssignment): the lanes this model is eligible
+   * for, scored 0..1 under the Balanced weights. A model can hold several.
+   */
+  laneScores?: Partial<Record<RoutingTier, number>>;
+  /** Same lanes, quality alone — what "Highest quality" orders by. */
+  laneQuality?: Partial<Record<RoutingTier, number>>;
+  /** Whether the lane scores come from AA measurements or are an estimate. */
+  scoreSource?: "measured" | "estimated";
+  /** One key for this model across providers (see modelIdentity). */
+  canonicalKey?: string;
   /** Compact reason line for the suggestion board; only with `aa`. */
   suggestionReason?: string;
 }

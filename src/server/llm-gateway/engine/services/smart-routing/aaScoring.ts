@@ -1,14 +1,11 @@
 /**
- * Artificial Analysis scoring for the suggestion board. Pure math over
+ * Artificial Analysis primitives for the suggestion board. Pure math over
  * already-fetched metrics: no I/O, no app/db imports — the snapshot fetch and
- * the name matching live in the application use-case.
- *
- * AA metrics are third-party ground truth when present and the deterministic
- * heuristics (`quality`, `latencyScore`) are the stand-in when they are not, so
- * a model outside the AA table still gets a full score instead of dropping out.
+ * the name matching live in the application use-case, and lane assignment
+ * (normalization, eligibility, ordering) lives in laneAssignment.
  */
 
-import { ROUTING_TIERS, type RoutingTier, type SmartModelProfile } from "./types";
+import type { AaModelMetrics, RoutingTier, SmartModelProfile } from "./types";
 
 /**
  * What each tier buys: the cheap lanes win on cost and throughput, "complex" is
@@ -16,14 +13,17 @@ import { ROUTING_TIERS, type RoutingTier, type SmartModelProfile } from "./types
  * Product policy (weights per tier sum to 1):
  *   simple    quality .20 speed .30 cost .35 latency .15
  *   standard  quality .45 speed .20 cost .25 latency .10
- *   complex   quality .65 speed .10 cost .15 latency .10
- *   reasoning quality .70 speed .05 cost .10 latency .15
+ *   complex   quality .70 speed .10 cost .15 latency .05
+ *   reasoning quality .80 speed .05 cost .10 latency .05
+ * Latency is light in the two upper lanes on purpose: AA's TTFT for a
+ * reasoning model includes its thinking, so weighting it punished exactly the
+ * models those lanes exist for.
  */
 export const AA_TIER_WEIGHTS: Record<RoutingTier, { quality: number; speed: number; cost: number; latency: number }> = {
   simple: { quality: 0.2, speed: 0.3, cost: 0.35, latency: 0.15 },
   standard: { quality: 0.45, speed: 0.2, cost: 0.25, latency: 0.1 },
-  complex: { quality: 0.65, speed: 0.1, cost: 0.15, latency: 0.1 },
-  reasoning: { quality: 0.7, speed: 0.05, cost: 0.1, latency: 0.15 },
+  complex: { quality: 0.7, speed: 0.1, cost: 0.15, latency: 0.05 },
+  reasoning: { quality: 0.8, speed: 0.05, cost: 0.1, latency: 0.05 },
 };
 
 // Blended price assumes 3 input tokens per output token — the mix quoted in the
@@ -41,24 +41,12 @@ const TIER_QUALITY_MIX: Record<RoutingTier, { intelligence: number; coding: numb
   reasoning: { intelligence: 0.7, coding: 0, agentic: 0.3 },
 };
 
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
-
-function maxOf(values: Array<number | null>): number {
-  let max = 0;
-  for (const value of values) {
-    if (value !== null && Number.isFinite(value) && value > max) max = value;
-  }
-  return max;
-}
-
 /**
  * Blended USD per 1M tokens at the 3:1 mix. AA prices win when they exist (the
  * score is a statement about AA's table); the catalog's own prices are the
  * fallback. null = no price at all, which is not the same as "expensive".
  */
-function blendedPriceUsd(profile: SmartModelProfile): number | null {
+export function blendedPriceUsd(profile: SmartModelProfile): number | null {
   const aa = profile.aa;
   const useAa = aa !== undefined && (aa.inputUsdPer1M !== null || aa.outputUsdPer1M !== null);
   const input = useAa ? aa.inputUsdPer1M : profile.inputPrice;
@@ -78,10 +66,12 @@ function blendedPriceUsd(profile: SmartModelProfile): number | null {
   return weightSum > 0 ? acc / weightSum : null;
 }
 
-/** 0..1 quality for one tier: AA indices renormalized over the fields present. */
-function qualityComponent(profile: SmartModelProfile, tier: RoutingTier): number {
-  const aa = profile.aa;
-  if (!aa) return clamp01(profile.quality);
+/**
+ * Raw AA quality for one tier on AA's 0-100 scale: the tier's index mix,
+ * renormalized over the indices that were published. null when none were.
+ */
+export function aaTierQuality(aa: AaModelMetrics | undefined, tier: RoutingTier): number | null {
+  if (!aa) return null;
   const mix = TIER_QUALITY_MIX[tier];
   const fields: Array<[number, number | null]> = [
     [mix.intelligence, aa.intelligence],
@@ -95,57 +85,19 @@ function qualityComponent(profile: SmartModelProfile, tier: RoutingTier): number
     weightSum += weight;
     acc += weight * value;
   }
-  // Every index this tier weights is missing: the heuristic stands.
-  if (weightSum <= 0) return clamp01(profile.quality);
-  return clamp01(acc / weightSum / 100);
-}
-
-/**
- * Per-model, per-tier score 0..1. Speed/cost/latency are normalized against the
- * candidates passed in (a metric only means something next to the rest of the
- * shortlist), quality against the AA 0-100 scale.
- */
-export function computeAaTierScores(profiles: SmartModelProfile[]): Record<string, Record<RoutingTier, number>> {
-  const maxTps = maxOf(profiles.map((profile) => profile.aa?.outputTokensPerSecond ?? null));
-  const maxTtft = maxOf(profiles.map((profile) => profile.aa?.ttftSeconds ?? null));
-  const maxBlended = maxOf(profiles.map(blendedPriceUsd));
-
-  const out: Record<string, Record<RoutingTier, number>> = {};
-  for (const profile of profiles) {
-    const tps = profile.aa?.outputTokensPerSecond ?? null;
-    const ttft = profile.aa?.ttftSeconds ?? null;
-    const blended = blendedPriceUsd(profile);
-    const quality = {} as Record<RoutingTier, number>;
-    for (const tier of ROUTING_TIERS) quality[tier] = qualityComponent(profile, tier);
-    // No AA throughput/latency → the heuristic speed score keeps its slot; no
-    // price at all → neutral 0.5, so an unpriced free model is not ranked last.
-    const speed = tps !== null && maxTps > 0 ? clamp01(tps / maxTps) : clamp01(profile.latencyScore);
-    const cost = blended === null ? 0.5 : maxBlended > 0 ? clamp01(1 - blended / maxBlended) : 1;
-    const latency = ttft !== null && maxTtft > 0 ? clamp01(1 - ttft / maxTtft) : clamp01(profile.latencyScore);
-
-    const byTier = {} as Record<RoutingTier, number>;
-    for (const tier of ROUTING_TIERS) {
-      const weights = AA_TIER_WEIGHTS[tier];
-      byTier[tier] = clamp01(
-        weights.quality * quality[tier] + weights.speed * speed + weights.cost * cost + weights.latency * latency,
-      );
-    }
-    out[profile.modelKey] = byTier;
-  }
-  return out;
+  // A tier whose own indices are missing still has intelligence to go on.
+  if (weightSum <= 0) return aa.intelligence !== null && Number.isFinite(aa.intelligence) ? aa.intelligence : null;
+  return acc / weightSum;
 }
 
 /**
  * Compact English line for the suggestion board, e.g.
  * "AA intel 63 · code 56 · agentic 48 · 154 tok/s · TTFT 0.9s · $0.86/1M blended (3:1)".
- * Only published metrics are quoted — the same line serves every tier column,
- * so `tier` is the caller's context (which column asked), not a filter. No AA
- * metrics, no line.
+ * Only published metrics are quoted. No AA metrics, no line.
  */
-export function buildAaSuggestionReason(profile: SmartModelProfile, tier: RoutingTier): string | undefined {
+export function buildAaSuggestionReason(profile: SmartModelProfile): string | undefined {
   const aa = profile.aa;
   if (!aa) return undefined;
-  void tier; // documented above: the line is deliberately tier-invariant
   const parts: string[] = [];
   if (aa.intelligence !== null) parts.push(`AA intel ${Math.round(aa.intelligence)}`);
   if (aa.coding !== null) parts.push(`code ${Math.round(aa.coding)}`);
@@ -155,24 +107,4 @@ export function buildAaSuggestionReason(profile: SmartModelProfile, tier: Routin
   const blended = blendedPriceUsd(profile);
   if (blended !== null) parts.push(`$${blended.toFixed(2)}/1M blended (3:1)`);
   return parts.length > 0 ? parts.join(" · ") : undefined;
-}
-
-/**
- * New profiles carrying `aaScores` for the four tiers and a `suggestionReason`.
- * Only models with AA metrics get them: everything else is already ranked by
- * the deterministic scores and must not grow AA-shaped holes.
- */
-export function attachAaScoresAndReasons(profiles: SmartModelProfile[]): { profiles: SmartModelProfile[] } {
-  const scores = computeAaTierScores(profiles);
-  return {
-    profiles: profiles.map((profile) => {
-      if (!profile.aa) return profile;
-      const suggestionReason = buildAaSuggestionReason(profile, profile.recommendedTier);
-      return {
-        ...profile,
-        aaScores: scores[profile.modelKey],
-        ...(suggestionReason ? { suggestionReason } : {}),
-      };
-    }),
-  };
 }

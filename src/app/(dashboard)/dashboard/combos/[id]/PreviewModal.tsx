@@ -4,8 +4,8 @@ import { Check, Gauge, Sparkles, Trophy } from "lucide-react";
 import Modal from "@/shared/components/Modal";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/i18n/runtime";
-import { ROUTING_TIERS, type AaModelMetrics, type RoutingTierOrDefault, type SmartModelProfile } from "@/shared/llm-catalog";
-import { MAX_SUGGESTIONS_PER_TIER, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview } from "./smartComboHelpers";
+import { ROUTING_TIERS, type AaModelMetrics, type RoutingTier, type RoutingTierOrDefault, type SmartModelProfile } from "@/shared/llm-catalog";
+import { MAX_SUGGESTIONS_PER_TIER, laneValue, type ModelLatencyMap, type SuggestionLanes, type SuggestionPreset, type SuggestionPreview } from "./smartComboHelpers";
 
 type AaMeta = NonNullable<SuggestionPreview["aaMeta"]>;
 
@@ -64,12 +64,56 @@ function AaSyncStatus({ aaMeta }: { aaMeta: AaMeta }) {
   );
 }
 
+/** Chat models without AA data: listed so the operator knows which scores are estimates. */
+function UnmatchedModels({ names }: { names: string[] }) {
+  if (names.length === 0) return null;
+  return (
+    <details className="mt-1 text-xs text-text-muted">
+      <summary className="cursor-pointer">
+        {names.length} {translate("chat models without Artificial Analysis data; their scores are estimated") || "chat models without Artificial Analysis data; their scores are estimated"}
+      </summary>
+      <p className="mt-1 max-h-24 overflow-y-auto custom-scrollbar leading-relaxed">{names.join(" · ")}</p>
+    </details>
+  );
+}
+
+function LaneCard({ profile, tier, preset, latencies }: {
+  profile: SmartModelProfile;
+  tier: RoutingTier;
+  preset: SuggestionPreset;
+  latencies: ModelLatencyMap;
+}) {
+  const chips = profile.aa ? aaMetricChips(profile.aa) : [];
+  const latency = latencies[profile.modelKey.toLowerCase()]?.latencyMs;
+  const value = preset === "performance" && typeof latency === "number"
+    ? `${latency}ms`
+    : `${Math.round(laneValue(profile, tier, preset) * 100)}%`;
+  return (
+    <div className="flex min-w-0 flex-col gap-1 rounded-md bg-muted/60 px-2 py-1.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-main" title={profile.modelKey}>{profile.displayName || profile.modelKey}</span>
+        <span className="shrink-0 text-[11px] text-text-muted">{value}</span>
+      </div>
+      <p className="truncate text-[10px] text-text-muted" title={profile.modelKey}>{profile.provider}</p>
+      {chips.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {chips.map((chip) => (
+            <span key={chip} className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-muted">{chip}</span>
+          ))}
+        </div>
+      ) : profile.scoreSource === "estimated" && (
+        <span className="w-fit rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">{translate("estimated") || "estimated"}</span>
+      )}
+    </div>
+  );
+}
+
 export function PreviewModal({
-  preview, cappedPreviewProfiles, tierLabels,
+  preview, lanes, tierLabels,
   onConfirm, confirming, onClose, preset, onPresetChange, latencies,
 }: {
   preview: SuggestionPreview | null;
-  cappedPreviewProfiles: SmartModelProfile[];
+  lanes: SuggestionLanes | null;
   tierLabels: Record<RoutingTierOrDefault, string>;
   onConfirm: () => void;
   confirming: boolean;
@@ -78,16 +122,17 @@ export function PreviewModal({
   onPresetChange: (preset: SuggestionPreset) => void;
   latencies: ModelLatencyMap;
 }) {
-  const testedCount = cappedPreviewProfiles.filter((profile) => typeof latencies[profile.modelKey.toLowerCase()]?.latencyMs === "number").length;
+  const onBoard = lanes ? ROUTING_TIERS.flatMap((tier) => lanes[tier]) : [];
+  const testedCount = new Set(onBoard.filter((profile) => typeof latencies[profile.modelKey.toLowerCase()]?.latencyMs === "number").map((profile) => profile.modelKey)).size;
   // "Fastest" ordena por latencia medida em teste de modelo, guardada no
-  // navegador. Sem nenhuma medicao ele cai para a velocidade estimada, ou seja,
-  // promete um criterio que nao tem dado para aplicar — melhor nao oferecer.
+  // navegador. Sem nenhuma medicao ele nao tem dado para aplicar — melhor nao
+  // oferecer.
   const presetTabs: Array<{ value: SuggestionPreset; label: string; description: string; icon: typeof Sparkles }> = [
-    { value: "balanced", label: translate("Balanced") || "Balanced", description: translate("AI recommendation, balanced across the four levels") || "AI recommendation, balanced across the four levels", icon: Sparkles },
+    { value: "balanced", label: translate("Balanced") || "Balanced", description: translate("Quality, cost and speed weighed per level, from measured data") || "Quality, cost and speed weighed per level, from measured data", icon: Sparkles },
     ...(testedCount > 0
-      ? [{ value: "performance" as const, label: translate("Fastest") || "Fastest", description: translate("Real test latency first; estimated speed fills gaps") || "Real test latency first; estimated speed fills gaps", icon: Gauge }]
+      ? [{ value: "performance" as const, label: translate("Fastest") || "Fastest", description: translate("Real test latency first; the balanced score fills gaps") || "Real test latency first; the balanced score fills gaps", icon: Gauge }]
       : []),
-    { value: "quality", label: translate("Highest quality") || "Highest quality", description: translate("Highest assessed quality in each complexity level") || "Highest assessed quality in each complexity level", icon: Trophy },
+    { value: "quality", label: translate("Highest quality") || "Highest quality", description: translate("Highest measured quality in each complexity level") || "Highest measured quality in each complexity level", icon: Trophy },
   ];
   return (
     <Modal
@@ -102,13 +147,14 @@ export function PreviewModal({
         </>
       }
     >
-      {preview && (
+      {preview && lanes && (
         <div className="flex min-w-0 flex-col gap-4">
           <div className="rounded-lg bg-muted p-3 text-sm text-text-muted">
-            <p className="truncate"><span className="font-medium text-text-main">{translate("Assessed by:")}</span> {preview.classifierModel}</p>
-            <p className="mt-1"><span className="font-medium text-text-main">{translate("Web research:")}</span> {preview.webResearchUsed ? `${translate("yes, via")} ${preview.researchProvider}` : translate("unavailable; used a conservative estimate")}</p>
-            {preview.aaMeta && <AaSyncStatus aaMeta={preview.aaMeta} />}
-            {preview.truncated && <p className="mt-1 text-warning">{translate("There were more models than this round's limit; the rest were not reassessed now.")}</p>}
+            <p>{translate("Lanes ranked from measured benchmarks, price and speed. Older generations give way to newer ones of the same family.") || "Lanes ranked from measured benchmarks, price and speed. Older generations give way to newer ones of the same family."}</p>
+            {preview.aaMeta
+              ? <AaSyncStatus aaMeta={preview.aaMeta} />
+              : <p className="mt-1 text-warning">{translate("Artificial Analysis data is unavailable; every score is estimated.") || "Artificial Analysis data is unavailable; every score is estimated."}</p>}
+            <UnmatchedModels names={preview.unmatched} />
           </div>
           <div className="flex flex-col gap-2" role="tablist" aria-label={translate("Suggestion presets") || "Suggestion presets"}>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -134,39 +180,16 @@ export function PreviewModal({
           </div>
           <p className="text-xs text-text-muted">{translate("Organized by complexity level")} ({translate("up to")} {MAX_SUGGESTIONS_PER_TIER} {translate("models per tier")}). {translate("On confirm, this list replaces what is in the \"Default routing\" board above.")}</p>
           <div className="grid max-h-[55vh] gap-3 overflow-y-auto custom-scrollbar sm:grid-cols-2 lg:grid-cols-4">
-            {ROUTING_TIERS.map((tier) => {
-              const tierProfiles = cappedPreviewProfiles.filter((profile) => profile.recommendedTier === tier);
-              return (
-                <div key={tier} className="min-w-0 rounded-lg border border-border bg-muted/20 p-2">
-                  <p className="mb-2 truncate text-xs font-semibold text-text-main">{tierLabels[tier]} <span className="font-normal text-text-muted">({tierProfiles.length})</span></p>
-                  <div className="flex flex-col gap-1.5">
-                    {tierProfiles.length === 0 ? (
-                      <p className="text-xs text-text-muted">{translate("No models suggested.")}</p>
-                    ) : tierProfiles.map((profile) => {
-                      const chips = profile.aa ? aaMetricChips(profile.aa) : [];
-                      return (
-                        <div key={profile.modelKey} className="flex min-w-0 flex-col gap-1 rounded-md bg-muted/60 px-2 py-1.5">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-main" title={profile.modelKey}>{profile.displayName || profile.modelKey}</span>
-                            <span className="shrink-0 text-[11px] text-text-muted">{preset === "performance" && typeof latencies[profile.modelKey.toLowerCase()]?.latencyMs === "number" ? `${latencies[profile.modelKey.toLowerCase()].latencyMs}ms` : `${Math.round(profile.quality * 100)}%`}</span>
-                          </div>
-                          {chips.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {chips.map((chip) => (
-                                <span key={chip} className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-muted">{chip}</span>
-                              ))}
-                            </div>
-                          )}
-                          {profile.suggestionReason && (
-                            <p className="truncate text-[10px] leading-snug text-text-muted" title={profile.suggestionReason}>{profile.suggestionReason}</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+            {ROUTING_TIERS.map((tier) => (
+              <div key={tier} className="min-w-0 rounded-lg border border-border bg-muted/20 p-2">
+                <p className="mb-2 truncate text-xs font-semibold text-text-main">{tierLabels[tier]} <span className="font-normal text-text-muted">({lanes[tier].length})</span></p>
+                <div className="flex flex-col gap-1.5">
+                  {lanes[tier].length === 0
+                    ? <p className="text-xs text-text-muted">{translate("No models suggested.")}</p>
+                    : lanes[tier].map((profile) => <LaneCard key={profile.modelKey} profile={profile} tier={tier} preset={preset} latencies={latencies} />)}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       )}

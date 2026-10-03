@@ -57,7 +57,5 @@ export {
   AA_TIER_WEIGHTS,
   TOKEN_MIX_INPUT,
   TOKEN_MIX_OUTPUT,
-  computeAaTierScores,
   buildAaSuggestionReason,
-  attachAaScoresAndReasons,
 } from "@/server/llm-gateway/engine/services/smart-routing/aaScoring";

@@ -1,20 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 /**
- * AA scoring: per-tier weights over measured metrics, normalized against the
- * shortlist being scored. Cheap+fast must win the lanes that pay for speed and
- * cost; raw intelligence must win the lanes that buy quality; missing metrics
- * degrade to the deterministic scores instead of crashing or skewing.
+ * AA primitives: the per-tier weights, the per-tier quality mix and the
+ * reason line. Lane assignment over these is covered by laneAssignment.test.
  */
 
 import {
   AA_TIER_WEIGHTS,
-  attachAaScoresAndReasons,
+  aaTierQuality,
   buildAaSuggestionReason,
-  computeAaTierScores,
 } from "@/server/llm-gateway/engine/services/smart-routing/aaScoring";
 import { ROUTING_TIERS } from "@/server/llm-gateway/engine/services/smart-routing/types";
-import type { AaModelMetrics, RoutingTier, SmartModelProfile } from "@/server/llm-gateway/engine/services/smart-routing/types";
+import type { AaModelMetrics, SmartModelProfile } from "@/server/llm-gateway/engine/services/smart-routing/types";
 
 function profile(modelKey: string, overrides: Partial<SmartModelProfile> = {}): SmartModelProfile {
   return {
@@ -55,23 +52,6 @@ function aaMetrics(overrides: Partial<AaModelMetrics> = {}): AaModelMetrics {
   };
 }
 
-// Cheap and fast, but weak; dear and slow, but smart. Whichever way a tier
-// leans, one of the two must win it cleanly.
-const cheapFast = profile("oc/cheap-fast", {
-  aa: aaMetrics({
-    intelligence: 30, coding: 25, agentic: 20,
-    inputUsdPer1M: 0.1, outputUsdPer1M: 0.1,
-    outputTokensPerSecond: 500, ttftSeconds: 0.2,
-  }),
-});
-const dearSlow = profile("oc/dear-slow", {
-  aa: aaMetrics({
-    intelligence: 90, coding: 85, agentic: 80,
-    inputUsdPer1M: 10, outputUsdPer1M: 10,
-    outputTokensPerSecond: 50, ttftSeconds: 2,
-  }),
-});
-
 describe("AA_TIER_WEIGHTS", () => {
   it("sums to 1 for every tier", () => {
     for (const tier of ROUTING_TIERS) {
@@ -82,40 +62,18 @@ describe("AA_TIER_WEIGHTS", () => {
   });
 });
 
-describe("computeAaTierScores", () => {
-  it("lets the cheap and fast model win the simple lane", () => {
-    const scores = computeAaTierScores([cheapFast, dearSlow]);
-
-    expect(scores["oc/cheap-fast"].simple).toBeGreaterThan(scores["oc/dear-slow"].simple);
+describe("aaTierQuality", () => {
+  it("mixes coding and agentic into the upper lanes and renormalizes over what exists", () => {
+    const full = aaMetrics({ intelligence: 50, coding: 80, agentic: 40 });
+    expect(aaTierQuality(full, "standard")).toBe(50);
+    expect(aaTierQuality(full, "complex")).toBeCloseTo(0.5 * 50 + 0.3 * 80 + 0.2 * 40, 10);
+    // Only intelligence published: every lane falls back to it.
+    expect(aaTierQuality(aaMetrics({ intelligence: 46 }), "complex")).toBe(46);
   });
 
-  it("lets raw intelligence win the complex and reasoning lanes", () => {
-    const scores = computeAaTierScores([cheapFast, dearSlow]);
-
-    for (const tier of ["complex", "reasoning"] as RoutingTier[]) {
-      expect(scores["oc/dear-slow"][tier], tier).toBeGreaterThan(scores["oc/cheap-fast"][tier]);
-    }
-  });
-
-  it("falls back to the deterministic scores and stays neutral without metrics", () => {
-    // No AA metrics, no prices: quality/latencyScore keep their slots and cost
-    // is the neutral 0.5 — the simple score is exactly the weighted mix.
-    const plain = profile("oc/plain");
-    const scores = computeAaTierScores([plain]);
-
-    expect(scores["oc/plain"].simple).toBeCloseTo(0.2 * 0.6 + 0.3 * 0.7 + 0.35 * 0.5 + 0.15 * 0.7, 10);
-    for (const tier of ROUTING_TIERS) {
-      expect(scores["oc/plain"][tier], tier).toBeGreaterThanOrEqual(0);
-      expect(scores["oc/plain"][tier], tier).toBeLessThanOrEqual(1);
-    }
-  });
-
-  it("scores mixed inventories and an empty one without crashing", () => {
-    const mixed = computeAaTierScores([cheapFast, profile("oc/plain")]);
-    expect(mixed["oc/cheap-fast"].standard).toBeGreaterThan(0);
-    expect(mixed["oc/plain"].standard).toBeGreaterThan(0);
-
-    expect(computeAaTierScores([])).toEqual({});
+  it("is null without AA metrics or without any index", () => {
+    expect(aaTierQuality(undefined, "simple")).toBeNull();
+    expect(aaTierQuality(aaMetrics(), "reasoning")).toBeNull();
   });
 });
 
@@ -129,7 +87,7 @@ describe("buildAaSuggestionReason", () => {
       }),
     });
 
-    const reason = buildAaSuggestionReason(rich, "complex");
+    const reason = buildAaSuggestionReason(rich);
 
     expect(reason).toContain("AA intel 63");
     expect(reason).toContain("code 56");
@@ -140,21 +98,7 @@ describe("buildAaSuggestionReason", () => {
   });
 
   it("returns undefined without AA metrics", () => {
-    expect(buildAaSuggestionReason(profile("oc/plain"), "simple")).toBeUndefined();
-    expect(buildAaSuggestionReason(profile("oc/no-metrics", { aa: aaMetrics() }), "simple")).toBeUndefined();
-  });
-});
-
-describe("attachAaScoresAndReasons", () => {
-  it("fills aaScores for the four tiers and a reason, and skips the rest", () => {
-    const withAa = profile("oc/cheap-fast", { recommendedTier: "simple", aa: cheapFast.aa });
-    const withoutAa = profile("oc/plain");
-
-    const { profiles } = attachAaScoresAndReasons([withAa, withoutAa]);
-
-    expect(Object.keys(profiles[0].aaScores || {}).sort()).toEqual(["complex", "reasoning", "simple", "standard"]);
-    expect(profiles[0].suggestionReason).toContain("AA intel 30");
-    expect(profiles[1].aaScores).toBeUndefined();
-    expect(profiles[1].suggestionReason).toBeUndefined();
+    expect(buildAaSuggestionReason(profile("oc/plain"))).toBeUndefined();
+    expect(buildAaSuggestionReason(profile("oc/no-metrics", { aa: aaMetrics() }))).toBeUndefined();
   });
 });

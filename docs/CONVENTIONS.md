@@ -255,6 +255,41 @@ iguais (`smartRoutingClassifier.ts` e `routingClassifier.ts`); ligar o Jev
 num só deixaria metade dos endpoints sem ele. Hoje todos passam por
 `smartRoutingClassifiers(request, apiKey, handleSingleModelChat)`.
 
+## "Sugerir modelos com IA": lanes por regra sobre medições (decisão de 2026-10-03)
+
+As quatro lanes do combo smart vêm de `assignLanes`
+(`smart-routing/laneAssignment.ts`), uma função pura sobre o snapshot do
+Artificial Analysis. Não há LLM, Jev, web research nem cache nesse caminho.
+Antes havia os quatro: um LLM escolhia **uma** lane por modelo, com os números
+do AA só como texto no prompt, e o Jev ainda sobrescrevia. O resultado
+contradizia as medições — Gemini 3.1 Pro em Simples, MiMo V2.5 acima da V2.6,
+um palpite de 80% pelo nome passando à frente de modelo medido. O web research
+era uma busca única com 60 nomes que não informava nenhum modelo.
+
+O que a regra garante, e os testes em `laneAssignment.test.ts` seguram com
+números reais do snapshot:
+
+- **Medido vence palpite.** Sem AA, o modelo herda de um irmão medido da mesma
+  família (×0,9) ou cai na heurística de nome com desconto de 0,6.
+- **Geração nova substitui a antiga** da mesma família e tamanho quando mede
+  pelo menos igual (`modelIdentity.ts`: `mimo pro` 2.6 tira a 2.5; `flash`
+  nunca tira `pro`).
+- **Um modelo pode ocupar várias lanes**; elegibilidade é por percentil dentro
+  do inventário da conta.
+- **O nome diz o papel na família.** Variante pequena (flash, mini, lite,
+  luna…) nunca entra em Raciocínio, por melhor que meça — o AA dá ao GLM 5.3
+  Flash intel 41,8, perto do GLM-5.3, e ainda assim ninguém o arruma ali.
+  Modelo com nome de topo de família (pro, max, opus, sol…) nunca entra em
+  Simples, mesmo fraco ou barato.
+- **No máximo 2 cópias do mesmo modelo por lane** (principal + fallback em
+  outro provider), aplicado no board (`suggestionLanes`).
+- **Casamento com o AA usa o slug sem sufixo** como configuração padrão do
+  modelo. A preferência antiga pela linha *non-reasoning* colocava o GPT-5.6
+  Luna com intel 15,5 em vez de 37,3.
+
+O LLM só voltaria a fazer sentido para **resolver nomes** que não casam com o
+AA (cerca de 44% do inventário em 2026-10) — nunca para escolher a lane.
+
 ## Definição de pronto
 
 Antes de reportar qualquer tarefa como concluída, rodar `npm run check` (lint + contract:check + build + typecheck + test:coverage + check:static-routes + git diff --check) e confirmar que sai verde.

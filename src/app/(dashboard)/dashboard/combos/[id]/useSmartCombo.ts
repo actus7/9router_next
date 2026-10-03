@@ -4,27 +4,15 @@ import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { DEFAULT_SMART_ROUTING_CONFIG, ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTierOrDefault, type SmartModelProfile, type SmartRoutingConfig } from "@/shared/llm-catalog";
 import { getStoredModelTestLatencies } from "@/shared/utils/modelTestLatency";
-import { ALL_TIERS, activeScopesFromConfig, capProfilesPerTier, foldGeneralDefaultIntoGlobals, normalizeConfig, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview, type SuggestProgressEvent, type SuggestProgressState } from "./smartComboHelpers";
+import { ALL_TIERS, activeScopesFromConfig, foldGeneralDefaultIntoGlobals, normalizeConfig, suggestionLanes, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview, type SuggestProgressEvent, type SuggestProgressState } from "./smartComboHelpers";
 
-const EMPTY_SUGGEST_PROGRESS: SuggestProgressState = {
-  phase: "aa-sync", inventory: null, cache: null, webResearchUsed: null, batch: null, analyzed: [],
-};
+const EMPTY_SUGGEST_PROGRESS: SuggestProgressState = { phase: "aa-sync", inventory: null };
 
 /** Folds one stream event into the modal's progress state. */
 function foldSuggestEvent(state: SuggestProgressState, event: SuggestProgressEvent): SuggestProgressState {
-  switch (event.type) {
-    case "phase":
-      if (event.phase === "inventory") return { ...state, phase: "inventory", inventory: { total: event.total, llmEligible: event.llmEligible } };
-      if (event.phase === "web-research") return { ...state, phase: "web-research", webResearchUsed: event.used };
-      return { ...state, phase: event.phase };
-    case "cache":
-      return { ...state, phase: "cache", cache: { cached: event.cached, toAnalyze: event.toAnalyze, skippedByLimit: event.skippedByLimit } };
-    case "batch":
-      // Most recent batch first; Set guards against a model reported twice.
-      return { ...state, phase: "batch", batch: { index: event.index, total: event.total }, analyzed: [...new Set([...event.analyzed, ...state.analyzed])] };
-    default:
-      return state;
-  }
+  if (event.type !== "phase") return state;
+  if (event.phase === "inventory") return { phase: "inventory", inventory: { total: event.total, llmEligible: event.llmEligible } };
+  return { ...state, phase: event.phase };
 }
 
 export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartModelProfile[]) {
@@ -145,8 +133,6 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     try {
       const res = await fetch("/api/smart-routing/suggest", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ webResearch: true, classifierModel: config.classifier.model === "auto" ? undefined : config.classifier.model }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {
@@ -199,14 +185,16 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     }
   };
   const cancelSuggest = () => suggestAbortRef.current?.abort();
-  const cappedPreviewProfiles = useMemo(() => (
-    preview ? capProfilesPerTier(preview.profiles, suggestionPreset, modelTestLatencies) : []
+  const previewLanes = useMemo(() => (
+    preview ? suggestionLanes(preview.profiles, suggestionPreset, modelTestLatencies) : null
   ), [preview, suggestionPreset, modelTestLatencies]);
   const handleConfirmProfiles = async () => {
-    if (!preview) return;
+    if (!preview || !previewLanes) return;
     setConfirming(true);
     try {
-      const res = await fetch("/api/smart-routing/profiles/confirm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profiles: cappedPreviewProfiles, classifierModel: preview.classifierModel, researchedAt: preview.researchedAt, source: "llm" }) });
+      // A model can sit in several lanes; its profile is saved once.
+      const onBoard = [...new Map(ROUTING_TIERS.flatMap((tier) => previewLanes[tier]).map((p) => [p.modelKey, p])).values()];
+      const res = await fetch("/api/smart-routing/profiles/confirm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profiles: onBoard, classifierModel: preview.classifierModel, researchedAt: preview.researchedAt, source: "llm" }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || translate("Failed to confirm profiles") || "Failed to confirm profiles");
       setProfiles((cur) => {
@@ -217,7 +205,7 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
       setConfig((cur) => {
         const general = { ...cur.overrides.general };
         for (const tier of ROUTING_TIERS) {
-          const tms = cappedPreviewProfiles.filter((p) => p.recommendedTier === tier).map((p) => p.modelKey);
+          const tms = previewLanes[tier].map((p) => p.modelKey);
           if (tms.length > 0) general[tier] = tms;
         }
         return { ...cur, overrides: { ...cur.overrides, general } };
@@ -234,7 +222,7 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     saving, profiles, loadingProfiles, suggesting, suggestProgress, preview, setPreview, confirming,
     suggestionPreset, setSuggestionPreset, modelTestLatencies,
     currentModels, tierOptions, activeScopes, isDirty, selectScope, classifierTunedNote,
-    profileSummary, cappedPreviewProfiles,
+    profileSummary, previewLanes,
     patchModels, handleSave, handleRefresh, handleSuggest, cancelSuggest, handleConfirmProfiles,
     NEED_LABELS, TIER_LABELS, NEED_OPTIONS,
   };
