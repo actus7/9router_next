@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 
 import { auth } from "@/lib/auth/server";
 import { SIGN_IN_PATH } from "@/lib/auth/paths";
+import { extendResponseSetCookies, hasRememberMeFlag } from "@/lib/auth/persistentCookies";
 import { proxy as dashboardProxy } from "./dashboardGuard";
 import { buildContentSecurityPolicy, CSP_REPORT_ONLY_HEADER, REPORTING_ENDPOINTS } from "./lib/security/contentSecurityPolicy";
 
@@ -70,6 +71,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   request.headers.set("x-nonce", nonce);
 
   const authenticated: NextResponse = await neonAuth(request);
+  // `neonAuth` is what re-emits `session_data` (see `dashboardGuard`): every
+  // request it allows gets a fresh cache cookie, minted with a short Max-Age.
+  // With the `remember_me` flag on the request that re-emission has to stay
+  // persistent too, or the refresh would quietly hand back a session-scoped
+  // cookie after the browser restarts. Without the flag nothing is touched and
+  // the cookies stay exactly as the SDK wrote them. `asApiResponse` below just
+  // copies these headers onto its 401, so extending here covers both answers.
+  extendResponseSetCookies(authenticated.headers, hasRememberMeFlag(request.headers.get("cookie")));
   const response: NextResponse = request.nextUrl.pathname.startsWith("/api/")
     ? asApiResponse(authenticated)
     : authenticated;

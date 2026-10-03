@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { AuthView } from "@neondatabase/auth/react/ui";
 import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
+import { RememberMeCheckbox } from "@/app/auth/RememberMeCheckbox";
 
 /**
  * Every auth screen lives at /auth/<path>: sign-in, sign-up, forgot-password,
@@ -10,7 +11,15 @@ import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
  */
 async function AuthForm({ params }: { params: Promise<{ path: string }> }) {
   const { path } = await params;
-  return <AuthView path={path} />;
+  return (
+    // `main` in the layout is a row flex that centers its items; the column
+    // wrapper stacks the card and the remember-me checkbox instead of laying
+    // them out side by side.
+    <div className="flex w-full flex-col items-center">
+      <AuthView path={path} />
+      {path === "sign-in" && <RememberMeCheckbox />}
+    </div>
+  );
 }
 
 export default function AuthPage({ params }: PageProps<"/auth/[path]">) {
