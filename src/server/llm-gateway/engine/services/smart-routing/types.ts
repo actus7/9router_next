@@ -42,6 +42,37 @@ export interface SmartRoutingConfig {
   overrides: Partial<Record<RouteNeed, Partial<Record<RoutingTierOrDefault, string[]>>>>;
 }
 
+/**
+ * Aggregated benchmark/pricing metrics published by Artificial Analysis for one
+ * model. Numbers arrive from a third-party table: every field is nullable
+ * because the API omits what it has not measured — callers treat null as
+ * "unknown", never as zero.
+ */
+export interface AaModelMetrics {
+  aaId: string;
+  slug: string;
+  name: string;
+  creator: string | null;
+  intelligence: number | null;
+  coding: number | null;
+  agentic: number | null;
+  math: number | null;
+  inputUsdPer1M: number | null;
+  outputUsdPer1M: number | null;
+  outputTokensPerSecond: number | null;
+  ttftSeconds: number | null;
+  benchmarkCostUsd: number | null;
+}
+
+/** Provenance of an AA snapshot: what was fetched, when, and how much matched. */
+export interface AaSnapshotMeta {
+  fetchedAt: string;
+  indexVersion: number | null;
+  tier: string | null;
+  modelCount: number;
+  matchedCount?: number;
+}
+
 export interface SmartModelCapabilities {
   serviceKinds: string[];
   vision: boolean;
@@ -76,6 +107,12 @@ export interface SmartModelProfile {
   sources?: string[];
   researchedAt?: string | null;
   updatedAt?: string;
+  /** Artificial Analysis metrics, present only when the model matched the AA snapshot. */
+  aa?: AaModelMetrics;
+  /** Per-tier AA composite score for the suggestion board (see aaScoring); only with `aa`. */
+  aaScores?: Partial<Record<RoutingTier, number>>;
+  /** Compact reason line for the suggestion board; only with `aa`. */
+  suggestionReason?: string;
 }
 
 export type RoutingReason =

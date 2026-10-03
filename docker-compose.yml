@@ -67,5 +67,12 @@ services:
       # 0 together with rebinding the port to 0.0.0.0 — one invariant, two
       # lines.
       NINEROUTER_LOOPBACK_BOUND_PORT: ${NINEROUTER_LOOPBACK_BOUND_PORT:-1}
+      #
+      # Optional. Artificial Analysis Data API key — feeds benchmark indices,
+      # prices and speed into the "Suggest models with AI" enrichment. Empty
+      # turns the enrichment off (the suggestion flow keeps working). Free
+      # tier: 100 requests/24h; the app syncs at most once a day. Server-side
+      # only — never exposed to the browser.
+      ARTIFICIAL_ANALYSIS_API_KEY: ${ARTIFICIAL_ANALYSIS_API_KEY:-}
 volumes:
   modelhub-data:

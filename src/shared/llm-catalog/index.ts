@@ -48,4 +48,16 @@ export type {
   RouteNeed,
   SmartRoutingConfig,
   SmartModelProfile,
+  AaModelMetrics,
+  AaSnapshotMeta,
 } from "@/server/llm-gateway/engine/services/smart-routing/types";
+
+// Artificial Analysis scoring for the suggestion board (pure math)
+export {
+  AA_TIER_WEIGHTS,
+  TOKEN_MIX_INPUT,
+  TOKEN_MIX_OUTPUT,
+  computeAaTierScores,
+  buildAaSuggestionReason,
+  attachAaScoresAndReasons,
+} from "@/server/llm-gateway/engine/services/smart-routing/aaScoring";
