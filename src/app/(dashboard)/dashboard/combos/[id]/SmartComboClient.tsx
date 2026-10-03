@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import type { Connection } from "@/lib/data-access";
@@ -12,8 +13,9 @@ import { InferenceCard } from "./InferenceCard";
 import { PrioritiesCard } from "./PrioritiesCard";
 import { ModelInventoryCard } from "./ModelInventoryCard";
 import { PreviewModal } from "./PreviewModal";
+import { ProgressModal } from "./ProgressModal";
 import { SaveBar } from "./SaveBar";
-import type { ComboData } from "./smartComboHelpers";
+import type { ComboData, SuggestionPreview } from "./smartComboHelpers";
 
 export default function SmartComboClient({ initialCombo, activeProviders, modelAliases, initialProfiles }: {
   initialCombo: ComboData;
@@ -22,6 +24,13 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
   initialProfiles: SmartModelProfile[];
 }) {
   const s = useSmartCombo(initialCombo, initialProfiles);
+  // The board hints at the AA sync of the *last* suggestion round; `preview`
+  // is cleared when the modal closes, so remember its provenance here instead
+  // of touching useSmartCombo.
+  const [lastAaMeta, setLastAaMeta] = useState<SuggestionPreview["aaMeta"]>(null);
+  useEffect(() => {
+    if (s.preview?.aaMeta) setLastAaMeta(s.preview.aaMeta);
+  }, [s.preview]);
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
@@ -48,6 +57,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         modelAliases={modelAliases}
         onSuggest={s.handleSuggest}
         suggesting={s.suggesting}
+        aaMeta={lastAaMeta}
       />
 
       <PrioritiesCard
@@ -105,6 +115,10 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           addedModelValues={s.globalModels}
           closeOnSelect={false}
         />
+      )}
+
+      {s.suggestProgress && !s.preview && (
+        <ProgressModal progress={s.suggestProgress} onCancel={s.cancelSuggest} />
       )}
 
       <PreviewModal

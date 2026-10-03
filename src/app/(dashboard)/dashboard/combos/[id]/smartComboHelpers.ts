@@ -3,6 +3,7 @@ import {
   ROUTE_NEEDS,
   ROUTING_TIERS,
   type RouteNeed,
+  type RoutingTier,
   type RoutingTierOrDefault,
   type SmartModelProfile,
   type SmartRoutingConfig,
@@ -23,10 +24,38 @@ export interface SuggestionPreview {
   researchProvider: string | null;
   webResearchUsed: boolean;
   truncated: boolean;
+  /** Artificial Analysis snapshot provenance; null when the enrichment is off or failed. */
+  aaMeta?: { fetchedAt: string; indexVersion: number | null; matchedCount: number; modelCount: number } | null;
 }
 
 export type SuggestionPreset = "balanced" | "performance" | "quality";
 export type ModelLatencyMap = Record<string, { latencyMs: number; testedAt: string }>;
+
+/**
+ * NDJSON events streamed by POST /api/smart-routing/suggest: one JSON per
+ * line, in this order — phase markers, the cache report, one event per batch,
+ * then a single terminal `done` (today's response body) or `error`.
+ */
+export type SuggestProgressEvent =
+  | { type: "phase"; phase: "aa-sync" }
+  | { type: "phase"; phase: "inventory"; total: number; llmEligible: number }
+  | { type: "cache"; cached: number; toAnalyze: number; skippedByLimit: number }
+  | { type: "phase"; phase: "web-research"; used: boolean }
+  | { type: "batch"; index: number; total: number; analyzed: string[] }
+  | { type: "done"; payload: SuggestionPreview }
+  | { type: "error"; message: string };
+
+/** The stream events folded into what the progress modal renders. */
+export interface SuggestProgressState {
+  /** Latest phase that started; `batch` while batches stream in. */
+  phase: "aa-sync" | "inventory" | "cache" | "web-research" | "batch";
+  inventory: { total: number; llmEligible: number } | null;
+  cache: { cached: number; toAnalyze: number; skippedByLimit: number } | null;
+  webResearchUsed: boolean | null;
+  batch: { index: number; total: number } | null;
+  /** Models analyzed in this run, most recent batch first. */
+  analyzed: string[];
+}
 
 export const ALL_TIERS: RoutingTierOrDefault[] = ["default", ...ROUTING_TIERS];
 export const MAX_SUGGESTIONS_PER_TIER = 10;
@@ -66,7 +95,7 @@ function latencyForProfile(profile: SmartModelProfile, latencies: ModelLatencyMa
   return typeof latency === "number" ? latency : null;
 }
 
-function compareProfiles(preset: SuggestionPreset, latencies: ModelLatencyMap) {
+function compareProfiles(preset: SuggestionPreset, latencies: ModelLatencyMap, tier?: RoutingTier) {
   return (a: SmartModelProfile, b: SmartModelProfile) => {
     if (preset === "performance") {
       const aLatency = latencyForProfile(a, latencies);
@@ -77,6 +106,11 @@ function compareProfiles(preset: SuggestionPreset, latencies: ModelLatencyMap) {
       if (aLatency !== null && bLatency !== null && aLatency !== bLatency) return aLatency - bLatency;
       if (a.latencyScore !== b.latencyScore) return b.latencyScore - a.latencyScore;
     }
+    // The AA per-tier score is `quality` measured instead of guessed: when both
+    // profiles carry it, it decides the column order before the heuristics do.
+    const aAaScore = tier ? a.aaScores?.[tier] : undefined;
+    const bAaScore = tier ? b.aaScores?.[tier] : undefined;
+    if (typeof aAaScore === "number" && typeof bAaScore === "number" && aAaScore !== bAaScore) return bAaScore - aAaScore;
     if (a.quality !== b.quality) return b.quality - a.quality;
     if (a.reliabilityScore !== b.reliabilityScore) return b.reliabilityScore - a.reliabilityScore;
     return a.modelKey.localeCompare(b.modelKey);
@@ -111,7 +145,7 @@ export function capProfilesPerTier(
       .filter((profile) => (counts.get(profile.recommendedTier) || 0) > 1)
       .sort((a, b) => (
         Math.abs(a.quality - targetQuality[tier]) - Math.abs(b.quality - targetQuality[tier])
-        || compareProfiles(preset, latencies)(a, b)
+        || compareProfiles(preset, latencies, tier)(a, b)
       ))[0];
     if (replacement) replacement.recommendedTier = tier;
   }
@@ -119,7 +153,7 @@ export function capProfilesPerTier(
   return ROUTING_TIERS.flatMap((tier) =>
     rebalanced
       .filter((profile) => profile.recommendedTier === tier)
-      .sort(compareProfiles(preset, latencies))
+      .sort(compareProfiles(preset, latencies, tier))
       .slice(0, MAX_SUGGESTIONS_PER_TIER),
   );
 }

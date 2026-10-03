@@ -1,24 +1,49 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { DEFAULT_SMART_ROUTING_CONFIG, ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTierOrDefault, type SmartModelProfile, type SmartRoutingConfig } from "@/shared/llm-catalog";
 import { getStoredModelTestLatencies } from "@/shared/utils/modelTestLatency";
-import { ALL_TIERS, activeScopesFromConfig, capProfilesPerTier, foldGeneralDefaultIntoGlobals, normalizeConfig, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview } from "./smartComboHelpers";
+import { ALL_TIERS, activeScopesFromConfig, capProfilesPerTier, foldGeneralDefaultIntoGlobals, normalizeConfig, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview, type SuggestProgressEvent, type SuggestProgressState } from "./smartComboHelpers";
+
+const EMPTY_SUGGEST_PROGRESS: SuggestProgressState = {
+  phase: "aa-sync", inventory: null, cache: null, webResearchUsed: null, batch: null, analyzed: [],
+};
+
+/** Folds one stream event into the modal's progress state. */
+function foldSuggestEvent(state: SuggestProgressState, event: SuggestProgressEvent): SuggestProgressState {
+  switch (event.type) {
+    case "phase":
+      if (event.phase === "inventory") return { ...state, phase: "inventory", inventory: { total: event.total, llmEligible: event.llmEligible } };
+      if (event.phase === "web-research") return { ...state, phase: "web-research", webResearchUsed: event.used };
+      return { ...state, phase: event.phase };
+    case "cache":
+      return { ...state, phase: "cache", cache: { cached: event.cached, toAnalyze: event.toAnalyze, skippedByLimit: event.skippedByLimit } };
+    case "batch":
+      // Most recent batch first; Set guards against a model reported twice.
+      return { ...state, phase: "batch", batch: { index: event.index, total: event.total }, analyzed: [...new Set([...event.analyzed, ...state.analyzed])] };
+    default:
+      return state;
+  }
+}
 
 export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartModelProfile[]) {
   // The fold runs once, before any state exists: a config saved by the old
   // screen can hold models in overrides.general.default, a bucket the grid no
   // longer offers. Moving them into the global list only widens where they
   // apply, so it is not a change the user has to approve.
-  const initial = useMemo(() => {
+  //
+  // `baseline` is what is persisted — not just the first render's props.
+  // handleSave re-baselines after a successful PUT; without that the bar
+  // kept claiming "Unsaved changes" with Save enabled until a full reload.
+  const [baseline, setBaseline] = useState(() => {
     const folded = foldGeneralDefaultIntoGlobals(normalizeConfig(initialCombo.routing), initialCombo.models || []);
     return { name: initialCombo.name, config: folded.config, globalModels: folded.models };
-  }, [initialCombo]);
+  });
 
-  const [name, setName] = useState(initial.name);
-  const [config, setConfig] = useState<SmartRoutingConfig>(initial.config);
-  const [globalModels, setGlobalModels] = useState<string[]>(initial.globalModels);
+  const [name, setName] = useState(baseline.name);
+  const [config, setConfig] = useState<SmartRoutingConfig>(baseline.config);
+  const [globalModels, setGlobalModels] = useState<string[]>(baseline.globalModels);
   // `general` is not selectable here: the complexity board renders its tiers
   // and the global list covers its default bucket.
   const [selectedNeed, setSelectedNeed] = useState<RouteNeed>("vision");
@@ -29,6 +54,8 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
   const [profiles, setProfiles] = useState<SmartModelProfile[]>(initialProfiles);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [suggestProgress, setSuggestProgress] = useState<SuggestProgressState | null>(null);
+  const suggestAbortRef = useRef<AbortController | null>(null);
   const [preview, setPreview] = useState<SuggestionPreview | null>(null);
   const [suggestionPreset, setSuggestionPreset] = useState<SuggestionPreset>("balanced");
   const [modelTestLatencies, setModelTestLatencies] = useState<ModelLatencyMap>({});
@@ -38,10 +65,10 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
   const tierOptions: RoutingTierOrDefault[] = ALL_TIERS;
   const activeScopes = useMemo(() => activeScopesFromConfig(config), [config]);
   const isDirty = useMemo(() => (
-    name !== initial.name
-    || JSON.stringify(globalModels) !== JSON.stringify(initial.globalModels)
-    || JSON.stringify(config) !== JSON.stringify(initial.config)
-  ), [name, config, globalModels, initial]);
+    name !== baseline.name
+    || JSON.stringify(globalModels) !== JSON.stringify(baseline.globalModels)
+    || JSON.stringify(config) !== JSON.stringify(baseline.config)
+  ), [name, config, globalModels, baseline]);
   const profileSummary = useMemo(() => {
     const llm = profiles.filter((p) => p.capabilities.serviceKinds.includes("llm"));
     return {
@@ -89,6 +116,12 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
       const res = await fetch(`/api/combos/${initialCombo.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: name.trim(), kind: "smart", models: globalModels, routing: config }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || translate("Failed to save") || "Failed to save");
+      // The PUT persists `name.trim()` with the current config/models —
+      // re-baseline on exactly that so the bar clears instead of staying
+      // dirty until a reload.
+      const savedName = name.trim();
+      setName(savedName);
+      setBaseline({ name: savedName, config, globalModels });
       notify.success(translate("Smart routing saved") || "Smart routing saved");
     } catch (e) { notify.error(e instanceof Error ? e.message : translate("Failed to save") || "Failed to save"); }
     finally { setSaving(false); }
@@ -106,16 +139,66 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
   };
   const handleSuggest = async () => {
     setSuggesting(true);
+    setSuggestProgress(EMPTY_SUGGEST_PROGRESS);
+    const controller = new AbortController();
+    suggestAbortRef.current = controller;
     try {
-      const res = await fetch("/api/smart-routing/suggest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ webResearch: true, classifierModel: config.classifier.model === "auto" ? undefined : config.classifier.model }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || translate("Failed to suggest profiles") || "Failed to suggest profiles");
-      setSuggestionPreset("balanced");
-      setModelTestLatencies(getStoredModelTestLatencies());
-      setPreview(data);
-    } catch (e) { notify.error(e instanceof Error ? e.message : translate("Failed to suggest profiles") || "Failed to suggest profiles"); }
-    finally { setSuggesting(false); }
+      const res = await fetch("/api/smart-routing/suggest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ webResearch: true, classifierModel: config.classifier.model === "auto" ? undefined : config.classifier.model }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => "");
+        let message = "";
+        try { message = (JSON.parse(text) as { error?: string }).error || ""; } catch { /* non-JSON error body */ }
+        throw new Error(message || translate("Failed to suggest profiles") || "Failed to suggest profiles");
+      }
+      // NDJSON: one JSON per line, buffered until \n. `done`/`error` are terminal.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let sawDone = false;
+      const consume = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        let event: SuggestProgressEvent;
+        try { event = JSON.parse(trimmed) as SuggestProgressEvent; } catch { return; }
+        if (event.type === "done") {
+          sawDone = true;
+          setSuggestionPreset("balanced");
+          setModelTestLatencies(getStoredModelTestLatencies());
+          setPreview(event.payload);
+        } else if (event.type === "error") {
+          throw new Error(event.message);
+        } else {
+          setSuggestProgress((cur) => foldSuggestEvent(cur ?? EMPTY_SUGGEST_PROGRESS, event));
+        }
+      };
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) consume(line);
+      }
+      buffer += decoder.decode();
+      if (buffer.trim()) consume(buffer);
+      // EOF without `done` means the stream died mid-analysis; say so instead of
+      // closing the modal in silence.
+      if (!sawDone && !controller.signal.aborted) throw new Error(translate("Connection lost during analysis") || "Connection lost during analysis");
+    } catch (e) {
+      // Cancel (abort) closes the modal quietly — no error notification.
+      if (!controller.signal.aborted) notify.error(e instanceof Error ? e.message : translate("Failed to suggest profiles") || "Failed to suggest profiles");
+    } finally {
+      suggestAbortRef.current = null;
+      setSuggesting(false);
+      setSuggestProgress(null);
+    }
   };
+  const cancelSuggest = () => suggestAbortRef.current?.abort();
   const cappedPreviewProfiles = useMemo(() => (
     preview ? capProfilesPerTier(preview.profiles, suggestionPreset, modelTestLatencies) : []
   ), [preview, suggestionPreset, modelTestLatencies]);
@@ -148,11 +231,11 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     name, setName, config, setConfig, globalModels, setGlobalModels,
     selectedNeed, setSelectedNeed, selectedTier, setSelectedTier,
     showModelSelect, setShowModelSelect, showGlobalModelSelect, setShowGlobalModelSelect,
-    saving, profiles, loadingProfiles, suggesting, preview, setPreview, confirming,
+    saving, profiles, loadingProfiles, suggesting, suggestProgress, preview, setPreview, confirming,
     suggestionPreset, setSuggestionPreset, modelTestLatencies,
     currentModels, tierOptions, activeScopes, isDirty, selectScope, classifierTunedNote,
     profileSummary, cappedPreviewProfiles,
-    patchModels, handleSave, handleRefresh, handleSuggest, handleConfirmProfiles,
+    patchModels, handleSave, handleRefresh, handleSuggest, cancelSuggest, handleConfirmProfiles,
     NEED_LABELS, TIER_LABELS, NEED_OPTIONS,
   };
 }

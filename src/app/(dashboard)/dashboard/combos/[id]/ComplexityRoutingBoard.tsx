@@ -6,7 +6,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { GripVertical, Pencil, Plus, RotateCcw, Sparkles, X } from "lucide-react";
+import { Database, GripVertical, Pencil, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import ProviderIcon from "@/shared/components/ProviderIcon";
@@ -15,6 +15,7 @@ import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
 import { ROUTING_TIERS, type RoutingTier, type SmartModelProfile } from "@/shared/llm-catalog";
+import type { SuggestionPreview } from "./smartComboHelpers";
 
 const TIER_META: Record<RoutingTier, { label: string; scoreRange: string }> = {
   simple: { label: translate("Simple") || "Simple", scoreRange: translate("Short, direct questions") || "Short, direct questions" },
@@ -209,6 +210,7 @@ export default function ComplexityRoutingBoard({
   modelAliases,
   onSuggest,
   suggesting,
+  aaMeta,
 }: {
   overrides: Partial<Record<RoutingTier, string[]>>;
   onOverridesChange: (tier: RoutingTier, models: string[]) => void;
@@ -218,6 +220,8 @@ export default function ComplexityRoutingBoard({
   modelAliases: Record<string, string>;
   onSuggest: () => void;
   suggesting: boolean;
+  /** AA snapshot provenance of the last suggestion round; null when AA is off or failed. */
+  aaMeta?: SuggestionPreview["aaMeta"];
 }) {
   const profileByKey = useMemo(() => new Map(profiles.map((profile) => [profile.modelKey, profile])), [profiles]);
 
@@ -229,9 +233,17 @@ export default function ComplexityRoutingBoard({
             <h2 className="text-base font-semibold text-text-main">{translate("Complexity-based routing")}</h2>
             <p className="mt-1 text-sm text-text-muted">{translate("Each request is assessed on the spot and sent to the right tier — no latency cost. Use \"Suggest models with AI\" to fill the 4 columns automatically, or add manually.")}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={onSuggest} loading={suggesting} className="shrink-0">
-            <Sparkles data-icon="inline-start" /> {translate("Suggest models with AI")}
-          </Button>
+          <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+            <Button variant="outline" size="sm" onClick={onSuggest} loading={suggesting} className="shrink-0">
+              <Sparkles data-icon="inline-start" /> {translate("Suggest models with AI")}
+            </Button>
+            {aaMeta && (
+              <p className="flex items-center gap-1 text-[10px] text-text-muted">
+                <Database className="size-3" aria-hidden="true" />
+                {translate("AA sync") || "AA sync"} · {aaMeta.matchedCount}/{aaMeta.modelCount} {translate("models") || "models"}
+              </p>
+            )}
+          </div>
         </div>
 
         {!enabled && (
