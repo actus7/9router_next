@@ -12,10 +12,11 @@
 // Fail-open: with no judge installed, or one that answers null, the caller
 // falls back to the LLM judge it already had.
 
-/** Ids of the System One (typed-decision) models, as the AI Gateway names them. */
+/** Ids of the System One (typed-decision) models, as the AI Gateway names them.
+ *  Also what routing checks to tell a System One tiebreaker from an LLM one. */
 const SYSTEM_ONE_PREFIX = "typesafe-ai/";
 
-export function isSystemOneJudgeModel(model: string | undefined | null): boolean {
+export function isSystemOneModel(model: string | undefined | null): boolean {
   return typeof model === "string" && model.startsWith(SYSTEM_ONE_PREFIX);
 }
 

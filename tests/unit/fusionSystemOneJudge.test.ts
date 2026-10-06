@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleFusionChat } from "@/server/llm-gateway/engine/services/comboFusion";
 import {
-  isSystemOneJudgeModel,
+  isSystemOneModel,
   setFusionJudge,
   type FusionJudge,
   type FusionJudgeInput,
@@ -33,12 +33,12 @@ function makeHandler() {
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => setFusionJudge(null));
 
-describe("isSystemOneJudgeModel", () => {
+describe("isSystemOneModel", () => {
   it("recognises TypeSafe System One model ids only", () => {
-    expect(isSystemOneJudgeModel("typesafe-ai/jev")).toBe(true);
-    expect(isSystemOneJudgeModel("typesafe-ai/laya")).toBe(true);
-    expect(isSystemOneJudgeModel("oc/big-pickle")).toBe(false);
-    expect(isSystemOneJudgeModel("")).toBe(false);
+    expect(isSystemOneModel("typesafe-ai/jev")).toBe(true);
+    expect(isSystemOneModel("typesafe-ai/laya")).toBe(true);
+    expect(isSystemOneModel("oc/big-pickle")).toBe(false);
+    expect(isSystemOneModel("")).toBe(false);
   });
 });
 

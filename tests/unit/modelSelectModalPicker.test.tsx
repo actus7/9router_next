@@ -12,6 +12,9 @@ const data = {
   getCaps: () => null,
 };
 vi.mock("@/shared/components/useModelSelectData", () => ({ useModelSelectData: () => data }));
+const useSystemOneModels = vi.fn();
+vi.mock("@/shared/hooks/useSystemOneModels", () => ({ useSystemOneModels: (enabled?: boolean) => useSystemOneModels(enabled) }));
+useSystemOneModels.mockReturnValue({ data: { models: [{ id: "typesafe-ai/jev", name: "Jev", description: null }], source: "gateway" } });
 
 import ModelSelectModal from "@/shared/components/ModelSelectModal";
 
@@ -60,5 +63,21 @@ describe("ModelSelectModal on the shared picker", () => {
   it("single choice shows no add/remove hint", () => {
     renderModal();
     expect(screen.queryByText(/click to add/i)).toBeNull();
+  });
+
+  it("lists System One models only when asked, and reports the pick by id", () => {
+    renderModal();
+    expect(screen.queryByText("Jev")).toBeNull();
+    cleanup();
+    const { onSelect } = renderModal({ includeSystemOne: true, systemOneNote: "Picks the best answer" });
+    expect(screen.getByText("Picks the best answer")).toBeTruthy();
+    fireEvent.click(screen.getByText("Jev"));
+    expect(onSelect).toHaveBeenCalledWith({ value: "typesafe-ai/jev" });
+  });
+
+  it("does not fetch System One models unless they were asked for", () => {
+    useSystemOneModels.mockClear();
+    renderModal();
+    expect(useSystemOneModels).toHaveBeenLastCalledWith(false);
   });
 });

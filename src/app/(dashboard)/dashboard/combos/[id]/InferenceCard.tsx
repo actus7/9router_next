@@ -26,15 +26,15 @@ interface ToggleProps {
 // three switches buried the switches. Not a <label>, so the "i" does not toggle.
 function InferenceToggle({ title, description, ariaLabel, checked, onCheckedChange, children }: ToggleProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg bg-muted px-3 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-text-main">
-          {title}
-          <InfoButton label={title}><p>{description}</p></InfoButton>
-        </span>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg bg-muted px-3 py-1.5">
+      <span className="flex min-w-0 items-center gap-1 text-sm font-medium text-text-main">
+        {title}
+        <InfoButton label={title}><p>{description}</p></InfoButton>
+      </span>
+      <div className="ml-auto flex items-center gap-2">
+        {children}
         <Switch aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />
       </div>
-      {children}
     </div>
   );
 }
@@ -54,7 +54,7 @@ function TiebreakerModelPicker({ model, onChange, activeProviders, modelAliases 
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className="min-h-9 max-w-full border-dashed font-mono"
+        className="h-7 max-w-40 border-dashed px-2 font-mono text-xs"
         aria-label={translate("Tiebreaker model") || "Tiebreaker model"}
       >
         <Cpu data-icon="inline-start" />
@@ -81,6 +81,8 @@ function TiebreakerModelPicker({ model, onChange, activeProviders, modelAliases 
           title={translate("Select tiebreaker model") || "Select tiebreaker model"}
           addedModelValues={isAuto ? [] : [model]}
           closeOnSelect={true}
+          includeSystemOne
+          systemOneNote={translate("A System One model classifies the request directly, with calibrated confidence. When it is not sure, the automatic LLM tiebreaker takes over.") || undefined}
         />
       )}
     </div>
@@ -117,16 +119,16 @@ export function InferenceCard({
   tunedNote: string | null;
 }) {
   return (
-    <Card>
-      <div className="flex flex-col gap-4">
-        <h2 className="flex items-center gap-1.5 text-base font-semibold text-text-main">
+    <Card padding="xs">
+      <div className="flex flex-col gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-main">
           {translate("What the system decides on its own")}
           <InfoButton label={translate("What the system decides on its own") || "What the system decides on its own"}>
             <p>{translate("Turn one off and the router stops inferring that dimension — it does not become manual, it becomes fixed.")}</p>
           </InfoButton>
         </h2>
 
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-2 lg:grid-cols-3">
           <InferenceToggle
             title={translate("Request complexity") || "Request complexity"}
             description={translate("Grades each request on the spot and picks the matching tier. Off: everything routes as Standard.") || ""}

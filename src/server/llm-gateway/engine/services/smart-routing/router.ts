@@ -1,4 +1,5 @@
 ﻿import { FREE_DEFAULT_MODEL_KEY } from "../../host/catalog";
+import { isSystemOneModel } from "../../host/fusionJudge";
 import { getComboByName } from "../../host/store";
 import { ROUTE_NEEDS, ROUTING_TIERS, DEFAULT_SMART_ROUTING_CONFIG } from "./types";
 import { rankSmartProfilesForEndpoint, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
@@ -32,7 +33,13 @@ export interface ResolveSmartRoutingOptions {
    * (off, no key, timeout) or an unsure answer falls through to the heuristic
    * score, and only then to the LLM classifier.
    */
-  classifyWithJev?: (text: string, endpointNeed: RouteNeed, timeoutMs: number) => Promise<JevRoutingClassification | null>;
+  classifyWithJev?: (
+    text: string,
+    endpointNeed: RouteNeed,
+    timeoutMs: number,
+    /** Present only when the combo's tiebreaker model is a System One model: ask that model, flags or not. */
+    choice?: { model: string; explicit: true },
+  ) => Promise<JevRoutingClassification | null>;
 }
 
 export interface JevRoutingClassification extends LlmRoutingClassification {
@@ -130,7 +137,9 @@ function classifierPrompt(text: string, endpointNeed: RouteNeed): string {
 }
 
 function chooseClassifierModel(config: SmartRoutingConfig, profiles: Awaited<ReturnType<typeof refreshDeterministicSmartProfiles>>): string | null {
-  if (config.classifier.model !== "auto") {
+  // A System One tiebreaker is asked through classifyWithJev; when it cannot
+  // decide, the LLM tiebreaker that takes over is the automatic one.
+  if (config.classifier.model !== "auto" && !isSystemOneModel(config.classifier.model)) {
     return profiles.some((profile) => profile.modelKey === config.classifier.model && profile.capabilities.serviceKinds.includes("llm"))
       ? config.classifier.model
       : null;
@@ -203,10 +212,12 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
   // bar the heuristic is held to below.
   if (config.classifier.enabled && options.classifyWithJev) {
     const startedAt = Date.now();
-    const classification = await options.classifyWithJev(
-      assessment.signals.lastUserText,
-      endpointNeed,
-      config.classifier.timeoutMs,
+    const systemOneChoice = isSystemOneModel(config.classifier.model)
+      ? { model: config.classifier.model, explicit: true as const }
+      : undefined;
+    const classification = await (systemOneChoice
+      ? options.classifyWithJev(assessment.signals.lastUserText, endpointNeed, config.classifier.timeoutMs, systemOneChoice)
+      : options.classifyWithJev(assessment.signals.lastUserText, endpointNeed, config.classifier.timeoutMs)
     ).catch(() => null);
     if (classification && ROUTING_TIERS.includes(classification.tier) && classification.confidence >= config.classifier.confidenceThreshold) {
       jevAnswered = true;

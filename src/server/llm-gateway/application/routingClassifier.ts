@@ -142,8 +142,16 @@ const JEV_NEED_CRITERIA: Record<RouteNeed, string> = {
 // classifier — asked on every smart-routed request — and the heuristic score
 // and this file's LLM classifier are its fallbacks, in that order.
 export function buildJevClassifierCallback() {
-  return async (text: string, endpointNeed: RouteNeed, timeoutMs: number): Promise<JevRoutingClassification | null> => {
-    if (!(await isJevFeatureEnabled("smartRouting"))) return null;
+  return async (
+    text: string,
+    endpointNeed: RouteNeed,
+    timeoutMs: number,
+    // Set when the combo's tiebreaker model is a System One model: picking it is
+    // the opt-in, so the decision-engine flags do not apply.
+    choice?: { model: string; explicit: true },
+  ): Promise<JevRoutingClassification | null> => {
+    if (!choice && !(await isJevFeatureEnabled("smartRouting"))) return null;
+    const model = choice?.model ?? JEV_MODEL;
     const answers = await evaluateJev(
       { request: text, endpointNeed },
       {
@@ -159,13 +167,14 @@ export function buildJevClassifierCallback() {
         },
       },
       timeoutMs,
+      model,
     );
     if (answers?.tier.type !== "choice" || answers.need.type !== "choice") return null;
     return {
       tier: answers.tier.choice as RoutingTier,
       need: answers.need.choice as RouteNeed,
       confidence: answers.tier.confidence,
-      model: JEV_MODEL,
+      model,
     };
   };
 }

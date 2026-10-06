@@ -7,9 +7,12 @@ import { InferenceCard } from "@/app/(dashboard)/dashboard/combos/[id]/Inference
 
 // The real picker needs a provider catalogue; all that matters here is that a
 // pick reaches the card's callback.
+const pickerProps = vi.fn();
 vi.mock("@/shared/components/ModelSelectModal", () => ({
-  default: ({ isOpen, onSelect }: { isOpen: boolean; onSelect: (m: { value: string }) => void }) =>
-    isOpen ? <button onClick={() => onSelect({ value: "oc/big-pickle" })}>pick-model</button> : null,
+  default: (props: { isOpen: boolean; onSelect: (m: { value: string }) => void }) => {
+    pickerProps(props);
+    return props.isOpen ? <button onClick={() => props.onSelect({ value: "oc/big-pickle" })}>pick-model</button> : null;
+  },
 }));
 
 const base = DEFAULT_SMART_ROUTING_CONFIG.classifier;
@@ -51,6 +54,12 @@ describe("InferenceCard — modelo do desempate", () => {
     fireEvent.click(screen.getByRole("button", { name: /tiebreaker model/i }));
     fireEvent.click(screen.getByText("pick-model"));
     expect(props.onClassifierModelChange).toHaveBeenCalledWith("oc/big-pickle");
+  });
+
+  it("o seletor oferece os modelos System One (ex.: Jev) como desempate", () => {
+    renderCard({ ...base, enabled: true, model: "auto" });
+    fireEvent.click(screen.getByRole("button", { name: /tiebreaker model/i }));
+    expect(pickerProps).toHaveBeenLastCalledWith(expect.objectContaining({ includeSystemOne: true }));
   });
 
   it("com um modelo escolhido, mostra o id e permite voltar para Auto", () => {

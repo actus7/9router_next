@@ -16,6 +16,7 @@ export interface SystemOneModelsResponse {
 }
 
 /** The System One (typed-decision) models the account's AI Gateway key can use. */
-export function useSystemOneModels() {
-  return useSWR<SystemOneModelsResponse>("/api/system-one/models", jsonFetcher, { revalidateOnFocus: false });
+// `enabled` false skips the request (SWR treats a null key as "do not fetch").
+export function useSystemOneModels(enabled = true) {
+  return useSWR<SystemOneModelsResponse>(enabled ? "/api/system-one/models" : null, jsonFetcher, { revalidateOnFocus: false });
 }

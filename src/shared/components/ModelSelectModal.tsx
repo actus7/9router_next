@@ -6,6 +6,7 @@ import ModelPickerShell from "./model-picker/ModelPickerShell";
 import type { PickerGroup, PickerModel } from "./model-picker/modelPickerData";
 import CapacityBadges from "./CapacityBadges";
 import { useModelSelectData, type ActiveProvider } from "./useModelSelectData";
+import { useSystemOneModels } from "@/shared/hooks/useSystemOneModels";
 
 interface ModelItem {
   id: string;
@@ -29,10 +30,16 @@ interface ModelSelectModalProps {
   capFilter?: string | null;
   addedModelValues?: string[];
   closeOnSelect?: boolean;
+  /** Also list the System One (typed-decision) models, for places that accept one (a Fusion judge, the tiebreaker). */
+  includeSystemOne?: boolean;
+  /** What a System One pick means here (judge picks, tiebreaker classifies…), shown above the list. */
+  systemOneNote?: string;
 }
 
 /** Pseudo-provider that holds the account's combos, as the chat's picker shows them. */
 const COMBO_GROUP_ID = "modelhub";
+/** Pseudo-provider that holds the System One models. */
+const SYSTEM_ONE_GROUP_ID = "typesafe-ai";
 
 /**
  * "Select a model" for the whole dashboard (combos, CLI tools, smart routing…).
@@ -53,6 +60,8 @@ export default function ModelSelectModal({
   capFilter = null,
   addedModelValues = [],
   closeOnSelect = true,
+  includeSystemOne = false,
+  systemOneNote,
 }: ModelSelectModalProps) {
   // Search is the picker's own: it filters the groups built here.
   const { filteredGroups, filteredCombos, getCaps } = useModelSelectData({
@@ -64,6 +73,8 @@ export default function ModelSelectModal({
     addedModelValues,
     searchQuery: "",
   });
+
+  const { data: systemOne } = useSystemOneModels(includeSystemOne && isOpen);
 
   const groups = useMemo<PickerGroup[]>(() => {
     const combos: PickerGroup[] = filteredCombos.length
@@ -85,8 +96,15 @@ export default function ModelSelectModal({
         badges: <CapacityBadges caps={getCaps(model.value) as Record<string, boolean> | null} />,
       })),
     }));
-    return [...combos, ...providers];
-  }, [filteredCombos, filteredGroups, getCaps]);
+    const systemOneGroup: PickerGroup[] = includeSystemOne && systemOne?.models.length
+      ? [{
+        id: SYSTEM_ONE_GROUP_ID,
+        name: "System One",
+        models: systemOne.models.map((model) => ({ key: model.id, name: model.name, subtitle: model.id })),
+      }]
+      : [];
+    return [...combos, ...systemOneGroup, ...providers];
+  }, [filteredCombos, filteredGroups, getCaps, includeSystemOne, systemOne]);
 
   const selectedKeys = useMemo(
     () => (selectedModel ? [selectedModel, ...addedModelValues] : addedModelValues),
@@ -113,7 +131,9 @@ export default function ModelSelectModal({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      note={closeOnSelect ? undefined : translate("Click to add, click again to remove. Changes are saved automatically.")}
+      note={closeOnSelect
+        ? (includeSystemOne ? systemOneNote : undefined)
+        : translate("Click to add, click again to remove. Changes are saved automatically.")}
       groups={groups}
       selectedKeys={selectedKeys}
       initialGroupId={initialGroupId}

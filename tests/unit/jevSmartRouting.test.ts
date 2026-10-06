@@ -27,6 +27,12 @@ vi.mock("@/server/llm-gateway/engine/services/smart-routing/inventory", async (i
 }));
 
 import { resolveSmartRouting } from "@/server/llm-gateway/engine/services/smart-routing/router";
+import { DEFAULT_SMART_ROUTING_CONFIG } from "@/server/llm-gateway/engine/services/smart-routing/types";
+
+const routingWith = (model: string) => ({
+  ...DEFAULT_SMART_ROUTING_CONFIG,
+  classifier: { ...DEFAULT_SMART_ROUTING_CONFIG.classifier, model },
+});
 
 const combo = { name: "smart", kind: "smart", models: [], routing: null };
 const body = { messages: [{ role: "user", content: "prove that sqrt(2) is irrational" }] };
@@ -75,5 +81,37 @@ describe("smart routing with Jev", () => {
     classifyWithModel.mockResolvedValue(null);
     const { meta } = await resolveSmartRouting({ combo, body, classifyWithJev: vi.fn(async () => null), classifyWithModel });
     expect(meta.reason).toBe("ambiguous");
+  });
+});
+
+describe("smart routing with a System One tiebreaker model", () => {
+  const classifyWithModel = vi.fn();
+  const systemOneCombo = { name: "smart", kind: "smart", models: [], routing: routingWith("typesafe-ai/laya") };
+  beforeEach(() => {
+    classifyWithModel.mockReset();
+    classifyWithModel.mockResolvedValue({ tier: "simple", need: "general" });
+  });
+
+  it("asks the chosen System One model explicitly, regardless of the decision-engine flags", async () => {
+    const classifyWithJev = vi.fn(async () => ({ tier: "complex" as const, confidence: 0.9, model: "typesafe-ai/laya" }));
+    const { meta } = await resolveSmartRouting({ combo: systemOneCombo, body, classifyWithJev, classifyWithModel });
+    expect(classifyWithJev).toHaveBeenCalledWith("prove that sqrt(2) is irrational", "general", 5000, { model: "typesafe-ai/laya", explicit: true });
+    expect(meta).toMatchObject({ tier: "complex", classifierModel: "typesafe-ai/laya", classifierSource: "jev" });
+    expect(classifyWithModel).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the automatic LLM tiebreaker — never sending the System One id as an LLM", async () => {
+    const classifyWithJev = vi.fn(async () => null);
+    const { meta } = await resolveSmartRouting({ combo: systemOneCombo, body, classifyWithJev, classifyWithModel });
+    expect(classifyWithModel).toHaveBeenCalledOnce();
+    expect(classifyWithModel.mock.calls[0][0]).toBe("oc/cheap");
+    expect(meta.classifierModel).toBe("oc/cheap");
+  });
+
+  it("an LLM tiebreaker choice leaves the default Jev call untouched", async () => {
+    const classifyWithJev = vi.fn(async () => null);
+    const llmCombo = { ...systemOneCombo, routing: routingWith("oc/cheap") };
+    await resolveSmartRouting({ combo: llmCombo, body, classifyWithJev, classifyWithModel });
+    expect(classifyWithJev).toHaveBeenCalledWith("prove that sqrt(2) is irrational", "general", 5000);
   });
 });

@@ -3,7 +3,7 @@ import type { Logger } from "./types";
 import { flattenToolHistory } from "./comboHistory";
 import { detectFormat } from "./provider";
 import { createNonStreamingResponse, createStreamingResponse } from "../utils/localResponse";
-import { getFusionJudge, isSystemOneJudgeModel } from "../host/fusionJudge";
+import { getFusionJudge, isSystemOneModel } from "../host/fusionJudge";
 import type { RequestBody } from "./types";
 
 /**
@@ -316,7 +316,7 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
   }
 
   let llmJudge = judge;
-  if (isSystemOneJudgeModel(judge)) {
+  if (isSystemOneModel(judge)) {
     const picked = await pickWithSystemOne(judge, body, answers, log);
     if (picked) {
       log.info?.("FUSION", `System One judge ${judge} picked ${picked.model}`);
