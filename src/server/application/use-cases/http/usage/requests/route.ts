@@ -16,7 +16,8 @@ import {
  * Query parameters:
  * - page (default 1), pageSize (default 20, max 100)
  * - status: success | failed ("ok"/empty/"success" rows vs. everything else)
- * - model, provider: exact-name equality filters
+ * - model, provider: exact-name equality filters (provider=__modelhub__: only requests that went through a combo)
+ * - apiKey: an `apiKeys.id`
  * - range: 24h | 7d | 30d | 90d | 365d
  * - fallback=true: only rows that switched away from the requested model
  * - hasFailed=true: only rows whose routing recorded model-level failures
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
       status: (status as UsageRequestStatusLabel | null) ?? undefined,
       model: searchParams.get("model") || undefined,
       provider: searchParams.get("provider") || undefined,
+      apiKey: searchParams.get("apiKey") || undefined,
       range: range === null ? undefined : range,
       fallback: searchParams.get("fallback") === "true",
       hasFailed: searchParams.get("hasFailed") === "true",

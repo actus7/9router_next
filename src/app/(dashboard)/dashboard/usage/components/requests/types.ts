@@ -38,13 +38,14 @@ export interface RequestRow {
 export interface RequestsResponse {
   requests: RequestRow[];
   pagination: { page: number; pageSize: number; totalItems: number };
-  filterOptions?: { providers?: string[]; models?: string[] };
+  filterOptions?: { providers?: string[]; models?: string[]; apiKeys?: Array<{ id: string; name: string | null }> };
 }
 
 export interface RequestFilters {
   status: "" | "success" | "failed";
   model: string;
   provider: string;
+  apiKey: string;
   range: "" | "24h" | "7d" | "30d" | "90d" | "365d";
   fallback: boolean;
   hasFailed: boolean;
@@ -54,6 +55,7 @@ export const EMPTY_FILTERS: RequestFilters = {
   status: "",
   model: "",
   provider: "",
+  apiKey: "",
   range: "",
   fallback: false,
   hasFailed: false,

@@ -50,7 +50,7 @@ export function modelJump(routing: RequestRoutingInfo | null | undefined): { fro
 
 export function hasActiveFilters(filters: RequestFilters): boolean {
   return Boolean(
-    filters.status || filters.model || filters.provider || filters.range || filters.fallback || filters.hasFailed,
+    filters.status || filters.model || filters.provider || filters.apiKey || filters.range || filters.fallback || filters.hasFailed,
   );
 }
 
@@ -64,6 +64,7 @@ export function buildRequestsQuery(filters: RequestFilters, page: number, pageSi
   if (filters.status) params.set("status", filters.status);
   if (filters.model) params.set("model", filters.model);
   if (filters.provider) params.set("provider", filters.provider);
+  if (filters.apiKey) params.set("apiKey", filters.apiKey);
   if (filters.range) params.set("range", filters.range);
   if (filters.fallback) params.set("fallback", "true");
   if (filters.hasFailed) params.set("hasFailed", "true");

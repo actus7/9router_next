@@ -64,6 +64,7 @@ export interface ListUsageRequestsOptions {
   status?: UsageRequestStatusLabel;
   model?: string;
   provider?: string;
+  apiKey?: string;
   range?: UsageRequestRange;
   fallback?: boolean;
   hasFailed?: boolean;
@@ -74,7 +75,7 @@ export interface ListUsageRequestsResult {
   requests: UsageRequestItem[];
   pagination: { page: number; pageSize: number; totalItems: number };
   /** Only present when the caller asked for it (first load of the filters). */
-  filterOptions?: { providers: string[]; models: string[] };
+  filterOptions?: { providers: string[]; models: string[]; apiKeys: Array<{ id: string; name: string | null }> };
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -138,6 +139,7 @@ export async function listUsageRequests(options: ListUsageRequestsOptions = {}):
 
   const { rows, totalItems } = await fetchUsageRequestRows({
     provider: options.provider || undefined,
+    apiKey: options.apiKey || undefined,
     model: options.model || undefined,
     since,
     status: options.status,
@@ -163,8 +165,7 @@ export async function listUsageRequests(options: ListUsageRequestsOptions = {}):
   };
 
   if (options.includeFilterOptions) {
-    const { providers, models } = await getUsageFilterOptions();
-    result.filterOptions = { providers, models };
+    result.filterOptions = await getUsageFilterOptions();
   }
 
   return result;

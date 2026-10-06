@@ -47,6 +47,7 @@ function createDb(
       if (sql.includes("FROM requestDetails")) return opts.refs ?? [];
       if (sql.includes("SELECT DISTINCT provider")) return (opts.providers ?? []).map((provider) => ({ provider }));
       if (sql.includes("SELECT DISTINCT model")) return (opts.models ?? []).map((model) => ({ model }));
+      if (sql.includes("LEFT JOIN apiKeys")) return [{ id: "key-1", name: "Meu app" }];
       return rows;
     }),
     exec: vi.fn(async () => {}),
@@ -173,7 +174,11 @@ describe("GET /api/usage/requests — contract", () => {
 
     const withIt = install(createDb([usageRow()], { providers: ["openai", "anthropic"], models: ["gpt-4.1"] }));
     const body = await (await request("?includeFilterOptions=1")).json();
-    expect(body.filterOptions).toEqual({ providers: ["openai", "anthropic"], models: ["gpt-4.1"] });
+    expect(body.filterOptions).toEqual({
+      providers: ["openai", "anthropic"],
+      models: ["gpt-4.1"],
+      apiKeys: [{ id: "key-1", name: "Meu app" }],
+    });
     expect(withIt.calls.some((c) => c.sql.includes("SELECT DISTINCT provider"))).toBe(true);
     expect(withIt.calls.some((c) => c.sql.includes("SELECT DISTINCT model"))).toBe(true);
   });

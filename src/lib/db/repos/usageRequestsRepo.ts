@@ -9,6 +9,7 @@ import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
 import { parseJson } from "../helpers/jsonCol";
 import { toPersistenceError } from "../errors";
+import { MODELHUB_PROVIDER } from "@/shared/usage/requestFilters";
 
 /**
  * Status values that read as "this request settled fine". Written by different
@@ -28,12 +29,16 @@ const USAGE_FALLBACK_SQL: string =
   `(COALESCE((${ROUTING_META_SQL} #>> '{routing,switched}')::numeric, 0) > 0` +
   ` OR ((${ROUTING_META_SQL} #>> '{routing,selected}') IS NOT NULL` +
   ` AND (${ROUTING_META_SQL} #>> '{routing,selected}') <> (${ROUTING_META_SQL} #>> '{routing,requested}')))`;
+const USAGE_MODELHUB_SQL: string = `(${ROUTING_META_SQL} #>> '{routing,combo}') IS NOT NULL`;
 const USAGE_HAS_FAILED_SQL: string =
   `COALESCE((${ROUTING_META_SQL} #>> '{routing,failed}')::numeric, 0) > 0`;
 
 export interface UsageRequestsFilter {
+  /** A provider id, or `MODELHUB_PROVIDER` for requests that went through a combo. */
   provider?: string;
   model?: string;
+  /** `apiKeys.id` the request was made with. */
+  apiKey?: string;
   /** ISO timestamp lower bound (the window behind `range`). */
   since?: string;
   status?: "success" | "failed";
@@ -94,7 +99,9 @@ export async function listUsageRequests(filter: UsageRequestsFilter): Promise<{ 
     const conds: string[] = [];
     const params: unknown[] = [currentTenantId()];
 
-    if (filter.provider) { conds.push("provider = ?"); params.push(filter.provider); }
+    if (filter.provider === MODELHUB_PROVIDER) conds.push(USAGE_MODELHUB_SQL);
+    else if (filter.provider) { conds.push("provider = ?"); params.push(filter.provider); }
+    if (filter.apiKey) { conds.push("apiKey = ?"); params.push(filter.apiKey); }
     if (filter.model) { conds.push("model = ?"); params.push(filter.model); }
     if (filter.since) { conds.push("timestamp >= ?"); params.push(filter.since); }
     if (filter.status === "success") conds.push(`COALESCE(status, '') IN (${USAGE_SUCCESS_SQL})`);
@@ -122,7 +129,11 @@ export async function listUsageRequests(filter: UsageRequestsFilter): Promise<{ 
 }
 
 /** Distinct providers/models of this account's rows, to populate the list filters. */
-export async function getUsageFilterOptions(): Promise<{ providers: string[]; models: string[] }> {
+export async function getUsageFilterOptions(): Promise<{
+  providers: string[];
+  models: string[];
+  apiKeys: Array<{ id: string; name: string | null }>;
+}> {
   try {
     const db = await getAdapter();
     const userId: string = currentTenantId();
@@ -134,9 +145,18 @@ export async function getUsageFilterOptions(): Promise<{ providers: string[]; mo
       `SELECT DISTINCT model FROM usageHistory WHERE userId = ? AND model IS NOT NULL AND model <> '' ORDER BY model ASC`,
       [userId],
     ) as Array<{ model: string }>;
+    // Keys the account has since deleted stay listed (name null): their rows remain.
+    const apiKeys = await db.all(
+      `SELECT DISTINCT u.apiKey AS id, k.name AS name
+         FROM usageHistory u LEFT JOIN apiKeys k ON k.id = u.apiKey AND k.userId = u.userId
+        WHERE u.userId = ? AND u.apiKey IS NOT NULL AND u.apiKey NOT IN ('', 'local-no-key')
+        ORDER BY k.name ASC`,
+      [userId],
+    ) as Array<{ id: string; name: string | null }>;
     return {
       providers: providers.map((r) => r.provider).filter(Boolean),
       models: models.map((r) => r.model).filter(Boolean),
+      apiKeys: apiKeys.map((r) => ({ id: r.id, name: r.name ?? null })),
     };
   } catch (error) {
     throw toPersistenceError("usage.filterOptions", error);

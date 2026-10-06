@@ -60,7 +60,7 @@ describe("requests query", () => {
 
   it("sends only the active filters, per the fixed contract", () => {
     const query = buildRequestsQuery(
-      { status: "failed", model: "m1", provider: "openai", range: "7d", fallback: true, hasFailed: true },
+      { status: "failed", model: "m1", provider: "openai", apiKey: "", range: "7d", fallback: true, hasFailed: true },
       1,
       50,
     );

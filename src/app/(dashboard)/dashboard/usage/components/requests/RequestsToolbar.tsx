@@ -8,6 +8,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
 import { getProviderName } from "../providerUtils";
+import { MODELHUB_PROVIDER } from "@/shared/usage/requestFilters";
 import type { RequestFilters, RequestsResponse } from "./types";
 
 function t(text: string): string {
@@ -52,6 +53,9 @@ const chipTone = (active: boolean, tone: "red" | "amber") =>
 export default function RequestsToolbar({ filters, onChange, filterOptions, providerNameCache, totalItems }: Props) {
   const models = filterOptions?.models ?? [];
   const providers = filterOptions?.providers ?? [];
+  const apiKeys = filterOptions?.apiKeys ?? [];
+  const keyLabel = (id: string) => apiKeys.find((k) => k.id === id)?.name || `${id.slice(0, 8)}…`;
+  const providerLabel = (p: string) => (p === MODELHUB_PROVIDER ? "ModelHub" : getProviderName(p, providerNameCache));
   const allLabel = t("All");
   const statusLabel = (val: string) => STATUS_OPTIONS.find((o) => o.value === val)?.label ?? val;
   const rangeLabel = (val: string) => RANGE_OPTIONS.find((o) => o.value === val)?.label ?? val;
@@ -94,13 +98,29 @@ export default function RequestsToolbar({ filters, onChange, filterOptions, prov
           <Select value={filters.provider || "__all__"} onValueChange={(val) => onChange({ provider: val && val !== "__all__" ? val : "" })}>
             <SelectTrigger id="requests-provider" className="h-8 w-44 text-xs">
               <SelectValue>
-                {(val) => (val === "__all__" ? t("All providers") : getProviderName(val, providerNameCache))}
+                {(val) => (val === "__all__" ? t("All providers") : providerLabel(val))}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">{t("All providers")}</SelectItem>
+              <SelectItem value={MODELHUB_PROVIDER}>ModelHub</SelectItem>
               {providers.map((p) => (
-                <SelectItem key={p} value={p}>{getProviderName(p, providerNameCache)}</SelectItem>
+                <SelectItem key={p} value={p}>{providerLabel(p)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="requests-api-key" className="text-xs text-text-muted">{t("API key")}</Label>
+          <Select value={filters.apiKey || "__all__"} onValueChange={(val) => onChange({ apiKey: val && val !== "__all__" ? val : "" })}>
+            <SelectTrigger id="requests-api-key" className="h-8 w-44 text-xs">
+              <SelectValue>{(val) => (val === "__all__" ? t("All API keys") : keyLabel(val))}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{t("All API keys")}</SelectItem>
+              {apiKeys.map((k) => (
+                <SelectItem key={k.id} value={k.id}>{keyLabel(k.id)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
