@@ -687,6 +687,7 @@
   "Paste your Kiro API key...": "Cole sua chave de API Kiro...",
   "Paused": "Pausado",
   "Live": "Ao vivo",
+  "General information": "Informações gerais",
   "A System One model classifies the request directly, with calibrated confidence. When it is not sure, the automatic LLM tiebreaker takes over.": "Um modelo System One classifica o pedido diretamente, com confiança calibrada. Quando não tem certeza, o desempate automático por LLM assume.",
   "System One Models": "Modelos System One",
   "Judge of": "Julgador de",

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useId, useState } from "react";
-import { ChevronsUpDown, Cpu, X } from "lucide-react";
+import { BarChart3, ChevronsUpDown, Cpu, FileText, Sparkles, X, type LucideIcon } from "lucide-react";
 import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { InfoButton } from "@/shared/components/InfoButton";
@@ -16,6 +16,9 @@ import type { SmartRoutingConfig } from "@/shared/llm-catalog";
 const AUTO_MODEL = "auto";
 
 interface SettingRowProps {
+  icon: LucideIcon;
+  /** Tailwind tint for the icon tile: background + text colour. */
+  tone: string;
   title: string;
   description: string;
   ariaLabel: string;
@@ -28,12 +31,15 @@ interface SettingRowProps {
 // shadcn settings row: label on the left, control on the right, every row's
 // control in the same column. The explanation sits behind the "i", outside the
 // <Label> so opening it does not toggle the switch.
-function SettingRow({ title, description, ariaLabel, checked, onCheckedChange, children }: SettingRowProps) {
+function SettingRow({ icon: Icon, tone, title, description, ariaLabel, checked, onCheckedChange, children }: SettingRowProps) {
   const id = useId();
   return (
     <div className="flex flex-col">
       <div className="flex min-h-8 items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className={`flex size-7 shrink-0 items-center justify-center rounded-md ${tone}`} aria-hidden>
+            <Icon className="size-4" />
+          </span>
           <Label htmlFor={id} className="text-sm font-medium">{title}</Label>
           <InfoButton label={title}><p>{description}</p></InfoButton>
         </div>
@@ -54,7 +60,9 @@ function TiebreakerModelRow({ model, onChange, activeProviders, modelAliases }: 
   const [open, setOpen] = useState(false);
   const isAuto = !model || model === AUTO_MODEL;
   return (
-    <div className="flex min-h-8 items-center justify-between gap-4 pb-1 pl-4">
+    <div className="relative ml-3.5 flex min-h-9 items-center justify-between gap-4 pb-1 pl-6">
+      {/* The elbow ties this setting to the switch above it. */}
+      <span aria-hidden className="absolute -left-px top-0 h-1/2 w-4 rounded-bl-lg border-b border-l border-border" />
       <span className="text-sm text-text-muted">{translate("Tiebreaker model") || "Tiebreaker model"}</span>
       <div className="flex items-center gap-1">
         {!isAuto && (
@@ -130,6 +138,8 @@ export function InferenceCard({
 }) {
   const rows: SettingRowProps[] = [
     {
+      icon: BarChart3,
+      tone: "bg-info/15 text-info",
       title: translate("Request complexity") || "Request complexity",
       description: translate("Grades each request on the spot and picks the matching tier. Off: everything routes as Standard.") || "",
       ariaLabel: translate("Enable complexity-based routing") || "Enable complexity-based routing",
@@ -137,6 +147,8 @@ export function InferenceCard({
       onCheckedChange: onComplexityEnabledChange,
     },
     {
+      icon: FileText,
+      tone: "bg-primary/15 text-primary",
       title: translate("Request type") || "Request type",
       description: translate("Identifies code, image, search and the like, and prefers models good at it. Off: uses only the endpoint's own type.") || "",
       ariaLabel: translate("Enable task-based routing") || "Enable task-based routing",
@@ -144,6 +156,8 @@ export function InferenceCard({
       onCheckedChange: onTaskEnabledChange,
     },
     {
+      icon: Sparkles,
+      tone: "bg-success/15 text-success",
       title: translate("AI tiebreaker") || "AI tiebreaker",
       description: translate("When the local score is unsure, asks a model to break the tie. Off: it always decides on its own.") || "",
       ariaLabel: translate("Enable AI tiebreaker") || "Enable AI tiebreaker",
