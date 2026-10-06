@@ -1,9 +1,17 @@
 "use client";
 
+import { useState } from "react";
+import { Cpu, X } from "lucide-react";
 import Card from "@/shared/components/Card";
+import ModelSelectModal from "@/shared/components/ModelSelectModal";
+import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
+import { InfoButton } from "@/shared/components/InfoButton";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { translate } from "@/i18n/runtime";
 import type { SmartRoutingConfig } from "@/shared/llm-catalog";
+
+const AUTO_MODEL = "auto";
 
 interface ToggleProps {
   title: string;
@@ -11,17 +19,71 @@ interface ToggleProps {
   ariaLabel: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
+  children?: React.ReactNode;
 }
 
-function InferenceToggle({ title, description, ariaLabel, checked, onCheckedChange }: ToggleProps) {
+// The description lives behind the "i": three paragraphs of explanation beside
+// three switches buried the switches. Not a <label>, so the "i" does not toggle.
+function InferenceToggle({ title, description, ariaLabel, checked, onCheckedChange, children }: ToggleProps) {
   return (
-    <label className="flex items-start justify-between gap-3 rounded-lg bg-muted px-3 py-3">
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-text-main">{title}</span>
-        <span className="mt-0.5 block text-xs text-text-muted">{description}</span>
-      </span>
-      <Switch aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />
-    </label>
+    <div className="flex flex-col gap-3 rounded-lg bg-muted px-3 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-text-main">
+          {title}
+          <InfoButton label={title}><p>{description}</p></InfoButton>
+        </span>
+        <Switch aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Which model breaks ties: "Auto" (the router's cheap default) or a model the user picks. */
+function TiebreakerModelPicker({ model, onChange, activeProviders, modelAliases }: {
+  model: string;
+  onChange: (model: string) => void;
+  activeProviders: ActiveProvider[];
+  modelAliases: Record<string, string>;
+}) {
+  const [open, setOpen] = useState(false);
+  const isAuto = !model || model === AUTO_MODEL;
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        className="min-h-9 max-w-full border-dashed font-mono"
+        aria-label={translate("Tiebreaker model") || "Tiebreaker model"}
+      >
+        <Cpu data-icon="inline-start" />
+        <span className="truncate">{isAuto ? (translate("Auto") || "Auto") : model}</span>
+      </Button>
+      {!isAuto && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onChange(AUTO_MODEL)}
+          className="text-destructive"
+          aria-label={translate("Reset tiebreaker model to Auto") || "Reset tiebreaker model to Auto"}
+        >
+          <X />
+        </Button>
+      )}
+      {open && (
+        <ModelSelectModal
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          onSelect={(picked: { value: string }) => { onChange(picked?.value || AUTO_MODEL); setOpen(false); }}
+          activeProviders={activeProviders}
+          modelAliases={modelAliases}
+          title={translate("Select tiebreaker model") || "Select tiebreaker model"}
+          addedModelValues={isAuto ? [] : [model]}
+          closeOnSelect={true}
+        />
+      )}
+    </div>
   );
 }
 
@@ -30,15 +92,17 @@ function InferenceToggle({ title, description, ariaLabel, checked, onCheckedChan
  *
  * They were spread across three cards — complexity in the routing board, task
  * detection in the name card, the AI tiebreaker in a card of its own next to
- * three numeric fields. The fields are gone: `confidenceThreshold`, `timeoutMs`
- * and `model` are tuning nobody calibrates without telemetry, they are clamped
- * server-side against a default, and `task.confidenceThreshold` was already
- * hidden the same way. They stay editable through `PUT /api/combos`.
+ * three numeric fields. The numeric fields stay off the screen
+ * (`confidenceThreshold`, `timeoutMs`: tuning nobody calibrates without
+ * telemetry, clamped server-side; editable through `PUT /api/combos`). The
+ * tiebreaker *model* is back: which model judges your prompts is a choice,
+ * not tuning.
  */
 export function InferenceCard({
   complexityEnabled, onComplexityEnabledChange,
   taskEnabled, onTaskEnabledChange,
-  classifier, onClassifierEnabledChange,
+  classifier, onClassifierEnabledChange, onClassifierModelChange,
+  activeProviders, modelAliases,
   tunedNote,
 }: {
   complexityEnabled: boolean;
@@ -47,17 +111,20 @@ export function InferenceCard({
   onTaskEnabledChange: (enabled: boolean) => void;
   classifier: SmartRoutingConfig["classifier"];
   onClassifierEnabledChange: (enabled: boolean) => void;
+  onClassifierModelChange: (model: string) => void;
+  activeProviders: ActiveProvider[];
+  modelAliases: Record<string, string>;
   tunedNote: string | null;
 }) {
   return (
     <Card>
       <div className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-text-main">{translate("What the system decides on its own")}</h2>
-          <p className="mt-1 text-sm text-text-muted">
-            {translate("Turn one off and the router stops inferring that dimension — it does not become manual, it becomes fixed.")}
-          </p>
-        </div>
+        <h2 className="flex items-center gap-1.5 text-base font-semibold text-text-main">
+          {translate("What the system decides on its own")}
+          <InfoButton label={translate("What the system decides on its own") || "What the system decides on its own"}>
+            <p>{translate("Turn one off and the router stops inferring that dimension — it does not become manual, it becomes fixed.")}</p>
+          </InfoButton>
+        </h2>
 
         <div className="grid gap-3 lg:grid-cols-3">
           <InferenceToggle
@@ -80,7 +147,16 @@ export function InferenceCard({
             ariaLabel={translate("Enable AI tiebreaker") || "Enable AI tiebreaker"}
             checked={classifier.enabled}
             onCheckedChange={onClassifierEnabledChange}
-          />
+          >
+            {classifier.enabled && (
+              <TiebreakerModelPicker
+                model={classifier.model}
+                onChange={onClassifierModelChange}
+                activeProviders={activeProviders}
+                modelAliases={modelAliases}
+              />
+            )}
+          </InferenceToggle>
         </div>
 
         {tunedNote && <p className="text-xs text-text-muted">{tunedNote}</p>}

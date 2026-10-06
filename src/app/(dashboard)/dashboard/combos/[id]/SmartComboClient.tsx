@@ -43,6 +43,9 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         onTaskEnabledChange={(enabled) => s.setConfig((c) => ({ ...c, task: { ...c.task, enabled } }))}
         classifier={s.config.classifier}
         onClassifierEnabledChange={(enabled) => s.setConfig((c) => ({ ...c, classifier: { ...c.classifier, enabled } }))}
+        onClassifierModelChange={(model) => s.setConfig((c) => ({ ...c, classifier: { ...c.classifier, model } }))}
+        activeProviders={activeProviders as unknown as ActiveProvider[]}
+        modelAliases={modelAliases}
         tunedNote={s.classifierTunedNote}
       />
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, BrainCircuit } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { FormInput as Input } from "@/shared/components/FormInput";
+import { InfoButton } from "@/shared/components/InfoButton";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
 
@@ -28,10 +29,12 @@ export function ComboHeader({ name, onNameChange }: { name: string; onNameChange
             <BrainCircuit />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold text-text-main">{translate("Smart routing")}</h1>
-            <p className="mt-0.5 text-sm text-text-muted">
-              {translate("Automatically selects the best model for each request, and uses fallback models if the primary fails.")}
-            </p>
+            <h1 className="flex items-center gap-1.5 text-xl font-semibold text-text-main">
+              <span className="truncate">{translate("Smart routing")}</span>
+              <InfoButton label={translate("Smart routing") || "Smart routing"}>
+                <p>{translate("Automatically selects the best model for each request, and uses fallback models if the primary fails.")}</p>
+              </InfoButton>
+            </h1>
           </div>
         </div>
 
@@ -41,10 +44,15 @@ export function ComboHeader({ name, onNameChange }: { name: string; onNameChange
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
           />
-          <p className="mt-1.5 text-xs text-text-muted">
-            {translate("Use this name in the")} <code className="font-mono">model</code>{" "}
-            {translate("field. The")} <code className="font-mono">x-router-tier</code>{" "}
-            {translate("header can pin a tier per request.")}
+          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-text-muted">
+            {translate("How to use this name")}
+            <InfoButton label={translate("Combo Name") || "Combo Name"}>
+              <p>
+                {translate("Use this name in the")} <code className="font-mono">model</code>{" "}
+                {translate("field. The")} <code className="font-mono">x-router-tier</code>{" "}
+                {translate("header can pin a tier per request.")}
+              </p>
+            </InfoButton>
           </p>
         </div>
       </div>

@@ -91,7 +91,6 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     const diffs: string[] = [];
     if (config.classifier.confidenceThreshold !== base.confidenceThreshold) diffs.push(`confidence ${config.classifier.confidenceThreshold}`);
     if (config.classifier.timeoutMs !== base.timeoutMs) diffs.push(`timeout ${config.classifier.timeoutMs}ms`);
-    if (config.classifier.model !== base.model) diffs.push(`model ${config.classifier.model}`);
     if (diffs.length === 0) return null;
     return `${translate("Tuned via API") || "Tuned via API"}: ${diffs.join(" · ")}`;
   })();

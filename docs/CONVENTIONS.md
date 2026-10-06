@@ -255,6 +255,8 @@ iguais (`smartRoutingClassifier.ts` e `routingClassifier.ts`); ligar o Jev
 num só deixaria metade dos endpoints sem ele. Hoje todos passam por
 `smartRoutingClassifiers(request, apiKey, handleSingleModelChat)`.
 
+**Revisão de 2026-10-06:** `classifier.model` voltou à tela (seletor ao lado do switch "Desempate com IA", que só aparece com o desempate ligado). Qual modelo julga os prompts do usuário é escolha, não tuning. `confidenceThreshold` e `timeoutMs` continuam só por API. Descrições longas dessa tela ficam atrás de um "i" (`InfoButton`).
+
 ## "Sugerir modelos com IA": lanes por regra sobre medições (decisão de 2026-10-03)
 
 As quatro lanes do combo smart vêm de `assignLanes`
