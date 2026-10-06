@@ -2,20 +2,12 @@ name: CI
 on:
   push:
     branches: [main]
-    # Docs and markdown do not change what CI checks. Caveat: `check` is a
-    # required status, so a PR touching only these paths never reports it.
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
   # Every pull request, not only those targeting main. The `branches` filter
   # here meant a stacked PR — one based on another feature branch — got no CI at
   # all, so work could reach main through a chain where only the last link was
   # ever validated. The job name stays `check`, which is what main's branch
   # protection requires.
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
 # A newer push to the same ref makes the running build obsolete: cancel it
 # instead of paying minutes for a result nobody will read.
 concurrency:
@@ -23,12 +15,44 @@ concurrency:
   cancel-in-progress: true
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # Pinned: the `ubuntu-latest` label moves to Ubuntu 26 on 2026-10-19.
+    runs-on: ubuntu-24.04
     # A hung build must not burn the monthly Actions quota.
     timeout-minutes: 30
     steps:
+      # Full history: the next step diffs against the PR base / previous push.
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+        with:
+          fetch-depth: 0
+      # `check` is a required status, so it must report on every change — a
+      # `paths-ignore` here would leave a docs-only PR waiting for it forever.
+      # Instead the job always runs and, when every changed file is markdown or
+      # under docs/, skips the heavy steps below and ends green (~1 min, not ~4).
+      # Anything unclear (new branch, unreachable base, empty diff) runs in full.
+      - name: Detect docs-only change
+        id: scope
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            base="$PR_BASE_SHA"
+          else
+            base="$PUSH_BEFORE_SHA"
+          fi
+          docs_only=false
+          if [ -n "$base" ] && ! [[ "$base" =~ ^0+$ ]] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            files=$(git diff --name-only "$base" HEAD)
+            if [ -n "$files" ] && ! grep -qvE '^docs/|\.md$' <<< "$files"; then
+              docs_only=true
+            fi
+          fi
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          if [ "$docs_only" = "true" ]; then
+            echo "Docs-only change: skipping install, build and tests."
+          fi
+      - if: steps.scope.outputs.docs_only != 'true'
+        uses: actions/setup-node@v4
         with:
           # Must satisfy package.json engines: prisma needs >=22.18.0 and
           # undici >=22.19.0. Node 20 was below both, so `npm ci` warned
@@ -37,7 +61,8 @@ jobs:
           # Caches ~/.npm keyed by package-lock.json; `npm ci` still installs clean.
           cache: npm
       # Matches the npm that writes the lockfile locally.
-      - run: npm install -g npm@11
+      - if: steps.scope.outputs.docs_only != 'true'
+        run: npm install -g npm@11
       # `npm ci`, so a build here can never resolve a version the lockfile does
       # not record. This required repairing the lock first: it had no entry
       # resolving `@emnapi/core@^1.11.1` or `@emnapi/runtime@^1.11.1`, both
@@ -45,14 +70,16 @@ jobs:
       # npm on Windows never installs those platform packages, so it never
       # validated their subtree and reported the lock as up to date, while
       # `npm ci` on Linux validates the whole tree and refused.
-      - run: npm ci
+      - if: steps.scope.outputs.docs_only != 'true'
+        run: npm ci
       # `next build` imports every route to collect its config, and
       # `lib/auth/server` builds the Neon Auth client at module load — it throws
       # rather than start without an identity provider, which is the right call
       # at runtime and fatal at build time. Nothing here is a secret and nothing
       # is contacted: the build needs these to *exist*, not to be valid. Real
       # values belong in repository secrets, and only if CI ever runs the app.
-      - run: npm run check
+      - if: steps.scope.outputs.docs_only != 'true'
+        run: npm run check
         env:
           NEON_AUTH_BASE_URL: https://auth.invalid/neondb/auth
           # 32 characters is the SDK's floor for the cookie-signing secret.
