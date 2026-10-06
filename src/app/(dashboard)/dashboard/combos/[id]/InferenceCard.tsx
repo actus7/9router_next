@@ -6,7 +6,7 @@ import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { InfoButton } from "@/shared/components/InfoButton";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -32,12 +32,12 @@ function SettingRow({ title, description, ariaLabel, checked, onCheckedChange, c
   const id = useId();
   return (
     <div className="flex flex-col">
-      <div className="flex min-h-10 items-center justify-between gap-4">
+      <div className="flex min-h-8 items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-1.5">
           <Label htmlFor={id} className="text-sm font-medium">{title}</Label>
           <InfoButton label={title}><p>{description}</p></InfoButton>
         </div>
-        <Switch id={id} aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />
+        <Switch id={id} size="sm" aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />
       </div>
       {children}
     </div>
@@ -54,7 +54,7 @@ function TiebreakerModelRow({ model, onChange, activeProviders, modelAliases }: 
   const [open, setOpen] = useState(false);
   const isAuto = !model || model === AUTO_MODEL;
   return (
-    <div className="flex min-h-10 items-center justify-between gap-4 pb-1 pl-4">
+    <div className="flex min-h-8 items-center justify-between gap-4 pb-1 pl-4">
       <span className="text-sm text-text-muted">{translate("Tiebreaker model") || "Tiebreaker model"}</span>
       <div className="flex items-center gap-1">
         {!isAuto && (
@@ -71,7 +71,7 @@ function TiebreakerModelRow({ model, onChange, activeProviders, modelAliases }: 
           variant="outline"
           size="sm"
           onClick={() => setOpen(true)}
-          className="w-56 justify-between font-normal"
+          className="h-7 w-52 justify-between text-xs font-normal"
           aria-label={translate("Tiebreaker model") || "Tiebreaker model"}
         >
           <span className="flex min-w-0 items-center gap-2">
@@ -161,14 +161,14 @@ export function InferenceCard({
   ];
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-sm font-semibold">{translate("What the system decides on its own")}</CardTitle>
-        <CardAction>
+    <Card size="sm" className="gap-1 py-2">
+      <CardHeader className="gap-0">
+        <CardTitle className="flex items-center gap-1.5 text-sm font-semibold">
+          {translate("What the system decides on its own")}
           <InfoButton label={translate("What the system decides on its own") || "What the system decides on its own"}>
             <p>{translate("Turn one off and the router stops inferring that dimension — it does not become manual, it becomes fixed.")}</p>
           </InfoButton>
-        </CardAction>
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col">
         {rows.map((row, index) => (
