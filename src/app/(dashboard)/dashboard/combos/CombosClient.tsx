@@ -9,6 +9,9 @@ import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { Layers, Plus } from "lucide-react";
+import { InfoButton } from "@/shared/components/InfoButton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SystemOneModelsTab } from "./SystemOneModelsTab";
 import type { CombosClientProps, ComboView, Strategy, ConfirmState, CapEntry } from "./combo-types";
 import { normalizeCombos, normalizeCapacityAdapter } from "./combo-types";
 import { ComboCard } from "./ComboCard";
@@ -20,6 +23,7 @@ import { CapacityAdapterSection } from "./CapacityAdapterSection";
 
 export default function CombosClient({ initialCombos, initialProviders, initialSettings, initialAliases }: CombosClientProps) {
   const [combos, setCombos] = useState<ComboView[]>(() => normalizeCombos(initialCombos));
+  const [tab, setTab] = useState<"combos" | "systemOne">("combos");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState<ComboView | null>(null);
   const activeProviders = initialProviders;
@@ -78,14 +82,25 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+      <Tabs value={tab} onValueChange={(value) => setTab(value as "combos" | "systemOne")} className="inline-flex w-full sm:w-auto">
+        <TabsList variant="default" className="rounded-[10px] bg-surface-2 p-1">
+          <TabsTrigger value="combos" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">{translate("Combos") || "Combos"}</TabsTrigger>
+          <TabsTrigger value="systemOne" className="shrink-0 flex-none px-4 rounded-[8px] font-medium transition-all h-9 text-sm data-active:bg-surface data-active:text-text-main data-active:shadow-sm text-text-muted hover:text-text-main">{translate("System One Models") || "System One Models"}</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {tab === "systemOne" ? <SystemOneModelsTab comboStrategies={comboStrategies} /> : (<>
       <section aria-labelledby="combo-strategies" className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <p id="combo-strategies" className="mt-1 text-sm text-text-muted">{translate("Group models under a name and choose a strategy per combo:")}</p>
-          <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm text-text-muted lg:grid-cols-3">
-            <div><dt className="font-medium text-text-main">{translate("Fallback") || "Fallback"}</dt><dd>{translate("Tries models in order and moves to the next after a failure.")}</dd></div>
-            <div><dt className="font-medium text-text-main">{translate("Round Robin") || "Round Robin"}</dt><dd>{translate("Rotates models between requests to distribute load.")}</dd></div>
-            <div><dt className="font-medium text-text-main">{translate("Fusion") || "Fusion"}</dt><dd>{translate("Runs the panel in parallel and lets a judge synthesize the response (N+1 calls).")}</dd></div>
-          </dl>
+          <p id="combo-strategies" className="mt-1 flex items-center gap-1.5 text-sm text-text-muted">
+            {translate("Group models under a name and choose a strategy per combo:")}
+            <InfoButton label={translate("Strategies") || "Strategies"}>
+              <dl className="flex flex-col gap-3">
+                <div><dt className="font-medium text-text-main">{translate("Fallback") || "Fallback"}</dt><dd>{translate("Tries models in order and moves to the next after a failure.")}</dd></div>
+                <div><dt className="font-medium text-text-main">{translate("Round Robin") || "Round Robin"}</dt><dd>{translate("Rotates models between requests to distribute load.")}</dd></div>
+                <div><dt className="font-medium text-text-main">{translate("Fusion") || "Fusion"}</dt><dd>{translate("Runs the panel in parallel and lets a judge synthesize the response (N+1 calls).")}</dd></div>
+              </dl>
+            </InfoButton>
+          </p>
         </div>
         <Button size="lg" onClick={() => setShowCreateModal(true)} className="min-h-11 w-full whitespace-nowrap sm:w-auto"><Plus data-icon="inline-start" />{translate("Create Combo") || "Create Combo"}</Button>
       </section>
@@ -108,6 +123,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
       <CapacityAdapterSection capacityAdapter={capacityAdapter} onChange={handleSetCapacityAdapter} activeProviders={activeProviders} getCaps={getCaps} />
       {showCreateModal && <ComboFormModal key="create" isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={handleCreate} activeProviders={activeProviders} modelAliases={initialAliases} />}
       {editingCombo && <ComboFormModal key={editingCombo.id} isOpen={!!editingCombo} combo={editingCombo} onClose={() => setEditingCombo(null)} onSave={(data) => handleUpdate(editingCombo.id, data)} activeProviders={activeProviders} modelAliases={initialAliases} />}
+      </>)}
       <ConfirmModal isOpen={!!confirmState} onClose={() => setConfirmState(null)} onConfirm={() => { void confirmState?.onConfirm(); }} title={confirmState?.title || "Confirm"} message={confirmState?.message} variant="danger" />
     </div>
   );

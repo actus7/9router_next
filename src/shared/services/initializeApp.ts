@@ -125,6 +125,9 @@ export async function initializeApp(): Promise<void> {
     import("@/server/llm-gateway/application/errorJudge")
       .then(({ installErrorJudge }) => installErrorJudge())
       .catch((e: Error) => console.error("[ErrorJudge] install failed:", e.message));
+    import("@/server/llm-gateway/application/fusionJudge")
+      .then(({ installFusionJudge }) => installFusionJudge())
+      .catch((e: Error) => console.error("[FusionJudge] install failed:", e.message));
 
     // Defer the heavy work — nothing here blocks incoming requests.
     setTimeout(() => {

@@ -14,7 +14,10 @@ import { STRATEGY_OPTIONS } from "./combo-types";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
 import Link from "next/link";
-import { BrainCircuit, Check, Copy, Gavel, Layers, Pencil, Trash2, X } from "lucide-react";
+import { BrainCircuit, Check, Copy, Cpu, Gavel, Layers, Pencil, Trash2, X } from "lucide-react";
+import { InfoButton } from "@/shared/components/InfoButton";
+import { isSystemOneJudgeModel } from "@/server/llm-gateway/engine/host/fusionJudge";
+import { SystemOneJudgePicker } from "./SystemOneJudgePicker";
 
 export function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy }: {
   combo: ComboView; getCaps: ModelCapsGetter; activeProviders?: Connection[]; copied: string | null;
@@ -22,9 +25,11 @@ export function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy
   strategy?: Strategy; onSetStrategy: (patch: Partial<Strategy>) => void;
 }) {
   const [showJudgeSelect, setShowJudgeSelect] = useState(false);
+  const [showSystemOneSelect, setShowSystemOneSelect] = useState(false);
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
   const isFusion = current === "fusion";
+  const judgeIsSystemOne = isSystemOneJudgeModel(judge);
   const isSmart = combo.kind === "smart";
   const copyId = `combo-${combo.id}`;
 
@@ -56,8 +61,16 @@ export function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="text-xs font-medium text-text-muted">{translate("Judge") || "Judge"}</span>
                 <Button variant="outline" size="sm" onClick={() => setShowJudgeSelect(true)} className="min-h-9 max-w-full border-dashed font-mono" title="Pick the model that fuses panel answers">
-                  <Gavel data-icon="inline-start" /><span className="truncate">{judge || `Auto — ${combo.models[0] || (translate("first model") || "first model")}`}</span>
+                  {judgeIsSystemOne ? <Cpu data-icon="inline-start" /> : <Gavel data-icon="inline-start" />}<span className="truncate">{judge || `Auto — ${combo.models[0] || (translate("first model") || "first model")}`}</span>
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowSystemOneSelect(true)} className="min-h-9" aria-label={translate("Pick a System One judge") || "Pick a System One judge"}>
+                  <Cpu data-icon="inline-start" /><span>System One</span>
+                </Button>
+                {judgeIsSystemOne && (
+                  <InfoButton label={translate("System One judge") || "System One judge"}>
+                    <p>{translate("A System One judge picks the best answer from the panel and returns it as is — it does not synthesize. When it is not confident enough, the combo falls back to the LLM judge.")}</p>
+                  </InfoButton>
+                )}
                 {judge && <Button variant="ghost" size="icon-sm" onClick={() => onSetStrategy({ judgeModel: "" })} className="text-destructive" title="Reset judge to Auto" aria-label="Reset judge to Auto"><X /></Button>}
               </div>
             )}
@@ -93,6 +106,7 @@ export function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy
           </div>
         </div>
       </div>
+      <SystemOneJudgePicker isOpen={showSystemOneSelect} onClose={() => setShowSystemOneSelect(false)} onSelect={(id) => onSetStrategy({ judgeModel: id })} selected={judge} />
       {showJudgeSelect && (
         <ModelSelectModal isOpen={showJudgeSelect} onClose={() => setShowJudgeSelect(false)} onSelect={(m: { value: string }) => { onSetStrategy({ judgeModel: m?.value || "" }); setShowJudgeSelect(false); }} activeProviders={activeProviders as unknown as ActiveProvider[]} title="Select Judge Model" addedModelValues={judge ? [judge] : []} closeOnSelect={true} />
       )}

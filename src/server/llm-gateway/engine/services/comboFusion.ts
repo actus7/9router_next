@@ -1,6 +1,10 @@
 import { extractTextContent } from "../translator/formats/gemini";
 import type { Logger } from "./types";
 import { flattenToolHistory } from "./comboHistory";
+import { detectFormat } from "./provider";
+import { createNonStreamingResponse, createStreamingResponse } from "../utils/localResponse";
+import { getFusionJudge, isSystemOneJudgeModel } from "../host/fusionJudge";
+import type { RequestBody } from "./types";
 
 /**
  * Extract assistant text from a non-stream completion across formats
@@ -89,6 +93,63 @@ function buildJudgePrompt(answers: { model: string; text: string }[]): string {
     "",
     "Now write the final answer to the user's original request.",
   ].join("\n");
+}
+
+/** The user's most recent request as plain text, across the request formats. */
+function lastUserText(body: Record<string, unknown>): string {
+  const turns = (Array.isArray(body.messages) ? body.messages : Array.isArray(body.input) ? body.input : null) as Record<string, unknown>[] | null;
+  if (turns) {
+    for (let i = turns.length - 1; i >= 0; i--) {
+      if (turns[i]?.role !== "user") continue;
+      const text = extractTextContent(turns[i].content as string | Record<string, unknown>[]);
+      if (text.trim()) return text;
+    }
+  }
+  if (Array.isArray(body.contents)) {
+    const contents = body.contents as Record<string, unknown>[];
+    const last = [...contents].reverse().find((c) => c?.role === "user");
+    const parts = last?.parts;
+    if (Array.isArray(parts)) return parts.map((p: Record<string, unknown>) => (p?.text as string) || "").join("");
+  }
+  return "";
+}
+
+// Below this the System One judge is no better than letting the LLM judge decide.
+const SYSTEM_ONE_MIN_CONFIDENCE = 0.6;
+
+/**
+ * A System One judge cannot write; it can pick. Returns the winning panel answer,
+ * or null when the combo must keep its LLM judge (no judge installed, the call
+ * failed, or the pick is not confident enough).
+ */
+async function pickWithSystemOne(
+  judgeModel: string,
+  body: Record<string, unknown>,
+  answers: { model: string; text: string }[],
+  log: Logger,
+): Promise<{ model: string; text: string } | null> {
+  const judge = getFusionJudge();
+  if (!judge) return null;
+  try {
+    const verdict = await judge({ model: judgeModel, request: lastUserText(body), answers });
+    if (!verdict || verdict.confidence < SYSTEM_ONE_MIN_CONFIDENCE) {
+      log.info?.("FUSION", `System One judge ${judgeModel} not confident (${verdict?.confidence ?? "no answer"}) — using the LLM judge`);
+      return null;
+    }
+    return answers[verdict.index] ?? null;
+  } catch (e: unknown) {
+    log.warn?.("FUSION", `System One judge ${judgeModel} failed`, { error: e instanceof Error ? e.message : String(e) });
+    return null;
+  }
+}
+
+/** Deliver an already-written answer in the client's own format and stream mode. */
+function respondWithAnswer(body: Record<string, unknown>, answer: { model: string; text: string }): Response {
+  const format = detectFormat(body as RequestBody);
+  const delivered = body.stream === true
+    ? createStreamingResponse(format, answer.model, answer.text)
+    : createNonStreamingResponse(format, answer.model, answer.text);
+  return delivered.response;
 }
 
 // Fusion tuning. Overridable per-combo via settings.comboStrategies[name].
@@ -254,8 +315,19 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
     return handleSingleModel(body, answers[0].model);
   }
 
+  let llmJudge = judge;
+  if (isSystemOneJudgeModel(judge)) {
+    const picked = await pickWithSystemOne(judge, body, answers, log);
+    if (picked) {
+      log.info?.("FUSION", `System One judge ${judge} picked ${picked.model}`);
+      return respondWithAnswer(body, picked);
+    }
+    // A System One id is not a provider model: the fallback is the Auto judge.
+    llmJudge = panel[0];
+  }
+
   const judgeBody = appendUserTurn(body, buildJudgePrompt(answers));
-  log.info?.("FUSION", `Judging ${answers.length} answers with ${judge}`);
-  return handleSingleModel(judgeBody, judge);
+  log.info?.("FUSION", `Judging ${answers.length} answers with ${llmJudge}`);
+  return handleSingleModel(judgeBody, llmJudge);
 }
 

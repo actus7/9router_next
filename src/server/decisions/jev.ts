@@ -150,6 +150,8 @@ export async function evaluateJev<Q extends Record<string, JevQuestion>>(
   state: string | Record<string, unknown>,
   questions: Q,
   timeoutMs: number,
+  // Any System One model the gateway serves; Jev unless a caller picked another.
+  model: string = JEV_MODEL,
 ): Promise<{ [K in keyof Q]: JevAnswer } | null> {
   try {
     const apiKey = await getJevApiKey();
@@ -158,7 +160,7 @@ export async function evaluateJev<Q extends Record<string, JevQuestion>>(
     const response = await fetch(JEV_URL, {
       method: "POST",
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ model: JEV_MODEL, state: boundedState, questions }),
+      body: JSON.stringify({ model, state: boundedState, questions }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return null;

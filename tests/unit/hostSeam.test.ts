@@ -49,7 +49,7 @@ describe("engine/host seam", () => {
     const adapters = readdirSync(hostDir)
       .filter((f) => f.endsWith(".ts"))
       .sort();
-    expect(adapters).toEqual(["catalog.ts", "errorJudge.ts", "oauth.ts", "routingTrace.ts", "ssrf.ts", "store.ts", "synapseLoop.ts", "tenant.ts", "usage.ts"]);
+    expect(adapters).toEqual(["catalog.ts", "errorJudge.ts", "fusionJudge.ts", "oauth.ts", "routingTrace.ts", "ssrf.ts", "store.ts", "synapseLoop.ts", "tenant.ts", "usage.ts"]);
   });
 
   it("errorJudge seam is a registry: the application installs the judge, the engine reads it", () => {
