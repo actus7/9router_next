@@ -1,14 +1,11 @@
 "use client";
 
-import { useDeferredValue, useState } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Info, Search, X } from "lucide-react";
+import { useMemo } from "react";
 import { translate } from "@/i18n/runtime";
+import ModelPickerShell from "./model-picker/ModelPickerShell";
+import type { PickerGroup, PickerModel } from "./model-picker/modelPickerData";
+import CapacityBadges from "./CapacityBadges";
 import { useModelSelectData, type ActiveProvider } from "./useModelSelectData";
-import ModelSelectGroupList from "./ModelSelectGroupList";
 
 interface ModelItem {
   id: string;
@@ -34,6 +31,15 @@ interface ModelSelectModalProps {
   closeOnSelect?: boolean;
 }
 
+/** Pseudo-provider that holds the account's combos, as the chat's picker shows them. */
+const COMBO_GROUP_ID = "modelhub";
+
+/**
+ * "Select a model" for the whole dashboard (combos, CLI tools, smart routing…).
+ * It keeps its contract — `onSelect`/`onDeselect` against `addedModelValues`,
+ * `closeOnSelect`, kind/capability filters — and renders through the shared
+ * model picker, the same one the chat uses.
+ */
 export default function ModelSelectModal({
   isOpen,
   onClose,
@@ -48,11 +54,7 @@ export default function ModelSelectModal({
   addedModelValues = [],
   closeOnSelect = true,
 }: ModelSelectModalProps) {
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  // O input segue lendo `searchQuery`; a filtragem do catálogo inteiro lê o
-  // valor adiado, então a digitação não espera por ela.
-  const deferredQuery = useDeferredValue(searchQuery);
-
+  // Search is the picker's own: it filters the groups built here.
   const { filteredGroups, filteredCombos, getCaps } = useModelSelectData({
     isOpen,
     activeProviders,
@@ -60,81 +62,63 @@ export default function ModelSelectModal({
     kindFilter,
     capFilter,
     addedModelValues,
-    searchQuery: deferredQuery,
+    searchQuery: "",
   });
 
-  const handleSelect = (model: ModelItem | { value?: string; name?: string }) => {
-    const value = model?.value || model?.name || model;
-    const isAdded = addedModelValues.includes(value as string);
+  const groups = useMemo<PickerGroup[]>(() => {
+    const combos: PickerGroup[] = filteredCombos.length
+      ? [{
+        id: COMBO_GROUP_ID,
+        name: "ModelHub",
+        models: filteredCombos.map((combo) => ({ key: combo.name, name: combo.name })),
+      }]
+      : [];
+    const providers: PickerGroup[] = Object.entries(filteredGroups).map(([providerId, group]) => ({
+      id: providerId,
+      name: group.name || providerId,
+      models: group.models.map((model) => ({
+        key: model.value,
+        name: model.name,
+        subtitle: model.isPlaceholder ? undefined : model.value,
+        custom: model.isCustom,
+        placeholder: model.isPlaceholder,
+        badges: <CapacityBadges caps={getCaps(model.value) as Record<string, boolean> | null} />,
+      })),
+    }));
+    return [...combos, ...providers];
+  }, [filteredCombos, filteredGroups, getCaps]);
 
-    if (isAdded && onDeselect) {
-      onDeselect(model as ModelItem);
-    } else {
-      onSelect(model as ModelItem);
-    }
+  const selectedKeys = useMemo(
+    () => (selectedModel ? [selectedModel, ...addedModelValues] : addedModelValues),
+    [selectedModel, addedModelValues],
+  );
+  // A single choice opens on its provider so it is in view; a multi-select list
+  // opens on every provider, since the added models can sit in any of them.
+  const initialGroupId = useMemo(() => {
+    if (!selectedModel) return null;
+    return groups.find((group) => group.models.some((model) => model.key === selectedModel))?.id ?? null;
+  }, [groups, selectedModel]);
 
-    if (closeOnSelect) {
-      onClose();
-      setSearchQuery("");
-    }
+  const handlePick = (model: PickerModel, group: PickerGroup) => {
+    // Callers read `id`/`name`/`isCustom` off the model, as they did from the chip list;
+    // combos have no such record, only their name.
+    const item = filteredGroups[group.id]?.models.find((m) => m.value === model.key) ?? { value: model.key };
+    if (addedModelValues.includes(model.key) && onDeselect) onDeselect(item);
+    else onSelect(item);
+    if (closeOnSelect) onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        onClose();
-        setSearchQuery("");
-      }
-    }}>
-      <DialogContent
-        showCloseButton={false}
-        className={cn(
-          "bg-surface border border-border-subtle rounded-[14px]",
-          "shadow-[var(--shadow-elev)] ring-0 gap-0 p-0",
-          "max-w-md",
-          "p-4!"
-        )}
-      >
-        <div className="flex items-center justify-between p-2 border-b border-border-subtle">
-          <DialogTitle className="text-lg font-semibold text-text-main ml-2">
-            {title}
-          </DialogTitle>
-          <Button onClick={() => { onClose(); setSearchQuery(""); }} aria-label={translate("Close") ?? "Close"} variant="ghost" size="icon-sm">
-            <X className="size-5" />
-          </Button>
-        </div>
-        <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
-      {/* Info bar */}
-      <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-primary/8 border border-primary/20 rounded-lg text-xs text-text-muted">
-        <Info className="size-3.5 text-primary shrink-0" />
-        <span>{translate("Click to add, click again to remove. Changes are saved automatically.")}</span>
-      </div>
-
-      {/* Search - compact */}
-      <div className="mb-3">
-        <div className="relative">
-          <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-text-muted" />
-          <Input
-            type="text"
-            placeholder={translate("Search...") || "Search..."}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs"
-          />
-        </div>
-      </div>
-
-      <ModelSelectGroupList
-        filteredGroups={filteredGroups}
-        filteredCombos={filteredCombos}
-        selectedModel={selectedModel}
-        addedModelValues={addedModelValues}
-        onSelect={handleSelect}
-        getCaps={getCaps}
-      />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <ModelPickerShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      note={closeOnSelect ? undefined : translate("Click to add, click again to remove. Changes are saved automatically.")}
+      groups={groups}
+      selectedKeys={selectedKeys}
+      initialGroupId={initialGroupId}
+      onPick={handlePick}
+    />
   );
 }
 
