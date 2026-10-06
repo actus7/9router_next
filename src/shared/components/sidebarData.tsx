@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, CloudUpload, Film, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, ScanEye, Server, Terminal, Webhook, Braces } from "lucide-react";
+import { Activity, BarChart3, CloudUpload, Film, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, ScanEye, Server, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export const KIND_ICON_MAP: Record<string, LucideIcon> = {
@@ -15,6 +15,7 @@ export const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon:
 export const navItems = [
   { href: "/dashboard/basic-chat", label: "Chat", icon: <MessageSquare /> },
   { href: "/dashboard/usage", label: "Usage", icon: <BarChart3 /> },
+  { href: "/dashboard/requests", label: "Requests", icon: <Activity /> },
   { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: <Webhook /> },
   { href: "/dashboard/providers", label: "Providers", icon: <Server /> },
   { href: "/dashboard/web-providers", label: "Web Session Providers", icon: <Globe /> },

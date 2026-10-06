@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import Drawer from "@/shared/components/Drawer";
 import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
@@ -10,6 +10,7 @@ import RequestsToolbar from "./RequestsToolbar";
 import RequestsTable from "./RequestsTable";
 import RequestDrawerBody from "./RequestDrawerBody";
 import { buildRequestsQuery, hasActiveFilters } from "./requestFormat";
+import { findNewRequestIds, LIVE_REFRESH_MS, shouldPollRequests } from "./requestLive";
 import { EMPTY_FILTERS, type RequestFilters, type RequestRow, type RequestsResponse } from "./types";
 
 /** The Requests experience: always-on dense list, filters on top, one drawer
@@ -18,6 +19,7 @@ import { EMPTY_FILTERS, type RequestFilters, type RequestRow, type RequestsRespo
 export default function RequestsPanel() {
   const [filters, setFilters] = useState<RequestFilters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
+  const [live, setLive] = useState(true);
   const [pageSize, setPageSize] = useState(20);
   const [selectedRow, setSelectedRow] = useState<RequestRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -38,8 +40,24 @@ export default function RequestsPanel() {
   }, []);
 
   const query = buildRequestsQuery(filters, page, pageSize);
-  const { data, isLoading, error } = useSWR<RequestsResponse>(`/api/usage/requests?${query}`, jsonFetcher);
+  const polling = shouldPollRequests({ live, page, drawerOpen });
+  const { data, isLoading, error } = useSWR<RequestsResponse>(`/api/usage/requests?${query}`, jsonFetcher, {
+    refreshInterval: polling ? LIVE_REFRESH_MS : 0,
+    refreshWhenHidden: false,
+    keepPreviousData: true,
+  });
   const rows = data?.requests ?? [];
+
+  // Rows newer than the last render's newest id flash once; the first load flags nothing.
+  const lastSeenId = useRef<number | null>(null);
+  const [newIds, setNewIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (!data || page !== 1) return;
+    const fresh = findNewRequestIds(lastSeenId.current, data.requests);
+    const newest = data.requests[0]?.id;
+    if (newest !== undefined) lastSeenId.current = Math.max(lastSeenId.current ?? newest, newest);
+    setNewIds(fresh);
+  }, [data, page]);
   const pagination = data?.pagination ?? { page, pageSize, totalItems: 0 };
 
   const updateFilters = useCallback((patch: Partial<RequestFilters>) => {
@@ -49,6 +67,20 @@ export default function RequestsPanel() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={() => setLive((v) => !v)}
+          aria-pressed={polling}
+          className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs font-medium text-text-main hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+        >
+          <span
+            aria-hidden
+            className={`size-2 rounded-full ${polling ? "animate-pulse bg-success" : "bg-text-muted"}`}
+          />
+          {polling ? translate("Live") || "Live" : translate("Paused") || "Paused"}
+        </button>
+      </div>
       <RequestsToolbar
         filters={filters}
         onChange={updateFilters}
@@ -58,6 +90,7 @@ export default function RequestsPanel() {
       />
       <RequestsTable
         rows={rows}
+        newIds={newIds}
         loading={isLoading}
         error={Boolean(error)}
         pagination={pagination}

@@ -90,6 +90,7 @@ function ModelCell({ row }: { row: RequestRow }) {
 
 interface Props {
   rows: RequestRow[];
+  newIds?: ReadonlySet<number>;
   loading: boolean;
   error: boolean;
   pagination: { page: number; pageSize: number; totalItems: number };
@@ -103,7 +104,7 @@ interface Props {
 /** Dense, scannable request list: identity first (status, when, which model),
  *  then the mechanics (attempts, fallbacks), then usage. Row = drawer. */
 export default function RequestsTable({
-  rows, loading, error, pagination, filtersActive, onClearFilters, onRowClick, onPageChange, onPageSizeChange,
+  rows, newIds, loading, error, pagination, filtersActive, onClearFilters, onRowClick, onPageChange, onPageSizeChange,
 }: Props) {
   const openRow = (row: RequestRow) => onRowClick(row);
   return (
@@ -174,7 +175,7 @@ export default function RequestsTable({
                       openRow(row);
                     }
                   }}
-                  className="cursor-pointer hover:bg-black/[0.02] focus-visible:bg-black/[0.04] focus-visible:outline-none dark:hover:bg-white/[0.02] dark:focus-visible:bg-white/[0.04]"
+                  className={`${newIds?.has(row.id) ? "bg-success/10 " : ""}cursor-pointer hover:bg-black/[0.02] focus-visible:bg-black/[0.04] focus-visible:outline-none dark:hover:bg-white/[0.02] dark:focus-visible:bg-white/[0.04]`}
                 >
                   <TableCell className={CELL}>
                     <StatusPill statusLabel={row.statusLabel} cause={row.statusRaw} />
