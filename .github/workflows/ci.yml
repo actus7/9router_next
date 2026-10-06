@@ -2,15 +2,30 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs and markdown do not change what CI checks. Caveat: `check` is a
+    # required status, so a PR touching only these paths never reports it.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   # Every pull request, not only those targeting main. The `branches` filter
   # here meant a stacked PR — one based on another feature branch — got no CI at
   # all, so work could reach main through a chain where only the last link was
   # ever validated. The job name stays `check`, which is what main's branch
   # protection requires.
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+# A newer push to the same ref makes the running build obsolete: cancel it
+# instead of paying minutes for a result nobody will read.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
     runs-on: ubuntu-latest
+    # A hung build must not burn the monthly Actions quota.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +34,8 @@ jobs:
           # undici >=22.19.0. Node 20 was below both, so `npm ci` warned
           # EBADENGINE on three packages before failing.
           node-version: 22
+          # Caches ~/.npm keyed by package-lock.json; `npm ci` still installs clean.
+          cache: npm
       # Matches the npm that writes the lockfile locally.
       - run: npm install -g npm@11
       # `npm ci`, so a build here can never resolve a version the lockfile does
