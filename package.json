@@ -66,7 +66,7 @@
   },
   "devDependencies": {
     "@prisma/cli-engine": "^0.3.0",
-    "@prisma/orm-postgres": "^8.0.0-rc.8",
+    "@prisma/orm-postgres": "8.0.0-rc.8",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.3",
     "@types/jest-axe": "^3.5.9",
@@ -81,7 +81,7 @@
     "eslint-config-next": "16.3.8",
     "eslint-plugin-unused-imports": "^4.4.1",
     "jest-axe": "^11.0.0",
-    "prisma": "^8.0.0-rc.12",
+    "prisma": "8.0.0-rc.12",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.11"
