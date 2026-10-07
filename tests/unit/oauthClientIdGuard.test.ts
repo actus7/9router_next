@@ -18,14 +18,15 @@ async function generate(provider: string) {
 }
 
 describe("generateAuthData", () => {
-  it("refuses to build a Google authorize URL with no client id", async () => {
+  it("falls back to the built-in client when the env is empty, so the URL never carries an empty client_id", async () => {
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_ID", "");
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "");
 
-    await expect(generate("gemini-cli")).rejects.toThrow(/GOOGLE_OAUTH_CLIENT_ID/);
+    const data = await generate("gemini-cli");
+    expect(new URL(data.authUrl!).searchParams.get("client_id")).toBeTruthy();
   });
 
-  it("builds the URL once the client id is configured", async () => {
+  it("uses the env client when one is configured", async () => {
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_ID", "test-client-id.apps.googleusercontent.com");
     vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "test-secret");
 

@@ -220,6 +220,20 @@ export async function syncAaSnapshotIfStale(): Promise<AaSnapshot | null> {
   return inflight;
 }
 
+/**
+ * The operator asked for a fresh snapshot: skip the daily TTL. Unlike the
+ * automatic path this does not fall back to the stale snapshot — a button that
+ * reports success while nothing was fetched is worse than an error. The stored
+ * snapshot is only replaced after a complete fetch.
+ */
+export async function forceSyncAaSnapshot(): Promise<AaSnapshot> {
+  const apiKey = process.env.ARTIFICIAL_ANALYSIS_API_KEY?.trim();
+  if (!apiKey) throw new Error("ARTIFICIAL_ANALYSIS_API_KEY is not configured");
+  const snapshot = await fetchAaSnapshot(apiKey);
+  await saveAaSnapshot(snapshot.meta, snapshot.byNormName);
+  return snapshot;
+}
+
 /** AA metrics for one profile: the model id first, then the display name. */
 export function matchAaToProfile(
   profile: SmartModelProfile,

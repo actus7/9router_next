@@ -6,7 +6,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { Database, GripVertical, Pencil, Plus, RotateCcw, Sparkles, X } from "lucide-react";
+import { Database, GripVertical, Pencil, Plus, RefreshCw, RotateCcw, Sparkles, X } from "lucide-react";
 import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import ProviderIcon from "@/shared/components/ProviderIcon";
@@ -214,6 +214,8 @@ export default function ComplexityRoutingBoard({
   onSuggest,
   suggesting,
   aaMeta,
+  onSyncAa,
+  syncingAa,
 }: {
   overrides: Partial<Record<RoutingTier, string[]>>;
   onOverridesChange: (tier: RoutingTier, models: string[]) => void;
@@ -225,6 +227,9 @@ export default function ComplexityRoutingBoard({
   suggesting: boolean;
   /** AA snapshot provenance of the last suggestion round; null when AA is off or failed. */
   aaMeta?: SuggestionPreview["aaMeta"];
+  /** Refetch the Artificial Analysis snapshot now, ignoring the daily TTL. */
+  onSyncAa: () => void;
+  syncingAa: boolean;
 }) {
   const profileByKey = useMemo(() => new Map(profiles.map((profile) => [profile.modelKey, profile])), [profiles]);
 
@@ -240,12 +245,22 @@ export default function ComplexityRoutingBoard({
             <Button variant="outline" size="sm" onClick={onSuggest} loading={suggesting} className="shrink-0">
               <Sparkles data-icon="inline-start" /> {translate("Suggest models with AI")}
             </Button>
-            {aaMeta && (
-              <p className="flex items-center gap-1 text-[10px] text-text-muted">
-                <Database className="size-3" aria-hidden="true" />
-                {translate("AA sync") || "AA sync"} · {aaMeta.matchedCount}/{aaMeta.modelCount} {translate("models") || "models"}
-              </p>
-            )}
+            <p className="flex items-center gap-1 text-[10px] text-text-muted">
+              <Database className="size-3" aria-hidden="true" />
+              {aaMeta
+                ? <>{translate("AA sync") || "AA sync"} · {aaMeta.matchedCount}/{aaMeta.modelCount} {translate("models") || "models"}</>
+                : <>{translate("AA sync") || "AA sync"}</>}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onSyncAa}
+                loading={syncingAa}
+                className="h-5 px-1.5 text-[10px]"
+                title={translate("Refetch Artificial Analysis now. The free tier allows 100 requests per day.") || "Refetch Artificial Analysis now. The free tier allows 100 requests per day."}
+              >
+                <RefreshCw data-icon="inline-start" /> {translate("Sync now") || "Sync now"}
+              </Button>
+            </p>
           </div>
         </div>
 

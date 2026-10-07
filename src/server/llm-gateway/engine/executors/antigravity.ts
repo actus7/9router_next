@@ -1,11 +1,12 @@
 import crypto from "crypto";
 import { BaseExecutor } from "./base";
 import { PROVIDERS } from "../config/providers";
-import { OAUTH_ENDPOINTS, ANTIGRAVITY_HEADERS, AG_DEFAULT_TOOLS, AG_TOOL_SUFFIX } from "../config/appConstants";
+import { OAUTH_ENDPOINTS, ANTIGRAVITY_HEADERS, AG_DEFAULT_TOOLS, AG_TOOL_SUFFIX, ANTIGRAVITY_PROMPT_REWRITES } from "../config/appConstants";
 import { HTTP_STATUS } from "../config/runtimeConfig";
-import { resolveSessionId } from "../utils/sessionManager";
+import { resolveSessionId, toNumericSessionId } from "../utils/sessionManager";
+import { getGeminiThoughtSignatureSync } from "../services/thoughtSignatureStore";
 import { proxyAwareFetch } from "../utils/proxyFetch";
-import { cleanJSONSchemaForAntigravity } from "../translator/formats/gemini";
+import { cleanJSONSchemaForAntigravity, normalizeGeminiContents } from "../translator/formats/gemini";
 import { DEFAULT_THINKING_AG_SIGNATURE } from "../config/defaultThinkingSignature";
 import { judgeUpstreamError } from "../services/accountFallback";
 import type { ErrorJudgement } from "../host/errorJudge";
@@ -194,8 +195,11 @@ export class AntigravityExecutor extends BaseExecutor {
     }
 
     // ─── Standard (non-image) request ───
+    const rawSessionId = ((body.request as Record<string, unknown>)?.sessionId as string) || resolveSessionId({ headers: credentials?.rawHeaders as Record<string, string> | undefined, body, connectionId: credentials?.email || credentials?.connectionId, scope: "antigravity" });
+    const sessionId = toNumericSessionId(rawSessionId) || rawSessionId;
+
     // Fix contents for Claude models via Antigravity
-    const contents = ((body.request as Record<string, unknown>)?.contents as Record<string, unknown>[])?.map(c => {
+    const rawContents = (((body.request as Record<string, unknown>)?.contents as Record<string, unknown>[]) || []).map(c => {
       let role = c.role as string;
       // functionResponse must be role "user" for Claude models
       if (((c.parts || []) as Record<string, unknown>[]).some(p => p.functionResponse)) {
@@ -208,21 +212,20 @@ export class AntigravityExecutor extends BaseExecutor {
         return true;
       });
       // Gemini 3+ rejects functionCall parts without thoughtSignature. Clients (Claude Code, IDE)
-      // don't persist thoughtSignature in their history, so backfill the default signature on any
-      // functionCall part that arrives without one.
-      const needsBackfill = parts?.some(p => p.functionCall && !p.thoughtSignature) ?? false;
-      if (role !== c.role || parts?.length !== (c.parts as unknown[])?.length || needsBackfill) {
-        return {
-          ...c, role,
-          parts: needsBackfill
-            ? parts.map(p => (p.functionCall && !p.thoughtSignature)
-                ? { ...p, thoughtSignature: DEFAULT_THINKING_AG_SIGNATURE }
-                : p)
-            : parts,
-        };
-      }
-      return c;
+      // do not persist it in their history, so backfill from the cache or the stand-in.
+      // In parallel function calls only the first needs a signature; siblings stay unsigned.
+      let firstFunctionCallSeen = false;
+      const modifiedParts = parts.map(p => {
+        if (!p.functionCall) return p;
+        const callId = (p.functionCall as Record<string, unknown>).id as string | undefined;
+        const cachedSig = callId ? getGeminiThoughtSignatureSync(callId, sessionId, (body.model as string) || model) : null;
+        const callSig = (p.thoughtSignature as string | undefined) || cachedSig || (!firstFunctionCallSeen ? DEFAULT_THINKING_AG_SIGNATURE : undefined);
+        firstFunctionCallSeen = true;
+        return callSig ? { ...p, thoughtSignature: callSig } : p;
+      });
+      return { ...c, role, parts: modifiedParts };
     });
+    const contents = normalizeGeminiContents(rawContents);
 
     // Sanitize tool schemas and function names before sending to Antigravity.
     let tools = (body.request as Record<string, unknown>)?.tools as Record<string, unknown>[] | undefined;
@@ -252,13 +255,14 @@ export class AntigravityExecutor extends BaseExecutor {
     const { tools: _originalTools, toolConfig: _originalToolConfig, ...requestWithoutTools } = (body.request || {}) as Record<string, unknown>;
     stripBlacklisted(requestWithoutTools as Record<string, unknown>);
     
-    // Rewrite competitive system prompts (e.g. Zed IDE's Claude prompt) to prevent Antigravity from 
-    // flagging the request and immediately blocking it with a 429 Quota Exhausted response.
+    // Rewrite competing-client branding in system prompts (Zed's Claude prompt,
+    // Hermes, OpenCode naming) so Antigravity doesn't flag the request with a
+    // 429 Quota Exhausted.
     if ((requestWithoutTools.systemInstruction as Record<string, unknown>)?.parts) {
-      const oldText = "You are a Claude agent, built on Anthropic's Claude Agent SDK.";
       for (const part of ((requestWithoutTools.systemInstruction as Record<string, unknown>).parts as Record<string, unknown>[])) {
-        if (typeof part.text === "string" && part.text.includes(oldText)) {
-          part.text = part.text.split(oldText).join("");
+        if (typeof part.text !== "string") continue;
+        for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
+          part.text = (part.text as string).replaceAll(from as string, to as string);
         }
       }
     }
@@ -273,7 +277,7 @@ export class AntigravityExecutor extends BaseExecutor {
       generationConfig,
       ...(contents && { contents }),
       ...(tools && { tools }),
-      sessionId: ((body.request as Record<string, unknown>)?.sessionId as string) || resolveSessionId({ headers: credentials?.rawHeaders as Record<string, string> | undefined, body, connectionId: credentials?.email || credentials?.connectionId, scope: "antigravity" }),
+      sessionId,
       safetySettings: undefined,
       ...((tools?.length ?? 0) > 0 && { toolConfig: { functionCallingConfig: { mode: "VALIDATED" } } })
     };
@@ -283,12 +287,16 @@ export class AntigravityExecutor extends BaseExecutor {
 
     this._lastSessionId = transformedRequest.sessionId as string; // cached for buildHeaders (base.execute order)
 
+    // The agent (chat) path carries no `requestType`: "agent" — or one leaking
+    // in through the ...body spread — makes Google answer a false 429
+    // RESOURCE_EXHAUSTED. image_gen/search keep their own value (built above).
+    delete body.requestType;
+
     return {
       ...body,
       project: projectId,
       model: body.model || model,
       userAgent: "antigravity",
-      requestType: "agent",
       requestId: buildIdeRequestId({ body, request: transformedRequest, credentials, model, requestType: "agent" }),
       request: transformedRequest
     };

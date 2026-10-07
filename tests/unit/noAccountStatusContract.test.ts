@@ -40,6 +40,7 @@ vi.mock("@/server/llm-gateway/engine/handlers/embeddingsCore", () => ({
 vi.mock("@/server/llm-gateway/auth/tokenRefresh", () => ({
   checkAndRefreshToken: vi.fn(async (_provider: string, creds: unknown) => creds),
   updateProviderCredentials: vi.fn(async () => {}),
+  ensureProjectId: vi.fn(async () => {}),
 }));
 vi.mock("@/server/llm-gateway/engine/services/projectId", () => ({
   getProjectIdForConnection: vi.fn(async () => null),

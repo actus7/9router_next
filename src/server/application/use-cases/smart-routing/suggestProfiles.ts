@@ -55,6 +55,13 @@ function sanitizeErrorMessage(error: unknown): string {
   return cleaned || "Failed to suggest model profiles";
 }
 
+/** The inventory the board routes general chat to (see runSuggest). */
+export function chatEligibleProfiles(inventory: SmartModelProfile[]): SmartModelProfile[] {
+  return inventory.filter((profile) => (
+    profile.capabilities.serviceKinds.includes("llm") && isChatModel(profile.model) && isChatModel(profile.displayName)
+  ));
+}
+
 async function* runSuggest(): AsyncGenerator<Uint8Array> {
   const encoder = new TextEncoder();
   const emit = (event: SuggestStreamEvent): Uint8Array => encoder.encode(`${JSON.stringify(event)}\n`);
@@ -67,9 +74,7 @@ async function* runSuggest(): AsyncGenerator<Uint8Array> {
     // The board routes general chat: TTS voices, image/video models and
     // embeddings must not reach it, whether the provider says so
     // (serviceKinds) or only the model name does (Lyria filed as `llm`).
-    const chat = inventory.filter((profile) => (
-      profile.capabilities.serviceKinds.includes("llm") && isChatModel(profile.model) && isChatModel(profile.displayName)
-    ));
+    const chat = chatEligibleProfiles(inventory);
     const enriched = enrichProfilesWithAa(chat, aa);
     yield emit({ type: "phase", phase: "inventory", total: inventory.length, llmEligible: chat.length });
     if (enriched.profiles.length === 0) {

@@ -1,3 +1,5 @@
+import { ANTIGRAVITY_OAUTH_CLIENT } from "../shared";
+
 export default {
   id: "agy",
   alias: "agy",
@@ -21,8 +23,8 @@ export default {
     { id: "agy-default", name: "Antigravity Default" },
   ],
   oauth: {
-    clientId: process.env.ANTIGRAVITY_OAUTH_CLIENT_ID || "",
-    clientSecret: process.env.ANTIGRAVITY_OAUTH_CLIENT_SECRET || "",
+    clientId: ANTIGRAVITY_OAUTH_CLIENT.clientId,
+    clientSecret: ANTIGRAVITY_OAUTH_CLIENT.clientSecret,
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
     scopes: [

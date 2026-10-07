@@ -10,6 +10,11 @@ import { getCredentialExpiryMs } from "@/server/llm-gateway/engine/services/oaut
 export const BACKGROUND_REFRESH_LEAD_MS: number = 30 * 60 * 1000;
 const DEFAULT_INTERVAL_MS: number = 5 * 60 * 1000;
 const INITIAL_DELAY_MS: number = 10 * 1000;
+// Refreshing several Google accounts at once trips Google's anti-abuse limits,
+// so due connections go one at a time, spaced (upstream decolua/9router 1442cc7).
+const SENSITIVE_PROVIDERS: ReadonlySet<string> = new Set(["antigravity", "gemini-cli"]);
+const SENSITIVE_DELAY_MS: number = Number(process.env.BG_REFRESH_GOOGLE_DELAY_MS) || 12_000;
+const NORMAL_DELAY_MS: number = Number(process.env.BG_REFRESH_DELAY_MS) || 1_500;
 
 let started: boolean = false;
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
@@ -88,6 +93,7 @@ async function refreshOne(connection: Connection): Promise<unknown> {
 interface TickDeps {
   loadConnections?: () => Promise<Connection[]>;
   refreshConnection?: (conn: Connection) => Promise<unknown>;
+  sleep?: (ms: number) => Promise<void>;
 }
 
 /**
@@ -102,6 +108,7 @@ export async function runBackgroundTokenRefreshTick(deps: TickDeps = {}): Promis
   try {
     const load: () => Promise<Connection[]> = deps.loadConnections || loadActiveConnections;
     const refresh: (conn: Connection) => Promise<unknown> = deps.refreshConnection || refreshOne;
+    const sleep: (ms: number) => Promise<void> = deps.sleep || ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
     const connections: Connection[] = await load();
     const due: Connection[] = selectConnectionsNeedingRefresh(connections, Date.now());
@@ -118,23 +125,27 @@ export async function runBackgroundTokenRefreshTick(deps: TickDeps = {}): Promis
       ids: due.map((c: Connection) => c.id).filter(Boolean),
     });
 
-    await Promise.allSettled(
-      due.map(async (conn: Connection) => {
-        try {
-          await refresh(conn);
-          log.info("BG_TOKEN_REFRESH", "Connection refresh finished", {
-            id: conn.id,
-            provider: conn.provider,
-          });
-        } catch (err: unknown) {
-          log.warn("BG_TOKEN_REFRESH", "Connection refresh failed (swallowed)", {
-            id: conn?.id,
-            provider: conn?.provider,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      })
-    );
+    for (let i = 0; i < due.length; i += 1) {
+      const conn: Connection = due[i];
+      try {
+        await refresh(conn);
+        log.info("BG_TOKEN_REFRESH", "Connection refresh finished", {
+          id: conn.id,
+          provider: conn.provider,
+        });
+      } catch (err: unknown) {
+        log.warn("BG_TOKEN_REFRESH", "Connection refresh failed (swallowed)", {
+          id: conn?.id,
+          provider: conn?.provider,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      if (i < due.length - 1) {
+        const sensitive: boolean = SENSITIVE_PROVIDERS.has(String(conn.provider));
+        const jitter: number = sensitive ? Math.floor(Math.random() * 4000) : 200;
+        await sleep((sensitive ? SENSITIVE_DELAY_MS : NORMAL_DELAY_MS) + jitter);
+      }
+    }
   } catch (err: unknown) {
     log.warn("BG_TOKEN_REFRESH", "Tick failed (swallowed)", {
       error: err instanceof Error ? err.message : String(err),

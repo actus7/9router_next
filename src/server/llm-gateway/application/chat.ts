@@ -26,8 +26,8 @@ import { judgeUpstreamError, resolveAccountExhaustion } from "@/server/llm-gatew
 import { enforcePublicApiGuardrail } from "./publicApiGuardrail";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
 import * as log from "../utils/logger";
-import { updateProviderCredentials, checkAndRefreshToken } from "../auth/tokenRefresh";
-import { getProjectIdForConnection } from "@/server/llm-gateway/engine/services/projectId";
+import { updateProviderCredentials, checkAndRefreshToken, ensureProjectId } from "../auth/tokenRefresh";
+import { handleAntigravityQuotaError, clearAntigravityStrikes } from "../auth/antigravityQuota";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import {
   recordRoutingStep,
@@ -363,6 +363,7 @@ async function buildChatCoreOptions(
     },
     onRequestSuccess: async () => {
       await clearAccountError(connectionId, credentials, model);
+      clearAntigravityStrikes(connectionId, model);
     }
   } as Parameters<typeof handleChatCore>[0];
 }
@@ -542,13 +543,7 @@ export async function handleSingleModelChat(
     const connectionId: string = credentials.connectionId || "";
     const refreshedCredentials = await checkAndRefreshToken(provider, credentials) as CredentialsResult;
 
-    if ((provider === "antigravity" || provider === "gemini-cli") && !refreshedCredentials.projectId && refreshedCredentials.accessToken) {
-      const pid: string | null = await getProjectIdForConnection(connectionId, refreshedCredentials.accessToken, provider);
-      if (pid) {
-        refreshedCredentials.projectId = pid;
-        updateProviderCredentials(connectionId, { projectId: pid }).catch(() => { });
-      }
-    }
+    await ensureProjectId(provider, connectionId, refreshedCredentials);
 
     const coreOptions = await buildChatCoreOptions(
       body, provider, model, refreshedCredentials, connectionId, credentials, clientRawRequest, request, apiKey,
@@ -573,7 +568,12 @@ export async function handleSingleModelChat(
     // One judge verdict per failure, shared by the client-request check, the
     // cooldown map and the monthly reset. null keeps every regex untouched.
     const judged = await judgeUpstreamError({ status: result.status, errorText: result.error, provider });
-    const { shouldFallback } = await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null, judged);
+
+    // Antigravity 409/429: block the exhausted pair in the RAM quota cache until upstream's resetAt.
+    const quotaResetMs = provider === "antigravity" && refreshedCredentials.accessToken
+      ? await handleAntigravityQuotaError(connectionId, result.status, model, refreshedCredentials.accessToken, credentials.providerSpecificData ?? {})
+      : null;
+    const shouldFallback = quotaResetMs ? true : (await markAccountUnavailable(connectionId, result.status, result.error, provider, model, result.resetsAtMs ?? null, judged)).shouldFallback;
 
     recordRoutingStep(body, {
       kind: "account",

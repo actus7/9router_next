@@ -6,6 +6,7 @@ import { toOpenAIUsage } from "../concerns/usage";
 import { reasoningDelta } from "../concerns/reasoning";
 import { encodeDataUri } from "../concerns/image";
 import { toOpenAIFinish } from "../concerns/finishReason";
+import { storeGeminiThoughtSignature } from "../../services/thoughtSignatureStore";
 
 // Build chunk meta for current gemini state
 function chunkMeta(state: Record<string, unknown>) {
@@ -13,7 +14,7 @@ function chunkMeta(state: Record<string, unknown>) {
 }
 
 // Build a tool_call chunk from a gemini functionCall part (shared by sig/non-sig branches)
-function emitFunctionCall(functionCall: Record<string, unknown>, state: Record<string, unknown>) {
+function emitFunctionCall(functionCall: Record<string, unknown>, state: Record<string, unknown>, signature: string | null = null) {
   const rawName = functionCall.name as string;
   // Restore original tool name from mapping (AG cloaking)
   const toolNameMap = state.toolNameMap as Map<string, string> | undefined;
@@ -21,8 +22,14 @@ function emitFunctionCall(functionCall: Record<string, unknown>, state: Record<s
   const fcArgs = functionCall.args || {};
   const toolCallIndex = state.functionIndex as number;
   state.functionIndex = toolCallIndex + 1;
+  // The provider's own call id when it has one, so the signature stored below
+  // is found again when the client replays this call in the next request.
+  const callId = (functionCall.id as string | undefined) || `${fcName}-${Date.now()}-${toolCallIndex}`;
+  if (signature) {
+    storeGeminiThoughtSignature(callId, signature, (state.sessionId as string | null) ?? null, state.model);
+  }
   const toolCall = {
-    id: `${fcName}-${Date.now()}-${toolCallIndex}`,
+    id: callId,
     index: toolCallIndex,
     type: OPENAI_BLOCK.FUNCTION,
     function: { name: fcName, arguments: JSON.stringify(fcArgs) },
@@ -49,7 +56,7 @@ export function geminiToOpenAIResponse(chunk: Record<string, unknown>, state: Re
   // Initialize state
   if (!state.messageId) {
     state.messageId = (response.responseId as string) || `msg_${Date.now()}`;
-    state.model = (response.modelVersion as string) || "gemini";
+    state.model = (response.modelVersion as string) || (state.model as string) || "gemini";
     state.functionIndex = 0;
     state.geminiToolCallCount = 0;
     results.push(buildChunk(chunkMeta(state), { role: ROLE.ASSISTANT }, null));
@@ -59,12 +66,18 @@ export function geminiToOpenAIResponse(chunk: Record<string, unknown>, state: Re
   if (content?.parts) {
     for (const part of content.parts as Record<string, unknown>[]) {
       const hasThoughtSig = part.thoughtSignature || part.thought_signature;
+      if (hasThoughtSig && typeof hasThoughtSig === "string") {
+        state.pendingThoughtSignature = hasThoughtSig;
+      }
       const isThought = part.thought === true;
       
       // Handle thought signature (thinking mode)
       if (hasThoughtSig) {
         const hasTextContent = part.text !== undefined && part.text !== "";
         const hasFunctionCall = !!part.functionCall;
+
+        // Standalone signature part (no text, no call): keep it pending for the next functionCall
+        if (!hasTextContent && !hasFunctionCall) continue;
         
         if (hasTextContent) {
           results.push(buildChunk(
@@ -75,7 +88,8 @@ export function geminiToOpenAIResponse(chunk: Record<string, unknown>, state: Re
         }
         
         if (hasFunctionCall) {
-          results.push(emitFunctionCall(part.functionCall as Record<string, unknown>, state));
+          results.push(emitFunctionCall(part.functionCall as Record<string, unknown>, state, hasThoughtSig as string));
+          state.pendingThoughtSignature = null;
         }
         continue;
       }
@@ -94,7 +108,8 @@ export function geminiToOpenAIResponse(chunk: Record<string, unknown>, state: Re
 
       // Function call
       if (part.functionCall) {
-        results.push(emitFunctionCall(part.functionCall as Record<string, unknown>, state));
+        results.push(emitFunctionCall(part.functionCall as Record<string, unknown>, state, (state.pendingThoughtSignature as string | null) || null));
+        state.pendingThoughtSignature = null;
       }
 
       // Inline data (images)

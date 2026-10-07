@@ -518,5 +518,6 @@ export async function handleChatCore({
     streamController,
     onStreamComplete,
     streamDetailId,
+    credentials,
   }), appliedSavers);
 }

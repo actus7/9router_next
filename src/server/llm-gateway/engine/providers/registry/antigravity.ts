@@ -17,7 +17,7 @@ export default {
     deprecationNotice: "RISK_NOTICE",
   },
   category: "oauth",
-  serviceKinds: ["llm", "image"],
+  serviceKinds: ["llm", "image", "webSearch"],
   transport: {
     baseUrls: [ANTIGRAVITY_IDE_BASE_URL],
     format: "antigravity",
@@ -39,12 +39,18 @@ export default {
       // Discovery (quota/project) on PROD; daily host rejects these.
       quotaApiUrl: "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
       loadProjectApiUrl: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+      // Weekly/5h window per model family (best-effort; the host is the one upstream uses).
+      quotaSummaryApiUrl: `${ANTIGRAVITY_IDE_BASE_URL}/v1internal:retrieveUserQuotaSummary`,
       tokenUrl: "https://oauth2.googleapis.com/token",
     },
     clientId: ANTIGRAVITY_OAUTH_CLIENT.clientId,
     clientSecret: ANTIGRAVITY_OAUTH_CLIENT.clientSecret,
   },
     modelOverrides: {
+    "gemini-3.8-flash-high": { "upstreamModelId": "gemini-3.8-flash-high(high)" },
+    "gemini-3.8-flash-medium": { "upstreamModelId": "gemini-3.8-flash-medium(medium)" },
+    "gemini-3.8-flash-low": { "upstreamModelId": "gemini-3.8-flash-low(low)" },
+    "gemini-3.8-flash": { "upstreamModelId": "gemini-3.8-flash-medium(medium)" },
     "gemini-3.7-flash-high": { "upstreamModelId": "gemini-3.7-flash-tiered(high)" },
     "gemini-3.7-flash-medium": { "upstreamModelId": "gemini-3.7-flash-tiered(medium)" },
     "gemini-3.7-flash-low": { "upstreamModelId": "gemini-3.7-flash-tiered(low)" },
@@ -71,6 +77,11 @@ export default {
     onboardUserEndpoint: "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
     loadCodeAssistUserAgent: ANTIGRAVITY_IDE_USER_AGENT,
     refreshLeadMs: 300000,
+  },
+  searchViaChat: {
+    defaultModel: "gemini-2.5-flash",
+    endpoint: `${ANTIGRAVITY_IDE_BASE_URL}/v1internal:generateContent`,
+    freeTier: "Free — Google Search grounding through an Antigravity OAuth account.",
   },
   features: {
     usage: true,
