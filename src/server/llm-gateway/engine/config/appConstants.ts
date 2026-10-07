@@ -141,6 +141,20 @@ export const LOAD_CODE_ASSIST_METADATA = {
 // System prompts
 export const CLAUDE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude.";
 
+// Rewrite rules applied to Antigravity system prompts: competing-client branding
+// makes the backend flag the request and answer 429 Quota Exhausted
+// (mirrors decolua/9router ANTIGRAVITY_PROMPT_REWRITES).
+export const ANTIGRAVITY_PROMPT_REWRITES: ReadonlyArray<{ from: string | RegExp; to: string | ((match: string) => string) }> = [
+  { from: "You are a Claude agent, built on Anthropic's Claude Agent SDK.", to: "" },
+  // Every Hermes identity variant ("an intelligent AI assistant created by Nous
+  // Research", "built by Nous Research", ...) collapses to a neutral identity.
+  { from: /You are Hermes(?: Agent)?(?:,\s*(?:an intelligent AI assistant|an AI assistant|an AI agent))?(?:,?\s*(?:built|created)\s+by\s+Nous Research)?\./gi, to: "You are an AI assistant." },
+  // Claude Code prepends this line; OpenAI-format clients pass it through, and
+  // any system text containing it gets a fake 429 RESOURCE_EXHAUSTED.
+  { from: /^x-anthropic-billing-header:[^\n]*(?:\r?\n)*/gim, to: "" },
+  { from: /opencode/gi, to: (match: string) => (match === "OpenCode" ? "Antigravity" : match === "OPENCODE" ? "ANTIGRAVITY" : "antigravity") },
+];
+
 // Derive từ registry oauth.refreshLeadMs
 export const REFRESH_LEAD_MS: Record<string, unknown> = Object.fromEntries(
   Object.entries(PROVIDER_OAUTH).filter(([, o]) => (o as Record<string, unknown>).refreshLeadMs).map(([id, o]) => [id, (o as Record<string, unknown>).refreshLeadMs])

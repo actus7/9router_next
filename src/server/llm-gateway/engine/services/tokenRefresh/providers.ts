@@ -154,8 +154,20 @@ export async function refreshClaudeOAuthToken(refreshToken: string, log?: Logger
   return refreshAccessToken("claude", refreshToken, {}, log);
 }
 
+let _warnedMissingGoogleClient = false;
+
 export async function refreshGoogleToken(refreshToken: string, clientId: string, clientSecret: string, log?: Logger): Promise<RefreshResult | null> {
   if (!refreshToken) return null;
+  // Without a client Google can only answer `invalid_request`, so don't ask:
+  // the stored refresh token stays intact and the next tick after the
+  // credentials are configured refreshes it with no reconnect.
+  if (!clientId || !clientSecret) {
+    if (!_warnedMissingGoogleClient) {
+      _warnedMissingGoogleClient = true;
+      log?.error?.("TOKEN_REFRESH", "Google OAuth client not configured; skipping refresh. Set ANTIGRAVITY_OAUTH_CLIENT_ID/SECRET (antigravity) or GOOGLE_OAUTH_CLIENT_ID/SECRET (gemini-cli) and restart — stored tokens refresh on their own afterwards.");
+    }
+    return null;
+  }
   return dedupRefresh<RefreshResult | null>(`google:${clientId}`, refreshToken, async () => {
   try {
     const response = await fetch(OAUTH_ENDPOINTS.google.token as string, {

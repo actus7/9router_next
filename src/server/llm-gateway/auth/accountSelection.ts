@@ -9,6 +9,7 @@ import { MAX_RATE_LIMIT_COOLDOWN_MS } from "@/server/llm-gateway/engine/config/e
 import type { ErrorJudgement } from "@/server/llm-gateway/engine/host/errorJudge";
 import { resolveProviderId, FREE_PROVIDERS, isAnonymousFreeModel } from "@/shared/constants/providers";
 import * as log from "../utils/logger";
+import { antigravityQuotaBlockedUntil } from "./antigravityQuota";
 import { tryCurrentTenantId } from "@/lib/db/tenant";
 import type { Connection, Settings } from "@/lib/data-access";
 
@@ -238,9 +239,17 @@ export async function getProviderCredentials(
 
   const activeAvailability = await getActiveModelAvailability(connections.map((connection) => connection.id), model);
   const availabilityByConnection = new Map(activeAvailability.map((availability) => [availability.connectionId, availability]));
+  // Antigravity's live quota cache is lazy: only filled after an account answers 409/429.
+  const quotaBlockedUntil = (connectionId: string): string | null =>
+    providerId === "antigravity" && model ? antigravityQuotaBlockedUntil(connectionId, model) : null;
   const availableConnections = connections.filter((connection) => {
     if (excludeSet.has(connection.id)) return false;
     if (availabilityByConnection.has(connection.id)) return false;
+    const blockedUntil = quotaBlockedUntil(connection.id);
+    if (blockedUntil) {
+      log.info("AG_QUOTA", `${connection.id.slice(0, 8)} | CACHE_BLOCK ${model} — skip upstream until ${blockedUntil}`);
+      return false;
+    }
     return true;
   });
 
@@ -258,6 +267,10 @@ export async function getProviderCredentials(
   if (availableConnections.length === 0) {
     const lockedConns = connections.filter((connection) => availabilityByConnection.has(connection.id));
     const expiries = lockedConns.map((connection) => availabilityByConnection.get(connection.id)?.until).filter((expiry): expiry is string => Boolean(expiry));
+    for (const connection of connections) {
+      const blockedUntil = quotaBlockedUntil(connection.id);
+      if (blockedUntil) expiries.push(blockedUntil);
+    }
     const earliest: string | null = expiries.sort()[0] || null;
     if (earliest) {
       // Report the error of the account that unlocks first, not of whichever

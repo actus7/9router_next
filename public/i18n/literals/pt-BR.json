@@ -2113,5 +2113,12 @@
   "Real test latency first; the balanced score fills gaps": "Latência real de teste primeiro; a nota equilibrada preenche as lacunas",
   "Highest measured quality in each complexity level": "Maior qualidade medida em cada nível de complexidade",
   "Lanes ranked from measured benchmarks, price and speed. Older generations give way to newer ones of the same family.": "Lanes ordenadas por benchmarks medidos, preço e velocidade. Gerações antigas dão lugar às mais novas da mesma família.",
-  "Artificial Analysis data is unavailable; every score is estimated.": "Dados do Artificial Analysis indisponíveis; todas as notas são estimadas."
+  "Artificial Analysis data is unavailable; every score is estimated.": "Dados do Artificial Analysis indisponíveis; todas as notas são estimadas.",
+  "AA sync failed": "Falha ao sincronizar o AA",
+  "AA sync updated": "Sincronização do AA atualizada",
+  "of your models have AA data": "dos seus modelos têm dados do AA",
+  "AA table": "tabela do AA",
+  "Your models found in Artificial Analysis, out of the models in its table. A sync refreshes the table; the count only grows when AA adds a model you use.": "Seus modelos encontrados no Artificial Analysis, entre os modelos da tabela dele. Sincronizar atualiza a tabela; o número só cresce quando o AA passa a medir um modelo que você usa.",
+  "Sync now": "Sincronizar agora",
+  "Refetch Artificial Analysis now. The free tier allows 100 requests per day.": "Busca o Artificial Analysis de novo agora. O plano grátis permite 100 requisições por dia."
 }

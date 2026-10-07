@@ -50,6 +50,31 @@ export function baseModelName(name: string): string {
   }
 }
 
+// Gateway/catalog decoration around a model the AA table lists under its plain
+// name: "mimo-v2.5-free", "gpt-5.6-sol-review", "muse-spark-1.3-contributor",
+// "gemini-3.7-flash-tiered", "gpt-oss-120b-medium", "openrouter_gpt_4_o". The
+// words say how the catalog serves the model, not which model it is. Versions,
+// sizes and product names ("flashx", "next", "asr") are never in this list, so
+// a different model cannot collapse into a neighbour.
+const CATALOG_NOISE_TOKENS = new Set(["free", "review", "contributor", "tiered", "medium", "customtools"]);
+const GATEWAY_PREFIX_TOKENS = new Set(["openrouter", "together"]);
+
+/**
+ * The model name without catalog decoration, as a hyphenated string the normal
+ * matching can normalize ("GPT_o4_mini" → "o4-mini"). Only used as an extra
+ * candidate after the exact names failed.
+ */
+export function looseModelName(name: string): string {
+  const tokens = String(name ?? "").toLowerCase().split(/[^a-z0-9.]+/).filter(Boolean);
+  while (tokens.length > 1 && GATEWAY_PREFIX_TOKENS.has(tokens[0])) tokens.shift();
+  // "gpt-o4-mini" is the model AA calls "o4-mini"
+  if (tokens[0] === "gpt" && /^o\d/.test(tokens[1] ?? "")) tokens.shift();
+  const kept = tokens.filter((token) => !CATALOG_NOISE_TOKENS.has(token));
+  // "-it" marks an instruction-tuned checkpoint only at the end ("gemma-4-31b-it").
+  if (kept.length > 1 && kept[kept.length - 1] === "it") kept.pop();
+  return kept.join("-");
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -220,6 +245,20 @@ export async function syncAaSnapshotIfStale(): Promise<AaSnapshot | null> {
   return inflight;
 }
 
+/**
+ * The operator asked for a fresh snapshot: skip the daily TTL. Unlike the
+ * automatic path this does not fall back to the stale snapshot — a button that
+ * reports success while nothing was fetched is worse than an error. The stored
+ * snapshot is only replaced after a complete fetch.
+ */
+export async function forceSyncAaSnapshot(): Promise<AaSnapshot> {
+  const apiKey = process.env.ARTIFICIAL_ANALYSIS_API_KEY?.trim();
+  if (!apiKey) throw new Error("ARTIFICIAL_ANALYSIS_API_KEY is not configured");
+  const snapshot = await fetchAaSnapshot(apiKey);
+  await saveAaSnapshot(snapshot.meta, snapshot.byNormName);
+  return snapshot;
+}
+
 /** AA metrics for one profile: the model id first, then the display name. */
 export function matchAaToProfile(
   profile: SmartModelProfile,
@@ -229,7 +268,8 @@ export function matchAaToProfile(
   // an AA name, but the display name usually does — try both, then the bare id
   // and its canonical key (no prefix, no ":free", no dated snapshot).
   const bare = String(profile.model ?? "").split("/").pop()?.split(":")[0] ?? "";
-  for (const candidate of [profile.model, profile.displayName, bare, canonicalModelKey(profile.model)]) {
+  const loose = [profile.model, profile.displayName].map((name) => looseModelName(String(name ?? "").split("/").pop()?.split(":")[0] ?? ""));
+  for (const candidate of [profile.model, profile.displayName, bare, canonicalModelKey(profile.model), ...loose]) {
     const key = normalizeModelName(candidate);
     const base = baseModelName(candidate);
     // The candidate names an explicit AA variant ("Gemini 2.5 Flash

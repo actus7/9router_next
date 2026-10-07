@@ -397,3 +397,20 @@ export function cleanJSONSchemaForAntigravity(schema: Record<string, unknown>) {
   return cleaned;
 }
 
+// Merge adjacent same-role turns, strip empty parts, and make sure the
+// conversation opens on a user turn (Gemini rejects all three).
+export function normalizeGeminiContents(contents: Record<string, unknown>[]): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  for (const c of contents || []) {
+    if (!c?.role || !Array.isArray(c.parts)) continue;
+    const parts = (c.parts as Record<string, unknown>[]).filter(p => p && Object.keys(p).length > 0);
+    if (parts.length === 0) continue;
+    const last = out.at(-1);
+    if (last?.role === c.role) (last.parts as unknown[]).push(...parts);
+    else out.push({ ...c, parts: [...parts] });
+  }
+  if (out.length > 0 && out[0].role !== "user") {
+    out.unshift({ role: "user", parts: [{ text: "..." }] });
+  }
+  return out;
+}

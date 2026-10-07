@@ -161,6 +161,8 @@ export interface NonStreamingHandlerContext extends SharedChatContext {
 
 /** Extended context for streaming handler. */
 export interface StreamingHandlerContext extends SharedChatContext {
+  /** Credentials carrying the request session id set by translateRequest. */
+  credentials?: object | null;
   providerResponse: Response;
   sourceFormat: string;
   targetFormat: string;
@@ -216,6 +218,8 @@ export interface TransformStreamContext {
   body: Record<string, unknown>;
   onStreamComplete: (contentObj: Record<string, unknown>, usage: Record<string, unknown> | null, ttftAt: number | null) => void;
   apiKey: string | undefined;
+  /** The request session (credentials._clientSessionId), for per-session thought signatures. */
+  sessionId?: string | null;
 }
 
 // ---------------------------------------------------------------------------

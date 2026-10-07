@@ -28,7 +28,7 @@ const CODEX_SOURCE_TO_TARGET: Record<string, string> = {
  * `fingerprintMap` restores OpenCode-fingerprinted tool names per chunk; it is
  * merged with the translator's rename map so both restore points see one map.
  */
-function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey }: TransformStreamContext, fingerprintMap: Map<string, string> | null = null) {
+function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey, sessionId }: TransformStreamContext, fingerprintMap: Map<string, string> | null = null) {
   const nameMap = mergeNameMaps(toolNameMap, fingerprintMap);
   const isDroidCLI = userAgent?.toLowerCase().includes("droid") || userAgent?.toLowerCase().includes("codex-cli");
   const isResponsesProvider = (PROVIDERS[provider] as Record<string, unknown>)?.format === FORMATS.OPENAI_RESPONSES;
@@ -37,11 +37,11 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
 
   if (needsCodexTranslation) {
     const codexTarget = CODEX_SOURCE_TO_TARGET[sourceFormat] || FORMATS.OPENAI;
-    return createSSETransformStreamWithLogger(FORMATS.OPENAI_RESPONSES, codexTarget, provider, reqLogger, nameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames);
+    return createSSETransformStreamWithLogger(FORMATS.OPENAI_RESPONSES, codexTarget, provider, reqLogger, nameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames, sessionId);
   }
 
   if (needsTranslation(targetFormat, sourceFormat)) {
-    return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, reqLogger, nameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames);
+    return createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider, reqLogger, nameMap, model, connectionId, body, onStreamComplete, apiKey, customToolNames, sessionId);
   }
 
   return createPassthroughStreamWithLogger(provider, reqLogger, model, connectionId, body, onStreamComplete, apiKey, sourceFormat, nameMap);
@@ -68,7 +68,7 @@ function routingMeta(body: unknown): Record<string, unknown> | undefined {
   return summary ? { routing: summary } : undefined;
 }
 
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }: StreamingHandlerContext) {
+export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log, credentials }: StreamingHandlerContext) {
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)
@@ -116,7 +116,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     };
   }
 
-  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey }, takeRenamedToolNames(finalBody));
+  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey, sessionId: (credentials as { _clientSessionId?: string | null } | null | undefined)?._clientSessionId ?? null }, takeRenamedToolNames(finalBody));
 
   // Every client dialect gets a protocol-level error when the upstream dies
   // mid-stream, instead of a stream that just ends and reads as complete.

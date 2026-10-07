@@ -194,7 +194,8 @@ async function onboardUser(accessToken: string, tierID: string, externalSignal: 
 
     const reqBody = { tierId: tierID, metadata: LOAD_CODE_ASSIST_METADATA };
     const headers = provider === "antigravity" ? ANTIGRAVITY_LOAD_CODE_ASSIST_HEADERS : LOAD_CODE_ASSIST_HEADERS;
-    const MAX_ATTEMPTS = 5;
+    const MAX_ATTEMPTS = Number(process.env.ONBOARD_MAX_ATTEMPTS) || 2;
+    const BASE_RETRY_DELAY_MS = Number(process.env.ONBOARD_RETRY_DELAY_MS) || 12_000;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         // Bail out immediately if the connection was removed
@@ -234,7 +235,7 @@ async function onboardUser(accessToken: string, tierID: string, externalSignal: 
 
             // Server not done yet – wait and retry
             console.error(`[ProjectId] Onboard attempt ${attempt}/${MAX_ATTEMPTS}: not done yet, waiting...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, BASE_RETRY_DELAY_MS + Math.floor(Math.random() * 5000)));
 
         } catch (error: unknown) {
             clearTimeout(timeoutId);
@@ -249,7 +250,7 @@ async function onboardUser(accessToken: string, tierID: string, externalSignal: 
             }
             // Continue to next attempt instead of throwing (which would skip remaining retries)
             console.warn(`[ProjectId] onboardUser attempt ${attempt} failed: ${error instanceof Error ? error.message : String(error)}, retrying...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, BASE_RETRY_DELAY_MS + Math.floor(Math.random() * 5000)));
         } finally {
             clearTimeout(timeoutId);
             externalSignal?.removeEventListener("abort", forwardAbort);

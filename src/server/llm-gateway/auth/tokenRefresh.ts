@@ -1,6 +1,6 @@
 // Re-export from open-sse with local logger
 import * as log from "../utils/logger";
-import { updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
+import { getProviderConnectionById, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import {
   getProjectIdForConnection,
   invalidateProjectId,
@@ -61,6 +61,12 @@ function _refreshProjectId(provider: string, connectionId: string, accessToken: 
 
   invalidateProjectId(connectionId);
 
+  // Lazy by default: resolving the project id (onboardUser) for several Google
+  // accounts right after they refresh together trips Google's anti-abuse
+  // limits. The chat path resolves it on demand; opt back in for eager
+  // resolution with EAGER_PROJECT_ID_REFRESH=true (upstream 1442cc7).
+  if (process.env.EAGER_PROJECT_ID_REFRESH !== "true") return;
+
   getProjectIdForConnection(connectionId, accessToken)
     .then((projectId: string | null) => {
       if (!projectId) return;
@@ -77,6 +83,15 @@ function _refreshProjectId(provider: string, connectionId: string, accessToken: 
         error: err?.message ?? err,
       });
     });
+}
+
+/** Antigravity / Gemini CLI need a real project id on the request; resolve it on demand and persist it. */
+export async function ensureProjectId(provider: string, connectionId: string, credentials: { projectId?: string | null; accessToken?: string | null }): Promise<void> {
+  if (!needsProjectId(provider) || credentials.projectId || !credentials.accessToken) return;
+  const pid: string | null = await getProjectIdForConnection(connectionId, credentials.accessToken, provider);
+  if (!pid) return;
+  credentials.projectId = pid;
+  updateProviderCredentials(connectionId, { projectId: pid }).catch(() => { });
 }
 
 // ─── Local-specific: persist credentials to localDb ──────────────────────────
@@ -180,6 +195,24 @@ export async function checkAndRefreshToken(provider: string, credentials: Creden
   let creds: Credentials = { ...credentials };
   if (!creds.connectionId && creds.id) {
     creds.connectionId = creds.id;
+  }
+
+  // Adopt the latest stored tokens: OpenAI rotates the refresh token on every
+  // refresh, and refreshing from a stale snapshot (reuse) revokes the session.
+  if (creds.connectionId) {
+    const latest = await getProviderConnectionById(creds.connectionId).catch(() => null);
+    const latestMs: number = Date.parse(String(latest?.lastRefreshAt || ""));
+    const ownMs: number = Date.parse(String(creds.lastRefreshAt || ""));
+    const storedIsNewer: boolean = Number.isFinite(latestMs) && (!Number.isFinite(ownMs) || latestMs > ownMs);
+    if (latest && storedIsNewer && latest.refreshToken && latest.refreshToken !== creds.refreshToken) {
+      creds = {
+        ...creds,
+        refreshToken: latest.refreshToken as string,
+        accessToken: (latest.accessToken as string | undefined) || creds.accessToken,
+        expiresAt: (latest.expiresAt as string | undefined) || creds.expiresAt,
+        lastRefreshAt: (latest.lastRefreshAt as string | undefined) || creds.lastRefreshAt,
+      };
+    }
   }
 
   const force: boolean = options?.force === true;

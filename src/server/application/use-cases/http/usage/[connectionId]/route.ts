@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 // Ensure proxyFetch is loaded to patch globalThis.fetch
 import { getUsageForProvider, getExecutor } from "@/server/llm-gateway/usage";
+import { isUnrecoverableRefreshError } from "@/server/llm-gateway/engine/services/tokenRefresh";
 
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/db/repos/connectionsRepo";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
@@ -21,6 +22,11 @@ function isAuthExpiredMessage(usage: Record<string, unknown>) {
  * @returns Promise<{ connection, refreshed: boolean }>
  */
 export async function refreshAndUpdateCredentials(connection: Record<string, unknown>, force = false, proxyOptions: Record<string, unknown> | null = null) {
+  // Re-read the latest tokens: OpenAI rotates the refresh token on every
+  // refresh, and refreshing from a stale snapshot (reuse) revokes the session.
+  const latest = connection.id ? await getProviderConnectionById(connection.id as string) : null;
+  if (latest) connection = latest as unknown as Record<string, unknown>;
+
   const executor = getExecutor(connection.provider as string);
 
   // Build credentials object from connection
@@ -46,6 +52,12 @@ export async function refreshAndUpdateCredentials(connection: Record<string, unk
 
   // Use executor's refreshCredentials method (with optional proxy)
   const refreshResult = await executor.refreshCredentials(credentials, console, proxyOptions);
+
+  // Refresh token reused/invalidated: the token family is revoked, so don't
+  // carry on with the dead token.
+  if (refreshResult && isUnrecoverableRefreshError(refreshResult)) {
+    throw new Error("Refresh token invalid or reused. Please re-authorize the connection.");
+  }
 
   if (!refreshResult) {
     // Refresh failed but we still have an accessToken — try with existing token

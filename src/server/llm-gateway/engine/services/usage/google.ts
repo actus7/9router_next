@@ -5,6 +5,7 @@
 import { CLIENT_METADATA } from "../../config/appConstants";
 import { ANTIGRAVITY_IDE_USER_AGENT, ANTIGRAVITY_IDE_VERSION, ANTIGRAVITY_OAUTH_CLIENT } from "../../providers/shared";
 import { U, parseResetTime, normalizeCloudCodeProjectId, fetchWithTimeout } from "./shared";
+import { fetchAntigravityWeeklyQuota, type WeeklyQuota } from "./antigravity-weekly";
 
 // Antigravity API config (from Quotio) — urls from registry, oauth client + dynamic UA kept here
 const ANTIGRAVITY_CONFIG = {
@@ -157,8 +158,14 @@ export async function getAntigravityUsage(accessToken: string, providerSpecificD
     const data = await response.json();
     const quotas: Record<string, unknown> = {};
 
+    // Free-tier accounts only have weekly quotas (no separate 5h window), and
+    // fetchAvailableModels reports misleading per-model quota for them (a
+    // missing remainingFraction reads as 0%). Per-model rows are paid-tier only.
+    const paidTierId = ((subscriptionInfo as Record<string, unknown>)?.paidTier as Record<string, unknown> | undefined)?.id;
+    const isFreeTier = !paidTierId || paidTierId === "free-tier";
+
     // Parse model quotas (inspired by vscode-antigravity-cockpit)
-    if (data.models) {
+    if (!isFreeTier && data.models) {
       // Filter only recommended/important models (must match PROVIDER_MODELS ag ids)
       const importantModels = [
         'gemini-3.7-flash-high',
@@ -211,6 +218,16 @@ export async function getAntigravityUsage(accessToken: string, providerSpecificD
       }
     }
 
+    // Best-effort weekly/5h overlay — never blocks or breaks the per-model rows.
+    try {
+      const weeklyQuotas = await fetchAntigravityWeeklyQuota(accessToken, projectId as string | null, proxyOptions);
+      reconcileSessionQuota(weeklyQuotas.gemini_session, Object.entries(quotas).filter(([k]) => k.startsWith("gemini-") && !k.includes("image")));
+      reconcileSessionQuota(weeklyQuotas.claude_gpt_session, Object.entries(quotas).filter(([k]) => k.startsWith("claude-")));
+      Object.assign(quotas, weeklyQuotas);
+    } catch {
+      // weekly is best-effort
+    }
+
     return {
       plan: ((subscriptionInfo as Record<string, unknown>)?.currentTier as Record<string, unknown>)?.name || "Unknown",
       quotas,
@@ -220,6 +237,24 @@ export async function getAntigravityUsage(accessToken: string, providerSpecificD
     console.error("[Antigravity Usage] Error:", error instanceof Error ? error.message : String(error), error instanceof Error ? error.cause : undefined);
     return { message: `Antigravity error: ${error instanceof Error ? error.message : String(error)}` };
   }
+}
+
+/**
+ * When every model of a family is exhausted until a future reset, the 5h
+ * session row must say so too (it is the row the user watches), and borrow the
+ * latest reset time.
+ */
+function reconcileSessionQuota(session: WeeklyQuota | undefined, models: Array<[string, unknown]>): void {
+  if (!session || models.length === 0) return;
+  const quotas = models.map(([, quota]) => quota as { remainingPercentage?: number; resetAt?: string | null });
+  if (!quotas.every((quota) => (quota.remainingPercentage ?? 0) === 0)) return;
+  if (!(session.remainingPercentage > 0)) return;
+  const latestReset = quotas.reduce<string | null>((max, quota) => (
+    !max || (quota.resetAt && new Date(quota.resetAt) > new Date(max)) ? (quota.resetAt ?? null) : max
+  ), null);
+  session.used = session.total;
+  session.remainingPercentage = 0;
+  if (latestReset) session.resetAt = latestReset;
 }
 
 /**

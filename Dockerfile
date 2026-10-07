@@ -40,6 +40,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # the real values through docker-compose.yml.
 ENV NEON_AUTH_BASE_URL="https://neon.invalid/auth"
 ENV NEON_AUTH_COOKIE_SECRET="build-time-placeholder-secret-not-used-at-runtime"
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runner

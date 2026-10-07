@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert } from "@/components/ui/alert";
-import { Info, TriangleAlert } from "lucide-react";
+import { Info } from "lucide-react";
 import type { ProviderInfo } from "../types";
 
 interface ProviderAlertsProps {
@@ -11,14 +11,7 @@ interface ProviderAlertsProps {
 export default function ProviderAlerts({ providerInfo }: ProviderAlertsProps) {
   return (
     <>
-      {providerInfo.deprecated && (
-        <div className="flex items-start gap-3 rounded-xl border border-warning-border bg-warning px-4 py-3 text-warning-foreground">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-          <p className="text-xs leading-relaxed">{providerInfo.deprecationNotice}</p>
-        </div>
-      )}
-
-      {providerInfo.notice?.text && !providerInfo.deprecated && (
+      {providerInfo.notice?.text && (
         <Alert className="border-info-border bg-info/[0.08] px-4 py-3 text-info">
           <Info className="mt-0.5 size-4 shrink-0 sm:mt-0" />
           <p className="min-w-0 flex-1 text-sm leading-relaxed">{providerInfo.notice.text}</p>

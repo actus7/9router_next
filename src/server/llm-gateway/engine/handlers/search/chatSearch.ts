@@ -4,6 +4,7 @@
  */
 import { PROVIDER_MEDIA } from "../../providers/index";
 import { safePublicFetch } from "@/server/security/safeFetch";
+import { ANTIGRAVITY_IDE_USER_AGENT } from "../../providers/shared";
 
 // Default search model + endpoint derive from registry searchViaChat (single source)
 const searchModel = (id: string): string | undefined => (PROVIDER_MEDIA[id]?.searchViaChat as Record<string, unknown>)?.defaultModel as string | undefined;
@@ -13,8 +14,8 @@ const searchEndpoint = (id: string, model?: string): string =>
 const REQUEST_TIMEOUT_MS = 15000;
 const DEFAULT_MAX_RESULTS = 10;
 
-interface Citation { url: string; title?: string; snippet?: string }
-interface SearchResult { title: string; url: string; snippet: string; position: number; score: null; published_at: null; favicon_url: null; content: null; metadata: Record<string, unknown>; citation: { provider: string; retrieved_at: string; rank: number }; provider_raw: null }
+interface Citation { url: string; title?: string; snippet?: string; content?: string }
+interface SearchResult { title: string; url: string; snippet: string; position: number; score: null; published_at: null; favicon_url: null; content: string | null; metadata: Record<string, unknown>; citation: { provider: string; retrieved_at: string; rank: number }; provider_raw: null }
 
 /**
  * Normalize a citation entry into the unified result shape.
@@ -28,7 +29,7 @@ function toResult(c: Citation, index: number, provider: string, retrievedAt: str
     score: null,
     published_at: null,
     favicon_url: null,
-    content: null,
+    content: c.content || null,
     metadata: {},
     citation: { provider, retrieved_at: retrievedAt, rank: index + 1 },
     provider_raw: null
@@ -45,9 +46,73 @@ function normalizeCitation(c: unknown): Citation | null {
 
 interface ChatSearchConfig {
   endpoint: (model?: string) => string;
-  buildBody: (query: string, model: string) => Record<string, unknown>;
+  buildBody: (query: string, model: string, credentials?: Record<string, unknown>) => Record<string, unknown>;
+  /** Error message when a provider needs more than a token; null when satisfied. */
+  requireCredentials?: (credentials: Record<string, unknown>) => string | null;
   buildHeaders: (token: string) => Record<string, string>;
   extractAnswer: (data: Record<string, unknown>) => { text: string; citations: Citation[]; tokens: number };
+}
+
+// Antigravity search envelope (mirrors the IDE client)
+const AG_CLIENT_NAME = "antigravity";
+const AG_SEARCH_GENERATION_CONFIG = { temperature: 1.0, maxOutputTokens: 8192 };
+const AG_CONTEXT_BEFORE = 150;
+const AG_CONTEXT_AFTER = 250;
+
+/** Widen a grounded segment to its surrounding sentence(s) in the answer text. */
+function expandSegment(text: string, segment?: { startIndex?: number; endIndex?: number }): string {
+  const { startIndex, endIndex } = segment || {};
+  if (!text || !Number.isInteger(startIndex) || !Number.isInteger(endIndex)) return "";
+  const start = Math.max(0, (startIndex as number) - AG_CONTEXT_BEFORE);
+  const end = Math.min(text.length, (endIndex as number) + AG_CONTEXT_AFTER);
+  let out = text.slice(start, end).trim();
+  // Drop the partial words the window cut off at either edge
+  if (start > 0) out = `...${out.replace(/^\S+/, "")}`;
+  if (end < text.length) out = `${out.replace(/\S+$/, "")}...`;
+  return out.trim();
+}
+
+const joinPieces = (set: Set<string>, sep: string): string => [...set].filter(Boolean).join(sep).trim();
+
+function extractAntigravityAnswer(data: Record<string, unknown>) {
+  // Antigravity wraps the Gemini payload in { response: {...} }
+  const response = ((data?.response as Record<string, unknown>) || data) as Record<string, unknown>;
+  const candidate = (response?.candidates as Array<Record<string, unknown>> | undefined)?.[0];
+  const parts = ((candidate?.content as Record<string, unknown>)?.parts as Array<Record<string, unknown>>) || [];
+  const text = parts.map((p) => (p?.text as string) || "").filter(Boolean).join("");
+  const grounding = (candidate?.groundingMetadata as Record<string, unknown>) || {};
+  const chunks = (grounding.groundingChunks as Array<Record<string, unknown>>) || [];
+  const supports = (grounding.groundingSupports as Array<Record<string, unknown>>) || [];
+
+  // Upstream repeats the same source across chunks — key by URL so it stays one citation.
+  const sources = new Map<string, { title: string; snippets: Set<string>; contexts: Set<string> }>();
+  const byIndex = chunks.map((ch) => {
+    const web = ch?.web as Record<string, unknown> | undefined;
+    const url = ((web?.uri || web?.url) as string) || "";
+    if (!url) return null;
+    if (!sources.has(url)) sources.set(url, { title: (web?.title as string) || "", snippets: new Set(), contexts: new Set() });
+    return sources.get(url)!;
+  });
+
+  // Each support ties a sentence of the answer back to the chunks that grounded it
+  for (const s of supports) {
+    const segment = s?.segment as { text?: string; startIndex?: number; endIndex?: number } | undefined;
+    const grounded = segment?.text || "";
+    const expanded = expandSegment(text, segment) || grounded;
+    for (const idx of (s?.groundingChunkIndices as unknown[]) || []) {
+      const source = Number.isInteger(idx) ? byIndex[idx as number] : null;
+      if (!source) continue;
+      if (grounded) source.snippets.add(grounded);
+      if (expanded) source.contexts.add(expanded);
+    }
+  }
+
+  const citations = [...sources].map(([url, src]) => {
+    const snippet = joinPieces(src.snippets, " | ") || src.title;
+    return { url, title: src.title, snippet, content: joinPieces(src.contexts, "\n\n") || snippet };
+  });
+  const tokens = ((response?.usageMetadata as Record<string, unknown>)?.totalTokenCount as number) || 0;
+  return { text, citations, tokens };
 }
 
 /**
@@ -78,6 +143,30 @@ const CHAT_SEARCH_CONFIG: Record<string, ChatSearchConfig> = {
       const tokens = ((data?.usageMetadata as Record<string, unknown>)?.totalTokenCount as number) || 0;
       return { text, citations, tokens };
     }
+  },
+
+  antigravity: {
+    endpoint: () => searchEndpoint("antigravity"),
+    // Upstream 403s on a missing or fabricated project — surface the real cause
+    requireCredentials: (credentials) =>
+      credentials?.projectId ? null : "Antigravity account has no projectId — reconnect the account",
+    buildBody: (query: string, model: string, credentials?: Record<string, unknown>) => ({
+      project: credentials?.projectId,
+      model,
+      userAgent: AG_CLIENT_NAME,
+      requestType: "search",
+      request: {
+        contents: [{ role: "user", parts: [{ text: query }] }],
+        tools: [{ googleSearch: {} }],
+        generationConfig: AG_SEARCH_GENERATION_CONFIG
+      }
+    }),
+    buildHeaders: (token: string) => ({
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      "User-Agent": ANTIGRAVITY_IDE_USER_AGENT
+    }),
+    extractAnswer: extractAntigravityAnswer
   },
 
   openai: {
@@ -377,13 +466,18 @@ export async function handleChatSearch({
     };
   }
 
+  const credentialError = cfg.requireCredentials?.(credentials);
+  if (credentialError) {
+    return { success: false, status: 401, error: credentialError };
+  }
+
   const limit =
     Number.isFinite(maxResults) && (maxResults as number) > 0
       ? Math.floor(maxResults as number)
       : DEFAULT_MAX_RESULTS;
   const useModel = model || searchModel(provider);
   const url = cfg.endpoint(useModel);
-  const body = cfg.buildBody(query, useModel || "");
+  const body = cfg.buildBody(query, useModel || "", credentials);
   const headers = cfg.buildHeaders(token);
 
   const upstreamStart = Date.now();

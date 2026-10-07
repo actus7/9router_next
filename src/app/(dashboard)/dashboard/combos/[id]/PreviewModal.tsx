@@ -59,7 +59,7 @@ function AaSyncStatus({ aaMeta }: { aaMeta: AaMeta }) {
       </a>
       {" · "}
       {aaMeta.indexVersion !== null && <>{translate("index") || "index"} v{aaMeta.indexVersion.toFixed(1)} · </>}
-      {aaMeta.matchedCount}/{aaMeta.modelCount} {translate("models") || "models"} · {translate("updated") || "updated"} {relativeTimeFrom(aaMeta.fetchedAt)}
+      {aaMeta.matchedCount} {translate("of your models have AA data") || "of your models have AA data"} ({translate("AA table") || "AA table"}: {aaMeta.modelCount}) · {translate("updated") || "updated"} {relativeTimeFrom(aaMeta.fetchedAt)}
     </p>
   );
 }

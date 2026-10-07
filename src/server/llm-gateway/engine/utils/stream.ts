@@ -42,6 +42,8 @@ interface SSEStreamOptions {
   body?: Record<string, unknown> | null;
   onStreamComplete?: ((content: { content: string; thinking: string; sawToolCall?: boolean }, usage: Record<string, unknown> | null, ttftAt: number | null) => void) | null;
   apiKey?: string | null;
+  /** The request's session, so response-side bookkeeping (thought signatures) stays per session. */
+  sessionId?: string | null;
 }
 
 /** Mutable state carried across transform/flush callbacks */
@@ -458,14 +460,15 @@ function createSSEStream(options: SSEStreamOptions = {}) {
     connectionId = null,
     body = null,
     onStreamComplete = null,
-    apiKey = null
+    apiKey = null,
+    sessionId = null
   } = options;
 
   // Per-stream decoder with stream:true to correctly handle multi-byte chars split across chunks
   const decoder = new TextDecoder("utf-8", { fatal: false });
 
   const state: Record<string, unknown> | null = mode === STREAM_MODE.TRANSLATE
-    ? { ...initState(sourceFormat ?? ""), provider, toolNameMap, customToolNames: new Set(customToolNames || []), model }
+    ? { ...initState(sourceFormat ?? ""), provider, toolNameMap, customToolNames: new Set(customToolNames || []), model, sessionId }
     : null;
 
   const ctx: StreamContext = {
@@ -562,7 +565,7 @@ function createSSEStream(options: SSEStreamOptions = {}) {
   return new TransformStream(transformer);
 }
 
-export function createSSETransformStreamWithLogger(targetFormat: string, sourceFormat: string, provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, toolNameMap: SSEStreamOptions["toolNameMap"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null, customToolNames: string[] | null = null) {
+export function createSSETransformStreamWithLogger(targetFormat: string, sourceFormat: string, provider: string | null = null, reqLogger: SSEStreamOptions["reqLogger"] = null, toolNameMap: SSEStreamOptions["toolNameMap"] = null, model: string | null = null, connectionId: string | null = null, body: Record<string, unknown> | null = null, onStreamComplete: SSEStreamOptions["onStreamComplete"] = null, apiKey: string | null = null, customToolNames: string[] | null = null, sessionId: string | null = null) {
   return createSSEStream({
     mode: STREAM_MODE.TRANSLATE,
     targetFormat,
@@ -575,7 +578,8 @@ export function createSSETransformStreamWithLogger(targetFormat: string, sourceF
     connectionId,
     body,
     onStreamComplete,
-    apiKey
+    apiKey,
+    sessionId
   });
 }
 

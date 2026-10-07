@@ -80,14 +80,27 @@ export const ANTIGRAVITY_IDE_VERSION = "2.11.0";
 export const ANTIGRAVITY_IDE_BASE_URL = "https://daily-cloudcode-pa.googleapis.com";
 export const ANTIGRAVITY_IDE_USER_AGENT = `antigravity/ide/${ANTIGRAVITY_IDE_VERSION} darwin/arm64`;
 
+// OAuth clients below are the public installed-app clients of the Antigravity
+// IDE and Gemini CLI, the same ones decolua/9router ships. They identify the
+// APP, not the user: a stored refresh token is bound to the client that issued
+// it, so refreshing needs exactly this client. The env vars override them.
+const ANTIGRAVITY_DEFAULT_CLIENT = {
+  clientId: "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com",
+  clientSecret: "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",
+};
+const GOOGLE_DEFAULT_CLIENT = {
+  clientId: "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
+  clientSecret: "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",
+};
+
 // Antigravity OAuth client credentials (public CLI client — duplicated in usage.js + src/lib/oauth)
 export const ANTIGRAVITY_OAUTH_CLIENT = {
-  clientId: process.env.ANTIGRAVITY_OAUTH_CLIENT_ID || "",
-  clientSecret: process.env.ANTIGRAVITY_OAUTH_CLIENT_SECRET || ""
+  clientId: process.env.ANTIGRAVITY_OAUTH_CLIENT_ID || ANTIGRAVITY_DEFAULT_CLIENT.clientId,
+  clientSecret: process.env.ANTIGRAVITY_OAUTH_CLIENT_SECRET || ANTIGRAVITY_DEFAULT_CLIENT.clientSecret
 };
 
 // Gemini (Google) OAuth client credentials (public CLI client — shared by gemini, gemini-cli, src/lib/oauth)
 export const GOOGLE_OAUTH_CLIENT = {
-  clientId: process.env.GOOGLE_OAUTH_CLIENT_ID || "",
-  clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || ""
+  clientId: process.env.GOOGLE_OAUTH_CLIENT_ID || GOOGLE_DEFAULT_CLIENT.clientId,
+  clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || GOOGLE_DEFAULT_CLIENT.clientSecret
 };

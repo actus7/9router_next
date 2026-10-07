@@ -146,8 +146,11 @@ async function loadInventory(): Promise<InventoryModel[]> {
     if (!alias || !model || (disabled[alias] || []).includes(model)) continue;
     const modelKey = `${alias}/${model}`;
     if (seen.has(modelKey)) continue;
-    seen.add(modelKey);
     const providerId = resolveProviderId(alias);
+    // Discovered models are stored as custom models and outlive their
+    // connection; a provider switched off must not keep feeding the board.
+    if (!activeProviders.has(providerId) && !activeProviders.has(alias)) continue;
+    seen.add(modelKey);
     inventory.push({
       providerId,
       providerAlias: alias,

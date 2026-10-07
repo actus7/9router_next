@@ -6,6 +6,7 @@ import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import type { Connection } from "@/lib/data-access";
 import type { SmartModelProfile } from "@/shared/llm-catalog";
 import { translate } from "@/i18n/runtime";
+import { notify } from "@/store/notificationStore";
 import ComplexityRoutingBoard from "./ComplexityRoutingBoard";
 import { useSmartCombo } from "./useSmartCombo";
 import { ComboHeader } from "./ComboHeader";
@@ -31,6 +32,24 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
   useEffect(() => {
     if (s.preview?.aaMeta) setLastAaMeta(s.preview.aaMeta);
   }, [s.preview]);
+
+  // Manual Artificial Analysis sync. The server refuses to pretend: a failed
+  // fetch comes back as an error and the previous snapshot stays in place.
+  const [syncingAa, setSyncingAa] = useState(false);
+  const handleSyncAa = async () => {
+    setSyncingAa(true);
+    try {
+      const res = await fetch("/api/smart-routing/aa-sync", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || translate("AA sync failed") || "AA sync failed");
+      setLastAaMeta(data.aaMeta);
+      notify.success(translate("AA sync updated") || "AA sync updated");
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : translate("AA sync failed") || "AA sync failed");
+    } finally {
+      setSyncingAa(false);
+    }
+  };
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
@@ -61,6 +80,8 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         onSuggest={s.handleSuggest}
         suggesting={s.suggesting}
         aaMeta={lastAaMeta}
+        onSyncAa={handleSyncAa}
+        syncingAa={syncingAa}
       />
 
       <PrioritiesCard

@@ -14,9 +14,11 @@ import {
   generateRequestId,
   generateSessionId,
   generateProjectId,
-  cleanJSONSchemaForAntigravity
+  cleanJSONSchemaForAntigravity,
+  normalizeGeminiContents
 } from "../formats/gemini";
 import { deriveSessionId, toNumericSessionId } from "../../utils/sessionManager";
+import { getGeminiThoughtSignatureSync } from "../../services/thoughtSignatureStore";
 import { ROLE, GEMINI_ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index";
 
 // Sanitize function names for Gemini API.
@@ -35,19 +37,8 @@ function sanitizeGeminiFunctionName(name: unknown): string {
   return sanitized.substring(0, 64);
 }
 
-function normalizeGeminiContents(contents: Record<string, unknown>[]): Record<string, unknown>[] {
-  const out: Record<string, unknown>[] = [];
-  for (const c of contents || []) {
-    if (!c?.role || !Array.isArray(c.parts) || c.parts.length === 0) continue;
-    const last = out.at(-1);
-    if (last?.role === c.role) (last.parts as unknown[]).push(...(c.parts as unknown[]));
-    else out.push({ ...c, parts: [...(c.parts as unknown[])] });
-  }
-  return out;
-}
-
 // Core: Convert OpenAI request to Gemini format (base for all variants)
-function openaiToGeminiBase(model: string, body: Record<string, unknown>, stream: boolean, signature: string = DEFAULT_THINKING_AG_SIGNATURE): Record<string, unknown> {
+function openaiToGeminiBase(model: string, body: Record<string, unknown>, stream: boolean, signature: string = DEFAULT_THINKING_AG_SIGNATURE, sessionId: string | null = null): Record<string, unknown> {
   const result: Record<string, unknown> = {
     model: model,
     contents: [] as Record<string, unknown>[],
@@ -138,18 +129,25 @@ function openaiToGeminiBase(model: string, body: Record<string, unknown>, stream
 
         if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
           const toolCallIds: string[] = [];
+          let firstFunctionCallSeen = false;
           for (const tc of msg.tool_calls as Record<string, unknown>[]) {
             if (tc.type !== OPENAI_BLOCK.FUNCTION) continue;
 
             const args = tryParseJSON(((tc.function as Record<string, unknown>)?.arguments as string) || "{}");
-            parts.push({
-              thoughtSignature: signature,
+            const cachedSig = tc.id ? getGeminiThoughtSignatureSync(tc.id, sessionId, model) : null;
+            // The first call gets the cached signature or the stand-in; parallel
+            // siblings stay unsigned unless they have a cached one.
+            const callSig = cachedSig || (!firstFunctionCallSeen ? signature : undefined);
+            firstFunctionCallSeen = true;
+            const part: Record<string, unknown> = {
               functionCall: {
                 id: tc.id,
                 name: sanitizeGeminiFunctionName((tc.function as Record<string, unknown>).name),
                 args: args
               }
-            });
+            };
+            if (callSig) part.thoughtSignature = callSig;
+            parts.push(part);
             toolCallIds.push(tc.id as string);
           }
 
@@ -158,12 +156,15 @@ function openaiToGeminiBase(model: string, body: Record<string, unknown>, stream
           }
 
           // Check if there are actual tool responses in the next messages
-          const hasActualResponses = toolCallIds.some(fid => toolResponses[fid]);
+          // An intermediate call (the conversation moved on) is answered with an
+          // empty result rather than dropped, which Gemini rejects as an orphan.
+          const isIntermediate = i < body.messages.length - 1;
+          const hasActualResponses = toolCallIds.some(fid => toolResponses[fid] !== undefined);
 
-          if (hasActualResponses) {
+          if (hasActualResponses || isIntermediate) {
             const toolParts: Record<string, unknown>[] = [];
             for (const fid of toolCallIds) {
-              if (!toolResponses[fid]) continue;
+              const resp = (toolResponses[fid] === undefined ? "" : toolResponses[fid]) as string;
 
               let name = tcID2Name[fid];
               if (!name) {
@@ -175,7 +176,6 @@ function openaiToGeminiBase(model: string, body: Record<string, unknown>, stream
                 }
               }
 
-              const resp = toolResponses[fid] as string;
               let parsedResp = tryParseJSON(resp);
               if (parsedResp === null) {
                 parsedResp = { result: resp };
@@ -237,13 +237,13 @@ function openaiToGeminiBase(model: string, body: Record<string, unknown>, stream
 }
 
 // OpenAI -> Gemini (standard API)
-export function openaiToGeminiRequest(model: string, body: Record<string, unknown>, stream: boolean): Record<string, unknown> {
-  return openaiToGeminiBase(model, body, stream);
+export function openaiToGeminiRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown> | null = null): Record<string, unknown> {
+  return openaiToGeminiBase(model, body, stream, DEFAULT_THINKING_AG_SIGNATURE, (credentials?._clientSessionId as string | null | undefined) ?? null);
 }
 
 // OpenAI -> Gemini CLI (Cloud Code Assist)
-function openaiToGeminiCLIRequest(model: string, body: Record<string, unknown>, stream: boolean): Record<string, unknown> {
-  const gemini = openaiToGeminiBase(model, body, stream, DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+function openaiToGeminiCLIRequest(model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown> | null = null): Record<string, unknown> {
+  const gemini = openaiToGeminiBase(model, body, stream, DEFAULT_THINKING_GEMINI_CLI_SIGNATURE, (credentials?._clientSessionId as string | null | undefined) ?? null);
   // Thinking is normalized centrally by applyThinking (thinkingUnified.js) after translation.
 
   // Clean schema for tools
@@ -277,10 +277,10 @@ function wrapInCloudCodeEnvelope(model: string, geminiCLI: Record<string, unknow
     } as Record<string, unknown>
   };
 
-  // Antigravity specific fields
-  if (isAntigravity) {
-    envelope.requestType = "agent";
-  } else {
+  // Antigravity specific fields. The official client omits `requestType` on
+  // the agent (chat) path; sending "agent" gets a detail-free 429
+  // RESOURCE_EXHAUSTED even with quota left (upstream decolua/9router 5798b30).
+  if (!isAntigravity) {
     // Keep safetySettings for Gemini CLI
     (envelope.request as Record<string, unknown>).safetySettings = geminiCLI.safetySettings;
   }
@@ -303,7 +303,7 @@ function wrapInCloudCodeEnvelopeForClaude(model: string, claudeRequest: Record<s
     model: model,
     userAgent: "antigravity",
     requestId: `agent-${generateUUID()}`,
-    requestType: "agent",
+    // No `requestType` on the agent path — see wrapInCloudCodeEnvelope above.
     request: {
       sessionId: toNumericSessionId(credentials?._clientSessionId as string) || deriveSessionId((credentials?.email as string) || (credentials?.connectionId as string)),
       contents: [] as Record<string, unknown>[],
@@ -337,18 +337,23 @@ function wrapInCloudCodeEnvelopeForClaude(model: string, claudeRequest: Record<s
       const parts: Record<string, unknown>[] = [];
 
       if (Array.isArray(msg.content)) {
+        let firstToolUseSeen = false;
         for (const block of msg.content as Record<string, unknown>[]) {
           if (block.type === CLAUDE_BLOCK.TEXT) {
             parts.push({ text: block.text });
           } else if (block.type === CLAUDE_BLOCK.TOOL_USE) {
-            parts.push({
-              thoughtSignature: signature,
+            const cachedSig = block.id ? getGeminiThoughtSignatureSync(block.id, (credentials?._clientSessionId as string | null | undefined) ?? null, model) : null;
+            const callSig = cachedSig || (!firstToolUseSeen ? signature : undefined);
+            firstToolUseSeen = true;
+            const part: Record<string, unknown> = {
               functionCall: {
                 id: block.id,
                 name: sanitizeGeminiFunctionName(block.name),
                 args: block.input || {}
               }
-            });
+            };
+            if (callSig) part.thoughtSignature = callSig;
+            parts.push(part);
           } else if (block.type === CLAUDE_BLOCK.TOOL_RESULT) {
             let content = block.content;
             if (Array.isArray(content)) {
@@ -434,11 +439,11 @@ function openaiToAntigravityRequest(model: string, body: Record<string, unknown>
     return wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials);
   }
 
-  const geminiCLI = openaiToGeminiCLIRequest(model, body, stream);
+  const geminiCLI = openaiToGeminiCLIRequest(model, body, stream, credentials);
   return wrapInCloudCodeEnvelope(model, geminiCLI, credentials, true);
 }
 
 // Register
 register(FORMATS.OPENAI, FORMATS.GEMINI, openaiToGeminiRequest as unknown as Parameters<typeof register>[2], null);
-register(FORMATS.OPENAI, FORMATS.GEMINI_CLI, ((model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown> | null) => wrapInCloudCodeEnvelope(model, openaiToGeminiCLIRequest(model, body, stream), credentials)) as unknown as Parameters<typeof register>[2], null);
+register(FORMATS.OPENAI, FORMATS.GEMINI_CLI, ((model: string, body: Record<string, unknown>, stream: boolean, credentials: Record<string, unknown> | null) => wrapInCloudCodeEnvelope(model, openaiToGeminiCLIRequest(model, body, stream, credentials), credentials)) as unknown as Parameters<typeof register>[2], null);
 register(FORMATS.OPENAI, FORMATS.ANTIGRAVITY, openaiToAntigravityRequest as unknown as Parameters<typeof register>[2], null);
