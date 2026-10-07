@@ -248,7 +248,7 @@ export default function ComplexityRoutingBoard({
             <p className="flex items-center gap-1 text-[10px] text-text-muted">
               <Database className="size-3" aria-hidden="true" />
               {aaMeta
-                ? <>{translate("AA sync") || "AA sync"} · {aaMeta.matchedCount}/{aaMeta.modelCount} {translate("models") || "models"}</>
+                ? <span title={translate("Your models found in Artificial Analysis, out of the models in its table. A sync refreshes the table; the count only grows when AA adds a model you use.") || "Your models found in Artificial Analysis, out of the models in its table. A sync refreshes the table; the count only grows when AA adds a model you use."}>{aaMeta.matchedCount} {translate("of your models have AA data") || "of your models have AA data"} · {translate("AA table") || "AA table"}: {aaMeta.modelCount}</span>
                 : <>{translate("AA sync") || "AA sync"}</>}
               <Button
                 variant="ghost"
