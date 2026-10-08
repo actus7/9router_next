@@ -6,6 +6,8 @@ import { checkFallbackError, formatRetryAfter } from "./accountFallback";
 import { unavailableResponse } from "../utils/error";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
+import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_TIME_BUDGET_MS } from "../config/runtimeConfig";
+import { setFirstByteBudget } from "../utils/firstByteGuard";
 import { getRoutingDecision } from "./smart-routing/context";
 import { recordRoutingStep } from "./routingTrace";
 import { truncateTraceError, classifyAttemptError, type AttemptOutcome } from "../host/routingTrace";
@@ -245,6 +247,9 @@ interface HandleComboChatOptions {
   comboStrategy?: string;
   comboStickyLimit?: number | string;
   autoSwitch?: boolean;
+  /** Overrides for tests; production reads COMBO_*_BUDGET_MS. */
+  comboFirstByteBudgetMs?: number;
+  comboTimeBudgetMs?: number;
 }
 
 /** Extract error text + retryAfter from a non-ok response. */
@@ -310,7 +315,7 @@ function buildAllFailedResponse(lastError: string | null, lastStatus: number | n
 /**
  * Handle combo chat with fallback
  */
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }: HandleComboChatOptions): Promise<Response> {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs }: HandleComboChatOptions): Promise<Response> {
   let rotatedModels = getRotatedModels(models, comboName || "", comboStrategy || "fallback", comboStickyLimit);
 
   if (autoSwitch) {
@@ -334,6 +339,8 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   let lastStatus: number | null = null;
   const digest: AttemptDigest[] = [];
   const loopStartedAt = Date.now();
+  const firstByteBudgetMs = comboFirstByteBudgetMs ?? COMBO_FIRST_BYTE_BUDGET_MS;
+  const timeBudgetMs = comboTimeBudgetMs ?? COMBO_TIME_BUDGET_MS;
 
   for (let i = 0; i < rotatedModels.length; i++) {
     const modelStr = rotatedModels[i];
@@ -342,6 +349,12 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       const candidate = routingDecision.candidateDetails.find((item) => item.model === modelStr);
       routingDecision.selectedModel = modelStr;
       if (candidate) routingDecision.degraded = candidate.degraded;
+    }
+    // The first attempt is always made; after that the loop stops starting new
+    // ones once the budget is spent, so N slow models cannot add up to N timeouts.
+    if (i > 0 && Date.now() - loopStartedAt >= timeBudgetMs) {
+      log.warn?.("COMBO", `time budget (${timeBudgetMs}ms) spent after ${i} attempts, not trying the remaining ${rotatedModels.length - i}`);
+      break;
     }
     log.info?.("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
 
@@ -365,8 +378,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       digest.push({ model: modelStr, label: outcome === "ok" ? "ok" : outcome === "cooldown_skip" ? "cooldown" : String(extra.status ?? outcome) });
     };
 
+    // A model with no one behind it keeps today's patience.
+    setFirstByteBudget(body, i < rotatedModels.length - 1 ? firstByteBudgetMs : undefined);
     try {
       const result = await handleSingleModel(body, modelStr);
+      setFirstByteBudget(body, undefined);
       if (result.ok) {
         record("ok", { status: result.status });
         log.info?.("COMBO", `Model ${modelStr} succeeded`);
@@ -400,6 +416,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     }
   }
 
+  setFirstByteBudget(body, undefined);
   return buildAllFailedResponse(lastError, lastStatus, earliestRetryAfter, log, digest);
 }
 

@@ -12,6 +12,7 @@ import { getRoutingTrace } from "../../services/routingTrace";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants";
 import { takeRenamedToolNames } from "../../utils/opencodeFingerprint";
 import { buildErrorBody } from "../../utils/error";
+import { awaitFirstChunk, getFirstByteBudget } from "../../utils/firstByteGuard";
 import type { StreamingHandlerContext, OnStreamCompleteContext, TransformStreamContext } from "./types";
 
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
@@ -68,7 +69,31 @@ function routingMeta(body: unknown): Record<string, unknown> | undefined {
   return summary ? { routing: summary } : undefined;
 }
 
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log, credentials }: StreamingHandlerContext) {
+export async function handleStreamingResponse({ providerResponse: upstreamResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log, credentials }: StreamingHandlerContext) {
+  // With a fallback candidate waiting, a model that stays silent is a failed
+  // attempt, not a slow success. Decided before onRequestSuccess: the account
+  // must not be marked healthy for an answer that never started.
+  let providerResponse = upstreamResponse;
+  const firstByteBudgetMs = getFirstByteBudget(body as Record<string, unknown>);
+  if (firstByteBudgetMs) {
+    const guarded = await awaitFirstChunk(upstreamResponse, firstByteBudgetMs);
+    if (!guarded.ok) {
+      const message = `${provider}/${model}: no first byte within ${Math.round(firstByteBudgetMs / 1000)}s (stream first-chunk timeout)`;
+      if (log?.errorLine) log.errorLine(reqTag, "✗", `TIMEOUT · ${message}`);
+      streamController?.handleError?.(new Error(message));
+      return {
+        success: false,
+        status: 504,
+        error: message,
+        response: new Response(JSON.stringify(buildErrorBody(504, message)), {
+          status: 504,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        }),
+      };
+    }
+    providerResponse = guarded.response;
+  }
+
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)
