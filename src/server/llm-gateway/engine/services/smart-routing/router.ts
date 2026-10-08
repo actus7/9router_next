@@ -1,6 +1,7 @@
 ﻿import { FREE_DEFAULT_MODEL_KEY } from "../../host/catalog";
 import { isSystemOneModel } from "../../host/fusionJudge";
 import { getComboByName } from "../../host/store";
+import { blendScores, loadModelStats } from "../../host/modelStats";
 import { ROUTE_NEEDS, ROUTING_TIERS, DEFAULT_SMART_ROUTING_CONFIG } from "./types";
 import { rankSmartProfilesForEndpoint, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
 import { recordRoutingTier, scoreRoutingRequest } from "./scoring";
@@ -202,7 +203,12 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
   let classifierModel: string | undefined;
   let classifierLatencyMs: number | undefined;
   let classifierSource: ClassifierSource = "heuristic";
-  const profiles = await refreshDeterministicSmartProfiles();
+  // What this account's own traffic says about each model, over the name-based prior.
+  const baseProfiles = await refreshDeterministicSmartProfiles();
+  const stats = await loadModelStats();
+  const profiles = stats.size === 0
+    ? baseProfiles
+    : baseProfiles.map((profile) => ({ ...profile, ...blendScores(profile, stats.get(profile.modelKey)) }));
 
   const lowConfidence = assessment.confidence < config.classifier.confidenceThreshold;
   let jevAnswered = false;

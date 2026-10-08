@@ -221,6 +221,29 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_uh_conn ON usageHistory(userId, connectionId)",
     ],
   },
+  // Per model and hour: how its attempts went, and a TTFT histogram. Aggregated
+  // on write (one upsert per attempt) so ranking never scans usageHistory.meta.
+  modelPerf: {
+    columns: {
+      userId: "TEXT NOT NULL",
+      modelKey: "TEXT NOT NULL",
+      hourKey: "TEXT NOT NULL",
+      ok: "INTEGER NOT NULL DEFAULT 0",
+      fail: "INTEGER NOT NULL DEFAULT 0",
+      timeout: "INTEGER NOT NULL DEFAULT 0",
+      b0: "INTEGER NOT NULL DEFAULT 0",
+      b1: "INTEGER NOT NULL DEFAULT 0",
+      b2: "INTEGER NOT NULL DEFAULT 0",
+      b3: "INTEGER NOT NULL DEFAULT 0",
+      b4: "INTEGER NOT NULL DEFAULT 0",
+      b5: "INTEGER NOT NULL DEFAULT 0",
+      b6: "INTEGER NOT NULL DEFAULT 0",
+      b7: "INTEGER NOT NULL DEFAULT 0",
+      b8: "INTEGER NOT NULL DEFAULT 0",
+      b9: "INTEGER NOT NULL DEFAULT 0",
+    },
+    primaryKey: "PRIMARY KEY (userId, modelKey, hourKey)",
+  },
   usageDaily: {
     columns: {
       userId: "TEXT NOT NULL",

@@ -8,6 +8,7 @@ import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
 import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_TIME_BUDGET_MS } from "../config/runtimeConfig";
 import { setFirstByteBudget } from "../utils/firstByteGuard";
+import { adaptiveFirstByteBudget, loadModelStats, recordAttemptDatum } from "../host/modelStats";
 import {
   getStickyModel,
   orderByPenalty,
@@ -360,7 +361,9 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   let lastStatus: number | null = null;
   const digest: AttemptDigest[] = [];
   const loopStartedAt = Date.now();
-  const firstByteBudgetMs = comboFirstByteBudgetMs ?? COMBO_FIRST_BYTE_BUDGET_MS;
+  const baseFirstByteBudgetMs = comboFirstByteBudgetMs ?? COMBO_FIRST_BYTE_BUDGET_MS;
+  // Measured history sizes each model's patience; with no store it is the base.
+  const modelStats = rotatedModels.length > 1 ? await loadModelStats() : new Map();
   const timeBudgetMs = comboTimeBudgetMs ?? COMBO_TIME_BUDGET_MS;
 
   for (let i = 0; i < rotatedModels.length; i++) {
@@ -396,11 +399,17 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
           ? { errorClass: "cooldown" as const }
           : outcome !== "ok" ? { errorClass: classifyAttemptError(extra.status, extra.error) } : {}),
       });
+      // Only what says something about the model: not a cooldown skip, not a refused request.
+      const errorClass = outcome === "ok" || outcome === "cooldown_skip" ? undefined : classifyAttemptError(extra.status, extra.error);
+      if (outcome === "ok") recordAttemptDatum({ modelKey: modelStr, outcome: "ok", ttftMs: Date.now() - startedAt });
+      else if (outcome !== "cooldown_skip" && errorClass !== "client") {
+        recordAttemptDatum({ modelKey: modelStr, outcome: errorClass === "timeout" ? "timeout" : "fail" });
+      }
       digest.push({ model: modelStr, label: outcome === "ok" ? "ok" : outcome === "cooldown_skip" ? "cooldown" : String(extra.status ?? outcome) });
     };
 
     // A model with no one behind it keeps today's patience.
-    setFirstByteBudget(body, i < rotatedModels.length - 1 ? firstByteBudgetMs : undefined);
+    setFirstByteBudget(body, i < rotatedModels.length - 1 ? adaptiveFirstByteBudget(baseFirstByteBudgetMs, modelStats.get(modelStr)) : undefined);
     try {
       const result = await handleSingleModel(body, modelStr);
       setFirstByteBudget(body, undefined);
