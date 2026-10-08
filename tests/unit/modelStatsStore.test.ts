@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const recordModelAttempt = vi.fn(async () => {});
+const pruneModelPerf = vi.fn(async () => {});
 const readModelPerf = vi.fn(async () => [
   { modelKey: "a/m", hourKey: new Date().toISOString().slice(0, 13), ok: 10, fail: 0, timeout: 0, b: [10, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
 ]);
@@ -8,6 +9,7 @@ let tenant: string | null = "t1";
 vi.mock("@/lib/db/repos/modelPerfRepo", () => ({
   recordModelAttempt: (...a: unknown[]) => recordModelAttempt(...(a as [])),
   readModelPerf: (...a: unknown[]) => readModelPerf(...(a as [])),
+  pruneModelPerf: () => pruneModelPerf(),
 }));
 vi.mock("@/lib/db/tenant", () => ({ tryCurrentTenantId: () => tenant }));
 

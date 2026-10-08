@@ -43,6 +43,7 @@ import {
   resolveSmartRouting,
 } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { smartRoutingClassifiers } from "./routingClassifier";
+import { setFirstByteBudget } from "@/server/llm-gateway/engine/utils/firstByteGuard";
 import { recordFailedRequest } from "./failedRequestUsage";
 import {
   checkNoAuthCooldownResponse,
@@ -422,8 +423,11 @@ async function tryFreeFallbackChat(
   const settings = await getSettings();
   if (settings.freeFallbackEnabled === false) return null;
   log.warn("CHAT", `[${provider}] no account left, falling back to ${FREE_DEFAULT_MODEL_KEY}`);
+  // The spread copies the body's symbols, budget included: the last resort must not be timed by the model that just failed.
+  const freeBody = { ...body, model: FREE_DEFAULT_MODEL_KEY };
+  setFirstByteBudget(freeBody, undefined);
   const response = await handleSingleModelChat(
-    { ...body, model: FREE_DEFAULT_MODEL_KEY },
+    freeBody,
     FREE_DEFAULT_MODEL_KEY,
     clientRawRequest,
     request,

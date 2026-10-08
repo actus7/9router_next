@@ -361,6 +361,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     }
   }
 
+  const stickyModel = adaptive ? getStickyModel(sessionKey, comboName || "") : undefined;
   if (adaptive) rotatedModels = orderAdaptively(rotatedModels, comboName || "", sessionKey);
 
   let lastError: string | null = null;
@@ -427,7 +428,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       if (result.ok) {
         record("ok", { status: result.status });
         recordModelSuccess(modelStr);
-        if (adaptive && i > 0) rememberStickyModel(sessionKey, comboName || "", modelStr);
+        if (adaptive && (i > 0 || modelStr === stickyModel)) rememberStickyModel(sessionKey, comboName || "", modelStr);
         log.info?.("COMBO", `Model ${modelStr} succeeded`);
         return result;
       }

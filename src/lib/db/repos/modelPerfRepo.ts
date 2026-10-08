@@ -65,6 +65,16 @@ export async function readModelPerf(now: number = Date.now()): Promise<ModelPerf
   }
 }
 
+/** Rows older than the stats window are never read again: drop them. */
+export async function pruneModelPerf(now: number = Date.now()): Promise<void> {
+  try {
+    const db = await getAdapter();
+    await db.run(`DELETE FROM modelPerf WHERE userId = ? AND hourKey < ?`, [currentTenantId(), hourKeyOf(now - STATS_WINDOW_MS)]);
+  } catch (error) {
+    throw toPersistenceError("modelPerf.prune", error);
+  }
+}
+
 /** Drops the tenant's measurements (the "reset health" action). */
 export async function clearModelPerf(): Promise<void> {
   try {

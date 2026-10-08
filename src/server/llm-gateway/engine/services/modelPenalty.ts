@@ -21,6 +21,8 @@ interface PenaltyEntry {
   lastHit: number;
 }
 
+// Keys include a client-influenced session id for stickies: bound the maps.
+const MAX_ENTRIES = 5000;
 const penalties = new Map<string, PenaltyEntry>();
 const stickies = new Map<string, { model: string; expiresAt: number }>();
 
@@ -36,6 +38,10 @@ function decayed(entry: PenaltyEntry, now: number): number {
 export function recordModelFailure(model: string, status?: number, now: number = Date.now()): void {
   const key = penaltyKey(model);
   const existing = penalties.get(key);
+  if (!existing && penalties.size >= MAX_ENTRIES) {
+    for (const [k, entry] of penalties) if (decayed(entry, now) === 0) penalties.delete(k);
+    if (penalties.size >= MAX_ENTRIES) return;
+  }
   const weight = status === 429 ? PENALTY_PER_429 : PENALTY_PER_FAIL;
   penalties.set(key, {
     penalty: Math.min((existing ? decayed(existing, now) : 0) + weight, MAX_PENALTY),
@@ -102,6 +108,11 @@ const stickyKey = (sessionKey: string, comboName: string): string => `${scope()}
 /** After a fallback rescued a conversation, keep using the model that did. */
 export function rememberStickyModel(sessionKey: string | undefined, comboName: string, model: string, now: number = Date.now()): void {
   if (!sessionKey) return;
+  if (stickies.size >= MAX_ENTRIES) {
+    for (const [key, entry] of stickies) if (entry.expiresAt <= now) stickies.delete(key);
+    // Still full of live ones: drop the oldest (Map keeps insertion order).
+    for (const key of stickies.keys()) { if (stickies.size < MAX_ENTRIES) break; stickies.delete(key); }
+  }
   stickies.set(stickyKey(sessionKey, comboName), { model, expiresAt: now + STICKY_TTL_MS });
 }
 

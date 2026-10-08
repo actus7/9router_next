@@ -417,7 +417,7 @@ export async function markAccountUnavailable(
   });
 
   // Only upstream-side failures say the MODEL is sick; a 429/401 is one account's quota or key.
-  if (provider && model && !githubResetAtMs && (status >= 500 || status === 408)) await noteBenchFailure(provider, model, status);
+  if (provider && model && !githubResetAtMs && (status >= 500 || status === 408) && !/first-chunk timeout/i.test(errorText || "")) await noteBenchFailure(provider, model, status);
 
   const connName: string = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
   log.warn("AUTH", `${connName} locked ${modelId} for ${Math.round(cooldownMs / 1000)}s [${status}]`);

@@ -65,7 +65,7 @@ interface Props {
  * who was moved later in the order, and what each one has actually delivered.
  */
 export function ModelHealthPanel({ onRequestReset }: Props) {
-  const { data, mutate, isLoading } = useSWR<{ models: HealthRow[] }>("/api/combos/health", jsonFetcher, { refreshInterval: 10_000 });
+  const { data, mutate, isLoading } = useSWR<{ models: HealthRow[] }>("/api/combos/health", jsonFetcher, { refreshInterval: 30_000 });
   const rows = data?.models ?? [];
 
   const reset = () => onRequestReset(async () => {

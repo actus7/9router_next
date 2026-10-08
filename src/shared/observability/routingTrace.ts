@@ -195,8 +195,23 @@ export function summarizeRoutingTrace(trace: RoutingTrace | null | undefined): R
   return summary;
 }
 
+// The error text now outlives the response (usageHistory is never pruned) and is
+// shown in the dashboard, so credential-shaped strings an upstream echoes back are
+// scrubbed first. Best effort: patterns, not a guarantee.
+const SECRET_PATTERNS: RegExp[] = [
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi,
+  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,
+  /\b(?:sk|pk|rk|key|tok|ghp|gho|xox[abp])[-_][A-Za-z0-9_-]{12,}/gi,
+  /\bAIza[0-9A-Za-z_-]{20,}/g,
+];
+
+export function redactSecrets(text: string): string {
+  return SECRET_PATTERNS.reduce((out, pattern) => out.replace(pattern, "[redacted]"), text);
+}
+
 export function truncateTraceError(error: unknown): string | undefined {
-  const text = typeof error === "string" ? error.trim() : error instanceof Error ? error.message.trim() : "";
+  const raw = typeof error === "string" ? error.trim() : error instanceof Error ? error.message.trim() : "";
+  const text = redactSecrets(raw);
   if (!text) return undefined;
   return text.length > ROUTING_TRACE_MAX_ERROR_CHARS
     ? `${text.slice(0, ROUTING_TRACE_MAX_ERROR_CHARS - 1)}…`
