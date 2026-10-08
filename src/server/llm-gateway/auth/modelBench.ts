@@ -20,6 +20,12 @@ export function resetModelBench(): void {
   failures.clear();
 }
 
+/** Forgets this account's failure streaks (the operator's "clean slate"). */
+export function clearTenantModelBench(): void {
+  const prefix = `${tryCurrentTenantId() ?? "-"}|`;
+  for (const key of [...failures.keys()]) if (key.startsWith(prefix)) failures.delete(key);
+}
+
 /** A request served is proof the model works: forget the streak. */
 export function noteBenchSuccess(provider: string, model: string): void {
   failures.delete(keyOf(provider, model));
