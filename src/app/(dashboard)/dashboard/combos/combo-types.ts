@@ -16,6 +16,8 @@ export interface CapEntry {
 export interface Strategy {
   fallbackStrategy?: string;
   judgeModel?: string;
+  /** Reorder by recent failures and stick to the model that rescued a chat. */
+  adaptive?: boolean;
 }
 
 export interface ConfirmState {

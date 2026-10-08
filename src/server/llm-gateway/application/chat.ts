@@ -61,6 +61,7 @@ type ChatResult =
 interface ComboStrategyConfig {
   fallbackStrategy?: string;
   judgeModel?: string;
+  adaptive?: boolean;
   fusionTuning?: Parameters<typeof handleFusionChat>[0]["tuning"];
 }
 
@@ -142,8 +143,8 @@ async function trySmartComboRouting(
 
 /** Build fusion handleSingleModel wrapper */
 function buildFusionHandler(
-  clientRawRequest: ClientRawRequest,
-  request: Request,
+  clientRawRequest: ClientRawRequest | null,
+  request: Request | null,
   apiKey: string | null,
 ) {
   return (b: ChatBody, m: string, isPanel?: boolean) => {
@@ -163,9 +164,9 @@ async function tryComboRouting(
   modelStr: string,
   body: ChatBody,
   settings: Record<string, unknown>,
-  request: Request,
+  request: Request | null,
   apiKey: string | null,
-  clientRawRequest: ClientRawRequest,
+  clientRawRequest: ClientRawRequest | null,
   requiredCapabilities: Set<string>,
 ): Promise<Response | null> {
   const comboModels = await getComboModels(modelStr);
@@ -203,7 +204,9 @@ async function tryComboRouting(
     log,
     comboName: modelStr,
     comboStrategy,
-    comboStickyLimit
+    comboStickyLimit,
+    adaptive: comboStrategies[modelStr]?.adaptive === true,
+    sessionKey: request ? deriveRoutingSessionKey(request.headers, body) : undefined,
   });
 }
 
@@ -244,7 +247,7 @@ async function tryCapacityAdapterRouting(
 
 // ── Single model helpers ────────────────────────────────────────────────────
 
-/** Resolve combo when modelInfo has no provider. Returns Response or throws. */
+/** Resolve combo when modelInfo has no provider: the same combo path, or a 400. */
 async function resolveComboForModel(
   modelStr: string,
   body: ChatBody,
@@ -252,57 +255,13 @@ async function resolveComboForModel(
   request: Request | null,
   apiKey: string | null,
 ): Promise<Response> {
-  const comboModels = await getComboModels(modelStr);
-  if (!comboModels) {
-    log.warn("CHAT", "Invalid model format", { model: modelStr });
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
-  }
-
-  const chatSettings = await getSettings();
-  const comboStrategies = chatSettings.comboStrategies as Record<string, ComboStrategyConfig>;
-  const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
-  const comboStrategy: string = comboSpecificStrategy || (chatSettings.comboStrategy as string) || "fallback";
-  const requiredCapabilities = detectRequiredCapabilities(body) as Set<string>;
-  const augmentedModels = augmentModelsWithCapacityAdapter(comboModels, requiredCapabilities, chatSettings);
-  const adapterAdded = augmentedModels.filter((m: string) => !comboModels.includes(m));
-  recordRoutingStep(body, { kind: "combo", name: modelStr, strategy: comboStrategy, models: augmentedModels });
-
-  if (comboStrategy === "fusion") {
-    log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
-    return handleFusionChat({
-      body,
-      models: comboModels,
-      handleSingleModel: (b: ChatBody, m: string, isPanel?: boolean) => {
-        let cleanRawReq: ClientRawRequest | null = clientRawRequest;
-        if (isPanel && clientRawRequest) {
-          const cleanBody = Object.fromEntries(
-            Object.entries(clientRawRequest.body || {}).filter(([key]) => key !== "tools" && key !== "tool_choice")
-          );
-          cleanRawReq = { ...clientRawRequest, body: cleanBody };
-        }
-        return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
-      },
-      log,
-      comboName: modelStr,
-      judgeModel: comboStrategies[modelStr]?.judgeModel,
-      tuning: comboStrategies[modelStr]?.fusionTuning,
-    });
-  }
-
-  const comboStickyLimit: number = chatSettings.comboStickyRoundRobinLimit;
-  log.info("CHAT", `Combo "${modelStr}" with ${augmentedModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
-  return handleComboChat({
-    body,
-    models: augmentedModels,
-    handleSingleModel: withCapacityAdapterStripping(
-      (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
-      adapterAdded
-    ),
-    log,
-    comboName: modelStr,
-    comboStrategy,
-    comboStickyLimit
-  });
+  const response = await tryComboRouting(
+    modelStr, body, await getSettings() as Record<string, unknown>, request, apiKey, clientRawRequest,
+    detectRequiredCapabilities(body) as Set<string>,
+  );
+  if (response) return response;
+  log.warn("CHAT", "Invalid model format", { model: modelStr });
+  return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 }
 
 /** Build the full options object for handleChatCore */

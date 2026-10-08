@@ -72,7 +72,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
     const previous = comboStrategies; const updated = { ...comboStrategies };
     const next = { ...(updated[comboName] || {}), ...patch };
     const usesDefault = !next.fallbackStrategy || next.fallbackStrategy === "fallback";
-    if (usesDefault && !next.judgeModel) delete updated[comboName]; else updated[comboName] = next;
+    if (usesDefault && !next.judgeModel && !next.adaptive) delete updated[comboName]; else updated[comboName] = next;
     setComboStrategies(updated);
     try {
       const r = await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comboStrategies: updated }) });

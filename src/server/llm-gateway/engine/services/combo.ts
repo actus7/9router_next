@@ -8,6 +8,13 @@ import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
 import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_TIME_BUDGET_MS } from "../config/runtimeConfig";
 import { setFirstByteBudget } from "../utils/firstByteGuard";
+import {
+  getStickyModel,
+  orderByPenalty,
+  recordModelFailure,
+  recordModelSuccess,
+  rememberStickyModel,
+} from "./modelPenalty";
 import { getRoutingDecision } from "./smart-routing/context";
 import { recordRoutingStep } from "./routingTrace";
 import { truncateTraceError, classifyAttemptError, type AttemptOutcome } from "../host/routingTrace";
@@ -250,6 +257,10 @@ interface HandleComboChatOptions {
   /** Overrides for tests; production reads COMBO_*_BUDGET_MS. */
   comboFirstByteBudgetMs?: number;
   comboTimeBudgetMs?: number;
+  /** Opt-in: reorder by recent failures and stick to the model that rescued the chat. */
+  adaptive?: boolean;
+  /** Conversation identity, for the sticky model. */
+  sessionKey?: string;
 }
 
 /** Extract error text + retryAfter from a non-ok response. */
@@ -285,6 +296,14 @@ async function waitTransientCooldown(status: number, cooldownMs: number, modelSt
   }
 }
 
+/** Sticky model first (when it is still a member), then the penalty order. */
+function orderAdaptively(models: string[], comboName: string, sessionKey: string | undefined): string[] {
+  const sticky = getStickyModel(sessionKey, comboName);
+  const rest = sticky && models.includes(sticky) ? models.filter((m) => m !== sticky) : models;
+  const ordered = orderByPenalty(rest);
+  return rest === models ? ordered : [sticky!, ...ordered];
+}
+
 /** One line per model the loop tried, so "all failed" says who failed and why. */
 function describeAttempts(attempts: AttemptDigest[]): string {
   return attempts.map((a) => `${a.model} (${a.label})`).join(", ");
@@ -315,7 +334,7 @@ function buildAllFailedResponse(lastError: string | null, lastStatus: number | n
 /**
  * Handle combo chat with fallback
  */
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs }: HandleComboChatOptions): Promise<Response> {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs, adaptive = false, sessionKey }: HandleComboChatOptions): Promise<Response> {
   let rotatedModels = getRotatedModels(models, comboName || "", comboStrategy || "fallback", comboStickyLimit);
 
   if (autoSwitch) {
@@ -333,6 +352,8 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       rotatedModels = reordered;
     }
   }
+
+  if (adaptive) rotatedModels = orderAdaptively(rotatedModels, comboName || "", sessionKey);
 
   let lastError: string | null = null;
   let earliestRetryAfter: string | null = null;
@@ -385,6 +406,8 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       setFirstByteBudget(body, undefined);
       if (result.ok) {
         record("ok", { status: result.status });
+        recordModelSuccess(modelStr);
+        if (adaptive && i > 0) rememberStickyModel(sessionKey, comboName || "", modelStr);
         log.info?.("COMBO", `Model ${modelStr} succeeded`);
         return result;
       }
@@ -393,6 +416,9 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       earliestRetryAfter = trackEarliestRetryAfter(earliestRetryAfter, retryAfter);
       // A retryAfter in the body means no account was even tried: every one is cooling down.
       record(retryAfter ? "cooldown_skip" : "failed", { status: result.status, error: errorText });
+      // Cooling-down models were already penalized when they failed; a request
+      // the model rightly refused says nothing about its health.
+      if (!retryAfter && classifyAttemptError(result.status, errorText) !== "client") recordModelFailure(modelStr, result.status);
 
       const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
       if (!shouldFallback) {
@@ -412,6 +438,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       // A throw skips the per-account step, which would leave a silent gap
       // between one attempt and the next in the trace.
       record("aborted", { error: errMsg });
+      recordModelFailure(modelStr);
       log.warn?.("COMBO", `Model ${modelStr} threw error, trying next`, { error: lastError });
     }
   }
