@@ -5,6 +5,7 @@ import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { clearAllModelAvailability, getActiveModelAvailability } from "@/lib/db/repos/modelAvailabilityRepo";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { aggregateModelStats } from "@/shared/observability/modelStats";
+import { resetModelStatsCache } from "@/server/llm-gateway/application/modelStatsStore";
 import { clearTenantModelBench } from "@/server/llm-gateway/auth/modelBench";
 import { clearModelPenalties, snapshotModelPenalties } from "@/server/llm-gateway/engine/services/modelPenalty";
 
@@ -92,6 +93,7 @@ export async function getModelHealth(): Promise<ModelHealthRow[]> {
 export async function resetModelHealth(): Promise<{ penalties: number; cooldowns: number }> {
   const penalties = clearModelPenalties();
   clearTenantModelBench();
+  resetModelStatsCache();
   await clearModelPerf();
   const cooldowns = await clearAllModelAvailability();
   return { penalties, cooldowns };

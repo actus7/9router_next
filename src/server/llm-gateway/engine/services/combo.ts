@@ -48,6 +48,13 @@ function reorderByCapabilities(models: string[], required: Set<string> | null | 
     .map((x: { m: string; i: number; t: number }) => x.m);
 }
 
+/** Whether `provider/model` is a reasoning model (may stay silent a long time). */
+function isReasoningModel(modelStr: string): boolean {
+  const slash = modelStr.indexOf("/");
+  const caps = getCapabilitiesForModel(slash > 0 ? modelStr.slice(0, slash) : "", slash > 0 ? modelStr.slice(slash + 1) : modelStr);
+  return (caps as Record<string, unknown>).reasoning === true;
+}
+
 /** Whether `provider/model` keeps `tools` on the way upstream. */
 export function modelSupportsTools(modelStr: string): boolean {
   const slash = modelStr.indexOf("/");
@@ -409,7 +416,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     };
 
     // A model with no one behind it keeps today's patience.
-    setFirstByteBudget(body, i < rotatedModels.length - 1 ? adaptiveFirstByteBudget(baseFirstByteBudgetMs, modelStats.get(modelStr)) : undefined);
+    // A reasoning model may think silently for minutes: failing it over would
+    // trade a good answer for a worse one, so it keeps today's patience.
+    setFirstByteBudget(body, i < rotatedModels.length - 1 && !isReasoningModel(modelStr)
+      ? adaptiveFirstByteBudget(baseFirstByteBudgetMs, modelStats.get(modelStr))
+      : undefined);
     try {
       const result = await handleSingleModel(body, modelStr);
       setFirstByteBudget(body, undefined);

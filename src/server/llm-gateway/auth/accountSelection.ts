@@ -416,7 +416,8 @@ export async function markAccountUnavailable(
     backoffLevel: newBackoffLevel ?? backoffLevel
   });
 
-  if (provider && model && !githubResetAtMs) await noteBenchFailure(provider, model, status);
+  // Only upstream-side failures say the MODEL is sick; a 429/401 is one account's quota or key.
+  if (provider && model && !githubResetAtMs && (status >= 500 || status === 408)) await noteBenchFailure(provider, model, status);
 
   const connName: string = conn?.displayName || conn?.name || conn?.email || connectionId.slice(0, 8);
   log.warn("AUTH", `${connName} locked ${modelId} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
@@ -425,7 +426,9 @@ export async function markAccountUnavailable(
     console.error(`❌ ${provider} [${status}]: ${lastError}`);
   }
 
-  return { shouldFallback: true, cooldownMs };
+  // Silent for the whole first-byte budget is the model's doing: another account
+  // of it would wait the same budget again, so hand the failure to the combo.
+  return { shouldFallback: !/first-chunk timeout/i.test(errorText || ""), cooldownMs };
 }
 
 /**

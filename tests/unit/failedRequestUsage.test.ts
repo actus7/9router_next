@@ -21,7 +21,7 @@ describe("recordFailedRequest", () => {
     await recordFailedRequest({ body, response: failed(), requested: "dev", endpoint: "/v1/chat/completions", apiKey: "k" });
 
     expect(saveRequestUsage).toHaveBeenCalledTimes(1);
-    const entry = (saveRequestUsage.mock.calls[0] as unknown[])[0] as Record<string, any>;
+    const entry = (saveRequestUsage.mock.calls[0] as unknown[])[0] as { status: string; model: string; provider: string; meta: { routing: { attempts: unknown[]; failed: number } } };
     expect(entry.status).toBe("failed");
     expect(entry.model).toBe("dev");
     expect(entry.provider).toBe("oc");
