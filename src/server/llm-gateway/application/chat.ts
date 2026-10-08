@@ -43,6 +43,7 @@ import {
   resolveSmartRouting,
 } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { smartRoutingClassifiers } from "./routingClassifier";
+import { recordFailedRequest } from "./failedRequestUsage";
 import {
   checkNoAuthCooldownResponse,
   handleNoAuthCooldownResult,
@@ -413,10 +414,10 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
   const bypassResponse = handleBypassRequest(body, modelStr, userAgent, Boolean((await getSettings()).ccFilterNaming));
   if (bypassResponse) return bypassResponse.response || bypassResponse;
 
-  // The trace is collected while routing and attached to whatever response wins,
-  // so the caller can see the combo, the smart decision and every failed attempt.
+  // The trace is collected while routing and attached to whatever response wins.
   startRoutingTrace(body, modelStr);
   const response = await routeChatRequest(modelStr, body, request, apiKey, clientRawRequest);
+  await recordFailedRequest({ body, response, requested: modelStr, endpoint: clientRawRequest.endpoint, apiKey });
   return withRoutingTraceHeader(response, body);
 }
 
@@ -499,10 +500,9 @@ export async function handleSingleModelChat(
   const disabledResponse = await assertModelEnabled(provider, model);
   if (disabledResponse) return disabledResponse;
 
-    const excludeConnectionIds: Set<string> = new Set();
+  const excludeConnectionIds: Set<string> = new Set();
   let lastError: string | null = null;
   let lastStatus: number | null = null;
-
   while (true) {
     const credentials: CredentialsResult | null = await getProviderCredentials(provider, excludeConnectionIds, model);
 

@@ -63,7 +63,7 @@ function describeStep(step: RoutingTraceStep): RoutingTraceLine {
     case "attempt":
       return {
         tone: step.outcome === "ok" ? "ok" : "fail",
-        title: `Attempt ${step.index}/${step.total}: ${step.model} — ${step.outcome}`,
+        title: `Attempt ${step.index}/${step.total}: ${step.model} — ${step.outcome}${step.status ? ` (${step.status})` : ""}${step.durationMs !== undefined ? ` · ${step.durationMs}ms` : ""}`,
         detail: step.error,
       };
     case "account": {

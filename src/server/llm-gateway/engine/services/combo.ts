@@ -8,7 +8,7 @@ import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
 import { getRoutingDecision } from "./smart-routing/context";
 import { recordRoutingStep } from "./routingTrace";
-import { truncateTraceError } from "../host/routingTrace";
+import { truncateTraceError, classifyAttemptError, type AttemptOutcome } from "../host/routingTrace";
 
 // Hard capabilities = input modalities; missing one drops request data (e.g. image
 // stripped). Must be prioritized. Soft (e.g. search) only degrades a feature.
@@ -280,11 +280,19 @@ async function waitTransientCooldown(status: number, cooldownMs: number, modelSt
   }
 }
 
+/** One line per model the loop tried, so "all failed" says who failed and why. */
+function describeAttempts(attempts: AttemptDigest[]): string {
+  return attempts.map((a) => `${a.model} (${a.label})`).join(", ");
+}
+
+interface AttemptDigest { model: string; label: string }
+
 /** Build the final "all models failed" response. */
-function buildAllFailedResponse(lastError: string | null, lastStatus: number | null, earliestRetryAfter: string | null, log: Logger): Response {
+function buildAllFailedResponse(lastError: string | null, lastStatus: number | null, earliestRetryAfter: string | null, log: Logger, attempts: AttemptDigest[] = []): Response {
   const allDisabled = lastError && lastError.toLowerCase().includes("no credentials");
   const status = allDisabled ? 503 : (lastStatus || 503);
-  const msg = lastError || "All combo models unavailable";
+  const base = lastError || "All combo models unavailable";
+  const msg = attempts.length > 1 ? `${base} — tried ${describeAttempts(attempts)}` : base;
 
   if (earliestRetryAfter) {
     const retryHuman = formatRetryAfter(earliestRetryAfter);
@@ -324,6 +332,8 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   let lastError: string | null = null;
   let earliestRetryAfter: string | null = null;
   let lastStatus: number | null = null;
+  const digest: AttemptDigest[] = [];
+  const loopStartedAt = Date.now();
 
   for (let i = 0; i < rotatedModels.length; i++) {
     const modelStr = rotatedModels[i];
@@ -335,15 +345,38 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     }
     log.info?.("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
 
+    const startedAt = Date.now();
+    const record = (outcome: AttemptOutcome, extra: { status?: number; error?: string } = {}): void => {
+      const error = truncateTraceError(extra.error);
+      recordRoutingStep(body, {
+        kind: "attempt",
+        model: modelStr,
+        index: i + 1,
+        total: rotatedModels.length,
+        outcome,
+        durationMs: Date.now() - startedAt,
+        startOffsetMs: startedAt - loopStartedAt,
+        ...(extra.status !== undefined ? { status: extra.status } : {}),
+        ...(error ? { error } : {}),
+        ...(outcome === "cooldown_skip"
+          ? { errorClass: "cooldown" as const }
+          : outcome !== "ok" ? { errorClass: classifyAttemptError(extra.status, extra.error) } : {}),
+      });
+      digest.push({ model: modelStr, label: outcome === "ok" ? "ok" : outcome === "cooldown_skip" ? "cooldown" : String(extra.status ?? outcome) });
+    };
+
     try {
       const result = await handleSingleModel(body, modelStr);
       if (result.ok) {
+        record("ok", { status: result.status });
         log.info?.("COMBO", `Model ${modelStr} succeeded`);
         return result;
       }
 
       const { errorText, retryAfter } = await extractResponseError(result);
       earliestRetryAfter = trackEarliestRetryAfter(earliestRetryAfter, retryAfter);
+      // A retryAfter in the body means no account was even tried: every one is cooling down.
+      record(retryAfter ? "cooldown_skip" : "failed", { status: result.status, error: errorText });
 
       const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
       if (!shouldFallback) {
@@ -362,19 +395,12 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       if (!lastStatus) lastStatus = 500;
       // A throw skips the per-account step, which would leave a silent gap
       // between one attempt and the next in the trace.
-      recordRoutingStep(body, {
-        kind: "attempt",
-        model: modelStr,
-        index: i + 1,
-        total: rotatedModels.length,
-        outcome: "aborted",
-        error: truncateTraceError(errMsg),
-      });
+      record("aborted", { error: errMsg });
       log.warn?.("COMBO", `Model ${modelStr} threw error, trying next`, { error: lastError });
     }
   }
 
-  return buildAllFailedResponse(lastError, lastStatus, earliestRetryAfter, log);
+  return buildAllFailedResponse(lastError, lastStatus, earliestRetryAfter, log, digest);
 }
 
 export { handleFusionChat } from "./comboFusion";

@@ -7,6 +7,7 @@ import { getProviderName } from "../providerUtils";
 import { getCachedTokens, getCacheCreationTokens } from "../tokenUtils";
 import { formatClock, formatCostCell, formatShortDate } from "./requestFormat";
 import RoutingJumpTimeline from "./RoutingJumpTimeline";
+import RequestAttemptsPanel from "./RequestAttemptsPanel";
 import useObservability from "./useObservability";
 import type { RequestRow } from "./types";
 
@@ -85,6 +86,7 @@ export default function RequestFallbackDrawer({ row, providerNameCache }: Props)
       </div>
 
       <RoutingJumpTimeline routing={row.routing} />
+      <RequestAttemptsPanel attempts={row.routing?.attempts} />
 
       <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-bg-subtle px-4 py-3">
         <div className="min-w-0">

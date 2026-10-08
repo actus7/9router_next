@@ -2,7 +2,21 @@
 
 /** The routing story of one request: who was asked for, who answered, and what
  *  happened between the two. */
+export interface RequestAttempt {
+  model: string;
+  provider?: string;
+  connection?: string;
+  outcome: "ok" | "failed" | "aborted" | "cooldown_skip";
+  status?: number;
+  errorClass?: string;
+  error?: string;
+  durationMs?: number;
+  startOffsetMs?: number;
+}
+
 export interface RequestRoutingInfo {
+  /** Every model/account tried, in order, including the one that answered. */
+  attempts?: RequestAttempt[];
   requested?: string | null;
   selected?: string | null;
   steps?: number;

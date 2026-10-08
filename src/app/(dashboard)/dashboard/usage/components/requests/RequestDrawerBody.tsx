@@ -13,6 +13,7 @@ import { getProviderName } from "../providerUtils";
 import { normalizeRequestDetail } from "./requestFormat";
 import RequestFallbackDrawer from "./RequestFallbackDrawer";
 import RoutingJumpTimeline from "./RoutingJumpTimeline";
+import RequestAttemptsPanel from "./RequestAttemptsPanel";
 import type { RequestRow } from "./types";
 
 interface Props {
@@ -47,6 +48,7 @@ export default function RequestDrawerBody({ row, providerNameCache }: Props) {
         providerName={getProviderName(detail.provider || row.provider || "", providerNameCache)}
       />
       <RoutingJumpTimeline routing={row.routing} />
+      <RequestAttemptsPanel attempts={row.routing?.attempts} />
       {detail.request?.routing && <RoutingPanel routing={detail.request.routing} />}
       {detail.pxpipe && <PxPipePanel pxpipe={detail.pxpipe} />}
       <div className="flex flex-col gap-4">
