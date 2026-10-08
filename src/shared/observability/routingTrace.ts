@@ -132,35 +132,46 @@ function compact<T extends object>(value: T): T {
 }
 
 // A solo model rotating accounts has no combo loop, so its story is the
-// account steps; a combo already has one attempt per model.
+// account steps. A combo has one attempt per model, and an account that failed
+// inside a model that then answered is part of the story too: without it a
+// request that survived on its second account shows no trace of the first.
 function attemptsFromTrace(trace: RoutingTrace): RoutingAttemptSummary[] {
-  const combo = trace.steps.filter((step) => step.kind === "attempt");
-  if (combo.length > 0) {
-    return combo.map((step) => compact({
-      model: step.model,
-      provider: providerOf(step.model),
-      outcome: step.outcome,
-      status: step.status,
-      errorClass: step.errorClass,
-      error: shorten(step.error, SUMMARY_MAX_ERROR_CHARS),
-      durationMs: step.durationMs,
-      startOffsetMs: step.startOffsetMs,
-    }));
+  const accountRow = (account: Extract<RoutingTraceStep, { kind: "account" }>): RoutingAttemptSummary => compact({
+    model: `${account.provider}/${account.model}`,
+    provider: account.provider,
+    connection: account.connection,
+    outcome: (account.outcome === "selected" ? "ok" : "failed") as AttemptOutcome,
+    status: account.status,
+    errorClass: account.status !== undefined ? classifyAttemptError(account.status, account.error) : undefined,
+    error: shorten(account.error, SUMMARY_MAX_ERROR_CHARS),
+  });
+  const hasCombo = trace.steps.some((step) => step.kind === "attempt");
+  if (!hasCombo) {
+    return trace.steps
+      .filter((step): step is Extract<RoutingTraceStep, { kind: "account" }> => step.kind === "account" && step.outcome !== "exhausted")
+      .map(accountRow);
   }
-  return trace.steps
-    .filter((step) => step.kind === "account" && step.outcome !== "exhausted")
-    .map((step) => {
-      const account = step as Extract<RoutingTraceStep, { kind: "account" }>;
-      return compact({
-        model: `${account.provider}/${account.model}`,
-        provider: account.provider,
-        connection: account.connection,
-        outcome: (account.outcome === "selected" ? "ok" : "failed") as AttemptOutcome,
-        status: account.status,
-        errorClass: account.status !== undefined ? classifyAttemptError(account.status, account.error) : undefined,
-        error: shorten(account.error, SUMMARY_MAX_ERROR_CHARS),
-      });
-    });
+  // A model whose combo attempt failed already says so; its account failures
+  // would only repeat it.
+  const answered = new Set(trace.steps.flatMap((s) => (s.kind === "attempt" && s.outcome === "ok" ? [s.model] : [])));
+  const rows: RoutingAttemptSummary[] = [];
+  for (const step of trace.steps) {
+    if (step.kind === "attempt") {
+      rows.push(compact({
+        model: step.model,
+        provider: providerOf(step.model),
+        outcome: step.outcome,
+        status: step.status,
+        errorClass: step.errorClass,
+        error: shorten(step.error, SUMMARY_MAX_ERROR_CHARS),
+        durationMs: step.durationMs,
+        startOffsetMs: step.startOffsetMs,
+      }));
+    } else if (step.kind === "account" && (step.outcome === "switched" || step.outcome === "failed") && answered.has(`${step.provider}/${step.model}`)) {
+      rows.push(accountRow(step));
+    }
+  }
+  return rows;
 }
 
 export function summarizeRoutingTrace(trace: RoutingTrace | null | undefined): RoutingTraceSummary | null {

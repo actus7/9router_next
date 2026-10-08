@@ -73,3 +73,36 @@ describe("summarizeRoutingTrace attempts", () => {
     expect(summary.truncated).toBe(true);
   });
 });
+
+describe("account rotation inside a model that answered", () => {
+  const account = (over: Partial<Extract<RoutingTraceStep, { kind: "account" }>>): RoutingTraceStep =>
+    ({ kind: "account", provider: "kilo-gateway", model: "kilo-auto/free", outcome: "selected", ...over });
+
+  it("keeps the failed account even when the combo made a single, successful attempt", () => {
+    const trace: RoutingTrace = {
+      requestedModel: "dev",
+      selectedModel: "kilo-gateway/kilo-auto/free",
+      steps: [
+        account({ connection: "acc-1", outcome: "switched", status: 429, error: "limit" }),
+        account({ connection: "acc-2", outcome: "selected" }),
+        attempt({ model: "kilo-gateway/kilo-auto/free", index: 1, total: 1, outcome: "ok", durationMs: 800 }),
+      ],
+    };
+    const attempts = summarizeRoutingTrace(trace)?.attempts;
+    expect(attempts).toHaveLength(2);
+    expect(attempts?.[0]).toMatchObject({ model: "kilo-gateway/kilo-auto/free", connection: "acc-1", outcome: "failed", status: 429 });
+    expect(attempts?.[1]).toMatchObject({ outcome: "ok" });
+  });
+
+  it("does not duplicate account failures of a model whose combo attempt failed", () => {
+    const trace: RoutingTrace = {
+      requestedModel: "dev",
+      steps: [
+        account({ connection: "acc-1", outcome: "failed", status: 503 }),
+        attempt({ model: "kilo-gateway/kilo-auto/free", outcome: "failed", status: 503 }),
+        attempt({ model: "b/m2", index: 2, outcome: "ok" }),
+      ],
+    };
+    expect(summarizeRoutingTrace(trace)?.attempts).toHaveLength(2);
+  });
+});
