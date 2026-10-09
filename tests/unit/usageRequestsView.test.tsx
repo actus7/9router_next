@@ -200,10 +200,11 @@ describe("request drawer", () => {
     expect(body.getByText("/v1/responses")).toBeTruthy();
     expect(body.getByText(/Full request and response bodies are only recorded/)).toBeTruthy();
 
-    // Jump timeline: requested → failures/fallback → selected, plus combo/tier.
-    expect(body.getByTitle("Requested model").textContent).toBe("gpt-4o");
-    expect(body.getByTitle("Selected model").textContent).toBe("claude-3-5-sonnet");
-    expect(body.getByText("fallback")).toBeTruthy();
+    // Rows without an attempt trail still tell who answered, who was asked for and what failed.
+    expect(body.getByRole("heading", { name: "Answered by claude-3-5-sonnet" })).toBeTruthy();
+    expect(body.getByText(/requested gpt-4o/)).toBeTruthy();
+    expect(body.getByText(/2 failed attempts/)).toBeTruthy();
+    expect(body.getByText(/account fallback/)).toBeTruthy();
     expect(body.getByText(/combo-x/)).toBeTruthy();
     expect(body.getByText(/tier: pro/)).toBeTruthy();
 
@@ -228,6 +229,6 @@ describe("request drawer", () => {
     const body = within(await screen.findByTestId("drawer"));
     expect(body.getByText("1. Client Request (Input)")).toBeTruthy();
     expect(body.getByText("Smart routing")).toBeTruthy();
-    expect(body.getByText("ID:")).toBeTruthy();
+    expect(body.getByText("ID")).toBeTruthy();
   });
 });

@@ -16,40 +16,52 @@ vi.mock("swr", () => ({
   })),
 }));
 
-import RequestAttemptsPanel from "@/app/(dashboard)/dashboard/usage/components/requests/RequestAttemptsPanel";
+import RequestRoutingStory from "@/app/(dashboard)/dashboard/usage/components/requests/RequestRoutingStory";
 import { ModelHealthPanel } from "@/app/(dashboard)/dashboard/combos/ModelHealthPanel";
 
 afterEach(cleanup);
 
-describe("RequestAttemptsPanel", () => {
+describe("RequestRoutingStory", () => {
   const attempts = [
     { model: "zai/glm-5.3-flashx", provider: "zai", outcome: "failed" as const, status: 429, errorClass: "rate_limit", error: "Your current subscription plan does not yet include access", durationMs: 1479, startOffsetMs: 0 },
     { model: "opencode-go/space-bunny-free", provider: "opencode-go", outcome: "failed" as const, status: 400, durationMs: 300, startOffsetMs: 1500 },
     { model: "mimo-v2.6-flash", provider: "mimo", outcome: "ok" as const, status: 200, durationMs: 900, startOffsetMs: 1800 },
   ];
 
-  it("lists every attempt in order with its status and explains the first failure by default", () => {
-    render(<RequestAttemptsPanel attempts={attempts} />);
-    const items = screen.getAllByRole("button");
-    expect(items).toHaveLength(3);
-    expect(items[0].textContent).toContain("zai/glm-5.3-flashx");
-    expect(items[0].textContent).toContain("429");
-    expect(items[2].textContent).toContain("200");
-    // Detail pane shows the failed attempt's error and where it fell back to.
+  it("headlines who answered and after how many failures, then lists every attempt with its reason", () => {
+    render(<RequestRoutingStory routing={{ attempts, combo: "dev", tier: "simple" }} />);
+    expect(screen.getByRole("heading").textContent).toBe("Answered by mimo-v2.6-flash after 2 failed attempts");
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByText("Rate limit or quota exhausted (429)")).toBeTruthy();
     expect(screen.getByText(/does not yet include access/)).toBeTruthy();
-    expect(screen.getByText(/Continued with fallback to/)).toBeTruthy();
-    expect(screen.getAllByText("opencode-go/space-bunny-free").length).toBeGreaterThan(1);
+    expect(screen.getByText(/combo: dev · tier: simple/)).toBeTruthy();
+    expect(screen.getByText("Answered the request")).toBeTruthy();
   });
 
-  it("switches the detail when another attempt is selected", () => {
-    render(<RequestAttemptsPanel attempts={attempts} />);
-    fireEvent.click(screen.getAllByRole("button")[2]);
-    expect(screen.queryByText(/does not yet include access/)).toBeNull();
-    expect(screen.getByText("Success")).toBeTruthy();
+  it("explains a hedge loser as cancelled, not as a failure", () => {
+    render(
+      <RequestRoutingStory
+        routing={{
+          attempts: [
+            { model: "mimo/pro", outcome: "ok", status: 200, startOffsetMs: 0, durationMs: 9800 },
+            { model: "mimo/flash", outcome: "aborted", error: "another model answered first", startOffsetMs: 6000, durationMs: 4300 },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByRole("heading").textContent).toBe("Answered by mimo/pro on the first try");
+    expect(screen.getByText(/Not a failure/)).toBeTruthy();
+    expect(screen.getByText("in parallel")).toBeTruthy();
+    expect(screen.queryByText("another model answered first")).toBeNull();
   });
 
-  it("renders nothing without attempts", () => {
-    const { container } = render(<RequestAttemptsPanel attempts={undefined} />);
+  it("says so when nothing answered", () => {
+    render(<RequestRoutingStory routing={{ attempts: [{ model: "a/m", outcome: "failed", status: 503 }] }} />);
+    expect(screen.getByRole("heading").textContent).toBe("No model answered");
+  });
+
+  it("renders nothing without routing information", () => {
+    const { container } = render(<RequestRoutingStory routing={undefined} />);
     expect(container.innerHTML).toBe("");
   });
 });

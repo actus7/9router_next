@@ -1,6 +1,8 @@
 import type { RequestAttempt } from "./types";
 
-export type AttemptTone = "ok" | "failed" | "skipped";
+/** `cancelled` is a hedge loser: it was stopped because another model answered
+ *  first, which is the gateway working, not a model failing. */
+export type AttemptTone = "ok" | "failed" | "skipped" | "cancelled";
 
 export interface AttemptRow {
   number: number;
@@ -15,6 +17,8 @@ export interface AttemptRow {
   error?: string;
   durationMs?: number;
   startOffsetMs?: number;
+  /** Started while the previous attempt was still running (a hedge). */
+  parallel: boolean;
   /** The model the request moved on to after this attempt failed. */
   fallbackTo?: { model: string; number: number };
 }
@@ -22,33 +26,72 @@ export interface AttemptRow {
 const TONE: Record<RequestAttempt["outcome"], AttemptTone> = {
   ok: "ok",
   failed: "failed",
-  aborted: "failed",
+  aborted: "cancelled",
   cooldown_skip: "skipped",
 };
 
 function badgeOf(attempt: RequestAttempt): string {
   if (attempt.status !== undefined) return String(attempt.status);
-  return attempt.outcome === "cooldown_skip" ? "cooldown" : attempt.outcome === "ok" ? "200" : "error";
+  if (attempt.outcome === "cooldown_skip") return "cooldown";
+  if (attempt.outcome === "aborted") return "cancelled";
+  return attempt.outcome === "ok" ? "200" : "error";
 }
 
-/** The ATTEMPTS list: one row per try, each failure pointing at what came next. */
+export function formatMs(ms: number): string {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+}
+
+function endOf(attempt: RequestAttempt): number | undefined {
+  if (attempt.startOffsetMs === undefined || attempt.durationMs === undefined) return undefined;
+  return attempt.startOffsetMs + attempt.durationMs;
+}
+
+/** One row per try, in order, each failure pointing at what came next. */
 export function buildAttemptRows(attempts: RequestAttempt[] | null | undefined): AttemptRow[] {
   if (!attempts?.length) return [];
   return attempts.map((attempt, i) => {
+    const prev = attempts[i - 1];
     const next = attempts[i + 1];
+    const prevEnd = prev ? endOf(prev) : undefined;
+    const tone = TONE[attempt.outcome] ?? "failed";
     return {
       number: i + 1,
       model: attempt.model,
       provider: attempt.provider,
       connection: attempt.connection,
-      tone: TONE[attempt.outcome] ?? "failed",
+      tone,
       badge: badgeOf(attempt),
       status: attempt.status,
       errorClass: attempt.errorClass,
       error: attempt.error,
       durationMs: attempt.durationMs,
       startOffsetMs: attempt.startOffsetMs,
-      ...(attempt.outcome !== "ok" && next ? { fallbackTo: { model: next.model, number: i + 2 } } : {}),
+      parallel: attempt.startOffsetMs !== undefined && prevEnd !== undefined && attempt.startOffsetMs < prevEnd,
+      ...((tone === "failed" || tone === "skipped") && next ? { fallbackTo: { model: next.model, number: i + 2 } } : {}),
     };
   });
+}
+
+export interface AttemptSummary {
+  answeredBy?: AttemptRow;
+  failures: number;
+  skipped: number;
+  cancelled: number;
+  /** End of the last attempt, measured from the request start. */
+  totalMs?: number;
+}
+
+/** The headline of the story: who answered and what it took to get there. */
+export function summarizeAttempts(rows: AttemptRow[]): AttemptSummary {
+  const count = (tone: AttemptTone) => rows.filter((r) => r.tone === tone).length;
+  const ends = rows.flatMap((r) =>
+    r.startOffsetMs !== undefined && r.durationMs !== undefined ? [r.startOffsetMs + r.durationMs] : [],
+  );
+  return {
+    answeredBy: rows.find((r) => r.tone === "ok"),
+    failures: count("failed"),
+    skipped: count("skipped"),
+    cancelled: count("cancelled"),
+    totalMs: ends.length ? Math.max(...ends) : undefined,
+  };
 }
