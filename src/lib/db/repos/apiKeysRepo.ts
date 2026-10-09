@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
+import { TtlMemo } from "@/lib/ttlMemo";
 import {
   normalizeGatewayProfile,
   parseStoredProfile,
@@ -46,6 +47,18 @@ interface ApiKey {
   sink: ApiKeySink;
   sinkRef: string | null;
   revokedAt: string | null;
+}
+
+// ponytail: key → owner memo for the gateway hot path (one Neon read per request
+// otherwise). Keyed by the key itself, which is globally unique. Any write to
+// apiKeys clears all of it; another instance sees a revoke within the TTL.
+// Short on purpose: a revocation only clears the instance that wrote it, so this is how
+// long a revoked key can still authenticate on the others.
+const KEY_OWNER_TTL_MS = 10_000;
+const keyOwnerMemo = new TtlMemo<{ userId: string; id: string; profile: string | null }>(KEY_OWNER_TTL_MS);
+
+export function invalidateApiKeyOwnerCache(): void {
+  keyOwnerMemo.clear();
 }
 
 function rowToKey(row: ApiKeyRow | undefined): ApiKey | null {
@@ -160,6 +173,7 @@ export async function revokeApiKeysForSink(sink: ApiKeySink): Promise<number> {
     `UPDATE apiKeys SET isActive = 0, revokedAt = ? WHERE userId = ? AND sink = ? AND isActive = 1`,
     [new Date().toISOString(), currentTenantId(), sink],
   );
+  invalidateApiKeyOwnerCache();
   return res?.changes ?? 0;
 }
 
@@ -177,12 +191,14 @@ export async function updateApiKey(id: string, data: Partial<ApiKey>): Promise<A
     );
     result = merged;
   });
+  invalidateApiKeyOwnerCache();
   return result;
 }
 
 export async function deleteApiKey(id: string): Promise<boolean> {
   const db = await getAdapter();
   const res = await db.run(`DELETE FROM apiKeys WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
+  invalidateApiKeyOwnerCache();
   return (res?.changes ?? 0) > 0;
 }
 
@@ -197,6 +213,9 @@ export async function deleteApiKey(id: string): Promise<boolean> {
 export async function resolveApiKeyOwner(
   key: string,
 ): Promise<{ userId: string; id: string; profile: string | null } | null> {
+  const cached = keyOwnerMemo.get(key);
+  if (cached) return { ...cached };
+  const generation = keyOwnerMemo.generation;
   const db = await getAdapter();
   // `profile` rides along so the gateway scopes the request without a second
   // read of the row it just found.
@@ -205,7 +224,10 @@ export async function resolveApiKeyOwner(
     | undefined;
   if (!row) return null;
   if (!(row.isActive === 1 || row.isActive === true)) return null;
-  return { userId: row.userId, id: row.id, profile: row.profile ?? null };
+  const owner = { userId: row.userId, id: row.id, profile: row.profile ?? null };
+  // Only a live key is remembered: a miss must not hide a key minted a second later.
+  keyOwnerMemo.set(key, owner, generation);
+  return { ...owner };
 }
 
 async function accountSaverSettings() {
@@ -243,6 +265,7 @@ export async function updateApiKeyProfile(id: string, patch: unknown): Promise<G
     currentTenantId(),
     id,
   ]);
+  invalidateApiKeyOwnerCache();
   return (res?.changes ?? 0) > 0 ? next : null;
 }
 

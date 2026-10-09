@@ -8,15 +8,32 @@ import {
   type HarnessRun,
 } from "@/lib/db/repos/harnessRunsRepo";
 import { requireDashboardAccess } from "@/server/application/http/requireDashboardAccess";
+import { subscribeRun } from "@/server/application/use-cases/harness/runBus";
 
 /**
  * How often the row is re-read while a run is live.
  *
  * The worker may be in a different serverless invocation than this reader, so
- * there is no in-process event to subscribe to — the database is the only
- * channel between them. Polling it is the honest implementation of that.
+ * the database is the only channel guaranteed to connect them; polling it is
+ * the fallback. A worker in the *same* process skips the wait entirely through
+ * `runBus`, so this interval is the latency only for the cross-instance case.
  */
-const POLL_INTERVAL_MS = 700;
+const POLL_INTERVAL_MS = 250;
+
+/**
+ * Once the text has not moved for `QUIET_AFTER_MS` the run is thinking or in a
+ * tool, and nothing is lost by looking less often: the worker's heartbeat is 5s
+ * and the next token ends the quiet. Neon is shared, so the fast poll is spent
+ * only while text is actually arriving.
+ */
+const QUIET_POLL_INTERVAL_MS = 700;
+const QUIET_AFTER_MS = 5_000;
+
+/**
+ * While pushes keep arriving the row is still read this often, so a settled
+ * status, a dead worker or a deleted run is noticed even if text never pauses.
+ */
+const DB_FALLBACK_MS = 2_000;
 
 /**
  * A hard ceiling on how long one watcher may poll.
@@ -31,7 +48,7 @@ const MAX_WATCH_MS = 10 * 60 * 1000;
 /**
  * How many watchers one account may hold open at once.
  *
- * Each one polls Neon every 700ms for up to ten minutes, and the database is
+ * Each one polls Neon every 250ms for up to ten minutes, and the database is
  * shared by every tenant — so this is not about protecting the account that
  * opens them, it is about the accounts that did not. The dashboard rate limit
  * bounds how fast connections are *opened*, never how many stay open, which is
@@ -106,10 +123,26 @@ export async function GET(request: NextRequest, context: { params: Promise<{ run
     async start(controller) {
       const deadline = Date.now() + MAX_WATCH_MS;
       let lastText = "";
+      let lastRun: HarnessRun = existing;
+      let lastRead = Date.now();
+      let lastChangeAt = Date.now();
+
+      // What the worker pushed since the last turn of the loop, and the timer
+      // wait to cut short when it does. `woken` also covers a bare wake-up.
+      let pushed: string | null = null;
+      let woken = false;
+      let wake: (() => void) | null = null;
+      const unsubscribe = subscribeRun(runId, (text) => {
+        woken = true;
+        if (text !== null) pushed = text;
+        wake?.();
+      });
 
       const send = (run: HarnessRun) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(run)}\n\n`));
+        if (run.partialText !== lastText) lastChangeAt = Date.now();
         lastText = run.partialText;
+        lastRun = run;
       };
 
       try {
@@ -117,9 +150,31 @@ export async function GET(request: NextRequest, context: { params: Promise<{ run
         if (existing.status !== "running") return;
 
         while (!state.done && Date.now() < deadline) {
-          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          if (!woken) {
+            await new Promise<void>((resolve) => {
+              const quiet = Date.now() - lastChangeAt > QUIET_AFTER_MS;
+              const timer = setTimeout(resolve, quiet ? QUIET_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
+              wake = () => {
+                clearTimeout(timer);
+                resolve();
+              };
+            });
+          }
+          wake = null;
+          woken = false;
           if (state.done) break;
 
+          // Same-process worker: forward its text as-is, no Neon round trip.
+          // The row is still read now and then (see DB_FALLBACK_MS) for
+          // everything text cannot tell us.
+          const text = pushed;
+          pushed = null;
+          if (text !== null && Date.now() - lastRead < DB_FALLBACK_MS) {
+            if (text !== lastText) send({ ...lastRun, partialText: text });
+            continue;
+          }
+
+          lastRead = Date.now();
           let run = await withTenant(owner, () => getHarnessRun(runId));
           if (!run) break; // Deleted while watched: the end, not an error.
 
@@ -134,7 +189,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ run
             run = (await withTenant(owner, () => getHarnessRun(runId))) ?? run;
           }
 
-          if (run.partialText !== lastText || run.status !== "running") {
+          // The worker's write is fire-and-forget, so the row can trail text we
+          // already forwarded. That is lag, not news: resending it would rewind
+          // the reader.
+          const trailing = run.status === "running" && lastText.startsWith(run.partialText);
+          if ((run.partialText !== lastText && !trailing) || run.status !== "running") {
             send(run);
             if (run.status !== "running") break;
           } else {
@@ -145,6 +204,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ run
         // A read that failed or a consumer that went away. Either way this
         // watcher is finished; the worker neither knows nor cares.
       } finally {
+        unsubscribe();
         request.signal.removeEventListener("abort", stop);
         releaseWatcher(owner);
         stop();
@@ -166,7 +226,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ run
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
     },
   });

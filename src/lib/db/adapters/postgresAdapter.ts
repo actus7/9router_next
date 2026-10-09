@@ -125,8 +125,17 @@ export interface PostgresAdapter {
   raw: Pool;
 }
 
+const POOL_IDLE_TIMEOUT_MS = 60_000;
+
 export function createPostgresAdapter(connectionString: string): PostgresAdapter {
-  const pool: Pool = new Pool({ connectionString });
+  // pg-pool drops an idle client after 10s, so the first query after a pause paid
+  // WebSocket + TLS + auth again. Neon suspends the compute on its own schedule.
+  const pool: Pool = new Pool({ connectionString, idleTimeoutMillis: POOL_IDLE_TIMEOUT_MS });
+  // An idle client the server closes surfaces here; with no listener the
+  // EventEmitter throws and takes the process down. pg-pool evicts the client itself.
+  pool.on("error", (error: Error) => {
+    console.error("[DB] idle pool client error:", error.message);
+  });
 
   async function query(
     sql: string,

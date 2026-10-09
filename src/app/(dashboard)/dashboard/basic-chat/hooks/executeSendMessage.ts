@@ -37,6 +37,7 @@ import {
 import { readRoutingTraceFromError } from "./consumeSSEStream";
 import { executeDurableChat, stopDurableRun } from "./executeDurableChat";
 import { recordRoutingTraceEvent } from "./recordRoutingTraceEvent";
+import { createStreamingTextUpdater } from "./streamingTextUpdater";
 import {
   finalizeStreamError,
   finalizeStreamSuccess,
@@ -316,9 +317,10 @@ export async function executeSendMessage({
   const requestStartedAt = Date.now();
   let firstTokenAt: number | null = null;
 
-  try {
-    const updateStreamingText = (text: string) => {
-      if (firstTokenAt === null && text) firstTokenAt = Date.now();
+  // Text arrives at network rate; React hears about it once per frame and the
+  // stored session at most twice a second (see streamingTextUpdater).
+  const streamUpdater = createStreamingTextUpdater({
+    applyFrame: (text) => {
       setStreamingText(text);
       setLiveActivities((activities) =>
         activities.map((activity) =>
@@ -327,6 +329,8 @@ export async function executeSendMessage({
             : activity,
         ),
       );
+    },
+    persist: (text) =>
       updateSession(sessionId, (s) => ({
         ...s,
         messages: s.messages.map((m) =>
@@ -335,7 +339,13 @@ export async function executeSendMessage({
             : m,
         ),
         updatedAt: new Date().toISOString(),
-      }));
+      })),
+  });
+
+  try {
+    const updateStreamingText = (text: string) => {
+      if (firstTokenAt === null && text) firstTokenAt = Date.now();
+      streamUpdater.push(text);
     };
     const result = isPuterBrowserModel(model)
       ? await (async () => {
@@ -373,6 +383,9 @@ export async function executeSendMessage({
           // partly this browser's stored preferences.
           enabledSkillIds: [...getEnabledSkillIds(session.skillOverrides, readSkillPreferences())],
         });
+    // The throttled session write may be behind; settle it before anything
+    // below reads or replaces the stored message.
+    streamUpdater.flush();
     recordRoutingTraceEvent(recordHarnessEvent, sessionId, assistantMessageId, result.routingTrace);
     if (result.streamed) {
       const completedAt = Date.now();
@@ -462,6 +475,8 @@ export async function executeSendMessage({
       }
     }
   } catch (error: unknown) {
+    // Keep the partial answer the error will be attached to.
+    streamUpdater.flush();
     setLiveActivities((activities) =>
       activities.map((activity) =>
         activity.id === currentRunId
@@ -480,6 +495,7 @@ export async function executeSendMessage({
       setChatError,
     );
   } finally {
+    streamUpdater.cancel();
     setSending(false);
     setStreamingMessageId("");
     setStreamingText("");

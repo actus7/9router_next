@@ -6,9 +6,9 @@ import { checkFallbackError, formatRetryAfter } from "./accountFallback";
 import { unavailableResponse } from "../utils/error";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
-import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_TIME_BUDGET_MS } from "../config/runtimeConfig";
-import { setFirstByteBudget } from "../utils/firstByteGuard";
-import { adaptiveFirstByteBudget, loadModelStats, recordAttemptDatum } from "../host/modelStats";
+import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_HEDGE_ENABLED, COMBO_TIME_BUDGET_MS, STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
+import { setAttemptSignal, setFirstByteBudget } from "../utils/firstByteGuard";
+import { adaptiveFirstByteBudget, hedgeDelayMs, loadModelStats, recordAttemptDatum } from "../host/modelStats";
 import {
   getStickyModel,
   orderByPenalty,
@@ -269,6 +269,12 @@ interface HandleComboChatOptions {
   adaptive?: boolean;
   /** Conversation identity, for the sticky model. */
   sessionKey?: string;
+  /** Per-combo kill switch (comboStrategy.hedge === false). */
+  hedge?: boolean;
+  /** Process-wide switch; defaults to COMBO_HEDGE_ENABLED. Override for tests. */
+  hedgeEnabled?: boolean;
+  /** Fixed hedge delay, replacing the one derived from the model's TTFT. Override for tests. */
+  comboHedgeDelayMs?: number;
 }
 
 /** Extract error text + retryAfter from a non-ok response. */
@@ -293,15 +299,6 @@ function trackEarliestRetryAfter(current: string | null, candidate: string | nul
   if (!candidate) return current;
   if (!current || new Date(candidate) < new Date(current)) return candidate;
   return current;
-}
-
-/** Wait a short cooldown for transient 5xx errors before falling through. */
-async function waitTransientCooldown(status: number, cooldownMs: number, modelStr: string, log: Logger): Promise<void> {
-  if (cooldownMs > 0 && cooldownMs <= 5000 &&
-      (status === 503 || status === 502 || status === 504)) {
-    log.info?.("COMBO", `Model ${modelStr} transient ${status}, waiting ${cooldownMs}ms before next`);
-    await new Promise(r => setTimeout(r, cooldownMs));
-  }
 }
 
 /** Sticky model first (when it is still a member), then the penalty order. */
@@ -339,10 +336,46 @@ function buildAllFailedResponse(lastError: string | null, lastStatus: number | n
   );
 }
 
+/** One hedge: who won, and how to stop the attempt that did not. */
+interface HedgeRace {
+  /** The attempt that opened the race; only it may end the race with a request-level error. */
+  primary: number;
+  winner: number | null;
+  controllers: Map<number, AbortController>;
+}
+
+/** The first attempt to hand back a response wins; the others are aborted. */
+function claimRace(race: HedgeRace, attempt: number): boolean {
+  if (race.winner === null) {
+    race.winner = attempt;
+    for (const [other, controller] of race.controllers) if (other !== attempt) controller.abort();
+  }
+  return race.winner === attempt;
+}
+
+/** First non-null response; null once every attempt has settled without one. */
+function firstResponse(attempts: Promise<Response | null>[]): Promise<Response | null> {
+  return new Promise((resolve) => {
+    let pending = attempts.length;
+    const settle = (response: Response | null): void => {
+      if (response) resolve(response);
+      else if (--pending === 0) resolve(null);
+    };
+    for (const attempt of attempts) attempt.then(settle, () => settle(null));
+  });
+}
+
+/** Close the stream of an attempt that lost, so its upstream is not read (or paid for) any further. */
+function discardResponse(response: Response | undefined): void {
+  response?.body?.cancel().catch(() => {});
+}
+
+const HEDGE_DUE = Symbol("hedge-due");
+
 /**
  * Handle combo chat with fallback
  */
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs, adaptive = false, sessionKey }: HandleComboChatOptions): Promise<Response> {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs, adaptive = false, sessionKey, hedge = true, hedgeEnabled = COMBO_HEDGE_ENABLED, comboHedgeDelayMs }: HandleComboChatOptions): Promise<Response> {
   let rotatedModels = getRotatedModels(models, comboName || "", comboStrategy || "fallback", comboStickyLimit);
 
   if (autoSwitch) {
@@ -373,25 +406,44 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   // Measured history sizes each model's patience; with no store it is the base.
   const modelStats = rotatedModels.length > 1 ? await loadModelStats() : new Map();
   const timeBudgetMs = comboTimeBudgetMs ?? COMBO_TIME_BUDGET_MS;
+  // Only a streaming answer has a "first byte" to race for.
+  const canHedge = hedge && hedgeEnabled && body.stream === true;
 
-  for (let i = 0; i < rotatedModels.length; i++) {
-    const modelStr = rotatedModels[i];
+  const selectModel = (modelStr: string): void => {
     const routingDecision = getRoutingDecision(body);
-    if (routingDecision) {
-      const candidate = routingDecision.candidateDetails.find((item) => item.model === modelStr);
-      routingDecision.selectedModel = modelStr;
-      if (candidate) routingDecision.degraded = candidate.degraded;
-    }
-    // The first attempt is always made; after that the loop stops starting new
-    // ones once the budget is spent, so N slow models cannot add up to N timeouts.
-    if (i > 0 && Date.now() - loopStartedAt >= timeBudgetMs) {
-      log.warn?.("COMBO", `time budget (${timeBudgetMs}ms) spent after ${i} attempts, not trying the remaining ${rotatedModels.length - i}`);
-      break;
-    }
+    if (!routingDecision) return;
+    const candidate = routingDecision.candidateDetails.find((item) => item.model === modelStr);
+    routingDecision.selectedModel = modelStr;
+    if (candidate) routingDecision.degraded = candidate.degraded;
+  };
+
+  /**
+   * How long attempt `i` may stay silent after headers. A model with no one
+   * behind it, or one that thinks silently on purpose, keeps today's patience:
+   * failing it over would trade a good answer for a worse one. Inside a hedge
+   * the guard is still armed (long) so that "answered" means "sent a byte".
+   */
+  const firstByteBudgetFor = (i: number, hedged: boolean): number | undefined => {
+    const modelStr = rotatedModels[i];
+    const patient = i === rotatedModels.length - 1 || isReasoningModel(modelStr);
+    if (patient) return hedged ? STREAM_FIRST_CHUNK_TIMEOUT_MS : undefined;
+    return adaptiveFirstByteBudget(baseFirstByteBudgetMs, modelStats.get(modelStr));
+  };
+
+  /** One attempt. A response means "return this"; null means "try the next". Never throws. */
+  const runAttempt = async (i: number, race?: HedgeRace): Promise<Response | null> => {
+    const modelStr = rotatedModels[i];
+    selectModel(modelStr);
     log.info?.("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
 
+    // Hedged attempts run side by side, so each gets its own copy (budget and
+    // abort signal). The routing trace and decision ride along by reference.
+    const attemptBody: Record<string, unknown> = race ? { ...body } : body;
+    const signal = race?.controllers.get(i)?.signal;
+    if (signal) setAttemptSignal(attemptBody, signal);
+
     const startedAt = Date.now();
-    const record = (outcome: AttemptOutcome, extra: { status?: number; error?: string } = {}): void => {
+    const traceStep = (outcome: AttemptOutcome, extra: { status?: number; error?: string } = {}, withErrorClass = true): void => {
       const error = truncateTraceError(extra.error);
       recordRoutingStep(body, {
         kind: "attempt",
@@ -405,8 +457,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
         ...(error ? { error } : {}),
         ...(outcome === "cooldown_skip"
           ? { errorClass: "cooldown" as const }
-          : outcome !== "ok" ? { errorClass: classifyAttemptError(extra.status, extra.error) } : {}),
+          : outcome !== "ok" && withErrorClass ? { errorClass: classifyAttemptError(extra.status, extra.error) } : {}),
       });
+    };
+    const record = (outcome: AttemptOutcome, extra: { status?: number; error?: string } = {}): void => {
+      traceStep(outcome, extra);
       // Only what says something about the model: not a cooldown skip, not a refused request.
       const errorClass = outcome === "ok" || outcome === "cooldown_skip" ? undefined : classifyAttemptError(extra.status, extra.error);
       if (outcome === "ok") recordAttemptDatum({ modelKey: modelStr, outcome: "ok", ttftMs: Date.now() - startedAt });
@@ -415,17 +470,24 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       }
       digest.push({ model: modelStr, label: outcome === "ok" ? "ok" : outcome === "cooldown_skip" ? "cooldown" : String(extra.status ?? outcome) });
     };
+    // Lost the race: it says nothing about the model, so no stats, no penalty, no cooldown.
+    const lose = (response?: Response): null => {
+      discardResponse(response);
+      traceStep("aborted", { error: "another model answered first" }, false);
+      log.info?.("COMBO", `Model ${modelStr} lost the hedge`);
+      return null;
+    };
+    const lost = (): boolean => signal?.aborted === true;
+    const win = (): boolean => !race || claimRace(race, i);
 
-    // A model with no one behind it keeps today's patience.
-    // A reasoning model may think silently for minutes: failing it over would
-    // trade a good answer for a worse one, so it keeps today's patience.
-    setFirstByteBudget(body, i < rotatedModels.length - 1 && !isReasoningModel(modelStr)
-      ? adaptiveFirstByteBudget(baseFirstByteBudgetMs, modelStats.get(modelStr))
-      : undefined);
+    setFirstByteBudget(attemptBody, firstByteBudgetFor(i, race !== undefined));
     try {
-      const result = await handleSingleModel(body, modelStr);
-      setFirstByteBudget(body, undefined);
+      const result = await handleSingleModel(attemptBody, modelStr);
+      setFirstByteBudget(attemptBody, undefined);
+      if (lost()) return lose(result);
       if (result.ok) {
+        if (!win()) return lose(result);
+        if (race) selectModel(modelStr);
         record("ok", { status: result.status });
         recordModelSuccess(modelStr);
         if (adaptive && (i > 0 || modelStr === stickyModel)) rememberStickyModel(sessionKey, comboName || "", modelStr);
@@ -434,6 +496,12 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       }
 
       const { errorText, retryAfter } = await extractResponseError(result);
+      if (lost()) return lose();
+      const { shouldFallback } = checkFallbackError(result.status, errorText);
+      // The hedged model refusing the request says nothing about the primary, which may still answer.
+      const hedgeRefused = race !== undefined && i !== race.primary && !shouldFallback;
+      if (!shouldFallback && !hedgeRefused && !win()) return lose();
+
       earliestRetryAfter = trackEarliestRetryAfter(earliestRetryAfter, retryAfter);
       // A retryAfter in the body means no account was even tried: every one is cooling down.
       record(retryAfter ? "cooldown_skip" : "failed", { status: result.status, error: errorText });
@@ -441,18 +509,23 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       // the model rightly refused says nothing about its health.
       if (!retryAfter && classifyAttemptError(result.status, errorText) !== "client") recordModelFailure(modelStr, result.status);
 
-      const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
+      if (hedgeRefused) {
+        lastError = errorText || String(result.status);
+        if (!lastStatus) lastStatus = result.status;
+        log.warn?.("COMBO", `Hedged model ${modelStr} refused the request, primary keeps running`, { status: result.status });
+        return null;
+      }
       if (!shouldFallback) {
         log.warn?.("COMBO", `Model ${modelStr} failed (no fallback)`, { status: result.status });
         return result;
       }
 
-      await waitTransientCooldown(result.status, cooldownMs || 0, modelStr, log);
-
       lastError = errorText || String(result.status);
       if (!lastStatus) lastStatus = result.status;
       log.warn?.("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
+      return null;
     } catch (error: unknown) {
+      if (lost()) return lose();
       const errMsg = error instanceof Error ? error.message : String(error);
       lastError = errMsg;
       if (!lastStatus) lastStatus = 500;
@@ -461,7 +534,45 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       record("aborted", { error: errMsg });
       recordModelFailure(modelStr);
       log.warn?.("COMBO", `Model ${modelStr} threw error, trying next`, { error: lastError });
+      return null;
     }
+  };
+
+  /**
+   * Attempt `i`; if it stays silent past the hedge delay, also start `i + 1`.
+   * The first to send a byte wins and aborts the other. At most two run at once.
+   */
+  const runHedged = async (i: number): Promise<{ response: Response | null; advance: number }> => {
+    const modelStr = rotatedModels[i];
+    const race: HedgeRace = { primary: i, winner: null, controllers: new Map([[i, new AbortController()]]) };
+    const primary = runAttempt(i, race);
+
+    const delayMs = comboHedgeDelayMs ?? hedgeDelayMs(modelStats.get(modelStr), isReasoningModel(modelStr));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const due = new Promise<typeof HEDGE_DUE>((resolve) => { timer = setTimeout(() => resolve(HEDGE_DUE), delayMs); });
+    const first = await Promise.race([primary, due]);
+    clearTimeout(timer);
+    if (first !== HEDGE_DUE) return { response: first, advance: 1 };
+
+    if (Date.now() - loopStartedAt >= timeBudgetMs) return { response: await primary, advance: 1 };
+    log.info?.("COMBO", `Model ${modelStr} silent for ${delayMs}ms, also trying ${rotatedModels[i + 1]}`);
+    race.controllers.set(i + 1, new AbortController());
+    const hedged = runAttempt(i + 1, race);
+    return { response: await firstResponse([primary, hedged]), advance: 2 };
+  };
+
+  for (let i = 0; i < rotatedModels.length;) {
+    // The first attempt is always made; after that the loop stops starting new
+    // ones once the budget is spent, so N slow models cannot add up to N timeouts.
+    if (i > 0 && Date.now() - loopStartedAt >= timeBudgetMs) {
+      log.warn?.("COMBO", `time budget (${timeBudgetMs}ms) spent after ${i} attempts, not trying the remaining ${rotatedModels.length - i}`);
+      break;
+    }
+    const { response, advance } = canHedge && i < rotatedModels.length - 1
+      ? await runHedged(i)
+      : { response: await runAttempt(i), advance: 1 };
+    if (response) return response;
+    i += advance;
   }
 
   setFirstByteBudget(body, undefined);

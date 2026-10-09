@@ -6,6 +6,8 @@
 } from "../../host/store";
 import { getDisabledModels, getPricingOverrides } from "../../host/store";
 import { decideWithJev, type JevQuestion } from "@/server/decisions/jev";
+import { currentTenantId, tryCurrentTenantId } from "../../host/tenant";
+import { TtlMemo } from "../../host/cache";
 import { getModelsByProviderId } from "../../config/providerModels";
 import { getCapabilitiesForModel } from "../../providers/capabilities";
 import { getPricingForModel } from "../../providers/pricing";
@@ -357,19 +359,25 @@ function deterministicProfile(
 // lookups) on every chat request through a smart combo is wasteful; cache briefly
 // and bypass on persist=true (explicit "refresh inventory" / profile-confirm calls).
 const PROFILE_CACHE_TTL_MS = 10_000;
-let profileCache: { expiresAt: number; profiles: SmartModelProfile[] } | null = null;
+// Keyed by account: the inventory is built from that account's connections, models and
+// pricing, so a shared slot would hand one account's models to another inside the TTL.
+const profileCache = new TtlMemo<SmartModelProfile[]>(PROFILE_CACHE_TTL_MS);
 // ponytail: per-process; lost on restart until the next explicit refresh (falls back to the regex tier).
+// Keyed by account too: the tier is judged from the account's own pricing.
 const jevTierCache = new Map<string, JevModelTier>();
+const jevTierKey = (tenant: string, modelKey: string): string => `${tenant}|${modelKey}`;
 
-/** Drop the cached inventory so the next call recomputes it (e.g. after confirming profiles directly via upsertSmartModelProfiles). */
+/** Drop the calling account's cached inventory so the next call recomputes it (e.g. after confirming profiles directly via upsertSmartModelProfiles). Outside a tenant scope, drops everyone's. */
 export function invalidateSmartProfileCache(): void {
-  profileCache = null;
+  const tenant = tryCurrentTenantId();
+  if (tenant) profileCache.delete(tenant);
+  else profileCache.clear();
 }
 
 export async function refreshDeterministicSmartProfiles(persist = false): Promise<SmartModelProfile[]> {
-  if (!persist && profileCache && profileCache.expiresAt > Date.now()) {
-    return profileCache.profiles;
-  }
+  const tenant = currentTenantId();
+  const cached = persist ? undefined : profileCache.get(tenant);
+  if (cached) return cached;
   const inventory = await loadInventory();
   // One read for the whole inventory; the store caches for a few seconds.
   const pricingOverrides = await getPricingOverrides().catch(() => ({}));
@@ -387,10 +395,10 @@ export async function refreshDeterministicSmartProfiles(persist = false): Promis
         pricing: { inputPrice: profile.inputPrice, outputPrice: profile.outputPrice },
       })),
     );
-    for (const [key, tier] of fresh) jevTierCache.set(key, tier);
+    for (const [key, tier] of fresh) jevTierCache.set(jevTierKey(tenant, key), tier);
   }
   const decided = deterministic.map((profile) => {
-    const jev = jevTierCache.get(profile.modelKey);
+    const jev = jevTierCache.get(jevTierKey(tenant, profile.modelKey));
     return jev ? { ...profile, recommendedTier: jev.tier } : profile;
   });
   const persisted = await getSmartModelProfiles();
@@ -406,7 +414,7 @@ export async function refreshDeterministicSmartProfiles(persist = false): Promis
     };
   });
   if (persist) await upsertSmartModelProfiles(profiles);
-  profileCache = { expiresAt: Date.now() + PROFILE_CACHE_TTL_MS, profiles };
+  profileCache.set(tenant, profiles);
   return profiles;
 }
 

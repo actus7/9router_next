@@ -4,6 +4,7 @@ import {
   adaptiveFirstByteBudget,
   aggregateModelStats,
   blendScores,
+  hedgeDelayMs,
   ttftBucketIndex,
   type ModelPerfRow,
 } from "@/shared/observability/modelStats";
@@ -96,13 +97,37 @@ describe("adaptiveFirstByteBudget", () => {
     expect(adaptiveFirstByteBudget(BASE, statWith(50_000, 4))).toBe(BASE);
   });
 
-  it("keeps the base for a model that is not slow", () => {
-    expect(adaptiveFirstByteBudget(BASE, statWith(4000, 50))).toBe(BASE);
+  it("shrinks the budget for a model that has been fast: p95 * 3, never under 8s or over the base", () => {
+    expect(adaptiveFirstByteBudget(BASE, statWith(4000, 50))).toBe(12_000);
+    expect(adaptiveFirstByteBudget(BASE, statWith(1000, 50))).toBe(8_000);
+    expect(adaptiveFirstByteBudget(BASE, statWith(16_000, 50))).toBe(48_000);
   });
 
   it("gives a historically slow model its p95 plus a buffer, capped at 3x", () => {
     expect(adaptiveFirstByteBudget(BASE, statWith(40_000, 50))).toBe(60_000);
     expect(adaptiveFirstByteBudget(BASE, statWith(64_000, 50))).toBe(74_000);
     expect(adaptiveFirstByteBudget(BASE, statWith(500_000, 50))).toBe(BASE * 3);
+  });
+});
+
+describe("hedgeDelayMs", () => {
+  const statWith = (p50Ms: number | null, ttftSamples: number) =>
+    ({ okW: 0, failW: 0, ttftW: ttftSamples, ttftSamples, p50Ms, p95Ms: p50Ms, samples: ttftSamples });
+
+  it("is 6s without enough history", () => {
+    expect(hedgeDelayMs(undefined, false)).toBe(6_000);
+    expect(hedgeDelayMs(statWith(500, 4), false)).toBe(6_000);
+    expect(hedgeDelayMs(statWith(null, 50), false)).toBe(6_000);
+  });
+
+  it("follows 2x the p50, floored at 5s and capped at 8s", () => {
+    expect(hedgeDelayMs(statWith(500, 50), false)).toBe(5_000);
+    expect(hedgeDelayMs(statWith(3_000, 50), false)).toBe(6_000);
+    expect(hedgeDelayMs(statWith(30_000, 50), false)).toBe(8_000);
+  });
+
+  it("waits longer for a reasoning model", () => {
+    expect(hedgeDelayMs(statWith(500, 50), true)).toBe(15_000);
+    expect(hedgeDelayMs(undefined, true)).toBe(15_000);
   });
 });

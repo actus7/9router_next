@@ -22,6 +22,7 @@ import { handleComboChat, handleFusionChat, detectRequiredCapabilities, modelSup
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/server/llm-gateway/engine/services/capacityAdapter";
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
+import { getAttemptSignal } from "@/server/llm-gateway/engine/utils/firstByteGuard";
 import { judgeUpstreamError, resolveAccountExhaustion } from "@/server/llm-gateway/engine/services/accountFallback";
 import { enforcePublicApiGuardrail } from "./publicApiGuardrail";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
@@ -63,6 +64,8 @@ interface ComboStrategyConfig {
   fallbackStrategy?: string;
   judgeModel?: string;
   adaptive?: boolean;
+  /** Race a second model when the first stays silent; on unless explicitly false. */
+  hedge?: boolean;
   fusionTuning?: Parameters<typeof handleFusionChat>[0]["tuning"];
 }
 
@@ -207,6 +210,7 @@ async function tryComboRouting(
     comboStrategy,
     comboStickyLimit,
     adaptive: comboStrategies[modelStr]?.adaptive === true,
+    hedge: comboStrategies[modelStr]?.hedge !== false,
     sessionKey: request ? deriveRoutingSessionKey(request.headers, body) : undefined,
   });
 }
@@ -467,6 +471,9 @@ export async function handleSingleModelChat(
   let lastError: string | null = null;
   let lastStatus: number | null = null;
   while (true) {
+    // A hedged attempt that lost before it reached the upstream: stop here, and
+    // leave the accounts alone (it says nothing about them).
+    if (getAttemptSignal(body)?.aborted) return errorResponse(499, "attempt aborted: another model answered first");
     const credentials: CredentialsResult | null = await getProviderCredentials(provider, excludeConnectionIds, model);
 
     if (!credentials || credentials.allRateLimited) {
@@ -512,6 +519,8 @@ export async function handleSingleModelChat(
       body, provider, model, refreshedCredentials, connectionId, credentials, clientRawRequest, request, apiKey,
     );
     const result = await handleChatCore(coreOptions) as ChatResult;
+    // Aborted by the hedge winner: neither an account failure nor worth a retry.
+    if (!result.success && getAttemptSignal(body)?.aborted) return result.response;
 
     if (result.success) {
       recordRoutingStep(body, {

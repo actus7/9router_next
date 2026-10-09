@@ -12,7 +12,7 @@ import { getRoutingTrace } from "../../services/routingTrace";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants";
 import { takeRenamedToolNames } from "../../utils/opencodeFingerprint";
 import { buildErrorBody } from "../../utils/error";
-import { awaitFirstChunk, getFirstByteBudget } from "../../utils/firstByteGuard";
+import { awaitFirstChunk, getAttemptSignal, getFirstByteBudget } from "../../utils/firstByteGuard";
 import type { StreamingHandlerContext, OnStreamCompleteContext, TransformStreamContext } from "./types";
 
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
@@ -76,7 +76,20 @@ export async function handleStreamingResponse({ providerResponse: upstreamRespon
   let providerResponse = upstreamResponse;
   const firstByteBudgetMs = getFirstByteBudget(body as Record<string, unknown>);
   if (firstByteBudgetMs) {
-    const guarded = await awaitFirstChunk(upstreamResponse, firstByteBudgetMs);
+    const guarded = await awaitFirstChunk(upstreamResponse, firstByteBudgetMs, getAttemptSignal(body as Record<string, unknown>));
+    if (!guarded.ok && guarded.aborted) {
+      // A hedge sibling answered first: not a failure of this model, say nothing.
+      streamController?.handleDisconnect?.("hedge_lost");
+      return {
+        success: false,
+        status: 499,
+        error: "attempt aborted: another model answered first",
+        response: new Response(JSON.stringify(buildErrorBody(499, "attempt aborted")), {
+          status: 499,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      };
+    }
     if (!guarded.ok) {
       const message = `${provider}/${model}: no first byte within ${Math.round(firstByteBudgetMs / 1000)}s (stream first-chunk timeout)`;
       if (log?.errorLine) log.errorLine(reqTag, "✗", `TIMEOUT · ${message}`);

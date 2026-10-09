@@ -143,7 +143,7 @@ export function createStreamingResponse(sourceFormat: string, model: string, tex
     response: new Response(translatedChunks.join(""), {
       headers: {
         "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
+        "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
         "Access-Control-Allow-Origin": "*",
         ...extraHeaders,

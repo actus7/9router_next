@@ -23,11 +23,30 @@ export function getFirstByteBudget(body: Record<string, unknown> | null | undefi
   return typeof value === "number" && value > 0 ? value : undefined;
 }
 
+const ATTEMPT_SIGNAL = Symbol.for("routerx.attempt.signal");
+
+/**
+ * Set by the combo on the per-attempt copy of the body when two attempts may run
+ * at once: aborted when the other one won, so this one stops reading (and
+ * paying for) its upstream. Not set outside a hedge.
+ */
+export function setAttemptSignal(body: Record<string, unknown> | null | undefined, signal: AbortSignal | undefined): void {
+  if (!body) return;
+  if (signal === undefined) delete (body as BudgetBody)[ATTEMPT_SIGNAL];
+  else (body as BudgetBody)[ATTEMPT_SIGNAL] = signal;
+}
+
+export function getAttemptSignal(body: Record<string, unknown> | null | undefined): AbortSignal | undefined {
+  const value = body ? (body as BudgetBody)[ATTEMPT_SIGNAL] : undefined;
+  return value instanceof AbortSignal ? value : undefined;
+}
+
 export type FirstChunkResult =
   | { ok: true; response: Response }
-  | { ok: false };
+  | { ok: false; aborted?: boolean };
 
 const TIMED_OUT = Symbol("first-chunk-timeout");
+const ABORTED = Symbol("first-chunk-aborted");
 
 /**
  * Wait up to `budgetMs` for the first upstream chunk. On time, answer an
@@ -38,13 +57,16 @@ const TIMED_OUT = Symbol("first-chunk-timeout");
  * An upstream that ends empty or errors before the budget is not a timeout:
  * those are passed through for the existing handling to report.
  */
-export async function awaitFirstChunk(response: Response, budgetMs: number): Promise<FirstChunkResult> {
+export async function awaitFirstChunk(response: Response, budgetMs: number, signal?: AbortSignal): Promise<FirstChunkResult> {
   if (!response.body) return { ok: true, response };
   const reader = response.body.getReader();
 
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
+  let onAbort: (() => void) | undefined;
+  const timeout = new Promise<typeof TIMED_OUT | typeof ABORTED>((resolve) => {
     timer = setTimeout(() => resolve(TIMED_OUT), budgetMs);
+    if (signal?.aborted) resolve(ABORTED);
+    else if (signal) signal.addEventListener("abort", onAbort = () => resolve(ABORTED), { once: true });
   });
   const first = reader.read().then(
     (value) => ({ value }),
@@ -52,10 +74,11 @@ export async function awaitFirstChunk(response: Response, budgetMs: number): Pro
   );
   const winner = await Promise.race([first, timeout]);
   clearTimeout(timer);
+  if (onAbort) signal?.removeEventListener("abort", onAbort);
 
-  if (winner === TIMED_OUT) {
+  if (winner === TIMED_OUT || winner === ABORTED) {
     reader.cancel().catch(() => {});
-    return { ok: false };
+    return winner === ABORTED ? { ok: false, aborted: true } : { ok: false };
   }
 
   const replay = new ReadableStream<Uint8Array>({

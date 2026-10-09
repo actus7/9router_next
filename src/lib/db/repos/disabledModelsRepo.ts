@@ -1,14 +1,25 @@
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
+import { TtlMemo } from "@/lib/ttlMemo";
 
 const SCOPE: string = "disabledModels";
 
+// ponytail: read on every routed attempt. Keyed by tenant; writes below drop the
+// entry, another instance's write is seen within the TTL.
+const DISABLED_TTL_MS = 30_000;
+const disabledMemo = new TtlMemo<Record<string, string[]>>(DISABLED_TTL_MS);
+
 export async function getDisabledModels(): Promise<Record<string, string[]>> {
+  const userId = currentTenantId();
+  const cached = disabledMemo.get(userId);
+  if (cached) return structuredClone(cached);
+  const generation = disabledMemo.generation;
   const db = await getAdapter();
-  const rows = await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = ?`, [currentTenantId(), SCOPE]) as unknown as Array<{ key: string; value: string }>;
+  const rows = await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = ?`, [userId, SCOPE]) as unknown as Array<{ key: string; value: string }>;
   const out: Record<string, string[]> = {};
   for (const r of rows) out[r.key] = parseJson(r.value, []) as string[];
+  disabledMemo.set(userId, structuredClone(out), generation);
   return out;
 }
 
@@ -25,6 +36,7 @@ export async function disableModels(providerAlias: string, ids: string[]): Promi
       [currentTenantId(), SCOPE, providerAlias, stringifyJson(merged)]
     );
   });
+  disabledMemo.delete(currentTenantId());
 }
 
 export async function enableModels(providerAlias: string, ids?: string[]): Promise<void> {
@@ -48,4 +60,5 @@ export async function enableModels(providerAlias: string, ids?: string[]): Promi
       );
     }
   });
+  disabledMemo.delete(currentTenantId());
 }

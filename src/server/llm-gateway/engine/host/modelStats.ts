@@ -11,6 +11,7 @@ import type { ModelStat } from "@/shared/observability/modelStats";
 export {
   adaptiveFirstByteBudget,
   blendScores,
+  hedgeDelayMs,
   type ModelStat,
   type ScorePrior,
 } from "@/shared/observability/modelStats";

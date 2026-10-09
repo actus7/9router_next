@@ -190,8 +190,8 @@ function mergeWithDefaults(raw: Record<string, unknown>): Settings {
 // ponytail: per-process memo with a short TTL. A gateway request read settings
 // ~5 times before dispatch, one Neon round trip each. Writes through this repo
 // (and the backup import) invalidate; another instance's write is seen within
-// SETTINGS_TTL_MS. Per-request scoping instead if that window ever matters.
-const SETTINGS_TTL_MS = 2000;
+// SETTINGS_TTL_MS (15s: sparse traffic used to miss a 2s window every request). Per-request scoping instead if that window ever matters.
+const SETTINGS_TTL_MS = 15_000;
 const settingsMemo = new Map<string, { at: number; value: Promise<Settings> }>();
 
 export function invalidateSettingsCache(userId: string = currentTenantId()): void {

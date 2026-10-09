@@ -3,9 +3,11 @@ export const SSE_DONE = "data: [DONE]\n\n";
 
 // X-Accel-Buffering: a buffering proxy in front of us (nginx, some CDNs) would
 // otherwise hold the stream and deliver the whole answer at once.
+// no-transform: Next's gzip middleware (and CDNs) skip a response that carries it;
+// compressing text/event-stream holds tokens in the encoder's buffer.
 export const SSE_HEADERS = {
   "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
+  "Cache-Control": "no-cache, no-transform",
   "Connection": "keep-alive",
   "X-Accel-Buffering": "no"
 };
@@ -13,14 +15,14 @@ export const SSE_HEADERS = {
 // Variant for web-cookie executors behind nginx (disable proxy buffering)
 export const SSE_HEADERS_NO_BUFFER = {
   "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
+  "Cache-Control": "no-cache, no-transform",
   "X-Accel-Buffering": "no"
 };
 
 // Variant for client-facing SSE responses (adds permissive CORS)
 export const SSE_HEADERS_CORS = {
   "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
+  "Cache-Control": "no-cache, no-transform",
   "Connection": "keep-alive",
   "X-Accel-Buffering": "no",
   "Access-Control-Allow-Origin": "*"

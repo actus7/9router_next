@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
 import { currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
+import { TtlMemo } from "@/lib/ttlMemo";
 
 interface ComboRow {
   id: string;
@@ -48,10 +49,30 @@ export async function getComboById(id: string): Promise<Combo | null> {
   return rowToCombo(row);
 }
 
+// ponytail: a request resolved the combo name up to 3× (smart router, model
+// resolution, model info), each a Neon read, and a plain model id is a miss every
+// time. One cached list per tenant answers all of them, misses included; combo
+// writes below drop it, another instance's write is seen within the TTL.
+const COMBO_NAMES_TTL_MS = 15_000;
+const comboNamesMemo = new TtlMemo<Map<string, Combo>>(COMBO_NAMES_TTL_MS);
+
 export async function getComboByName(name: string): Promise<Combo | null> {
-  const db = await getAdapter();
-  const row = await db.get(`SELECT * FROM combos WHERE userId = ? AND name = ?`, [currentTenantId(), name]) as ComboRow | undefined;
-  return rowToCombo(row);
+  const userId = currentTenantId();
+  let byName = comboNamesMemo.get(userId);
+  if (!byName) {
+    const generation = comboNamesMemo.generation;
+    const db = await getAdapter();
+    const rows = await db.all(`SELECT * FROM combos WHERE userId = ?`, [userId]) as unknown as ComboRow[];
+    byName = new Map();
+    for (const row of rows) byName.set(row.name, rowToCombo(row)!);
+    comboNamesMemo.set(userId, byName, generation);
+  }
+  const hit = byName.get(name);
+  return hit ? structuredClone(hit) : null;
+}
+
+export function invalidateComboNamesCache(userId: string = currentTenantId()): void {
+  comboNamesMemo.delete(userId);
 }
 
 interface ComboInput {
@@ -77,6 +98,7 @@ export async function createCombo(data: ComboInput): Promise<Combo> {
     `INSERT INTO combos(id, userId, name, kind, models, routing, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
     [combo.id, currentTenantId(), combo.name, combo.kind, stringifyJson(combo.models), combo.routing ? stringifyJson(combo.routing) : null, combo.createdAt, combo.updatedAt]
   );
+  invalidateComboNamesCache();
   return combo;
 }
 
@@ -93,11 +115,13 @@ export async function updateCombo(id: string, data: Partial<ComboInput>): Promis
     );
     result = merged;
   });
+  invalidateComboNamesCache();
   return result;
 }
 
 export async function deleteCombo(id: string): Promise<boolean> {
   const db = await getAdapter();
   const res = await db.run(`DELETE FROM combos WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
+  invalidateComboNamesCache();
   return (res?.changes ?? 0) > 0;
 }

@@ -174,6 +174,6 @@ export function openaiSseToGemini(upstream: Response, model: string): Response {
 
   return new Response(upstream.body.pipeThrough(transform), {
     status: 200,
-    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Access-Control-Allow-Origin": "*" },
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", "Access-Control-Allow-Origin": "*" },
   });
 }

@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import { memo, type ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
@@ -55,7 +55,9 @@ interface SafeMarkdownProps {
   className?: string;
 }
 
-export default function SafeMarkdown({ source, className }: SafeMarkdownProps) {
+// Memoized: while an answer streams, the message list re-renders every frame,
+// and without this every finished message re-parsed its whole markdown too.
+function SafeMarkdown({ source, className }: SafeMarkdownProps) {
   return (
     <div className={cn("break-words", className)}>
       <ReactMarkdown
@@ -69,3 +71,5 @@ export default function SafeMarkdown({ source, className }: SafeMarkdownProps) {
     </div>
   );
 }
+
+export default memo(SafeMarkdown);

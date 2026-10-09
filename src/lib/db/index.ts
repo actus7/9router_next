@@ -8,6 +8,8 @@ import { getAdapter } from "./driver";
 import { currentTenantId } from "./tenant";
 import { stringifyJson, parseJson } from "./helpers/jsonCol";
 import { invalidateSettingsCache } from "./repos/settingsRepo";
+import { invalidateApiKeyOwnerCache } from "./repos/apiKeysRepo";
+import { invalidateComboNamesCache } from "./repos/combosRepo";
 
 // Export/import full DB
 export async function exportDb(): Promise<Record<string, unknown>> {
@@ -172,6 +174,8 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
     }
   });
   invalidateSettingsCache(userId);
+  invalidateApiKeyOwnerCache();
+  invalidateComboNamesCache(userId);
 
   return await exportDb();
 }

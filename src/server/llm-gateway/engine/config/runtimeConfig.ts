@@ -48,6 +48,11 @@ export const STREAM_FIRST_CHUNK_TIMEOUT_MS = envMs("STREAM_FIRST_CHUNK_TIMEOUT_M
 export const COMBO_FIRST_BYTE_BUDGET_MS = envMs("COMBO_FIRST_BYTE_BUDGET_MS", 60 * 1000);
 export const COMBO_TIME_BUDGET_MS = envMs("COMBO_TIME_BUDGET_MS", 150 * 1000);
 
+// Combo hedge: a streaming attempt that stays silent past a delay also starts
+// the next candidate; the first to send a byte wins and the other is aborted.
+// On by default; COMBO_HEDGE_ENABLED=false (or 0) turns it off for the process.
+export const COMBO_HEDGE_ENABLED = !["false", "0", "off"].includes((process.env.COMBO_HEDGE_ENABLED ?? "").toLowerCase());
+
 // Fetch connect timeout: abort if upstream doesn't return response headers within this duration
 export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
 

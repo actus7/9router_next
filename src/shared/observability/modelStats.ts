@@ -29,6 +29,13 @@ const ADAPTIVE_MIN_SAMPLES = 5;
 const ADAPTIVE_BUFFER_MS = 10_000;
 const ADAPTIVE_MAX_MULTIPLIER = 3;
 const ADAPTIVE_SLOW_FRACTION = 0.5;
+const FAST_BUDGET_FLOOR_MS = 8_000;
+const FAST_BUDGET_MULTIPLIER = 3;
+
+const HEDGE_MIN_DELAY_MS = 5_000;
+const HEDGE_MAX_DELAY_MS = 8_000;
+const HEDGE_DEFAULT_DELAY_MS = 6_000;
+const HEDGE_REASONING_DELAY_MS = 15_000;
 
 export interface ModelPerfRow {
   modelKey: string;
@@ -138,10 +145,25 @@ export function blendScores(prior: ScorePrior, stat: ModelStat | undefined): Sco
 /**
  * How long to wait for a model's first byte. A model that has historically been
  * slow to start gets its own p95 plus a buffer (never above 3x the base, so one
- * lucky success cannot triple its patience); everyone else gets the base.
+ * lucky success cannot triple its patience). A model that has been fast gets
+ * 3x its p95 (floored at 8s, capped at the base), so a dead one is given up on
+ * in seconds instead of a minute. Without enough history it is the base.
  */
 export function adaptiveFirstByteBudget(baseMs: number, stat: ModelStat | undefined): number {
   if (!stat || stat.p95Ms === null || stat.ttftSamples < ADAPTIVE_MIN_SAMPLES) return baseMs;
-  if (stat.p95Ms < baseMs * ADAPTIVE_SLOW_FRACTION) return baseMs;
+  if (stat.p95Ms < baseMs * ADAPTIVE_SLOW_FRACTION) {
+    return Math.min(baseMs, Math.max(FAST_BUDGET_FLOOR_MS, stat.p95Ms * FAST_BUDGET_MULTIPLIER));
+  }
   return Math.max(baseMs, Math.min(stat.p95Ms + ADAPTIVE_BUFFER_MS, baseMs * ADAPTIVE_MAX_MULTIPLIER));
+}
+
+/**
+ * How long a combo waits for a model's first byte before also starting the next
+ * candidate (a hedge). 2x the typical TTFT, kept between 5s and 8s; a reasoning
+ * model thinks silently on purpose, so it is given far longer.
+ */
+export function hedgeDelayMs(stat: ModelStat | undefined, isReasoning: boolean): number {
+  if (isReasoning) return HEDGE_REASONING_DELAY_MS;
+  if (!stat || stat.p50Ms === null || stat.ttftSamples < ADAPTIVE_MIN_SAMPLES) return HEDGE_DEFAULT_DELAY_MS;
+  return Math.min(HEDGE_MAX_DELAY_MS, Math.max(HEDGE_MIN_DELAY_MS, stat.p50Ms * 2));
 }

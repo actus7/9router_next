@@ -13,6 +13,7 @@ import { appendHarnessEvent, appendRunAnswerToConversation } from "@/lib/db/repo
 import { runServerToolLoop } from "@/server/harness/tools/serverToolLoop";
 import { ANSWERING_STAGE, runStageFor } from "@/server/harness/tools/runStage";
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
+import { publishRunText } from "@/server/application/use-cases/harness/runBus";
 import { handleChat, withGatewayProfile } from "@/server/llm-gateway/chat";
 import { sessionGatewayProfile } from "@/server/harness/tools/sessionGatewayProfile";
 import { initTranslators } from "@/server/llm-gateway/translator";
@@ -24,11 +25,12 @@ import { selectToolsForTurn } from "@/server/harness/tools/toolSelection";
 /**
  * How often the run's text is written back while the provider streams.
  *
- * Every token would be one UPDATE per token against Neon. Nothing reads the
- * row faster than a person can read prose, so the interval is set by what a
- * returning reader can stand to lose, not by the token rate.
+ * Every token would be one UPDATE per token against Neon, so writes are
+ * throttled to this interval (and never overlap). The same tick pushes the text
+ * to watchers in this process through `runBus`, which is what keeps the live
+ * reader at roughly this delay instead of a write-then-poll round trip behind.
  */
-const PROGRESS_INTERVAL_MS = 1_000;
+const PROGRESS_INTERVAL_MS = 250;
 
 /**
  * Shown after the text of a tool turn that no browser was there to continue.
@@ -205,35 +207,59 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
     const accumulator = new StreamChunkAccumulator();
     let lastWrite = 0;
 
+    // One progress write at a time, never awaited by the read loop: a slow
+    // database must not stall consumption of the provider stream. Two writers
+    // on one row can land out of order and the loser rewinds `partialText` for
+    // whoever is reading, so a write is skipped while another is in flight.
+    const progress: { inFlight: Promise<void> | null; stopped: boolean } = { inFlight: null, stopped: false };
+    const writeProgress = (text: string) => {
+      if (progress.inFlight) return;
+      lastWrite = Date.now();
+      progress.inFlight = updateHarnessRunProgress(runId, text)
+        .then((stillRunning) => {
+          // The row stopped being `running` under us: someone pressed stop.
+          if (!stillRunning) progress.stopped = true;
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          progress.inFlight = null;
+        });
+    };
+
     // Runs alongside the read loop: a provider that thinks for a minute before
     // its first token must not look like a worker that died.
     const heartbeat = setInterval(() => {
-      // Skip when the read loop just wrote: two writers on one row can land out
-      // of order, and the loser rewinds `partialText` for whoever is reading.
+      // Skip when the read loop just wrote.
       if (Date.now() - lastWrite < HEARTBEAT_INTERVAL_MS) return;
-      lastWrite = Date.now();
-      void updateHarnessRunProgress(runId, accumulator.result().text).catch(() => undefined);
+      writeProgress(accumulator.result().text);
     }, HEARTBEAT_INTERVAL_MS);
 
     try {
-      while (true) {
+      while (!progress.stopped) {
         const { value, done } = await reader.read();
         if (done) break;
         if (!accumulator.push(decoder.decode(value, { stream: true }))) continue;
-        const now = Date.now();
-        if (now - lastWrite < PROGRESS_INTERVAL_MS) continue;
-        lastWrite = now;
-        if (await updateHarnessRunProgress(runId, accumulator.result().text)) continue;
-        // The row stopped being `running` under us: someone pressed stop. Drop
-        // the provider connection and leave the row exactly as they set it.
-        await reader.cancel().catch(() => undefined);
-        return;
+        if (Date.now() - lastWrite < PROGRESS_INTERVAL_MS) continue;
+        const text = accumulator.result().text;
+        // Watchers in this process get the text now; the write below is for
+        // readers on other instances and for a reader that comes back later.
+        publishRunText(runId, text);
+        writeProgress(text);
       }
     } finally {
       clearInterval(heartbeat);
     }
 
+    // Let the last write land (or report a stop) before anything settles the row.
+    await progress.inFlight;
+    if (progress.stopped) {
+      // Drop the provider connection and leave the row exactly as they set it.
+      await reader.cancel().catch(() => undefined);
+      return;
+    }
+
     const parsed = accumulator.finish(decoder.decode());
+    publishRunText(runId, parsed.text);
 
     // The tool loop runs here now, not in the browser. Anything it cannot run
     // this side comes back in `leftoverToolCalls` and is settled onto the row,
@@ -249,7 +275,10 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
           enabledSkillIds: input.enabledSkillIds,
           firstTurnText: parsed.text,
           firstTurnToolCalls: parsed.toolCalls,
-          onProgress: (text) => updateHarnessRunProgress(runId, text),
+          onProgress: (text) => {
+            publishRunText(runId, text);
+            return updateHarnessRunProgress(runId, text);
+          },
           onToolEvent: async (type, data) => {
             // What the history list says this conversation is doing. The loop
             // runs its calls one at a time, so going back to "answering" on a
@@ -312,6 +341,10 @@ _${TOOL_TURN_INTERRUPTED}_`
     if (settled) {
       await mirrorAnswer(input, { content: `Error: ${message}`, status: "error" });
     }
+  } finally {
+    // The row is settled (or stopped): wake local watchers instead of leaving
+    // them to find out on their next poll.
+    publishRunText(runId, null);
   }
 }
 

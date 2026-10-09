@@ -10,6 +10,7 @@ import { trackPendingRequest, appendRequestLog } from "../host/usage";
 import { captureTenant } from "../host/tenant";
 import { getExecutor } from "../executors/index";
 import { bootstrap } from "@/server/plugin-core/context";
+import { getAttemptSignal } from "../utils/firstByteGuard";
 import { handleForcedSSEToJson } from "./chatCore/sseToJsonHandler";
 import { handleNonStreamingResponse } from "./chatCore/nonStreamingHandler";
 import {
@@ -309,6 +310,12 @@ export async function handleChatCore({
     model,
     reqTag,
   });
+
+  // A hedged attempt that lost: stop the upstream fetch like a client hang-up
+  // would. After handleComplete this is a no-op, so a finished answer is safe.
+  const attemptSignal = getAttemptSignal(body);
+  if (attemptSignal?.aborted) streamController.handleDisconnect("hedge_lost");
+  else attemptSignal?.addEventListener("abort", () => streamController.handleDisconnect("hedge_lost"), { once: true });
 
   const proxyOptions = {
     connectionProxyEnabled:
