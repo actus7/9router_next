@@ -20,6 +20,7 @@ import dynamic from "next/dynamic";
 // e já só é montado sob clique; o import estático é que o prendia ao chunk.
 const ComboFormModal = dynamic(() => import("./ComboFormModal").then((m) => m.ComboFormModal), { ssr: false });
 import { CapacityAdapterSection } from "./CapacityAdapterSection";
+import { ModelHealthPanel } from "./ModelHealthPanel";
 
 export default function CombosClient({ initialCombos, initialProviders, initialSettings, initialAliases }: CombosClientProps) {
   const [combos, setCombos] = useState<ComboView[]>(() => normalizeCombos(initialCombos));
@@ -72,7 +73,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
     const previous = comboStrategies; const updated = { ...comboStrategies };
     const next = { ...(updated[comboName] || {}), ...patch };
     const usesDefault = !next.fallbackStrategy || next.fallbackStrategy === "fallback";
-    if (usesDefault && !next.judgeModel) delete updated[comboName]; else updated[comboName] = next;
+    if (usesDefault && !next.judgeModel && !next.adaptive) delete updated[comboName]; else updated[comboName] = next;
     setComboStrategies(updated);
     try {
       const r = await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ comboStrategies: updated }) });
@@ -120,6 +121,11 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
           ))}
         </div>
       )}
+      <ModelHealthPanel onRequestReset={(run) => setConfirmState({
+        title: translate("Reset model health") || "Reset model health",
+        message: translate("Forgets order penalties, measurements and every model cooldown, so all models are tried again from scratch.") || "Forgets order penalties, measurements and every model cooldown, so all models are tried again from scratch.",
+        onConfirm: async () => { setConfirmState(null); try { await run(); } catch (error) { console.error("Error resetting model health:", error); notify.error(translate("Failed to reset model health") || "Failed to reset model health"); } },
+      })} />
       <CapacityAdapterSection capacityAdapter={capacityAdapter} onChange={handleSetCapacityAdapter} activeProviders={activeProviders} getCaps={getCaps} />
       {showCreateModal && <ComboFormModal key="create" isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSave={handleCreate} activeProviders={activeProviders} modelAliases={initialAliases} />}
       {editingCombo && <ComboFormModal key={editingCombo.id} isOpen={!!editingCombo} combo={editingCombo} onClose={() => setEditingCombo(null)} onSave={(data) => handleUpdate(editingCombo.id, data)} activeProviders={activeProviders} modelAliases={initialAliases} />}

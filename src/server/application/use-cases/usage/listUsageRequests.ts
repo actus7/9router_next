@@ -6,6 +6,7 @@ import {
   USAGE_SUCCESS_STATUSES,
   type UsageRequestRow,
 } from "@/lib/db/repos/usageRequestsRepo";
+import type { RoutingAttemptSummary } from "@/shared/observability/routingTrace";
 import { mapRequestDetailIds } from "@/lib/db/repos/requestDetailsRepo";
 
 /** Windows the `range` query param accepts; anything else is a 400. */
@@ -26,6 +27,7 @@ export function isUsageRequestRange(value: string): value is UsageRequestRange {
 
 /** Compact routing summary as stored in `usageHistory.meta.routing`. */
 export interface UsageRequestRouting {
+  attempts?: RoutingAttemptSummary[];
   requested: string;
   selected?: string;
   steps: number;

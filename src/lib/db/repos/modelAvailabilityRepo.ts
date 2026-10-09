@@ -76,6 +76,12 @@ export async function clearProviderModelAvailability(connectionIds: string[], mo
   )).changes;
 }
 
+/** Every cooldown of the current account, the operator's "clean slate". */
+export async function clearAllModelAvailability(): Promise<number> {
+  const db = await getAdapter();
+  return (await db.run("DELETE FROM modelAvailability WHERE userId = ?", [currentTenantId()])).changes;
+}
+
 export async function cleanupExpiredModelAvailability(): Promise<number> {
   const db = await getAdapter();
   return (await db.run("DELETE FROM modelAvailability WHERE userId = ? AND until IS NOT NULL AND until <= ?", [currentTenantId(), new Date().toISOString()])).changes;

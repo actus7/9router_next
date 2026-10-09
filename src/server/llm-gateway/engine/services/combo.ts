@@ -6,9 +6,19 @@ import { checkFallbackError, formatRetryAfter } from "./accountFallback";
 import { unavailableResponse } from "../utils/error";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
+import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_TIME_BUDGET_MS } from "../config/runtimeConfig";
+import { setFirstByteBudget } from "../utils/firstByteGuard";
+import { adaptiveFirstByteBudget, loadModelStats, recordAttemptDatum } from "../host/modelStats";
+import {
+  getStickyModel,
+  orderByPenalty,
+  recordModelFailure,
+  recordModelSuccess,
+  rememberStickyModel,
+} from "./modelPenalty";
 import { getRoutingDecision } from "./smart-routing/context";
 import { recordRoutingStep } from "./routingTrace";
-import { truncateTraceError } from "../host/routingTrace";
+import { truncateTraceError, classifyAttemptError, type AttemptOutcome } from "../host/routingTrace";
 
 // Hard capabilities = input modalities; missing one drops request data (e.g. image
 // stripped). Must be prioritized. Soft (e.g. search) only degrades a feature.
@@ -36,6 +46,13 @@ function reorderByCapabilities(models: string[], required: Set<string> | null | 
     .map((m: string, i: number) => ({ m, i, t: tierOf(m) }))
     .sort((a: { m: string; i: number; t: number }, b: { m: string; i: number; t: number }) => a.t - b.t || a.i - b.i)
     .map((x: { m: string; i: number; t: number }) => x.m);
+}
+
+/** Whether `provider/model` is a reasoning model (may stay silent a long time). */
+function isReasoningModel(modelStr: string): boolean {
+  const slash = modelStr.indexOf("/");
+  const caps = getCapabilitiesForModel(slash > 0 ? modelStr.slice(0, slash) : "", slash > 0 ? modelStr.slice(slash + 1) : modelStr);
+  return (caps as Record<string, unknown>).reasoning === true;
 }
 
 /** Whether `provider/model` keeps `tools` on the way upstream. */
@@ -245,6 +262,13 @@ interface HandleComboChatOptions {
   comboStrategy?: string;
   comboStickyLimit?: number | string;
   autoSwitch?: boolean;
+  /** Overrides for tests; production reads COMBO_*_BUDGET_MS. */
+  comboFirstByteBudgetMs?: number;
+  comboTimeBudgetMs?: number;
+  /** Opt-in: reorder by recent failures and stick to the model that rescued the chat. */
+  adaptive?: boolean;
+  /** Conversation identity, for the sticky model. */
+  sessionKey?: string;
 }
 
 /** Extract error text + retryAfter from a non-ok response. */
@@ -280,11 +304,27 @@ async function waitTransientCooldown(status: number, cooldownMs: number, modelSt
   }
 }
 
+/** Sticky model first (when it is still a member), then the penalty order. */
+function orderAdaptively(models: string[], comboName: string, sessionKey: string | undefined): string[] {
+  const sticky = getStickyModel(sessionKey, comboName);
+  const rest = sticky && models.includes(sticky) ? models.filter((m) => m !== sticky) : models;
+  const ordered = orderByPenalty(rest);
+  return rest === models ? ordered : [sticky!, ...ordered];
+}
+
+/** One line per model the loop tried, so "all failed" says who failed and why. */
+function describeAttempts(attempts: AttemptDigest[]): string {
+  return attempts.map((a) => `${a.model} (${a.label})`).join(", ");
+}
+
+interface AttemptDigest { model: string; label: string }
+
 /** Build the final "all models failed" response. */
-function buildAllFailedResponse(lastError: string | null, lastStatus: number | null, earliestRetryAfter: string | null, log: Logger): Response {
+function buildAllFailedResponse(lastError: string | null, lastStatus: number | null, earliestRetryAfter: string | null, log: Logger, attempts: AttemptDigest[] = []): Response {
   const allDisabled = lastError && lastError.toLowerCase().includes("no credentials");
   const status = allDisabled ? 503 : (lastStatus || 503);
-  const msg = lastError || "All combo models unavailable";
+  const base = lastError || "All combo models unavailable";
+  const msg = attempts.length > 1 ? `${base} — tried ${describeAttempts(attempts)}` : base;
 
   if (earliestRetryAfter) {
     const retryHuman = formatRetryAfter(earliestRetryAfter);
@@ -302,7 +342,7 @@ function buildAllFailedResponse(lastError: string | null, lastStatus: number | n
 /**
  * Handle combo chat with fallback
  */
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }: HandleComboChatOptions): Promise<Response> {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs, adaptive = false, sessionKey }: HandleComboChatOptions): Promise<Response> {
   let rotatedModels = getRotatedModels(models, comboName || "", comboStrategy || "fallback", comboStickyLimit);
 
   if (autoSwitch) {
@@ -321,9 +361,18 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     }
   }
 
+  const stickyModel = adaptive ? getStickyModel(sessionKey, comboName || "") : undefined;
+  if (adaptive) rotatedModels = orderAdaptively(rotatedModels, comboName || "", sessionKey);
+
   let lastError: string | null = null;
   let earliestRetryAfter: string | null = null;
   let lastStatus: number | null = null;
+  const digest: AttemptDigest[] = [];
+  const loopStartedAt = Date.now();
+  const baseFirstByteBudgetMs = comboFirstByteBudgetMs ?? COMBO_FIRST_BYTE_BUDGET_MS;
+  // Measured history sizes each model's patience; with no store it is the base.
+  const modelStats = rotatedModels.length > 1 ? await loadModelStats() : new Map();
+  const timeBudgetMs = comboTimeBudgetMs ?? COMBO_TIME_BUDGET_MS;
 
   for (let i = 0; i < rotatedModels.length; i++) {
     const modelStr = rotatedModels[i];
@@ -333,17 +382,64 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       routingDecision.selectedModel = modelStr;
       if (candidate) routingDecision.degraded = candidate.degraded;
     }
+    // The first attempt is always made; after that the loop stops starting new
+    // ones once the budget is spent, so N slow models cannot add up to N timeouts.
+    if (i > 0 && Date.now() - loopStartedAt >= timeBudgetMs) {
+      log.warn?.("COMBO", `time budget (${timeBudgetMs}ms) spent after ${i} attempts, not trying the remaining ${rotatedModels.length - i}`);
+      break;
+    }
     log.info?.("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
 
+    const startedAt = Date.now();
+    const record = (outcome: AttemptOutcome, extra: { status?: number; error?: string } = {}): void => {
+      const error = truncateTraceError(extra.error);
+      recordRoutingStep(body, {
+        kind: "attempt",
+        model: modelStr,
+        index: i + 1,
+        total: rotatedModels.length,
+        outcome,
+        durationMs: Date.now() - startedAt,
+        startOffsetMs: startedAt - loopStartedAt,
+        ...(extra.status !== undefined ? { status: extra.status } : {}),
+        ...(error ? { error } : {}),
+        ...(outcome === "cooldown_skip"
+          ? { errorClass: "cooldown" as const }
+          : outcome !== "ok" ? { errorClass: classifyAttemptError(extra.status, extra.error) } : {}),
+      });
+      // Only what says something about the model: not a cooldown skip, not a refused request.
+      const errorClass = outcome === "ok" || outcome === "cooldown_skip" ? undefined : classifyAttemptError(extra.status, extra.error);
+      if (outcome === "ok") recordAttemptDatum({ modelKey: modelStr, outcome: "ok", ttftMs: Date.now() - startedAt });
+      else if (outcome !== "cooldown_skip" && errorClass !== "client") {
+        recordAttemptDatum({ modelKey: modelStr, outcome: errorClass === "timeout" ? "timeout" : "fail" });
+      }
+      digest.push({ model: modelStr, label: outcome === "ok" ? "ok" : outcome === "cooldown_skip" ? "cooldown" : String(extra.status ?? outcome) });
+    };
+
+    // A model with no one behind it keeps today's patience.
+    // A reasoning model may think silently for minutes: failing it over would
+    // trade a good answer for a worse one, so it keeps today's patience.
+    setFirstByteBudget(body, i < rotatedModels.length - 1 && !isReasoningModel(modelStr)
+      ? adaptiveFirstByteBudget(baseFirstByteBudgetMs, modelStats.get(modelStr))
+      : undefined);
     try {
       const result = await handleSingleModel(body, modelStr);
+      setFirstByteBudget(body, undefined);
       if (result.ok) {
+        record("ok", { status: result.status });
+        recordModelSuccess(modelStr);
+        if (adaptive && (i > 0 || modelStr === stickyModel)) rememberStickyModel(sessionKey, comboName || "", modelStr);
         log.info?.("COMBO", `Model ${modelStr} succeeded`);
         return result;
       }
 
       const { errorText, retryAfter } = await extractResponseError(result);
       earliestRetryAfter = trackEarliestRetryAfter(earliestRetryAfter, retryAfter);
+      // A retryAfter in the body means no account was even tried: every one is cooling down.
+      record(retryAfter ? "cooldown_skip" : "failed", { status: result.status, error: errorText });
+      // Cooling-down models were already penalized when they failed; a request
+      // the model rightly refused says nothing about its health.
+      if (!retryAfter && classifyAttemptError(result.status, errorText) !== "client") recordModelFailure(modelStr, result.status);
 
       const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
       if (!shouldFallback) {
@@ -362,19 +458,14 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       if (!lastStatus) lastStatus = 500;
       // A throw skips the per-account step, which would leave a silent gap
       // between one attempt and the next in the trace.
-      recordRoutingStep(body, {
-        kind: "attempt",
-        model: modelStr,
-        index: i + 1,
-        total: rotatedModels.length,
-        outcome: "aborted",
-        error: truncateTraceError(errMsg),
-      });
+      record("aborted", { error: errMsg });
+      recordModelFailure(modelStr);
       log.warn?.("COMBO", `Model ${modelStr} threw error, trying next`, { error: lastError });
     }
   }
 
-  return buildAllFailedResponse(lastError, lastStatus, earliestRetryAfter, log);
+  setFirstByteBudget(body, undefined);
+  return buildAllFailedResponse(lastError, lastStatus, earliestRetryAfter, log, digest);
 }
 
 export { handleFusionChat } from "./comboFusion";

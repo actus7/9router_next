@@ -6,6 +6,7 @@ import Card from "@/shared/components/Card";
 import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import Select from "@/shared/components/Select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { buttonVariants } from "@/components/ui/button";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import type { Connection } from "@/lib/data-access";
@@ -55,6 +56,15 @@ export function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy
               )}
               {combo.models.length > 3 && <span className="text-xs text-text-muted">+{combo.models.length - 3} {translate("more") || "more"}</span>}
             </div>
+            {!isSmart && !isFusion && (
+              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                <Switch checked={strategy.adaptive === true} onCheckedChange={(adaptive) => onSetStrategy({ adaptive })} aria-label={translate("Adaptive order") || "Adaptive order"} />
+                <span className="text-xs font-medium text-text-muted">{translate("Adaptive order") || "Adaptive order"}</span>
+                <InfoButton label={translate("Adaptive order") || "Adaptive order"}>
+                  <p>{translate("Models that failed recently move later in the order and recover on their own over a few minutes. After a fallback rescues a conversation, its next messages start on the model that answered. Off keeps exactly the order you set.")}</p>
+                </InfoButton>
+              </div>
+            )}
             {isFusion && (
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="text-xs font-medium text-text-muted">{translate("Judge") || "Judge"}</span>

@@ -7,9 +7,31 @@ export const ROUTING_TRACE_HEADER = "X-ModelHub-Routing";
 
 // A header is not a log: keep the value small enough that no proxy or runtime
 // rejects the response, and drop detail before dropping the whole trace.
-export const ROUTING_TRACE_MAX_STEPS = 24;
+export const ROUTING_TRACE_MAX_STEPS = 48;
 export const ROUTING_TRACE_MAX_HEADER_CHARS = 3_500;
 export const ROUTING_TRACE_MAX_ERROR_CHARS = 160;
+// The durable summary lives in a table that is never pruned, so it keeps less.
+export const SUMMARY_MAX_ATTEMPTS = 12;
+export const SUMMARY_MAX_ERROR_CHARS = 120;
+
+export type AttemptOutcome = "ok" | "failed" | "aborted" | "cooldown_skip";
+export type AttemptErrorClass =
+  | "rate_limit" | "auth" | "billing" | "transient" | "timeout" | "client" | "cooldown" | "other";
+
+const TIMEOUT_WORDING = /timeout|stalled|etimedout|timed out/i;
+
+/** What kind of failure an attempt was, from the status and wording alone. */
+export function classifyAttemptError(status: number | undefined, text: string | undefined): AttemptErrorClass {
+  if (text && TIMEOUT_WORDING.test(text)) return "timeout";
+  switch (status) {
+    case 429: return "rate_limit";
+    case 401: case 403: return "auth";
+    case 402: return "billing";
+    case 408: case 504: return "timeout";
+    case 400: case 413: case 422: return "client";
+    default: return status !== undefined && status >= 500 ? "transient" : "other";
+  }
+}
 
 export type RoutingTraceStep =
   | { kind: "combo"; name: string; strategy: string; models: string[] }
@@ -28,7 +50,20 @@ export type RoutingTraceStep =
     candidates: string[];
   }
   | { kind: "adapter"; requested: string; capabilities: string[]; models: string[]; strategy: string }
-  | { kind: "attempt"; model: string; index: number; total: number; outcome: "ok" | "failed" | "aborted"; status?: number; error?: string }
+  | {
+    kind: "attempt";
+    model: string;
+    index: number;
+    total: number;
+    outcome: AttemptOutcome;
+    status?: number;
+    error?: string;
+    errorClass?: AttemptErrorClass;
+    /** Milliseconds this attempt ran (for a stream: until the response started). */
+    durationMs?: number;
+    /** Milliseconds from the start of the combo loop to this attempt's dispatch. */
+    startOffsetMs?: number;
+  }
   | { kind: "account"; provider: string; model: string; connection?: string; outcome: "selected" | "switched" | "exhausted" | "failed"; status?: number; error?: string };
 
 export interface RoutingTrace {
@@ -54,7 +89,21 @@ const STEP_KINDS = new Set<string>(["combo", "smart", "adapter", "attempt", "acc
  * pruned and gains a row per request, so storing the full step list would trade
  * a dead column for a bloated table. Counts and outcomes, not the narrative.
  */
+export interface RoutingAttemptSummary {
+  model: string;
+  provider?: string;
+  connection?: string;
+  outcome: AttemptOutcome;
+  status?: number;
+  errorClass?: AttemptErrorClass;
+  error?: string;
+  durationMs?: number;
+  startOffsetMs?: number;
+}
+
 export interface RoutingTraceSummary {
+  /** Every model/account tried, in order, including the one that answered. */
+  attempts?: RoutingAttemptSummary[];
   requested: string;
   selected?: string;
   /** Number of steps recorded, before any truncation. */
@@ -66,6 +115,63 @@ export interface RoutingTraceSummary {
   combo?: string;
   tier?: string;
   truncated?: true;
+}
+
+function providerOf(model: string): string | undefined {
+  const slash = model.indexOf("/");
+  return slash > 0 ? model.slice(0, slash) : undefined;
+}
+
+function shorten(text: string | undefined, limit: number): string | undefined {
+  if (!text) return undefined;
+  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+}
+
+function compact<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
+}
+
+// A solo model rotating accounts has no combo loop, so its story is the
+// account steps. A combo has one attempt per model, and an account that failed
+// inside a model that then answered is part of the story too: without it a
+// request that survived on its second account shows no trace of the first.
+function attemptsFromTrace(trace: RoutingTrace): RoutingAttemptSummary[] {
+  const accountRow = (account: Extract<RoutingTraceStep, { kind: "account" }>): RoutingAttemptSummary => compact({
+    model: `${account.provider}/${account.model}`,
+    provider: account.provider,
+    connection: account.connection,
+    outcome: (account.outcome === "selected" ? "ok" : "failed") as AttemptOutcome,
+    status: account.status,
+    errorClass: account.status !== undefined ? classifyAttemptError(account.status, account.error) : undefined,
+    error: shorten(account.error, SUMMARY_MAX_ERROR_CHARS),
+  });
+  const hasCombo = trace.steps.some((step) => step.kind === "attempt");
+  if (!hasCombo) {
+    return trace.steps
+      .filter((step): step is Extract<RoutingTraceStep, { kind: "account" }> => step.kind === "account" && step.outcome !== "exhausted")
+      .map(accountRow);
+  }
+  // A model whose combo attempt failed already says so; its account failures
+  // would only repeat it.
+  const answered = new Set(trace.steps.flatMap((s) => (s.kind === "attempt" && s.outcome === "ok" ? [s.model] : [])));
+  const rows: RoutingAttemptSummary[] = [];
+  for (const step of trace.steps) {
+    if (step.kind === "attempt") {
+      rows.push(compact({
+        model: step.model,
+        provider: providerOf(step.model),
+        outcome: step.outcome,
+        status: step.status,
+        errorClass: step.errorClass,
+        error: shorten(step.error, SUMMARY_MAX_ERROR_CHARS),
+        durationMs: step.durationMs,
+        startOffsetMs: step.startOffsetMs,
+      }));
+    } else if (step.kind === "account" && (step.outcome === "switched" || step.outcome === "failed") && answered.has(`${step.provider}/${step.model}`)) {
+      rows.push(accountRow(step));
+    }
+  }
+  return rows;
 }
 
 export function summarizeRoutingTrace(trace: RoutingTrace | null | undefined): RoutingTraceSummary | null {
@@ -90,11 +196,33 @@ export function summarizeRoutingTrace(trace: RoutingTrace | null | undefined): R
   }
   if (switched > 0) summary.switched = switched;
   if (failed > 0) summary.failed = failed;
+
+  const attempts = attemptsFromTrace(trace);
+  // Only a story with more than one beat is worth the bytes.
+  if (attempts.length > 1 || attempts.some((a) => a.outcome !== "ok")) {
+    if (attempts.length > SUMMARY_MAX_ATTEMPTS) summary.truncated = true;
+    summary.attempts = attempts.slice(0, SUMMARY_MAX_ATTEMPTS);
+  }
   return summary;
 }
 
+// The error text now outlives the response (usageHistory is never pruned) and is
+// shown in the dashboard, so credential-shaped strings an upstream echoes back are
+// scrubbed first. Best effort: patterns, not a guarantee.
+const SECRET_PATTERNS: RegExp[] = [
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi,
+  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,
+  /\b(?:sk|pk|rk|key|tok|ghp|gho|xox[abp])[-_][A-Za-z0-9_-]{12,}/gi,
+  /\bAIza[0-9A-Za-z_-]{20,}/g,
+];
+
+export function redactSecrets(text: string): string {
+  return SECRET_PATTERNS.reduce((out, pattern) => out.replace(pattern, "[redacted]"), text);
+}
+
 export function truncateTraceError(error: unknown): string | undefined {
-  const text = typeof error === "string" ? error.trim() : error instanceof Error ? error.message.trim() : "";
+  const raw = typeof error === "string" ? error.trim() : error instanceof Error ? error.message.trim() : "";
+  const text = redactSecrets(raw);
   if (!text) return undefined;
   return text.length > ROUTING_TRACE_MAX_ERROR_CHARS
     ? `${text.slice(0, ROUTING_TRACE_MAX_ERROR_CHARS - 1)}…`

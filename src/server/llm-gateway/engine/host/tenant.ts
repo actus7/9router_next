@@ -23,3 +23,4 @@ export function captureTenant(): TenantReentry {
   const owner: string | null = tryCurrentTenantId();
   return <T>(fn: () => T): T => (owner ? withTenant(owner, fn) : fn());
 }
+export { tryCurrentTenantId } from "@/lib/db/tenant";

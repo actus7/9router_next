@@ -43,6 +43,8 @@ import {
   resolveSmartRouting,
 } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { smartRoutingClassifiers } from "./routingClassifier";
+import { setFirstByteBudget } from "@/server/llm-gateway/engine/utils/firstByteGuard";
+import { recordFailedRequest } from "./failedRequestUsage";
 import {
   checkNoAuthCooldownResponse,
   handleNoAuthCooldownResult,
@@ -60,6 +62,7 @@ type ChatResult =
 interface ComboStrategyConfig {
   fallbackStrategy?: string;
   judgeModel?: string;
+  adaptive?: boolean;
   fusionTuning?: Parameters<typeof handleFusionChat>[0]["tuning"];
 }
 
@@ -141,8 +144,8 @@ async function trySmartComboRouting(
 
 /** Build fusion handleSingleModel wrapper */
 function buildFusionHandler(
-  clientRawRequest: ClientRawRequest,
-  request: Request,
+  clientRawRequest: ClientRawRequest | null,
+  request: Request | null,
   apiKey: string | null,
 ) {
   return (b: ChatBody, m: string, isPanel?: boolean) => {
@@ -162,9 +165,9 @@ async function tryComboRouting(
   modelStr: string,
   body: ChatBody,
   settings: Record<string, unknown>,
-  request: Request,
+  request: Request | null,
   apiKey: string | null,
-  clientRawRequest: ClientRawRequest,
+  clientRawRequest: ClientRawRequest | null,
   requiredCapabilities: Set<string>,
 ): Promise<Response | null> {
   const comboModels = await getComboModels(modelStr);
@@ -202,7 +205,9 @@ async function tryComboRouting(
     log,
     comboName: modelStr,
     comboStrategy,
-    comboStickyLimit
+    comboStickyLimit,
+    adaptive: comboStrategies[modelStr]?.adaptive === true,
+    sessionKey: request ? deriveRoutingSessionKey(request.headers, body) : undefined,
   });
 }
 
@@ -243,7 +248,7 @@ async function tryCapacityAdapterRouting(
 
 // ── Single model helpers ────────────────────────────────────────────────────
 
-/** Resolve combo when modelInfo has no provider. Returns Response or throws. */
+/** Resolve combo when modelInfo has no provider: the same combo path, or a 400. */
 async function resolveComboForModel(
   modelStr: string,
   body: ChatBody,
@@ -251,57 +256,13 @@ async function resolveComboForModel(
   request: Request | null,
   apiKey: string | null,
 ): Promise<Response> {
-  const comboModels = await getComboModels(modelStr);
-  if (!comboModels) {
-    log.warn("CHAT", "Invalid model format", { model: modelStr });
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
-  }
-
-  const chatSettings = await getSettings();
-  const comboStrategies = chatSettings.comboStrategies as Record<string, ComboStrategyConfig>;
-  const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
-  const comboStrategy: string = comboSpecificStrategy || (chatSettings.comboStrategy as string) || "fallback";
-  const requiredCapabilities = detectRequiredCapabilities(body) as Set<string>;
-  const augmentedModels = augmentModelsWithCapacityAdapter(comboModels, requiredCapabilities, chatSettings);
-  const adapterAdded = augmentedModels.filter((m: string) => !comboModels.includes(m));
-  recordRoutingStep(body, { kind: "combo", name: modelStr, strategy: comboStrategy, models: augmentedModels });
-
-  if (comboStrategy === "fusion") {
-    log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
-    return handleFusionChat({
-      body,
-      models: comboModels,
-      handleSingleModel: (b: ChatBody, m: string, isPanel?: boolean) => {
-        let cleanRawReq: ClientRawRequest | null = clientRawRequest;
-        if (isPanel && clientRawRequest) {
-          const cleanBody = Object.fromEntries(
-            Object.entries(clientRawRequest.body || {}).filter(([key]) => key !== "tools" && key !== "tool_choice")
-          );
-          cleanRawReq = { ...clientRawRequest, body: cleanBody };
-        }
-        return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
-      },
-      log,
-      comboName: modelStr,
-      judgeModel: comboStrategies[modelStr]?.judgeModel,
-      tuning: comboStrategies[modelStr]?.fusionTuning,
-    });
-  }
-
-  const comboStickyLimit: number = chatSettings.comboStickyRoundRobinLimit;
-  log.info("CHAT", `Combo "${modelStr}" with ${augmentedModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
-  return handleComboChat({
-    body,
-    models: augmentedModels,
-    handleSingleModel: withCapacityAdapterStripping(
-      (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
-      adapterAdded
-    ),
-    log,
-    comboName: modelStr,
-    comboStrategy,
-    comboStickyLimit
-  });
+  const response = await tryComboRouting(
+    modelStr, body, await getSettings() as Record<string, unknown>, request, apiKey, clientRawRequest,
+    detectRequiredCapabilities(body) as Set<string>,
+  );
+  if (response) return response;
+  log.warn("CHAT", "Invalid model format", { model: modelStr });
+  return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 }
 
 /** Build the full options object for handleChatCore */
@@ -413,10 +374,10 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
   const bypassResponse = handleBypassRequest(body, modelStr, userAgent, Boolean((await getSettings()).ccFilterNaming));
   if (bypassResponse) return bypassResponse.response || bypassResponse;
 
-  // The trace is collected while routing and attached to whatever response wins,
-  // so the caller can see the combo, the smart decision and every failed attempt.
+  // The trace is collected while routing and attached to whatever response wins.
   startRoutingTrace(body, modelStr);
   const response = await routeChatRequest(modelStr, body, request, apiKey, clientRawRequest);
+  await recordFailedRequest({ body, response, requested: modelStr, endpoint: clientRawRequest.endpoint, apiKey });
   return withRoutingTraceHeader(response, body);
 }
 
@@ -462,8 +423,11 @@ async function tryFreeFallbackChat(
   const settings = await getSettings();
   if (settings.freeFallbackEnabled === false) return null;
   log.warn("CHAT", `[${provider}] no account left, falling back to ${FREE_DEFAULT_MODEL_KEY}`);
+  // The spread copies the body's symbols, budget included: the last resort must not be timed by the model that just failed.
+  const freeBody = { ...body, model: FREE_DEFAULT_MODEL_KEY };
+  setFirstByteBudget(freeBody, undefined);
   const response = await handleSingleModelChat(
-    { ...body, model: FREE_DEFAULT_MODEL_KEY },
+    freeBody,
     FREE_DEFAULT_MODEL_KEY,
     clientRawRequest,
     request,
@@ -499,10 +463,9 @@ export async function handleSingleModelChat(
   const disabledResponse = await assertModelEnabled(provider, model);
   if (disabledResponse) return disabledResponse;
 
-    const excludeConnectionIds: Set<string> = new Set();
+  const excludeConnectionIds: Set<string> = new Set();
   let lastError: string | null = null;
   let lastStatus: number | null = null;
-
   while (true) {
     const credentials: CredentialsResult | null = await getProviderCredentials(provider, excludeConnectionIds, model);
 
