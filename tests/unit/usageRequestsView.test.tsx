@@ -163,7 +163,7 @@ describe("requests list", () => {
 
     // Who failed / who fell back.
     expect(list.getByTitle("Failed attempts").textContent).toContain("2");
-    expect(list.getByText("fallback")).toBeTruthy();
+    expect(list.getByText("account switch")).toBeTruthy();
 
     // Cost keeps the full value on hover; cache reads as Read/Write.
     expect(list.getByText("$0.000042")).toBeTruthy();
@@ -206,7 +206,7 @@ describe("request drawer", () => {
     expect(body.getByText(/2 failed attempts/)).toBeTruthy();
     expect(body.getByText(/account fallback/)).toBeTruthy();
     expect(body.getByText(/combo-x/)).toBeTruthy();
-    expect(body.getByText(/tier: pro/)).toBeTruthy();
+    expect(body.getByText(/tier: Pro/)).toBeTruthy();
 
     // The inline switch writes the same observability setting.
     expect(body.getAllByRole("switch")).toHaveLength(1);
@@ -227,8 +227,12 @@ describe("request drawer", () => {
     fireEvent.click(within(table).getAllByRole("row")[1]);
 
     const body = within(await screen.findByTestId("drawer"));
-    expect(body.getByText("1. Client Request (Input)")).toBeTruthy();
-    expect(body.getByText("Smart routing")).toBeTruthy();
-    expect(body.getByText("ID")).toBeTruthy();
+    // Reading order: who answered, why this path, the answer, then raw bodies.
+    expect(body.getByRole("heading", { name: "Answered by llama-3.1-70b" })).toBeTruthy();
+    expect(body.getByText(/Confidence: 80%/)).toBeTruthy();
+    expect(body.getByText("Answer sent to the client")).toBeTruthy();
+    expect(body.getByText("Technical data")).toBeTruthy();
+    expect(body.getByText("Client request")).toBeTruthy();
+    expect(body.getByText("d9")).toBeTruthy();
   });
 });

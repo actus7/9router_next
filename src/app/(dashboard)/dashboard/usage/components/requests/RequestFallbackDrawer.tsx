@@ -84,7 +84,7 @@ export default function RequestFallbackDrawer({ row, providerNameCache }: Props)
         )}
       </div>
 
-      <RequestRoutingStory routing={row.routing} />
+      <RequestRoutingStory routing={row.routing} providerNames={providerNameCache} />
 
       <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-bg-subtle px-4 py-3">
         <div className="min-w-0">

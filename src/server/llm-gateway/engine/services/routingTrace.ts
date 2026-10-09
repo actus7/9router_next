@@ -50,3 +50,18 @@ export function withRoutingTraceHeader(response: Response, body: Record<string, 
   headers.set(ROUTING_TRACE_HEADER, encoded);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
+
+// The free default answers from inside the attempt of the model that ran out of
+// accounts, so to the combo that attempt looks like a success. Marking the
+// response (not the body, which the capacity adapter may copy) lets the combo
+// tell the two apart.
+const FREE_FALLBACK_RESPONSES = new WeakSet<Response>();
+
+export function markFreeFallback(response: Response): Response {
+  FREE_FALLBACK_RESPONSES.add(response);
+  return response;
+}
+
+export function isFreeFallback(response: Response): boolean {
+  return FREE_FALLBACK_RESPONSES.has(response);
+}

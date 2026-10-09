@@ -12,7 +12,7 @@ interface Props {
 export default function ClientResponsePanel({ thinking, content }: Props) {
   return (
     <CollapsibleSection
-      title={translate("4. Client Response (Final)") || "4. Client Response (Final)"}
+      title={translate("Answer sent to the client") || "Answer sent to the client"}
       defaultOpen={true}
       icon="output"
     >

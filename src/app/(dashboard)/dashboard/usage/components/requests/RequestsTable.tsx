@@ -49,16 +49,17 @@ function StatusPill({ statusLabel, cause }: { statusLabel?: string; cause?: stri
 function AttemptsCell({ row }: { row: RequestRow }) {
   const failed = row.routing?.failed ?? 0;
   const switched = row.routing?.switched ?? 0;
-  if (failed === 0 && switched === 0) return <span className="text-text-muted">—</span>;
+  const free = row.routing?.attempts?.some((a) => a.freeFallback) ?? false;
+  if (failed === 0 && switched === 0 && !free) return <span className="text-text-muted">—</span>;
   return (
     <span className="flex flex-wrap items-center gap-1">
       {failed > 0 && (
         <span
           title={t("Failed attempts")}
-          className="inline-flex items-center gap-0.5 font-mono text-[11px] font-medium text-destructive"
+          className="inline-flex items-center gap-0.5 text-[11px] font-medium text-destructive"
         >
           <X className="size-3" aria-hidden />
-          {failed}
+          {failed} {failed === 1 ? t("failure") : t("failures")}
         </span>
       )}
       {switched > 0 && (
@@ -67,7 +68,12 @@ function AttemptsCell({ row }: { row: RequestRow }) {
           className={`${PILL} border-warning-border/30 bg-warning/10 text-warning`}
         >
           <ArrowRightLeft className="size-3" aria-hidden />
-          {t("fallback")}
+          {t("account switch")}
+        </span>
+      )}
+      {free && (
+        <span title={t("Answered by the free fallback")} className={`${PILL} border-border text-text-muted`}>
+          {t("free fallback")}
         </span>
       )}
     </span>

@@ -19,8 +19,9 @@ export interface AttemptRow {
   startOffsetMs?: number;
   /** Started while the previous attempt was still running (a hedge). */
   parallel: boolean;
+  freeFallback: boolean;
   /** The model the request moved on to after this attempt failed. */
-  fallbackTo?: { model: string; number: number };
+  fallbackTo?: { model: string; number: number; sameModel: boolean };
 }
 
 const TONE: Record<RequestAttempt["outcome"], AttemptTone> = {
@@ -35,6 +36,31 @@ function badgeOf(attempt: RequestAttempt): string {
   if (attempt.outcome === "cooldown_skip") return "cooldown";
   if (attempt.outcome === "aborted") return "cancelled";
   return attempt.outcome === "ok" ? "200" : "error";
+}
+
+/**
+ * The sentence inside a provider's error, when the error is its JSON body
+ * (`[429]: {"error":{"message":"…"}}`). Anything that does not parse, such as
+ * a body cut short by the trace limit, comes back as written.
+ */
+export function readableError(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const text = raw.replace(/^\[\d{3}\]:\s*/, "").trim();
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const message = messageOf(parsed);
+    if (message) return message;
+  } catch {
+    // Not JSON: plain text already reads fine.
+  }
+  return text;
+}
+
+function messageOf(value: unknown): string | undefined {
+  if (typeof value === "string") return value || undefined;
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  return messageOf(record.message) ?? messageOf(record.error) ?? messageOf(record.detail);
 }
 
 export function formatMs(ms: number): string {
@@ -66,8 +92,9 @@ export function buildAttemptRows(attempts: RequestAttempt[] | null | undefined):
       error: attempt.error,
       durationMs: attempt.durationMs,
       startOffsetMs: attempt.startOffsetMs,
+      freeFallback: attempt.freeFallback === true,
       parallel: attempt.startOffsetMs !== undefined && prevEnd !== undefined && attempt.startOffsetMs < prevEnd,
-      ...((tone === "failed" || tone === "skipped") && next ? { fallbackTo: { model: next.model, number: i + 2 } } : {}),
+      ...((tone === "failed" || tone === "skipped") && next ? { fallbackTo: { model: next.model, number: i + 2, sameModel: next.model === attempt.model } } : {}),
     };
   });
 }

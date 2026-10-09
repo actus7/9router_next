@@ -31,6 +31,7 @@ import { updateProviderCredentials, checkAndRefreshToken, ensureProjectId } from
 import { handleAntigravityQuotaError, clearAntigravityStrikes } from "../auth/antigravityQuota";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 import {
+  markFreeFallback,
   recordRoutingStep,
   setRoutingTraceSelection,
   startRoutingTrace,
@@ -441,7 +442,7 @@ async function tryFreeFallbackChat(
   // A failing fallback must not stand in for the real error. The caller needs
   // to know why their own provider failed, not why the free one also did, so
   // returning null here hands control back to the original error path.
-  return response.ok ? response : null;
+  return response.ok ? markFreeFallback(response) : null;
 }
 
 /**

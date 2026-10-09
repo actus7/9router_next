@@ -3,6 +3,7 @@ import {
   ROUTING_TRACE_MAX_ERROR_CHARS,
   ROUTING_TRACE_MAX_HEADER_CHARS,
   parseRoutingTrace,
+  summarizeRoutingTrace,
   serializeRoutingTrace,
   truncateTraceError,
   type RoutingTrace,
@@ -96,5 +97,39 @@ describe("truncateTraceError", () => {
     const capped = truncateTraceError("q".repeat(ROUTING_TRACE_MAX_ERROR_CHARS + 50));
     expect(capped).toHaveLength(ROUTING_TRACE_MAX_ERROR_CHARS);
     expect(capped?.endsWith("…")).toBe(true);
+  });
+});
+
+describe("summarizeRoutingTrace with the free fallback inside a combo attempt", () => {
+  const steps: RoutingTraceStep[] = [
+    { kind: "combo", name: "dev", strategy: "fallback", models: ["glm/glm-5.3-flash"] },
+    { kind: "account", provider: "glm", model: "glm-5.3-flash", connection: "Z.ai", outcome: "switched", status: 429, error: "Insufficient balance" },
+    { kind: "account", provider: "glm", model: "glm-5.3-flash", outcome: "exhausted", status: 429, error: "Insufficient balance" },
+    { kind: "account", provider: "kilo-gateway", model: "kilo-auto/free", outcome: "selected" },
+    { kind: "attempt", model: "glm/glm-5.3-flash", index: 1, total: 1, outcome: "failed", durationMs: 7600, startOffsetMs: 0 },
+  ];
+
+  it("shows the glm attempt as failed and the free model as the one that answered", () => {
+    const summary = summarizeRoutingTrace(trace(steps, "kilo-gateway/kilo-auto/free"));
+    expect(summary?.attempts?.map((a) => [a.model, a.outcome, a.status, a.freeFallback ?? false])).toEqual([
+      ["glm/glm-5.3-flash", "failed", 429, false],
+      ["kilo-gateway/kilo-auto/free", "ok", undefined, true],
+    ]);
+    expect(summary?.attempts?.[0].error).toContain("Insufficient balance");
+    expect(summary?.failed).toBe(1);
+  });
+});
+
+describe("summarizeRoutingTrace with the free fallback on a single model", () => {
+  it("flags the free answer that followed an exhausted provider", () => {
+    const summary = summarizeRoutingTrace(trace([
+      { kind: "account", provider: "glm", model: "glm-5.3-flash", connection: "Z.ai", outcome: "switched", status: 429, error: "Insufficient balance" },
+      { kind: "account", provider: "glm", model: "glm-5.3-flash", outcome: "exhausted", status: 429 },
+      { kind: "account", provider: "kilo-gateway", model: "kilo-auto/free", outcome: "selected" },
+    ], "kilo-gateway/kilo-auto/free"));
+    expect(summary?.attempts?.map((a) => [a.model, a.outcome, a.freeFallback ?? false])).toEqual([
+      ["glm/glm-5.3-flash", "failed", false],
+      ["kilo-gateway/kilo-auto/free", "ok", true],
+    ]);
   });
 });

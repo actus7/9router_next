@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
-import { getRoutingTrace, startRoutingTrace } from "@/server/llm-gateway/engine/services/routingTrace";
+import { getRoutingTrace, markFreeFallback, startRoutingTrace } from "@/server/llm-gateway/engine/services/routingTrace";
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
@@ -88,5 +88,25 @@ describe("handleComboChat attempt trace", () => {
     const payload = await res.json();
     expect(payload.error.message).toContain("a/m");
     expect(payload.error.message).toContain("b/m");
+  });
+  it("does not credit a model with an answer the free fallback gave inside its attempt", async () => {
+    const body = startRoutingTrace({ messages: [] } as Record<string, unknown>, "dev");
+    const res = await handleComboChat({
+      body,
+      models: ["zai/glm-fallback-test", "b/m"],
+      handleSingleModel: async (_b, m) => {
+        if (m !== "zai/glm-fallback-test") return json(200, {});
+        return markFreeFallback(json(200, { answeredBy: "free" }));
+      },
+      log,
+      comboName: "dev",
+      autoSwitch: false,
+    });
+    // The free answer is still the answer: the combo does not go on to the next model.
+    expect(res.ok).toBe(true);
+    expect(await res.json()).toEqual({ answeredBy: "free" });
+    expect((attemptsOf(body) as Array<{ model: string; outcome: string }>).map((a) => [a.model, a.outcome])).toEqual([
+      ["zai/glm-fallback-test", "failed"],
+    ]);
   });
 });

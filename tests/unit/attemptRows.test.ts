@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAttemptRows, summarizeAttempts } from "@/app/(dashboard)/dashboard/usage/components/requests/attemptRows";
+import { buildAttemptRows, readableError, summarizeAttempts } from "@/app/(dashboard)/dashboard/usage/components/requests/attemptRows";
 
 describe("buildAttemptRows", () => {
   it("returns nothing without attempts", () => {
@@ -18,8 +18,8 @@ describe("buildAttemptRows", () => {
       [2, "skipped", "cooldown"],
       [3, "ok", "200"],
     ]);
-    expect(rows[0].fallbackTo).toEqual({ model: "oc/x", number: 2 });
-    expect(rows[1].fallbackTo).toEqual({ model: "mimo/flash", number: 3 });
+    expect(rows[0].fallbackTo).toEqual({ model: "oc/x", number: 2, sameModel: false });
+    expect(rows[1].fallbackTo).toEqual({ model: "mimo/flash", number: 3, sameModel: false });
     expect(rows[2].fallbackTo).toBeUndefined();
   });
 
@@ -49,6 +49,17 @@ describe("buildAttemptRows", () => {
   });
 });
 
+describe("free fallback", () => {
+  it("carries the flag so the panel can say who really answered", () => {
+    const rows = buildAttemptRows([
+      { model: "glm/flash", outcome: "failed", status: 429 },
+      { model: "kilo-gateway/kilo-auto/free", outcome: "ok", freeFallback: true },
+    ]);
+    expect(rows.map((r) => r.freeFallback)).toEqual([false, true]);
+    expect(summarizeAttempts(rows).answeredBy?.model).toBe("kilo-gateway/kilo-auto/free");
+  });
+});
+
 describe("summarizeAttempts", () => {
   it("names the answering attempt, counts real failures and spans the whole timeline", () => {
     const rows = buildAttemptRows([
@@ -69,5 +80,30 @@ describe("summarizeAttempts", () => {
     const s = summarizeAttempts(buildAttemptRows([{ model: "a", outcome: "failed", status: 500 }]));
     expect(s.answeredBy).toBeUndefined();
     expect(s.failures).toBe(1);
+  });
+});
+
+describe("readableError", () => {
+  it("pulls the message out of a provider's JSON error body", () => {
+    expect(readableError('[429]: {"error":{"code":"1113","message":"Insufficient balance or no resource package. Please recharge."}}'))
+      .toBe("Insufficient balance or no resource package. Please recharge.");
+    expect(readableError('{"message":"model not found"}')).toBe("model not found");
+    expect(readableError('{"error":"quota exceeded"}')).toBe("quota exceeded");
+  });
+
+  it("keeps plain text, and a JSON cut short by truncation, as it is", () => {
+    expect(readableError("fetch connect timeout")).toBe("fetch connect timeout");
+    expect(readableError('[500]: {"error":{"message":"overlo…')).toBe('{"error":{"message":"overlo…');
+    expect(readableError(undefined)).toBeUndefined();
+  });
+});
+
+describe("account switch inside one model", () => {
+  it("says the next try was another account of the same model, not a different model", () => {
+    const rows = buildAttemptRows([
+      { model: "glm/flash", connection: "Z.ai", outcome: "failed", status: 429 },
+      { model: "glm/flash", connection: "Z.ai 2", outcome: "ok", status: 200 },
+    ]);
+    expect(rows[0].fallbackTo).toEqual({ model: "glm/flash", number: 2, sameModel: true });
   });
 });

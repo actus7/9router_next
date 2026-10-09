@@ -12,6 +12,8 @@ export interface RequestAttempt {
   error?: string;
   durationMs?: number;
   startOffsetMs?: number;
+  /** The credential-free default answered because the model before it had no account left. */
+  freeFallback?: boolean;
 }
 
 export interface RequestRoutingInfo {

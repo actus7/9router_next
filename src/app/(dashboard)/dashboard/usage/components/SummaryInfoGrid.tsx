@@ -6,10 +6,13 @@ import { translate } from "@/i18n/runtime";
 import type { RequestDetail } from "./types";
 import { getInputTokens, getCachedTokens, getCacheCreationTokens } from "./tokenUtils";
 import { formatMs } from "./requests/attemptRows";
+import { formatCostCell } from "./requests/requestFormat";
 
 interface Props {
   detail: RequestDetail;
   providerName: string;
+  /** From the usage row: request details do not carry it. */
+  cost?: number | null;
 }
 
 function t(text: string): string {
@@ -26,12 +29,13 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** Who answered and what it cost, at a glance: identity on top, numbers as tiles. */
-export default function SummaryInfoGrid({ detail, providerName }: Props) {
+export default function SummaryInfoGrid({ detail, providerName, cost }: Props) {
   const succeeded = detail.status === "success";
   const cached = getCachedTokens(detail.tokens);
   const cacheCreation = getCacheCreationTokens(detail.tokens);
   const ttft = detail.latency?.ttft;
   const total = detail.latency?.total;
+  const costCell = formatCostCell(cost);
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -56,14 +60,18 @@ export default function SummaryInfoGrid({ detail, providerName }: Props) {
 
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label={t("Time to first token")}>{ttft ? formatMs(ttft) : "—"}</Stat>
-        <Stat label={t("Total time")}>{total ? formatMs(total) : "—"}</Stat>
+        <Stat label={t("Response time")}>{total ? formatMs(total) : "—"}</Stat>
         <Stat label={t("Input Tokens")}>{getInputTokens(detail.tokens).toLocaleString()}</Stat>
         <Stat label={t("Output Tokens")}>{(detail.tokens?.completion_tokens || 0).toLocaleString()}</Stat>
+        {cost !== undefined && cost !== null && (
+          <Stat label={t("Cost")}><span title={costCell.title}>{costCell.text}</span></Stat>
+        )}
         {cached > 0 && <Stat label={t("Cached Tokens")}>{cached.toLocaleString()}</Stat>}
         {cacheCreation > 0 && <Stat label={t("Cache Creation")}>{cacheCreation.toLocaleString()}</Stat>}
       </dl>
 
       <p className="text-xs text-text-muted">
+        {t("Times measure the call that answered; the route below shows every attempt.")}{" "}
         ID <span className="break-all font-mono">{detail.id}</span>
       </p>
     </div>

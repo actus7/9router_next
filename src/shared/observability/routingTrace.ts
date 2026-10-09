@@ -99,6 +99,8 @@ export interface RoutingAttemptSummary {
   error?: string;
   durationMs?: number;
   startOffsetMs?: number;
+  /** The credential-free default answered because the model before it had no account left. */
+  freeFallback?: true;
 }
 
 export interface RoutingTraceSummary {
@@ -147,29 +149,54 @@ function attemptsFromTrace(trace: RoutingTrace): RoutingAttemptSummary[] {
   });
   const hasCombo = trace.steps.some((step) => step.kind === "attempt");
   if (!hasCombo) {
-    return trace.steps
-      .filter((step): step is Extract<RoutingTraceStep, { kind: "account" }> => step.kind === "account" && step.outcome !== "exhausted")
-      .map(accountRow);
+    // An account answering after its provider ran dry is the free default.
+    let exhausted = false;
+    const rows: RoutingAttemptSummary[] = [];
+    for (const step of trace.steps) {
+      if (step.kind !== "account") continue;
+      if (step.outcome === "exhausted") {
+        exhausted = true;
+        continue;
+      }
+      const row = accountRow(step);
+      rows.push(exhausted && step.outcome === "selected" ? { ...row, freeFallback: true } : row);
+    }
+    return rows;
   }
   // A model whose combo attempt failed already says so; its account failures
   // would only repeat it.
   const answered = new Set(trace.steps.flatMap((s) => (s.kind === "attempt" && s.outcome === "ok" ? [s.model] : [])));
   const rows: RoutingAttemptSummary[] = [];
+  // Account steps are recorded before the attempt step that closes them.
+  let pending: Array<Extract<RoutingTraceStep, { kind: "account" }>> = [];
   for (const step of trace.steps) {
-    if (step.kind === "attempt") {
-      rows.push(compact({
-        model: step.model,
-        provider: providerOf(step.model),
-        outcome: step.outcome,
-        status: step.status,
-        errorClass: step.errorClass,
-        error: shorten(step.error, SUMMARY_MAX_ERROR_CHARS),
-        durationMs: step.durationMs,
-        startOffsetMs: step.startOffsetMs,
-      }));
-    } else if (step.kind === "account" && (step.outcome === "switched" || step.outcome === "failed") && answered.has(`${step.provider}/${step.model}`)) {
-      rows.push(accountRow(step));
+    if (step.kind === "account") {
+      pending.push(step);
+      continue;
     }
+    if (step.kind !== "attempt") continue;
+    for (const account of pending) {
+      if ((account.outcome === "switched" || account.outcome === "failed") && answered.has(`${account.provider}/${account.model}`)) {
+        rows.push(accountRow(account));
+      }
+    }
+    // No account left, yet something answered: the free default, inside this attempt.
+    const exhausted = pending.find((a) => a.outcome === "exhausted");
+    const free = exhausted ? pending.find((a) => a.outcome === "selected") : undefined;
+    const status = step.status ?? exhausted?.status;
+    const error = step.error ?? exhausted?.error;
+    rows.push(compact({
+      model: step.model,
+      provider: providerOf(step.model),
+      outcome: step.outcome,
+      status,
+      errorClass: step.outcome === "failed" && status !== undefined ? classifyAttemptError(status, error) : step.errorClass,
+      error: shorten(error, SUMMARY_MAX_ERROR_CHARS),
+      durationMs: step.durationMs,
+      startOffsetMs: step.startOffsetMs,
+    }));
+    if (free && step.outcome !== "ok") rows.push({ ...accountRow(free), freeFallback: true as const });
+    pending = [];
   }
   return rows;
 }

@@ -34,7 +34,7 @@ describe("RequestRoutingStory", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByText("Rate limit or quota exhausted (429)")).toBeTruthy();
     expect(screen.getByText(/does not yet include access/)).toBeTruthy();
-    expect(screen.getByText(/combo: dev · tier: simple/)).toBeTruthy();
+    expect(screen.getByText(/combo: dev · tier: Simple/)).toBeTruthy();
     expect(screen.getByText("Answered the request")).toBeTruthy();
   });
 
@@ -53,6 +53,43 @@ describe("RequestRoutingStory", () => {
     expect(screen.getByText(/Not a failure/)).toBeTruthy();
     expect(screen.getByText("in parallel")).toBeTruthy();
     expect(screen.queryByText("another model answered first")).toBeNull();
+  });
+
+  it("names the free fallback as the one that answered, not the model that ran out of accounts", () => {
+    render(
+      <RequestRoutingStory
+        routing={{
+          attempts: [
+            { model: "glm/glm-5.3-flash", outcome: "failed", status: 429, errorClass: "rate_limit", error: "Insufficient balance" },
+            { model: "kilo-gateway/kilo-auto/free", outcome: "ok", freeFallback: true },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByRole("heading").textContent).toBe("Answered by kilo-gateway/kilo-auto/free (free fallback) after 1 failed attempt");
+    expect(screen.getByText(/Answered by the free fallback, because the model before it had no account left/)).toBeTruthy();
+  });
+
+  it("shows provider names, the readable error, an account switch and why smart routing chose the path", () => {
+    render(
+      <RequestRoutingStory
+        routing={{
+          attempts: [
+            { model: "glm/glm-5.3-flash", provider: "glm", connection: "Z.ai", outcome: "failed", status: 429, errorClass: "rate_limit", error: '[429]: {"error":{"code":"1113","message":"Insufficient balance"}}' },
+            { model: "glm/glm-5.3-flash", provider: "glm", connection: "Z.ai 2", outcome: "ok", status: 200 },
+          ],
+          tier: "simple",
+        }}
+        decision={{ need: "tool_use", tier: "simple", confidence: 0.82, reason: "short prompt" }}
+        providerNames={{ glm: "GLM (Zhipu)" }}
+      />,
+    );
+    expect(screen.getByText("GLM (Zhipu) · Z.ai")).toBeTruthy();
+    expect(screen.getByText("Insufficient balance")).toBeTruthy();
+    expect(screen.getByText("Original error")).toBeTruthy();
+    expect(screen.getByText("Then tried another account of the same model")).toBeTruthy();
+    expect(screen.getByText(/Task: Tool use · Confidence: 82% · short prompt/)).toBeTruthy();
+    expect(screen.getByText(/tier: Simple/)).toBeTruthy();
   });
 
   it("says so when nothing answered", () => {

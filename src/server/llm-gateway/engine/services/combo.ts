@@ -17,7 +17,7 @@ import {
   rememberStickyModel,
 } from "./modelPenalty";
 import { getRoutingDecision } from "./smart-routing/context";
-import { recordRoutingStep } from "./routingTrace";
+import { isFreeFallback, recordRoutingStep } from "./routingTrace";
 import { truncateTraceError, classifyAttemptError, type AttemptOutcome } from "../host/routingTrace";
 
 // Hard capabilities = input modalities; missing one drops request data (e.g. image
@@ -487,6 +487,14 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       if (lost()) return lose(result);
       if (result.ok) {
         if (!win()) return lose(result);
+        if (isFreeFallback(result)) {
+          // This model ran out of accounts and the free default answered in its place:
+          // the request is served, but nothing here says the model is healthy.
+          record("failed");
+          recordModelFailure(modelStr);
+          log.warn?.("COMBO", `Model ${modelStr} had no account left, answered by the free fallback`);
+          return result;
+        }
         if (race) selectModel(modelStr);
         record("ok", { status: result.status });
         recordModelSuccess(modelStr);
