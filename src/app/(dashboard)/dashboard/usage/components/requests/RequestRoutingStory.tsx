@@ -45,7 +45,7 @@ function outcomeText(row: AttemptRow): string {
         ? t("Answered by the free fallback, because the model before it had no account left")
         : t("Answered the request");
     case "skipped": return t("Skipped: this account is cooling down after earlier failures");
-    case "cancelled": return t("Stopped because another model answered first. Not a failure.");
+    case "cancelled": return t("Stopped because another model answered first. Not a failure, but the provider may have charged for reading the prompt.");
     default: {
       const reason = t(CLASS_REASON[row.errorClass ?? ""] ?? "Failed");
       return row.status ? `${reason} (${row.status})` : reason;

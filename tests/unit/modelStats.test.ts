@@ -120,10 +120,12 @@ describe("hedgeDelayMs", () => {
     expect(hedgeDelayMs(statWith(null, 50), false)).toBe(6_000);
   });
 
-  it("follows 2x the p50, floored at 5s and capped at 8s", () => {
+  it("waits past the model's usual start, so a model that is always slow to start is not raced every time", () => {
     expect(hedgeDelayMs(statWith(500, 50), false)).toBe(5_000);
     expect(hedgeDelayMs(statWith(3_000, 50), false)).toBe(6_000);
-    expect(hedgeDelayMs(statWith(30_000, 50), false)).toBe(8_000);
+    // ~10s to first token is normal for this model: racing it at 6-8s duplicated every call.
+    expect(hedgeDelayMs({ ...statWith(10_000, 50), p95Ms: 12_000 }, false)).toBe(20_000);
+    expect(hedgeDelayMs(statWith(30_000, 50), false)).toBe(30_000);
   });
 
   it("waits longer for a reasoning model", () => {

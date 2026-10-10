@@ -2173,5 +2173,6 @@
   "Failed attempts": "Tentativas com falha",
   "Account fallback": "Troca de conta",
   "Requested model": "Modelo pedido",
-  "Selected model": "Modelo que respondeu"
+  "Selected model": "Modelo que respondeu",
+  "Stopped because another model answered first. Not a failure, but the provider may have charged for reading the prompt.": "Interrompido porque outro modelo respondeu primeiro. Não é uma falha, mas o provedor pode ter cobrado a leitura do prompt."
 }

@@ -33,7 +33,8 @@ const FAST_BUDGET_FLOOR_MS = 8_000;
 const FAST_BUDGET_MULTIPLIER = 3;
 
 const HEDGE_MIN_DELAY_MS = 5_000;
-const HEDGE_MAX_DELAY_MS = 8_000;
+const HEDGE_MAX_DELAY_MS = 30_000;
+const HEDGE_P95_FACTOR = 1.5;
 const HEDGE_DEFAULT_DELAY_MS = 6_000;
 const HEDGE_REASONING_DELAY_MS = 15_000;
 
@@ -159,11 +160,15 @@ export function adaptiveFirstByteBudget(baseMs: number, stat: ModelStat | undefi
 
 /**
  * How long a combo waits for a model's first byte before also starting the next
- * candidate (a hedge). 2x the typical TTFT, kept between 5s and 8s; a reasoning
- * model thinks silently on purpose, so it is given far longer.
+ * candidate (a hedge). The point is to rescue a model that stalled, not to race
+ * one that is merely slow as usual: the wait is past its normal start (2x p50,
+ * or 1.5x p95), between 5s and 30s. Capping it at 8s raced a model
+ * whose ordinary first byte takes ~10s on every single call. A reasoning model
+ * thinks silently on purpose, so it is given the long wait outright.
  */
 export function hedgeDelayMs(stat: ModelStat | undefined, isReasoning: boolean): number {
   if (isReasoning) return HEDGE_REASONING_DELAY_MS;
   if (!stat || stat.p50Ms === null || stat.ttftSamples < ADAPTIVE_MIN_SAMPLES) return HEDGE_DEFAULT_DELAY_MS;
-  return Math.min(HEDGE_MAX_DELAY_MS, Math.max(HEDGE_MIN_DELAY_MS, stat.p50Ms * 2));
+  const usual = Math.max(stat.p50Ms * 2, (stat.p95Ms ?? stat.p50Ms) * HEDGE_P95_FACTOR);
+  return Math.min(HEDGE_MAX_DELAY_MS, Math.max(HEDGE_MIN_DELAY_MS, usual));
 }

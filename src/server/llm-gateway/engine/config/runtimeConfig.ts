@@ -53,6 +53,10 @@ export const COMBO_TIME_BUDGET_MS = envMs("COMBO_TIME_BUDGET_MS", 150 * 1000);
 // On by default; COMBO_HEDGE_ENABLED=false (or 0) turns it off for the process.
 export const COMBO_HEDGE_ENABLED = !["false", "0", "off"].includes((process.env.COMBO_HEDGE_ENABLED ?? "").toLowerCase());
 
+// A hedge sends the whole prompt to a second model, which reads it uncached.
+// Above this many (estimated) prompt tokens that costs more than the wait it saves.
+export const COMBO_HEDGE_MAX_PROMPT_TOKENS = Number(process.env.COMBO_HEDGE_MAX_PROMPT_TOKENS) || 32_000;
+
 // Fetch connect timeout: abort if upstream doesn't return response headers within this duration
 export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
 

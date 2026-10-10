@@ -269,4 +269,17 @@ describe("hedge abort reaches the upstream", () => {
     expect(onRequestSuccess).not.toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
   });
+  it("does not race a large prompt: the hedged model would read it all again, uncached", async () => {
+    const h = harness({ "slow/m": { delay: 120 }, "fast/m": { delay: 5 } });
+    const big = "x".repeat(4 * 40_000);
+    const { res } = await run(h, ["slow/m", "fast/m"], { hedgeMaxPromptTokens: 32_000 }, { stream: true, messages: [{ role: "user", content: big }] });
+    expect(await res.text()).toBe("slow/m");
+    expect(h.calls).toEqual(["slow/m"]);
+  });
+
+  it("still races a small prompt", async () => {
+    const h = harness({ "slow/m": { delay: 400 }, "fast/m": { delay: 5 } });
+    const { res } = await run(h, ["slow/m", "fast/m"], { hedgeMaxPromptTokens: 32_000 }, { stream: true, messages: [{ role: "user", content: "hi" }] });
+    expect(await res.text()).toBe("fast/m");
+  });
 });

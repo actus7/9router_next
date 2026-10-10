@@ -6,7 +6,7 @@ import { checkFallbackError, formatRetryAfter } from "./accountFallback";
 import { unavailableResponse } from "../utils/error";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
-import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_HEDGE_ENABLED, COMBO_TIME_BUDGET_MS, STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
+import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_HEDGE_ENABLED, COMBO_HEDGE_MAX_PROMPT_TOKENS, COMBO_TIME_BUDGET_MS, STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
 import { setAttemptSignal, setFirstByteBudget } from "../utils/firstByteGuard";
 import { adaptiveFirstByteBudget, hedgeDelayMs, loadModelStats, recordAttemptDatum } from "../host/modelStats";
 import {
@@ -271,6 +271,8 @@ interface HandleComboChatOptions {
   sessionKey?: string;
   /** Per-combo kill switch (comboStrategy.hedge === false). */
   hedge?: boolean;
+  /** Above this many estimated prompt tokens the combo never hedges. Override for tests. */
+  hedgeMaxPromptTokens?: number;
   /** Process-wide switch; defaults to COMBO_HEDGE_ENABLED. Override for tests. */
   hedgeEnabled?: boolean;
   /** Fixed hedge delay, replacing the one derived from the model's TTFT. Override for tests. */
@@ -372,10 +374,17 @@ function discardResponse(response: Response | undefined): void {
 
 const HEDGE_DUE = Symbol("hedge-due");
 
+// ponytail: ~4 chars per token over the serialized prompt; a gate, not a bill.
+function estimatePromptTokens(body: Record<string, unknown>): number {
+  const prompt = body.messages ?? body.input ?? body.contents ?? body.prompt;
+  if (prompt === undefined) return 0;
+  return Math.ceil(JSON.stringify(prompt).length / 4);
+}
+
 /**
  * Handle combo chat with fallback
  */
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs, adaptive = false, sessionKey, hedge = true, hedgeEnabled = COMBO_HEDGE_ENABLED, comboHedgeDelayMs }: HandleComboChatOptions): Promise<Response> {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs, adaptive = false, sessionKey, hedge = true, hedgeEnabled = COMBO_HEDGE_ENABLED, hedgeMaxPromptTokens = COMBO_HEDGE_MAX_PROMPT_TOKENS, comboHedgeDelayMs }: HandleComboChatOptions): Promise<Response> {
   let rotatedModels = getRotatedModels(models, comboName || "", comboStrategy || "fallback", comboStickyLimit);
 
   if (autoSwitch) {
@@ -407,7 +416,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   const modelStats = rotatedModels.length > 1 ? await loadModelStats() : new Map();
   const timeBudgetMs = comboTimeBudgetMs ?? COMBO_TIME_BUDGET_MS;
   // Only a streaming answer has a "first byte" to race for.
-  const canHedge = hedge && hedgeEnabled && body.stream === true;
+  const canHedge = hedge && hedgeEnabled && body.stream === true && estimatePromptTokens(body) <= hedgeMaxPromptTokens;
 
   const selectModel = (modelStr: string): void => {
     const routingDecision = getRoutingDecision(body);
