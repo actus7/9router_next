@@ -160,6 +160,8 @@ describe("requests list", () => {
     // The visible jump: requested → selected, in mono.
     expect(list.getByText("gpt-4o")).toBeTruthy();
     expect(list.getByText("claude-3-5-sonnet")).toBeTruthy();
+    // Which complexity tier the smart combo sent it to, next to the model.
+    expect(list.getByTitle("Complexity tier").textContent).toBe("Pro");
 
     // Who failed / who fell back.
     expect(list.getByTitle("Failed attempts").textContent).toContain("2");

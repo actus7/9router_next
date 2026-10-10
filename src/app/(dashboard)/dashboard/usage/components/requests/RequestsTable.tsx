@@ -80,14 +80,31 @@ function AttemptsCell({ row }: { row: RequestRow }) {
   );
 }
 
+/** The smart combo's lane (simple/standard/complex/reasoning), in the catalog's words. */
+function TierPill({ tier }: { tier: string | null | undefined }) {
+  if (!tier) return null;
+  return (
+    <span title={t("Complexity tier")} className={`${PILL} border-primary/30 bg-primary/10 font-sans text-primary`}>
+      {t(tier.charAt(0).toUpperCase() + tier.slice(1))}
+    </span>
+  );
+}
+
 function ModelCell({ row }: { row: RequestRow }) {
   const jump = modelJump(row.routing);
+  const tier = <TierPill tier={row.routing?.tier} />;
   if (!jump) {
-    return <span className="text-text-main">{row.model || row.routing?.selected || row.routing?.requested || "—"}</span>;
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1">
+        <span className="text-text-main">{row.model || row.routing?.selected || row.routing?.requested || "—"}</span>
+        {tier}
+      </span>
+    );
   }
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       <span className="text-text-muted" title={t("Requested model")}>{jump.from}</span>
+      {tier}
       <ArrowRight className="size-3 shrink-0 text-text-muted" aria-hidden />
       <span className="font-medium text-text-main" title={t("Selected model")}>{jump.to}</span>
     </span>
