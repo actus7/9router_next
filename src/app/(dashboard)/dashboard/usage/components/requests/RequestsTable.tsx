@@ -92,19 +92,12 @@ function TierPill({ tier }: { tier: string | null | undefined }) {
 
 function ModelCell({ row }: { row: RequestRow }) {
   const jump = modelJump(row.routing);
-  const tier = <TierPill tier={row.routing?.tier} />;
   if (!jump) {
-    return (
-      <span className="inline-flex flex-wrap items-center gap-1">
-        <span className="text-text-main">{row.model || row.routing?.selected || row.routing?.requested || "—"}</span>
-        {tier}
-      </span>
-    );
+    return <span className="text-text-main">{row.model || row.routing?.selected || row.routing?.requested || "—"}</span>;
   }
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       <span className="text-text-muted" title={t("Requested model")}>{jump.from}</span>
-      {tier}
       <ArrowRight className="size-3 shrink-0 text-text-muted" aria-hidden />
       <span className="font-medium text-text-main" title={t("Selected model")}>{jump.to}</span>
     </span>
@@ -132,12 +125,13 @@ export default function RequestsTable({
   const openRow = (row: RequestRow) => onRowClick(row);
   return (
     <Card padding="none">
-      <Table className="min-w-[1080px]">
+      <Table className="min-w-[1160px]">
         <TableHeader>
           <TableRow>
             <TableHead className={HEAD}>{t("Status")}</TableHead>
             <TableHead className={HEAD}>{t("DateTime")}</TableHead>
             <TableHead className={HEAD}>{t("Model")}</TableHead>
+            <TableHead className={HEAD}>{t("Tier")}</TableHead>
             <TableHead className={HEAD}>{t("Attempts")}</TableHead>
             <TableHead className={`${HEAD} text-right`}>{t("Cost")}</TableHead>
             <TableHead className={`${HEAD} text-right`}>{t("Tokens")}</TableHead>
@@ -153,7 +147,7 @@ export default function RequestsTable({
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <TableRow key={`skeleton-${i}`}>
-                {Array.from({ length: 10 }).map((_, j) => (
+                {Array.from({ length: 11 }).map((_, j) => (
                   <TableCell key={j} className={CELL}>
                     <Skeleton className="h-4 w-full" />
                   </TableCell>
@@ -162,13 +156,13 @@ export default function RequestsTable({
             ))
           ) : error ? (
             <TableRow>
-              <TableCell colSpan={10} className="px-4 py-12 text-center text-sm text-destructive">
+              <TableCell colSpan={11} className="px-4 py-12 text-center text-sm text-destructive">
                 {t("Failed to load requests.")}
               </TableCell>
             </TableRow>
           ) : rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={10} className="px-4 py-12 text-center">
+              <TableCell colSpan={11} className="px-4 py-12 text-center">
                 {filtersActive ? (
                   <div className="flex flex-col items-center gap-3">
                     <p className="text-sm text-text-main">{t("No requests match the current filters.")}</p>
@@ -209,6 +203,9 @@ export default function RequestsTable({
                   </TableCell>
                   <TableCell className={`${CELL} max-w-[280px] font-mono`}>
                     <ModelCell row={row} />
+                  </TableCell>
+                  <TableCell className={CELL}>
+                    {row.routing?.tier ? <TierPill tier={row.routing.tier} /> : <span className="text-text-muted">—</span>}
                   </TableCell>
                   <TableCell className={CELL}>
                     <AttemptsCell row={row} />
