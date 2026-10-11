@@ -73,7 +73,11 @@ describe("fallbackDecisionFromJudgement (G2.2 kind map)", () => {
     },
   );
 
-  it.each([["auth_expired"], ["billing"], ["permanent"]] as const)(
+  it("keeps an account with no balance out for the billing cooldown", () => {
+    expect(fallbackDecisionFromJudgement(judged("billing"), 0)).toEqual({ shouldFallback: true, cooldownMs: 30 * 60 * 1000 });
+  });
+
+  it.each([["auth_expired"], ["permanent"]] as const)(
     "locks the account for the long cooldown on %s",
     (kind) => {
       expect(fallbackDecisionFromJudgement(judged(kind), 0)).toEqual({
@@ -221,9 +225,10 @@ describe("github_monthly via the judge", () => {
 
     const input = setModelAvailability.mock.calls[0]![0] as { modelId: string; until: string };
     expect(input.modelId).toBe("gpt-5");
-    // billing → COOLDOWN.long (2min), not the monthly reset
-    expect(Date.parse(input.until)).toBeGreaterThan(Date.now() + LONG_COOLDOWN_MS - 5_000);
-    expect(Date.parse(input.until)).toBeLessThanOrEqual(Date.now() + LONG_COOLDOWN_MS);
+    // billing → COOLDOWN.billing (30min), not the monthly reset
+    const BILLING_COOLDOWN_MS = 30 * 60 * 1000;
+    expect(Date.parse(input.until)).toBeGreaterThan(Date.now() + BILLING_COOLDOWN_MS - 5_000);
+    expect(Date.parse(input.until)).toBeLessThanOrEqual(Date.now() + BILLING_COOLDOWN_MS);
   });
 
   it("uses the transient cooldown for a judged moderation instead of the 403 long lock", async () => {

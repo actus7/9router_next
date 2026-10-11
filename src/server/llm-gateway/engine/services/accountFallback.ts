@@ -1,4 +1,4 @@
-import { ERROR_RULES, BACKOFF_CONFIG, COOLDOWN, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig";
+import { ERROR_RULES, BACKOFF_CONFIG, BILLING_ERROR_TEXTS, COOLDOWN, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig";
 import { getErrorJudge, type ErrorJudgement } from "../host/errorJudge";
 
 /**
@@ -170,8 +170,9 @@ export function fallbackDecisionFromJudgement(judged: ErrorJudgement, backoffLev
     }
     // The credential or the bill is broken: rotating may still serve the
     // request, but this account is out for the long cooldown.
-    case "auth_expired":
     case "billing":
+      return { shouldFallback: true, cooldownMs: COOLDOWN.billing };
+    case "auth_expired":
     case "permanent":
     case "github_monthly":
       return { shouldFallback: true, cooldownMs: COOLDOWN.long };
@@ -204,11 +205,16 @@ export function fallbackDecisionFromJudgement(judged: ErrorJudgement, backoffLev
  * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number }}
  */
 export function checkFallbackError(status: number, errorText: string | unknown, backoffLevel = 0, judged?: ErrorJudgement | null): FallbackDecision {
-  if (judged) return fallbackDecisionFromJudgement(judged, backoffLevel);
-
   const lowerError = errorText
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
+
+  // Ahead of the judge: these texts say "no money" outright, and a verdict of
+  // `quota` would hand a dead account the short rate-limit backoff.
+  if (BILLING_ERROR_TEXTS.some((text) => lowerError.includes(text))) {
+    return { shouldFallback: true, cooldownMs: COOLDOWN.billing };
+  }
+  if (judged) return fallbackDecisionFromJudgement(judged, backoffLevel);
 
   for (const rule of ERROR_RULES) {
     // Text-based rule: match substring in error message

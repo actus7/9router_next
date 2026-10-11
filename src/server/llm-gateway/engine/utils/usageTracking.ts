@@ -132,12 +132,14 @@ export function canonicalizeUsage(usage: Record<string, unknown> | null | undefi
 
   const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
   const completion = num(usage.completion_tokens ?? usage.output_tokens);
-  const reasoning = num(usage.reasoning_tokens);
+  const promptDetails = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+  const completionDetails = usage.completion_tokens_details as Record<string, unknown> | undefined;
+  const reasoning = num(usage.reasoning_tokens ?? completionDetails?.reasoning_tokens);
   // Fall back to the nested prompt_tokens_details.cache_creation_tokens shape
   // (buildUsage()'s OpenAI-forwarding format) when the top-level field is
   // absent, so callers that pass a buildUsage() object through don't silently
   // drop cache_creation.
-  const cacheCreation = num(usage.cache_creation_input_tokens ?? (usage.prompt_tokens_details as Record<string, unknown>)?.cache_creation_tokens);
+  const cacheCreation = num(usage.cache_creation_input_tokens ?? promptDetails?.cache_creation_tokens);
 
   let prompt = num(usage.prompt_tokens ?? usage.input_tokens);
   let cached;
@@ -156,7 +158,8 @@ export function canonicalizeUsage(usage: Record<string, unknown> | null | undefi
     prompt = prompt + cached + cacheCreation;
   } else {
     // OpenAI/Gemini path (or already-canonical input): prompt already includes cached_tokens.
-    cached = num(usage.cached_tokens);
+    // A translated Chat response nests it in prompt_tokens_details (buildUsage).
+    cached = num(usage.cached_tokens ?? promptDetails?.cached_tokens);
   }
 
   const result: Record<string, unknown> = {

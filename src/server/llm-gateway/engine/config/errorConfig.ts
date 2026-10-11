@@ -45,7 +45,18 @@ export const MAX_RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
 export const COOLDOWN = {
   long: 2 * 60 * 1000,
   short: 5 * 1000,
+  // An account with no balance stays broken until someone pays: trying it
+  // again every few minutes only costs each request the round trip.
+  billing: 30 * 60 * 1000,
 };
+
+/** Unambiguous "this account has no money" texts, whatever status they come with. */
+export const BILLING_ERROR_TEXTS = [
+  "insufficient balance",
+  "please recharge",
+  "insufficient_quota",
+  "credit balance is too low",
+];
 
 /**
  * Unified error classification rules.
@@ -69,7 +80,7 @@ export const ERROR_RULES = [
 
   // --- Status-based rules (fallback when text doesn't match) ---
   { status: 401, cooldownMs: COOLDOWN.long },
-  { status: 402, cooldownMs: COOLDOWN.long },
+  { status: 402, cooldownMs: COOLDOWN.billing },
   { status: 403, cooldownMs: COOLDOWN.long },
   { status: 404, cooldownMs: COOLDOWN.long },
   { status: 429, backoff: true },

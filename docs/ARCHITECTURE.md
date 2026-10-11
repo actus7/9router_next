@@ -58,6 +58,8 @@ Each provider has a unique `id`, user-facing alias, category, optional explicit 
 
 Per-model failures (`402`, `429`, `502`, `503` and model-specific errors) create an availability record with reason, sanitized error and expiry. They never mark the entire connection unavailable.
 
+**No balance is not a rate limit.** Z.ai answers an account with no balance with a `429` ("Insufficient balance… Please recharge"); treated as a rate limit it got the 2s–5min backoff, so every request a few minutes later paid the round trip to a dead account (6–10s) before falling back. An unambiguous billing text (`BILLING_ERROR_TEXTS`), a `402` or a judge verdict of `billing` keeps the account out for `COOLDOWN.billing` (30 min). The text is checked before the judge, so a verdict of `quota` cannot hand it the short backoff.
+
 **"Este modelo não faz tool calling" é erro do request, não da conta.** Um alias
 que abre em vários upstreams (kilo-gateway, OpenRouter) responde `404 No
 endpoints found that support tool use` quando nada atrás dele faz tool calling —

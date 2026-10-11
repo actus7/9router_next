@@ -36,8 +36,9 @@ export type AttemptDatum = {
 // that ends long after the combo returned does not. The key rides the body.
 const PERF_KEY = Symbol.for("routerx.modelPerf.key");
 
-export function setPerfKey(body: Record<string, unknown>, key: string): void {
-  (body as Record<symbol, unknown>)[PERF_KEY] = key;
+export function setPerfKey(body: Record<string, unknown>, key: string | undefined): void {
+  if (key === undefined) delete (body as Record<symbol, unknown>)[PERF_KEY];
+  else (body as Record<symbol, unknown>)[PERF_KEY] = key;
 }
 
 export function getPerfKey(body: Record<string, unknown> | null | undefined): string | undefined {

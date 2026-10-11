@@ -47,6 +47,7 @@ import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { handleSingleModelChat, __test__ as chatInternals } from "@/server/llm-gateway/application/chat";
 import { getProviderCredentials } from "@/server/llm-gateway/auth/accountSelection";
 import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
+import { getPerfKey, setPerfKey } from "@/server/llm-gateway/engine/host/modelStats";
 import {
   FREE_DEFAULT_MODEL_KEY,
   FREE_DEFAULT_PROVIDER_ALIAS,
@@ -89,6 +90,26 @@ describe("gateway last-resort free fallback", () => {
 
     expect(response.status).toBe(200);
     expect(providersAsked()).toContain(FREE_DEFAULT_PROVIDER_ALIAS);
+  });
+
+  // The combo keys its measurements on the body. The free answer used to ride
+  // the failed model's key, so modelPerf credited glm|large with the free
+  // model's generation speed (78 tok/s on a model with zero successes).
+  it("does not measure the free answer under the model that ran out of accounts", async () => {
+    credentialsMock.mockImplementation(async (provider: string) =>
+      isFreeDefaultProvider(provider) ? { connectionId: "noauth", connectionName: "Public" } : null);
+    coreMock.mockResolvedValue({
+      success: true,
+      response: new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    } as Awaited<ReturnType<typeof handleChatCore>>);
+    const request = body("openai/gpt-5");
+    setPerfKey(request, "openai/gpt-5|large");
+
+    await handleSingleModelChat(request, "openai/gpt-5");
+
+    const freeCall = coreMock.mock.calls.find((call) => String((call[0] as { body: Record<string, unknown> }).body.model).startsWith(FREE_DEFAULT_PROVIDER_ALIAS));
+    expect(freeCall).toBeTruthy();
+    expect(getPerfKey((freeCall![0] as { body: Record<string, unknown> }).body)).toBeUndefined();
   });
 
   it("returns the original error when the operator turned the fallback off", async () => {

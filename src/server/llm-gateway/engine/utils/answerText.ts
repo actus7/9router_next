@@ -48,7 +48,9 @@ export function chunkToolCallNames(chunk: unknown): string[] {
   const block = c.content_block as Json | undefined;
   const fromClaude = block?.type === "tool_use" ? named(block.name) : [];
   const item = c.item as Json | undefined;
-  const fromResponses = item?.type === "function_call" || item?.type === "custom_tool_call" ? named(item.name) : [];
+  // The Responses API sends each call on `.added` and again on `.done`: name it once.
+  const isCall = item?.type === "function_call" || item?.type === "custom_tool_call";
+  const fromResponses = isCall && c.type !== "response.output_item.done" ? named(item.name) : [];
   const parts = arr(((arr(c.candidates)[0]?.content || {}) as Json).parts);
   const fromGemini = parts.flatMap((p) => named((p.functionCall as Json | undefined)?.name));
   return [...fromOpenAI, ...fromClaude, ...fromResponses, ...fromGemini];

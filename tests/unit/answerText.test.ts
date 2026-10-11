@@ -35,4 +35,10 @@ describe("chunkToolCallNames", () => {
     expect(chunkToolCallNames({ candidates: [{ content: { parts: [{ functionCall: { name: "lookup" } }] } }] })).toEqual(["lookup"]);
     expect(chunkToolCallNames({ choices: [{ delta: { content: "hi" } }] })).toEqual([]);
   });
+
+  // Codex announces each call when it starts and again when it ends; the
+  // drawer listed every tool twice ("shell, shell, grep, grep").
+  it("names a Responses API call once, not again on its done event", () => {
+    expect(chunkToolCallNames({ type: "response.output_item.done", item: { type: "function_call", name: "shell" } })).toEqual([]);
+  });
 });
