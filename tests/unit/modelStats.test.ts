@@ -174,3 +174,23 @@ describe("conversationPrefixKey", () => {
     expect(conversationPrefixKey({})).toBeUndefined();
   });
 });
+
+describe("generation speed", () => {
+  it("is the decay-weighted tokens over seconds of generation, or null when nothing was measured", () => {
+    const stats = aggregateModelStats([
+      row({ ok: 2, genTokens: 1_000, genMs: 10_000 }),
+      row({ ok: 2, genTokens: 3_000, genMs: 10_000 }),
+    ], NOW);
+    expect(stats.get("a/m")?.tokensPerSec).toBe(200);
+    expect(aggregateModelStats([row({ ok: 1 })], NOW).get("a/m")?.tokensPerSec).toBeNull();
+  });
+
+  it("lets a fast generator score better on latency than a slow one with the same first byte", () => {
+    const prior = { reliabilityScore: 0.7, latencyScore: 0.5 };
+    const base = { okW: 30, failW: 0, ttftW: 30, ttftSamples: 30, samples: 30, p50Ms: 1_000, p95Ms: 2_000 };
+    const fast = blendScores(prior, { ...base, tokensPerSec: 150 });
+    const slow = blendScores(prior, { ...base, tokensPerSec: 15 });
+    expect(fast.latencyScore).toBeGreaterThan(slow.latencyScore);
+    expect(blendScores(prior, { ...base, tokensPerSec: null }).latencyScore).toBeCloseTo(blendScores(prior, base).latencyScore);
+  });
+});

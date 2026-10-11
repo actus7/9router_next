@@ -39,6 +39,29 @@ export function answerOf(response: unknown): { text: string; sawToolCall: boolea
 }
 
 /** Whether one streamed chunk (any upstream dialect) carries a tool call. */
+/** Names of the tools a stream chunk starts calling (a name arrives once, in the call's first chunk). */
+export function chunkToolCallNames(chunk: unknown): string[] {
+  const c = (chunk && typeof chunk === "object" ? chunk : {}) as Json;
+  const named = (v: unknown): string[] => (typeof v === "string" && v ? [v] : []);
+  const delta = (arr(c.choices)[0]?.delta || {}) as Json;
+  const fromOpenAI = arr(delta.tool_calls).flatMap((call) => named((call.function as Json | undefined)?.name));
+  const block = c.content_block as Json | undefined;
+  const fromClaude = block?.type === "tool_use" ? named(block.name) : [];
+  const item = c.item as Json | undefined;
+  const fromResponses = item?.type === "function_call" || item?.type === "custom_tool_call" ? named(item.name) : [];
+  const parts = arr(((arr(c.candidates)[0]?.content || {}) as Json).parts);
+  const fromGemini = parts.flatMap((p) => named((p.functionCall as Json | undefined)?.name));
+  return [...fromOpenAI, ...fromClaude, ...fromResponses, ...fromGemini];
+}
+
+const MAX_TRACKED_TOOL_CALLS = 20;
+
+/** Folds a stream chunk into the running tool-call record (flag + names, capped). */
+export function trackToolCalls(ctx: { sawToolCall: boolean; toolCalls: string[] }, chunk: unknown): void {
+  if (!ctx.sawToolCall && chunkHasToolCall(chunk)) ctx.sawToolCall = true;
+  if (ctx.toolCalls.length < MAX_TRACKED_TOOL_CALLS) ctx.toolCalls.push(...chunkToolCallNames(chunk));
+}
+
 export function chunkHasToolCall(chunk: unknown): boolean {
   const c = (chunk && typeof chunk === "object" ? chunk : {}) as Json;
   const delta = (arr(c.choices)[0]?.delta || {}) as Json;

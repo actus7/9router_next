@@ -49,5 +49,6 @@ function settleStreamInTenant(ctx: StreamContext): void {
     content: ctx.accumulatedContent,
     thinking: ctx.accumulatedThinking,
     sawToolCall: ctx.sawToolCall,
+    toolCalls: ctx.toolCalls,
   }, usage, ctx.ttftAt);
 }

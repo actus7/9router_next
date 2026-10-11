@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerOf } from "@/server/llm-gateway/engine/utils/answerText";
+import { answerOf, chunkToolCallNames } from "@/server/llm-gateway/engine/utils/answerText";
 
 // The Synapse Loop learns from the final answer in whatever dialect the client
 // speaks — and must never learn from a turn that called a tool.
@@ -22,5 +22,17 @@ describe("answerOf", () => {
   });
   it("forma desconhecida → vazio", () => {
     expect(answerOf(null)).toEqual({ text: "", sawToolCall: false });
+  });
+});
+
+describe("chunkToolCallNames", () => {
+  // A streamed answer that only calls tools has no text; the drawer names the tools instead.
+  it("reads the tool name from a stream chunk in every dialect", () => {
+    expect(chunkToolCallNames({ choices: [{ delta: { tool_calls: [{ index: 0, function: { name: "write_file", arguments: "" } }] } }] })).toEqual(["write_file"]);
+    expect(chunkToolCallNames({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: "{\"a\"" } }] } }] })).toEqual([]);
+    expect(chunkToolCallNames({ type: "content_block_start", content_block: { type: "tool_use", name: "bash" } })).toEqual(["bash"]);
+    expect(chunkToolCallNames({ type: "response.output_item.added", item: { type: "function_call", name: "search" } })).toEqual(["search"]);
+    expect(chunkToolCallNames({ candidates: [{ content: { parts: [{ functionCall: { name: "lookup" } }] } }] })).toEqual(["lookup"]);
+    expect(chunkToolCallNames({ choices: [{ delta: { content: "hi" } }] })).toEqual([]);
   });
 });

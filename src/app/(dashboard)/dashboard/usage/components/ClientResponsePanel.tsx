@@ -1,26 +1,30 @@
 "use client";
 
-import { Brain } from "lucide-react";
+import { Brain, Wrench } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import CollapsibleSection from "./CollapsibleSection";
 
 interface Props {
   thinking?: string;
   content?: string;
+  /** Tools the answer called, when it called any. */
+  toolCalls?: string[];
 }
 
-export default function ClientResponsePanel({ thinking, content }: Props) {
+function t(text: string): string {
+  return translate(text) || text;
+}
+
+const PRE = "max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4";
+
+export default function ClientResponsePanel({ thinking, content, toolCalls = [] }: Props) {
   return (
-    <CollapsibleSection
-      title={translate("Answer sent to the client") || "Answer sent to the client"}
-      defaultOpen={true}
-      icon="output"
-    >
+    <CollapsibleSection title={t("Answer sent to the client")} defaultOpen={true} icon="output">
       {thinking && (
         <div className="mb-4">
           <h4 className="font-semibold text-text-main mb-2 flex items-center gap-2 text-xs uppercase tracking-wide opacity-70">
             <Brain className="size-4" />
-            {translate("Thinking Process")}
+            {t("Thinking Process")}
           </h4>
           <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-warning-border bg-warning p-3 font-mono text-xs text-warning-foreground dark:border-warning-border dark:bg-warning dark:text-warning-foreground sm:p-4">
             {thinking}
@@ -28,12 +32,27 @@ export default function ClientResponsePanel({ thinking, content }: Props) {
         </div>
       )}
 
-      <h4 className="font-semibold text-text-main mb-2 text-xs uppercase tracking-wide opacity-70">
-        {translate("Content")}
-      </h4>
-      <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
-        {content || translate("[No content]")}
-      </pre>
+      {toolCalls.length > 0 && (
+        <div className="mb-4">
+          <h4 className="font-semibold text-text-main mb-2 flex items-center gap-2 text-xs uppercase tracking-wide opacity-70">
+            <Wrench className="size-4" />
+            {t("Tool calls")}
+          </h4>
+          {!content && <p className="mb-2 text-xs text-text-muted">{t("The model answered by calling tools, with no text.")}</p>}
+          <ul className="flex flex-wrap gap-1.5">
+            {toolCalls.map((name, i) => (
+              <li key={`${name}-${i}`} className="rounded-md border border-border px-2 py-0.5 font-mono text-xs text-text-main">{name}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(content || toolCalls.length === 0) && (
+        <>
+          <h4 className="font-semibold text-text-main mb-2 text-xs uppercase tracking-wide opacity-70">{t("Content")}</h4>
+          <pre className={PRE}>{content || t("[No content]")}</pre>
+        </>
+      )}
     </CollapsibleSection>
   );
 }

@@ -1,3 +1,4 @@
+import { processSlot } from "./processSlot";
 // Host adapter contract — a System One judge for Fusion combos.
 //
 // A Fusion combo normally asks an LLM to *write* the final answer from the
@@ -37,14 +38,14 @@ export interface FusionVerdict {
 
 export type FusionJudge = (input: FusionJudgeInput) => Promise<FusionVerdict | null>;
 
-let installed: FusionJudge | null = null;
+const installed = processSlot<FusionJudge>("fusionJudge");
 
 /** Installs (or clears) the judge. Idempotent; called from the application bootstrap. */
 export function setFusionJudge(judge: FusionJudge | null): void {
-  installed = judge;
+  installed.set(judge);
 }
 
 /** The installed judge, or null when the caller must keep its LLM judge. */
 export function getFusionJudge(): FusionJudge | null {
-  return installed;
+  return installed.get();
 }

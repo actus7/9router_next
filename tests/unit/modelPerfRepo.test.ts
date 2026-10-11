@@ -19,8 +19,16 @@ describe("recordModelAttempt", () => {
     expect(sql).toMatch(/ON CONFLICT\s*\(userId, modelKey, hourKey\)/i);
     expect(sql).toMatch(/ok = modelPerf\.ok \+ excluded\.ok/);
     expect(params.slice(0, 3)).toEqual(["tenant-1", "a/m", "2026-10-08T12"]);
-    // 700ms lands in bucket 2 (<=1000ms): ok=1, fail=0, timeout=0, then b0..b9.
-    expect(params.slice(3)).toEqual([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]);
+    // 700ms lands in bucket 2 (<=1000ms): ok=1, fail=0, timeout=0, then b0..b9, then genTokens/genMs.
+    expect(params.slice(3)).toEqual([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  });
+
+  it("adds a finished stream's generation speed without counting an attempt", async () => {
+    await recordModelAttempt({ modelKey: "a/m", outcome: "throughput", genTokens: 500, genMs: 4_000 }, Date.UTC(2026, 9, 8, 12));
+    const [sql, params] = adapter.run.mock.calls[0] as [string, unknown[]];
+    expect(sql).toMatch(/genTokens = modelPerf\.genTokens \+ excluded\.genTokens/);
+    expect(params.slice(3, 6)).toEqual([0, 0, 0]);
+    expect(params.slice(-2)).toEqual([500, 4_000]);
   });
 
   it("counts a timeout as both a failure and a timeout, with no TTFT", async () => {
@@ -34,13 +42,13 @@ describe("recordModelAttempt", () => {
 describe("readModelPerf", () => {
   it("reads only the tenant's rows inside the window and maps buckets", async () => {
     adapter.all.mockResolvedValueOnce([
-      { modelKey: "a/m", hourKey: "2026-10-08T11", ok: 3, fail: 1, timeout: 0, b0: 2, b1: 0, b2: 1, b3: 0, b4: 0, b5: 0, b6: 0, b7: 0, b8: 0, b9: 0 },
+      { modelKey: "a/m", hourKey: "2026-10-08T11", ok: 3, fail: 1, timeout: 0, b0: 2, b1: 0, b2: 1, b3: 0, b4: 0, b5: 0, b6: 0, b7: 0, b8: 0, b9: 0, genTokens: 300, genMs: 2_000 },
     ]);
     const rows = await readModelPerf(Date.UTC(2026, 9, 8, 12));
     const [sql, params] = adapter.all.mock.calls.at(-1) as [string, unknown[]];
     expect(sql).toMatch(/WHERE userId = \?/);
     expect(sql).toMatch(/hourKey >= \?/);
     expect(params[0]).toBe("tenant-1");
-    expect(rows).toEqual([{ modelKey: "a/m", hourKey: "2026-10-08T11", ok: 3, fail: 1, timeout: 0, b: [2, 0, 1, 0, 0, 0, 0, 0, 0, 0] }]);
+    expect(rows).toEqual([{ modelKey: "a/m", hourKey: "2026-10-08T11", ok: 3, fail: 1, timeout: 0, b: [2, 0, 1, 0, 0, 0, 0, 0, 0, 0], genTokens: 300, genMs: 2_000 }]);
   });
 });

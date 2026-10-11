@@ -2185,5 +2185,12 @@
   "Read": "Leitura",
   "Write": "Escrita",
   "requests": "requisições",
-  "Pro": "Pro"
+  "Pro": "Pro",
+  "Tool calls": "Chamadas de ferramenta",
+  "The model answered by calling tools, with no text.": "O modelo respondeu chamando ferramentas, sem texto.",
+  "Applied": "Aplicado",
+  "Reason": "Motivo",
+  "Generation speed": "Velocidade de geração",
+  "It was sent the same prompt: up to": "Ele recebeu o mesmo prompt: até",
+  "input tokens, read without the other model's cache.": "tokens de entrada, lidos sem o cache do outro modelo."
 }

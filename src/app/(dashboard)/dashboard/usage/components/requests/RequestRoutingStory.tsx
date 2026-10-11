@@ -94,7 +94,7 @@ function ErrorText({ raw }: { raw: string }) {
   );
 }
 
-function Step({ row, isLast, totalMs, providerNames }: { row: AttemptRow; isLast: boolean; totalMs: number | undefined; providerNames: ProviderNames }) {
+function Step({ row, isLast, totalMs, providerNames, promptTokens }: { row: AttemptRow; isLast: boolean; totalMs: number | undefined; providerNames: ProviderNames; promptTokens?: number }) {
   const tone = TONE[row.tone];
   const Icon = tone.icon;
   const source = [row.provider ? getProviderName(row.provider, providerNames) : null, row.connection].filter(Boolean);
@@ -118,6 +118,11 @@ function Step({ row, isLast, totalMs, providerNames }: { row: AttemptRow; isLast
         {source.length > 0 && <p className="mt-0.5 text-xs text-text-muted">{source.join(" · ")}</p>}
         <p className={`mt-1 text-sm ${tone.text}`}>{outcomeText(row)}</p>
         {row.tone === "failed" && row.error && <ErrorText raw={row.error} />}
+        {row.tone === "cancelled" && promptTokens ? (
+          <p className="mt-1 text-xs text-text-muted">
+            {t("It was sent the same prompt: up to")} {promptTokens.toLocaleString()} {t("input tokens, read without the other model's cache.")}
+          </p>
+        ) : null}
         {totalMs ? <TimingBar row={row} totalMs={totalMs} /> : null}
         {row.fallbackTo && (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
@@ -155,6 +160,8 @@ interface Props {
   /** The smart-routing decision, when observability recorded the request. */
   decision?: RoutingInfo | null;
   providerNames?: ProviderNames;
+  /** The request's input tokens: what a cancelled attempt was also sent. */
+  promptTokens?: number;
 }
 
 /**
@@ -162,7 +169,7 @@ interface Props {
  * many failures), why routing took that path, then every attempt in order with
  * why it ended the way it did.
  */
-export default function RequestRoutingStory({ routing, decision, providerNames = null }: Props) {
+export default function RequestRoutingStory({ routing, decision, providerNames = null, promptTokens }: Props) {
   const rows = buildAttemptRows(routing?.attempts);
   if (!routing || (rows.length === 0 && !routing.selected)) return null;
   const summary = summarizeAttempts(rows);
@@ -196,6 +203,7 @@ export default function RequestRoutingStory({ routing, decision, providerNames =
               isLast={i === rows.length - 1}
               totalMs={rows.length > 1 ? summary.totalMs : undefined}
               providerNames={providerNames}
+              promptTokens={promptTokens}
             />
           ))}
         </ol>

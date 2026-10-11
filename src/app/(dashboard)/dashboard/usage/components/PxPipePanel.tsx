@@ -2,10 +2,15 @@
 
 import { cn } from "@/lib/utils";
 import { Image as ImageIcon } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 import type { PxPipeInfo } from "./types";
 
 interface Props {
   pxpipe: PxPipeInfo;
+}
+
+function t(text: string): string {
+  return translate(text) || text;
 }
 
 export default function PxPipePanel({ pxpipe }: Props) {
@@ -20,31 +25,31 @@ export default function PxPipePanel({ pxpipe }: Props) {
             ? "bg-success text-success-foreground"
             : "bg-warning text-warning-foreground"
         )}>
-          {pxpipe.applied ? "Ativado" : "Ignorado"}
+          {pxpipe.applied ? t("Applied") : t("Skipped")}
         </span>
       </div>
       {pxpipe.applied ? (
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           <div>
-            <span className="text-text-muted block text-xs">Original (est.)</span>
+            <span className="text-text-muted block text-xs">{t("Original (est.)")}</span>
             <span className="font-mono">{(pxpipe.tokensBeforeEst || 0).toLocaleString()} tokens</span>
           </div>
           <div>
-            <span className="text-text-muted block text-xs">Comprimido (est.)</span>
+            <span className="text-text-muted block text-xs">{t("Compressed (est.)")}</span>
             <span className="font-mono">{(pxpipe.tokensAfterEst || 0).toLocaleString()} tokens</span>
           </div>
           <div>
-            <span className="text-text-muted block text-xs">Economizado</span>
+            <span className="text-text-muted block text-xs">{t("Saved")}</span>
             <span className="font-mono text-success">{pxpipe.savedPct || 0}%</span>
           </div>
           <div>
-            <span className="text-text-muted block text-xs">Imagens</span>
+            <span className="text-text-muted block text-xs">{t("Images")}</span>
             <span className="font-mono">{pxpipe.imageCount || 0} ({pxpipe.durationMs || 0}ms)</span>
           </div>
         </div>
       ) : (
         <p className="text-sm text-text-muted">
-          Motivo: <span className="font-mono">{pxpipe.reason}</span>
+          {t("Reason")}: <span className="font-mono">{pxpipe.reason}</span>
           {pxpipe.detail ? ` — ${pxpipe.detail}` : ""}
         </p>
       )}

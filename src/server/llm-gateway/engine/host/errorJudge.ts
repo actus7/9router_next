@@ -1,3 +1,4 @@
+import { processSlot } from "./processSlot";
 // Host adapter contract — classifying upstream provider errors.
 //
 // The engine asks "what kind of failure was this?" so retries, cooldowns and
@@ -31,14 +32,14 @@ export type ErrorJudgeInput = { status?: number | null; errorText: string; provi
 
 export type ErrorJudge = (input: ErrorJudgeInput) => Promise<ErrorJudgement | null>;
 
-let installed: ErrorJudge | null = null;
+const installed = processSlot<ErrorJudge>("errorJudge");
 
 /** Installs (or clears) the judge. Idempotent; called from the application bootstrap. */
 export function setErrorJudge(judge: ErrorJudge | null): void {
-  installed = judge;
+  installed.set(judge);
 }
 
 /** The installed judge, or null when the caller must fall back to its heuristics. */
 export function getErrorJudge(): ErrorJudge | null {
-  return installed;
+  return installed.get();
 }

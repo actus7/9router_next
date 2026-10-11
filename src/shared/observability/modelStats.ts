@@ -96,6 +96,9 @@ export interface ModelPerfRow {
   timeout: number;
   /** Successful-attempt time-to-first-response, as bucket counts. */
   b: number[];
+  /** Completion tokens of finished streams, and the ms spent generating them. */
+  genTokens?: number;
+  genMs?: number;
 }
 
 export interface ModelStat {
@@ -108,6 +111,8 @@ export interface ModelStat {
   samples: number;
   p50Ms: number | null;
   p95Ms: number | null;
+  /** Decay-weighted generation speed; null until a finished stream was measured. */
+  tokensPerSec?: number | null;
 }
 
 export interface ScorePrior {
@@ -141,16 +146,18 @@ function hourStartMs(hourKey: string): number {
 
 /** Decay-weighted totals per model over the last 7 days (2-day half-life). */
 export function aggregateModelStats(rows: ModelPerfRow[], now: number = Date.now()): Map<string, ModelStat> {
-  const acc = new Map<string, { okW: number; failW: number; buckets: number[]; ttftSamples: number; samples: number }>();
+  const acc = new Map<string, { okW: number; failW: number; buckets: number[]; ttftSamples: number; samples: number; genTokensW: number; genMsW: number }>();
   for (const row of rows) {
     const age = now - hourStartMs(row.hourKey);
     if (!Number.isFinite(age) || age > STATS_WINDOW_MS) continue;
     const weight = Math.pow(0.5, Math.max(0, age) / STATS_HALF_LIFE_MS);
     let entry = acc.get(row.modelKey);
-    if (!entry) acc.set(row.modelKey, entry = { okW: 0, failW: 0, buckets: new Array(TTFT_BUCKETS).fill(0), ttftSamples: 0, samples: 0 });
+    if (!entry) acc.set(row.modelKey, entry = { okW: 0, failW: 0, buckets: new Array(TTFT_BUCKETS).fill(0), ttftSamples: 0, samples: 0, genTokensW: 0, genMsW: 0 });
     entry.okW += row.ok * weight;
     entry.failW += row.fail * weight;
     entry.samples += row.ok + row.fail;
+    entry.genTokensW += (row.genTokens ?? 0) * weight;
+    entry.genMsW += (row.genMs ?? 0) * weight;
     row.b.forEach((count, i) => {
       entry!.buckets[i] += count * weight;
       entry!.ttftSamples += count;
@@ -167,9 +174,19 @@ export function aggregateModelStats(rows: ModelPerfRow[], now: number = Date.now
       samples: entry.samples,
       p50Ms: percentile(entry.buckets, ttftW, 0.5),
       p95Ms: percentile(entry.buckets, ttftW, 0.95),
+      tokensPerSec: entry.genMsW > 0 ? Math.round((entry.genTokensW / entry.genMsW) * 1000) : null,
     });
   }
   return result;
+}
+
+const TPS_WORST = 10;
+const TPS_BEST = 150;
+/** How much of the measured latency score comes from generation speed, when it was measured. */
+const TPS_WEIGHT = 0.4;
+
+function tpsScore(tokensPerSec: number): number {
+  return Math.max(0, Math.min(1, (tokensPerSec - TPS_WORST) / (TPS_BEST - TPS_WORST)));
 }
 
 function ttfbScore(ms: number): number {
@@ -185,7 +202,10 @@ export function blendScores(prior: ScorePrior, stat: ModelStat | undefined): Sco
   if (!stat) return prior;
   const reliabilityScore =
     (prior.reliabilityScore * PRIOR_STRENGTH + stat.okW) / (PRIOR_STRENGTH + stat.okW + stat.failW);
-  const measured = stat.p50Ms === null ? null : ttfbScore(stat.p50Ms);
+  // Latency is how soon the answer starts and, once measured, how fast it comes.
+  const start = stat.p50Ms === null ? null : ttfbScore(stat.p50Ms);
+  const speed = stat.tokensPerSec ? tpsScore(stat.tokensPerSec) : null;
+  const measured = start === null ? null : speed === null ? start : (1 - TPS_WEIGHT) * start + TPS_WEIGHT * speed;
   const weight = Math.min(1, stat.ttftW / LATENCY_FULL_SAMPLES);
   const latencyScore = measured === null ? prior.latencyScore : (1 - weight) * prior.latencyScore + weight * measured;
   return { reliabilityScore, latencyScore };

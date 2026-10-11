@@ -51,6 +51,8 @@ describe("RequestRoutingStory", () => {
     );
     expect(screen.getByRole("heading").textContent).toBe("Answered by mimo/pro on the first try");
     expect(screen.getByText(/Not a failure/)).toBeTruthy();
+    // The loser was sent the same prompt: say how big it was.
+    expect(screen.queryByText(/up to/)).toBeNull();
     expect(screen.getByText("in parallel")).toBeTruthy();
     expect(screen.queryByText("another model answered first")).toBeNull();
   });
@@ -90,6 +92,21 @@ describe("RequestRoutingStory", () => {
     expect(screen.getByText("Then tried another account of the same model")).toBeTruthy();
     expect(screen.getByText(/Task: Tool use · Confidence: 82% · short prompt/)).toBeTruthy();
     expect(screen.getByText(/tier: Simple/)).toBeTruthy();
+  });
+
+  it("estimates what a cancelled attempt may have cost from the request's prompt size", () => {
+    render(
+      <RequestRoutingStory
+        promptTokens={150_645}
+        routing={{
+          attempts: [
+            { model: "mimo/pro", outcome: "ok", status: 200, startOffsetMs: 0, durationMs: 9800 },
+            { model: "mimo/flash", outcome: "aborted", startOffsetMs: 6000, durationMs: 4300 },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText(/up to 150[.,]645 input tokens/)).toBeTruthy();
   });
 
   it("says so when nothing answered", () => {

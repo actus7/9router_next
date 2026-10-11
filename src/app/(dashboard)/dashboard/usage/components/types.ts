@@ -39,5 +39,5 @@ export interface RequestDetail {
   request?: { routing?: RoutingInfo; [key: string]: unknown };
   providerRequest?: unknown;
   providerResponse?: string | Record<string, unknown>;
-  response?: { thinking?: string; content?: string };
+  response?: { thinking?: string; content?: string; toolCalls?: string[] };
 }

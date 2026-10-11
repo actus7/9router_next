@@ -21,6 +21,7 @@ export interface ModelHealthRow {
   samples: number;
   p50Ms: number | null;
   p95Ms: number | null;
+  tokensPerSec: number | null;
   accounts: number;
   cooldownAccounts: number;
   /** When the first cooling account frees up. */
@@ -77,6 +78,7 @@ export async function getModelHealth(): Promise<ModelHealthRow[]> {
       samples: stat?.samples ?? 0,
       p50Ms: stat?.p50Ms ?? null,
       p95Ms: stat?.p95Ms ?? null,
+      tokensPerSec: stat?.tokensPerSec ?? null,
       accounts,
       cooldownAccounts: cool?.count ?? 0,
       ...(cool ? { cooldownUntil: cool.until, reason: cool.reason, errorCode: cool.errorCode } : {}),

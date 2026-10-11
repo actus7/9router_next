@@ -241,6 +241,9 @@ export const TABLES: Record<string, TableDefinition> = {
       b7: "INTEGER NOT NULL DEFAULT 0",
       b8: "INTEGER NOT NULL DEFAULT 0",
       b9: "INTEGER NOT NULL DEFAULT 0",
+      // Generation speed: completion tokens and the ms spent producing them.
+      genTokens: "INTEGER NOT NULL DEFAULT 0",
+      genMs: "INTEGER NOT NULL DEFAULT 0",
     },
     primaryKey: "PRIMARY KEY (userId, modelKey, hourKey)",
   },

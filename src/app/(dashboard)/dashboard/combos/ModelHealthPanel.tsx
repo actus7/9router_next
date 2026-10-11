@@ -18,6 +18,7 @@ interface HealthRow {
   samples: number;
   p50Ms: number | null;
   p95Ms: number | null;
+  tokensPerSec?: number | null;
   accounts: number;
   cooldownAccounts: number;
   cooldownUntil?: string;
@@ -96,7 +97,7 @@ export function ModelHealthPanel({ onRequestReset }: Props) {
       ) : (
         <ul className="mt-3 flex flex-col divide-y divide-border">
           {rows.map((row) => (
-            <li key={row.model} className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_5rem_8rem] sm:items-center">
+            <li key={row.model} className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_5rem_8rem_5rem] sm:items-center">
               <code className="truncate font-mono text-xs text-text-main" title={row.model}>{row.model}</code>
               <span className={`w-fit rounded-full border px-2 py-0.5 text-[11px] font-medium ${PILL[row.state]}`} title={row.reason}>
                 {stateLabel(row)}{row.cooldownUntil && row.state !== "penalized" ? ` · ${t("until")} ${clock(row.cooldownUntil)}` : ""}
@@ -106,6 +107,9 @@ export function ModelHealthPanel({ onRequestReset }: Props) {
               </span>
               <span className="text-xs text-text-muted sm:text-right" title={t("Time to first response, p50 / p95")}>
                 {seconds(row.p50Ms)} / {seconds(row.p95Ms)}
+              </span>
+              <span className="text-xs text-text-muted sm:text-right" title={t("Generation speed")}>
+                {row.tokensPerSec ? `${row.tokensPerSec} tok/s` : "—"}
               </span>
             </li>
           ))}

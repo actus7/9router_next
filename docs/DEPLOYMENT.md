@@ -23,7 +23,7 @@ environment variables:
 
 | Host | Verdict |
 |---|---|
-| Vercel | Supported. `vercel.json` sets `maxDuration: 300` for `src/app/api/**` — long completions need it, and Vercel's own default is 300s |
+| Vercel | Supported. `vercel.json` sets `maxDuration: 300` for `src/app/api/**` — long completions need it, and Vercel's own default is 300s — and pins functions to `cle1` (Cleveland, us-east-2), the region of the Neon database: from the default `iad1` every query crossed regions. Moving the database means moving this too. `DATABASE_URL` must use the `-pooler` host |
 | Docker with a volume | Supported — see below |
 | Fly.io / Railway / Render / a VPS | Supported |
 | Local machine, `npm start` | Supported |

@@ -7,9 +7,8 @@ import { settleStream } from "./streamSettle";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers";
 import { dbg, isDebugEnabled } from "./debugLog";
-import { chunkHasToolCall } from "./answerText";
+import { trackToolCalls } from "./answerText";
 import { restoreToolNames } from "./opencodeFingerprint";
-
 
 export { COLORS, formatSSE };
 
@@ -40,7 +39,7 @@ interface SSEStreamOptions {
   model?: string | null;
   connectionId?: string | null;
   body?: Record<string, unknown> | null;
-  onStreamComplete?: ((content: { content: string; thinking: string; sawToolCall?: boolean }, usage: Record<string, unknown> | null, ttftAt: number | null) => void) | null;
+  onStreamComplete?: ((content: { content: string; thinking: string; sawToolCall?: boolean; toolCalls?: string[] }, usage: Record<string, unknown> | null, ttftAt: number | null) => void) | null;
   apiKey?: string | null;
   /** The request's session, so response-side bookkeeping (thought signatures) stays per session. */
   sessionId?: string | null;
@@ -71,6 +70,7 @@ export interface StreamContext {
   accumulatedThinking: string;
   /** A tool call went by — the Synapse Loop never learns from such a turn. */
   sawToolCall: boolean;
+  toolCalls: string[];
   ttftAt: number | null;
   sseLineCount: number;
   sseEmittedCount: number;
@@ -134,7 +134,7 @@ function normalizePassthroughChunk(parsed: any): { idFixed: boolean; fieldsInjec
 /** Track content/thinking tokens from a parsed chunk across all provider formats */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parseSSELine / JSON.parse return any; callers pass through
 function trackContent(ctx: StreamContext, parsed: any) {
-  if (!ctx.sawToolCall && chunkHasToolCall(parsed)) ctx.sawToolCall = true;
+  trackToolCalls(ctx, parsed);
   // Claude format - content
   if (parsed.delta?.text) {
     ctx.totalContentLength += parsed.delta.text.length;
@@ -253,7 +253,7 @@ function processPassthroughLine(ctx: StreamContext, line: string, trimmed: strin
       }
 
       // Track content
-      if (!ctx.sawToolCall && chunkHasToolCall(parsed)) ctx.sawToolCall = true;
+      trackToolCalls(ctx, parsed);
       const delta = parsed.choices?.[0]?.delta;
       const content = delta?.content;
       const reasoning = delta?.reasoning_content;
@@ -481,6 +481,7 @@ function createSSEStream(options: SSEStreamOptions = {}) {
     accumulatedContent: "",
     accumulatedThinking: "",
     sawToolCall: false,
+    toolCalls: [],
     ttftAt: null,
     sseLineCount: 0,
     sseEmittedCount: 0,

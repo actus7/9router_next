@@ -14,6 +14,7 @@ import { takeRenamedToolNames } from "../../utils/opencodeFingerprint";
 import { buildErrorBody } from "../../utils/error";
 import { awaitFirstChunk, getAttemptSignal, getFirstByteBudget } from "../../utils/firstByteGuard";
 import type { StreamingHandlerContext, OnStreamCompleteContext, TransformStreamContext } from "./types";
+import { getPerfKey, recordAttemptDatum } from "../../host/modelStats";
 
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
 const CODEX_SOURCE_TO_TARGET: Record<string, string> = {
@@ -183,6 +184,19 @@ export async function handleStreamingResponse({ providerResponse: upstreamRespon
   };
 }
 
+// Below these a stream says more about overhead than about speed.
+const MIN_GEN_TOKENS = 20;
+const MIN_GEN_MS = 200;
+
+/** Tokens per second of a finished combo stream, under the attempt's model key. */
+function recordGenerationSpeed(body: Record<string, unknown>, usage: Record<string, unknown> | null, ttftAt: number | null): void {
+  const key = getPerfKey(body);
+  const genTokens = Number(usage?.completion_tokens ?? usage?.output_tokens) || 0;
+  const genMs = ttftAt ? Date.now() - ttftAt : 0;
+  if (!key || genTokens < MIN_GEN_TOKENS || genMs < MIN_GEN_MS) return;
+  recordAttemptDatum({ modelKey: key, outcome: "throughput", genTokens, genMs });
+}
+
 /**
  * Build onStreamComplete callback for streaming usage tracking.
  */
@@ -194,7 +208,9 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       ttft: ttftAt ? ttftAt - requestStartTime : Date.now() - requestStartTime,
       total: Date.now() - requestStartTime
     };
-    const safeContent = contentObj?.content || "[Empty streaming response]";
+    const toolCalls = Array.isArray(contentObj?.toolCalls) ? (contentObj.toolCalls as string[]) : [];
+    // An answer that only called tools is not empty: the drawer names the tools.
+    const safeContent = contentObj?.content || (toolCalls.length ? "" : "[Empty streaming response]");
     const safeThinking = contentObj?.thinking || null;
 
     // Usage first, so the finished detail can carry its row id as `usageId`
@@ -209,12 +225,13 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       request: extractRequestConfig(body, stream),
       providerRequest: finalBody || translatedBody || null,
       providerResponse: safeContent,
-      response: { content: safeContent, thinking: safeThinking, type: "streaming" },
+      response: { content: safeContent, thinking: safeThinking, type: "streaming", ...(toolCalls.length ? { toolCalls } : {}) },
       pxpipe,
       status: "success"
     }, { id: streamDetailId, usageId }))).catch((err: unknown) => {
       console.error("[RequestDetail] Failed to update streaming content:", (err as Error).message);
     }));
+    recordGenerationSpeed(body, usage, ttftAt);
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
     onAnswer?.(typeof contentObj?.content === "string" ? contentObj.content : "", contentObj?.sawToolCall === true);
   };
