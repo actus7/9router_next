@@ -8,6 +8,7 @@ import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./str
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers";
 import { dbg, isDebugEnabled } from "./debugLog";
 import { trackToolCalls } from "./answerText";
+import { trackContent } from "./streamContent";
 import { restoreToolNames } from "./opencodeFingerprint";
 
 export { COLORS, formatSSE };
@@ -129,48 +130,6 @@ function normalizePassthroughChunk(parsed: any): { idFixed: boolean; fieldsInjec
   }
 
   return { idFixed, fieldsInjected };
-}
-
-/** Track content/thinking tokens from a parsed chunk across all provider formats */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- parseSSELine / JSON.parse return any; callers pass through
-function trackContent(ctx: StreamContext, parsed: any) {
-  trackToolCalls(ctx, parsed);
-  // Claude format - content
-  if (parsed.delta?.text) {
-    ctx.totalContentLength += parsed.delta.text.length;
-    ctx.accumulatedContent += parsed.delta.text;
-  }
-  // Claude format - thinking
-  if (parsed.delta?.thinking) {
-    ctx.totalContentLength += parsed.delta.thinking.length;
-    ctx.accumulatedThinking += parsed.delta.thinking;
-  }
-
-  // OpenAI format - content
-  if (parsed.choices?.[0]?.delta?.content) {
-    ctx.totalContentLength += parsed.choices[0].delta.content.length;
-    ctx.accumulatedContent += parsed.choices[0].delta.content;
-  }
-  // OpenAI format - reasoning
-  if (parsed.choices?.[0]?.delta?.reasoning_content) {
-    ctx.totalContentLength += parsed.choices[0].delta.reasoning_content.length;
-    ctx.accumulatedThinking += parsed.choices[0].delta.reasoning_content;
-  }
-
-  // Gemini format
-  if (parsed.candidates?.[0]?.content?.parts) {
-    for (const part of parsed.candidates[0].content.parts) {
-      if (part.text && typeof part.text === "string") {
-        ctx.totalContentLength += part.text.length;
-        // Check if this is thinking content
-        if (part.thought === true) {
-          ctx.accumulatedThinking += part.text;
-        } else {
-          ctx.accumulatedContent += part.text;
-        }
-      }
-    }
-  }
 }
 
 /** Emit translated items with optional usage injection and content filtering */

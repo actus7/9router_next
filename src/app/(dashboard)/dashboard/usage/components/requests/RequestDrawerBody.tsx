@@ -54,7 +54,7 @@ export default function RequestDrawerBody({ row, providerNameCache }: Props) {
         providerName={getProviderName(detail.provider || row.provider || "", providerNameCache)}
         cost={row.cost}
       />
-      <RequestRoutingStory routing={row.routing} decision={detail.request?.routing} providerNames={providerNameCache} promptTokens={row.promptTokens} />
+      <RequestRoutingStory routing={row.routing} decision={detail.routing ?? detail.request?.routing} providerNames={providerNameCache} promptTokens={row.promptTokens} />
       {detail.pxpipe && <PxPipePanel pxpipe={detail.pxpipe} />}
       <ClientResponsePanel thinking={detail.response?.thinking} content={detail.response?.content} toolCalls={detail.response?.toolCalls} />
       <section aria-label={t("Technical data")} className="flex flex-col gap-3">

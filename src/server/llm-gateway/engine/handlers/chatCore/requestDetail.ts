@@ -20,9 +20,22 @@ export function extractRequestConfig(body: Record<string, unknown>, stream: bool
   for (const param of OPTIONAL_PARAMS) {
     if (body[param] !== undefined) config[param] = body[param];
   }
-  const routing = getRoutingDecision(body);
+  const routing = recordedRouting(body);
   if (routing) config.routing = routing;
   return config;
+}
+
+const MAX_RECORDED_CANDIDATES = 10;
+
+// The full decision carries every candidate with its details — 248 of them in
+// a real combo, 29 KB for a two-line prompt — which pushed the stored request
+// past the record's size cap, so it was truncated and the reasoning lost.
+// The drawer needs the why and the head of the list, not all of it.
+function recordedRouting(body: Record<string, unknown>): Record<string, unknown> | null {
+  const routing = getRoutingDecision(body) as Record<string, unknown> | null;
+  if (!routing) return null;
+  const { candidateDetails: _details, candidates, ...rest } = routing;
+  return { ...rest, ...(Array.isArray(candidates) ? { candidates: candidates.slice(0, MAX_RECORDED_CANDIDATES) } : {}) };
 }
 
 export function extractUsageFromResponse(responseBody: Record<string, unknown>): Record<string, unknown> | null {
@@ -72,6 +85,9 @@ export function buildRequestDetail(base: RequestDetailBase, overrides: RequestDe
     latency: base.latency || { ttft: 0, total: 0 },
     tokens: base.tokens || { prompt_tokens: 0, completion_tokens: 0 },
     request: base.request,
+    // Hoisted out of `request`: a large prompt gets the request truncated, and
+    // the routing decision must survive it.
+    routing: (base.request as { routing?: unknown } | null | undefined)?.routing ?? undefined,
     providerRequest: base.providerRequest || null,
     providerResponse: base.providerResponse || null,
     response: base.response || {},

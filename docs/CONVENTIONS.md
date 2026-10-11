@@ -339,6 +339,22 @@ NODE_OPTIONS="-r dotenv/config" DOTENV_CONFIG_PATH=.env \
   npx vitest run tests/unit/durableRunLive.test.ts
 ```
 
+**O gateway rodando, de ponta a ponta.** `tests/unit/gatewayDockerLive.test.ts`
+manda dois pedidos reais por HTTP ao gateway que está no ar (o container
+Docker por padrão) através de um combo inteligente — um curto e um de ~40 mil
+tokens — e depois lê o banco: o texto chegou ao cliente pelos deltas do stream,
+o roteamento foi decidido (pelo Jev, quando o motor da conta é Jev), a decisão
+sobrevive ao truncamento de um prompt grande, e `modelPerf` ganhou a tentativa,
+a velocidade de geração e a faixa `|large`. Cria uma chave de API descartável
+na conta e a revoga no fim. Foi ele que achou, numa só rodada, as medições que
+nunca eram gravadas, a decisão de roteamento truncada e a resposta do Codex
+registrada como vazia — tudo com a suíte unitária verde.
+
+```bash
+NODE_OPTIONS="-r dotenv/config" DOTENV_CONFIG_PATH=.env LIVE_DOCKER=1 \
+  npx vitest run tests/unit/gatewayDockerLive.test.ts
+```
+
 `LIVE_RUN_KEY` é necessário quando a conta tem `requireApiKey` ligado, e tem que
 ser uma chave **da mesma conta**: o worker só repassa uma que consiga provar que
 o chamador possui. Sem ela a run settla como `failed: Missing API key`, que é o

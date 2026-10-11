@@ -21,6 +21,7 @@ import { StreamChunkAccumulator } from "@/shared/chat/streamChunk";
 import { readTokenSavers } from "@/shared/chat/tokenSavers";
 import { truncateTraceError } from "@/shared/observability/routingTrace";
 import { selectToolsForTurn } from "@/server/harness/tools/toolSelection";
+import { ensureEngineSeams } from "@/server/llm-gateway/application/engineSeams";
 
 /**
  * How often the run's text is written back while the provider streams.
@@ -99,6 +100,8 @@ const RUN_BUDGET_MS = 240_000;
  * browser going away is the case this exists for.
  */
 export async function startDurableRun(input: StartDurableRunInput): Promise<{ runId: string }> {
+  // The chat worker calls the gateway in-process, without gatewayRoute around it.
+  ensureEngineSeams();
   const runId = globalThis.crypto.randomUUID();
   const model = typeof input.body.model === "string" ? input.body.model : null;
 

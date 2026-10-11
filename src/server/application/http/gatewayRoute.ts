@@ -4,6 +4,7 @@ import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { withTenant } from "@/lib/db/tenant";
 import { withVerifiedGatewayKey } from "@/server/llm-gateway/application/gatewayApiKey";
 import { withStoredKeyProfile } from "@/server/llm-gateway/application/gatewayProfile";
+import { ensureEngineSeams } from "@/server/llm-gateway/application/engineSeams";
 import { RATE_LIMIT_WINDOW_MS, consumeRateLimit, gatewayRateLimit } from "./rateLimit";
 
 /**
@@ -47,6 +48,7 @@ export function gatewayRoute<R extends Request, A extends unknown[]>(
     // See tenantRoute: under Cache Components a handler is prerendered unless
     // it declares that it reads the request.
     await connection();
+    ensureEngineSeams();
     const key: string | null = extractApiKey(request);
     if (!key) {
       return NextResponse.json({ error: { message: "Missing API key", type: "invalid_request_error" } }, { status: 401 });

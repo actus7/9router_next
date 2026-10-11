@@ -96,6 +96,7 @@ interface WriteBufferItem {
   providerResponse?: Record<string, unknown>;
   response?: Record<string, unknown>;
   pxpipe?: unknown;
+  routing?: unknown;
   [key: string]: unknown;
 }
 
@@ -177,6 +178,9 @@ async function flushToDatabase(): Promise<void> {
               providerResponse: truncateField(item.providerResponse, config.maxJsonSize),
               response: truncateField(item.response, config.maxJsonSize),
               pxpipe: item.pxpipe || undefined,
+              // Kept apart from `request`: a large prompt truncates the request,
+              // and the routing decision (already trimmed) must survive it.
+              routing: item.routing ? truncateField(item.routing, config.maxJsonSize) : undefined,
             };
 
             await db.run(

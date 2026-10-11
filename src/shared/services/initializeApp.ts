@@ -122,15 +122,11 @@ export async function initializeApp(): Promise<void> {
     // Engine seam registration (cheap and idempotent): the Jev-backed upstream
     // error judge. Installed up front so the first request's failures are
     // classified too — with no judge the engine keeps its own heuristics.
-    import("@/server/llm-gateway/application/errorJudge")
-      .then(({ installErrorJudge }) => installErrorJudge())
-      .catch((e: Error) => console.error("[ErrorJudge] install failed:", e.message));
-    import("@/server/llm-gateway/application/modelStatsStore")
-      .then(({ installModelStatsStore }) => installModelStatsStore())
-      .catch((e: Error) => console.error("[ModelStats] install failed:", e.message));
-    import("@/server/llm-gateway/application/fusionJudge")
-      .then(({ installFusionJudge }) => installFusionJudge())
-      .catch((e: Error) => console.error("[FusionJudge] install failed:", e.message));
+    // The request path installs them too (gatewayRoute, durable runs): in the
+    // Docker build this bootstrap's copy was not the one the routes read.
+    import("@/server/llm-gateway/application/engineSeams")
+      .then(({ ensureEngineSeams }) => ensureEngineSeams())
+      .catch((e: Error) => console.error("[EngineSeams] install failed:", e.message));
 
     // Defer the heavy work — nothing here blocks incoming requests.
     setTimeout(() => {

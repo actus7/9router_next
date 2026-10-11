@@ -36,6 +36,8 @@ export interface RequestDetail {
   latency?: { ttft?: number; total?: number };
   status?: string;
   pxpipe?: PxPipeInfo;
+  /** The routing decision, kept outside `request` so truncation cannot drop it. */
+  routing?: RoutingInfo;
   request?: { routing?: RoutingInfo; [key: string]: unknown };
   providerRequest?: unknown;
   providerResponse?: string | Record<string, unknown>;
