@@ -225,16 +225,18 @@ Três regras que valem para todos os usos, e que um uso novo tem que seguir:
   não lança: sem chave, timeout, não-2xx ou formato desconhecido viram `null`,
   e o chamador segue com a heurística que já tinha. O Jev melhora uma decisão
   que já existia; nunca é o que faz uma requisição falhar.
-- **A chave: TypeSafe direta ou a conexão `vercel-ai-gateway`.** Com
-  `TYPESAFE_API_KEY` no ambiente (chave emitida em console.typesafe.ai), o Jev
-  vai direto a `api.typesafe.ai/v1/systemone` — outro dialeto: modelo
-  `jev-latest` e a pergunta sim/não se chama `noul`, traduzidos em
-  `src/server/decisions/jev.ts`. Sem ela, o Jev é chamado pela Vercel AI
-  Gateway (`POST https://ai-gateway.vercel.sh/v1/evaluate`, modelo
-  `typesafe-ai/jev`) com a conexão da conta — por conta, criptografada, criada
-  pelo mesmo validate-then-create da tela de providers. A chave da TypeSafe é
-  do processo, não da conta: numa instalação com várias contas, todas usam a
-  mesma. `jevDirectLive.test.ts` confere o dialeto contra a API real.
+- **A chave: TypeSafe direta ou a conexão `vercel-ai-gateway`, ambas pela
+  tela.** O card "Motor de decisão" aceita uma chave emitida pela própria
+  TypeSafe (console.typesafe.ai): ela é testada com uma chamada real antes de
+  ser salva e fica na conta, criptografada (`decisionKeysRepo`, mesmo
+  `CREDENTIAL_KEY` das credenciais). Com ela, o Jev vai direto a
+  `api.typesafe.ai/v1/systemone` — outro dialeto: modelo `jev-latest` e a
+  pergunta sim/não se chama `noul`, traduzidos em `src/server/decisions/jev.ts`.
+  Sem ela, o Jev é chamado pela Vercel AI Gateway (`POST
+  https://ai-gateway.vercel.sh/v1/evaluate`, modelo `typesafe-ai/jev`) com a
+  conexão da conta, criada pelo mesmo validate-then-create da tela de
+  providers. Chave de Jev não vem de variável de ambiente (decisão de
+  2026-10-11): é por conta, como toda credencial.
 - **Jev não aprova nada.** O `score` de risco das escritas pendentes
   (`queuePendingWrite`) é gravado ao lado da escrita e mostrado ao operador;
   nada o lê para decidir. O gate de aprovação continua do operador.

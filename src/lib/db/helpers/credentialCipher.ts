@@ -109,7 +109,7 @@ export function encryptSecret(value: string): string {
  * the accurate "no active credentials" error. The failure is logged with the
  * reason, since it means the key changed or was removed.
  */
-function decryptSecret(stored: string): string | undefined {
+export function decryptSecret(stored: string): string | undefined {
   if (!isEncryptedValue(stored)) return stored;
   const key = resolveKey();
   if (!key) {

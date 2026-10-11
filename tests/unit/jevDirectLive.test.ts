@@ -2,17 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 
 /**
  * Jev against TypeSafe's own API (api.typesafe.ai/v1/systemone) with a key from
- * console.typesafe.ai. Skipped unless asked for: it spends the key's quota.
+ * console.typesafe.ai — the one the profile card saves on the account; here it
+ * comes from LIVE_TYPESAFE_KEY instead of the database. Skipped unless asked
+ * for: it spends the key's quota.
  * Only the two repos are stubbed; the HTTP call and the parsing are real —
  * this is what proves the direct dialect (`noul`, `jev-latest`) is the one the
  * API speaks, which the unit tests can only assume.
  *
- *   NODE_OPTIONS="-r dotenv/config" LIVE_TYPESAFE=1 npx vitest run tests/unit/jevDirectLive.test.ts
+ *   LIVE_TYPESAFE_KEY=<key> npx vitest run tests/unit/jevDirectLive.test.ts
  */
-const live = process.env.LIVE_TYPESAFE === "1" && !!process.env.TYPESAFE_API_KEY;
+const live = !!process.env.LIVE_TYPESAFE_KEY;
 
 vi.mock("@/lib/db/repos/connectionsRepo", () => ({ getProviderConnections: vi.fn(async () => []) }));
 vi.mock("@/lib/db/repos/settingsRepo", () => ({ getSettings: vi.fn(async () => ({ decisionEngine: "jev" })) }));
+vi.mock("@/lib/db/repos/decisionKeysRepo", () => ({ getTypesafeKey: vi.fn(async () => process.env.LIVE_TYPESAFE_KEY ?? null) }));
 vi.mock("server-only", () => ({}));
 
 describe.skipIf(!live)("Jev with a TypeSafe key", () => {

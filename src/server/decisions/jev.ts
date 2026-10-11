@@ -1,8 +1,9 @@
 import "server-only";
 
 // Jev (TypeSafe AI) answers typed questions — boolean, choice, score — with
-// calibrated probabilities instead of text. Two ways in: TypeSafe's own API,
-// when `TYPESAFE_API_KEY` is set (a key from console.typesafe.ai), and
+// calibrated probabilities instead of text. Two ways in, both set up in the
+// profile's decision-engine card: TypeSafe's own API, with a key from
+// console.typesafe.ai saved on the account (decisionKeysRepo, encrypted), and
 // otherwise the Vercel AI Gateway, whose credential is the account's
 // `vercel-ai-gateway` connection or `AI_GATEWAY_API_KEY`.
 //
@@ -13,6 +14,7 @@ import "server-only";
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { currentTenantId } from "@/lib/db/tenant";
+import { getTypesafeKey } from "@/lib/db/repos/decisionKeysRepo";
 
 export const JEV_MODEL = "typesafe-ai/jev";
 const JEV_URL = "https://ai-gateway.vercel.sh/v1/evaluate";
@@ -122,9 +124,10 @@ interface JevEndpoint {
   direct: boolean;
 }
 
-/** Where a Jev call goes and with which key: TypeSafe's own API wins when its key is set. */
-async function jevEndpoint(): Promise<JevEndpoint | null> {
-  const direct = process.env.TYPESAFE_API_KEY?.trim();
+/** Where a Jev call goes and with which key: the account's TypeSafe key wins over the gateway. */
+async function jevEndpoint(typesafeKey?: string): Promise<JevEndpoint | null> {
+  // A failed read of the TypeSafe key must not take the gateway path down with it.
+  const direct = typesafeKey ?? (await getTypesafeKey().catch(() => null));
   if (direct) return { url: TYPESAFE_URL, apiKey: direct, direct: true };
   const gatewayKey = await getJevApiKey();
   return gatewayKey ? { url: JEV_URL, apiKey: gatewayKey, direct: false } : null;
@@ -253,9 +256,10 @@ const PROBE_QUESTION = { ping: { type: "boolean", instructions: "Is this a greet
  * invisible: a free-tier Vercel account answers 403 on every call while the
  * profile card still read "using your key". The card's test button uses this.
  */
-export async function probeJev(timeoutMs = 15_000): Promise<JevProbeResult> {
-  const endpoint = await jevEndpoint().catch(() => null);
-  if (!endpoint) return { ok: false, reason: "no_key", message: "No TYPESAFE_API_KEY and no Vercel AI Gateway connection on this account." };
+export async function probeJev(timeoutMs = 15_000, candidate?: { typesafeKey: string }): Promise<JevProbeResult> {
+  // A candidate key is tried before it is saved (the card's TypeSafe form).
+  const endpoint = await jevEndpoint(candidate?.typesafeKey).catch(() => null);
+  if (!endpoint) return { ok: false, reason: "no_key", message: "No Jev key on this account: add a TypeSafe key or a Vercel AI Gateway connection." };
   const apiKey = endpoint.apiKey;
   const startedAt = Date.now();
   try {
@@ -263,7 +267,7 @@ export async function probeJev(timeoutMs = 15_000): Promise<JevProbeResult> {
     const payload = (await response.json().catch(() => ({}))) as { answers?: Record<string, unknown>; error?: { message?: string } };
     // The upstream message can quote the request; never hand the key back.
     const message = String(payload?.error?.message || `HTTP ${response.status}`).replaceAll(apiKey, "***").slice(0, 300);
-    if (response.status === 401) return { ok: false, reason: "unauthorized", status: 401, message };
+    if (response.status === 401 || (endpoint.direct && response.status === 403)) return { ok: false, reason: "unauthorized", status: response.status, message };
     if (response.status === 403 && /free tier/i.test(message)) return { ok: false, reason: "free_tier", status: 403, message };
     if (!response.ok) return { ok: false, reason: "http", status: response.status, message };
     if (!parseAnswer(payload?.answers?.ping, PROBE_QUESTION.ping)) {

@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Settings } from "../types";
 
-// Jev is reached through the Vercel AI Gateway, so its credential is simply the
-// account's `vercel-ai-gateway` connection. Connecting here goes through the
-// same validate-then-create pair the providers page uses; the key lands in
-// `providerConnections`, encrypted, and serves the gateway's models too.
+// Jev has two credentials, both kept on the account: a key issued by TypeSafe
+// itself (saved through /api/decisions/jev/key, which tries it first), or the
+// account's `vercel-ai-gateway` connection, created through the same
+// validate-then-create pair the providers page uses. The TypeSafe key wins.
 const GATEWAY_PROVIDER = "vercel-ai-gateway";
 
 export type JevFeatureKey =
@@ -43,6 +43,7 @@ async function patchSettings(updates: Record<string, unknown>): Promise<boolean>
 
 export function useDecisionEngine(setSettings: (update: (prev: Settings) => Settings) => void) {
   const [hasGatewayKey, setHasGatewayKey] = useState<boolean | null>(null);
+  const [hasTypesafeKey, setHasTypesafeKey] = useState<boolean | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
@@ -66,6 +67,12 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
   };
 
   const refreshKeyStatus = useCallback(async () => {
+    try {
+      const typesafe = await fetch("/api/decisions/jev/key", { cache: "no-store" });
+      if (typesafe.ok) setHasTypesafeKey(((await typesafe.json()) as { typesafe?: boolean }).typesafe === true);
+    } catch (err) {
+      console.error("Falha ao verificar a chave da TypeSafe:", err);
+    }
     try {
       const res = await fetch("/api/providers", { cache: "no-store" });
       if (!res.ok) return;
@@ -126,8 +133,53 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
     }
   };
 
+  // The server tries the key against TypeSafe before keeping it: a typo comes
+  // back as the probe's reason, never as a silently dead decision engine.
+  const connectTypesafeKey = async (apiKey: string): Promise<boolean> => {
+    const key = apiKey.trim();
+    if (!key) return false;
+    setConnecting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/decisions/jev/key", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key }),
+      });
+      const result = (await res.json().catch(() => ({}))) as JevTestResult & { error?: string };
+      if (!res.ok) {
+        setError(("message" in result && result.message) || result.error || "Could not save the key");
+        return false;
+      }
+      setHasTypesafeKey(true);
+      setTestResult(result);
+      return true;
+    } catch (err) {
+      console.error("Falha ao salvar a chave da TypeSafe:", err);
+      setError("Could not save the key");
+      return false;
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const removeTypesafeKey = async () => {
+    try {
+      const res = await fetch("/api/decisions/jev/key", { method: "DELETE" });
+      if (res.ok) {
+        setHasTypesafeKey(false);
+        setTestResult(null);
+      }
+    } catch (err) {
+      console.error("Falha ao remover a chave da TypeSafe:", err);
+    }
+  };
+
   return {
     hasGatewayKey,
+    hasTypesafeKey,
+    connectTypesafeKey,
+    removeTypesafeKey,
     connecting,
     error,
     setEngine: (engine: "heuristic" | "jev") => update({ decisionEngine: engine }),

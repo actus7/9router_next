@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Card from "@/shared/components/Card";
-import { FormInput as Input } from "@/shared/components/FormInput";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { BrainCircuit, CheckCircle2, ExternalLink, XCircle } from "lucide-react";
+import JevKeySection from "./JevKeySection";
 import { translate } from "@/i18n/runtime";
 import type { Settings } from "../types";
 import type { JevFeatureKey, useDecisionEngine } from "../hooks/useDecisionEngine";
@@ -13,17 +12,13 @@ import type { JevFeatureKey, useDecisionEngine } from "../hooks/useDecisionEngin
 // `translate` returns null for an unknown literal; ARIA props want a string.
 const t = (text: string): string => translate(text) ?? text;
 
-// Vercel's own team-agnostic link (from its API-keys docs): `[team]` resolves
-// to whichever team the visitor is signed into. Same URL as the provider card.
-const GATEWAY_KEY_URL = "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys";
-
 // Where Vercel sends a free-tier account to buy credits (from its own 403).
 const GATEWAY_TOP_UP_URL = "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up";
 
 const FAILURE_TEXT: Record<string, string> = {
   free_tier: "Your Vercel account is on the free tier, which has no access to Jev. Add paid credits to use it.",
-  unauthorized: "The Vercel AI Gateway rejected the key. Replace it on the providers page.",
-  no_key: "No Vercel AI Gateway connection on this account.",
+  unauthorized: "The key was rejected. Remove it and save a valid one.",
+  no_key: "No Jev key on this account: add a TypeSafe key or a Vercel AI Gateway connection.",
   timeout: "Jev did not answer in time.",
 };
 
@@ -107,13 +102,7 @@ interface DecisionEngineCardProps {
 }
 
 export default function DecisionEngineCard({ settings, loading, engine }: DecisionEngineCardProps) {
-  const [apiKey, setApiKey] = useState("");
   const isJev = settings.decisionEngine === "jev";
-
-  const handleConnect = async (event: React.SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (await engine.connectGatewayKey(apiKey)) setApiKey("");
-  };
 
   return (
     <Card>
@@ -124,7 +113,7 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-semibold">{t("Decision engine")}</h3>
           <p className="text-xs sm:text-sm text-text-muted">
-            {t("Who makes the platform's quick decisions: built-in heuristics, or the Jev model (TypeSafe AI) through your Vercel AI Gateway.")}
+            {t("Who makes the platform's quick decisions: built-in heuristics, or the Jev model (TypeSafe AI), with your TypeSafe key or through your Vercel AI Gateway.")}
           </p>
         </div>
       </div>
@@ -148,52 +137,13 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
         {isJev && (
           <>
             <div className="pt-2 border-t border-border/50">
-              {engine.hasGatewayKey ? (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="flex items-center gap-2 text-sm">
-                      <CheckCircle2 className="size-4 text-success shrink-0" />
-                      {t("Using the key of your Vercel AI Gateway connection.")}
-                    </p>
-                    <Button variant="outline" size="sm" loading={engine.testing} onClick={() => engine.testJev()}>
-                      {t("Test Jev")}
-                    </Button>
-                  </div>
-                  <JevTestStatus result={engine.testResult} />
-                </div>
-              ) : engine.hasGatewayKey === false ? (
-                <form onSubmit={handleConnect} className="flex flex-col gap-3">
-                  <p className="text-sm">
-                    {t("Jev needs a Vercel AI Gateway API key. Create one in AI Gateway → API Keys, then paste it here. It is saved encrypted to this account and also enables the gateway's models.")}
-                  </p>
-                  <a
-                    href={GATEWAY_KEY_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline w-fit"
-                  >
-                    {t("Create key on Vercel")}
-                    <ExternalLink className="size-3.5" />
-                  </a>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Input
-                      type="password"
-                      autoComplete="off"
-                      placeholder="vck_…"
-                      aria-label={t("Vercel AI Gateway API key")}
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      disabled={engine.connecting}
-                    />
-                    <Button type="submit" variant="primary" loading={engine.connecting} disabled={!apiKey.trim()}>
-                      {t("Save key")}
-                    </Button>
-                  </div>
-                  {engine.error && <p className="text-sm text-destructive">{t(engine.error)}</p>}
-                </form>
-              ) : null}
+              <JevKeySection engine={engine}>
+                <JevTestStatus result={engine.testResult} />
+              </JevKeySection>
               <p className="mt-2 text-xs text-text-muted">
-                {t("Jev calls are billed to your Vercel AI Gateway. When Jev is unreachable, every feature falls back to the heuristic.")}
+                {engine.hasTypesafeKey
+                  ? t("Jev calls are billed to your TypeSafe account. When Jev is unreachable, every feature falls back to the heuristic.")
+                  : t("Jev calls are billed to your Vercel AI Gateway. When Jev is unreachable, every feature falls back to the heuristic.")}
               </p>
             </div>
 

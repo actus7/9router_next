@@ -67,11 +67,7 @@ services:
       # 0 together with rebinding the port to 0.0.0.0 — one invariant, two
       # lines.
       NINEROUTER_LOOPBACK_BOUND_PORT: ${NINEROUTER_LOOPBACK_BOUND_PORT:-1}
-      #
-      # Optional. A Jev key issued by TypeSafe itself (console.typesafe.ai).
-      # When set, the decision engine calls api.typesafe.ai directly instead of
-      # going through the Vercel AI Gateway connection.
-      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+
       #
       # Optional. Artificial Analysis Data API key — feeds benchmark indices,
       # prices and speed into the "Suggest models with AI" enrichment. Empty
