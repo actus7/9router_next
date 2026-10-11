@@ -38,6 +38,54 @@ const HEDGE_P95_FACTOR = 1.5;
 const HEDGE_DEFAULT_DELAY_MS = 6_000;
 const HEDGE_REASONING_DELAY_MS = 15_000;
 
+// How long a model takes to start grows with the prompt it has to read: 10s is
+// normal for 150k tokens and a stall for 2k. Large prompts are therefore
+// measured under their own key (`model|large`), so neither size teaches the
+// other what "slow" means, and the patience given to one comes from its own.
+export const LARGE_PROMPT_TOKENS = 32_000;
+const LARGE_SUFFIX = "|large";
+
+// ponytail: ~4 chars per token over the serialized prompt; a size band, not a bill.
+export function estimatePromptTokens(body: Record<string, unknown>): number {
+  const prompt = body.messages ?? body.input ?? body.contents ?? body.prompt;
+  if (prompt === undefined) return 0;
+  return Math.ceil(JSON.stringify(prompt).length / 4);
+}
+
+export function isLargePrompt(body: Record<string, unknown>): boolean {
+  return estimatePromptTokens(body) >= LARGE_PROMPT_TOKENS;
+}
+
+/** The `modelPerf` key a measurement of `model` is stored under. */
+export function perfKey(model: string, large: boolean): string {
+  return large ? `${model}${LARGE_SUFFIX}` : model;
+}
+
+/** The model a `modelPerf` key belongs to, whatever its size band. */
+export function perfModelOf(key: string): string {
+  return key.endsWith(LARGE_SUFFIX) ? key.slice(0, -LARGE_SUFFIX.length) : key;
+}
+
+const PREFIX_CHARS = 4_000;
+
+/**
+ * A key for "this conversation" when the client sends no session id: the start
+ * of its prompt (system + first user turn), which every later turn repeats and
+ * which is exactly what a provider's prompt cache reuses. FNV-1a, so the same
+ * code runs in the browser and on the server.
+ */
+export function conversationPrefixKey(body: Record<string, unknown>): string | undefined {
+  const messages = Array.isArray(body.messages) ? body.messages : null;
+  if (!messages || messages.length === 0) return undefined;
+  const head = JSON.stringify(messages.slice(0, 2)).slice(0, PREFIX_CHARS);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < head.length; i++) {
+    hash ^= head.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `prefix:${(hash >>> 0).toString(36)}`;
+}
+
 export interface ModelPerfRow {
   modelKey: string;
   /** UTC hour, `YYYY-MM-DDTHH`. */

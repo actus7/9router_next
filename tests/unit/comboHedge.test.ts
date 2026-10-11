@@ -282,4 +282,25 @@ describe("hedge abort reaches the upstream", () => {
     const { res } = await run(h, ["slow/m", "fast/m"], { hedgeMaxPromptTokens: 32_000 }, { stream: true, messages: [{ role: "user", content: "hi" }] });
     expect(await res.text()).toBe("fast/m");
   });
+  it("does not give a large prompt the short first-byte budget learned on small ones", async () => {
+    const fastOnSmall = { okW: 50, failW: 0, ttftW: 50, ttftSamples: 50, samples: 50, p50Ms: 500, p95Ms: 1_000 };
+    setModelStatsStore({ record: () => {}, read: async () => new Map([["a/m", fastOnSmall]]) });
+    const h = harness({ "a/m": { delay: 5 }, "b/m": { delay: 5 } });
+    const big = { stream: true, messages: [{ role: "user", content: "x".repeat(4 * 40_000) }] };
+    await run(h, ["a/m", "b/m"], { comboFirstByteBudgetMs: 60_000 }, big);
+    expect(h.budgets.get("a/m")).toBe(60_000);
+    const h2 = harness({ "a/m": { delay: 5 }, "b/m": { delay: 5 } });
+    await run(h2, ["a/m", "b/m"], { comboFirstByteBudgetMs: 60_000 }, { stream: true, messages: [{ role: "user", content: "hi" }] });
+    expect(h2.budgets.get("a/m")).toBe(8_000);
+    setModelStatsStore(null);
+  });
+
+  it("records a large prompt's time to first byte under the model's large band", async () => {
+    const recorded: AttemptDatum[] = [];
+    setModelStatsStore({ record: (d) => recorded.push(d), read: async () => new Map() });
+    const h = harness({ "a/m": { delay: 5 } });
+    await run(h, ["a/m"], {}, { stream: true, messages: [{ role: "user", content: "x".repeat(4 * 40_000) }] });
+    expect(recorded.map((d) => d.modelKey)).toEqual(["a/m|large"]);
+    setModelStatsStore(null);
+  });
 });

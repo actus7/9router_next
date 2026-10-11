@@ -8,16 +8,11 @@ import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
 import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_HEDGE_ENABLED, COMBO_HEDGE_MAX_PROMPT_TOKENS, COMBO_TIME_BUDGET_MS, STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
 import { setAttemptSignal, setFirstByteBudget } from "../utils/firstByteGuard";
-import { adaptiveFirstByteBudget, hedgeDelayMs, loadModelStats, recordAttemptDatum } from "../host/modelStats";
-import {
-  getStickyModel,
-  orderByPenalty,
-  recordModelFailure,
-  recordModelSuccess,
-  rememberStickyModel,
-} from "./modelPenalty";
+import { adaptiveFirstByteBudget, estimatePromptTokens, hedgeDelayMs, LARGE_PROMPT_TOKENS, loadModelStats, perfKey, recordAttemptDatum } from "../host/modelStats";
+import { getStickyModel, orderByPenalty, recordModelFailure, recordModelSuccess, rememberStickyModel } from "./modelPenalty";
 import { getRoutingDecision } from "./smart-routing/context";
 import { isFreeFallback, recordRoutingStep } from "./routingTrace";
+import { cacheAffinityKey, preferWarmModel, rememberWarmModel } from "./comboCacheAffinity";
 import { truncateTraceError, classifyAttemptError, type AttemptOutcome } from "../host/routingTrace";
 
 // Hard capabilities = input modalities; missing one drops request data (e.g. image
@@ -374,12 +369,6 @@ function discardResponse(response: Response | undefined): void {
 
 const HEDGE_DUE = Symbol("hedge-due");
 
-// ponytail: ~4 chars per token over the serialized prompt; a gate, not a bill.
-function estimatePromptTokens(body: Record<string, unknown>): number {
-  const prompt = body.messages ?? body.input ?? body.contents ?? body.prompt;
-  if (prompt === undefined) return 0;
-  return Math.ceil(JSON.stringify(prompt).length / 4);
-}
 
 /**
  * Handle combo chat with fallback
@@ -406,6 +395,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   const stickyModel = adaptive ? getStickyModel(sessionKey, comboName || "") : undefined;
   if (adaptive) rotatedModels = orderAdaptively(rotatedModels, comboName || "", sessionKey);
 
+  const promptTokens = estimatePromptTokens(body);
+  const largePrompt = promptTokens >= LARGE_PROMPT_TOKENS;
+  const cacheKey = largePrompt ? cacheAffinityKey(body, sessionKey) : undefined;
+  if (cacheKey && !stickyModel) rotatedModels = preferWarmModel(rotatedModels, comboName || "", cacheKey);
+
   let lastError: string | null = null;
   let earliestRetryAfter: string | null = null;
   let lastStatus: number | null = null;
@@ -414,9 +408,10 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   const baseFirstByteBudgetMs = comboFirstByteBudgetMs ?? COMBO_FIRST_BYTE_BUDGET_MS;
   // Measured history sizes each model's patience; with no store it is the base.
   const modelStats = rotatedModels.length > 1 ? await loadModelStats() : new Map();
+  const statOf = (model: string) => modelStats.get(perfKey(model, largePrompt));
   const timeBudgetMs = comboTimeBudgetMs ?? COMBO_TIME_BUDGET_MS;
   // Only a streaming answer has a "first byte" to race for.
-  const canHedge = hedge && hedgeEnabled && body.stream === true && estimatePromptTokens(body) <= hedgeMaxPromptTokens;
+  const canHedge = hedge && hedgeEnabled && body.stream === true && promptTokens <= hedgeMaxPromptTokens;
 
   const selectModel = (modelStr: string): void => {
     const routingDecision = getRoutingDecision(body);
@@ -436,7 +431,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     const modelStr = rotatedModels[i];
     const patient = i === rotatedModels.length - 1 || isReasoningModel(modelStr);
     if (patient) return hedged ? STREAM_FIRST_CHUNK_TIMEOUT_MS : undefined;
-    return adaptiveFirstByteBudget(baseFirstByteBudgetMs, modelStats.get(modelStr));
+    return adaptiveFirstByteBudget(baseFirstByteBudgetMs, statOf(modelStr));
   };
 
   /** One attempt. A response means "return this"; null means "try the next". Never throws. */
@@ -473,9 +468,9 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       traceStep(outcome, extra);
       // Only what says something about the model: not a cooldown skip, not a refused request.
       const errorClass = outcome === "ok" || outcome === "cooldown_skip" ? undefined : classifyAttemptError(extra.status, extra.error);
-      if (outcome === "ok") recordAttemptDatum({ modelKey: modelStr, outcome: "ok", ttftMs: Date.now() - startedAt });
+      if (outcome === "ok") recordAttemptDatum({ modelKey: perfKey(modelStr, largePrompt), outcome: "ok", ttftMs: Date.now() - startedAt });
       else if (outcome !== "cooldown_skip" && errorClass !== "client") {
-        recordAttemptDatum({ modelKey: modelStr, outcome: errorClass === "timeout" ? "timeout" : "fail" });
+        recordAttemptDatum({ modelKey: perfKey(modelStr, largePrompt), outcome: errorClass === "timeout" ? "timeout" : "fail" });
       }
       digest.push({ model: modelStr, label: outcome === "ok" ? "ok" : outcome === "cooldown_skip" ? "cooldown" : String(extra.status ?? outcome) });
     };
@@ -507,6 +502,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
         if (race) selectModel(modelStr);
         record("ok", { status: result.status });
         recordModelSuccess(modelStr);
+        if (cacheKey) rememberWarmModel(cacheKey, comboName || "", modelStr);
         if (adaptive && (i > 0 || modelStr === stickyModel)) rememberStickyModel(sessionKey, comboName || "", modelStr);
         log.info?.("COMBO", `Model ${modelStr} succeeded`);
         return result;
@@ -564,7 +560,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     const race: HedgeRace = { primary: i, winner: null, controllers: new Map([[i, new AbortController()]]) };
     const primary = runAttempt(i, race);
 
-    const delayMs = comboHedgeDelayMs ?? hedgeDelayMs(modelStats.get(modelStr), isReasoningModel(modelStr));
+    const delayMs = comboHedgeDelayMs ?? hedgeDelayMs(statOf(modelStr), isReasoningModel(modelStr));
     let timer: ReturnType<typeof setTimeout> | undefined;
     const due = new Promise<typeof HEDGE_DUE>((resolve) => { timer = setTimeout(() => resolve(HEDGE_DUE), delayMs); });
     const first = await Promise.race([primary, due]);

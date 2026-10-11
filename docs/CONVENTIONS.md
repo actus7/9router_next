@@ -257,6 +257,15 @@ num só deixaria metade dos endpoints sem ele. Hoje todos passam por
 
 **Revisão de 2026-10-06:** `classifier.model` voltou à tela (seletor ao lado do switch "Desempate com IA", que só aparece com o desempate ligado). Qual modelo julga os prompts do usuário é escolha, não tuning. `confidenceThreshold` e `timeoutMs` continuam só por API. Descrições longas dessa tela ficam atrás de um "i" (`InfoButton`).
 
+**As quatro colunas valem para todo tipo de pedido (decisão de 2026-10-11).** A
+tela grava as colunas em `overrides.general`, mas um pedido classificado com
+outro tipo — `tool_use`, que é quase todo tráfego de agente — procurava
+`overrides.tool_use`, não achava nada e caía direto na lista "Sempre
+considerado" na ordem em que foi salva. O nível virava rótulo: um modelo
+*flash* atendia pedidos marcados "Complexo". Hoje um tipo sem coluna própria usa
+a coluna geral do mesmo nível (`rankSmartProfiles`), e `isEligible` continua
+tirando dela o que não serve ao tipo (sem tool calling, sem visão…).
+
 ## "Sugerir modelos com IA": lanes por regra sobre medições (decisão de 2026-10-03)
 
 As quatro lanes do combo smart vêm de `assignLanes`

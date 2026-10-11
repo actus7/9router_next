@@ -4,7 +4,7 @@ import { clearModelPerf, readModelPerf } from "@/lib/db/repos/modelPerfRepo";
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { clearAllModelAvailability, getActiveModelAvailability } from "@/lib/db/repos/modelAvailabilityRepo";
 import { getProviderAlias } from "@/shared/constants/providers";
-import { aggregateModelStats } from "@/shared/observability/modelStats";
+import { aggregateModelStats, perfModelOf } from "@/shared/observability/modelStats";
 import { resetModelStatsCache } from "@/server/llm-gateway/application/modelStatsStore";
 import { clearTenantModelBench } from "@/server/llm-gateway/auth/modelBench";
 import { clearModelPenalties, snapshotModelPenalties } from "@/server/llm-gateway/engine/services/modelPenalty";
@@ -40,7 +40,8 @@ export async function getModelHealth(): Promise<ModelHealthRow[]> {
     getProviderConnections(),
     getActiveModelAvailability(),
   ]);
-  const stats = aggregateModelStats(perf);
+  // One row per model: its small- and large-prompt measurements together.
+  const stats = aggregateModelStats(perf.map((row) => ({ ...row, modelKey: perfModelOf(row.modelKey) })));
   const penalties = new Map(snapshotModelPenalties().map((p) => [p.model, p.penalty]));
 
   const aliasOfConnection = new Map(connections.map((c) => [c.id, getProviderAlias(String(c.provider))]));

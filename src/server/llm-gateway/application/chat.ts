@@ -143,6 +143,7 @@ async function trySmartComboRouting(
     comboName: modelStr,
     comboStrategy: "fallback",
     autoSwitch: false,
+    sessionKey: deriveRoutingSessionKey(request.headers, body),
   });
 }
 

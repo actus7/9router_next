@@ -500,10 +500,13 @@ export function rankSmartProfiles(
   const tierOrder = getSmartTierOrder(requestedTier);
 
   for (const tier of tierOrder) {
-    const overrideKeys = [
-      ...(config.overrides[need]?.[tier] || []),
-      ...(config.overrides[need]?.default || []),
-    ];
+    // The combo screen's four columns are stored under `general`. A need with no
+    // column of its own (a tool request, most agent traffic) uses them too —
+    // otherwise it skipped straight to the always-considered list in its raw
+    // order and the tier picked nothing. isEligible still drops a column model
+    // that cannot serve the need.
+    const lane = config.overrides[need]?.[tier] ?? config.overrides.general?.[tier] ?? [];
+    const overrideKeys = [...lane, ...(config.overrides[need]?.default || [])];
     for (const modelKey of overrideKeys) {
       const profile = profileByKey.get(modelKey);
       if (!profile || seen.has(modelKey)) continue;

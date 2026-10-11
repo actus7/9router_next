@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hour = new Date().toISOString().slice(0, 13);
 const perfRows = vi.fn(async () => [
-  { modelKey: "zai/glm", hourKey: hour, ok: 90, fail: 10, timeout: 2, b: [80, 10, 0, 0, 0, 0, 0, 0, 0, 0] },
+  { modelKey: "zai/glm", hourKey: hour, ok: 80, fail: 10, timeout: 2, b: [70, 10, 0, 0, 0, 0, 0, 0, 0, 0] },
+  // Large-prompt measurements live under their own key; the panel shows one model.
+  { modelKey: "zai/glm|large", hourKey: hour, ok: 10, fail: 0, timeout: 0, b: [10, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
 ]);
 const connections = vi.fn(async () => [
   { id: "c1", provider: "zai" },
@@ -41,6 +43,7 @@ describe("getModelHealth", () => {
     expect(glm.samples).toBe(100);
     expect(glm.p50Ms).toBe(250);
     expect(glm.p95Ms).toBe(500);
+    expect(rows.some((r) => r.model.endsWith("|large"))).toBe(false);
   });
 
   it("marks a penalized model and keeps it visible without measurements", async () => {

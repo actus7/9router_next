@@ -1,7 +1,7 @@
 ﻿import { FREE_DEFAULT_MODEL_KEY } from "../../host/catalog";
 import { isSystemOneModel } from "../../host/fusionJudge";
 import { getComboByName } from "../../host/store";
-import { blendScores, loadModelStats } from "../../host/modelStats";
+import { blendScores, isLargePrompt, loadModelStats, perfKey } from "../../host/modelStats";
 import { ROUTE_NEEDS, ROUTING_TIERS, DEFAULT_SMART_ROUTING_CONFIG } from "./types";
 import { rankSmartProfilesForEndpoint, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
 import { recordRoutingTier, scoreRoutingRequest } from "./scoring";
@@ -206,9 +206,14 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
   // What this account's own traffic says about each model, over the name-based prior.
   const baseProfiles = await refreshDeterministicSmartProfiles();
   const stats = await loadModelStats();
+  const largePrompt = isLargePrompt(options.body);
   const profiles = stats.size === 0
     ? baseProfiles
-    : baseProfiles.map((profile) => ({ ...profile, ...blendScores(profile, stats.get(profile.modelKey)) }));
+    : baseProfiles.map((profile) => ({
+      ...profile,
+      // This prompt's size band; an unmeasured large band leans on the model's other measurements.
+      ...blendScores(profile, stats.get(perfKey(profile.modelKey, largePrompt)) ?? stats.get(profile.modelKey)),
+    }));
 
   const lowConfidence = assessment.confidence < config.classifier.confidenceThreshold;
   let jevAnswered = false;

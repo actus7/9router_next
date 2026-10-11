@@ -75,3 +75,44 @@ describe("combo sticky after fallback", () => {
     expect(getStickyModel("chat-3", "dev")).toBeUndefined();
   });
 });
+
+describe("cache affinity on large prompts", () => {
+  beforeEach(() => clearModelPenalties());
+  const big = (turns: string[]) => ({
+    messages: [
+      { role: "system", content: "agent " + "x".repeat(4 * 40_000) },
+      ...turns.map((content) => ({ role: "user", content })),
+    ],
+  });
+  const runWith = (body: Record<string, unknown>, answer: (m: string) => Response) => {
+    const tried: string[] = [];
+    return handleComboChat({
+      body,
+      models: ["a/m", "b/m"],
+      handleSingleModel: async (_b, m) => { tried.push(m); return answer(m); },
+      log,
+      comboName: "dev",
+      autoSwitch: false,
+    }).then(() => tried);
+  };
+
+  it("starts the next turn of a conversation on the model that holds its prompt cache", async () => {
+    await runWith(big(["turn 1"]), (m) => (m === "a/m" ? fail(503) : ok()));
+    // a/m recovers, but b/m read the prompt last: its cache is the warm one.
+    expect(await runWith(big(["turn 1", "turn 2"]), () => ok())).toEqual(["b/m"]);
+  });
+
+  it("does not reorder a small prompt, where there is no cache worth keeping", async () => {
+    const small = (t: string[]) => ({ messages: [{ role: "system", content: "agent" }, ...t.map((content) => ({ role: "user", content }))] });
+    await runWith(small(["1"]), (m) => (m === "a/m" ? fail(503) : ok()));
+    clearModelPenalties();
+    expect(await runWith(small(["1", "2"]), () => ok())).toEqual(["a/m"]);
+  });
+
+  it("does not carry one conversation's cache to another", async () => {
+    await runWith(big(["turn 1"]), (m) => (m === "a/m" ? fail(503) : ok()));
+    clearModelPenalties();
+    const other = { messages: [{ role: "system", content: "other " + "y".repeat(4 * 40_000) }, { role: "user", content: "hi" }] };
+    expect(await runWith(other, () => ok())).toEqual(["a/m"]);
+  });
+});

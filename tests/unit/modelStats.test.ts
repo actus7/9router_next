@@ -4,7 +4,12 @@ import {
   adaptiveFirstByteBudget,
   aggregateModelStats,
   blendScores,
+  conversationPrefixKey,
+  estimatePromptTokens,
   hedgeDelayMs,
+  isLargePrompt,
+  perfKey,
+  perfModelOf,
   ttftBucketIndex,
   type ModelPerfRow,
 } from "@/shared/observability/modelStats";
@@ -131,5 +136,41 @@ describe("hedgeDelayMs", () => {
   it("waits longer for a reasoning model", () => {
     expect(hedgeDelayMs(statWith(500, 50), true)).toBe(15_000);
     expect(hedgeDelayMs(undefined, true)).toBe(15_000);
+  });
+});
+
+describe("prompt size bands", () => {
+  const big = { messages: [{ role: "user", content: "x".repeat(4 * 40_000) }] };
+  const small = { messages: [{ role: "user", content: "hi" }] };
+
+  it("estimates prompt tokens from whatever field carries the prompt", () => {
+    expect(estimatePromptTokens({})).toBe(0);
+    expect(estimatePromptTokens(big)).toBeGreaterThan(40_000);
+    expect(estimatePromptTokens({ input: "x".repeat(400) })).toBeGreaterThan(100);
+  });
+
+  it("keeps a large prompt's measurement apart from the same model's small ones", () => {
+    expect(isLargePrompt(big)).toBe(true);
+    expect(isLargePrompt(small)).toBe(false);
+    expect(perfKey("mimo/pro", true)).toBe("mimo/pro|large");
+    expect(perfKey("mimo/pro", false)).toBe("mimo/pro");
+    expect(perfModelOf("mimo/pro|large")).toBe("mimo/pro");
+    expect(perfModelOf("mimo/pro")).toBe("mimo/pro");
+  });
+});
+
+describe("conversationPrefixKey", () => {
+  const turn = (extra: string[]) => ({
+    messages: [
+      { role: "system", content: "You are a workflow manager" },
+      { role: "user", content: "write the tests" },
+      ...extra.map((content) => ({ role: "assistant", content })),
+    ],
+  });
+
+  it("is the same for later turns of one conversation and differs between conversations", () => {
+    expect(conversationPrefixKey(turn([]))).toBe(conversationPrefixKey(turn(["done", "more"])));
+    expect(conversationPrefixKey(turn([]))).not.toBe(conversationPrefixKey({ messages: [{ role: "user", content: "other" }] }));
+    expect(conversationPrefixKey({})).toBeUndefined();
   });
 });

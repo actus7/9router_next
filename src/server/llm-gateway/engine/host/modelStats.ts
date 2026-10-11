@@ -11,7 +11,12 @@ import type { ModelStat } from "@/shared/observability/modelStats";
 export {
   adaptiveFirstByteBudget,
   blendScores,
+  conversationPrefixKey,
+  estimatePromptTokens,
   hedgeDelayMs,
+  isLargePrompt,
+  LARGE_PROMPT_TOKENS,
+  perfKey,
   type ModelStat,
   type ScorePrior,
 } from "@/shared/observability/modelStats";
