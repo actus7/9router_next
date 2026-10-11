@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAttemptRows, readableError, summarizeAttempts } from "@/app/(dashboard)/dashboard/usage/components/requests/attemptRows";
+import { accountSwitches, buildAttemptRows, readableError, summarizeAttempts } from "@/app/(dashboard)/dashboard/usage/components/requests/attemptRows";
 
 describe("buildAttemptRows", () => {
   it("returns nothing without attempts", () => {
@@ -104,6 +104,19 @@ describe("account switch inside one model", () => {
       { model: "glm/flash", connection: "Z.ai", outcome: "failed", status: 429 },
       { model: "glm/flash", connection: "Z.ai 2", outcome: "ok", status: 200 },
     ]);
-    expect(rows[0].fallbackTo).toEqual({ model: "glm/flash", number: 2, sameModel: true });
+    expect(rows[0].fallbackTo).toEqual({ model: "glm/flash", number: 2, sameModel: true, connection: "Z.ai 2" });
+  });
+
+  it("counts switches from the trail, the same way the drawer tells them", () => {
+    expect(accountSwitches([
+      { model: "glm/flash", connection: "Z.ai", outcome: "failed", status: 429 },
+      { model: "glm/flash", connection: "Z.ai 2", outcome: "ok", status: 200 },
+    ])).toBe(1);
+    // A failed model followed by the free default is a fallback, not a switch.
+    expect(accountSwitches([
+      { model: "glm/flash", outcome: "failed", status: 429 },
+      { model: "kilo-gateway/kilo-auto/free", connection: "KILO", outcome: "ok", freeFallback: true },
+    ])).toBe(0);
+    expect(accountSwitches(undefined)).toBeUndefined();
   });
 });

@@ -8,6 +8,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import Pagination from "@/shared/components/Pagination";
 import { translate } from "@/i18n/runtime";
 import type { RequestRow } from "./types";
+import { accountSwitches } from "./attemptRows";
 import { formatClock, formatCostCell, formatShortDate, modelJump, totalTokens } from "./requestFormat";
 import { getCachedTokens, getCacheCreationTokens } from "../tokenUtils";
 
@@ -48,7 +49,7 @@ function StatusPill({ statusLabel, cause }: { statusLabel?: string; cause?: stri
 
 function AttemptsCell({ row }: { row: RequestRow }) {
   const failed = row.routing?.failed ?? 0;
-  const switched = row.routing?.switched ?? 0;
+  const switched = accountSwitches(row.routing?.attempts) ?? row.routing?.switched ?? 0;
   const free = row.routing?.attempts?.some((a) => a.freeFallback) ?? false;
   if (failed === 0 && switched === 0 && !free) return <span className="text-text-muted">—</span>;
   return (

@@ -210,10 +210,18 @@ export function summarizeRoutingTrace(trace: RoutingTrace | null | undefined): R
   if (trace.selectedModel) summary.selected = trace.selectedModel;
   if (trace.truncated) summary.truncated = true;
 
-  let switched = 0;
+  // A switch is a move to another account of the same model. "switched" on a
+  // step only means the gateway wanted another account; with a single one it
+  // goes on to the next model or the free default, which is not a switch.
+  const accountsByModel = new Map<string, Set<string>>();
   let failed = 0;
+  trace.steps.forEach((step, i) => {
+    if (step.kind !== "account" || step.outcome === "exhausted") return;
+    const key = `${step.provider}/${step.model}`;
+    accountsByModel.set(key, (accountsByModel.get(key) ?? new Set()).add(step.connection ?? `#${i}`));
+  });
+  const switched = [...accountsByModel.values()].reduce((sum, set) => sum + set.size - 1, 0);
   for (const step of trace.steps) {
-    if (step.kind === "account" && (step.outcome === "switched" || step.outcome === "failed")) switched += 1;
     if (step.kind === "attempt" && step.outcome === "failed") failed += 1;
     if (step.kind === "combo" && !summary.combo) summary.combo = step.name;
     if (step.kind === "smart") {

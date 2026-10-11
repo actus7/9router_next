@@ -128,7 +128,10 @@ function Step({ row, isLast, totalMs, providerNames, promptTokens }: { row: Atte
           <p className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
             <ArrowDown className="size-3.5" aria-hidden />
             {row.fallbackTo.sameModel ? (
-              t("Then tried another account of the same model")
+              <span>
+                {t("Then tried another account of the same model")}
+                {row.fallbackTo.connection && <>: <span className="font-medium text-text-main">{row.fallbackTo.connection}</span></>}
+              </span>
             ) : (
               <>{t("Then tried")} <span className="font-mono text-text-main">{row.fallbackTo.model}</span></>
             )}

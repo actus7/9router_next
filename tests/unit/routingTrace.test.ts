@@ -118,6 +118,22 @@ describe("summarizeRoutingTrace with the free fallback inside a combo attempt", 
     expect(summary?.attempts?.[0].error).toContain("Insufficient balance");
     expect(summary?.failed).toBe(1);
   });
+
+  // The one Z.ai account said 429 and there was no other: nothing switched.
+  // The table showed "account switch" while the drawer, rightly, showed none.
+  it("does not count an account switch when the model had a single account", () => {
+    expect(summarizeRoutingTrace(trace(steps, "kilo-gateway/kilo-auto/free"))?.switched).toBeUndefined();
+  });
+});
+
+describe("summarizeRoutingTrace account switches", () => {
+  it("counts a move from one account of a model to another", () => {
+    const summary = summarizeRoutingTrace(trace([
+      { kind: "account", provider: "glm", model: "glm-5.3-flash", connection: "Z.ai", outcome: "switched", status: 429 },
+      { kind: "account", provider: "glm", model: "glm-5.3-flash", connection: "Z.ai 2", outcome: "selected" },
+    ], "glm/glm-5.3-flash"));
+    expect(summary?.switched).toBe(1);
+  });
 });
 
 describe("summarizeRoutingTrace with the free fallback on a single model", () => {

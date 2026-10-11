@@ -89,7 +89,7 @@ describe("RequestRoutingStory", () => {
     expect(screen.getByText("GLM (Zhipu) · Z.ai")).toBeTruthy();
     expect(screen.getByText("Insufficient balance")).toBeTruthy();
     expect(screen.getByText("Original error")).toBeTruthy();
-    expect(screen.getByText("Then tried another account of the same model")).toBeTruthy();
+    expect(screen.getByText(/Then tried another account of the same model/).textContent).toContain("Z.ai 2");
     expect(screen.getByText(/Task: Tool use · Confidence: 82% · short prompt/)).toBeTruthy();
     expect(screen.getByText(/tier: Simple/)).toBeTruthy();
   });

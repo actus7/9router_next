@@ -21,7 +21,7 @@ export interface AttemptRow {
   parallel: boolean;
   freeFallback: boolean;
   /** The model the request moved on to after this attempt failed. */
-  fallbackTo?: { model: string; number: number; sameModel: boolean };
+  fallbackTo?: { model: string; number: number; sameModel: boolean; connection?: string };
 }
 
 const TONE: Record<RequestAttempt["outcome"], AttemptTone> = {
@@ -94,9 +94,18 @@ export function buildAttemptRows(attempts: RequestAttempt[] | null | undefined):
       startOffsetMs: attempt.startOffsetMs,
       freeFallback: attempt.freeFallback === true,
       parallel: attempt.startOffsetMs !== undefined && prevEnd !== undefined && attempt.startOffsetMs < prevEnd,
-      ...((tone === "failed" || tone === "skipped") && next ? { fallbackTo: { model: next.model, number: i + 2, sameModel: next.model === attempt.model } } : {}),
+      ...((tone === "failed" || tone === "skipped") && next ? { fallbackTo: { model: next.model, number: i + 2, sameModel: next.model === attempt.model, ...(next.connection ? { connection: next.connection } : {}) } } : {}),
     };
   });
+}
+
+/**
+ * Moves to another account of the same model, read from the trail the drawer
+ * tells. Undefined without a trail: legacy rows only have the stored count.
+ */
+export function accountSwitches(attempts: RequestAttempt[] | null | undefined): number | undefined {
+  if (!attempts?.length) return undefined;
+  return attempts.filter((a, i) => a.outcome !== "ok" && attempts[i + 1]?.model === a.model).length;
 }
 
 export interface AttemptSummary {
