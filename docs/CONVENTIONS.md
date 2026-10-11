@@ -225,12 +225,16 @@ Três regras que valem para todos os usos, e que um uso novo tem que seguir:
   não lança: sem chave, timeout, não-2xx ou formato desconhecido viram `null`,
   e o chamador segue com a heurística que já tinha. O Jev melhora uma decisão
   que já existia; nunca é o que faz uma requisição falhar.
-- **A chave é a da conexão `vercel-ai-gateway`.** O Jev é chamado pela Vercel
-  AI Gateway (`POST https://ai-gateway.vercel.sh/v1/evaluate`, modelo
-  `typesafe-ai/jev`), então a credencial é a mesma conexão que já serve os
-  modelos da gateway — por conta, criptografada, criada pelo mesmo
-  validate-then-create da tela de providers. Não existe segunda chave nem
-  fallback para uma chave da plataforma: o custo é da conta do usuário.
+- **A chave: TypeSafe direta ou a conexão `vercel-ai-gateway`.** Com
+  `TYPESAFE_API_KEY` no ambiente (chave emitida em console.typesafe.ai), o Jev
+  vai direto a `api.typesafe.ai/v1/systemone` — outro dialeto: modelo
+  `jev-latest` e a pergunta sim/não se chama `noul`, traduzidos em
+  `src/server/decisions/jev.ts`. Sem ela, o Jev é chamado pela Vercel AI
+  Gateway (`POST https://ai-gateway.vercel.sh/v1/evaluate`, modelo
+  `typesafe-ai/jev`) com a conexão da conta — por conta, criptografada, criada
+  pelo mesmo validate-then-create da tela de providers. A chave da TypeSafe é
+  do processo, não da conta: numa instalação com várias contas, todas usam a
+  mesma. `jevDirectLive.test.ts` confere o dialeto contra a API real.
 - **Jev não aprova nada.** O `score` de risco das escritas pendentes
   (`queuePendingWrite`) é gravado ao lado da escrita e mostrado ao operador;
   nada o lê para decidir. O gate de aprovação continua do operador.

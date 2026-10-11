@@ -1,9 +1,10 @@
 import "server-only";
 
 // Jev (TypeSafe AI) answers typed questions — boolean, choice, score — with
-// calibrated probabilities instead of text. We reach it through the Vercel AI
-// Gateway, so the account's existing `vercel-ai-gateway` connection is the
-// credential: no second key to store, and billing stays on the user's gateway.
+// calibrated probabilities instead of text. Two ways in: TypeSafe's own API,
+// when `TYPESAFE_API_KEY` is set (a key from console.typesafe.ai), and
+// otherwise the Vercel AI Gateway, whose credential is the account's
+// `vercel-ai-gateway` connection or `AI_GATEWAY_API_KEY`.
 //
 // Every caller treats Jev as an optional upgrade over a heuristic it already
 // has. So this module never throws: no key, a timeout, a non-2xx or a shape we
@@ -15,6 +16,10 @@ import { currentTenantId } from "@/lib/db/tenant";
 
 export const JEV_MODEL = "typesafe-ai/jev";
 const JEV_URL = "https://ai-gateway.vercel.sh/v1/evaluate";
+const TYPESAFE_URL = "https://api.typesafe.ai/v1/systemone";
+// TypeSafe names its models without the gateway's provider prefix, and Jev
+// itself is `jev-latest` there.
+const TYPESAFE_DEFAULT_MODEL = "jev-latest";
 const JEV_CONNECTION_PROVIDER = "vercel-ai-gateway";
 // Vercel documents 32k tokens for `state`; ~4 chars per token keeps us inside.
 const MAX_STATE_CHARS = 100_000;
@@ -111,6 +116,43 @@ export async function getJevApiKey(): Promise<string | null> {
   return typeof key === "string" ? key.trim() : null;
 }
 
+interface JevEndpoint {
+  url: string;
+  apiKey: string;
+  direct: boolean;
+}
+
+/** Where a Jev call goes and with which key: TypeSafe's own API wins when its key is set. */
+async function jevEndpoint(): Promise<JevEndpoint | null> {
+  const direct = process.env.TYPESAFE_API_KEY?.trim();
+  if (direct) return { url: TYPESAFE_URL, apiKey: direct, direct: true };
+  const gatewayKey = await getJevApiKey();
+  return gatewayKey ? { url: JEV_URL, apiKey: gatewayKey, direct: false } : null;
+}
+
+function modelFor(endpoint: JevEndpoint, model: string): string {
+  if (!endpoint.direct) return model;
+  const bare = model.replace(/^typesafe-ai\//, "");
+  return bare === "jev" ? TYPESAFE_DEFAULT_MODEL : bare;
+}
+
+// TypeSafe's own API calls the yes/no question `noul`; the gateway says `boolean`.
+function questionsFor(endpoint: JevEndpoint, questions: Record<string, JevQuestion>): Record<string, unknown> {
+  if (!endpoint.direct) return questions;
+  return Object.fromEntries(
+    Object.entries(questions).map(([id, q]) => [id, q.type === "boolean" ? { ...q, type: "noul" } : q]),
+  );
+}
+
+async function postJev(endpoint: JevEndpoint, model: string, state: unknown, questions: Record<string, JevQuestion>, timeoutMs: number): Promise<Response> {
+  return fetch(endpoint.url, {
+    method: "POST",
+    headers: { authorization: `Bearer ${endpoint.apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({ model: modelFor(endpoint, model), state, questions: questionsFor(endpoint, questions) }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+}
+
 function isProbability(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 }
@@ -154,15 +196,10 @@ export async function evaluateJev<Q extends Record<string, JevQuestion>>(
   model: string = JEV_MODEL,
 ): Promise<{ [K in keyof Q]: JevAnswer } | null> {
   try {
-    const apiKey = await getJevApiKey();
-    if (!apiKey) return null;
+    const endpoint = await jevEndpoint();
+    if (!endpoint) return null;
     const boundedState = typeof state === "string" ? state.slice(0, MAX_STATE_CHARS) : state;
-    const response = await fetch(JEV_URL, {
-      method: "POST",
-      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ model, state: boundedState, questions }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    const response = await postJev(endpoint, model, boundedState, questions, timeoutMs);
     if (!response.ok) return null;
     const payload = (await response.json()) as { answers?: Record<string, unknown> };
     const answers: Record<string, JevAnswer> = {};
@@ -217,16 +254,12 @@ const PROBE_QUESTION = { ping: { type: "boolean", instructions: "Is this a greet
  * profile card still read "using your key". The card's test button uses this.
  */
 export async function probeJev(timeoutMs = 15_000): Promise<JevProbeResult> {
-  const apiKey = await getJevApiKey().catch(() => null);
-  if (!apiKey) return { ok: false, reason: "no_key", message: "No Vercel AI Gateway connection on this account." };
+  const endpoint = await jevEndpoint().catch(() => null);
+  if (!endpoint) return { ok: false, reason: "no_key", message: "No TYPESAFE_API_KEY and no Vercel AI Gateway connection on this account." };
+  const apiKey = endpoint.apiKey;
   const startedAt = Date.now();
   try {
-    const response = await fetch(JEV_URL, {
-      method: "POST",
-      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ model: JEV_MODEL, state: "hello", questions: PROBE_QUESTION }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    const response = await postJev(endpoint, JEV_MODEL, "hello", PROBE_QUESTION, timeoutMs);
     const payload = (await response.json().catch(() => ({}))) as { answers?: Record<string, unknown>; error?: { message?: string } };
     // The upstream message can quote the request; never hand the key back.
     const message = String(payload?.error?.message || `HTTP ${response.status}`).replaceAll(apiKey, "***").slice(0, 300);
@@ -239,6 +272,6 @@ export async function probeJev(timeoutMs = 15_000): Promise<JevProbeResult> {
     return { ok: true, latencyMs: Date.now() - startedAt };
   } catch (error) {
     const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
-    return { ok: false, reason: timedOut ? "timeout" : "http", message: timedOut ? "Jev did not answer in time." : "Could not reach the Vercel AI Gateway." };
+    return { ok: false, reason: timedOut ? "timeout" : "http", message: timedOut ? "Jev did not answer in time." : endpoint.direct ? "Could not reach api.typesafe.ai." : "Could not reach the Vercel AI Gateway." };
   }
 }
