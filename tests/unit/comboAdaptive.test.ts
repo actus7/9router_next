@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
 import { clearModelPenalties, getModelPenalty, getStickyModel } from "@/server/llm-gateway/engine/services/modelPenalty";
+import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 const ok = () => new Response("{}", { status: 200 });
@@ -107,6 +108,22 @@ describe("cache affinity on large prompts", () => {
     await runWith(small(["1"]), (m) => (m === "a/m" ? fail(503) : ok()));
     clearModelPenalties();
     expect(await runWith(small(["1", "2"]), () => ok())).toEqual(["a/m"]);
+  });
+
+  // Seen in production: a turn classified Complex was answered by gpt-5.6-sol;
+  // the next turn was Simple, and sol — present in that list only as a
+  // fallback from another tier — jumped over the whole Simple column.
+  it("keeps a smart combo's warm model inside the tier the request was classified into", async () => {
+    const smart = (turns: string[], tier: "simple" | "complex") => attachRoutingDecision(big(turns), {
+      comboName: "dev", need: "general", tier, score: 0, confidence: 1, reason: "test" as never, degraded: false,
+      tierOrder: [tier], candidates: ["a/m", "b/m"], profileSources: [],
+      candidateDetails: [
+        { model: "a/m", tier: "simple", degraded: false, source: "manual" },
+        { model: "b/m", tier: "complex", degraded: false, source: "manual" },
+      ],
+    });
+    await runWith(smart(["turn 1"], "complex"), (m) => (m === "a/m" ? fail(503) : ok()));
+    expect(await runWith(smart(["turn 1", "turn 2"], "simple"), () => ok())).toEqual(["a/m"]);
   });
 
   it("does not carry one conversation's cache to another", async () => {

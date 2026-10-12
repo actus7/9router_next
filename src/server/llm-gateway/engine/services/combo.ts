@@ -12,7 +12,7 @@ import { adaptiveFirstByteBudget, estimatePromptTokens, hedgeDelayMs, LARGE_PROM
 import { getStickyModel, orderByPenalty, recordModelFailure, recordModelSuccess, rememberStickyModel } from "./modelPenalty";
 import { getRoutingDecision } from "./smart-routing/context";
 import { isFreeFallback, recordRoutingStep } from "./routingTrace";
-import { cacheAffinityKey, preferWarmModel, rememberWarmModel } from "./comboCacheAffinity";
+import { cacheAffinityKey, classifiedTierModels, preferWarmModel, rememberWarmModel } from "./comboCacheAffinity";
 import { truncateTraceError, classifyAttemptError, type AttemptOutcome } from "../host/routingTrace";
 
 // Hard capabilities = input modalities; missing one drops request data (e.g. image
@@ -398,7 +398,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   const promptTokens = estimatePromptTokens(body);
   const largePrompt = promptTokens >= LARGE_PROMPT_TOKENS;
   const cacheKey = largePrompt ? cacheAffinityKey(body, sessionKey) : undefined;
-  if (cacheKey && !stickyModel) rotatedModels = preferWarmModel(rotatedModels, comboName || "", cacheKey);
+  if (cacheKey && !stickyModel) rotatedModels = preferWarmModel(rotatedModels, comboName || "", cacheKey, classifiedTierModels(getRoutingDecision(body)));
 
   let lastError: string | null = null;
   let earliestRetryAfter: string | null = null;
