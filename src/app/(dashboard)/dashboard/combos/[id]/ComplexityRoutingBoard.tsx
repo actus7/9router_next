@@ -39,7 +39,6 @@ function modelSubtitle(profile: SmartModelProfile | undefined, providerName: str
 
 interface RowProps {
   id: string;
-  index: number;
   value: string;
   profile: SmartModelProfile | undefined;
   providerId: string;
@@ -56,7 +55,7 @@ function cleaned(entry: LaneEntryConfig): LaneEntryConfig | null {
   return entry.connectionId || (entry.params && Object.keys(entry.params).length > 0) ? entry : null;
 }
 
-function TierModelRow({ id: _id, index, value, profile, providerId, providerName, entry, onEntryChange, onDuplicate, onEdit, onRemove }: RowProps) {
+function TierModelRow({ id: _id, value, profile, providerId, providerName, entry, onEntryChange, onDuplicate, onEdit, onRemove }: RowProps) {
   const info = useModelParamInfo(value);
   const [paramsOpen, setParamsOpen] = useState(false);
   const connections = info?.connections ?? [];
@@ -70,69 +69,79 @@ function TierModelRow({ id: _id, index, value, profile, providerId, providerName
   const displayName = profile?.displayName || value;
   const subtitle = modelSubtitle(profile, providerName);
 
+  const paramChips = Object.entries(entry?.params ?? {}).map(([path, v]) => `${path}: ${String(v)}`);
+  // Shown on hover or keyboard focus; always shown where there is no hover (touch).
+  const onHover = "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100";
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex flex-col gap-0.5 rounded-lg bg-muted/50 px-2 py-1.5 transition-colors hover:bg-muted",
+        "group relative flex flex-col gap-1 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 transition-colors hover:bg-muted",
         isDragging && "shadow-md ring-1 ring-primary/30",
       )}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-2">
         <Button
           {...attributes}
           {...listeners}
           variant="ghost"
           size="icon-sm"
           type="button"
-          className="size-5 shrink-0 cursor-grab touch-none active:cursor-grabbing"
+          className={cn("absolute top-2 left-0 size-5 cursor-grab touch-none active:cursor-grabbing", onHover)}
           title={translate("Drag to reorder") || "Drag to reorder"}
           aria-label={`${translate("Drag") || "Drag"} ${displayName}`}
         >
           <GripVertical className="size-3.5" />
         </Button>
 
-        <ProviderIcon providerId={providerId} alt={providerName} size={15} fallbackText={providerId.slice(0, 2).toUpperCase()} className="shrink-0" />
+        <ProviderIcon providerId={providerId} alt={providerName} size={16} fallbackText={providerId.slice(0, 2).toUpperCase()} className="shrink-0" />
 
-        <p className="min-w-0 flex-1 truncate text-xs font-medium text-text-main" title={displayName}>{displayName}</p>
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-text-main" title={displayName}>{displayName}</p>
 
-        <span className="shrink-0 rounded-full bg-surface px-1.5 py-0.5 text-center text-[10px] font-medium text-text-muted">{index + 1}º</span>
-
-        <Button variant="ghost" size="icon-xs" onClick={onEdit} className="size-5 shrink-0" title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
-          <Pencil className="size-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon-xs" onClick={onRemove} className="size-5 shrink-0 text-destructive" title={translate("Remove") || "Remove"} aria-label={`${translate("Remove") || "Remove"} ${displayName}`}>
-          <X className="size-3.5" />
-        </Button>
-      </div>
-
-      <div className="flex min-w-0 items-center gap-1.5 pl-[26px]">
-        <p className="min-w-0 flex-1 truncate text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
         {connections.length > 1 && (
-            <>
-              <select
-                className="h-6 max-w-24 shrink-0 rounded-md border border-input bg-transparent px-1 text-[11px] dark:bg-input/30"
-                value={entry?.connectionId ?? ""}
-                title={translate("Account used for this entry") || "Account used for this entry"}
-                onChange={(e) => onEntryChange(cleaned({ ...(entry ?? NO_ENTRY), connectionId: e.target.value || undefined }))}
-              >
-                <option value="">{translate("Auto") || "Auto"}</option>
-                {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
-              </select>
-              <Button variant="ghost" size="icon-xs" className="size-5 shrink-0" title={translate("Add the same model on another account") || "Add the same model on another account"}
-                aria-label={translate("Add fallback") || "Add fallback"}
-                onClick={() => onDuplicate(connections.find((c) => c.id !== entry?.connectionId)?.id ?? "")}>
-                <Copy className="size-3.5" />
-              </Button>
-            </>
-          )}
-          {info?.spec && (
-            <Button variant="ghost" size="icon-xs" onClick={() => setParamsOpen(true)} className={cn("size-5 shrink-0", hasParams && "text-primary")} title={translate("Model parameters") || "Model parameters"} aria-label={`${translate("Model parameters") || "Model parameters"} ${displayName}`}>
-              <SlidersHorizontal className="size-3.5" />
-            </Button>
-          )}
+          <select
+            className="h-6 max-w-24 shrink-0 cursor-pointer rounded-full border border-border bg-surface px-2 text-xs text-text-main"
+            value={entry?.connectionId ?? ""}
+            title={translate("Account used for this entry") || "Account used for this entry"}
+            aria-label={translate("Account used for this entry") || "Account used for this entry"}
+            onChange={(e) => onEntryChange(cleaned({ ...(entry ?? NO_ENTRY), connectionId: e.target.value || undefined }))}
+          >
+            <option value="">{translate("Auto") || "Auto"}</option>
+            {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
+          </select>
+        )}
+        {info?.spec && (
+          <Button variant="ghost" size="icon-xs" onClick={() => setParamsOpen(true)} className={cn("size-6 shrink-0", hasParams ? "text-primary" : "text-text-muted")} title={translate("Model parameters") || "Model parameters"} aria-label={`${translate("Model parameters") || "Model parameters"} ${displayName}`}>
+            <SlidersHorizontal className="size-4" />
+          </Button>
+        )}
+        <Button variant="ghost" size="icon-xs" onClick={onRemove} className="size-6 shrink-0 text-text-muted hover:text-destructive" title={translate("Remove") || "Remove"} aria-label={`${translate("Remove") || "Remove"} ${displayName}`}>
+          <X className="size-4" />
+        </Button>
       </div>
+
+      <div className="flex min-w-0 items-center gap-1 pl-6">
+        <p className="min-w-0 flex-1 truncate text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
+        <Button variant="ghost" size="icon-xs" onClick={onEdit} className={cn("size-5 shrink-0", onHover)} title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
+          <Pencil className="size-3" />
+        </Button>
+        {connections.length > 1 && (
+          <Button variant="ghost" size="icon-xs" className={cn("size-5 shrink-0", onHover)} title={translate("Add the same model on another account") || "Add the same model on another account"}
+            aria-label={translate("Add fallback") || "Add fallback"}
+            onClick={() => onDuplicate(connections.find((c) => c.id !== entry?.connectionId)?.id ?? "")}>
+            <Copy className="size-3" />
+          </Button>
+        )}
+      </div>
+      {paramChips.length > 0 && (
+        <div className="flex min-w-0 flex-wrap gap-1 pl-6">
+          {paramChips.map((chip) => (
+            <span key={chip} className="max-w-full truncate rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary" title={chip}>{chip}</span>
+          ))}
+        </div>
+      )}
       {paramsOpen && info?.spec && (
         <ModelParamsDialog
           modelName={displayName}
@@ -222,7 +231,6 @@ function TierColumn({ tier, models, entries, profileByKey, activeProviders, mode
                 <TierModelRow
                   key={itemIds[index]}
                   id={itemIds[index]}
-                  index={index}
                   value={model}
                   profile={profile}
                   providerId={providerId}
