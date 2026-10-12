@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { handleComboChat } from "@/server/llm-gateway/engine/services/combo";
 import { clearModelPenalties, getModelPenalty, getStickyModel } from "@/server/llm-gateway/engine/services/modelPenalty";
 import { attachRoutingDecision } from "@/server/llm-gateway/engine/services/smart-routing/context";
+import { isFreeFallbackHeld } from "@/server/llm-gateway/engine/utils/firstByteGuard";
 
 const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 const ok = () => new Response("{}", { status: 200 });
@@ -53,6 +54,22 @@ describe("combo penalties", () => {
     await run(["a/m", "b/m", "c/m"], (m) => (m === "a/m" ? fail(429) : ok()));
     const { tried } = await run(["a/m", "b/m", "c/m"], () => ok(), { adaptive: true });
     expect(tried).toEqual(["b/m"]);
+  });
+});
+
+describe("combo and the free fallback", () => {
+  beforeEach(() => clearModelPenalties());
+
+  // The free default is the last resort of the whole combo, not of each model.
+  it("holds it on every attempt but the last candidate's", async () => {
+    const held: boolean[] = [];
+    await handleComboChat({
+      body: {},
+      models: ["a/m", "b/m", "c/m"],
+      handleSingleModel: async (b) => { held.push(isFreeFallbackHeld(b)); return fail(429); },
+      log, comboName: "dev", autoSwitch: false,
+    });
+    expect(held).toEqual([true, true, false]);
   });
 });
 

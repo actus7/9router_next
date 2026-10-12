@@ -48,6 +48,7 @@ import { handleSingleModelChat, __test__ as chatInternals } from "@/server/llm-g
 import { getProviderCredentials } from "@/server/llm-gateway/auth/accountSelection";
 import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
 import { getPerfKey, setPerfKey } from "@/server/llm-gateway/engine/host/modelStats";
+import { holdFreeFallback } from "@/server/llm-gateway/engine/utils/firstByteGuard";
 import {
   FREE_DEFAULT_MODEL_KEY,
   FREE_DEFAULT_PROVIDER_ALIAS,
@@ -110,6 +111,21 @@ describe("gateway last-resort free fallback", () => {
     const freeCall = coreMock.mock.calls.find((call) => String((call[0] as { body: Record<string, unknown> }).body.model).startsWith(FREE_DEFAULT_PROVIDER_ALIAS));
     expect(freeCall).toBeTruthy();
     expect(getPerfKey((freeCall![0] as { body: Record<string, unknown> }).body)).toBeUndefined();
+  });
+
+  // Seen in production: gpt-5.6-sol hit "usage limit" on every Codex account
+  // and the free default answered inside that attempt, so a smart combo with
+  // nine more models in the column never tried any of them.
+  it("leaves the failure to the combo while it still has other models to try", async () => {
+    credentialsMock.mockImplementation(async (provider: string) =>
+      isFreeDefaultProvider(provider) ? { connectionId: "noauth", connectionName: "Public" } : null);
+    const request = body("openai/gpt-5");
+    holdFreeFallback(request, true);
+
+    const response = await handleSingleModelChat(request, "openai/gpt-5");
+
+    expect(response.ok).toBe(false);
+    expect(providersAsked()).not.toContain(FREE_DEFAULT_PROVIDER_ALIAS);
   });
 
   it("returns the original error when the operator turned the fallback off", async () => {

@@ -22,7 +22,7 @@ import { handleComboChat, handleFusionChat, detectRequiredCapabilities, modelSup
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/server/llm-gateway/engine/services/capacityAdapter";
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
-import { getAttemptSignal } from "@/server/llm-gateway/engine/utils/firstByteGuard";
+import { getAttemptSignal, isFreeFallbackHeld } from "@/server/llm-gateway/engine/utils/firstByteGuard";
 import { judgeUpstreamError, resolveAccountExhaustion } from "@/server/llm-gateway/engine/services/accountFallback";
 import { enforcePublicApiGuardrail } from "./publicApiGuardrail";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
@@ -490,7 +490,7 @@ export async function handleSingleModelChat(
         ...(lastStatus ? { status: lastStatus } : {}),
         ...(truncateTraceError(lastError || credentials?.lastError) ? { error: truncateTraceError(lastError || credentials?.lastError) } : {}),
       });
-      if (allowFreeFallback) {
+      if (allowFreeFallback && !isFreeFallbackHeld(body)) {
         const freeResponse = await tryFreeFallbackChat(provider, body, clientRawRequest, request, apiKey);
         if (freeResponse) return freeResponse;
       }

@@ -41,6 +41,24 @@ export function getAttemptSignal(body: Record<string, unknown> | null | undefine
   return value instanceof AbortSignal ? value : undefined;
 }
 
+const FREE_FALLBACK_HELD = Symbol.for("routerx.freefallback.held");
+
+/**
+ * Set by the combo while another candidate is still waiting: a model out of
+ * accounts must fail its attempt so the combo moves on, instead of answering
+ * through the free default. The free default is the last resort of the whole
+ * combo, so only the last candidate's attempt may reach it.
+ */
+export function holdFreeFallback(body: Record<string, unknown> | null | undefined, held: boolean): void {
+  if (!body) return;
+  if (held) (body as BudgetBody)[FREE_FALLBACK_HELD] = true;
+  else delete (body as BudgetBody)[FREE_FALLBACK_HELD];
+}
+
+export function isFreeFallbackHeld(body: Record<string, unknown> | null | undefined): boolean {
+  return body ? (body as BudgetBody)[FREE_FALLBACK_HELD] === true : false;
+}
+
 export type FirstChunkResult =
   | { ok: true; response: Response }
   | { ok: false; aborted?: boolean };
