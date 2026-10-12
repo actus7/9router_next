@@ -60,6 +60,8 @@ Per-model failures (`402`, `429`, `502`, `503` and model-specific errors) create
 
 **No balance is not a rate limit.** Z.ai answers an account with no balance with a `429` ("Insufficient balance… Please recharge"); treated as a rate limit it got the 2s–5min backoff, so every request a few minutes later paid the round trip to a dead account (6–10s) before falling back. An unambiguous billing text (`BILLING_ERROR_TEXTS`), a `402` or a judge verdict of `billing` keeps the account out for `COOLDOWN.billing` (30 min). The text is checked before the judge, so a verdict of `quota` cannot hand it the short backoff.
 
+**A provider's own reset time wins.** Codex answers an exhausted account with `usage_limit_reached` and `resets_at`; the account stays out of that model until then (`MAX_RATE_LIMIT_COOLDOWN_MS`, 8 days, only bounds a nonsense timestamp). It used to be capped at 30 minutes, so an account resetting in 4 hours was retried twice an hour and every request at that moment paid a round trip per account before moving on.
+
 **"Este modelo não faz tool calling" é erro do request, não da conta.** Um alias
 que abre em vários upstreams (kilo-gateway, OpenRouter) responde `404 No
 endpoints found that support tool use` quando nada atrás dele faz tool calling —

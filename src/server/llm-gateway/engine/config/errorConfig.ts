@@ -38,8 +38,11 @@ export const BACKOFF_CONFIG = {
 // Default cooldown for transient/unknown errors
 export const TRANSIENT_COOLDOWN_MS = 30 * 1000;
 
-// Hard cap for provider-reported rate limit cooldown (e.g. codex resets_at can be 5-6h)
-export const MAX_RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
+// Bound on a provider-reported reset time (Codex `resets_at`). The provider
+// knows when its window reopens, so the account stays out until then: a 30 min
+// cap retried every exhausted account twice an hour for a limit lasting hours.
+// 8 days covers a weekly window and only guards against a nonsense timestamp.
+export const MAX_RATE_LIMIT_COOLDOWN_MS = 8 * 24 * 60 * 60 * 1000;
 
 // Cooldown durations (ms)
 export const COOLDOWN = {
