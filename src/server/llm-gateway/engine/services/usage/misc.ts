@@ -143,7 +143,7 @@ export async function getGlmUsage(apiKey: string, provider: string, proxyOptions
     // (pay-as-you-go balance only): there is no quota to show, say so.
     if (json?.success === false) {
       return /coding plan/i.test(String(json.msg || ""))
-        ? { message: "No GLM Coding Plan on this key. Z.ai only reports quota for the Coding Plan; pay-as-you-go balance is not shown here." }
+        ? { message: "The Z.ai account of this key has no Coding Plan. If you subscribe to one, this key was created in another account: create a key in the account with the plan and update this connection." }
         : { message: `GLM quota API error: ${String(json.msg || json.code || "unknown")}` };
     }
     const data = json?.data && typeof json.data === "object" ? json.data as Record<string, unknown> : {};

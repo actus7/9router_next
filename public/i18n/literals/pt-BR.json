@@ -2210,5 +2210,5 @@
   "Not updated": "Não atualizados",
   "models": "modelos",
   "The provider reported no quota for this account.": "O provedor não informou cota para esta conta.",
-  "No GLM Coding Plan on this key. Z.ai only reports quota for the Coding Plan; pay-as-you-go balance is not shown here.": "Esta chave do GLM não tem Coding Plan. A Z.ai só informa cota do Coding Plan; o saldo pago por uso não aparece aqui."
+  "The Z.ai account of this key has no Coding Plan. If you subscribe to one, this key was created in another account: create a key in the account with the plan and update this connection.": "A conta da Z.ai desta chave não tem Coding Plan. Se você assina um, a chave foi criada em outra conta: crie uma chave na conta do plano e atualize esta conexão."
 }
