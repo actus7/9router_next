@@ -94,5 +94,5 @@ Pós-passo sobre `assignLanes`, puro e testável:
 - Conferir no navegador o diálogo, o select de conta e a fase "Deciding lanes".
 - ~~Provider real com duas contas~~ verificado em 2026-10-12 (Kiro, 3 contas OAuth): `handleSingleModelChat` com `connectionId` fixado respondeu 200 na conta de prioridade 3 e na de prioridade 2 (o padrão fill-first usaria a 1), e uma conta inexistente deu 404 sem cair em outra.
 - ~~LLM de fallback~~ verificado com modelo real (`deepseek-v4.1-flash`, escolhido pelo `chooseLaneClassifier`): 12/12 modelos em ~18 s, valores coerentes. Fluxo completo de "Sugerir" na conta real: 250 modelos elegíveis, Jev decidiu 112 canônicos.
-- Falta só olhar a tela num navegador logado.
+- ~~Tela~~ verificada em 2026-10-12 num Chromium real (Playwright) com uma página temporária de fixture fora da autenticação (removida): achou que os controles na mesma linha do nome o truncavam (`gl...`); agora ficam na segunda linha da entrada. Diálogo conferido em claro e escuro. Não houve sessão logada nem dados reais na tela.
 - Traduções: só pt-BR foi adicionada; as outras 33 línguas caem no inglês.

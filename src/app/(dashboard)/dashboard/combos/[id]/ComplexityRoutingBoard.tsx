@@ -99,29 +99,6 @@ function TierModelRow({ id: _id, index, value, profile, providerId, providerName
 
         <span className="shrink-0 rounded-full bg-surface px-1.5 py-0.5 text-center text-[10px] font-medium text-text-muted">{index + 1}º</span>
 
-        {connections.length > 1 && (
-          <>
-            <select
-              className="h-6 max-w-24 shrink-0 rounded-md border border-input bg-transparent px-1 text-[11px] dark:bg-input/30"
-              value={entry?.connectionId ?? ""}
-              title={translate("Account used for this entry") || "Account used for this entry"}
-              onChange={(e) => onEntryChange(cleaned({ ...(entry ?? NO_ENTRY), connectionId: e.target.value || undefined }))}
-            >
-              <option value="">{translate("Auto") || "Auto"}</option>
-              {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
-            </select>
-            <Button variant="ghost" size="icon-xs" className="size-5 shrink-0" title={translate("Add the same model on another account") || "Add the same model on another account"}
-              aria-label={translate("Add fallback") || "Add fallback"}
-              onClick={() => onDuplicate(connections.find((c) => c.id !== entry?.connectionId)?.id ?? "")}>
-              <Copy className="size-3.5" />
-            </Button>
-          </>
-        )}
-        {info?.spec && (
-          <Button variant="ghost" size="icon-xs" onClick={() => setParamsOpen(true)} className={cn("size-5 shrink-0", hasParams && "text-primary")} title={translate("Model parameters") || "Model parameters"} aria-label={`${translate("Model parameters") || "Model parameters"} ${displayName}`}>
-            <SlidersHorizontal className="size-3.5" />
-          </Button>
-        )}
         <Button variant="ghost" size="icon-xs" onClick={onEdit} className="size-5 shrink-0" title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
           <Pencil className="size-3.5" />
         </Button>
@@ -130,7 +107,32 @@ function TierModelRow({ id: _id, index, value, profile, providerId, providerName
         </Button>
       </div>
 
-      <p className="truncate pl-[26px] text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
+      <div className="flex min-w-0 items-center gap-1.5 pl-[26px]">
+        <p className="min-w-0 flex-1 truncate text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
+        {connections.length > 1 && (
+            <>
+              <select
+                className="h-6 max-w-24 shrink-0 rounded-md border border-input bg-transparent px-1 text-[11px] dark:bg-input/30"
+                value={entry?.connectionId ?? ""}
+                title={translate("Account used for this entry") || "Account used for this entry"}
+                onChange={(e) => onEntryChange(cleaned({ ...(entry ?? NO_ENTRY), connectionId: e.target.value || undefined }))}
+              >
+                <option value="">{translate("Auto") || "Auto"}</option>
+                {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
+              </select>
+              <Button variant="ghost" size="icon-xs" className="size-5 shrink-0" title={translate("Add the same model on another account") || "Add the same model on another account"}
+                aria-label={translate("Add fallback") || "Add fallback"}
+                onClick={() => onDuplicate(connections.find((c) => c.id !== entry?.connectionId)?.id ?? "")}>
+                <Copy className="size-3.5" />
+              </Button>
+            </>
+          )}
+          {info?.spec && (
+            <Button variant="ghost" size="icon-xs" onClick={() => setParamsOpen(true)} className={cn("size-5 shrink-0", hasParams && "text-primary")} title={translate("Model parameters") || "Model parameters"} aria-label={`${translate("Model parameters") || "Model parameters"} ${displayName}`}>
+              <SlidersHorizontal className="size-3.5" />
+            </Button>
+          )}
+      </div>
       {paramsOpen && info?.spec && (
         <ModelParamsDialog
           modelName={displayName}
