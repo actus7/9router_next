@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import type { Connection } from "@/lib/data-access";
@@ -51,9 +52,34 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
     }
   };
 
+  // Rediscovers every connected provider's catalogue, then reloads what this
+  // page read from it: the inventory and the server-rendered provider lists.
+  const router = useRouter();
+  const [refreshingModels, setRefreshingModels] = useState(false);
+  const handleRefreshAllModels = async () => {
+    setRefreshingModels(true);
+    try {
+      const res = await fetch("/api/models/refresh-all", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || translate("Failed to update models") || "Failed to update models");
+      const results: Array<{ providerId: string; models?: number; error?: string }> = data.results || [];
+      const ok = results.filter((r) => typeof r.models === "number");
+      const total = ok.reduce((sum, r) => sum + (r.models || 0), 0);
+      const failed = results.filter((r) => r.error).map((r) => r.providerId);
+      notify.success(`${ok.length} ${translate("providers updated")} · ${total} ${translate("models")}`);
+      if (failed.length > 0) notify.warning(`${translate("Not updated")}: ${failed.join(", ")}`);
+      await s.handleRefresh();
+      router.refresh();
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : translate("Failed to update models") || "Failed to update models");
+    } finally {
+      setRefreshingModels(false);
+    }
+  };
+
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      <ComboHeader name={s.name} onNameChange={s.setName} />
+      <ComboHeader name={s.name} onNameChange={s.setName} onRefreshAllModels={handleRefreshAllModels} refreshingModels={refreshingModels} />
 
       <InferenceCard
         complexityEnabled={s.config.complexity.enabled}

@@ -2203,5 +2203,10 @@
   "Jev calls are billed to your TypeSafe account. When Jev is unreachable, every feature falls back to the heuristic.": "As chamadas ao Jev são cobradas na sua conta da TypeSafe. Quando o Jev não responde, cada uso volta para a heurística.",
   "The key was rejected. Remove it and save a valid one.": "A chave foi recusada. Remova e salve uma válida.",
   "No Jev key on this account: add a TypeSafe key or a Vercel AI Gateway connection.": "Nenhuma chave do Jev nesta conta: adicione uma chave da TypeSafe ou uma conexão da Vercel AI Gateway.",
-  "Who makes the platform's quick decisions: built-in heuristics, or the Jev model (TypeSafe AI), with your TypeSafe key or through your Vercel AI Gateway.": "Quem toma as decisões rápidas da plataforma: as heurísticas embutidas, ou o modelo Jev (TypeSafe AI), com a sua chave da TypeSafe ou pela sua Vercel AI Gateway."
+  "Who makes the platform's quick decisions: built-in heuristics, or the Jev model (TypeSafe AI), with your TypeSafe key or through your Vercel AI Gateway.": "Quem toma as decisões rápidas da plataforma: as heurísticas embutidas, ou o modelo Jev (TypeSafe AI), com a sua chave da TypeSafe ou pela sua Vercel AI Gateway.",
+  "Update models from all providers": "Atualizar modelos de todos os provedores",
+  "Failed to update models": "Falha ao atualizar os modelos",
+  "providers updated": "provedores atualizados",
+  "Not updated": "Não atualizados",
+  "models": "modelos"
 }

@@ -45,13 +45,16 @@ const inFlight = new Map<string, Promise<void>>();
  */
 const checkedAt = new Map<string, number>();
 
-async function discover(providerId: string, alias: string): Promise<void> {
+type DiscoveryResult = { providerId: string; models: number } | { providerId: string; error: string };
+
+async function discover(providerId: string, alias: string): Promise<DiscoveryResult> {
   const connections = await getProviderConnections({ provider: providerId, isActive: true });
   const connection = connections[0];
-  if (!connection) return;
+  if (!connection) return { providerId, error: "no active connection" };
 
   const result = await listConnectionModels(connection as unknown as Record<string, unknown>);
-  if (result.error || !Array.isArray(result.models) || result.models.length === 0) return;
+  if (result.error) return { providerId, error: String(result.error) };
+  if (!Array.isArray(result.models) || result.models.length === 0) return { providerId, error: "no models returned" };
 
   const discovered = result.models.flatMap((model: unknown) => {
     if (!model || typeof model !== "object") return [];
@@ -69,10 +72,11 @@ async function discover(providerId: string, alias: string): Promise<void> {
       metadata: pickDiscoveredMetadata(entry),
     }];
   });
-  if (discovered.length === 0) return;
+  if (discovered.length === 0) return { providerId, error: "no models returned" };
 
   await syncDiscoveredCustomModels(alias, discovered);
   await meta.set(stampKey(alias), Date.now());
+  return { providerId, models: discovered.length };
 }
 
 /**
@@ -108,4 +112,35 @@ export async function ensureProviderCatalog(providerId: string): Promise<void> {
 
   inFlight.set(key, task);
   return task;
+}
+
+/** Providers rediscovered at once by the "update all" button. */
+const REFRESH_ALL_CONCURRENCY = 4;
+
+/**
+ * Rediscovers every connected provider now, past the TTL — the dashboard's
+ * "update all providers' models" button. Providers without a models endpoint
+ * come back as an error entry rather than failing the batch.
+ */
+export async function refreshAllProviderCatalogs(): Promise<DiscoveryResult[]> {
+  const connections = await getProviderConnections({ isActive: true });
+  const providerIds = [...new Set(connections.map((c) => c.provider).filter((p): p is string => typeof p === "string" && !!p))];
+  const tenant = currentTenantId();
+  const results: DiscoveryResult[] = new Array(providerIds.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < providerIds.length) {
+      const i = next++;
+      const providerId = providerIds[i];
+      const alias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
+      try {
+        results[i] = await discover(providerId, alias);
+        if ("models" in results[i]) checkedAt.set(`${tenant}:${alias}`, Date.now());
+      } catch (error) {
+        results[i] = { providerId, error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(REFRESH_ALL_CONCURRENCY, providerIds.length) }, worker));
+  return results;
 }

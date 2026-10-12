@@ -145,7 +145,10 @@ Três consequências que precisaram de código, não só de deleção:
   conhece ainda e revalida os demais em `waitUntil`, com TTL de 6h gravado em
   `kv(meta)` e um cache por processo — chaveados por conta, porque o catálogo é
   descoberto com a credencial de uma conta e gravado nas linhas dela. A tela do
-  provider dispara a mesma descoberta uma vez quando encontra catálogo vazio.
+  provider dispara a mesma descoberta uma vez quando encontra catálogo vazio. O botão "Atualizar modelos de todos os provedores", no topo
+  do combo smart, ignora o TTL e redescobre todos os providers conectados de uma
+  vez (`refreshAllProviderCatalogs`, quatro por vez); um provider sem endpoint de
+  listagem volta como erro na lista, sem derrubar os outros.
 - **Listagem vazia é falha, não catálogo vazio.** Os resolvers que caíam no
   array embarcado quando o provider não respondia (`kimchi`, `cursor`,
   `grok-cli`, `zai-web`) devolvem erro 502 com mensagem. Servir uma lista

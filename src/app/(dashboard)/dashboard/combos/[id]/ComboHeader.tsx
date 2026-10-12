@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, BrainCircuit, Tag } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { ArrowLeft, BrainCircuit, RefreshCw, Tag } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { InfoButton } from "@/shared/components/InfoButton";
@@ -17,7 +17,12 @@ import { translate } from "@/i18n/runtime";
  * to the bar pinned at the bottom, so there is one Save on the page instead of
  * one at the top and edits happening below it.
  */
-export function ComboHeader({ name, onNameChange }: { name: string; onNameChange: (value: string) => void }) {
+export function ComboHeader({ name, onNameChange, onRefreshAllModels, refreshingModels }: {
+  name: string;
+  onNameChange: (value: string) => void;
+  onRefreshAllModels: () => void;
+  refreshingModels: boolean;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <Link href="/dashboard/combos" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 w-fit")}>
@@ -35,6 +40,9 @@ export function ComboHeader({ name, onNameChange }: { name: string; onNameChange
               <p>{translate("Automatically selects the best model for each request, and uses fallback models if the primary fails.")}</p>
             </InfoButton>
           </h1>
+          <Button className="ml-auto shrink-0" onClick={onRefreshAllModels} loading={refreshingModels}>
+            <RefreshCw data-icon="inline-start" /> {translate("Update models from all providers")}
+          </Button>
         </div>
 
         <Card size="sm" className="gap-2 py-3">
