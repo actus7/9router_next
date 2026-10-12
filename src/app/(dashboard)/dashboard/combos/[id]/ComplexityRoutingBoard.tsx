@@ -96,22 +96,10 @@ function TierModelRow({ id: _id, value, profile, providerId, providerName, entry
           <GripVertical className="size-3.5" />
         </Button>
 
-        <ProviderIcon providerId={providerId} alt={providerName} size={16} fallbackText={providerId.slice(0, 2).toUpperCase()} className="shrink-0" />
+        <ProviderIcon providerId={providerId} alt={providerName} size={15} fallbackText={providerId.slice(0, 2).toUpperCase()} className="shrink-0" />
 
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-text-main" title={displayName}>{displayName}</p>
+        <p className="min-w-0 flex-1 truncate text-xs font-medium text-text-main" title={displayName}>{displayName}</p>
 
-        {connections.length > 1 && (
-          <select
-            className="h-6 max-w-24 shrink-0 cursor-pointer rounded-full border border-border bg-surface px-2 text-xs text-text-main"
-            value={entry?.connectionId ?? ""}
-            title={translate("Account used for this entry") || "Account used for this entry"}
-            aria-label={translate("Account used for this entry") || "Account used for this entry"}
-            onChange={(e) => onEntryChange(cleaned({ ...(entry ?? NO_ENTRY), connectionId: e.target.value || undefined }))}
-          >
-            <option value="">{translate("Auto") || "Auto"}</option>
-            {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
-          </select>
-        )}
         {info?.spec && (
           <Button variant="ghost" size="icon-xs" onClick={() => setParamsOpen(true)} className={cn("size-6 shrink-0", hasParams ? "text-primary" : "text-text-muted")} title={translate("Model parameters") || "Model parameters"} aria-label={`${translate("Model parameters") || "Model parameters"} ${displayName}`}>
             <SlidersHorizontal className="size-4" />
@@ -124,6 +112,18 @@ function TierModelRow({ id: _id, value, profile, providerId, providerName, entry
 
       <div className="flex min-w-0 items-center gap-1 pl-6">
         <p className="min-w-0 flex-1 truncate text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
+        {connections.length > 1 && (
+          <select
+            className="h-6 max-w-24 shrink-0 cursor-pointer rounded-full border border-border bg-surface px-2 text-xs text-text-main"
+            value={entry?.connectionId ?? ""}
+            title={translate("Account used for this entry") || "Account used for this entry"}
+            aria-label={translate("Account used for this entry") || "Account used for this entry"}
+            onChange={(e) => onEntryChange(cleaned({ ...(entry ?? NO_ENTRY), connectionId: e.target.value || undefined }))}
+          >
+            <option value="">{translate("Auto") || "Auto"}</option>
+            {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
+          </select>
+        )}
         <Button variant="ghost" size="icon-xs" onClick={onEdit} className={cn("size-5 shrink-0", onHover)} title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
           <Pencil className="size-3" />
         </Button>
@@ -338,7 +338,7 @@ export default function ComplexityRoutingBoard({
           </p>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 lg:grid-cols-2">
           {ROUTING_TIERS.map((tier) => (
             <TierColumn
               key={tier}
