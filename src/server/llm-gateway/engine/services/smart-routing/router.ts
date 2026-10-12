@@ -304,7 +304,7 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
     degraded: selected?.degraded || false,
     tierOrder: getSmartTierOrder(chosenTier),
     candidates: ranked.map((candidate) => candidate.modelKey),
-    candidateDetails: ranked.map((candidate) => ({ model: candidate.modelKey, tier: candidate.tier, degraded: candidate.degraded, source: candidate.source })),
+    candidateDetails: ranked.map((candidate) => ({ model: candidate.modelKey, tier: candidate.tier, degraded: candidate.degraded, source: candidate.source, ...(candidate.column ? { column: true as const } : {}) })),
     classifierModel,
     classifierLatencyMs,
     classifierSource,

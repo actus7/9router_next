@@ -15,9 +15,10 @@ export function cacheAffinityKey(body: Record<string, unknown>, sessionKey: stri
 
 /**
  * The model holding the conversation's cache first, when it is still a candidate.
- * `allowed` narrows that to the smart combo's classified tier: its list also
- * carries other tiers' models as fallback, and a warm one from there must not
- * jump over the whole column the request was classified into.
+ * `allowed` narrows that to the column of the smart combo's classified tier:
+ * its list also carries "always considered" models (tagged with that tier) and
+ * other tiers' models as fallback, and a warm one from there must not jump over
+ * the column the operator ordered.
  */
 export function preferWarmModel(models: string[], comboName: string, key: string, allowed?: ReadonlySet<string>): string[] {
   const warm = getStickyModel(key, namespace(comboName));
@@ -26,10 +27,10 @@ export function preferWarmModel(models: string[], comboName: string, key: string
   return [warm, ...models.filter((m) => m !== warm)];
 }
 
-/** The candidates of the tier a smart request was classified into; undefined for a plain combo. */
+/** The column of the tier a smart request was classified into; undefined for a plain combo. */
 export function classifiedTierModels(decision: RoutingDecisionMeta | null): ReadonlySet<string> | undefined {
   if (!decision) return undefined;
-  return new Set(decision.candidateDetails.filter((c) => c.tier === decision.tier).map((c) => c.model));
+  return new Set(decision.candidateDetails.filter((c) => c.tier === decision.tier && c.column).map((c) => c.model));
 }
 
 export function rememberWarmModel(key: string, comboName: string, model: string): void {

@@ -56,6 +56,14 @@ describe("smart model ranking", () => {
     expect(result.at(-1)?.degraded).toBe(true);
   });
 
+  // Cache affinity may only promote a model from the column: "always
+  // considered" entries are ranked inside the tier with its tier tag.
+  it("marks the tier's column apart from the always-considered list", () => {
+    const config = { ...DEFAULT_SMART_ROUTING_CONFIG, overrides: { general: { complex: ["p/new"], default: ["p/old"] } } };
+    const result = rankSmartProfiles([profile("p/new", "complex"), profile("p/old", "complex")], "general", "complex", config);
+    expect(result.slice(0, 2).map((c) => [c.modelKey, c.tier, c.column])).toEqual([["p/new", "complex", true], ["p/old", "complex", undefined]]);
+  });
+
   it("filters hard capability mismatches", () => {
     const vision = profile("p/vision", "standard", { capabilities: { ...profile("p/base", "standard").capabilities, vision: true } });
     const text = profile("p/text", "standard");

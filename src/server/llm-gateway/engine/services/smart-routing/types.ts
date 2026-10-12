@@ -153,7 +153,7 @@ export interface RoutingDecisionMeta {
   degraded: boolean;
   tierOrder: RoutingTier[];
   candidates: string[];
-  candidateDetails: Array<{ model: string; tier: RoutingTier; degraded: boolean; source: "manual" | "llm" | "deterministic" }>;
+  candidateDetails: Array<{ model: string; tier: RoutingTier; degraded: boolean; source: "manual" | "llm" | "deterministic"; column?: true }>;
   selectedModel?: string;
   classifierModel?: string;
   classifierLatencyMs?: number;

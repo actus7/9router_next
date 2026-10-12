@@ -118,12 +118,29 @@ describe("cache affinity on large prompts", () => {
       comboName: "dev", need: "general", tier, score: 0, confidence: 1, reason: "test" as never, degraded: false,
       tierOrder: [tier], candidates: ["a/m", "b/m"], profileSources: [],
       candidateDetails: [
-        { model: "a/m", tier: "simple", degraded: false, source: "manual" },
+        { model: "a/m", tier: "simple", degraded: false, source: "manual", column: true },
         { model: "b/m", tier: "complex", degraded: false, source: "manual" },
       ],
     });
     await runWith(smart(["turn 1"], "complex"), (m) => (m === "a/m" ? fail(503) : ok()));
     expect(await runWith(smart(["turn 1", "turn 2"], "simple"), () => ok())).toEqual(["a/m"]);
+  });
+
+  // Seen in production: gpt-5.6-sol left the columns for gpt-6.1-sol but stayed
+  // in "Always considered". Those entries are ranked inside the classified tier,
+  // right after its column, and carry its tier — so the warm 5.6-sol jumped
+  // over 6.1-sol on every turn, in every tier, renewing itself each time.
+  it("does not promote a warm 'always considered' model over the tier's column", async () => {
+    const smart = (turns: string[]) => attachRoutingDecision(big(turns), {
+      comboName: "dev", need: "general", tier: "complex", score: 0, confidence: 1, reason: "test" as never, degraded: false,
+      tierOrder: ["complex"], candidates: ["a/m", "b/m"], profileSources: [],
+      candidateDetails: [
+        { model: "a/m", tier: "complex", degraded: false, source: "manual", column: true },
+        { model: "b/m", tier: "complex", degraded: false, source: "manual" },
+      ],
+    });
+    await runWith(smart(["turn 1"]), (m) => (m === "a/m" ? fail(503) : ok()));
+    expect(await runWith(smart(["turn 1", "turn 2"]), () => ok())).toEqual(["a/m"]);
   });
 
   it("does not carry one conversation's cache to another", async () => {

@@ -58,6 +58,8 @@ export interface RankedSmartCandidate {
   degraded: boolean;
   source: SmartModelProfile["source"];
   score: number;
+  /** Placed by the operator in this tier's column — not "always considered", not ranked in. */
+  column?: true;
 }
 
 const TIER_ORDER: Record<RoutingTier, RoutingTier[]> = {
@@ -506,12 +508,16 @@ export function rankSmartProfiles(
     // order and the tier picked nothing. isEligible still drops a column model
     // that cannot serve the need.
     const lane = config.overrides[need]?.[tier] ?? config.overrides.general?.[tier] ?? [];
+    const laneKeys = new Set(lane);
     const overrideKeys = [...lane, ...(config.overrides[need]?.default || [])];
     for (const modelKey of overrideKeys) {
       const profile = profileByKey.get(modelKey);
       if (!profile || seen.has(modelKey)) continue;
       seen.add(modelKey);
-      result.push({ modelKey, tier, degraded: TIER_INDEX[tier] < TIER_INDEX[requestedTier], source: "manual", score: 2 });
+      result.push({
+        modelKey, tier, degraded: TIER_INDEX[tier] < TIER_INDEX[requestedTier], source: "manual", score: 2,
+        ...(laneKeys.has(modelKey) ? { column: true as const } : {}),
+      });
     }
 
     const dynamic = eligible
