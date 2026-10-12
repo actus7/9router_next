@@ -90,7 +90,7 @@ Pós-passo sobre `assignLanes`, puro e testável:
 
 ### Pendências (precisam de credencial ou de uma sessão logada)
 
-- Jev real nas lanes: `LIVE_LANES=1 LIVE_TYPESAFE_KEY=… npx vitest run tests/unit/laneVerdictsLive.test.ts`. A chave do `.env` é free tier (403); calibrar corte 0,5 e peso 50/50 com a saída.
+- ~~Jev real nas lanes~~ verificado em 2026-10-12 com a chave TypeSafe salva na conta: 14/14 modelos decididos em ~1 s. A calibração achou que o corte fixo de 0,5 expulsava o modelo de topo do Raciocínio (Jev deu 0,31); agora o corte é `max(0,25; 0,4 × melhor resposta da lane)`, com teste de regressão com as probabilidades reais.
 - Conferir no navegador o diálogo, o select de conta e a fase "Deciding lanes".
 - Provider real com duas contas: pedido pelo combo, conferindo a conta usada no trail de tentativas.
 - Traduções: só pt-BR foi adicionada; as outras 33 línguas caem no inglês.

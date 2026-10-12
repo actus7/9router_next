@@ -220,3 +220,29 @@ describe("assignLanes with external verdicts (Jev / LLM)", () => {
     }
   });
 });
+
+describe("assignLanes with Jev's real calibration (measured live, 2026-10-12)", () => {
+  // Jev scored the top model 0.31 for Reasoning but 0.87 for Complex: each lane is its own yes/no.
+  const mechanical = assignLanes(inventory);
+  const key = (model: string) => mechanical.find((item) => item.model === model)?.canonicalKey as string;
+  const live: Record<string, Partial<Record<RoutingTier, number>>> = {
+    "claude-opus-5": { standard: 0.24, complex: 0.87, reasoning: 0.31 },
+    "gpt-5.6-sol": { standard: 0.38, complex: 0.75, reasoning: 0.26 },
+    "glm-5.3": { standard: 0.77, complex: 0.8, reasoning: 0.55 },
+    "qwen3.8-max": { standard: 0.61, complex: 0.81, reasoning: 0.52 },
+    "mimo-v2.6-pro": { standard: 0.43, complex: 0.1, reasoning: 0.37 },
+    "gpt-5.6-terra": { standard: 0.57, complex: 0.49, reasoning: 0.1 },
+  };
+  const verdicts = new Map(Object.entries(live).map(([model, lanes]) => [key(model), { source: "jev" as const, lanes }]));
+
+  it("keeps the strongest model in Reasoning although Jev scored that lane low", () => {
+    const reasoning = lane(assignLanes(inventory, verdicts), "reasoning");
+    expect(reasoning).toEqual(expect.arrayContaining(["claude-opus-5", "glm-5.3", "qwen3.8-max", "mimo-v2.6-pro"]));
+    expect(reasoning).not.toContain("gpt-5.6-terra");
+  });
+
+  it("does not leave a model out of every lane because Jev was stingy with it", () => {
+    const result = assignLanes(inventory, verdicts).find((item) => item.model === "mimo-v2.6-pro");
+    expect(Object.keys(result?.laneScores ?? {}).length).toBeGreaterThan(0);
+  });
+});

@@ -176,8 +176,13 @@ export interface LaneVerdict {
 /** Verdicts by canonical model key — one answer covers every provider copy. */
 export type LaneVerdicts = ReadonlyMap<string, LaneVerdict>;
 
-// A verdict at or above this puts the model in the lane (if the hard rules allow).
-const VERDICT_MIN = 0.5;
+// Jev answers each lane as an independent yes/no and is calibrated differently
+// per question: measured live, the strongest model of an inventory scored 0.31
+// for Reasoning but 0.87 for Complex. So a fixed bar misplaces whole lanes. A
+// verdict puts the model in a lane when it clears a small absolute floor AND a
+// share of the best answer that lane received.
+const VERDICT_FLOOR = 0.25;
+const VERDICT_RELATIVE = 0.4;
 // How much the verdict weighs in the Balanced lane score; the rest stays AA-measured.
 const VERDICT_WEIGHT = 0.5;
 // The deciders may reach a little past the mechanical thresholds — that is the
@@ -269,11 +274,17 @@ export function assignLanes(profiles: SmartModelProfile[], verdicts?: LaneVerdic
   const decided = new Map<Scored, LaneVerdict>();
   if (verdicts && verdicts.size > 0) {
     const widened = rawLanes(alive, ALLOWED_SLACK);
+    const permittedOf = (item: Scored) => new Set([...(lanes.get(item) ?? []), ...(widened.get(item) ?? [])]);
+    const best = perTier((tier) => Math.max(0, ...alive.flatMap((item) => {
+      const said = verdicts.get(item.canonicalKey)?.lanes[tier];
+      return said !== undefined && permittedOf(item).has(tier) ? [said] : [];
+    })));
     for (const item of alive) {
       const verdict = verdicts.get(item.canonicalKey);
       if (!verdict) continue;
-      const permitted = new Set([...(lanes.get(item) ?? []), ...(widened.get(item) ?? [])]);
-      const chosen = new Set(ROUTING_TIERS.filter((tier) => permitted.has(tier) && (verdict.lanes[tier] ?? 0) >= VERDICT_MIN));
+      const permitted = permittedOf(item);
+      const chosen = new Set(ROUTING_TIERS.filter((tier) => permitted.has(tier)
+        && (verdict.lanes[tier] ?? 0) >= Math.max(VERDICT_FLOOR, VERDICT_RELATIVE * best[tier])));
       // A verdict that rejects every lane leaves the model where the rules put it.
       if (chosen.size === 0) continue;
       lanes.set(item, chosen);

@@ -292,7 +292,7 @@ limitam o decisor.
   fora de Simples, variante pequena fora de Raciocínio, geração antiga já
   removida (`dropSuperseded`).
 - Ele recebe os números do AA **e** onde eles caem no inventário (quartis), e
-  responde 0..1 por lane. Pertence à lane com ≥ 0,5; a nota Balanced é metade
+  responde 0..1 por lane. Pertence à lane com ≥ `max(0,25; 0,4 × a melhor resposta daquela lane)` — o Jev responde cada lane como um sim/não independente e é calibrado diferente por pergunta (medido ao vivo: o modelo de topo tirou 0,31 em Raciocínio e 0,87 em Complexo), então um corte fixo desloca lanes inteiras; a nota Balanced é metade
   veredicto, metade medição. `laneQuality` (o preset "Maior qualidade") continua
   só medido.
 - Um veredicto que rejeita todas as lanes de um modelo o deixa onde as regras o
