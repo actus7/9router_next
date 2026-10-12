@@ -2210,5 +2210,19 @@
   "Not updated": "Não atualizados",
   "models": "modelos",
   "The provider reported no quota for this account.": "O provedor não informou cota para esta conta.",
-  "The Z.ai account of this key has no Coding Plan. If you subscribe to one, this key was created in another account: create a key in the account with the plan and update this connection.": "A conta da Z.ai desta chave não tem Coding Plan. Se você assina um, a chave foi criada em outra conta: crie uma chave na conta do plano e atualize esta conexão."
+  "The Z.ai account of this key has no Coding Plan. If you subscribe to one, this key was created in another account: create a key in the account with the plan and update this connection.": "A conta da Z.ai desta chave não tem Coding Plan. Se você assina um, a chave foi criada em outra conta: crie uma chave na conta do plano e atualize esta conexão.",
+  "Model parameters": "Parâmetros do modelo",
+  "Account used for this entry": "Conta usada nesta entrada",
+  "Add the same model on another account": "Adicionar o mesmo modelo em outra conta",
+  "Add fallback": "Adicionar fallback",
+  "Deciding lanes": "Decidindo as lanes",
+  "Generation length": "Tamanho da geração",
+  "Sampling": "Amostragem",
+  "Tooling": "Ferramentas",
+  "Provider metadata": "Metadados do provedor",
+  "Not set": "Não definido",
+  "Set": "Definido",
+  "Values you set override the client's request for": "Os valores definidos sobrescrevem o pedido do cliente para",
+  "unset ones keep the client's value. Requests that name a model instead of auto skip them.": "os não definidos mantêm o valor do cliente. Pedidos que nomeiam um modelo em vez de auto os ignoram.",
+  "accounts": "contas"
 }

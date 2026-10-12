@@ -29,6 +29,15 @@ interface SmartRoutingClassifierConfig {
   model: "auto" | string;
 }
 
+/**
+ * What one lane entry fixes beyond its model: the account it runs on and the
+ * request parameters it sets (values by catalog path — see modelParams).
+ */
+export interface LaneEntryConfig {
+  connectionId?: string;
+  params?: Record<string, string | number | boolean | null>;
+}
+
 export interface SmartRoutingConfig {
   version: 1;
   complexity: {
@@ -40,6 +49,12 @@ export interface SmartRoutingConfig {
   };
   classifier: SmartRoutingClassifierConfig;
   overrides: Partial<Record<RouteNeed, Partial<Record<RoutingTierOrDefault, string[]>>>>;
+  /**
+   * Config of each lane entry, index-aligned with `overrides[need][tier]` (null
+   * where an entry has none). Present only for lanes where something is set,
+   * so a config that never used it keeps exactly its old shape.
+   */
+  entries?: Partial<Record<RouteNeed, Partial<Record<RoutingTierOrDefault, Array<LaneEntryConfig | null>>>>>;
 }
 
 /**
@@ -118,6 +133,12 @@ export interface SmartModelProfile {
   laneQuality?: Partial<Record<RoutingTier, number>>;
   /** Whether the lane scores come from AA measurements or are an estimate. */
   scoreSource?: "measured" | "estimated";
+  /** Who decided this model's lanes: Jev, a fallback LLM, or the mechanical rules. */
+  laneSource?: "jev" | "llm" | "rules";
+  /** Suggestion board: parameters to put on this model's entry in each lane it holds (see laneParamHints). */
+  laneParams?: Partial<Record<RoutingTier, Record<string, string | number | boolean | null>>>;
+  /** Suggestion board: the active accounts of this model's provider, in the order the gateway tries them. */
+  accountIds?: string[];
   /** One key for this model across providers (see modelIdentity). */
   canonicalKey?: string;
   /** Compact reason line for the suggestion board; only with `aa`. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignLanes } from "@/server/llm-gateway/engine/services/smart-routing/laneAssignment";
+import { allowedLanes, assignLanes } from "@/server/llm-gateway/engine/services/smart-routing/laneAssignment";
 import type { AaModelMetrics, RoutingTier, SmartModelProfile } from "@/shared/llm-catalog";
 
 /**
@@ -164,5 +164,59 @@ describe("assignLanes without measurements", () => {
   it("tags each profile with its canonical key so the board can cap copies", () => {
     const result = assignLanes([profile("mimo-v2.6-pro"), profile("mimo-v2.6-pro", { modelKey: "q/mimo-v2.6-pro:free", model: "mimo-v2.6-pro:free" })]);
     expect(new Set(result.map((item) => item.canonicalKey)).size).toBe(1);
+  });
+});
+
+describe("assignLanes with external verdicts (Jev / LLM)", () => {
+  const mechanical = assignLanes(inventory);
+  const key = (model: string) => mechanical.find((item) => item.model === model)?.canonicalKey as string;
+  const verdicts = (entries: Record<string, Partial<Record<RoutingTier, number>>>, source: "jev" | "llm" = "jev") =>
+    new Map(Object.entries(entries).map(([model, lanes]) => [key(model), { source, lanes }]));
+
+  it("lets a verdict decide the lanes of the model it covers, tagged with its source", () => {
+    const result = assignLanes(inventory, verdicts({ "glm-5.3": { complex: 0.9, reasoning: 0.1 } }));
+    const glm = result.find((item) => item.model === "glm-5.3");
+    expect(Object.keys(glm?.laneScores ?? {})).toEqual(["complex"]);
+    expect(glm?.laneSource).toBe("jev");
+  });
+
+  it("keeps the mechanical lanes, tagged as rules, for models the verdict does not cover", () => {
+    const result = assignLanes(inventory, verdicts({ "glm-5.3": { complex: 0.9 } }));
+    const sol = result.find((item) => item.model === "gpt-5.6-sol");
+    const before = mechanical.find((item) => item.model === "gpt-5.6-sol");
+    expect(sol?.laneScores).toEqual(before?.laneScores);
+    expect(sol?.laneSource).toBe("rules");
+  });
+
+  it("never lets a verdict break the hard role rules: no flagship in Simple, no small variant in Reasoning", () => {
+    const result = assignLanes(inventory, verdicts({
+      "gpt-5.6-sol": { simple: 0.99 },
+      "gemini-3.8-flash": { reasoning: 0.99 },
+    }, "llm"));
+    expect(lane(result, "simple")).not.toContain("gpt-5.6-sol");
+    expect(lane(result, "reasoning")).not.toContain("gemini-3.8-flash");
+  });
+
+  it("orders a lane by the verdict blended with the measured score", () => {
+    const result = assignLanes(inventory, verdicts({
+      "qwen3.8-max": { complex: 0.99 },
+      "glm-5.3": { complex: 0.6 },
+    }));
+    const complex = lane(result, "complex");
+    expect(complex.indexOf("qwen3.8-max")).toBeLessThan(complex.indexOf("glm-5.3"));
+  });
+
+  it("keeps quality-only ordering measured: a verdict does not touch laneQuality", () => {
+    const result = assignLanes(inventory, verdicts({ "glm-5.3": { complex: 0.9 } }));
+    const before = mechanical.find((item) => item.model === "glm-5.3");
+    expect(result.find((item) => item.model === "glm-5.3")?.laneQuality?.complex).toBe(before?.laneQuality?.complex);
+  });
+
+  it("offers a wider candidate set than the mechanical lanes, never narrower", () => {
+    const allowed = allowedLanes(inventory);
+    for (const item of mechanical) {
+      const lanes = Object.keys(item.laneScores ?? {});
+      expect(allowed.get(item.canonicalKey as string)).toEqual(expect.arrayContaining(lanes));
+    }
   });
 });

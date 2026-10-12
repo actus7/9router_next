@@ -5,8 +5,12 @@ import { blendScores, isLargePrompt, loadModelStats, perfKey } from "../../host/
 import { ROUTE_NEEDS, ROUTING_TIERS, DEFAULT_SMART_ROUTING_CONFIG } from "./types";
 import { rankSmartProfilesForEndpoint, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
 import { recordRoutingTier, scoreRoutingRequest } from "./scoring";
+import { expandEntryCandidates, normalizeLane } from "./entries";
+import { resolveParamModelId, sanitizeEntryParams } from "../modelParams";
+import type { EntryConfig } from "../../host/entryConfig";
 import type {
   ClassifierSource,
+  LaneEntryConfig,
   RouteNeed,
   RoutingDecisionMeta,
   RoutingTier,
@@ -52,6 +56,8 @@ export interface SmartRoutingResolution {
   models: string[];
   meta: RoutingDecisionMeta;
   config: SmartRoutingConfig;
+  /** Per model, the account/parameters of each of its lane entries, in lane order (see expandEntryCandidates). */
+  entryConfigs: Map<string, Array<EntryConfig | undefined>>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -70,16 +76,23 @@ export function normalizeSmartRoutingConfig(value: unknown): SmartRoutingConfig 
   const classifier = isRecord(input.classifier) ? input.classifier : {};
   const rawOverrides = isRecord(input.overrides) ? input.overrides : {};
   const overrides: SmartRoutingConfig["overrides"] = {};
+  const rawEntries = isRecord(input.entries) ? input.entries : {};
+  const entries: NonNullable<SmartRoutingConfig["entries"]> = {};
   for (const need of ROUTE_NEEDS) {
     const rawNeed = isRecord(rawOverrides[need]) ? rawOverrides[need] as Record<string, unknown> : null;
     if (!rawNeed) continue;
     const next: Partial<Record<RoutingTierOrDefault, string[]>> = {};
+    const nextEntries: Partial<Record<RoutingTierOrDefault, Array<LaneEntryConfig | null>>> = {};
+    const rawNeedEntries = isRecord(rawEntries[need]) ? rawEntries[need] as Record<string, unknown> : {};
     for (const tier of ["default", ...ROUTING_TIERS] as RoutingTierOrDefault[]) {
       if (Array.isArray(rawNeed[tier])) {
-        next[tier] = [...new Set((rawNeed[tier] as unknown[]).filter((model): model is string => typeof model === "string" && model.includes("/")))];
+        const lane = normalizeLane(rawNeed[tier] as unknown[], rawNeedEntries[tier]);
+        next[tier] = lane.models;
+        if (lane.entries.some((entry) => entry !== null)) nextEntries[tier] = lane.entries;
       }
     }
     if (Object.keys(next).length > 0) overrides[need] = next;
+    if (Object.keys(nextEntries).length > 0) entries[need] = nextEntries;
   }
   return {
     version: 1,
@@ -95,6 +108,7 @@ export function normalizeSmartRoutingConfig(value: unknown): SmartRoutingConfig 
       model: typeof classifier.model === "string" && classifier.model.trim() ? classifier.model.trim() : "auto",
     },
     overrides,
+    ...(Object.keys(entries).length > 0 ? { entries } : {}),
   };
 }
 
@@ -110,7 +124,37 @@ export function validateSmartRoutingConfig(value: unknown): { ok: true; config: 
     }
   }
   if (input.overrides !== undefined && !isRecord(input.overrides)) return { ok: false, error: "routing.overrides must be an object" };
-  return { ok: true, config: normalizeSmartRoutingConfig(value) };
+  if (input.entries !== undefined && !isRecord(input.entries)) return { ok: false, error: "routing.entries must be an object" };
+  const config = normalizeSmartRoutingConfig(value);
+  const paramsError = findInvalidEntryParams(config);
+  return paramsError ? { ok: false, error: paramsError } : { ok: true, config };
+}
+
+/**
+ * Entry parameters are checked against the catalog when saved: a value the
+ * provider would reject, or a parameter the model does not have, is an error the
+ * user sees now rather than a request that fails (or silently ignores it) later.
+ */
+function findInvalidEntryParams(config: SmartRoutingConfig): string | null {
+  for (const [need, tiers] of Object.entries(config.entries ?? {})) {
+    for (const [tier, lane] of Object.entries(tiers ?? {})) {
+      const models = config.overrides[need as RouteNeed]?.[tier as RoutingTierOrDefault] ?? [];
+      for (const [index, entry] of (lane ?? []).entries()) {
+        if (!entry?.params) continue;
+        const modelKey = models[index];
+        const upstream = modelKey.slice(modelKey.indexOf("/") + 1);
+        const ids = [...new Set([resolveParamModelId(upstream), resolveParamModelId(upstream, { subscription: true })].filter((id): id is string => Boolean(id)))];
+        const where = `routing.entries.${need}.${tier}[${index}] (${modelKey})`;
+        if (ids.length === 0) return `${where}: this model has no configurable parameters`;
+        const results = ids.map((id) => sanitizeEntryParams(id, entry.params));
+        const failed = results.find((result) => !result.ok);
+        if (failed && !failed.ok && results.every((result) => !result.ok)) {
+          return `${where}: ${failed.issues.map((item) => `${item.path || "params"}: ${item.message}`).join("; ")}`;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function getHeader(headers: ResolveSmartRoutingOptions["headers"], name: string): string | null {
@@ -287,7 +331,7 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
     config,
     tokenEstimate: assessment.signals.tokenEstimate,
   });
-  const ranked = ranking.candidates;
+  const { candidates: ranked, entryConfigs } = expandEntryCandidates(ranking.candidates, config, ranking.need);
   if (ranking.fellBackToEndpointNeed) {
     chosenNeed = ranking.need;
     reason = "endpoint";
@@ -311,7 +355,7 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
     profileSources: [...sourceSet],
   };
   recordRoutingTier(options.sessionKey, chosenTier);
-  return { models: meta.candidates, meta, config };
+  return { models: meta.candidates, meta, config, entryConfigs };
 }
 
 export async function getSmartCombo(modelStr: string): Promise<SmartComboEntry | null> {

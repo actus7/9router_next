@@ -6,7 +6,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { Database, GripVertical, Pencil, Plus, RefreshCw, RotateCcw, Sparkles, X } from "lucide-react";
+import { Copy, Database, GripVertical, Pencil, Plus, RefreshCw, RotateCcw, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import ProviderIcon from "@/shared/components/ProviderIcon";
@@ -14,7 +14,9 @@ import TierModelPickerModal, { type ModelPriceInfo } from "@/shared/components/T
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
-import { ROUTING_TIERS, type RoutingTier, type SmartModelProfile } from "@/shared/llm-catalog";
+import { ROUTING_TIERS, type LaneEntryConfig, type RoutingTier, type SmartModelProfile } from "@/shared/llm-catalog";
+import ModelParamsDialog from "./ModelParamsDialog";
+import { useModelParamInfo } from "./useModelParamInfo";
 import type { SuggestionPreview } from "./smartComboHelpers";
 
 const TIER_META: Record<RoutingTier, { label: string; scoreRange: string }> = {
@@ -42,11 +44,23 @@ interface RowProps {
   profile: SmartModelProfile | undefined;
   providerId: string;
   providerName: string;
+  entry: LaneEntryConfig | null;
+  onEntryChange: (entry: LaneEntryConfig | null) => void;
+  onDuplicate: (connectionId: string) => void;
   onEdit: () => void;
   onRemove: () => void;
 }
 
-function TierModelRow({ id: _id, index, value, profile, providerId, providerName, onEdit, onRemove }: RowProps) {
+const NO_ENTRY: LaneEntryConfig = {};
+function cleaned(entry: LaneEntryConfig): LaneEntryConfig | null {
+  return entry.connectionId || (entry.params && Object.keys(entry.params).length > 0) ? entry : null;
+}
+
+function TierModelRow({ id: _id, index, value, profile, providerId, providerName, entry, onEntryChange, onDuplicate, onEdit, onRemove }: RowProps) {
+  const info = useModelParamInfo(value);
+  const [paramsOpen, setParamsOpen] = useState(false);
+  const connections = info?.connections ?? [];
+  const hasParams = Boolean(entry?.params && Object.keys(entry.params).length > 0);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id: _id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -85,6 +99,29 @@ function TierModelRow({ id: _id, index, value, profile, providerId, providerName
 
         <span className="shrink-0 rounded-full bg-surface px-1.5 py-0.5 text-center text-[10px] font-medium text-text-muted">{index + 1}º</span>
 
+        {connections.length > 1 && (
+          <>
+            <select
+              className="h-6 max-w-24 shrink-0 rounded-md border border-input bg-transparent px-1 text-[11px] dark:bg-input/30"
+              value={entry?.connectionId ?? ""}
+              title={translate("Account used for this entry") || "Account used for this entry"}
+              onChange={(e) => onEntryChange(cleaned({ ...(entry ?? NO_ENTRY), connectionId: e.target.value || undefined }))}
+            >
+              <option value="">{translate("Auto") || "Auto"}</option>
+              {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
+            </select>
+            <Button variant="ghost" size="icon-xs" className="size-5 shrink-0" title={translate("Add the same model on another account") || "Add the same model on another account"}
+              aria-label={translate("Add fallback") || "Add fallback"}
+              onClick={() => onDuplicate(connections.find((c) => c.id !== entry?.connectionId)?.id ?? "")}>
+              <Copy className="size-3.5" />
+            </Button>
+          </>
+        )}
+        {info?.spec && (
+          <Button variant="ghost" size="icon-xs" onClick={() => setParamsOpen(true)} className={cn("size-5 shrink-0", hasParams && "text-primary")} title={translate("Model parameters") || "Model parameters"} aria-label={`${translate("Model parameters") || "Model parameters"} ${displayName}`}>
+            <SlidersHorizontal className="size-3.5" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon-xs" onClick={onEdit} className="size-5 shrink-0" title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
           <Pencil className="size-3.5" />
         </Button>
@@ -94,6 +131,15 @@ function TierModelRow({ id: _id, index, value, profile, providerId, providerName
       </div>
 
       <p className="truncate pl-[26px] text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
+      {paramsOpen && info?.spec && (
+        <ModelParamsDialog
+          modelName={displayName}
+          params={info.spec.params}
+          initial={entry?.params}
+          onClose={() => setParamsOpen(false)}
+          onSave={(params) => { onEntryChange(cleaned({ ...(entry ?? NO_ENTRY), params })); setParamsOpen(false); }}
+        />
+      )}
     </div>
   );
 }
@@ -101,13 +147,14 @@ function TierModelRow({ id: _id, index, value, profile, providerId, providerName
 interface TierColumnProps {
   tier: RoutingTier;
   models: string[];
+  entries: Array<LaneEntryConfig | null>;
   profileByKey: Map<string, SmartModelProfile>;
   activeProviders: ActiveProvider[];
   modelAliases: Record<string, string>;
-  onChange: (models: string[]) => void;
+  onChange: (models: string[], entries: Array<LaneEntryConfig | null>) => void;
 }
 
-function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases, onChange }: TierColumnProps) {
+function TierColumn({ tier, models, entries, profileByKey, activeProviders, modelAliases, onChange }: TierColumnProps) {
   const meta = TIER_META[tier];
   const [pickerMode, setPickerMode] = useState<{ index: number | null } | null>(null);
 
@@ -122,6 +169,8 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
     return map;
   }, [profileByKey]);
 
+  // Entries are index-aligned with models; pad so a lane with none configured lines up.
+  const laneEntries = models.map((_, index) => entries[index] ?? null);
   const itemIds = models.map((model, index) => `${tier}:${index}:${model}`);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -130,7 +179,7 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
     const oldIndex = itemIds.indexOf(String(active.id));
     const newIndex = itemIds.indexOf(String(over.id));
     if (oldIndex === -1 || newIndex === -1) return;
-    onChange(arrayMove(models, oldIndex, newIndex));
+    onChange(arrayMove(models, oldIndex, newIndex), arrayMove(laneEntries, oldIndex, newIndex));
   };
 
   // dnd-kit numbers its aria-describedby with a global counter that differs between SSR and hydration; a stable id fixes it.
@@ -138,11 +187,12 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
 
   const handlePick = (value: string) => {
     if (pickerMode?.index === null || pickerMode?.index === undefined) {
-      onChange([...models, value]);
+      onChange([...models, value], [...laneEntries, null]);
     } else {
       const next = [...models];
       next[pickerMode.index] = value;
-      onChange(next);
+      // A different model has different parameters and may not live on that account.
+      onChange(next, laneEntries.map((entry, i) => (i === pickerMode.index ? null : entry)));
     }
     setPickerMode(null);
   };
@@ -154,7 +204,7 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
           <p className="text-sm font-semibold text-text-main">{meta.label}</p>
           <p className="text-xs text-text-muted">{meta.scoreRange}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => onChange([])} disabled={models.length === 0} className="text-xs text-text-muted">
+        <Button variant="ghost" size="sm" onClick={() => onChange([], [])} disabled={models.length === 0} className="text-xs text-text-muted">
           <RotateCcw data-icon="inline-start" className="size-3.5" /> {translate("Clear")}
         </Button>
       </div>
@@ -175,8 +225,14 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
                   profile={profile}
                   providerId={providerId}
                   providerName={providerName}
+                  entry={laneEntries[index]}
+                  onEntryChange={(entry) => onChange(models, laneEntries.map((cur, i) => (i === index ? entry : cur)))}
+                  onDuplicate={(connectionId) => onChange(
+                    [...models.slice(0, index + 1), model, ...models.slice(index + 1)],
+                    [...laneEntries.slice(0, index + 1), { connectionId }, ...laneEntries.slice(index + 1)],
+                  )}
                   onEdit={() => setPickerMode({ index })}
-                  onRemove={() => onChange(models.filter((_, i) => i !== index))}
+                  onRemove={() => onChange(models.filter((_, i) => i !== index), laneEntries.filter((_, i) => i !== index))}
                 />
               );
             })}
@@ -206,6 +262,7 @@ function TierColumn({ tier, models, profileByKey, activeProviders, modelAliases,
 
 export default function ComplexityRoutingBoard({
   overrides,
+  entries,
   onOverridesChange,
   enabled,
   profiles,
@@ -218,7 +275,8 @@ export default function ComplexityRoutingBoard({
   syncingAa,
 }: {
   overrides: Partial<Record<RoutingTier, string[]>>;
-  onOverridesChange: (tier: RoutingTier, models: string[]) => void;
+  entries: Partial<Record<RoutingTier, Array<LaneEntryConfig | null>>>;
+  onOverridesChange: (tier: RoutingTier, models: string[], entries: Array<LaneEntryConfig | null>) => void;
   enabled: boolean;
   profiles: SmartModelProfile[];
   activeProviders: ActiveProvider[];
@@ -276,10 +334,11 @@ export default function ComplexityRoutingBoard({
               key={tier}
               tier={tier}
               models={overrides[tier] || []}
+              entries={entries[tier] || []}
               profileByKey={profileByKey}
               activeProviders={activeProviders}
               modelAliases={modelAliases}
-              onChange={(models) => onOverridesChange(tier, models)}
+              onChange={(models, laneEntries) => onOverridesChange(tier, models, laneEntries)}
             />
           ))}
         </div>

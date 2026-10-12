@@ -321,6 +321,10 @@ Reads that every request repeats are memoised per process with `TtlMemo` (`src/l
 
 Durable-run text reaches a watcher in the same process through `runBus` (the worker pushes, no Neon read) and a watcher on another instance by polling the row: every 250ms while text is arriving, every 700ms after 5s without any. The worker's progress write is fire-and-forget (one in flight) so a slow database never stalls the provider stream.
 
+## Lane entries: account and parameters
+
+A smart combo lane is `overrides[need][tier]: string[]`; what an entry fixes beyond its model lives in `routing.entries[need][tier]`, index-aligned and present only where something is set. The same model may be listed once per account. The router expands such a model into one candidate per entry and attaches each entry's `{connectionId, params}` to the request (`engine/host/entryConfig`); the combo hands the nth attempt of a model its nth entry. `connectionId` is strict (`onlyConnectionId`: that account or the attempt fails, never another) and is checked against the owner when saved. `params` are values by path of the `modelparams` catalog, validated when saved and merged into the translated body — only when the target format is the catalog entry's API surface (`modelParams.surfaceMatches`). Design and decisions: `docs/superpowers/specs/2026-10-12-combo-entry-params-and-account-design.md`.
+
 ## Compatibility
 
 The public gateway protocols remain stable: OpenAI chat/Responses/embeddings, Anthropic, Gemini and SSE. Legacy provider aliases are resolved by the catalog. Schema changes are additive: `syncSchema()` adds missing tables, columns and indexes on boot. A destructive change is run by hand against the Neon branch and then reflected in `schema.ts` — Neon's branching covers the rollback case the old pre-schema backup existed for.

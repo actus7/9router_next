@@ -23,7 +23,8 @@ export {
   canonicalModelKey,
   isChatModel,
 } from "@/server/llm-gateway/engine/services/smart-routing/modelIdentity";
-export { assignLanes } from "@/server/llm-gateway/engine/services/smart-routing/laneAssignment";
+export { assignLanes, allowedLanes } from "@/server/llm-gateway/engine/services/smart-routing/laneAssignment";
+export type { LaneVerdict, LaneVerdicts } from "@/server/llm-gateway/engine/services/smart-routing/laneAssignment";
 export type {
   RoutingTier,
   RouteNeed,

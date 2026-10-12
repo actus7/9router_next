@@ -7,6 +7,7 @@ import { unavailableResponse } from "../utils/error";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
 import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_HEDGE_ENABLED, COMBO_HEDGE_MAX_PROMPT_TOKENS, COMBO_TIME_BUDGET_MS, STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
+import { applyEntryConfig } from "../host/entryConfig";
 import { holdFreeFallback, setAttemptSignal, setFirstByteBudget } from "../utils/firstByteGuard";
 import { adaptiveFirstByteBudget, estimatePromptTokens, hedgeDelayMs, LARGE_PROMPT_TOKENS, loadModelStats, perfKey, recordAttemptDatum, setPerfKey } from "../host/modelStats";
 import { getStickyModel, orderByPenalty, recordModelFailure, recordModelSuccess, rememberStickyModel } from "./modelPenalty";
@@ -446,6 +447,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     const signal = race?.controllers.get(i)?.signal;
     if (signal) setAttemptSignal(attemptBody, signal);
     setPerfKey(attemptBody, perfKey(modelStr, largePrompt));
+    applyEntryConfig(attemptBody, rotatedModels, i);
     holdFreeFallback(attemptBody, i < rotatedModels.length - 1);
 
     const startedAt = Date.now();

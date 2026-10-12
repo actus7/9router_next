@@ -1,3 +1,4 @@
+import { findForeignEntryConnection } from "@/server/application/use-cases/smart-routing/entryConnections";
 import { NextRequest, NextResponse } from "next/server";
 import { getCombos, createCombo, getComboByName } from "@/lib/db/repos/combosRepo";
 import { DEFAULT_SMART_ROUTING_CONFIG, validateSmartRoutingConfig } from "@/server/llm-gateway/smart-routing";
@@ -44,6 +45,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     const routingValidation = validateSmartRoutingConfig(kind === "smart" ? (body.routing || DEFAULT_SMART_ROUTING_CONFIG) : null);
     if (!routingValidation.ok) return NextResponse.json({ error: routingValidation.error }, { status: 400 });
+    const foreign = routingValidation.config ? await findForeignEntryConnection(routingValidation.config) : null;
+    if (foreign) return NextResponse.json({ error: foreign }, { status: 400 });
 
     const modelsError = chatComboModelsError(kind, models, body.routing);
     if (modelsError) return NextResponse.json({ error: modelsError }, { status: 400 });

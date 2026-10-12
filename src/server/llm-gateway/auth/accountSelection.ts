@@ -122,7 +122,10 @@ interface ResolvedProxyConfig {
 }
 
 interface GetCredentialsOptions {
+  /** Soft: used when available, otherwise any other account of the provider. */
   preferredConnectionId?: string;
+  /** Strict: this account or none — a locked one answers `allRateLimited`, never another account. */
+  onlyConnectionId?: string;
 }
 
 /**
@@ -225,7 +228,8 @@ export async function getProviderCredentials(
     getProviderConnections({ provider: providerId, isActive: true }),
     getSettings(),
   ]);
-  const connections = connectionRows as AuthConnection[];
+  const onlyConnectionId: string | null = options?.onlyConnectionId || null;
+  const connections = (connectionRows as AuthConnection[]).filter((connection) => !onlyConnectionId || connection.id === onlyConnectionId);
   const settings = rawSettings as AuthSettings;
   log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
 
@@ -233,7 +237,7 @@ export async function getProviderCredentials(
     // An account's own Kilo key always wins; with none, the free models are
     // still reachable anonymously — which is what makes Kilo's router the
     // credential-free default.
-    if (isAnonymousFreeModel(providerId, model)) return await publicCredentials(providerId);
+    if (!onlyConnectionId && isAnonymousFreeModel(providerId, model)) return await publicCredentials(providerId);
     log.warn("AUTH", `No credentials for ${provider}`);
     return null;
   }

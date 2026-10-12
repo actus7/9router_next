@@ -1,29 +1,36 @@
 import "server-only";
 
 import {
+  allowedLanes,
   assignLanes,
   isChatModel,
+  ROUTING_TIERS,
   refreshDeterministicSmartProfiles,
   type AaSnapshotMeta,
   type SmartModelProfile,
 } from "@/server/llm-gateway/smart-routing";
 import { currentTenantId, withTenant } from "@/lib/db/tenant";
+import { decideLaneVerdicts, defaultLaneDeciders, type LaneDecisionCounts } from "./laneVerdicts";
+import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
+import { resolveProviderId } from "@/shared/constants/providers";
+import { laneParamHints } from "@/server/llm-gateway/engine/services/smart-routing/laneParamHints";
 import { enrichProfilesWithAa, syncAaSnapshotIfStale } from "./artificialAnalysis";
 
 /**
  * "Suggest models with AI": the orchestration behind
  * POST /api/smart-routing/suggest, streaming progress as NDJSON.
  *
- * The lanes come from Artificial Analysis measurements through pure rules
- * (laneAssignment). This used to be an LLM classifier in batches of 30, a Jev
- * override, a single web search and a per-model cache to amortize all of it;
- * the classifier decided lanes the measurements contradicted, so it went, and
- * everything that existed to feed or amortize it went with it. What is left
- * runs over the whole inventory in milliseconds.
+ * The lanes are decided by Jev, with the Artificial Analysis numbers as its
+ * input; a chat model takes over when Jev is unavailable; the pure rules
+ * (laneAssignment) decide whatever neither answered. The rules always run
+ * first: they bound what a decider may choose (role rules hold whoever
+ * decides) and are the final fallback. The earlier LLM classifier failed
+ * because nothing bounded it and it overrode measurements; see laneVerdicts.
  *
  * Stream contract (one JSON object per `\n`-terminated line, in this order):
  *   {"type":"phase","phase":"aa-sync"}
  *   {"type":"phase","phase":"inventory","total":n,"llmEligible":n}
+ *   {"type":"phase","phase":"decide"}
  *   {"type":"done","payload":{...}}
  *   {"type":"error","message":"..."}  (terminal; nothing follows)
  * The AA sync stays fail-open: without a snapshot every model is estimated.
@@ -37,12 +44,14 @@ export interface SuggestDonePayload {
   /** Chat models the AA snapshot does not cover: their scores are estimates. */
   unmatched: string[];
   totalInventory: number;
+  decision: LaneDecisionCounts;
   aaMeta: (AaSnapshotMeta & { matchedCount: number }) | null;
 }
 
 type SuggestStreamEvent =
   | { type: "phase"; phase: "aa-sync" }
   | { type: "phase"; phase: "inventory"; total: number; llmEligible: number }
+  | { type: "phase"; phase: "decide" }
   | { type: "done"; payload: SuggestDonePayload }
   | { type: "error"; message: string };
 
@@ -53,6 +62,35 @@ function sanitizeErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   const cleaned = message.replace(/[{}]/g, "").trim();
   return cleaned || "Failed to suggest model profiles";
+}
+
+/**
+ * What the board needs besides the lanes: per lane, the reasoning parameters
+ * the model's catalog supports, and the provider's accounts so a model on
+ * several of them can be offered once per account. Pure rules, no decider.
+ */
+export async function withEntryHints(profiles: SmartModelProfile[]): Promise<SmartModelProfile[]> {
+  const connections = await getProviderConnections({ isActive: true });
+  const byProvider = new Map<string, typeof connections>();
+  for (const connection of connections) {
+    const key = resolveProviderId(String(connection.provider));
+    byProvider.set(key, [...(byProvider.get(key) ?? []), connection]);
+  }
+  return profiles.map((profile) => {
+    const accounts = byProvider.get(resolveProviderId(profile.provider)) ?? [];
+    const subscription = accounts.some((account) => account.authType === "oauth");
+    const laneParams: NonNullable<SmartModelProfile["laneParams"]> = {};
+    for (const tier of ROUTING_TIERS) {
+      if (typeof profile.laneScores?.[tier] !== "number") continue;
+      const hints = laneParamHints(profile.model, tier, { subscription });
+      if (hints) laneParams[tier] = hints;
+    }
+    return {
+      ...profile,
+      ...(Object.keys(laneParams).length > 0 ? { laneParams } : {}),
+      ...(accounts.length > 1 ? { accountIds: accounts.map((account) => account.id) } : {}),
+    };
+  });
 }
 
 /** The inventory the board routes general chat to (see runSuggest). */
@@ -82,7 +120,10 @@ async function* runSuggest(): AsyncGenerator<Uint8Array> {
       return;
     }
 
-    const profiles = assignLanes(enriched.profiles);
+    const mechanical = assignLanes(enriched.profiles);
+    yield emit({ type: "phase", phase: "decide" });
+    const { verdicts, counts } = await decideLaneVerdicts(mechanical, allowedLanes(enriched.profiles), defaultLaneDeciders(mechanical));
+    const profiles = await withEntryHints(verdicts.size > 0 ? assignLanes(enriched.profiles, verdicts) : mechanical);
     const unmatched = [...new Set(enriched.profiles.filter((profile) => !profile.aa).map((profile) => profile.displayName || profile.model))]
       .sort((a, b) => a.localeCompare(b));
     yield emit({
@@ -93,6 +134,7 @@ async function* runSuggest(): AsyncGenerator<Uint8Array> {
         researchedAt: new Date().toISOString(),
         unmatched,
         totalInventory: chat.length,
+        decision: counts,
         aaMeta: aa ? { ...aa.meta, matchedCount: enriched.matched } : null,
       },
     });

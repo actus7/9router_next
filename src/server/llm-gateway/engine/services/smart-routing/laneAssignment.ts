@@ -168,7 +168,24 @@ function laneScore(item: Scored, tier: RoutingTier): number {
   );
 }
 
-function eligibleLanes(scored: Scored[]): Map<Scored, Set<RoutingTier>> {
+/** What an external decider (Jev, an LLM) said about one canonical model: 0..1 per lane it was asked about. */
+export interface LaneVerdict {
+  source: "jev" | "llm";
+  lanes: Partial<Record<RoutingTier, number>>;
+}
+/** Verdicts by canonical model key — one answer covers every provider copy. */
+export type LaneVerdicts = ReadonlyMap<string, LaneVerdict>;
+
+// A verdict at or above this puts the model in the lane (if the hard rules allow).
+const VERDICT_MIN = 0.5;
+// How much the verdict weighs in the Balanced lane score; the rest stays AA-measured.
+const VERDICT_WEIGHT = 0.5;
+// The deciders may reach a little past the mechanical thresholds — that is the
+// point of asking them — but never past the role rules (flagship/small variant).
+const ALLOWED_SLACK = 0.15;
+
+/** Lanes by the thresholds alone, `slack` loosening them; the role rules never loosen. */
+function rawLanes(scored: Scored[], slack: number): Map<Scored, Set<RoutingTier>> {
   const economy = (item: Scored) => (item.cost + item.speed) / 2;
   const qualityPct = Object.fromEntries(ROUTING_TIERS.map((tier) => [
     tier,
@@ -182,20 +199,23 @@ function eligibleLanes(scored: Scored[]): Map<Scored, Set<RoutingTier>> {
     const pct = (tier: RoutingTier) => qualityPct[tier](item.quality[tier]);
     const id = item.profile.model.toLowerCase();
     const small = SMALL_VARIANT_PATTERN.test(id);
-    const cheapAndFast = economyPct(economy(item)) >= SIMPLE_ECONOMY_FLOOR;
+    const cheapAndFast = economyPct(economy(item)) >= SIMPLE_ECONOMY_FLOOR - slack;
     const flagship = !small && FLAGSHIP_PATTERN.test(id);
-    if (cheapAndFast && !flagship && (small || pct("simple") <= SIMPLE_QUALITY_CEILING)) set.add("simple");
-    if (pct("standard") >= QUALITY_FLOOR.standard) set.add("standard");
-    if (pct("complex") >= QUALITY_FLOOR.complex) set.add("complex");
+    if (cheapAndFast && !flagship && (small || pct("simple") <= SIMPLE_QUALITY_CEILING + slack)) set.add("simple");
+    if (pct("standard") >= QUALITY_FLOOR.standard - slack) set.add("standard");
+    if (pct("complex") >= QUALITY_FLOOR.complex - slack) set.add("complex");
     // Frontier models measured by AA reason by default; an unmeasured one has
     // to say so through its capabilities or its name. A small variant stays
     // out however well it measures: it is the fast sibling, not the one an
     // operator sends proofs to.
     const reasons = item.measured || item.profile.capabilities.reasoning || REASONING_NAME.test(id);
-    if (reasons && !small && pct("reasoning") >= QUALITY_FLOOR.reasoning) set.add("reasoning");
+    if (reasons && !small && pct("reasoning") >= QUALITY_FLOOR.reasoning - slack) set.add("reasoning");
     lanes.set(item, set);
   }
+  return lanes;
+}
 
+function topUpLanes(scored: Scored[], lanes: Map<Scored, Set<RoutingTier>>): Map<Scored, Set<RoutingTier>> {
   // Tiny inventories: top up any lane short of MIN_LANE_SIZE distinct models
   // with the best-scoring ones for that lane.
   for (const tier of ROUTING_TIERS) {
@@ -213,22 +233,63 @@ function eligibleLanes(scored: Scored[]): Map<Scored, Set<RoutingTier>> {
   return lanes;
 }
 
+function eligibleLanes(scored: Scored[]): Map<Scored, Set<RoutingTier>> {
+  return topUpLanes(scored, rawLanes(scored, 0));
+}
+
+/**
+ * The lanes each canonical model may be offered to a decider for: the
+ * mechanical lanes plus a margin past the thresholds. A decider answers about
+ * these and nothing else, so the role rules hold whoever decides.
+ */
+export function allowedLanes(profiles: SmartModelProfile[]): Map<string, RoutingTier[]> {
+  const alive = dropSuperseded(score(profiles));
+  const mechanical = eligibleLanes(alive);
+  const widened = rawLanes(alive, ALLOWED_SLACK);
+  const byKey = new Map<string, Set<RoutingTier>>();
+  for (const item of alive) {
+    const set = byKey.get(item.canonicalKey) ?? new Set<RoutingTier>();
+    for (const tier of mechanical.get(item) ?? []) set.add(tier);
+    for (const tier of widened.get(item) ?? []) set.add(tier);
+    byKey.set(item.canonicalKey, set);
+  }
+  return new Map([...byKey].map(([key, set]) => [key, ROUTING_TIERS.filter((tier) => set.has(tier))]));
+}
+
 /**
  * The inventory scored for the board: superseded generations removed, every
  * other profile tagged with its lanes, scores, canonical key and score source.
  * `quality`/`latencyScore` are replaced by the unified numbers, so a confirmed
  * profile carries the same scale the board ranked it on.
  */
-export function assignLanes(profiles: SmartModelProfile[]): SmartModelProfile[] {
+export function assignLanes(profiles: SmartModelProfile[], verdicts?: LaneVerdicts): SmartModelProfile[] {
   if (profiles.length === 0) return [];
   const alive = dropSuperseded(score(profiles));
   const lanes = eligibleLanes(alive);
+  const decided = new Map<Scored, LaneVerdict>();
+  if (verdicts && verdicts.size > 0) {
+    const widened = rawLanes(alive, ALLOWED_SLACK);
+    for (const item of alive) {
+      const verdict = verdicts.get(item.canonicalKey);
+      if (!verdict) continue;
+      const permitted = new Set([...(lanes.get(item) ?? []), ...(widened.get(item) ?? [])]);
+      const chosen = new Set(ROUTING_TIERS.filter((tier) => permitted.has(tier) && (verdict.lanes[tier] ?? 0) >= VERDICT_MIN));
+      // A verdict that rejects every lane leaves the model where the rules put it.
+      if (chosen.size === 0) continue;
+      lanes.set(item, chosen);
+      decided.set(item, verdict);
+    }
+    topUpLanes(alive, lanes);
+  }
   return alive.map((item) => {
     const tiers = ROUTING_TIERS.filter((tier) => lanes.get(item)?.has(tier));
+    const verdict = decided.get(item);
     const laneScores: Partial<Record<RoutingTier, number>> = {};
     const laneQuality: Partial<Record<RoutingTier, number>> = {};
     for (const tier of tiers) {
-      laneScores[tier] = laneScore(item, tier);
+      const measured = laneScore(item, tier);
+      const said = verdict?.lanes[tier];
+      laneScores[tier] = said === undefined ? measured : clamp01(VERDICT_WEIGHT * said + (1 - VERDICT_WEIGHT) * measured);
       laneQuality[tier] = item.quality[tier];
     }
     const best = [...tiers].sort((a, b) => (laneScores[b] ?? 0) - (laneScores[a] ?? 0))[0];
@@ -241,6 +302,7 @@ export function assignLanes(profiles: SmartModelProfile[]): SmartModelProfile[] 
       laneScores,
       laneQuality,
       scoreSource: item.measured ? "measured" : "estimated",
+      laneSource: verdict?.source ?? "rules",
       canonicalKey: item.canonicalKey,
       ...(reason ? { suggestionReason: reason } : {}),
     };

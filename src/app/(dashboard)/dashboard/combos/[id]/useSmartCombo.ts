@@ -4,7 +4,7 @@ import { notify } from "@/store/notificationStore";
 import { translate } from "@/i18n/runtime";
 import { DEFAULT_SMART_ROUTING_CONFIG, ROUTE_NEEDS, ROUTING_TIERS, type RouteNeed, type RoutingTierOrDefault, type SmartModelProfile, type SmartRoutingConfig } from "@/shared/llm-catalog";
 import { getStoredModelTestLatencies } from "@/shared/utils/modelTestLatency";
-import { ALL_TIERS, activeScopesFromConfig, foldGeneralDefaultIntoGlobals, normalizeConfig, suggestionLanes, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview, type SuggestProgressEvent, type SuggestProgressState } from "./smartComboHelpers";
+import { ALL_TIERS, activeScopesFromConfig, foldGeneralDefaultIntoGlobals, normalizeConfig, buildLaneEntries, suggestionLanes, withLaneEntries, type ComboData, type ModelLatencyMap, type SuggestionPreset, type SuggestionPreview, type SuggestProgressEvent, type SuggestProgressState } from "./smartComboHelpers";
 
 const EMPTY_SUGGEST_PROGRESS: SuggestProgressState = { phase: "aa-sync", inventory: null };
 
@@ -94,9 +94,10 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     if (diffs.length === 0) return null;
     return `${translate("Tuned via API") || "Tuned via API"}: ${diffs.join(" · ")}`;
   })();
-  const patchModels = (models: string[]) => setConfig((c) => ({
+  // Entry configs are index-aligned with their lane, and this editor has no row-level config: a changed list drops them.
+  const patchModels = (models: string[]) => setConfig((c) => withLaneEntries({
     ...c, overrides: { ...c.overrides, [selectedNeed]: { ...c.overrides[selectedNeed], [selectedTier]: models } },
-  }));
+  }, selectedNeed, selectedTier, []));
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -203,11 +204,14 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
       });
       setConfig((cur) => {
         const general = { ...cur.overrides.general };
+        let next = cur;
         for (const tier of ROUTING_TIERS) {
-          const tms = previewLanes[tier].map((p) => p.modelKey);
-          if (tms.length > 0) general[tier] = tms;
+          if (previewLanes[tier].length === 0) continue;
+          const built = buildLaneEntries(tier, previewLanes[tier]);
+          general[tier] = built.models;
+          next = withLaneEntries(next, "general", tier, built.entries);
         }
-        return { ...cur, overrides: { ...cur.overrides, general } };
+        return { ...next, overrides: { ...next.overrides, general } };
       });
       setPreview(null);
       notify.success(`${data.saved} ${translate("profiles confirmed and applied to board") || "profiles confirmed and applied to board"}`);

@@ -24,7 +24,8 @@ export function preferWarmModel(models: string[], comboName: string, key: string
   const warm = getStickyModel(key, namespace(comboName));
   if (!warm || models[0] === warm || !models.includes(warm)) return models;
   if (allowed && !allowed.has(warm)) return models;
-  return [warm, ...models.filter((m) => m !== warm)];
+  // Every copy moves: a model listed once per account keeps all its accounts, in their order.
+  return [...models.filter((m) => m === warm), ...models.filter((m) => m !== warm)];
 }
 
 /** The column of the tier a smart request was classified into; undefined for a plain combo. */

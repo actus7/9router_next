@@ -47,6 +47,7 @@ export type {
   RoutingTierOrDefault,
   RouteNeed,
   SmartRoutingConfig,
+  LaneEntryConfig,
   SmartModelProfile,
   AaModelMetrics,
   AaSnapshotMeta,

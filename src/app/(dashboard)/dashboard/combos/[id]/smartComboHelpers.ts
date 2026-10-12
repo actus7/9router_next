@@ -2,6 +2,7 @@ import {
   DEFAULT_SMART_ROUTING_CONFIG,
   ROUTE_NEEDS,
   ROUTING_TIERS,
+  type LaneEntryConfig,
   type RouteNeed,
   type RoutingTier,
   type RoutingTierOrDefault,
@@ -24,6 +25,8 @@ export interface SuggestionPreview {
   /** Chat models the AA snapshot does not cover: their scores are estimates. */
   unmatched: string[];
   totalInventory: number;
+  /** How many canonical models each decider settled: Jev, the fallback LLM, the mechanical rules. */
+  decision?: { jev: number; llm: number; rules: number };
   /** Artificial Analysis snapshot provenance; null when the enrichment is off or failed. */
   aaMeta?: { fetchedAt: string; indexVersion: number | null; matchedCount: number; modelCount: number } | null;
 }
@@ -34,18 +37,19 @@ export type SuggestionLanes = Record<RoutingTier, SmartModelProfile[]>;
 
 /**
  * NDJSON events streamed by POST /api/smart-routing/suggest: one JSON per
- * line, in this order — two phase markers, then a single terminal `done` or
+ * line, in this order — three phase markers, then a single terminal `done` or
  * `error`.
  */
 export type SuggestProgressEvent =
   | { type: "phase"; phase: "aa-sync" }
   | { type: "phase"; phase: "inventory"; total: number; llmEligible: number }
+  | { type: "phase"; phase: "decide" }
   | { type: "done"; payload: SuggestionPreview }
   | { type: "error"; message: string };
 
 /** The stream events folded into what the progress modal renders. */
 export interface SuggestProgressState {
-  phase: "aa-sync" | "inventory";
+  phase: "aa-sync" | "inventory" | "decide";
   inventory: { total: number; llmEligible: number } | null;
 }
 
@@ -168,6 +172,32 @@ export function suggestionLanes(
 }
 
 /**
+ * One lane of the suggestion as stored: model keys plus index-aligned entry
+ * configs. The lane's reasoning parameters go on each entry, and a model that
+ * has several accounts is listed twice (first and second account) — a primary
+ * and a fallback — without exceeding two copies of a model per lane.
+ */
+export function buildLaneEntries(tier: RoutingTier, lane: SmartModelProfile[]): { models: string[]; entries: Array<LaneEntryConfig | null> } {
+  const models: string[] = [];
+  const entries: Array<LaneEntryConfig | null> = [];
+  const copies = new Map<string, number>();
+  const push = (profile: SmartModelProfile, connectionId?: string) => {
+    const params = profile.laneParams?.[tier];
+    models.push(profile.modelKey);
+    entries.push(connectionId || params ? { ...(connectionId ? { connectionId } : {}), ...(params ? { params } : {}) } : null);
+    copies.set(profile.modelKey, (copies.get(profile.modelKey) ?? 0) + 1);
+  };
+  for (const profile of lane) {
+    if ((copies.get(profile.modelKey) ?? 0) >= MAX_COPIES_PER_LANE) continue;
+    const accounts = profile.accountIds ?? [];
+    if (accounts.length < 2) { push(profile); continue; }
+    push(profile, accounts[0]);
+    push(profile, accounts[1]);
+  }
+  return { models, entries };
+}
+
+/**
  * Folds a legacy `overrides.general.default` bucket into the global list.
  *
  * Two editors used to write to the same effective slot: `combo.models` (which
@@ -196,6 +226,20 @@ export function foldGeneralDefaultIntoGlobals(
   };
 }
 
+/**
+ * `config` with one lane's entry configs replaced (index-aligned with its
+ * models). Empty configs drop the key, so a lane nobody configured keeps the
+ * shape it always had; pass `[]` to clear the lane's entries.
+ */
+export function withLaneEntries(config: SmartRoutingConfig, need: RouteNeed, tier: RoutingTierOrDefault, laneEntries: Array<LaneEntryConfig | null>): SmartRoutingConfig {
+  const entries = { ...config.entries };
+  const forNeed = { ...entries[need] };
+  if (laneEntries.some((entry) => entry !== null)) forNeed[tier] = laneEntries; else delete forNeed[tier];
+  if (Object.keys(forNeed).length > 0) entries[need] = forNeed; else delete entries[need];
+  const { entries: _previous, ...rest } = config;
+  return Object.keys(entries).length > 0 ? { ...rest, entries } : rest;
+}
+
 export function normalizeConfig(value: Record<string, unknown> | null): SmartRoutingConfig {
   const input = value || {};
   const complexity = input.complexity as Partial<SmartRoutingConfig["complexity"]> | undefined;
@@ -207,5 +251,6 @@ export function normalizeConfig(value: Record<string, unknown> | null): SmartRou
     task: { ...DEFAULT_SMART_ROUTING_CONFIG.task, ...task },
     classifier: { ...DEFAULT_SMART_ROUTING_CONFIG.classifier, ...classifier },
     overrides: (input.overrides as SmartRoutingConfig["overrides"] | undefined) || {},
+    ...(input.entries ? { entries: input.entries as SmartRoutingConfig["entries"] } : {}),
   };
 }

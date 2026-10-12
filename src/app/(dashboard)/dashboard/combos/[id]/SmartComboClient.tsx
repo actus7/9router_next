@@ -17,7 +17,7 @@ import { ModelInventoryCard } from "./ModelInventoryCard";
 import { PreviewModal } from "./PreviewModal";
 import { ProgressModal } from "./ProgressModal";
 import { SaveBar } from "./SaveBar";
-import type { ComboData, SuggestionPreview } from "./smartComboHelpers";
+import { withLaneEntries, type ComboData, type SuggestionPreview } from "./smartComboHelpers";
 
 export default function SmartComboClient({ initialCombo, activeProviders, modelAliases, initialProfiles }: {
   initialCombo: ComboData;
@@ -96,9 +96,11 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
 
       <ComplexityRoutingBoard
         overrides={s.config.overrides.general || {}}
-        onOverridesChange={(tier, models) => s.setConfig((c) => ({
-          ...c, overrides: { ...c.overrides, general: { ...c.overrides.general, [tier]: models } },
-        }))}
+        entries={s.config.entries?.general || {}}
+        onOverridesChange={(tier, models, laneEntries) => s.setConfig((c) => withLaneEntries(
+          { ...c, overrides: { ...c.overrides, general: { ...c.overrides.general, [tier]: models } } },
+          "general", tier, laneEntries,
+        ))}
         enabled={s.config.complexity.enabled}
         profiles={s.profiles}
         activeProviders={activeProviders as unknown as ActiveProvider[]}

@@ -46,6 +46,7 @@ import {
 } from "@/server/llm-gateway/engine/services/smart-routing/router";
 import { smartRoutingClassifiers } from "./routingClassifier";
 import { setPerfKey } from "@/server/llm-gateway/engine/host/modelStats";
+import { attachEntryConfigs, getEntryConfig, setEntryConfig } from "@/server/llm-gateway/engine/host/entryConfig";
 import { setFirstByteBudget } from "@/server/llm-gateway/engine/utils/firstByteGuard";
 import { recordFailedRequest } from "./failedRequestUsage";
 import {
@@ -120,6 +121,7 @@ async function trySmartComboRouting(
     return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, `No compatible active model found for smart combo: ${modelStr}`);
   }
   attachRoutingDecision(body, routing.meta);
+  attachEntryConfigs(body, routing.entryConfigs);
   recordRoutingStep(body, {
     kind: "smart",
     name: modelStr,
@@ -435,6 +437,8 @@ async function tryFreeFallbackChat(
   const freeBody = { ...body, model: FREE_DEFAULT_MODEL_KEY };
   setFirstByteBudget(freeBody, undefined);
   setPerfKey(freeBody, undefined);
+  // The account and parameters belong to the entry that just ran out of accounts.
+  setEntryConfig(freeBody, undefined);
   const response = await handleSingleModelChat(
     freeBody,
     FREE_DEFAULT_MODEL_KEY,
@@ -479,7 +483,7 @@ export async function handleSingleModelChat(
     // A hedged attempt that lost before it reached the upstream: stop here, and
     // leave the accounts alone (it says nothing about them).
     if (getAttemptSignal(body)?.aborted) return errorResponse(499, "attempt aborted: another model answered first");
-    const credentials: CredentialsResult | null = await getProviderCredentials(provider, excludeConnectionIds, model);
+    const credentials: CredentialsResult | null = await getProviderCredentials(provider, excludeConnectionIds, model, { onlyConnectionId: getEntryConfig(body)?.connectionId });
 
     if (!credentials || credentials.allRateLimited) {
       recordRoutingStep(body, {

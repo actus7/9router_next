@@ -8,7 +8,7 @@ import type { SuggestProgressState } from "./smartComboHelpers";
 
 type PhaseKey = SuggestProgressState["phase"];
 
-const PHASE_ORDER: PhaseKey[] = ["aa-sync", "inventory"];
+const PHASE_ORDER: PhaseKey[] = ["aa-sync", "inventory", "decide"];
 
 function PhaseIcon({ state }: { state: "done" | "active" | "pending" }) {
   if (state === "done") {
@@ -74,6 +74,7 @@ export function ProgressModal({ progress, onCancel }: { progress: SuggestProgres
                 ? `${progress.inventory.llmEligible}/${progress.inventory.total} ${translate("LLM-eligible") || "LLM-eligible"}`
                 : null,
             )}
+            {phaseRow("decide", translate("Deciding lanes") || "Deciding lanes", null)}
           </ol>
         </div>
 

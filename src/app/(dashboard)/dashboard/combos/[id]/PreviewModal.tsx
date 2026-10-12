@@ -94,7 +94,11 @@ function LaneCard({ profile, tier, preset, latencies }: {
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-main" title={profile.modelKey}>{profile.displayName || profile.modelKey}</span>
         <span className="shrink-0 text-[11px] text-text-muted">{value}</span>
       </div>
-      <p className="truncate text-[10px] text-text-muted" title={profile.modelKey}>{profile.provider}</p>
+      <p className="truncate text-[10px] text-text-muted" title={profile.modelKey}>
+        {profile.provider}
+        {profile.laneParams?.[tier] && ` · ${Object.entries(profile.laneParams[tier]).map(([path, v]) => `${path}=${String(v)}`).join(", ")}`}
+        {(profile.accountIds?.length ?? 0) > 1 && ` · ${Math.min(profile.accountIds?.length ?? 0, 2)} ${translate("accounts") || "accounts"}`}
+      </p>
       {chips.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {chips.map((chip) => (

@@ -1,3 +1,4 @@
+import { findForeignEntryConnection } from "@/server/application/use-cases/smart-routing/entryConnections";
 import { NextRequest, NextResponse } from "next/server";
 import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/db/repos/combosRepo";
 import { resetComboRotation } from "@/server/llm-gateway/catalog";
@@ -56,6 +57,8 @@ export async function PUT(request: NextRequest, { params }: RouteContext): Promi
     if (nextKind === "smart") {
       const validation = validateSmartRoutingConfig(body.routing ?? prev.routing ?? DEFAULT_SMART_ROUTING_CONFIG);
       if (!validation.ok) return NextResponse.json({ error: validation.error }, { status: 400 });
+      const foreign = await findForeignEntryConnection(validation.config);
+      if (foreign) return NextResponse.json({ error: foreign }, { status: 400 });
       body.routing = validation.config;
     } else if (body.routing !== undefined) {
       body.routing = null;

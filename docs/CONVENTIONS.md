@@ -272,9 +272,37 @@ considerado" na ordem em que foi salva. O nível virava rótulo: um modelo
 a coluna geral do mesmo nível (`rankSmartProfiles`), e `isEligible` continua
 tirando dela o que não serve ao tipo (sem tool calling, sem visão…).
 
-## "Sugerir modelos com IA": lanes por regra sobre medições (decisão de 2026-10-03)
+## "Sugerir modelos com IA": Jev decide, as regras limitam (revisão de 2026-10-12)
 
-As quatro lanes do combo smart vêm de `assignLanes`
+Quem decide as lanes é uma **cadeia**: Jev (flag `jevSuggestRouting`) → um modelo
+de chat da conta (`chooseLaneClassifier`: o de melhor nota Standard do
+inventário) → as regras (`assignLanes`). Cada lote de 8 modelos canônicos cai
+no primeiro decisor que responde; um decisor que falha uma vez não é perguntado
+de novo na rodada (uma chave morta custaria um timeout por lote). Quem nenhum
+respondeu fica com as lanes das regras — o resultado nunca é pior que o de
+antes. O payload do `done` traz `decision: {jev, llm, rules}` e cada perfil traz
+`laneSource`.
+
+O que impede de repetir o erro de 2026-10-03 (o classificador LLM contradizia as
+medições, pondo Gemini 3.1 Pro em Simples): as regras rodam **primeiro** e
+limitam o decisor.
+
+- O decisor só é perguntado sobre `allowedLanes`: as lanes das regras mais uma
+  folga de 0,15 nos limiares. As **regras de papel** nunca afrouxam — flagship
+  fora de Simples, variante pequena fora de Raciocínio, geração antiga já
+  removida (`dropSuperseded`).
+- Ele recebe os números do AA **e** onde eles caem no inventário (quartis), e
+  responde 0..1 por lane. Pertence à lane com ≥ 0,5; a nota Balanced é metade
+  veredicto, metade medição. `laneQuality` (o preset "Maior qualidade") continua
+  só medido.
+- Um veredicto que rejeita todas as lanes de um modelo o deixa onde as regras o
+  puseram.
+
+O resto desta seção, da decisão de 2026-10-03, continua valendo para as regras
+(que são o limite e o último recurso) e está abaixo como foi escrito.
+
+
+Antes desta revisão, as quatro lanes do combo smart vinham só de `assignLanes`
 (`smart-routing/laneAssignment.ts`), uma função pura sobre o snapshot do
 Artificial Analysis. Não há LLM, Jev, web research nem cache nesse caminho.
 Antes havia os quatro: um LLM escolhia **uma** lane por modelo, com os números

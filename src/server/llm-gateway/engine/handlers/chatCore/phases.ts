@@ -7,6 +7,8 @@
 
 import { getTargetFormat, resolveTransport } from "../../services/provider";
 import { translateRequest } from "../../translator/index";
+import { getEntryConfig } from "../../host/entryConfig";
+import { applyConfiguredEntryParams } from "../../services/modelParams";
 import { applyThinking, extractThinking, stripThinkingSuffix } from "../../translator/concerns/thinkingUnified";
 import { FORMATS } from "../../translator/formats";
 import { normalizeClaudePassthrough, anchorClaudeCache } from "../../translator/formats/claude";
@@ -262,6 +264,11 @@ export async function prepareTranslatedBody(params: {
       log?.debug?.("TOOLDEDUP", `stripped ${stripped.length}: ${stripped.slice(0, 3).join(", ")}${stripped.length > 3 ? "..." : ""}`);
     }
   }
+
+  // Values fixed by the combo entry being tried win over the client's, on the
+  // provider-shaped body — the catalog's paths are the provider's own.
+  const entryParams = getEntryConfig(body)?.params;
+  if (entryParams) translatedBody = applyConfiguredEntryParams(translatedBody, upstreamModel, entryParams, typeof credentials?.authType === "string" ? credentials.authType : undefined, passthrough ? undefined : targetFormat);
 
   return { passthrough, clientTool, translatedBody, toolNameMap, customToolNames };
 }
