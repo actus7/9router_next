@@ -92,5 +92,7 @@ Pós-passo sobre `assignLanes`, puro e testável:
 
 - ~~Jev real nas lanes~~ verificado em 2026-10-12 com a chave TypeSafe salva na conta: 14/14 modelos decididos em ~1 s. A calibração achou que o corte fixo de 0,5 expulsava o modelo de topo do Raciocínio (Jev deu 0,31); agora o corte é `max(0,25; 0,4 × melhor resposta da lane)`, com teste de regressão com as probabilidades reais.
 - Conferir no navegador o diálogo, o select de conta e a fase "Deciding lanes".
-- Provider real com duas contas: pedido pelo combo, conferindo a conta usada no trail de tentativas.
+- ~~Provider real com duas contas~~ verificado em 2026-10-12 (Kiro, 3 contas OAuth): `handleSingleModelChat` com `connectionId` fixado respondeu 200 na conta de prioridade 3 e na de prioridade 2 (o padrão fill-first usaria a 1), e uma conta inexistente deu 404 sem cair em outra.
+- ~~LLM de fallback~~ verificado com modelo real (`deepseek-v4.1-flash`, escolhido pelo `chooseLaneClassifier`): 12/12 modelos em ~18 s, valores coerentes. Fluxo completo de "Sugerir" na conta real: 250 modelos elegíveis, Jev decidiu 112 canônicos.
+- Falta só olhar a tela num navegador logado.
 - Traduções: só pt-BR foi adicionada; as outras 33 línguas caem no inglês.
