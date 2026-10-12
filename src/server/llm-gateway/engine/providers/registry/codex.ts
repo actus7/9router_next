@@ -1,4 +1,6 @@
 
+import { CODEX_CLIENT_VERSION } from "../codexClientVersion";
+
 export default {
   id: "codex",
   priority: 30,
@@ -35,7 +37,7 @@ export default {
     forceStream: true,
     headers: {
       originator: "codex_cli_rs",
-      "User-Agent": "codex_cli_rs/0.136.0",
+      "User-Agent": `codex_cli_rs/${CODEX_CLIENT_VERSION}`,
     },
     usage: {
       url: "https://chatgpt.com/backend-api/wham/usage",

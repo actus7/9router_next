@@ -1,3 +1,4 @@
+import { CODEX_CLIENT_VERSION } from "@/server/llm-gateway/engine/providers/codexClientVersion";
 import { buildClineHeaders, refreshProviderCredentials, shouldRefreshCredentials } from "@/server/llm-gateway/auth";
 import { PROVIDERS } from "@/server/llm-gateway/catalog";
 import {
@@ -42,7 +43,7 @@ const OAUTH_TEST_CONFIG: Record<string, OAuthTestConfig> = {
     method: "POST",
     authHeader: "Authorization",
     authPrefix: "Bearer ",
-    extraHeaders: { "Content-Type": "application/json", "originator": "codex_cli_rs", "User-Agent": "codex_cli_rs/0.136.0" },
+    extraHeaders: { "Content-Type": "application/json", "originator": "codex_cli_rs", "User-Agent": `codex_cli_rs/${CODEX_CLIENT_VERSION}` },
     body: JSON.stringify({ model: "gpt-5.3-codex", input: [], stream: false, store: false }),
     acceptStatuses: [400],
     refreshable: true,
