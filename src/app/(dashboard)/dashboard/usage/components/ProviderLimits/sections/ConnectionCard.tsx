@@ -380,6 +380,10 @@ export default function ConnectionCard({
           <div className="text-center py-5">
             <p className="text-xs text-text-muted">{quota.message}</p>
           </div>
+        ) : quota && visibleQuotas.length === 0 && hiddenQuotaRows.length === 0 ? (
+          <div className="text-center py-5">
+            <p className="text-xs text-text-muted">{translate("The provider reported no quota for this account.")}</p>
+          </div>
         ) : (
           <QuotaTable
             quotas={visibleQuotas}

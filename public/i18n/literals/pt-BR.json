@@ -2208,5 +2208,7 @@
   "Failed to update models": "Falha ao atualizar os modelos",
   "providers updated": "provedores atualizados",
   "Not updated": "Não atualizados",
-  "models": "modelos"
+  "models": "modelos",
+  "The provider reported no quota for this account.": "O provedor não informou cota para esta conta.",
+  "No GLM Coding Plan on this key. Z.ai only reports quota for the Coding Plan; pay-as-you-go balance is not shown here.": "Esta chave do GLM não tem Coding Plan. A Z.ai só informa cota do Coding Plan; o saldo pago por uso não aparece aqui."
 }

@@ -123,6 +123,11 @@ export async function getAntigravityUsage(accessToken: string, providerSpecificD
     const subscriptionInfo = await getAntigravitySubscriptionInfo(accessToken, proxyOptions);
     const projectId = (subscriptionInfo as Record<string, unknown>)?.cloudaicompanionProject || null;
 
+    // An account Google refuses (e.g. VALIDATION_REQUIRED) has no tier and no
+    // quota; its reason is the only thing worth showing.
+    const ineligible = ineligibleReason(subscriptionInfo);
+    if (ineligible) return { message: `Antigravity: ${ineligible}`, quotas: {} };
+
     const response = await fetchWithTimeout(ANTIGRAVITY_CONFIG.quotaApiUrl as string, {
       method: "POST",
       headers: {
@@ -260,6 +265,14 @@ function reconcileSessionQuota(session: WeeklyQuota | undefined, models: Array<[
 /**
  * Get Antigravity subscription info
  */
+/** First paragraph of Google's reason when the account has no tier at all. */
+function ineligibleReason(info: Record<string, unknown> | null): string | null {
+  if (!info || info.currentTier) return null;
+  const tiers = Array.isArray(info.ineligibleTiers) ? info.ineligibleTiers as Array<Record<string, unknown>> : [];
+  const reason = tiers.map((t) => t.reasonMessage).find((m): m is string => typeof m === "string" && m.trim().length > 0);
+  return reason ? reason.split(/\n\s*\n/)[0].trim() : null;
+}
+
 async function getAntigravitySubscriptionInfo(accessToken: string, proxyOptions: unknown = null): Promise<Record<string, unknown> | null> {
   try {
     const response = await fetchWithTimeout(ANTIGRAVITY_CONFIG.loadProjectApiUrl as string, {
