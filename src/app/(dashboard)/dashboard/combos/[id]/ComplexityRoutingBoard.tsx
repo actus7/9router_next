@@ -78,7 +78,7 @@ function TierModelRow({ id: _id, value, profile, providerId, providerName, entry
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group relative flex flex-col gap-1 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 transition-colors hover:bg-muted",
+        "group relative flex flex-col gap-1 rounded-lg border border-border/60 bg-muted/40 px-3 py-2.5 transition-colors hover:bg-muted",
         isDragging && "shadow-md ring-1 ring-primary/30",
       )}
     >
@@ -110,8 +110,8 @@ function TierModelRow({ id: _id, value, profile, providerId, providerName, entry
         </Button>
       </div>
 
-      <div className="flex min-w-0 items-center gap-1 pl-6">
-        <p className="min-w-0 flex-1 truncate text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
+      <p className="pl-6 text-[11px] text-text-muted" title={subtitle}>{subtitle}</p>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 pl-6">
         {connections.length > 1 && (
           <select
             className="h-6 max-w-24 shrink-0 cursor-pointer rounded-full border border-border bg-surface px-2 text-xs text-text-main"
@@ -124,24 +124,22 @@ function TierModelRow({ id: _id, value, profile, providerId, providerName, entry
             {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
           </select>
         )}
-        <Button variant="ghost" size="icon-xs" onClick={onEdit} className={cn("size-5 shrink-0", onHover)} title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
-          <Pencil className="size-3" />
-        </Button>
-        {connections.length > 1 && (
-          <Button variant="ghost" size="icon-xs" className={cn("size-5 shrink-0", onHover)} title={translate("Add the same model on another account") || "Add the same model on another account"}
-            aria-label={translate("Add fallback") || "Add fallback"}
-            onClick={() => onDuplicate(connections.find((c) => c.id !== entry?.connectionId)?.id ?? "")}>
-            <Copy className="size-3" />
+        {paramChips.map((chip) => (
+          <span key={chip} className="max-w-full truncate rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary" title={chip}>{chip}</span>
+        ))}
+        <span className="ml-auto flex shrink-0 items-center gap-0.5">
+          <Button variant="ghost" size="icon-xs" onClick={onEdit} className={cn("size-5 shrink-0", onHover)} title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
+            <Pencil className="size-3" />
           </Button>
-        )}
+          {connections.length > 1 && (
+            <Button variant="ghost" size="icon-xs" className={cn("size-5 shrink-0", onHover)} title={translate("Add the same model on another account") || "Add the same model on another account"}
+              aria-label={translate("Add fallback") || "Add fallback"}
+              onClick={() => onDuplicate(connections.find((c) => c.id !== entry?.connectionId)?.id ?? "")}>
+              <Copy className="size-3" />
+            </Button>
+          )}
+        </span>
       </div>
-      {paramChips.length > 0 && (
-        <div className="flex min-w-0 flex-wrap gap-1 pl-6">
-          {paramChips.map((chip) => (
-            <span key={chip} className="max-w-full truncate rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary" title={chip}>{chip}</span>
-          ))}
-        </div>
-      )}
       {paramsOpen && info?.spec && (
         <ModelParamsDialog
           modelName={displayName}
@@ -209,7 +207,7 @@ function TierColumn({ tier, models, entries, profileByKey, activeProviders, mode
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-muted/20 p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-muted/20 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-text-main">{meta.label}</p>
@@ -338,7 +336,7 @@ export default function ComplexityRoutingBoard({
           </p>
         )}
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {ROUTING_TIERS.map((tier) => (
             <TierColumn
               key={tier}
