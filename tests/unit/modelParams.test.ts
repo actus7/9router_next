@@ -99,3 +99,16 @@ describe("applyConfiguredEntryParams and the wire shape", () => {
     expect((out.reasoning as { effort?: string }).effort).toBe("xhigh");
   });
 });
+
+describe("the spec follows the provider's wire shape", () => {
+  it("offers nothing when the only catalog variants are in another shape than the target", () => {
+    // gpt-6.1-sol exists only as an OpenAI-chat entry; a Codex (Responses) target cannot use it.
+    expect(paramSpecFor("gpt-6.1-sol", { subscription: true, targetFormat: "codex" })).toBeNull();
+    expect(paramSpecFor("gpt-6.1-sol", { targetFormat: "openai" })).not.toBeNull();
+  });
+
+  it("switches to the variant that matches the target", () => {
+    expect(paramSpecFor("gpt-5.6-terra", { subscription: true, targetFormat: "codex" })?.id).toBe("openai/gpt-5.6-terra-subscription");
+    expect(paramSpecFor("gpt-5.6-terra", { targetFormat: "codex" })?.id).toBe("openai/gpt-5.6-terra-subscription");
+  });
+});

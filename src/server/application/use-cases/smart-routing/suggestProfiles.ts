@@ -13,6 +13,7 @@ import { currentTenantId, withTenant } from "@/lib/db/tenant";
 import { decideLaneVerdicts, defaultLaneDeciders, type LaneDecisionCounts } from "./laneVerdicts";
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { resolveProviderId } from "@/shared/constants/providers";
+import { staticTargetFormat } from "@/server/llm-gateway/engine/services/modelParams";
 import { laneParamHints } from "@/server/llm-gateway/engine/services/smart-routing/laneParamHints";
 import { enrichProfilesWithAa, syncAaSnapshotIfStale } from "./artificialAnalysis";
 
@@ -82,7 +83,7 @@ export async function withEntryHints(profiles: SmartModelProfile[]): Promise<Sma
     const laneParams: NonNullable<SmartModelProfile["laneParams"]> = {};
     for (const tier of ROUTING_TIERS) {
       if (typeof profile.laneScores?.[tier] !== "number") continue;
-      const hints = laneParamHints(profile.model, tier, { subscription });
+      const hints = laneParamHints(profile.model, tier, { subscription, targetFormat: staticTargetFormat(resolveProviderId(profile.provider), profile.model) });
       if (hints) laneParams[tier] = hints;
     }
     return {

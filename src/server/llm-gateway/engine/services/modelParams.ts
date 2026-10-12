@@ -8,6 +8,8 @@
 // A model the catalog does not know has no spec: it gets no parameters to
 // configure, never invented ones.
 
+import { getModelTargetFormat } from "../config/providerModels";
+import { getTargetFormat } from "./provider";
 import { BY_ID, dropUnsupported, getModel, isApplicable, parseParams, resolveModelId } from "modelparams";
 
 type CatalogId = Parameters<typeof getModel>[0];
@@ -56,8 +58,19 @@ export function resolveParamModelId(model: string, options: { subscription?: boo
   return inCatalog(id) ? id : null;
 }
 
-export function paramSpecFor(model: string, options: { subscription?: boolean } = {}): ParamSpec | null {
-  const id = resolveParamModelId(model, options);
+/** The translator format a provider's requests end up in, for choosing the catalog entry that describes it. */
+export function staticTargetFormat(provider: string, upstreamModel: string): string {
+  return String(getModelTargetFormat(provider, upstreamModel) || getTargetFormat(provider));
+}
+
+export function paramSpecFor(model: string, options: { subscription?: boolean; targetFormat?: string } = {}): ParamSpec | null {
+  let id = resolveParamModelId(model, options);
+  // The catalog may list the model in several API shapes (plan-priced Responses, plain chat):
+  // the one that matches the wire shape is the only one whose paths mean something here.
+  if (id && options.targetFormat && !surfaceMatches(getModel(id as CatalogId).apiSurface, options.targetFormat)) {
+    const other = resolveParamModelId(model, { subscription: !options.subscription });
+    id = other && surfaceMatches(getModel(other as CatalogId).apiSurface, options.targetFormat) ? other : null;
+  }
   if (!id || !inCatalog(id)) return null;
   const params = getModel(id).params as unknown as ParamSpec["params"];
   return params.length > 0 ? { id, params } : null;

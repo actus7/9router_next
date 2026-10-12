@@ -13,7 +13,7 @@ const LANE_POSITION: Record<RoutingTier, number> = { simple: 0, standard: 0.34, 
  * is never suggested — turning reasoning off is a product choice, not a lane's.
  * Sampling and length are left alone for the same reason.
  */
-export function laneParamHints(upstreamModel: string, tier: RoutingTier, options: { subscription?: boolean } = {}): EntryParams | undefined {
+export function laneParamHints(upstreamModel: string, tier: RoutingTier, options: { subscription?: boolean; targetFormat?: string } = {}): EntryParams | undefined {
   const spec = paramSpecFor(upstreamModel, options);
   const effort = spec?.params.find((param) => /effort$/.test(param.path) && Array.isArray(param.values));
   if (!spec || !effort) return undefined;

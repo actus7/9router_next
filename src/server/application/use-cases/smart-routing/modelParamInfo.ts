@@ -2,7 +2,7 @@ import "server-only";
 
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { resolveProviderId } from "@/shared/constants/providers";
-import { paramSpecFor, type ParamSpec } from "@/server/llm-gateway/engine/services/modelParams";
+import { paramSpecFor, staticTargetFormat, type ParamSpec } from "@/server/llm-gateway/engine/services/modelParams";
 
 export interface ModelParamInfo {
   /** Null when the catalog does not know the model: nothing to configure. */
@@ -22,5 +22,5 @@ export async function getModelParamInfo(modelKey: string): Promise<ModelParamInf
     label: String(row.displayName || row.name || row.email || `#${index + 1}`),
   }));
   const oauth = rows.some((row) => row.authType === "oauth");
-  return { spec: paramSpecFor(upstream, { subscription: oauth }), connections };
+  return { spec: paramSpecFor(upstream, { subscription: oauth, targetFormat: staticTargetFormat(provider, upstream) }), connections };
 }

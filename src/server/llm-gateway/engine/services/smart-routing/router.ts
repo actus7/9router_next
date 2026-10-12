@@ -6,7 +6,7 @@ import { ROUTE_NEEDS, ROUTING_TIERS, DEFAULT_SMART_ROUTING_CONFIG } from "./type
 import { rankSmartProfilesForEndpoint, refreshDeterministicSmartProfiles, resolveRequestedTier, getSmartTierOrder } from "./inventory";
 import { recordRoutingTier, scoreRoutingRequest } from "./scoring";
 import { expandEntryCandidates, normalizeLane } from "./entries";
-import { resolveParamModelId, sanitizeEntryParams } from "../modelParams";
+import { paramSpecFor, sanitizeEntryParams, staticTargetFormat } from "../modelParams";
 import type { EntryConfig } from "../../host/entryConfig";
 import type {
   ClassifierSource,
@@ -143,7 +143,8 @@ function findInvalidEntryParams(config: SmartRoutingConfig): string | null {
         if (!entry?.params) continue;
         const modelKey = models[index];
         const upstream = modelKey.slice(modelKey.indexOf("/") + 1);
-        const ids = [...new Set([resolveParamModelId(upstream), resolveParamModelId(upstream, { subscription: true })].filter((id): id is string => Boolean(id)))];
+        const targetFormat = staticTargetFormat(modelKey.slice(0, modelKey.indexOf("/")), upstream);
+        const ids = [...new Set([paramSpecFor(upstream, { targetFormat })?.id, paramSpecFor(upstream, { subscription: true, targetFormat })?.id].filter((id): id is string => Boolean(id)))];
         const where = `routing.entries.${need}.${tier}[${index}] (${modelKey})`;
         if (ids.length === 0) return `${where}: this model has no configurable parameters`;
         const results = ids.map((id) => sanitizeEntryParams(id, entry.params));
