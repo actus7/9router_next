@@ -112,6 +112,23 @@ export function applyProviderThinkingOverride(
   return body;
 }
 
+/**
+ * Whether the upstream answer goes back to the client as one JSON body. Beyond
+ * a non-streaming request, that is also an upstream that answered plain JSON
+ * to a client which never asked for SSE — Kilo does for a request with no
+ * `stream` field, which the gateway defaults to streaming. Piped through the
+ * SSE transform, that body yields no events, so the request was answered but
+ * never recorded: missing from usage and from every budget.
+ */
+export function servesJson(params: {
+  stream: boolean;
+  clientRequestedStreaming: boolean;
+  upstreamContentType: string;
+}): boolean {
+  if (!params.stream) return true;
+  return !params.clientRequestedStreaming && params.upstreamContentType.toLowerCase().includes("application/json");
+}
+
 // ---------------------------------------------------------------------------
 // Streaming mode resolution
 // ---------------------------------------------------------------------------

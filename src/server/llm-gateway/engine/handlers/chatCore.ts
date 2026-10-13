@@ -32,6 +32,7 @@ import {
   handleUpstreamError,
   retryWithoutTools,
   bodyHasTools,
+  servesJson,
 } from "./chatCore/phases";
 import type { HandleChatCoreOptions } from "./chatCore/types";
 
@@ -469,7 +470,11 @@ export async function handleChatCore({
     trackPendingRequest(model, provider, connectionId, false);
 
   // Provider forced streaming but client wants JSON
-  let serveAsJson = !stream;
+  let serveAsJson = servesJson({
+    stream,
+    clientRequestedStreaming,
+    upstreamContentType: providerResponse.headers.get("content-type") || "",
+  });
   if (!clientRequestedStreaming && providerRequiresStreaming) {
     const result = await handleForcedSSEToJson({
       ...sharedCtx,
