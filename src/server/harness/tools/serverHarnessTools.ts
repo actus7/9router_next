@@ -9,6 +9,7 @@ import { writeSkill } from "@/server/harness/skills/writeSkill";
 import { validateSkillFields } from "@/server/harness/skills/parseSkillMarkdown";
 import { scanUntrustedContent } from "@/server/decisions/guardrails";
 import { sessionHasPlugin } from "./sessionCapability";
+import { isAllowedByAccess } from "@/server/llm-gateway/application/accessScope";
 import { rerankSessionHits } from "./rerank";
 
 /**
@@ -118,6 +119,9 @@ export async function executeHarnessToolServerSide(
     if (!skillId) return failure(`${name} requires name`);
     if (context.enabledSkillIds && !context.enabledSkillIds.has(skillId)) {
       return failure(`Skill not enabled in this session: ${skillId}`);
+    }
+    if (!isAllowedByAccess("skills", skillId)) {
+      return failure(`Skill not available to this user: ${skillId}`);
     }
     const skill = await composedSkill(skillId);
     if (!skill) return failure("Skill not found");

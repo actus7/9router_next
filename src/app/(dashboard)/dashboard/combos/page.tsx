@@ -24,7 +24,7 @@ async function CombosContent() {
           initialAliases={aliases}
       />
     );
-  });
+  }, { minRole: "admin" });
 }
 
 export default function CombosPage() {

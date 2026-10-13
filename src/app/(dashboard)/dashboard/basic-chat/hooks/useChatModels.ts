@@ -1,5 +1,7 @@
 "use client";
 
+import { myAccessLayers, useWorkspace } from "@/shared/hooks/useWorkspace";
+import { layersAllow, layersRestrict } from "@/shared/access/accessPolicy";
 import { useEffect, useMemo, useState } from "react";
 import { translate } from "@/i18n/runtime";
 import { getProviderAlias, isAnthropicCompatibleProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
@@ -312,9 +314,20 @@ export function useChatModels(): UseChatModelsReturn {
     };
   }, []);
 
+  // A member only sees the models their access policy lets them send — the
+  // server would refuse the rest with a 403 (assertModelAllowed).
+  const { workspace } = useWorkspace();
+  const visibleGroups = useMemo(() => {
+    const layers = myAccessLayers(workspace);
+    if (!layersRestrict(layers, "models")) return providerGroups;
+    return providerGroups
+      .map((group) => ({ ...group, models: group.models.filter((model) => layersAllow(layers, "models", [model.requestModel, model.id])) }))
+      .filter((group) => group.models.length > 0);
+  }, [providerGroups, workspace]);
+
   const modelIndex = useMemo(() => {
     const map = new Map<string, NormalizedModel>();
-    for (const group of providerGroups) {
+    for (const group of visibleGroups) {
       for (const model of group.models) {
         map.set(model.id, {
           ...model,
@@ -324,7 +337,14 @@ export function useChatModels(): UseChatModelsReturn {
       }
     }
     return map;
-  }, [providerGroups]);
+  }, [visibleGroups]);
 
-  return { providerGroups, loadingData, providerLoadError, modelIndex };
+  // Models exist, the member's limits leave none: say so, instead of a picker
+  // that is simply disabled with no reason given.
+  const accessError = !loadingData && providerGroups.length > 0 && visibleGroups.length === 0
+    ? translate("Your access limits leave no model available here. Ask an owner or admin of this workspace.") ||
+      "Your access limits leave no model available here. Ask an owner or admin of this workspace."
+    : null;
+
+  return { providerGroups: visibleGroups, loadingData, providerLoadError: providerLoadError || accessError || "", modelIndex };
 }

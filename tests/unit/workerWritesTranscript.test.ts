@@ -22,12 +22,15 @@ vi.mock("@/lib/db/driver", () => ({
     get: vi.fn(async (sql: string, params: unknown[]) => {
       reads.push(sql.replace(/\s+/g, " ").trim());
       if (!sql.includes("FROM harnessConversations")) return undefined;
-      const row = rows.get(String(params[1]));
-      return row ? { id: params[1], data: row.data, updatedAt: row.updatedAt } : undefined;
+      // The conversation id is the last parameter: before it come the tenant and the member.
+      const id = String(params.at(-1));
+      const row = rows.get(id);
+      return row ? { id, data: row.data, updatedAt: row.updatedAt } : undefined;
     }),
     run: vi.fn(async (sql: string, params: unknown[]) => {
       if (!sql.startsWith("UPDATE harnessConversations")) return { changes: 0 };
-      const [data, updatedAt, , id] = params as string[];
+      const [data, updatedAt] = params as string[];
+      const id = String(params.at(-1));
       if (!rows.has(id)) return { changes: 0 };
       rows.set(id, { data, updatedAt });
       return { changes: 1 };

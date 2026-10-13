@@ -51,6 +51,8 @@ interface EndpointCardProps {
   // Security
   isLoginUnsafe: boolean;
   unsafeReason: string;
+  /** Turning tunnels on and off is the organization's call; a member only copies the URLs. */
+  canManage: boolean;
 }
 
 export default function EndpointCard({
@@ -61,7 +63,7 @@ export default function EndpointCard({
   tsEnabled, tsLoading, tsConnecting, tsReachable, tsUrl, tsProgress, tsStatus, setTsStatus,
   tsAuthUrl, tsAuthLabel, tsEverReachable,
   setShowDisableTsModal, handleOpenTsModal, setTsLoading, setTsConnecting, setTsProgress, clearUserAuth,
-  isLoginUnsafe, unsafeReason,
+  isLoginUnsafe, unsafeReason, canManage,
 }: EndpointCardProps) {
   return (
     <Card>
@@ -80,6 +82,8 @@ export default function EndpointCard({
           copied={copied}
           onCopy={copy}
         />
+        {canManage ? (
+          <>
         {/* Cloudflare Tunnel */}
         <div className="flex items-center gap-2">
           <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
@@ -270,10 +274,21 @@ export default function EndpointCard({
             </Button>
           )}
         </div>
+          </>
+        ) : (
+          <>
+            {tunnelEnabled && tunnelReachable && (
+              <EndpointRow label="Tunnel" badge="CF" url={`${tunnelPublicUrl || tunnelUrl}/v1`} copyId="tunnel_url" copied={copied} onCopy={copy} />
+            )}
+            {tsEnabled && tsReachable && (
+              <EndpointRow label="Tailscale" badge="TS" url={`${tsUrl}/v1`} copyId="ts_url" copied={copied} onCopy={copy} />
+            )}
+          </>
+        )}
       </div>
 
       {/* Pre-enable security gate banner */}
-      {isLoginUnsafe && !tunnelEnabled && !tsEnabled && (
+      {canManage && isLoginUnsafe && !tunnelEnabled && !tsEnabled && (
         <div className="mt-4">
           <SecurityWarning
             message={unsafeReason}

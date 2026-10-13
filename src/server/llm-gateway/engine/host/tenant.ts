@@ -9,7 +9,7 @@
 // `TenantContextError`, which surfaced as a "failed to pipe response" crash on
 // a mid-stream client abort. Capture the owner while the request context still
 // exists, then re-enter it in the callback.
-import { tryCurrentTenantId, withTenant } from "@/lib/db/tenant";
+import { tryCurrentTenantContext, withTenant } from "@/lib/db/tenant";
 
 /** Runs a later callback under the tenant captured at the call site. */
 export type TenantReentry = <T>(fn: () => T) => T;
@@ -20,7 +20,7 @@ export type TenantReentry = <T>(fn: () => T) => T;
  * callback as-is, so nothing here forces a tenant that was never set.
  */
 export function captureTenant(): TenantReentry {
-  const owner: string | null = tryCurrentTenantId();
+  const owner = tryCurrentTenantContext();
   return <T>(fn: () => T): T => (owner ? withTenant(owner, fn) : fn());
 }
 export { currentTenantId, tryCurrentTenantId } from "@/lib/db/tenant";

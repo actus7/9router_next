@@ -1,3 +1,4 @@
+import { assertPublicUrl } from "@/shared/utils/ssrfGuard";
 import { ProxyAgent, fetch as undiciFetch } from "undici";
 
 const DEFAULT_TEST_URL: string = "https://google.com/";
@@ -48,6 +49,13 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs }: ProxyTestOp
   }
 
   const normalizedTestUrl: string = normalizeString(testUrl) || DEFAULT_TEST_URL;
+  // The proxy may well be on this host (a self-hosted install's 127.0.0.1:7890),
+  // but what it is asked to fetch must be public.
+  try {
+    assertPublicUrl(normalizedTestUrl);
+  } catch (err: unknown) {
+    return { ok: false, status: 400, error: getErrorMessage(err) };
+  }
   const timeoutMsRaw: number = Number(timeoutMs);
   const normalizedTimeoutMs: number =
     Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0

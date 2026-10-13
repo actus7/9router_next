@@ -13,7 +13,8 @@ vi.mock("@/server/application/http/requireDashboardAccess", () => ({
 }));
 vi.mock("@/lib/db/tenant", () => ({
   currentTenantId: () => "test-user",
-  withTenant: (_owner: string, fn: () => unknown) => fn(),
+  currentTenantContext: () => ({ tenantId: "test-user", actorUserId: "test-user", role: "owner" }),
+  withTenant: (_owner: unknown, fn: () => unknown) => fn(),
 }));
 
 import { GET } from "@/server/application/use-cases/http/harness/runs/stream/route";

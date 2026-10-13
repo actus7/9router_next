@@ -103,6 +103,14 @@ async function loadInventory(): Promise<InventoryModel[]> {
     getDisabledModels(),
   ]);
   const activeProviders = new Set(connections.filter((connection) => connection.isActive !== false).map((connection) => connection.provider));
+  // The provider page stores its switched-off models under the provider alias
+  // (`kr` for Kiro), older rows under the id. A model is off when either list
+  // names it, whichever spelling the model itself was stored with.
+  const isSwitchedOff = (providerOrAlias: string, model: string): boolean => {
+    const providerId = resolveProviderId(providerOrAlias);
+    const keys = new Set([providerOrAlias, providerId, getProviderAlias(providerId)]);
+    return [...keys].some((key) => (disabled[key] || []).includes(model));
+  };
   for (const provider of Object.values(AI_PROVIDERS)) {
     if (provider.noAuth === true) activeProviders.add(provider.id as string);
   }
@@ -112,11 +120,10 @@ async function loadInventory(): Promise<InventoryModel[]> {
   for (const providerId of activeProviders) {
     const provider = AI_PROVIDERS[providerId] || AI_PROVIDERS[resolveProviderId(providerId)];
     const alias = (provider?.alias as string) || getProviderAlias(providerId);
-    const providerDisabled = new Set([...(disabled[alias] || []), ...(disabled[providerId] || [])]);
     const providerModels = getModelsByProviderId(providerId) as Array<Record<string, unknown>>;
     for (const entry of providerModels) {
       const model = String(entry.id || "");
-      if (!model || providerDisabled.has(model)) continue;
+      if (!model || isSwitchedOff(providerId, model)) continue;
       const modelKey = `${alias}/${model}`;
       if (seen.has(modelKey)) continue;
       seen.add(modelKey);
@@ -147,7 +154,7 @@ async function loadInventory(): Promise<InventoryModel[]> {
   for (const custom of customModels) {
     const alias = custom.providerAlias || custom.provider;
     const model = custom.id;
-    if (!alias || !model || (disabled[alias] || []).includes(model)) continue;
+    if (!alias || !model || isSwitchedOff(alias, model)) continue;
     const modelKey = `${alias}/${model}`;
     if (seen.has(modelKey)) continue;
     const providerId = resolveProviderId(alias);

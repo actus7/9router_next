@@ -64,7 +64,7 @@ async function ProviderDetailContent({
           initialCustomModels={customModels as unknown as { id: string; providerAlias?: string; kind?: string; type?: string; [key: string]: unknown }[]}
       />
     );
-  });
+  }, { minRole: "admin" });
 }
 
 export default function ProviderDetailPage(props: PageProps<"/dashboard/providers/[id]">) {

@@ -1,4 +1,5 @@
 import { requireGatewayApiKey } from "./gatewayApiKey";
+import { assertModelAllowed } from "./accessScope";
 import {
   getProviderCredentials,
   markAccountUnavailable,
@@ -57,6 +58,9 @@ export async function handleSearch(request: Request): Promise<Response> {
     log.warn("SEARCH", "Missing query");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: query");
   }
+
+  const accessDenied = await assertModelAllowed(providerInput);
+  if (accessDenied) return accessDenied;
 
   const smartCombo = await getSmartCombo(providerInput);
   if (smartCombo) {

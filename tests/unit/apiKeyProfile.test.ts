@@ -9,9 +9,14 @@ vi.mock("@/lib/db/driver", () => ({
 }));
 const settings = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 vi.mock("@/lib/db/repos/settingsRepo", () => ({ getSettings: vi.fn(async () => settings.value) }));
-vi.mock("@/lib/db/tenant", () => ({ currentTenantId: () => "u1" }));
+const tenant = vi.hoisted(() => ({ role: "owner" as "owner" | "admin" | "member", actor: "u1" }));
+vi.mock("@/lib/db/tenant", () => ({
+  currentTenantId: () => "u1",
+  currentActorUserId: () => tenant.actor,
+  currentTenantContext: () => ({ tenantId: "u1", actorUserId: tenant.actor, role: tenant.role }),
+}));
 
-import { createApiKey, getApiKeyProfile, updateApiKeyProfile } from "@/lib/db/repos/apiKeysRepo";
+import { createApiKey, deleteApiKey, getApiKeys, getApiKeyProfile, updateApiKeyProfile } from "@/lib/db/repos/apiKeysRepo";
 import { GET, PUT } from "@/server/application/use-cases/http/keys/[id]/profile/route";
 import { NextRequest } from "next/server";
 
@@ -19,6 +24,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   get.mockReturnValue(undefined);
   settings.value = {};
+  tenant.role = "owner";
+  tenant.actor = "u1";
 });
 
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
@@ -28,7 +35,9 @@ describe("API key profiles", () => {
     settings.value = { cavemanEnabled: true, cavemanLevel: "ultra" };
     await createApiKey("k", "machine-1");
     const insert = run.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO apiKeys"))!;
-    const stored = JSON.parse(String(insert[1]!.at(-1)));
+    // The last two params are the profile and the member who created the key.
+    expect(insert[1]!.at(-1)).toBe("u1");
+    const stored = JSON.parse(String(insert[1]!.at(-2)));
     expect(stored.abilities.caveman).toEqual({ enabled: true, level: "ultra" });
     expect(stored.skillIds).toEqual([]);
   });
@@ -68,5 +77,26 @@ describe("API key profiles", () => {
       ctx("k1"),
     );
     expect(put.status).toBe(400);
+  });
+
+  it("a member lists and deletes only the keys they created", async () => {
+    tenant.role = "member";
+    tenant.actor = "m7";
+    const all = vi.fn((_sql: string, _params?: unknown[]) => []);
+    const { getAdapter } = await import("@/lib/db/driver");
+    vi.mocked(getAdapter).mockResolvedValueOnce({ run, get, all, transaction: (fn: () => unknown) => fn() } as never);
+    await getApiKeys();
+    expect(all.mock.calls[0]![0]).toContain("COALESCE(ownerUserId, userId) = ?");
+    expect(all.mock.calls[0]![1]).toEqual(["u1", "m7"]);
+
+    await deleteApiKey("k9");
+    const del = run.mock.calls.find(([sql]) => String(sql).startsWith("DELETE FROM apiKeys"))!;
+    expect(del[1]).toEqual(["u1", "m7", "k9"]);
+  });
+
+  it("deleting a key drops its access policy with it", async () => {
+    await deleteApiKey("k9");
+    const policy = run.mock.calls.find(([sql]) => String(sql).includes("DELETE FROM accessPolicies"));
+    expect(policy?.[1]).toEqual(["u1", "k9"]);
   });
 });

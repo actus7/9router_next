@@ -1,10 +1,13 @@
 import CloudPageClient from "./CloudPageClient";
+import { AdminOnly } from "@/app/adminOnly";
 import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 export default function CloudPage() {
   return (
     <>
-      <CloudPageClient />
+      <AdminOnly>
+        <CloudPageClient />
+      </AdminOnly>
       <MetadataIsDynamic />
     </>
   );

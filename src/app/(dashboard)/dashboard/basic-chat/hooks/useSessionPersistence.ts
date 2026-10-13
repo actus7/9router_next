@@ -12,6 +12,7 @@ import type {
   ProviderGroup,
 } from "../types";
 import { hydrateFromStorage, persistToStorage } from "./chatSessionStorage";
+import { useWorkspace } from "@/shared/hooks/useWorkspace";
 import { discoverTools, normalizeDiscoveredTools } from "./useMcpServers";
 
 const CONTEXT7_SERVER_ID = "builtin-context7";
@@ -92,10 +93,22 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     serverSyncTimerRef,
   } = args;
 
-  // Hydrate from localStorage on mount
+  // The local copy belongs to one person in one workspace. Until that is known
+  // nothing is read; if it cannot be known, the chat runs on the server's copy
+  // alone rather than on whatever this browser last held for someone else.
+  const { workspace, error: workspaceError } = useWorkspace();
+  const storageScope = workspace ? `${workspace.me.tenantId}:${workspace.me.userId}` : null;
+  const scopeSettled = storageScope !== null || workspaceError !== undefined;
+
+  // Hydrate from localStorage once the scope is known
   useEffect(() => {
+    if (!scopeSettled) return;
+    if (!storageScope) {
+      setIsHydrated(true);
+      return;
+    }
     try {
-      const saved = hydrateFromStorage();
+      const saved = hydrateFromStorage(storageScope);
       // The three inference settings used to be one page-level value each.
       // They belong to whichever conversation was open when they were set,
       // which is the one being restored — dropping them on the upgrade would
@@ -127,6 +140,8 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
       setIsHydrated(true);
     }
   }, [
+    scopeSettled,
+    storageScope,
     setActiveModelId,
     setActiveProjectId,
     setActiveProviderId,
@@ -353,7 +368,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
 
   // Persist to localStorage
   useEffect(() => {
-    if (!isHydrated) return;
+    if (!isHydrated || !storageScope) return;
     try {
       persistToStorage({
         sessions,
@@ -366,11 +381,12 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
         sidebarOpen,
         conversationDisplay,
         enterBehavior,
-      });
+      }, storageScope);
     } catch {
       // Ignore storage errors.
     }
   }, [
+    storageScope,
     isHydrated,
     sessions,
     activeSessionId,

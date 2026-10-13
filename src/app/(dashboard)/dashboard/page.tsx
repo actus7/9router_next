@@ -1,14 +1,14 @@
-import { Suspense } from "react";
 import { CardSkeleton } from "@/shared/components/Loading";
 import UsageClient from "./usage/UsageClient";
+import { AdminOnly } from "@/app/adminOnly";
 import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 export default function DashboardPage() {
   return (
     <>
-      <Suspense fallback={<CardSkeleton />}>
+      <AdminOnly fallback={<CardSkeleton />}>
         <UsageClient />
-      </Suspense>
+      </AdminOnly>
       <MetadataIsDynamic />
     </>
   );

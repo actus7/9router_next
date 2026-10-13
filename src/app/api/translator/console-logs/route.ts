@@ -24,5 +24,5 @@ async function handleDELETE() {
   }
 }
 
-export const GET = tenantRoute(handleGET);
-export const DELETE = tenantRoute(handleDELETE);
+export const GET = tenantRoute(handleGET, { minRole: "admin" });
+export const DELETE = tenantRoute(handleDELETE, { minRole: "admin" });

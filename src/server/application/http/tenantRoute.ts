@@ -4,12 +4,21 @@ import { cache } from "react";
 import { NextResponse, connection } from "next/server";
 
 import { auth } from "@/lib/auth/server";
-import { withTenant } from "@/lib/db/tenant";
+import { resolveTenantContext } from "@/lib/auth/organizations";
+import { roleAtLeast, withTenant, type TenantContext, type TenantRole } from "@/lib/db/tenant";
+import { accessLayersForActor } from "@/lib/db/repos/accessPoliciesRepo";
+import { withAccessLayers } from "@/server/llm-gateway/application/accessScope";
+import type { AccessPolicy } from "@/shared/access/accessPolicy";
 import { RATE_LIMIT_WINDOW_MS, consumeRateLimit, dashboardRateLimit } from "./rateLimit";
 
 export interface CurrentUser {
   /** The signed-in account, or null when there is none. */
   userId: string | null;
+  /** The organization the session is switched to; null for the personal workspace. */
+  activeOrganizationId?: string | null;
+  /** The account's email and whether it was verified — the team page needs both. */
+  email?: string | null;
+  emailVerified?: boolean;
   /** True when the answer is "we could not ask", not "nobody is signed in". */
   unavailable: boolean;
 }
@@ -38,7 +47,16 @@ export const resolveCurrentUser = cache(async function resolveCurrentUser(): Pro
   try {
     const { data, error } = await auth.getSession();
     const userId: string | null = data?.user?.id ?? null;
-    if (userId) return { userId, unavailable: false };
+    if (userId) {
+      const session = data?.session as { activeOrganizationId?: string | null } | undefined;
+      return {
+        userId,
+        activeOrganizationId: session?.activeOrganizationId ?? null,
+        email: data?.user?.email ?? null,
+        emailVerified: data?.user?.emailVerified === true,
+        unavailable: false,
+      };
+    }
     // Only the auth service's own verdict on the session — no session, or one
     // it rejected — means signed out. A 429, a 5xx or anything else is an
     // outage, and answering 401 for an outage signs the user out of a session
@@ -49,6 +67,31 @@ export const resolveCurrentUser = cache(async function resolveCurrentUser(): Pro
   } catch {
     // Could not reach the auth service at all.
     return { userId: null, unavailable: true };
+  }
+});
+
+export interface CurrentTenant {
+  /** Who the request runs as, or null when nobody is signed in. */
+  context: TenantContext | null;
+  unavailable: boolean;
+}
+
+/**
+ * The tenant the signed-in user is acting in: the session's active
+ * organization if they are still a member of it, their personal workspace
+ * otherwise (see `resolveTenantContext`). Memoized per request like
+ * `resolveCurrentUser`.
+ */
+export const resolveCurrentTenant = cache(async function resolveCurrentTenant(): Promise<CurrentTenant> {
+  const user = await resolveCurrentUser();
+  if (!user.userId) return { context: null, unavailable: user.unavailable };
+  try {
+    return { context: await resolveTenantContext(user.userId, user.activeOrganizationId), unavailable: false };
+  } catch {
+    // Membership could not be read. Not "signed out", and not "personal
+    // workspace" either — guessing that would put a team member's writes in the
+    // wrong tenant.
+    return { context: null, unavailable: true };
   }
 });
 
@@ -65,6 +108,17 @@ export async function currentUserId(): Promise<string | null> {
 
 type Handler<A extends unknown[]> = (...args: A) => Promise<Response> | Response;
 
+export interface TenantRouteOptions {
+  /**
+   * The least role that may call this handler. Defaults to `admin`, reads
+   * included: a read is not harmless here — the database export, the provider
+   * list and the CLI settings all hand back credentials. What a member's own
+   * screens need (their chats, their keys, the model list) says
+   * `{ minRole: "member" }`, and a new route that forgets is closed, not open.
+   */
+  minRole?: TenantRole;
+}
+
 /**
  * Wraps a dashboard route handler so its database access is scoped to the
  * signed-in account.
@@ -79,7 +133,10 @@ type Handler<A extends unknown[]> = (...args: A) => Promise<Response> | Response
  * the fail-closed half of the design. `tests/unit/tenantRouteCoverage.test.ts`
  * is the other half — it fails the build for a dashboard route that forgot.
  */
-export function tenantRoute<A extends unknown[]>(handler: Handler<A>): (...args: A) => Promise<Response> {
+export function tenantRoute<A extends unknown[]>(
+  handler: Handler<A>,
+  options: TenantRouteOptions = {},
+): (...args: A) => Promise<Response> {
   return async (...args: A): Promise<Response> => {
     // Says out loud that this response depends on the incoming request. The
     // project builds with Cache Components, where a route handler is a
@@ -87,8 +144,8 @@ export function tenantRoute<A extends unknown[]>(handler: Handler<A>): (...args:
     // prerendered handler reads no cookie, finds no session and would bake a
     // 401 into the static output for everyone.
     await connection();
-    const { userId, unavailable } = await resolveCurrentUser();
-    if (!userId) {
+    const { context, unavailable } = await resolveCurrentTenant();
+    if (!context) {
       // 503, not 401: the caller may well be signed in, and a 401 here is what
       // made a throttled auth service look like a broken save button.
       if (unavailable) {
@@ -102,13 +159,33 @@ export function tenantRoute<A extends unknown[]>(handler: Handler<A>): (...args:
     // A ceiling, not a quota. The dashboard polls and streams, so it sits well
     // above normal use; what it stops is a signed-in account looping an
     // endpoint that makes its own outbound request or writes to Neon.
-    const limited = consumeRateLimit(`dash:${userId}`, dashboardRateLimit(), RATE_LIMIT_WINDOW_MS);
+    const limited = consumeRateLimit(`dash:${context.actorUserId}`, dashboardRateLimit(), RATE_LIMIT_WINDOW_MS);
     if (!limited.allowed) {
       return NextResponse.json(
         { error: "Rate limit exceeded" },
         { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
       );
     }
-    return withTenant(userId, async () => handler(...args));
+    if (!roleAtLeast(context.role, options.minRole ?? "admin")) {
+      return NextResponse.json(
+        { error: "Your role in this organization cannot make this change. Ask an owner or admin." },
+        { status: 403 },
+      );
+    }
+    return withTenant(context, async () => {
+      // The same ceiling the gateway and the chat worker apply: a member whose
+      // policy leaves out a plugin cannot reach it through the route that
+      // backs it either. Unreadable policy is "cannot check", never "allowed".
+      let access: AccessPolicy[];
+      try {
+        access = await accessLayersForActor();
+      } catch {
+        return NextResponse.json(
+          { error: "Access control unavailable, try again" },
+          { status: 503, headers: { "Retry-After": "5" } },
+        );
+      }
+      return withAccessLayers(access, async () => handler(...args));
+    });
   };
 }

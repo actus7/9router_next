@@ -1,4 +1,5 @@
 import { requireGatewayApiKey } from "./gatewayApiKey";
+import { assertModelAllowed, runModelAuthorized } from "./accessScope";
 import {
   getProviderCredentials,
   markAccountUnavailable,
@@ -106,6 +107,10 @@ export async function handleVideoCreate(request: Request, action: string): Promi
   const parsedBody: Record<string, unknown> = bodyInfo.parsed ?? {};
 
   const requestedModel = typeof parsedBody.model === "string" ? parsedBody.model : "";
+  // No model means the default provider answers; a policy that lists models
+  // judges that the same as asking for it by name.
+  const accessDenied = await assertModelAllowed(requestedModel || `${DEFAULT_VIDEO_PROVIDER}/default`);
+  if (accessDenied) return accessDenied;
   const smartCombo = await getSmartCombo(requestedModel);
   if (smartCombo) {
     try {
@@ -123,12 +128,12 @@ export async function handleVideoCreate(request: Request, action: string): Promi
       return handleComboChat({
         body: parsedBody,
         models: routing.models,
-        handleSingleModel: (body: Record<string, unknown>, model: string) => handleVideoCreate(new Request(request.url, {
+        handleSingleModel: (body: Record<string, unknown>, model: string) => runModelAuthorized(() => handleVideoCreate(new Request(request.url, {
           method: request.method,
           headers: request.headers,
           body: JSON.stringify({ ...body, model }),
           signal: request.signal,
-        }), action),
+        }), action)),
         log,
         comboName: requestedModel,
         comboStrategy: "fallback",

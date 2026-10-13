@@ -1,6 +1,6 @@
 import { getAdapter } from "../driver";
 import { chunked, valuesRows } from "../helpers/batch";
-import { currentTenantId } from "../tenant";
+import { MEMBER_ROWS, currentActorUserId, currentTenantId, memberRowParams } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 
 export interface HarnessConversation {
@@ -46,13 +46,13 @@ function rowToConversation(row: Record<string, unknown>): HarnessConversation {
  */
 export async function getHarnessConversation(id: string): Promise<HarnessConversation | undefined> {
   const db = await getAdapter();
-  const row = await db.get("SELECT * FROM harnessConversations WHERE userId = ? AND id = ?", [currentTenantId(), id]);
+  const row = await db.get(`SELECT * FROM harnessConversations WHERE ${MEMBER_ROWS} AND id = ?`, [...memberRowParams(), id]);
   return row ? rowToConversation(row) : undefined;
 }
 
 export async function listHarnessConversations(): Promise<HarnessConversation[]> {
   const db = await getAdapter();
-  return (await db.all("SELECT * FROM harnessConversations WHERE userId = ? ORDER BY updatedAt DESC", [currentTenantId()])).map(rowToConversation);
+  return (await db.all(`SELECT * FROM harnessConversations WHERE ${MEMBER_ROWS} ORDER BY updatedAt DESC`, memberRowParams())).map(rowToConversation);
 }
 
 /**
@@ -68,8 +68,8 @@ const DELETED_CONVERSATION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export async function listDeletedConversationIds(): Promise<string[]> {
   const db = await getAdapter();
   const rows = await db.all(
-    "SELECT id FROM harnessDeletedConversations WHERE userId = ? AND deletedAt > ? ORDER BY deletedAt DESC LIMIT 2000",
-    [currentTenantId(), new Date(Date.now() - DELETED_CONVERSATION_TTL_MS).toISOString()],
+    `SELECT id FROM harnessDeletedConversations WHERE ${MEMBER_ROWS} AND deletedAt > ? ORDER BY deletedAt DESC LIMIT 2000`,
+    [...memberRowParams(), new Date(Date.now() - DELETED_CONVERSATION_TTL_MS).toISOString()],
   );
   return rows.map((row) => String(row.id));
 }
@@ -116,29 +116,33 @@ export async function syncHarnessConversations(
 ): Promise<HarnessConversationSyncResult> {
   if (upserts.length === 0 && deletedIds.length === 0) return { stale: [], rejected: [] };
   const db = await getAdapter();
-  const userId = currentTenantId();
+  // Conversations are private to the member who has them: every statement
+  // below is scoped to (tenant, member), and an upsert never overwrites a row
+  // another member owns — that id lands in `rejected` instead.
+  const [userId, ownerUserId] = memberRowParams();
   const stale: string[] = [];
   const rejected: string[] = [];
   await db.transaction(async () => {
     const ids = deletedIds.filter(Boolean);
     if (ids.length > 0) {
       const placeholders = ids.map(() => "?").join(", ");
-      await db.run(`DELETE FROM harnessMessageIndex WHERE userId = ? AND sessionId IN (${placeholders})`, [userId, ...ids]);
-      await db.run(`DELETE FROM harnessEvents WHERE userId = ? AND sessionId IN (${placeholders})`, [userId, ...ids]);
+      await db.run(`DELETE FROM harnessMessageIndex WHERE ${MEMBER_ROWS} AND sessionId IN (${placeholders})`, [userId, ownerUserId, ...ids]);
+      await db.run(`DELETE FROM harnessEvents WHERE ${MEMBER_ROWS} AND sessionId IN (${placeholders})`, [userId, ownerUserId, ...ids]);
       // Never a run still executing: the worker is mid-write, and deleting the
       // row under it loses the answer with no error anywhere.
       await db.run(
-        `DELETE FROM harnessRuns WHERE userId = ? AND status != ? AND sessionId IN (${placeholders})`,
-        [userId, "running", ...ids],
+        `DELETE FROM harnessRuns WHERE ${MEMBER_ROWS} AND status != ? AND sessionId IN (${placeholders})`,
+        [userId, ownerUserId, "running", ...ids],
       );
-      await db.run(`DELETE FROM harnessConversations WHERE userId = ? AND id IN (${placeholders})`, [userId, ...ids]);
+      await db.run(`DELETE FROM harnessConversations WHERE ${MEMBER_ROWS} AND id IN (${placeholders})`, [userId, ownerUserId, ...ids]);
       const deletedAt = new Date().toISOString();
       for (const batch of chunked(ids)) {
         await db.run(
-          `INSERT INTO harnessDeletedConversations(userId, id, deletedAt)
-           VALUES ${valuesRows(batch.length, "(?, ?, ?)")}
-           ON CONFLICT(userId, id) DO UPDATE SET deletedAt = excluded.deletedAt`,
-          batch.flatMap((id) => [userId, id, deletedAt]),
+          `INSERT INTO harnessDeletedConversations(userId, id, deletedAt, ownerUserId)
+           VALUES ${valuesRows(batch.length, "(?, ?, ?, ?)")}
+           ON CONFLICT(userId, id) DO UPDATE SET deletedAt = excluded.deletedAt
+           WHERE COALESCE(harnessDeletedConversations.ownerUserId, harnessDeletedConversations.userId) = excluded.ownerUserId`,
+          batch.flatMap((id) => [userId, id, deletedAt, ownerUserId]),
         );
       }
       // Swept here rather than on a schedule: this is the only place that adds
@@ -155,27 +159,29 @@ export async function syncHarnessConversations(
       const marks = upsertIds.map(() => "?").join(", ");
       if (upsertIds.length > 0) {
         await db.run(
-          `DELETE FROM harnessDeletedConversations WHERE userId = ? AND id IN (${marks})`,
-          [userId, ...upsertIds],
+          `DELETE FROM harnessDeletedConversations WHERE ${MEMBER_ROWS} AND id IN (${marks})`,
+          [userId, ownerUserId, ...upsertIds],
         );
       }
     }
     for (const conversation of upserts) {
       const { id, title, projectId, providerId, modelId, createdAt, updatedAt, ...data } = conversation;
       const result = await db.run(
-        `INSERT INTO harnessConversations(id, userId, title, projectId, providerId, modelId, data, createdAt, updatedAt)
-         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO harnessConversations(id, userId, title, projectId, providerId, modelId, data, createdAt, updatedAt, ownerUserId)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(userId, id) DO UPDATE SET title=excluded.title, projectId=excluded.projectId,
-           providerId=excluded.providerId, modelId=excluded.modelId, data=excluded.data, updatedAt=excluded.updatedAt
-         WHERE excluded.updatedAt >= harnessConversations.updatedAt`,
-        [id, userId, title, projectId || null, providerId || null, modelId || null, stringifyJson(data), createdAt, updatedAt],
+           providerId=excluded.providerId, modelId=excluded.modelId, data=excluded.data, updatedAt=excluded.updatedAt,
+           ownerUserId=excluded.ownerUserId
+         WHERE excluded.updatedAt >= harnessConversations.updatedAt
+           AND COALESCE(harnessConversations.ownerUserId, harnessConversations.userId) = excluded.ownerUserId`,
+        [id, userId, title, projectId || null, providerId || null, modelId || null, stringifyJson(data), createdAt, updatedAt, ownerUserId],
       );
       if (!result || result.changes !== 0) continue;
 
       // Nothing was written. Ours and newer means the row is simply not ours.
       const mine = await db.get(
-        "SELECT updatedAt FROM harnessConversations WHERE userId = ? AND id = ?",
-        [userId, id],
+        `SELECT updatedAt FROM harnessConversations WHERE ${MEMBER_ROWS} AND id = ?`,
+        [userId, ownerUserId, id],
       );
       if (!mine) rejected.push(id);
       else stale.push(id);
@@ -218,15 +224,15 @@ export async function appendRunAnswerToConversation(
 ): Promise<boolean> {
   if (!patch.content) return false;
   const db = await getAdapter();
-  const userId = currentTenantId();
+  const scope = memberRowParams();
   return await db.transaction(async () => {
     // `FOR UPDATE` because this is a read-modify-write of the whole message
     // list. Two runs can settle in the same conversation at once, and without
     // the row lock they interleave: both read the same messages, both write,
     // and whichever committed first loses its answer with nothing to report it.
     const row = await db.get(
-      "SELECT id, data, updatedAt FROM harnessConversations WHERE userId = ? AND id = ? FOR UPDATE",
-      [userId, sessionId],
+      `SELECT id, data, updatedAt FROM harnessConversations WHERE ${MEMBER_ROWS} AND id = ? FOR UPDATE`,
+      [...scope, sessionId],
     );
     if (!row) return false;
 
@@ -249,8 +255,8 @@ export async function appendRunAnswerToConversation(
 
     const updatedAt = new Date().toISOString();
     const result = await db.run(
-      "UPDATE harnessConversations SET data = ?, updatedAt = ? WHERE userId = ? AND id = ?",
-      [stringifyJson({ ...data, messages }), updatedAt, userId, sessionId],
+      `UPDATE harnessConversations SET data = ?, updatedAt = ? WHERE ${MEMBER_ROWS} AND id = ?`,
+      [stringifyJson({ ...data, messages }), updatedAt, ...scope, sessionId],
     );
     return !result || result.changes !== 0;
   });
@@ -259,8 +265,8 @@ export async function appendRunAnswerToConversation(
 export async function listHarnessEvents(sessionId: string, after = 0): Promise<HarnessEvent[]> {
   const db = await getAdapter();
   const rows = await db.all(
-    "SELECT sessionId, seq, type, data, createdAt FROM harnessEvents WHERE userId = ? AND sessionId = ? AND seq > ? ORDER BY seq ASC LIMIT 1000",
-    [currentTenantId(), sessionId, after],
+    `SELECT sessionId, seq, type, data, createdAt FROM harnessEvents WHERE ${MEMBER_ROWS} AND sessionId = ? AND seq > ? ORDER BY seq ASC LIMIT 1000`,
+    [...memberRowParams(), sessionId, after],
   );
   return rows.map((row) => ({
     sessionId: String(row.sessionId),
@@ -292,13 +298,25 @@ export async function appendHarnessEvent(input: Omit<HarnessEvent, "seq" | "crea
   const db = await getAdapter();
   const createdAt = input.createdAt || new Date().toISOString();
   const userId = currentTenantId();
+  const ownerUserId = currentActorUserId();
   for (let attempt = 1; ; attempt++) {
     try {
       let event: HarnessEvent | undefined;
       await db.transaction(async () => {
-        const row = await db.get("SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM harnessEvents WHERE userId = ? AND sessionId = ?", [userId, input.sessionId]);
+        // Session ids are per organization, so the same id can name another
+        // member's conversation; its journal is not ours to append to, whether
+        // it already has events or only the conversation row.
+        const row = await db.get(
+          `SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq,
+                  COUNT(*) FILTER (WHERE COALESCE(ownerUserId, userId) <> ?)
+                  + (SELECT COUNT(*) FROM harnessConversations c
+                     WHERE c.userId = ? AND c.id = ? AND COALESCE(c.ownerUserId, c.userId) <> ?) AS otherowners
+           FROM harnessEvents WHERE userId = ? AND sessionId = ?`,
+          [ownerUserId, userId, input.sessionId, ownerUserId, userId, input.sessionId],
+        );
+        if (Number(row?.otherowners || 0) > 0) throw new Error("Session belongs to another member");
         const seq = Number(row?.nextSeq || 1);
-        await db.run("INSERT INTO harnessEvents(userId, sessionId, seq, type, data, createdAt) VALUES(?, ?, ?, ?, ?, ?)", [userId, input.sessionId, seq, input.type, stringifyJson(input.data), createdAt]);
+        await db.run("INSERT INTO harnessEvents(userId, sessionId, seq, type, data, createdAt, ownerUserId) VALUES(?, ?, ?, ?, ?, ?, ?)", [userId, input.sessionId, seq, input.type, stringifyJson(input.data), createdAt, ownerUserId]);
         event = { sessionId: input.sessionId, seq, type: input.type, data: input.data, createdAt };
       });
       return event!;

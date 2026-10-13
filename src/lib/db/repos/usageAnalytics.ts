@@ -1,4 +1,5 @@
 import { getAdapter } from "../driver";
+import { usageByMember, type MemberModelUsage } from "./usageByMemberRepo";
 import { currentTenantId } from "../tenant";
 import { parseJson } from "../helpers/jsonCol";
 
@@ -90,6 +91,8 @@ export interface UsageStats {
   byAccount: Record<string, Counter & { rawModel: string; provider: string; connectionId: string; accountName: string; lastUsed: string }>;
   byApiKey: Record<string, Counter & { rawModel: string; provider: string; apiKeyMasked: string | null; keyName: string; apiKeyKey: string; lastUsed: string }>;
   byEndpoint: Record<string, Counter & { endpoint: string; rawModel: string; provider: string; lastUsed: string }>;
+  /** Per member and model, keyed `member|model|provider`. */
+  byMember: Record<string, MemberModelUsage>;
   last10Minutes: Array<{ requests: number; promptTokens: number; completionTokens: number; cost: number }>;
   pending: PendingRequests;
   activeRequests: ActiveRequest[];
@@ -122,6 +125,7 @@ export async function getUsageStatsForState(
     await aggregateRecentHistory(db, period, stats, maps);
   }
 
+  stats.byMember = await usageByMember(period);
   stats.totalRequests = Object.values(stats.byProvider).reduce((sum: number, p: Counter) => sum + (p.requests || 0), 0);
   return stats;
 }
@@ -185,7 +189,7 @@ function initStats(recentRequests: RecentRequest[], state: UsageRuntimeState): U
   return {
     totalRequests: 0,
     totalPromptTokens: 0, totalCompletionTokens: 0, totalCachedTokens: 0, totalCost: 0,
-    byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
+    byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {}, byMember: {},
     last10Minutes: [],
     pending: pendingRequests,
     activeRequests: [],

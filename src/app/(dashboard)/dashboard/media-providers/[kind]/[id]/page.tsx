@@ -34,7 +34,7 @@ async function MediaProviderDetailContent({ params }: { params: Promise<{ kind: 
         initialNodes={nodes as unknown as { id: string; name?: string; type?: string; prefix?: string }[]}
       />
     );
-  });
+  }, { minRole: "admin" });
 }
 
 export default function MediaProviderDetailPage({ params }: PageProps<"/dashboard/media-providers/[kind]/[id]">) {

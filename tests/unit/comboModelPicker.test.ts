@@ -18,14 +18,23 @@ function discovered(providerIds: string[]) {
   }));
 }
 
-function build(kindFilter: string | null, noAuthIds: string[], activeProviders: string[] = []) {
+function build(
+  kindFilter: string | null,
+  noAuthIds: string[],
+  activeProviders: string[] = [],
+  inactiveProviders: string[] = [],
+) {
+  const connections = [
+    ...activeProviders.map((provider) => ({ provider, isActive: true })),
+    ...inactiveProviders.map((provider) => ({ provider, isActive: false })),
+  ];
   return buildGroupedModels({
-    filteredActiveProviders: activeProviders.map((provider) => ({ provider })),
-    activeProviders: activeProviders.map((provider) => ({ provider })),
+    filteredActiveProviders: connections,
+    activeProviders: connections,
     modelAliases: {},
     allProviders: AI_PROVIDERS as unknown as Record<string, Record<string, unknown>>,
     providerNodes: [],
-    customModels: discovered([...noAuthIds, ...activeProviders]),
+    customModels: discovered([...noAuthIds, ...activeProviders, ...inactiveProviders]),
     disabledModels: {},
     kindFilter,
     cursorModels: [],
@@ -59,5 +68,18 @@ describe("model picker provider eligibility", () => {
   it("keeps chat providers that also do other services", () => {
     const groups = build(null, [], ["gemini", "perplexity"]);
     expect(Object.keys(groups)).toEqual(expect.arrayContaining(["gemini", "perplexity"]));
+  });
+
+  // The pages pass every connection of the account, switched-off ones included,
+  // so a disabled Vercel AI Gateway kept offering its 314 models to every combo.
+  it("hides providers whose only connections are switched off", () => {
+    const groups = build(null, [], ["groq"], ["vercel-ai-gateway"]);
+    expect(Object.keys(groups)).toContain("groq");
+    expect(Object.keys(groups)).not.toContain("vercel-ai-gateway");
+  });
+
+  it("keeps a provider that still has one active connection", () => {
+    const groups = build(null, [], ["vercel-ai-gateway"], ["vercel-ai-gateway"]);
+    expect(Object.keys(groups)).toContain("vercel-ai-gateway");
   });
 });

@@ -2,6 +2,7 @@
 
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, getProviderAlias } from "@/shared/constants/providers";
+import { dropDisabledModels } from "./buildGroupedModels";
 
 type RawModel = { id: string; name: string; [key: string]: unknown };
 interface PickerModel { id: string; name: string; value: string; }
@@ -51,8 +52,10 @@ export function buildProviderGroups(params: {
   activeProviders: { provider: string; id?: string; name?: string; providerSpecificData?: Record<string, unknown> }[];
   modelAliases: Record<string, string>; providerNodes: { id: string; name?: string; prefix?: string }[];
   customModels: { id: string; name?: string; providerAlias?: string }[];
+  /** Models switched off per provider, as `/api/models/disabled` returns them. */
+  disabledModels?: Record<string, string[]>;
 }): Record<string, PickerGroup> {
-  const { sortedProviderIds, allProviders, activeProviders, modelAliases, providerNodes, customModels } = params;
+  const { sortedProviderIds, allProviders, activeProviders, modelAliases, providerNodes, customModels, disabledModels = {} } = params;
   const result: Record<string, PickerGroup> = {};
   sortedProviderIds.forEach((providerId) => {
     const alias = getProviderAlias(providerId);
@@ -67,5 +70,5 @@ export function buildProviderGroups(params: {
     else group = buildStandardGroup(alias, providerId, providerInfo, modelAliases, customModels);
     if (group) result[providerId] = group;
   });
-  return result;
+  return dropDisabledModels(result, disabledModels);
 }

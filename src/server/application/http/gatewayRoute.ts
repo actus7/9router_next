@@ -2,6 +2,10 @@ import { NextResponse, connection } from "next/server";
 
 import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { withTenant } from "@/lib/db/tenant";
+import { accessLayersFor } from "@/lib/db/repos/accessPoliciesRepo";
+import { checkUsageLimits, limitBreachResponse } from "./usageLimits";
+import { resolveKeyContext } from "@/lib/auth/organizations";
+import { withAccessLayers } from "@/server/llm-gateway/application/accessScope";
 import { withVerifiedGatewayKey } from "@/server/llm-gateway/application/gatewayApiKey";
 import { withStoredKeyProfile } from "@/server/llm-gateway/application/gatewayProfile";
 import { ensureEngineSeams } from "@/server/llm-gateway/application/engineSeams";
@@ -57,6 +61,20 @@ export function gatewayRoute<R extends Request, A extends unknown[]>(
     if (!owner) {
       return NextResponse.json({ error: { message: "Invalid API key", type: "invalid_request_error", code: "invalid_api_key" } }, { status: 401 });
     }
+    // The member the key acts as. A key whose creator has left the organization
+    // stops working here, the same way a revoked one does.
+    let context;
+    try {
+      context = await resolveKeyContext(owner.userId, owner.ownerUserId);
+    } catch {
+      return NextResponse.json(
+        { error: { message: "Access policy unavailable, try again", type: "api_error" } },
+        { status: 503, headers: { "Retry-After": "5" } },
+      );
+    }
+    if (!context) {
+      return NextResponse.json({ error: { message: "Invalid API key", type: "invalid_request_error", code: "invalid_api_key" } }, { status: 401 });
+    }
     // Keyed by account, not by key: several keys belong to one account and the
     // ceiling is meant to bound what that account can spend.
     const limited = consumeRateLimit(`gw:${owner.userId}`, gatewayRateLimit(), RATE_LIMIT_WINDOW_MS);
@@ -70,8 +88,27 @@ export function gatewayRoute<R extends Request, A extends unknown[]>(
     // for the key that was just resolved (see requireGatewayApiKey).
     // The key's own abilities and skills, not the account's: two keys of one
     // account can ask for different treatment (see gatewayProfile).
-    return withTenant(owner.userId, () =>
-      withStoredKeyProfile(owner.profile ?? null, () => withVerifiedGatewayKey(key, async () => handler(request, ...rest))),
-    );
+    const keyContext = context;
+    return withTenant(keyContext, async () => {
+      // What the key may ask for: the organization's policy, its member's, and the key's own.
+      // Read before the handler and failing closed — a permission that cannot
+      // be read is not an unrestricted one.
+      let access;
+      let breach;
+      try {
+        const subjects = { apiKeyId: owner.id, memberUserId: keyContext.actorUserId, memberRole: keyContext.role };
+        access = await accessLayersFor(subjects);
+        breach = await checkUsageLimits(subjects);
+      } catch {
+        return NextResponse.json(
+          { error: { message: "Access policy unavailable, try again", type: "api_error" } },
+          { status: 503, headers: { "Retry-After": "5" } },
+        );
+      }
+      if (breach) return limitBreachResponse(breach);
+      return withAccessLayers(access, () =>
+        withStoredKeyProfile(owner.profile ?? null, () => withVerifiedGatewayKey(key, async () => handler(request, ...rest))),
+      );
+    });
   };
 }

@@ -19,7 +19,7 @@ async function WebProvidersContent() {
   return withTenantPage(async () => {
     await assertRequestRuntime();
     return <WebProvidersClient initialConnections={await getProviders()} />;
-  });
+  }, { minRole: "admin" });
 }
 
 export default function WebProvidersPage() {

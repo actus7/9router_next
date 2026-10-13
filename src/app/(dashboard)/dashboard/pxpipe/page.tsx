@@ -1,10 +1,13 @@
 import PxpipeClient from "./PxpipeClient";
+import { AdminOnly } from "@/app/adminOnly";
 import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 export default function PxpipePage() {
   return (
     <>
-      <PxpipeClient />
+      <AdminOnly>
+        <PxpipeClient />
+      </AdminOnly>
       <MetadataIsDynamic />
     </>
   );

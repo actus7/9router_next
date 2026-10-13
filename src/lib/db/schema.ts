@@ -11,8 +11,10 @@ interface TableDefinition {
 }
 
 /**
- * Every table but `_meta` carries `userId`: the Neon Auth user that owns the
- * row. `_meta` is instance state, not tenant state.
+ * Every table but `_meta` carries `userId`: the **tenant** (organization) that
+ * owns the row. The name predates organizations; a personal workspace is an
+ * organization whose id is the user's id, so the values written before teams
+ * existed are already correct. `_meta` is instance state, not tenant state.
  *
  * Where a table's key was already a surrogate uuid, `userId` is a plain column
  * and the primary key is unchanged — a uuid does not collide between tenants.
@@ -119,6 +121,9 @@ export const TABLES: Record<string, TableDefinition> = {
       // NULL means "never edited" and reads as the account's `settings` flags,
       // which is what every key did before profiles existed.
       profile: "TEXT",
+      // The member who created the key, and who its requests act as. NULL on
+      // keys from before teams: the tenant's own owner (see resolveKeyContext).
+      ownerUserId: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",
@@ -213,9 +218,14 @@ export const TABLES: Record<string, TableDefinition> = {
       status: "TEXT",
       tokens: "TEXT",
       meta: "TEXT",
+      // The member the request ran as — the key's owner on the API, the sender
+      // in the chat. Usage per member and their monthly budget read it.
+      actorUserId: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_uh_ts ON usageHistory(userId, timestamp DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_uh_actor_ts ON usageHistory(userId, actorUserId, timestamp)",
+      "CREATE INDEX IF NOT EXISTS idx_uh_key_ts ON usageHistory(userId, apiKey, timestamp)",
       "CREATE INDEX IF NOT EXISTS idx_uh_provider ON usageHistory(userId, provider)",
       "CREATE INDEX IF NOT EXISTS idx_uh_model ON usageHistory(userId, model)",
       "CREATE INDEX IF NOT EXISTS idx_uh_conn ON usageHistory(userId, connectionId)",
@@ -327,6 +337,8 @@ export const TABLES: Record<string, TableDefinition> = {
       data: "TEXT NOT NULL",
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",
+      // The member the row belongs to; NULL = the tenant owner (see MEMBER_ROWS).
+      ownerUserId: "TEXT",
     },
     primaryKey: "PRIMARY KEY (userId, id)",
     indexes: [
@@ -351,6 +363,8 @@ export const TABLES: Record<string, TableDefinition> = {
       userId: "TEXT NOT NULL",
       id: "TEXT NOT NULL",
       deletedAt: "TEXT NOT NULL",
+      // The member the row belongs to; NULL = the tenant owner (see MEMBER_ROWS).
+      ownerUserId: "TEXT",
     },
     primaryKey: "PRIMARY KEY (userId, id)",
     indexes: [
@@ -365,6 +379,8 @@ export const TABLES: Record<string, TableDefinition> = {
       type: "TEXT NOT NULL",
       data: "TEXT NOT NULL",
       createdAt: "TEXT NOT NULL",
+      // The member the row belongs to; NULL = the tenant owner (see MEMBER_ROWS).
+      ownerUserId: "TEXT",
     },
     primaryKey: "PRIMARY KEY (userId, sessionId, seq)",
     indexes: [
@@ -400,6 +416,8 @@ export const TABLES: Record<string, TableDefinition> = {
       error: "TEXT",
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",
+      // The member the row belongs to; NULL = the tenant owner (see MEMBER_ROWS).
+      ownerUserId: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_hr_session ON harnessRuns(userId, sessionId, createdAt DESC)",
@@ -519,6 +537,8 @@ export const TABLES: Record<string, TableDefinition> = {
       content: "TEXT NOT NULL",
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",
+      // The member the row belongs to; NULL = the tenant owner (see MEMBER_ROWS).
+      ownerUserId: "TEXT",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_ame_scope ON agentMemoryEntries(userId, scope)"],
   },
@@ -554,12 +574,29 @@ export const TABLES: Record<string, TableDefinition> = {
       content: "TEXT NOT NULL",
       createdAt: "TEXT NOT NULL",
       contentTsv: "tsvector GENERATED ALWAYS AS (to_tsvector('simple', content)) STORED",
+      // The member the row belongs to; NULL = the tenant owner (see MEMBER_ROWS).
+      ownerUserId: "TEXT",
     },
     primaryKey: "PRIMARY KEY (userId, sessionId, messageId)",
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_hmi_created ON harnessMessageIndex(userId, createdAt DESC)",
       "CREATE INDEX IF NOT EXISTS idx_hmi_tsv ON harnessMessageIndex USING GIN (contentTsv)",
     ],
+  },
+  // What a member or an API key may use (models, plugins, skills), one row per
+  // subject. Layers stack — org, member, key — and every one has to allow.
+  // `subjectId` is the tenant id for `org`, a user id for `member`, an apiKeys
+  // id for `key`. See src/shared/access/accessPolicy.ts.
+  accessPolicies: {
+    columns: {
+      userId: "TEXT NOT NULL",
+      subjectType: "TEXT NOT NULL",
+      subjectId: "TEXT NOT NULL",
+      policy: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+      updatedBy: "TEXT",
+    },
+    primaryKey: "PRIMARY KEY (userId, subjectType, subjectId)",
   },
 };
 

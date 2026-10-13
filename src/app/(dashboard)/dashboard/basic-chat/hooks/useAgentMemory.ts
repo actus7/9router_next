@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useWorkspace } from "@/shared/hooks/useWorkspace";
 import type { HarnessLearningConfigView } from "@/shared/harness/agentMemory";
 import type {
   AgentMemorySnapshot,
@@ -39,6 +40,7 @@ const EMPTY_SNAPSHOT: AgentMemorySnapshot = {
 };
 
 export function useAgentMemory(open: boolean): UseAgentMemoryReturn {
+  const { canManage } = useWorkspace();
   const [snapshot, setSnapshot] = useState<AgentMemorySnapshot | null>(null);
   const [config, setConfig] = useState<HarnessLearningConfigView | null>(null);
   const [pending, setPending] = useState<HarnessPendingWrite[]>([]);
@@ -50,12 +52,14 @@ export function useAgentMemory(open: boolean): UseAgentMemoryReturn {
     setLoading(true);
     setError("");
     try {
+      // The approval queue is the team's, answered by an owner or admin; a
+      // member's panel never asks for it.
       const [memoryResp, pendingResp] = await Promise.all([
         fetch("/api/harness/memory", { cache: "no-store" }),
-        fetch("/api/harness/pending", { cache: "no-store" }),
+        canManage ? fetch("/api/harness/pending", { cache: "no-store" }) : null,
       ]);
       const memoryPayload = (await memoryResp.json().catch(() => null)) as MemoryApiResponse | null;
-      const pendingPayload = (await pendingResp.json().catch(() => null)) as {
+      const pendingPayload = (await pendingResp?.json().catch(() => null)) as {
         pending?: HarnessPendingWrite[];
       } | null;
       if (!memoryResp.ok || !memoryPayload) {
@@ -78,7 +82,7 @@ export function useAgentMemory(open: boolean): UseAgentMemoryReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canManage]);
 
   useEffect(() => {
     if (open) void reload();

@@ -3,6 +3,7 @@ import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { TENANT_TABLES } from "@/lib/db/schema";
+import { MEMBER_ROWS } from "@/lib/db/tenant";
 
 /**
  * Every row in every table but `_meta` belongs to one account, and nothing in
@@ -30,10 +31,34 @@ const dbRoot = resolve(__dirname, "../../src/lib/db");
 const UNSCOPED: ReadonlyArray<{ file: string; contains: string; why: string }> = [
   {
     file: "repos/apiKeysRepo.ts",
-    contains: "SELECT id, userId, isActive, profile FROM apiKeys WHERE key = ?",
+    contains: "SELECT id, userId, isActive, profile, ownerUserId FROM apiKeys WHERE key = ?",
     why: "Resolves which account a gateway request belongs to from its key. The key is globally unique precisely so this lookup needs no tenant.",
   },
 ];
+
+/**
+ * Named WHERE fragments the repos interpolate instead of writing `userId = ?`
+ * out each time, and what each expands to. Every one starts with the tenant
+ * filter; the test below holds the repos to that, so a fragment rewritten
+ * without it fails here rather than passing as "named".
+ */
+const SCOPE_FRAGMENTS: ReadonlyArray<{ hole: string; expansion: string; definedIn?: { file: string; contains: string } }> = [
+  { hole: "${MEMBER_ROWS}", expansion: MEMBER_ROWS },
+  {
+    hole: "${VISIBLE}",
+    expansion: "userId = ?",
+    definedIn: { file: "repos/agentMemoryRepo.ts", contains: 'const VISIBLE = "userId = ? AND' },
+  },
+  {
+    hole: "${scope.where}",
+    expansion: "userId = ?",
+    definedIn: { file: "repos/apiKeysRepo.ts", contains: 'where: "userId = ? AND COALESCE(ownerUserId, userId) = ?"' },
+  },
+];
+
+function expandFragments(sql: string): string {
+  return SCOPE_FRAGMENTS.reduce((text, fragment) => text.replaceAll(fragment.hole, fragment.expansion), sql);
+}
 
 const TENANT_TABLE_SET: ReadonlySet<string> = new Set(TENANT_TABLES.map((t) => t.toLowerCase()));
 
@@ -64,7 +89,7 @@ function tenantStatements(): Statement[] {
     const file = relative(dbRoot, path).replaceAll("\\", "/");
     const source = readFileSync(path, "utf8");
     for (const [sql] of source.matchAll(statement)) {
-      const flat = sql.replace(/\s+/g, " ").trim();
+      const flat = expandFragments(sql.replace(/\s+/g, " ").trim());
       const verb = flat.split(" ")[0]!.toUpperCase();
       const table = tableOf(flat, verb);
       if (!table || !TENANT_TABLE_SET.has(table.toLowerCase())) continue;
@@ -156,6 +181,15 @@ describe("tenant isolation", () => {
     for (const allowed of UNSCOPED) {
       const match = all.find((e) => e.file === allowed.file && e.sql.includes(allowed.contains));
       expect(match, `${allowed.file} no longer contains: ${allowed.contains}`).toBeDefined();
+    }
+  });
+
+  it("expands only fragments that really start with the tenant filter", () => {
+    expect(MEMBER_ROWS.startsWith("userId = ?")).toBe(true);
+    for (const fragment of SCOPE_FRAGMENTS) {
+      if (!fragment.definedIn) continue;
+      const source = readFileSync(join(dbRoot, fragment.definedIn.file), "utf8");
+      expect(source.includes(fragment.definedIn.contains), `${fragment.definedIn.file} must define ${fragment.hole}`).toBe(true);
     }
   });
 

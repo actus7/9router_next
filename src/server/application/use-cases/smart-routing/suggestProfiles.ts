@@ -9,7 +9,7 @@ import {
   type AaSnapshotMeta,
   type SmartModelProfile,
 } from "@/server/llm-gateway/smart-routing";
-import { currentTenantId, withTenant } from "@/lib/db/tenant";
+import { currentTenantContext, withTenant } from "@/lib/db/tenant";
 import { decideLaneVerdicts, defaultLaneDeciders, type LaneDecisionCounts } from "./laneVerdicts";
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { resolveProviderId } from "@/shared/constants/providers";
@@ -155,7 +155,7 @@ export function streamSuggestSuggestions(): ReadableStream<Uint8Array> {
   // after every await from the stream's consumer, where the ambient tenant is
   // whoever happens to be reading — so the work is re-scoped to the account
   // that opened the stream, the way usage/stream does it.
-  const owner = currentTenantId();
+  const owner = currentTenantContext();
   const events = runSuggest();
   return new ReadableStream<Uint8Array>({
     async start(controller) {

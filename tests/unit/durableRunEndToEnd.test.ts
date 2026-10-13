@@ -34,6 +34,8 @@ interface Row {
 
 const db = vi.hoisted(() => ({ rows: new Map<string, unknown>() }));
 
+// The access policy has its own test (accessScope); here the member is unrestricted.
+vi.mock("@/lib/db/repos/accessPoliciesRepo", () => ({ accessLayersFor: vi.fn(async () => []), accessLayersForActor: vi.fn(async () => []), usageLimitsFor: vi.fn(async () => []) }));
 vi.mock("@/lib/db/repos/harnessRunsRepo", () => {
   const rows = db.rows as Map<string, Row>;
   const now = () => new Date().toISOString();
@@ -105,7 +107,8 @@ vi.mock("@/lib/db/repos/harnessRunsRepo", () => {
 
 vi.mock("@/lib/db/tenant", () => ({
   currentTenantId: () => "test-user",
-  withTenant: (_owner: string, fn: () => unknown) => fn(),
+  currentTenantContext: () => ({ tenantId: "test-user", actorUserId: "test-user", role: "owner" }),
+  withTenant: (_owner: unknown, fn: () => unknown) => fn(),
 }));
 vi.mock("@/server/application/http/requireDashboardAccess", () => ({
   requireDashboardAccess: vi.fn(async () => null),

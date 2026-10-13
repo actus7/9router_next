@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { currentTenantContext, roleAtLeast } from "@/lib/db/tenant";
+import { listAgentMemoryEntries } from "@/lib/db/repos/agentMemoryRepo";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import {
   applyMemoryWrite,
@@ -28,11 +30,34 @@ export async function GET() {
   return NextResponse.json({ ok: true, ...snapshot, config });
 }
 
+/**
+ * Whether an operator edit reaches what the whole team shares: the learning
+ * config, or agent memory, which rides into every member's chat. A member's
+ * own (user) memory is theirs to edit; the shared kind is an admin's, and the
+ * agent reaches it only through POST and its approval gate.
+ */
+async function touchesSharedMemory(body: Record<string, unknown>): Promise<boolean> {
+  if (body.config && typeof body.config === "object") return true;
+  if (body.action === "create") return body.scope !== "user";
+  if ((body.action === "update" || body.action === "delete") && typeof body.id === "string") {
+    const entry = (await listAgentMemoryEntries()).find((candidate) => candidate.id === body.id);
+    return entry?.scope === "agent";
+  }
+  return false;
+}
+
 export async function PUT(request: NextRequest) {
   await assertRequestRuntime();
   const denied = await requireDashboardAccess();
   if (denied) return denied;
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const shared = await touchesSharedMemory(body);
+  if (shared && !roleAtLeast(currentTenantContext().role, "admin")) {
+    return NextResponse.json(
+      { ok: false, error: "Only an owner or admin can change the team's shared memory." },
+      { status: 403 },
+    );
+  }
 
   if (body.config && typeof body.config === "object") {
     const config = await updateHarnessLearningConfig(

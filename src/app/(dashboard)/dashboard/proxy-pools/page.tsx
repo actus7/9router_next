@@ -12,7 +12,7 @@ async function ProxyPoolsContent() {
     const proxyPools = await getProxyPoolsWithUsage();
 
     return <ProxyPoolsClient initialProxyPools={proxyPools as unknown as ProxyPool[]} />;
-  });
+  }, { minRole: "admin" });
 }
 
 export default function ProxyPoolsPage() {

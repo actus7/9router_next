@@ -13,6 +13,7 @@ import { currentGatewayProfile } from "./gatewayProfile";
 import { buildGatewaySkillsPrompt } from "./gatewaySkills";
 import { getSettings } from "@/lib/db/repos/settingsRepo";
 import { getModelInfo, getComboModels, assertModelEnabled } from "./modelResolution";
+import { assertModelAllowed } from "./accessScope";
 import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 import { getTransform as getPxpipeTransform } from "@/lib/pxpipe/loader";
@@ -382,6 +383,9 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
   const userAgent: string = request?.headers?.get("user-agent") || "";
   const bypassResponse = handleBypassRequest(body, modelStr, userAgent, Boolean((await getSettings()).ccFilterNaming));
   if (bypassResponse) return bypassResponse.response || bypassResponse;
+
+  const accessDenied = await assertModelAllowed(modelStr);
+  if (accessDenied) return accessDenied;
 
   // The trace is collected while routing and attached to whatever response wins.
   startRoutingTrace(body, modelStr);

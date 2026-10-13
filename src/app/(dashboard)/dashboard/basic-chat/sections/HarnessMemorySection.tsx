@@ -12,6 +12,7 @@ import type { HarnessPendingWrite } from "@/shared/harness/pendingWrites";
 import type { HarnessEvent } from "../types";
 import { eventLabel } from "../runJournalHelpers";
 import { useAgentMemory } from "../hooks/useAgentMemory";
+import { useWorkspace } from "@/shared/hooks/useWorkspace";
 
 // Jev's advisory read of the write (0 harmless … 3 high). Informs the
 // operator's decision; approving and rejecting stay manual.
@@ -87,6 +88,7 @@ function MemoryScopeSection({
   onCreate,
   onUpdate,
   onDelete,
+  readOnlyNote,
 }: {
   title: string;
   entries: readonly MemoryEntryView[];
@@ -96,6 +98,8 @@ function MemoryScopeSection({
   onCreate: (content: string) => Promise<void>;
   onUpdate: (id: string, content: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  /** Set when this list is the team's and the reader may not change it. */
+  readOnlyNote?: string;
 }) {
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -109,6 +113,7 @@ function MemoryScopeSection({
           {chars}/{limit} caracteres
         </span>
       </div>
+      {readOnlyNote ? <p className="mt-1 text-xs text-muted-foreground">{readOnlyNote}</p> : null}
       <ul className="mt-3 space-y-2">
         {entries.map((entry) => (
           <li
@@ -147,7 +152,7 @@ function MemoryScopeSection({
             ) : (
               <>
                 <p className="whitespace-pre-wrap leading-6">{entry.content}</p>
-                <div className="mt-2 flex gap-2">
+                {readOnlyNote ? null : <div className="mt-2 flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
@@ -167,13 +172,13 @@ function MemoryScopeSection({
                   >
                     <Trash2 className="size-4" />
                   </Button>
-                </div>
+                </div>}
               </>
             )}
           </li>
         ))}
       </ul>
-      <div className="mt-3 flex gap-2">
+      {readOnlyNote ? null : <div className="mt-3 flex gap-2">
         <Input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -191,7 +196,7 @@ function MemoryScopeSection({
         >
           <Plus className="size-4" />
         </Button>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -202,6 +207,10 @@ export default function HarnessMemorySection({
   harnessEvents?: HarnessEvent[];
 }) {
   const memory = useAgentMemory(true);
+  // The agent's memory and these switches ride into every teammate's chat, so
+  // they are the owner's and admins' to change; a member reads them.
+  const { canManage } = useWorkspace();
+  const configDisabled = memory.busy || !canManage;
   const journeyEvents = harnessEvents.filter(
     (event) =>
       event.type.startsWith("skill/") ||
@@ -225,10 +234,11 @@ export default function HarnessMemorySection({
         * "Agente" and "Usuário", which reads like a scope within a chat.
         */}
       <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-        <strong className="font-medium text-foreground">Vale para a conta inteira.</strong>{" "}
+        <strong className="font-medium text-foreground">Vale para todas as suas conversas.</strong>{" "}
         O que é guardado aqui é lido por todas as suas sessões, não só por esta —
         é o que permite ao assistente lembrar de você de uma conversa para outra.
-        As sessões em si continuam isoladas: nenhuma lê as mensagens da outra.
+        Numa equipe, a memória do agente é compartilhada com todos; a do usuário é
+        só sua. As sessões em si continuam isoladas: nenhuma lê as mensagens da outra.
       </p>
 
       {memory.error ? (
@@ -240,6 +250,11 @@ export default function HarnessMemorySection({
           <Brain className="size-5 text-muted-foreground" />
           <span className="font-medium">Governança</span>
         </div>
+        {canManage ? null : (
+          <p className="-mt-2 text-xs text-muted-foreground">
+            Definida pelo owner ou por um admin da equipe.
+          </p>
+        )}
         <label className="flex items-center justify-between gap-4">
           <div>
             <Label htmlFor="write-approval">Exigir aprovação para escrita do agente</Label>
@@ -250,7 +265,7 @@ export default function HarnessMemorySection({
           <Switch
             id="write-approval"
             checked={memory.config?.memoryWriteApproval ?? false}
-            disabled={memory.busy}
+            disabled={configDisabled}
             onCheckedChange={(checked) =>
               void memory.saveConfig({ memoryWriteApproval: checked })
             }
@@ -261,7 +276,7 @@ export default function HarnessMemorySection({
           <Switch
             id="agent-memory"
             checked={memory.config?.memoryAgentEnabled ?? true}
-            disabled={memory.busy}
+            disabled={configDisabled}
             onCheckedChange={(checked) =>
               void memory.saveConfig({ memoryAgentEnabled: checked })
             }
@@ -272,7 +287,7 @@ export default function HarnessMemorySection({
           <Switch
             id="learning-review"
             checked={memory.config?.learningReviewEnabled ?? false}
-            disabled={memory.busy}
+            disabled={configDisabled}
             onCheckedChange={(checked) =>
               void memory.saveConfig({ learningReviewEnabled: checked })
             }
@@ -283,7 +298,7 @@ export default function HarnessMemorySection({
           <Switch
             id="user-memory"
             checked={memory.config?.memoryUserEnabled ?? true}
-            disabled={memory.busy}
+            disabled={configDisabled}
             onCheckedChange={(checked) =>
               void memory.saveConfig({ memoryUserEnabled: checked })
             }
@@ -392,6 +407,7 @@ export default function HarnessMemorySection({
             onCreate={(content) => memory.createEntry("agent", content)}
             onUpdate={memory.updateEntry}
             onDelete={memory.deleteEntry}
+            readOnlyNote={canManage ? undefined : "Compartilhada com a equipe. Só o owner ou um admin edita; o assistente propõe mudanças pela fila de aprovação."}
           />
           <MemoryScopeSection
             title="Usuário"

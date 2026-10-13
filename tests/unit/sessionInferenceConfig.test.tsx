@@ -35,16 +35,29 @@ function session(id: string) {
 
 describe("per-conversation inference settings", () => {
   it("keeps each conversation's own values", async () => {
+    // The local copy is per workspace and person (see chatSessionStorage).
     globalThis.localStorage.setItem(
-      "basic-chat.sessions",
+      "basic-chat.sessions@t1:u1",
       JSON.stringify([session("A"), session("B")]),
     );
-    globalThis.localStorage.setItem("basic-chat.activeSessionId", "A");
+    globalThis.localStorage.setItem("basic-chat.activeSessionId@t1:u1", "A");
+    vi.stubGlobal("fetch", vi.fn(async (url: RequestInfo | URL) => {
+      const href = String(url);
+      if (href === "/api/access") {
+        return new Response(JSON.stringify({ me: { tenantId: "t1", userId: "u1", role: "owner", personal: true }, policies: [], catalog: { plugins: [], skills: [] } }), { status: 200 });
+      }
+      if (href.startsWith("/api/harness/sessions")) {
+        return new Response(JSON.stringify({ sessions: [], deletedIds: [] }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    }));
 
     const { result } = renderHook(() =>
       useChatSessions({ providerGroups: [], loadingData: false, modelIndex: new Map() } as never),
     );
-    await act(async () => {});
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
 
     act(() => {
       result.current.setTemperature(0.2);

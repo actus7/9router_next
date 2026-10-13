@@ -60,6 +60,6 @@ async function handleDELETE(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export const GET = tenantRoute(handleGET);
+export const GET = tenantRoute(handleGET, { minRole: "member" });
 export const POST = tenantRoute(handlePOST);
 export const DELETE = tenantRoute(handleDELETE);

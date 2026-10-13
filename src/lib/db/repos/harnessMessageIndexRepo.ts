@@ -1,5 +1,5 @@
 import { getAdapter } from "../driver";
-import { currentTenantId } from "../tenant";
+import { MEMBER_ROWS, currentActorUserId, currentTenantId, memberRowParams } from "../tenant";
 
 export interface IndexedHarnessMessage {
   sessionId: string;
@@ -25,15 +25,17 @@ export async function upsertHarnessMessageIndex(
   if (!content) return;
   // One statement, no companion table: `contentTsv` is a generated column, so
   // the search index cannot drift from the row it indexes. SQLite needed a
-  // separate FTS5 table kept in sync by hand inside a transaction.
+  // separate FTS5 table kept in sync by hand inside a transaction. The WHERE
+  // keeps one member from rewriting what another member's search returns.
   await db.run(
-    `INSERT INTO harnessMessageIndex(userId, sessionId, messageId, role, content, createdAt)
-     VALUES(?, ?, ?, ?, ?, ?)
+    `INSERT INTO harnessMessageIndex(userId, sessionId, messageId, role, content, createdAt, ownerUserId)
+     VALUES(?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(userId, sessionId, messageId) DO UPDATE SET
        role = excluded.role,
        content = excluded.content,
-       createdAt = excluded.createdAt`,
-    [currentTenantId(), entry.sessionId, entry.messageId, entry.role, content, entry.createdAt],
+       createdAt = excluded.createdAt
+     WHERE COALESCE(harnessMessageIndex.ownerUserId, harnessMessageIndex.userId) = excluded.ownerUserId`,
+    [currentTenantId(), entry.sessionId, entry.messageId, entry.role, content, entry.createdAt, currentActorUserId()],
   );
 }
 
@@ -53,12 +55,12 @@ export async function searchPastSessionMessages(options: {
     `ts_headline('simple', content, plainto_tsquery('simple', ?), ` +
     `'StartSel=>>, StopSel=<<, MaxWords=48, MinWords=20, MaxFragments=1')`;
   const params: unknown[] = options.excludeSessionId
-    ? [trimmed, currentTenantId(), trimmed, options.excludeSessionId, trimmed, limit]
-    : [trimmed, currentTenantId(), trimmed, trimmed, limit];
+    ? [trimmed, ...memberRowParams(), trimmed, options.excludeSessionId, trimmed, limit]
+    : [trimmed, ...memberRowParams(), trimmed, trimmed, limit];
   const rows = await db.all(
     `SELECT sessionId, messageId, role, ${headline} AS snippet, createdAt
      FROM harnessMessageIndex
-     WHERE userId = ? AND contentTsv @@ plainto_tsquery('simple', ?)
+     WHERE ${MEMBER_ROWS} AND contentTsv @@ plainto_tsquery('simple', ?)
        ${options.excludeSessionId ? "AND sessionId != ?" : ""}
      ORDER BY ts_rank(contentTsv, plainto_tsquery('simple', ?)) DESC
      LIMIT ?`,

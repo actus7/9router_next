@@ -1,4 +1,5 @@
 import { requireGatewayApiKey } from "./gatewayApiKey";
+import { assertModelAllowed } from "./accessScope";
 import {
   extractApiKey,
   getProviderCredentials, markAccountUnavailable,
@@ -44,6 +45,9 @@ export async function handleTts(request: Request): Promise<Response> {
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!body.input) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: input");
+
+  const accessDenied = await assertModelAllowed(modelStr);
+  if (accessDenied) return accessDenied;
 
   const smartCombo = await getSmartCombo(modelStr);
   if (smartCombo) {

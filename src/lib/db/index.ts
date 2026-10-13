@@ -5,7 +5,8 @@
 // re-exports were 83 lines of indirection that only widened what a single import
 // pulled into a bundle.
 import { getAdapter } from "./driver";
-import { currentTenantId } from "./tenant";
+import { currentActorUserId, currentTenantId } from "./tenant";
+import { memberRole } from "@/lib/auth/organizations";
 import { stringifyJson, parseJson } from "./helpers/jsonCol";
 import { invalidateSettingsCache } from "./repos/settingsRepo";
 import { invalidateApiKeyOwnerCache } from "./repos/apiKeysRepo";
@@ -21,7 +22,7 @@ export async function exportDb(): Promise<Record<string, unknown>> {
     providerConnections: (await db.all(`SELECT * FROM providerConnections WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt })),
     providerNodes: (await db.all(`SELECT * FROM providerNodes WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
     proxyPools: (await db.all(`SELECT * FROM proxyPools WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ ...(parseJson(r.data, {}) as Record<string, unknown>), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    apiKeys: (await db.all(`SELECT * FROM apiKeys WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt })),
+    apiKeys: (await db.all(`SELECT * FROM apiKeys WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt, ownerUserId: r.ownerUserId ?? null })),
     combos: (await db.all(`SELECT * FROM combos WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), routing: parseJson(r.routing, null), createdAt: r.createdAt, updatedAt: r.updatedAt })),
     smartModelProfiles: (await db.all(`SELECT * FROM smartModelProfiles WHERE userId = ?`, [currentTenantId()]) as Array<Record<string, unknown>>).map((r: Record<string, unknown>) => ({
       modelKey: r.modelKey,
@@ -47,6 +48,22 @@ export async function exportDb(): Promise<Record<string, unknown>> {
   return out;
 }
 
+/**
+ * Who each restored key acts as. A key without an owner acts as the
+ * organization's owner, so dropping the field on a round trip would lift every
+ * member's key out of their policy. An owner who has since left the
+ * organization hands the key to whoever is restoring it, never to the owner.
+ */
+async function importedKeyOwners(tenantId: string, keys: Array<Record<string, unknown>>): Promise<Map<string, string | null>> {
+  const owners = new Map<string, string | null>();
+  for (const k of keys) {
+    const owner = typeof k.ownerUserId === "string" && k.ownerUserId ? k.ownerUserId : null;
+    const stillMember = owner === null || owner === tenantId || (await memberRole(tenantId, owner)) !== null;
+    owners.set(String(k.id), stillMember ? owner : currentActorUserId());
+  }
+  return owners;
+}
+
 export async function importDb(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Invalid database payload");
@@ -54,6 +71,7 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
   const db = await getAdapter();
 
   const userId: string = currentTenantId();
+  const keyOwners = await importedKeyOwners(userId, (payload.apiKeys || []) as Array<Record<string, unknown>>);
   await db.transaction(async () => {
     // Wipe this account's rows only. `_meta` is instance state and is never
     // part of an export; every other DELETE here is scoped, so one account
@@ -115,11 +133,11 @@ export async function importDb(payload: Record<string, unknown>): Promise<Record
     }
     for (const k of (payload.apiKeys || []) as Array<Record<string, unknown>>) {
       await db.run(
-        `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt, ownerUserId) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET key=excluded.key, name=excluded.name, machineId=excluded.machineId,
-           isActive=excluded.isActive, createdAt=excluded.createdAt
+           isActive=excluded.isActive, createdAt=excluded.createdAt, ownerUserId=excluded.ownerUserId
          WHERE apiKeys.userId = excluded.userId`,
-        [k.id, userId, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString()]
+        [k.id, userId, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString(), keyOwners.get(String(k.id)) ?? null]
       );
     }
     for (const c of (payload.combos || []) as Array<Record<string, unknown>>) {

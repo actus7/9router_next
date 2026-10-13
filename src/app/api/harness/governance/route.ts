@@ -1,4 +1,4 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { POST as implPOST } from "@/server/application/use-cases/http/harness/governance/route";
 
-export const POST = tenantRoute(implPOST);
+export const POST = tenantRoute(implPOST, { minRole: "member" });

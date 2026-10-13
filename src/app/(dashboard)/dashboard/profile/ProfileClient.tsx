@@ -15,6 +15,7 @@ import { useProfileSettings } from "./hooks/useProfileSettings";
 import { useOutboundProxy } from "./hooks/useOutboundProxy";
 import { useDatabaseBackup } from "./hooks/useDatabaseBackup";
 import { useDecisionEngine } from "./hooks/useDecisionEngine";
+import { useWorkspace } from "@/shared/hooks/useWorkspace";
 import AppearanceCard from "./sections/AppearanceCard";
 import BackupCard from "./sections/BackupCard";
 import LanguageCard from "./sections/LanguageCard";
@@ -39,7 +40,10 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
 
   const outboundProxy = useOutboundProxy(initialSettings, settings, setSettings);
   const databaseBackup = useDatabaseBackup(reloadSettings);
-  const decisionEngine = useDecisionEngine(setSettings);
+  // Backup, routing, the decision engine and the network belong to the
+  // workspace; a member only gets their own appearance, language and account.
+  const { canManage } = useWorkspace();
+  const decisionEngine = useDecisionEngine(setSettings, canManage);
 
   const handleLogout = async () => {
     try {
@@ -55,20 +59,20 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
       <div className="flex flex-col gap-6">
         <AppearanceCard theme={theme} setTheme={setTheme} initialAccent={initialAccent} />
 
-        <BackupCard
+        {canManage && <BackupCard
           dbLoading={databaseBackup.dbLoading}
           dbStatus={databaseBackup.dbStatus}
           importFileRef={databaseBackup.importFileRef}
           handleExportDatabase={databaseBackup.handleExportDatabase}
           handleImportDatabase={databaseBackup.handleImportDatabase}
-        />
+        />}
 
         <LanguageCard locale={locale} setLangOpen={setLangOpen} />
 
         <SecurityCard />
 
 
-        <RoutingCard
+        {canManage && <RoutingCard
           settings={settings}
           loading={loading}
           updateFallbackStrategy={profileSettings.updateFallbackStrategy}
@@ -76,11 +80,11 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
           updateStickyLimit={profileSettings.updateStickyLimit}
           updateComboStickyLimit={profileSettings.updateComboStickyLimit}
           updateFreeFallbackEnabled={profileSettings.updateFreeFallbackEnabled}
-        />
+        />}
 
-        <DecisionEngineCard settings={settings} loading={loading} engine={decisionEngine} />
+        {canManage && <DecisionEngineCard settings={settings} loading={loading} engine={decisionEngine} />}
 
-        <NetworkCard
+        {canManage && <NetworkCard
           settings={settings}
           loading={loading}
           proxyForm={outboundProxy.proxyForm}
@@ -91,7 +95,7 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
           updateOutboundProxy={outboundProxy.updateOutboundProxy}
           testOutboundProxy={outboundProxy.testOutboundProxy}
           updateOutboundProxyEnabled={outboundProxy.updateOutboundProxyEnabled}
-        />
+        />}
 
         <AccountActions handleLogout={handleLogout} />
       </div>

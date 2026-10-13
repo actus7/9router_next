@@ -1,4 +1,5 @@
 import { requireGatewayApiKey } from "./gatewayApiKey";
+import { assertModelAllowed, runModelAuthorized } from "./accessScope";
 import {
   extractApiKey,
   getProviderCredentials, markAccountUnavailable,
@@ -39,6 +40,9 @@ export async function handleStt(request: Request): Promise<Response> {
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!formData.get("file")) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: file");
 
+  const accessDenied = await assertModelAllowed(modelStr);
+  if (accessDenied) return accessDenied;
+
   const smartCombo = await getSmartCombo(modelStr);
   if (smartCombo) {
     const routingBody: Record<string, unknown> = {
@@ -70,7 +74,7 @@ export async function handleStt(request: Request): Promise<Response> {
           const headers = new Headers(request.headers);
           headers.delete("content-type");
           headers.delete("content-length");
-          return handleStt(new Request(request.url, { method: request.method, headers, body: nextForm, signal: request.signal }));
+          return runModelAuthorized(() => handleStt(new Request(request.url, { method: request.method, headers, body: nextForm, signal: request.signal })));
         },
         log,
         comboName: modelStr,

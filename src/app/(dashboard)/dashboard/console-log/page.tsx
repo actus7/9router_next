@@ -1,4 +1,5 @@
 import ConsoleLogClient from "./ConsoleLogClient";
+import { AdminOnly } from "@/app/adminOnly";
 import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 
 // Force dynamic so Next.js standalone build includes the server-side JS file
@@ -6,7 +7,9 @@ import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
 export default function ConsoleLogPage() {
   return (
     <>
-      <ConsoleLogClient />
+      <AdminOnly>
+        <ConsoleLogClient />
+      </AdminOnly>
       <MetadataIsDynamic />
     </>
   );

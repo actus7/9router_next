@@ -28,6 +28,11 @@ organizations: um usuário é um tenant. Trocar para times depois significa muda
 o resolver em `src/lib/db/tenant.ts` e os valores gravados em `userId` — nenhum
 repo muda.
 
+> **Atualizado em 2026-10-12:** times existem. O tenant passou a ser a
+> organização do Neon Auth, e o espaço pessoal é a organização com o id do
+> usuário — por isso os valores gravados em `userId` não precisaram mudar. Ver
+> `docs/superpowers/specs/2026-10-12-multi-tenant-orgs-design.md`.
+
 Cadastro segue **aberto** (`allow_sign_up: true`), o que só é seguro porque o
 isolamento é por linha, não por instância.
 

@@ -25,6 +25,9 @@ const justifiedLargeFileCeilings: Record<string, number> = {
   // composition boundaries; Prisma artifacts are excluded below as generated.
   "app/globals.css": 993,
   "components/ui/sidebar.tsx": 723,
+  // Declarative table list read by syncSchema(): data, not logic, and splitting
+  // it would scatter one schema across files (docs/CONVENTIONS.md, "Tamanho de arquivo").
+  "lib/db/schema.ts": 680,
 };
 
 /**

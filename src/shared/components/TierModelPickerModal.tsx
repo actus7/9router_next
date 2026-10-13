@@ -11,6 +11,8 @@ import { Search, SearchX, X } from "lucide-react";
 import type { ActiveProvider } from "./ModelSelectModal";
 import { translate } from "@/i18n/runtime";
 import { buildProviderGroups } from "./buildProviderGroups";
+import { usableConnections } from "./buildGroupedModels";
+import { usePickerCatalog } from "./pickerCatalog";
 import { ProviderSidebar, priceTierBadge, priceLine } from "./TierModelPickerParts";
 
 const PROVIDER_ORDER = [...Object.keys(OAUTH_PROVIDERS), ...Object.keys(FREE_PROVIDERS), ...Object.keys(FREE_TIER_PROVIDERS), ...Object.keys(APIKEY_PROVIDERS)];
@@ -28,17 +30,12 @@ interface TierModelPickerModalProps {
   modelAliases?: Record<string, string>; addedModelValues?: string[]; priceByModel?: Record<string, ModelPriceInfo>;
 }
 
-export default function TierModelPickerModal({ isOpen, onClose, onSelect, title, subtitle = translate("The fallback is used when the model above fails or is unavailable.") || "The fallback is used when the model above fails or is unavailable.", activeProviders = [], modelAliases = {}, addedModelValues = [], priceByModel = {} }: TierModelPickerModalProps) {
+export default function TierModelPickerModal({ isOpen, onClose, onSelect, title, subtitle = translate("The fallback is used when the model above fails or is unavailable.") || "The fallback is used when the model above fails or is unavailable.", activeProviders: connections = [], modelAliases = {}, addedModelValues = [], priceByModel = {} }: TierModelPickerModalProps) {
+  const activeProviders = useMemo(() => usableConnections(connections), [connections]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
-  const [providerNodes, setProviderNodes] = useState<{ id: string; name?: string; prefix?: string }[]>([]);
-  const [customModels, setCustomModels] = useState<{ id: string; name?: string; providerAlias?: string }[]>([]);
+  const { providerNodes, customModels, disabledModels } = usePickerCatalog(isOpen);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    fetch("/api/provider-nodes").then((r) => r.json()).then((d) => setProviderNodes(d.nodes || [])).catch(() => setProviderNodes([]));
-    fetch("/api/models/custom").then((r) => r.json()).then((d) => setCustomModels(d.models || [])).catch(() => setCustomModels([]));
-  }, [isOpen]);
   useEffect(() => { if (!isOpen) { setSearchQuery(""); setSelectedProviderId(null); } }, [isOpen]);
 
   const allProviders = useMemo(() => ({ ...OAUTH_PROVIDERS, ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...APIKEY_PROVIDERS }), []);
@@ -47,7 +44,7 @@ export default function TierModelPickerModal({ isOpen, onClose, onSelect, title,
     return [...new Set([...activeIds, ...NO_AUTH_PROVIDER_IDS])].sort((a, b) => providerRank(a) - providerRank(b));
   }, [activeProviders]);
 
-  const groups = useMemo(() => buildProviderGroups({ sortedProviderIds: availableProviderIds, allProviders, activeProviders, modelAliases, providerNodes, customModels }), [activeProviders, modelAliases, allProviders, providerNodes, customModels, availableProviderIds]);
+  const groups = useMemo(() => buildProviderGroups({ sortedProviderIds: availableProviderIds, allProviders, activeProviders, modelAliases, providerNodes, customModels, disabledModels }), [activeProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, availableProviderIds]);
   const totalCount = useMemo(() => Object.values(groups).reduce((s, g) => s + g.models.length, 0), [groups]);
   // O input lê `searchQuery`; a filtragem do catálogo lê o valor adiado.
   const query = useDeferredValue(searchQuery).trim().toLowerCase();
@@ -72,7 +69,7 @@ export default function TierModelPickerModal({ isOpen, onClose, onSelect, title,
     const isUsed = addedModelValues.includes(model.value);
     const badge = priceTierBadge(priceByModel[model.value]);
     return (
-      <button key={model.value} type="button" disabled={isUsed} onClick={() => onSelect(model.value)} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors", isUsed ? "cursor-not-allowed opacity-50" : "hover:bg-muted/70")}>
+      <button key={model.value} type="button" disabled={isUsed} onClick={() => onSelect(model.value)} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_56px]", isUsed ? "cursor-not-allowed opacity-50" : "hover:bg-muted/70")}>
         {!selectedProviderId && (
           <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60">
             <ProviderIcon providerId={providerId} alt={model.name} size={16} fallbackText={providerId.slice(0, 2).toUpperCase()} />

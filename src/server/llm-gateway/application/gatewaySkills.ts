@@ -3,6 +3,7 @@ import "server-only";
 import { listAgentSkillRows } from "@/lib/db/repos/agentSkillsRepo";
 import { BUNDLE_SKILLS } from "@/shared/harness/bundleSkills";
 import { composeSkills } from "@/shared/harness/agentSkills";
+import { filterByAccess } from "./accessScope";
 
 /**
  * The system-prompt block for the skills an API key asked for.
@@ -28,7 +29,8 @@ export async function buildGatewaySkillsPrompt(skillIds: readonly string[]): Pro
     source: row.source,
     origin: row.origin,
   })));
-  const wanted = new Set(skillIds);
+  // The key profile picks skills; the access policy caps which it may pick.
+  const wanted = new Set(filterByAccess("skills", skillIds));
   // A selected skill that was since uninstalled is skipped, not an error.
   const selected = skills.filter((skill) => wanted.has(skill.id) && skill.body.trim());
   if (selected.length === 0) return "";

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { currentTenantContext } from "@/lib/db/tenant";
+import { checkUsageLimits } from "@/server/application/http/usageLimits";
 
 import {
   MAX_CONCURRENT_RUNS,
@@ -74,6 +76,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: `Too many runs in flight (limit ${MAX_CONCURRENT_RUNS}). Wait for one to finish.` },
       { status: 429 },
+    );
+  }
+
+  // The member's and the organization's usage limits, counted before any
+  // provider is called — the same check the gateway makes for an API key.
+  const actor = currentTenantContext();
+  const breach = await checkUsageLimits({ memberUserId: actor.actorUserId, memberRole: actor.role });
+  if (breach) {
+    return NextResponse.json(
+      { error: breach.message, code: breach.kind === "rpm" ? "rate_limit_exceeded" : "budget_exceeded" },
+      { status: 429, headers: { "Retry-After": String(breach.retryAfter) } },
     );
   }
 

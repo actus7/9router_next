@@ -25,6 +25,8 @@ vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
   connection: vi.fn(async () => undefined),
 }));
+// The access policy has its own test (accessScope); here every key is unrestricted.
+vi.mock("@/lib/db/repos/accessPoliciesRepo", () => ({ accessLayersFor: vi.fn(async () => []), accessLayersForActor: vi.fn(async () => []), usageLimitsFor: vi.fn(async () => []) }));
 vi.mock("@/lib/db/repos/apiKeysRepo", () => ({
   resolveApiKeyOwner: h.resolveApiKeyOwner,
   validateApiKey: vi.fn(async () => true),

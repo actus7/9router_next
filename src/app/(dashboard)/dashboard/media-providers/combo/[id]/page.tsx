@@ -35,7 +35,7 @@ async function ComboDetailContent({ params }: Pick<PageProps<"/dashboard/media-p
           initialLogs={logs as unknown[]}
       />
     );
-  });
+  }, { minRole: "admin" });
 }
 
 export default function ComboDetailPage(props: PageProps<"/dashboard/media-providers/combo/[id]">) {

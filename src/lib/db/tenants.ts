@@ -16,17 +16,21 @@ import { withTenant } from "./tenant";
  */
 
 /**
- * Every account that owns data in this database.
+ * Every tenant that can own data in this database: each user's personal
+ * workspace (id = the user's id) and each organization.
  *
- * Read from Neon Auth's own `user` table, which lives in the `neon_auth`
- * schema of this same database — so there is no second source of truth to
- * drift, and an account deleted there disappears from the loop on the next
- * tick. Accounts that have never written anything are included and cost one
- * no-op pass.
+ * Read from Neon Auth's own tables, which live in the `neon_auth` schema of
+ * this same database — so there is no second source of truth to drift, and an
+ * account or organization deleted there disappears from the loop on the next
+ * tick. A personal workspace turned into a team keeps the user's id, so the
+ * UNION lists it once. Tenants that have never written anything are included
+ * and cost one no-op pass.
  */
 export async function listTenantIds(): Promise<string[]> {
   const db = await getAdapter();
-  const rows = await db.all(`SELECT id FROM neon_auth."user" ORDER BY id`);
+  const rows = await db.all(
+    `SELECT id::text AS id FROM neon_auth."user" UNION SELECT id::text AS id FROM neon_auth.organization ORDER BY id`,
+  );
   return rows.map((row) => String(row.id));
 }
 

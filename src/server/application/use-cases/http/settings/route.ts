@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { currentTenantContext, roleAtLeast } from "@/lib/db/tenant";
 import { serializeHttpError } from "@/server/application/http/httpError";
 import { getSettings, updateSettings } from "@/lib/db/repos/settingsRepo";
 import { resetJevSettingsCache } from "@/server/decisions/jev";
@@ -16,12 +17,27 @@ const SETTINGS_RESPONSE_HEADERS = {
 // Secrets must never be mass-assigned from request body (CWE-915)
 const PROTECTED_SETTING_KEYS = ["password"];
 
+/** What `profileFromSettings` reads — the defaults a member's new chat starts from. */
+export const MEMBER_READABLE_SETTINGS: ReadonlySet<string> = new Set([
+  "rtkEnabled", "cavemanEnabled", "cavemanLevel", "ponytailEnabled", "ponytailLevel",
+  "neutralityEnabled", "neutralityLevel", "synapseEnabled", "synapseLevel",
+  "synapseLearningEnabled", "pxpipeEnabled", "metaBreakEnabled",
+]);
+
 export async function GET(): Promise<NextResponse> {
   await assertRequestRuntime();
   try {
     const settings = await getSettings();
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
+    // A member's screens read the token-saver defaults their chats start from
+    // and nothing else: an outbound proxy URL carries its own password, and a
+    // key added tomorrow must not reach them because nobody remembered to hide it.
+    if (!roleAtLeast(currentTenantContext().role, "admin")) {
+      for (const key of Object.keys(safeSettings)) {
+        if (!MEMBER_READABLE_SETTINGS.has(key)) delete safeSettings[key];
+      }
+    }
     
     const enableRequestLogs = process.env.ENABLE_REQUEST_LOGS === "true";
     const enableTranslator = process.env.ENABLE_TRANSLATOR === "true";
@@ -138,6 +154,14 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
+    // A member's screens read the token-saver defaults their chats start from
+    // and nothing else: an outbound proxy URL carries its own password, and a
+    // key added tomorrow must not reach them because nobody remembered to hide it.
+    if (!roleAtLeast(currentTenantContext().role, "admin")) {
+      for (const key of Object.keys(safeSettings)) {
+        if (!MEMBER_READABLE_SETTINGS.has(key)) delete safeSettings[key];
+      }
+    }
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.error("Error updating settings:", error);

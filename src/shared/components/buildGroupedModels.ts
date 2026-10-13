@@ -131,9 +131,20 @@ function buildStandardProviderModels(
   return { name: providerInfo.name as string, alias, color: providerInfo.color as string, models: allModels };
 }
 
+/**
+ * The connections a picker may offer models from: every one but those switched
+ * off. Pages hand the pickers all of the account's connections — the prop is
+ * named `activeProviders` but nothing upstream filters it — so this is the one
+ * place both pickers agree on what "active" means. Undefined counts as active,
+ * the same reading the router uses (`isActive !== false`).
+ */
+export function usableConnections<T extends { isActive?: boolean }>(connections: readonly T[]): T[] {
+  return connections.filter((connection) => connection.isActive !== false);
+}
+
 export function buildGroupedModels(params: {
-  filteredActiveProviders: { provider: string; id?: string; name?: string; providerSpecificData?: Record<string, unknown> }[];
-  activeProviders: { provider: string; id?: string; name?: string; providerSpecificData?: Record<string, unknown> }[];
+  filteredActiveProviders: { provider: string; id?: string; name?: string; isActive?: boolean; providerSpecificData?: Record<string, unknown> }[];
+  activeProviders: { provider: string; id?: string; name?: string; isActive?: boolean; providerSpecificData?: Record<string, unknown> }[];
   modelAliases: Record<string, string>;
   allProviders: Record<string, Record<string, unknown>>;
   providerNodes: { id: string; name?: string; prefix?: string }[];
@@ -144,7 +155,9 @@ export function buildGroupedModels(params: {
   PROVIDER_ORDER: string[];
   NO_AUTH_PROVIDER_IDS: string[];
 }): Record<string, ModelGroup> {
-  const { filteredActiveProviders, activeProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, cursorModels, PROVIDER_ORDER, NO_AUTH_PROVIDER_IDS } = params;
+  const { modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, cursorModels, PROVIDER_ORDER, NO_AUTH_PROVIDER_IDS } = params;
+  const filteredActiveProviders = usableConnections(params.filteredActiveProviders);
+  const activeProviders = usableConnections(params.activeProviders);
   const groups: Record<string, ModelGroup> = {};
   const activeConnectionIds = filteredActiveProviders.map((p) => p.provider);
   const noAuthIds = kindFilter
@@ -186,12 +199,25 @@ export function buildGroupedModels(params: {
     }
   });
 
-  Object.entries(groups).forEach(([providerId, group]) => {
-    const aliasKey = getProviderAlias(providerId);
-    const disabledIds = new Set([...(disabledModels[aliasKey] || []), ...(disabledModels[providerId] || [])]);
-    if (disabledIds.size === 0) return;
-    group.models = group.models.filter((m) => !disabledIds.has(m.id));
-    if (group.models.length === 0) delete groups[providerId];
-  });
-  return groups;
+  return dropDisabledModels(groups, disabledModels);
+}
+
+/**
+ * Removes the models switched off on each provider's page ("Modelos
+ * desativados"), and providers left with none. Rows are stored under the
+ * provider alias or its id, so both are read. Shared by both pickers: the combo
+ * tier picker once skipped it and offered every Kiro model the operator had
+ * turned off.
+ */
+export function dropDisabledModels<G extends { models: Array<{ id: string }> }>(
+  groups: Record<string, G>,
+  disabledModels: Record<string, string[]>,
+): Record<string, G> {
+  const result: Record<string, G> = {};
+  for (const [providerId, group] of Object.entries(groups)) {
+    const disabledIds = new Set([...(disabledModels[getProviderAlias(providerId)] || []), ...(disabledModels[providerId] || [])]);
+    const models = disabledIds.size === 0 ? group.models : group.models.filter((m) => !disabledIds.has(m.id));
+    if (models.length > 0) result[providerId] = models === group.models ? group : { ...group, models };
+  }
+  return result;
 }

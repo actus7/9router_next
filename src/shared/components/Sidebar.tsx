@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/sidebar";
 import { Settings } from "lucide-react";
 import { translate } from "@/i18n/runtime";
-import { navItems, debugItems, systemItems } from "./sidebarData";
+import { navItems, debugItems, systemItems, type NavItem } from "./sidebarData";
+import WorkspaceSwitcher from "./WorkspaceSwitcher";
+import { useWorkspace } from "@/shared/hooks/useWorkspace";
 import { SidebarMediaProviders } from "./SidebarMediaProviders";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 
@@ -25,6 +27,10 @@ export default function Sidebar() {
 
   const { data: settings } = useSWR<Record<string, unknown>>("/api/settings", jsonFetcher);
   const enableTranslator = !!settings?.enableTranslator;
+  const { workspace, canManage } = useWorkspace();
+  // Until the role is known, show what everyone can use: flashing admin items
+  // at a member and then removing them reads as a glitch.
+  const visible = (item: NavItem): boolean => !item.adminOnly || (workspace !== undefined && canManage);
 
   const isActive = (href: string): boolean => {
     const providerId = pathname.match(/^\/dashboard\/providers\/([^/]+)$/)?.[1];
@@ -36,13 +42,13 @@ export default function Sidebar() {
   };
   const closeOnMobile = () => { if (isMobile) setOpenMobile(false); };
 
-  const renderNavItem = (item: { href: string; label: string; icon: React.ReactNode }) => (
+  const renderNavItem = (item: NavItem) => (!visible(item) ? null : (
     <SidebarMenuItem key={item.href}>
       <SidebarMenuButton isActive={isActive(item.href)} tooltip={translate(item.label) || item.label} render={<Link href={item.href} onClick={closeOnMobile} aria-current={isActive(item.href) ? "page" : undefined} />}>
         {item.icon}<span>{translate(item.label) || item.label}</span>
       </SidebarMenuButton>
     </SidebarMenuItem>
-  );
+  ));
 
   return (
     <SidebarPrimitive collapsible="icon" variant="inset">
@@ -61,6 +67,7 @@ export default function Sidebar() {
             <span className="truncate text-xs text-sidebar-foreground/60">v{APP_CONFIG.version}</span>
           </div>
         </Link>
+        <WorkspaceSwitcher onNavigate={closeOnMobile} />
       </SidebarHeader>
       <SidebarSeparator />
       <SidebarContent>
@@ -70,7 +77,7 @@ export default function Sidebar() {
           <SidebarGroupLabel>{translate("System") || "System"}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMediaProviders pathname={pathname} mediaOpen={mediaOpen} setMediaOpen={setMediaOpen} closeOnMobile={closeOnMobile} />
+              {canManage && <SidebarMediaProviders pathname={pathname} mediaOpen={mediaOpen} setMediaOpen={setMediaOpen} closeOnMobile={closeOnMobile} />}
               {systemItems.map(renderNavItem)}
               {debugItems.map((item) => { if (item.href === "/dashboard/translator" && !enableTranslator) return null; return renderNavItem(item); })}
               <SidebarMenuItem>

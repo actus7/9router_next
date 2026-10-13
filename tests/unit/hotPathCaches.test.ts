@@ -111,7 +111,7 @@ describe("resolveApiKeyOwner cache", () => {
   it("a segunda chamada da mesma chave não vai ao banco", async () => {
     const first = await apiKeys.resolveApiKeyOwner("sk-a");
     const second = await apiKeys.resolveApiKeyOwner("sk-a");
-    expect(first).toEqual({ userId: "tenant-a", id: "k-a", profile: null });
+    expect(first).toEqual({ userId: "tenant-a", id: "k-a", profile: null, ownerUserId: null });
     expect(second).toEqual(first);
     expect(calls("WHERE key = ?")).toBe(1);
   });

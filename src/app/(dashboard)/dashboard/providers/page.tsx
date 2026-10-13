@@ -24,7 +24,7 @@ async function ProvidersContent() {
     ]);
 
     return <ProvidersClient initialConnections={providers} initialNodes={nodes as Array<{ id: string; name?: string; type?: string; apiType?: string }>} />;
-  });
+  }, { minRole: "admin" });
 }
 
 export default function ProvidersPage() {

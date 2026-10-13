@@ -155,11 +155,11 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       <div className="flex flex-col gap-3">
         <div>
           <h2 className="text-sm font-semibold text-text-main">{translate("Breakdown") || "Breakdown"}</h2>
-          <p className="text-xs text-text-muted">{translate("Group by model, account, API key or endpoint, and switch between cost and tokens.") || "Group by model, account, API key or endpoint, and switch between cost and tokens."}</p>
+          <p className="text-xs text-text-muted">{translate("Group by model, account, API key, endpoint or member, and switch between cost and tokens.") || "Group by model, account, API key, endpoint or member, and switch between cost and tokens."}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Select value={tableView} onValueChange={(value) => setTableView(value ?? "model")}>
-            <SelectTrigger className="w-full sm:w-auto"><SelectValue placeholder={translate("Select view") ?? "Select view"} /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-auto"><SelectValue>{(value) => TABLE_OPTIONS.find((opt) => opt.value === value)?.label ?? (translate("Select view") ?? "Select view")}</SelectValue></SelectTrigger>
             <SelectContent>{TABLE_OPTIONS.map((opt) => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}</SelectContent>
           </Select>
           <div className="grid grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex">

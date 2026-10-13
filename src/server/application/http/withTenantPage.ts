@@ -4,8 +4,11 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { SIGN_IN_PATH } from "@/lib/auth/paths";
-import { withTenant } from "@/lib/db/tenant";
-import { resolveCurrentUser } from "@/server/application/http/tenantRoute";
+import { roleAtLeast, withTenant, type TenantRole } from "@/lib/db/tenant";
+import { resolveCurrentTenant } from "@/server/application/http/tenantRoute";
+
+/** Where a member lands when a page is for owners and admins. */
+const MEMBER_HOME = "/dashboard/basic-chat";
 
 /**
  * The Server Component counterpart of `tenantRoute`: runs `render` as the
@@ -20,14 +23,20 @@ import { resolveCurrentUser } from "@/server/application/http/tenantRoute";
  * `TenantContextError`. `run()` with a callback is scoped by construction and
  * survives that.
  */
-export async function withTenantPage<T>(render: () => Promise<T>): Promise<T> {
+export async function withTenantPage<T>(
+  render: () => Promise<T>,
+  options: { minRole?: TenantRole } = {},
+): Promise<T> {
   // Request data, so the route cannot be prerendered — see tenantRoute.
   await connection();
-  const { userId, unavailable } = await resolveCurrentUser();
+  const { context, unavailable } = await resolveCurrentTenant();
   // A throttled or unreachable auth service is not a signed-out user, and
   // redirecting there sends a signed-in user to a sign-in page that cannot
   // work either. The error boundary saying so is the honest answer.
   if (unavailable) throw new Error("Auth service unavailable, try again");
-  if (!userId) redirect(SIGN_IN_PATH);
-  return withTenant(userId, render);
+  if (!context) redirect(SIGN_IN_PATH);
+  // A management screen a member cannot act on: send them where they can work
+  // instead of rendering a page whose every save answers 403.
+  if (options.minRole && !roleAtLeast(context.role, options.minRole)) redirect(MEMBER_HOME);
+  return withTenant(context, render);
 }

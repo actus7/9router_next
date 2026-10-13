@@ -6,7 +6,7 @@ import {
   POST as implPOST,
 } from "@/server/application/use-cases/http/harness/runs/route";
 
-export const GET = tenantRoute(implGET);
-export const POST = tenantRoute(implPOST);
-export const PATCH = tenantRoute(implPATCH);
-export const DELETE = tenantRoute(implDELETE);
+export const GET = tenantRoute(implGET, { minRole: "member" });
+export const POST = tenantRoute(implPOST, { minRole: "member" });
+export const PATCH = tenantRoute(implPATCH, { minRole: "member" });
+export const DELETE = tenantRoute(implDELETE, { minRole: "member" });

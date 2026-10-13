@@ -127,6 +127,26 @@ const POLICY: Record<string, Declared> = {
     policy: "not-a-reference",
     why: "Client-generated id inside the session payload; no messages table exists.",
   },
+  "*.ownerUserId": {
+    policy: "not-a-reference",
+    why:
+      "The member a private row belongs to (conversations, runs, personal memory, " +
+      "API keys). Its parent is the Neon Auth `user` table, not a row in TABLES; " +
+      "a removed member's rows stay with the tenant and simply stop being read by anyone.",
+  },
+  "usageHistory.actorUserId": {
+    policy: "not-a-reference",
+    why:
+      "The member a usage row was spent by, for usage per member and their budget. " +
+      "A Neon Auth user, not a row in TABLES; accounting keeps it after the member leaves.",
+  },
+  "accessPolicies.subjectId": {
+    policy: "cleans",
+    parent: "apiKeys",
+    why:
+      "For a `key` row, deleteApiKey removes the key's policy in the same transaction. " +
+      "`org` rows point at the tenant and `member` rows at a Neon Auth user, neither in TABLES.",
+  },
   "*.userId": {
     policy: "not-a-reference",
     why:
@@ -145,6 +165,7 @@ function referenceLookingColumns(): string[] {
       // `userId` is on nearly every table with one shared policy; listing it
       // 22 times would be 22 copies of one decision.
       if (column === "userId") { found.add("*.userId"); continue; }
+      if (column === "ownerUserId") { found.add("*.ownerUserId"); continue; }
       if (/Id$/.test(column) || column === "apiKey") found.add(`${table}.${column}`);
     }
   }

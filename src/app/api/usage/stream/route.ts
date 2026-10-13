@@ -1,6 +1,6 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { getUsageStats, statsEmitter, statsEventName, getActiveRequests } from "@/lib/usageDb";
-import { currentTenantId, withTenant } from "@/lib/db/tenant";
+import { currentTenantContext, withTenant } from "@/lib/db/tenant";
 
 
 async function handleGET() {
@@ -16,9 +16,9 @@ async function handleGET() {
   // Captured here, inside tenantRoute's context. Everything below runs later —
   // from an EventEmitter callback or a keepalive timer — where the ambient
   // tenant is whoever happened to trigger it, not whoever opened this stream.
-  const owner: string = currentTenantId();
-  const updateEvent: string = statsEventName("update", owner);
-  const pendingEvent: string = statsEventName("pending", owner);
+  const owner = currentTenantContext();
+  const updateEvent: string = statsEventName("update", owner.tenantId);
+  const pendingEvent: string = statsEventName("pending", owner.tenantId);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -96,4 +96,4 @@ async function handleGET() {
   });
 }
 
-export const GET = tenantRoute(handleGET);
+export const GET = tenantRoute(handleGET, { minRole: "admin" });

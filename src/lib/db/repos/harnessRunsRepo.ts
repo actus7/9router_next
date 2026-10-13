@@ -1,5 +1,5 @@
 import { getAdapter } from "../driver";
-import { currentTenantId } from "../tenant";
+import { MEMBER_ROWS, currentActorUserId, currentTenantId, memberRowParams } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { normalizeTokenSavers, type TokenSaverId } from "@/shared/chat/tokenSavers";
 
@@ -88,9 +88,9 @@ export async function createHarnessRun(run: {
   const db = await getAdapter();
   const now = new Date().toISOString();
   await db.run(
-    `INSERT INTO harnessRuns(id, userId, sessionId, messageId, status, model, partialText, reasoning, toolCalls, usage, error, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)`,
-    [run.id, currentTenantId(), run.sessionId, run.messageId, "running", run.model, "", now, now],
+    `INSERT INTO harnessRuns(id, userId, sessionId, messageId, status, model, partialText, reasoning, toolCalls, usage, error, createdAt, updatedAt, ownerUserId)
+     VALUES(?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?, ?)`,
+    [run.id, currentTenantId(), run.sessionId, run.messageId, "running", run.model, "", now, now, currentActorUserId()],
   );
   return {
     ...run,
@@ -116,8 +116,8 @@ export async function createHarnessRun(run: {
 export async function updateHarnessRunProgress(id: string, partialText: string): Promise<boolean> {
   const db = await getAdapter();
   const result = await db.run(
-    "UPDATE harnessRuns SET partialText = ?, updatedAt = ? WHERE userId = ? AND id = ? AND status = ?",
-    [partialText, new Date().toISOString(), currentTenantId(), id, "running"],
+    `UPDATE harnessRuns SET partialText = ?, updatedAt = ? WHERE ${MEMBER_ROWS} AND id = ? AND status = ?`,
+    [partialText, new Date().toISOString(), ...memberRowParams(), id, "running"],
   );
   return result.changes > 0;
 }
@@ -132,8 +132,8 @@ export async function updateHarnessRunProgress(id: string, partialText: string):
 export async function setHarnessRunActivity(id: string, activity: string): Promise<void> {
   const db = await getAdapter();
   await db.run(
-    "UPDATE harnessRuns SET activity = ? WHERE userId = ? AND id = ? AND status = ?",
-    [activity, currentTenantId(), id, "running"],
+    `UPDATE harnessRuns SET activity = ? WHERE ${MEMBER_ROWS} AND id = ? AND status = ?`,
+    [activity, ...memberRowParams(), id, "running"],
   );
 }
 
@@ -141,8 +141,8 @@ export async function setHarnessRunActivity(id: string, activity: string): Promi
 export async function stopHarnessRun(id: string): Promise<void> {
   const db = await getAdapter();
   await db.run(
-    "UPDATE harnessRuns SET status = ?, updatedAt = ? WHERE userId = ? AND id = ? AND status = ?",
-    ["stopped", new Date().toISOString(), currentTenantId(), id, "running"],
+    `UPDATE harnessRuns SET status = ?, updatedAt = ? WHERE ${MEMBER_ROWS} AND id = ? AND status = ?`,
+    ["stopped", new Date().toISOString(), ...memberRowParams(), id, "running"],
   );
 }
 
@@ -172,7 +172,7 @@ export async function settleHarnessRun(
     // interrupted was delivered in full.
     `UPDATE harnessRuns SET status = ?, partialText = COALESCE(?, partialText), reasoning = ?,
        toolCalls = ?, usage = ?, error = ?, tokenSavers = ?, updatedAt = ?
-     WHERE userId = ? AND id = ? AND status = ?`,
+     WHERE ${MEMBER_ROWS} AND id = ? AND status = ?`,
     [
       result.status,
       result.partialText ?? null,
@@ -182,7 +182,7 @@ export async function settleHarnessRun(
       result.error ?? null,
       result.tokenSavers?.length ? stringifyJson(result.tokenSavers) : null,
       new Date().toISOString(),
-      currentTenantId(),
+      ...memberRowParams(),
       id,
       "running",
     ],
@@ -192,7 +192,7 @@ export async function settleHarnessRun(
 
 export async function getHarnessRun(id: string): Promise<HarnessRun | null> {
   const db = await getAdapter();
-  const row = await db.get("SELECT * FROM harnessRuns WHERE userId = ? AND id = ?", [currentTenantId(), id]);
+  const row = await db.get(`SELECT * FROM harnessRuns WHERE ${MEMBER_ROWS} AND id = ?`, [...memberRowParams(), id]);
   return row ? rowToRun(row) : null;
 }
 
@@ -214,12 +214,12 @@ export async function listHarnessRunsSince(sessionId: string, since: string | nu
   const db = await getAdapter();
   const rows = since
     ? await db.all(
-        "SELECT * FROM harnessRuns WHERE userId = ? AND sessionId = ? AND updatedAt > ? ORDER BY createdAt ASC LIMIT 200",
-        [currentTenantId(), sessionId, since],
+        `SELECT * FROM harnessRuns WHERE ${MEMBER_ROWS} AND sessionId = ? AND updatedAt > ? ORDER BY createdAt ASC LIMIT 200`,
+        [...memberRowParams(), sessionId, since],
       )
     : await db.all(
-        "SELECT * FROM harnessRuns WHERE userId = ? AND sessionId = ? ORDER BY createdAt ASC LIMIT 200",
-        [currentTenantId(), sessionId],
+        `SELECT * FROM harnessRuns WHERE ${MEMBER_ROWS} AND sessionId = ? ORDER BY createdAt ASC LIMIT 200`,
+        [...memberRowParams(), sessionId],
       );
   return rows.map(rowToRun);
 }
@@ -242,8 +242,8 @@ export interface HarnessRunState {
 export async function listHarnessRunStates(): Promise<HarnessRunState[]> {
   const db = await getAdapter();
   const rows = await db.all(
-    "SELECT sessionId, status, activity FROM harnessRuns WHERE userId = ? ORDER BY updatedAt DESC LIMIT 200",
-    [currentTenantId()],
+    `SELECT sessionId, status, activity FROM harnessRuns WHERE ${MEMBER_ROWS} ORDER BY updatedAt DESC LIMIT 200`,
+    memberRowParams(),
   );
   return rows.map((row) => ({
     sessionId: String(row.sessionId),
@@ -285,5 +285,5 @@ export async function deleteHarnessRuns(ids: readonly string[]): Promise<void> {
   if (!ids.length) return;
   const db = await getAdapter();
   const placeholders = ids.map(() => "?").join(", ");
-  await db.run(`DELETE FROM harnessRuns WHERE userId = ? AND id IN (${placeholders})`, [currentTenantId(), ...ids]);
+  await db.run(`DELETE FROM harnessRuns WHERE ${MEMBER_ROWS} AND id IN (${placeholders})`, [...memberRowParams(), ...ids]);
 }

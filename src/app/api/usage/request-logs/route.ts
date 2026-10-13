@@ -15,4 +15,4 @@ async function handleGET() {
   }
 }
 
-export const GET = tenantRoute(handleGET);
+export const GET = tenantRoute(handleGET, { minRole: "admin" });

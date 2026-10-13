@@ -1,4 +1,5 @@
 import { requireGatewayApiKey } from "./gatewayApiKey";
+import { assertModelAllowed, runModelAuthorized } from "./accessScope";
 import {
   getProviderCredentials,
   markAccountUnavailable,
@@ -107,6 +108,9 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: input");
   }
 
+  const accessDenied = await assertModelAllowed(modelStr);
+  if (accessDenied) return accessDenied;
+
   const smartCombo = await getSmartCombo(modelStr);
   if (smartCombo) {
     try {
@@ -124,12 +128,12 @@ export async function handleEmbeddings(request: Request): Promise<Response> {
       return handleComboChat({
         body,
         models: routing.models,
-        handleSingleModel: (nextBody: Record<string, unknown>, model: string) => handleEmbeddings(new Request(request.url, {
+        handleSingleModel: (nextBody: Record<string, unknown>, model: string) => runModelAuthorized(() => handleEmbeddings(new Request(request.url, {
           method: request.method,
           headers: request.headers,
           body: JSON.stringify({ ...nextBody, model }),
           signal: request.signal,
-        })),
+        }))),
         log,
         comboName: modelStr,
         comboStrategy: "fallback",

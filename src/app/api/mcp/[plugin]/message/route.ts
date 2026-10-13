@@ -17,4 +17,4 @@ async function handlePOST(request: NextRequest, { params }: RouteContext<"/api/m
   }
 }
 
-export const POST = tenantRoute(handlePOST);
+export const POST = tenantRoute(handlePOST, { minRole: "member" });

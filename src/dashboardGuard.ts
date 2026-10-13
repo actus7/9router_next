@@ -50,7 +50,10 @@ const LOCAL_ONLY_PATHS: string[] = [
   // Stops the process. Nobody reaching the deployment over the network has any
   // business doing that, signed in or not — it is the CLI updating itself.
   "/api/version/update",
-  "/api/cli-tools/cowork-settings",
+  // Reads and writes the config files of the CLIs installed on this machine —
+  // files that hold their API keys. Over the network that is someone else's
+  // machine, and with sign-up open every account owns a workspace to call it from.
+  "/api/cli-tools/",
   "/api/mcp/",
   "/api/tunnel/tailscale-install",
   "/api/tunnel/tailscale-enable",

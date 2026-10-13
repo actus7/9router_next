@@ -17,6 +17,7 @@ interface DataItem {
   accountName?: string;
   connectionId?: string;
   keyName?: string;
+  memberName?: string;
   endpoint?: string;
   [key: string]: unknown;
 }
@@ -144,6 +145,14 @@ const API_KEY_COLUMNS = [
   { field: "lastUsed", label: translate("Last Used") ?? "Last Used", align: "right" as const },
 ];
 
+const MEMBER_COLUMNS = [
+  { field: "memberName", label: translate("Member") ?? "Member" },
+  { field: "rawModel", label: translate("Model") ?? "Model" },
+  { field: "provider", label: translate("Provider") ?? "Provider" },
+  { field: "requests", label: translate("Requests") ?? "Requests", align: "right" as const },
+  { field: "lastUsed", label: translate("Last Used") ?? "Last Used", align: "right" as const },
+];
+
 const ENDPOINT_COLUMNS = [
   { field: "endpoint", label: translate("Endpoint") ?? "Endpoint" },
   { field: "rawModel", label: translate("Model") ?? "Model" },
@@ -157,6 +166,7 @@ export const TABLE_OPTIONS = [
   { value: "account", label: translate("Usage by Account") ?? "Usage by Account" },
   { value: "apiKey", label: translate("Usage by API Key") ?? "Usage by API Key" },
   { value: "endpoint", label: translate("Usage by Endpoint") ?? "Usage by Endpoint" },
+  { value: "member", label: translate("Usage by Member") ?? "Usage by Member" },
 ];
 
 export const PERIODS = [
@@ -234,6 +244,18 @@ function renderApiKeyDetail(item: SortedItem) {
   );
 }
 
+function renderMemberDetail(item: SortedItem) {
+  return (
+    <>
+      <TableCell className="px-6 py-3 font-medium">{item.memberName}</TableCell>
+      <TableCell className="px-6 py-3">{item.rawModel}</TableCell>
+      <TableCell className="px-6 py-3"><Badge variant="secondary" className="h-auto px-2 py-0.5 text-[10px]">{item.provider}</Badge></TableCell>
+      <TableCell className="px-6 py-3 text-right">{fmt(item.requests || 0)}</TableCell>
+      <TableCell className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</TableCell>
+    </>
+  );
+}
+
 function renderEndpointSummary(group: GroupedData) {
   return (
     <>
@@ -298,6 +320,16 @@ export function buildTableConfig(stats: Record<string, unknown>, tableView: stri
         emptyMessage: translate("No API key usage recorded yet.") ?? "No API key usage recorded yet.",
         renderSummaryCells: renderApiKeySummary,
         renderDetailCells: renderApiKeyDetail,
+      };
+    case "member":
+      return {
+        columns: MEMBER_COLUMNS,
+        groupedData: groupDataByKey(sortData((stats.byMember ?? {}) as Record<string, DataItem>, {}, sortBy, sortOrder), "memberName"),
+        storageKey: "usage-stats:expanded-members",
+        emptyMessage: translate("No usage recorded for any member yet.") ?? "No usage recorded for any member yet.",
+        // Same summary shape as the per-key view: a member's total, then one row per model.
+        renderSummaryCells: renderApiKeySummary,
+        renderDetailCells: renderMemberDetail,
       };
     case "endpoint":
     default:

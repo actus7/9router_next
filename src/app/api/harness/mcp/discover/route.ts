@@ -8,9 +8,10 @@ import { discoverMcpTools } from "@/server/harness/mcpClient";
 async function handlePOST(request: NextRequest) {
   await assertRequestRuntime();
   // The URL and the token come from the caller and the server opens a session
-  // with them, so this is owner authority — the same gate `mcp/call` applies.
-  // mcpClient already blocks private targets; this stops an unauthenticated
-  // caller from using the server as an outbound client at all.
+  // with them. A member may do this for their own chats — the same reach
+  // `/v1/web/fetch` already gives them — because mcpClient refuses private
+  // targets; this stops an unauthenticated caller from using the server as an
+  // outbound client at all.
   const denied = await requireDashboardAccess();
   if (denied) return denied;
   try {
@@ -35,4 +36,4 @@ async function handlePOST(request: NextRequest) {
   }
 }
 
-export const POST = tenantRoute(handlePOST);
+export const POST = tenantRoute(handlePOST, { minRole: "member" });

@@ -45,13 +45,17 @@ function syncPayloads(fetchMock: ReturnType<typeof vi.fn>): { sessions: { id: st
 describe("a conversation the server rejected", () => {
   it("is not pushed again on the next flush", async () => {
     globalThis.localStorage.setItem(
-      "basic-chat.sessions",
+      // The local copy is per workspace and person (see chatSessionStorage).
+      "basic-chat.sessions@t1:u1",
       JSON.stringify([session("A", "2026-01-01T00:00:00.000Z")]),
     );
-    globalThis.localStorage.setItem("basic-chat.activeSessionId", "A");
+    globalThis.localStorage.setItem("basic-chat.activeSessionId@t1:u1", "A");
 
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);
+      if (href === "/api/access") {
+        return new Response(JSON.stringify({ me: { tenantId: "t1", userId: "u1", role: "owner", personal: true }, policies: [], catalog: { plugins: [], skills: [] } }), { status: 200 });
+      }
       if (href === "/api/harness/sessions" && init?.method === "PUT") {
         return new Response(JSON.stringify({ stale: [], rejected: ["A"] }), { status: 200 });
       }

@@ -14,6 +14,8 @@ vi.mock("next/server", async (importOriginal) => ({
 vi.mock("@/lib/db/repos/settingsRepo", () => ({
   getSettings: vi.fn(async () => ({ requireApiKey: true })),
 }));
+// The access policy has its own test (accessScope); here every key is unrestricted.
+vi.mock("@/lib/db/repos/accessPoliciesRepo", () => ({ accessLayersFor: vi.fn(async () => []), accessLayersForActor: vi.fn(async () => []), usageLimitsFor: vi.fn(async () => []) }));
 vi.mock("@/lib/db/repos/apiKeysRepo", () => ({
   resolveApiKeyOwner: vi.fn(async (key: string) => (key === "sk-good" ? { userId: "u1", id: "k1" } : null)),
   validateApiKey: vi.fn(async (key: string) => key === "sk-good"),
@@ -22,6 +24,7 @@ vi.mock("@/lib/db/repos/apiKeysRepo", () => ({
 import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { requireGatewayApiKey } from "@/server/llm-gateway/application/gatewayApiKey";
 import { resolveApiKeyOwner, validateApiKey } from "@/lib/db/repos/apiKeysRepo";
+import { usageLimitsFor } from "@/lib/db/repos/accessPoliciesRepo";
 
 function keyLookups(): number {
   return vi.mocked(resolveApiKeyOwner).mock.calls.length + vi.mocked(validateApiKey).mock.calls.length;
@@ -64,5 +67,17 @@ describe("gateway API key is looked up once per request", () => {
     const route = gatewayRoute(async () => new Response("ok"));
     const body = await (await route(request("sk-bad"))).json();
     expect(body.error).toMatchObject({ type: "invalid_request_error", code: "invalid_api_key" });
+  });
+
+  it("a key over its per-minute limit gets a 429 the handler never sees", async () => {
+    vi.mocked(usageLimitsFor).mockResolvedValue([{ type: "key", id: "k1", limits: { rpm: 1 } }]);
+    const handler = vi.fn(async () => new Response("ok"));
+    const route = gatewayRoute(handler);
+    expect((await route(request("sk-good"))).status).toBe(200);
+    const refused = await route(request("sk-good"));
+    expect(refused.status).toBe(429);
+    expect((await refused.json()).error).toMatchObject({ code: "rate_limit_exceeded" });
+    expect(handler).toHaveBeenCalledOnce();
+    vi.mocked(usageLimitsFor).mockResolvedValue([]);
   });
 });

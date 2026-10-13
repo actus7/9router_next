@@ -30,7 +30,7 @@ async function SmartComboContent({ params }: { params: Promise<{ id: string }> }
         initialProfiles={profiles}
       />
     );
-  });
+  }, { minRole: "admin" });
 }
 
 export default function SmartComboPage({ params }: PageProps<"/dashboard/combos/[id]">) {

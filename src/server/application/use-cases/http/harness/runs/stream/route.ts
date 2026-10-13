@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-import { currentTenantId, withTenant } from "@/lib/db/tenant";
+import { currentTenantContext, withTenant } from "@/lib/db/tenant";
 import {
   STALE_RUN_MS,
   failStaleHarnessRuns,
@@ -87,7 +87,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ run
   if (denied) return denied;
 
   const { runId } = await context.params;
-  const owner = currentTenantId();
+  // The whole context: runs are private to the member who started them, so the
+  // re-entered reads below must still know who is asking.
+  const owner = currentTenantContext();
   const encoder = new TextEncoder();
 
   // Reaping here too: a client watching a run whose worker was killed would
@@ -106,7 +108,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ run
   // each poll. It used to learn about a departed reader only by `enqueue`
   // throwing, which does happen — but a poll late, and never at all on the
   // branch that sends data instead of a ping. Being told beats finding out.
-  if (!acquireWatcher(owner)) {
+  if (!acquireWatcher(owner.tenantId)) {
     return new Response(JSON.stringify({ error: "Too many open run watchers" }), {
       status: 429,
       headers: { "Content-Type": "application/json", "Retry-After": "5" },
@@ -206,7 +208,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ run
       } finally {
         unsubscribe();
         request.signal.removeEventListener("abort", stop);
-        releaseWatcher(owner);
+        releaseWatcher(owner.tenantId);
         stop();
         try {
           controller.close();

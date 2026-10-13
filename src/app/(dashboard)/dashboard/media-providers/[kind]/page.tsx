@@ -36,7 +36,7 @@ async function MediaProviderKindContent({ params }: { params: Promise<{ kind: st
           initialCombos={combos as unknown as { id: string; name: string; kind?: string; models: string[] }[]}
       />
     );
-  });
+  }, { minRole: "admin" });
 }
 
 export default function MediaProviderKindPage({ params }: PageProps<"/dashboard/media-providers/[kind]">) {

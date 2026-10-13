@@ -41,7 +41,7 @@ async function patchSettings(updates: Record<string, unknown>): Promise<boolean>
   return res.ok;
 }
 
-export function useDecisionEngine(setSettings: (update: (prev: Settings) => Settings) => void) {
+export function useDecisionEngine(setSettings: (update: (prev: Settings) => Settings) => void, enabled = true) {
   const [hasGatewayKey, setHasGatewayKey] = useState<boolean | null>(null);
   const [hasTypesafeKey, setHasTypesafeKey] = useState<boolean | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -83,9 +83,10 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
     }
   }, []);
 
+  // The decision engine is the organization's; a member's page never shows it.
   useEffect(() => {
-    void refreshKeyStatus();
-  }, [refreshKeyStatus]);
+    if (enabled) void refreshKeyStatus();
+  }, [enabled, refreshKeyStatus]);
 
   const update = async (updates: Record<string, unknown>) => {
     try {

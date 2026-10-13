@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver";
-import { currentTenantId } from "../tenant";
+import { currentActorUserId, currentTenantContext, currentTenantId } from "../tenant";
 import { TtlMemo } from "@/lib/ttlMemo";
 import {
   normalizeGatewayProfile,
@@ -35,6 +35,7 @@ interface ApiKeyRow {
   sinkRef: string | null;
   revokedAt: string | null;
   profile?: string | null;
+  ownerUserId?: string | null;
 }
 
 interface ApiKey {
@@ -47,6 +48,25 @@ interface ApiKey {
   sink: ApiKeySink;
   sinkRef: string | null;
   revokedAt: string | null;
+  /** The member who created it; null on keys from before teams (the tenant's owner). */
+  ownerUserId: string | null;
+}
+
+/**
+ * The rows the caller may manage. Owners and admins manage every key of the
+ * organization; a member manages their own. A key with no owner predates teams
+ * and belongs to the tenant's owner, whose id is the tenant id — hence the
+ * COALESCE.
+ */
+function manageableKeys(): { where: string; params: string[] } {
+  const context = currentTenantContext();
+  if (context.role !== "member") return { where: "userId = ?", params: [context.tenantId] };
+  return { where: "userId = ? AND COALESCE(ownerUserId, userId) = ?", params: [context.tenantId, context.actorUserId] };
+}
+
+/** Keys issued to a destination (a CLI tool, a deployment) belong to whoever configured it. */
+function actorKeys(): { where: string; params: string[] } {
+  return { where: "userId = ? AND COALESCE(ownerUserId, userId) = ?", params: [currentTenantId(), currentActorUserId()] };
 }
 
 // ponytail: key → owner memo for the gateway hot path (one Neon read per request
@@ -55,7 +75,7 @@ interface ApiKey {
 // Short on purpose: a revocation only clears the instance that wrote it, so this is how
 // long a revoked key can still authenticate on the others.
 const KEY_OWNER_TTL_MS = 10_000;
-const keyOwnerMemo = new TtlMemo<{ userId: string; id: string; profile: string | null }>(KEY_OWNER_TTL_MS);
+const keyOwnerMemo = new TtlMemo<{ userId: string; id: string; profile: string | null; ownerUserId: string | null }>(KEY_OWNER_TTL_MS);
 
 export function invalidateApiKeyOwnerCache(): void {
   keyOwnerMemo.clear();
@@ -73,18 +93,21 @@ function rowToKey(row: ApiKeyRow | undefined): ApiKey | null {
     sink: (row.sink as ApiKeySink) || "manual",
     sinkRef: row.sinkRef ?? null,
     revokedAt: row.revokedAt ?? null,
+    ownerUserId: row.ownerUserId ?? null,
   };
 }
 
 export async function getApiKeys(): Promise<ApiKey[]> {
   const db = await getAdapter();
-  const rows = (await db.all(`SELECT * FROM apiKeys WHERE userId = ? ORDER BY createdAt ASC`, [currentTenantId()])) as unknown as ApiKeyRow[];
+  const scope = manageableKeys();
+  const rows = (await db.all(`SELECT * FROM apiKeys WHERE ${scope.where} ORDER BY createdAt ASC`, scope.params)) as unknown as ApiKeyRow[];
   return rows.map(rowToKey).filter((k): k is ApiKey => k !== null);
 }
 
 export async function getApiKeyById(id: string): Promise<ApiKey | null> {
   const db = await getAdapter();
-  const row = (await db.get(`SELECT * FROM apiKeys WHERE userId = ? AND id = ?`, [currentTenantId(), id])) as ApiKeyRow | undefined;
+  const scope = manageableKeys();
+  const row = (await db.get(`SELECT * FROM apiKeys WHERE ${scope.where} AND id = ?`, [...scope.params, id])) as ApiKeyRow | undefined;
   return rowToKey(row);
 }
 
@@ -108,14 +131,15 @@ export async function createApiKey(
     sink,
     sinkRef,
     revokedAt: null,
+    ownerUserId: currentActorUserId(),
   };
   // A new key starts from the account's current flags, written out, so later
   // edits to `settings` never reach into a key that already exists.
   const profile: GatewayProfile = profileFromSettings(await accountSaverSettings());
   await db.run(
-    `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt, sink, sinkRef, revokedAt, profile)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
-    [apiKey.id, currentTenantId(), apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, sink, sinkRef, JSON.stringify(profile)]
+    `INSERT INTO apiKeys(id, userId, key, name, machineId, isActive, createdAt, sink, sinkRef, revokedAt, profile, ownerUserId)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+    [apiKey.id, currentTenantId(), apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, sink, sinkRef, JSON.stringify(profile), apiKey.ownerUserId]
   );
   return apiKey;
 }
@@ -129,9 +153,10 @@ export async function createApiKey(
  */
 async function getActiveApiKeyBySink(sink: ApiKeySink): Promise<ApiKey | null> {
   const db = await getAdapter();
+  const scope = actorKeys();
   const row = (await db.get(
-    `SELECT * FROM apiKeys WHERE userId = ? AND sink = ? AND isActive = 1 ORDER BY createdAt DESC`,
-    [currentTenantId(), sink],
+    `SELECT * FROM apiKeys WHERE ${scope.where} AND sink = ? AND isActive = 1 ORDER BY createdAt DESC`,
+    [...scope.params, sink],
   )) as ApiKeyRow | undefined;
   return rowToKey(row);
 }
@@ -151,7 +176,8 @@ export async function issueApiKeyForSink(
   if (existing) {
     if (sinkRef && existing.sinkRef !== sinkRef) {
       const db = await getAdapter();
-      await db.run(`UPDATE apiKeys SET sinkRef = ? WHERE userId = ? AND id = ?`, [sinkRef, currentTenantId(), existing.id]);
+      const scope = actorKeys();
+      await db.run(`UPDATE apiKeys SET sinkRef = ? WHERE ${scope.where} AND id = ?`, [sinkRef, ...scope.params, existing.id]);
       return { ...existing, sinkRef };
     }
     return existing;
@@ -169,9 +195,10 @@ export async function issueApiKeyForSink(
  */
 export async function revokeApiKeysForSink(sink: ApiKeySink): Promise<number> {
   const db = await getAdapter();
+  const scope = actorKeys();
   const res = await db.run(
-    `UPDATE apiKeys SET isActive = 0, revokedAt = ? WHERE userId = ? AND sink = ? AND isActive = 1`,
-    [new Date().toISOString(), currentTenantId(), sink],
+    `UPDATE apiKeys SET isActive = 0, revokedAt = ? WHERE ${scope.where} AND sink = ? AND isActive = 1`,
+    [new Date().toISOString(), ...scope.params, sink],
   );
   invalidateApiKeyOwnerCache();
   return res?.changes ?? 0;
@@ -179,15 +206,16 @@ export async function revokeApiKeysForSink(sink: ApiKeySink): Promise<number> {
 
 export async function updateApiKey(id: string, data: Partial<ApiKey>): Promise<ApiKey | null> {
   const db = await getAdapter();
-  const userId = currentTenantId();
+  const scope = manageableKeys();
   let result: ApiKey | null = null;
   await db.transaction(async () => {
-    const row = (await db.get(`SELECT * FROM apiKeys WHERE userId = ? AND id = ?`, [userId, id])) as ApiKeyRow | undefined;
+    const row = (await db.get(`SELECT * FROM apiKeys WHERE ${scope.where} AND id = ?`, [...scope.params, id])) as ApiKeyRow | undefined;
     if (!row) return;
-    const merged: ApiKey = { ...rowToKey(row)!, ...data };
+    // The owner is who the key acts as; an edit never hands it to someone else.
+    const merged: ApiKey = { ...rowToKey(row)!, ...data, ownerUserId: row.ownerUserId ?? null };
     await db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, sink = ?, sinkRef = ?, revokedAt = ? WHERE userId = ? AND id = ?`,
-      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, merged.sink, merged.sinkRef, merged.revokedAt, userId, id]
+      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, sink = ?, sinkRef = ?, revokedAt = ? WHERE ${scope.where} AND id = ?`,
+      [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, merged.sink, merged.sinkRef, merged.revokedAt, ...scope.params, id]
     );
     result = merged;
   });
@@ -197,7 +225,15 @@ export async function updateApiKey(id: string, data: Partial<ApiKey>): Promise<A
 
 export async function deleteApiKey(id: string): Promise<boolean> {
   const db = await getAdapter();
-  const res = await db.run(`DELETE FROM apiKeys WHERE userId = ? AND id = ?`, [currentTenantId(), id]);
+  const scope = manageableKeys();
+  const res = await db.transaction(async () => {
+    const deleted = await db.run(`DELETE FROM apiKeys WHERE ${scope.where} AND id = ?`, [...scope.params, id]);
+    // The key's access policy goes with it: a reused id must not inherit it.
+    if ((deleted?.changes ?? 0) > 0) {
+      await db.run(`DELETE FROM accessPolicies WHERE userId = ? AND subjectType = 'key' AND subjectId = ?`, [currentTenantId(), id]);
+    }
+    return deleted;
+  });
   invalidateApiKeyOwnerCache();
   return (res?.changes ?? 0) > 0;
 }
@@ -212,19 +248,19 @@ export async function deleteApiKey(id: string): Promise<boolean> {
  */
 export async function resolveApiKeyOwner(
   key: string,
-): Promise<{ userId: string; id: string; profile: string | null } | null> {
+): Promise<{ userId: string; id: string; profile: string | null; ownerUserId: string | null } | null> {
   const cached = keyOwnerMemo.get(key);
   if (cached) return { ...cached };
   const generation = keyOwnerMemo.generation;
   const db = await getAdapter();
   // `profile` rides along so the gateway scopes the request without a second
   // read of the row it just found.
-  const row = (await db.get(`SELECT id, userId, isActive, profile FROM apiKeys WHERE key = ?`, [key])) as
-    | { id: string; userId: string; isActive: number | boolean; profile: string | null }
+  const row = (await db.get(`SELECT id, userId, isActive, profile, ownerUserId FROM apiKeys WHERE key = ?`, [key])) as
+    | { id: string; userId: string; isActive: number | boolean; profile: string | null; ownerUserId: string | null }
     | undefined;
   if (!row) return null;
   if (!(row.isActive === 1 || row.isActive === true)) return null;
-  const owner = { userId: row.userId, id: row.id, profile: row.profile ?? null };
+  const owner = { userId: row.userId, id: row.id, profile: row.profile ?? null, ownerUserId: row.ownerUserId ?? null };
   // Only a live key is remembered: a miss must not hide a key minted a second later.
   keyOwnerMemo.set(key, owner, generation);
   return { ...owner };
@@ -247,7 +283,8 @@ async function resolveKeyProfile(storedProfile: string | null): Promise<GatewayP
 
 export async function getApiKeyProfile(id: string): Promise<GatewayProfile | null> {
   const db = await getAdapter();
-  const row = (await db.get(`SELECT profile FROM apiKeys WHERE userId = ? AND id = ?`, [currentTenantId(), id])) as
+  const scope = manageableKeys();
+  const row = (await db.get(`SELECT profile FROM apiKeys WHERE ${scope.where} AND id = ?`, [...scope.params, id])) as
     | { profile: string | null }
     | undefined;
   if (!row) return null;
@@ -260,9 +297,10 @@ export async function updateApiKeyProfile(id: string, patch: unknown): Promise<G
   if (!current) return null;
   const next = normalizeGatewayProfile(patch, current);
   const db = await getAdapter();
-  const res = await db.run(`UPDATE apiKeys SET profile = ? WHERE userId = ? AND id = ?`, [
+  const scope = manageableKeys();
+  const res = await db.run(`UPDATE apiKeys SET profile = ? WHERE ${scope.where} AND id = ?`, [
     JSON.stringify(next),
-    currentTenantId(),
+    ...scope.params,
     id,
   ]);
   invalidateApiKeyOwnerCache();

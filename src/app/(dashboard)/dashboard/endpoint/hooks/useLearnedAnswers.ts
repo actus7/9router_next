@@ -31,8 +31,9 @@ async function send(url: string, init: RequestInit): Promise<boolean> {
  * moved to each API key and each conversation; what was learned stays shared
  * by the account, so it is reviewed here once.
  */
-export function useLearnedAnswers() {
-  const { data, isLoading, mutate } = useSWR<{ capabilities: LearnedCapability[] }>(CAPS_URL, jsonFetcher);
+export function useLearnedAnswers(enabled = true) {
+  // Learned answers are the whole organization's prompts; only admins read them.
+  const { data, isLoading, mutate } = useSWR<{ capabilities: LearnedCapability[] }>(enabled ? CAPS_URL : null, jsonFetcher);
 
   const setStatus = async (id: string, status: "shadow" | "deprecated") => {
     await send(`${CAPS_URL}/${encodeURIComponent(id)}`, {

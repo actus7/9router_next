@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CardSkeleton } from "@/shared/components/Loading";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { useWorkspace } from "@/shared/hooks/useWorkspace";
 import { clientPingUrl, clientPingAny } from "./endpointPing";
 import { STATUS_POLL_FAST_MS, CLIENT_PING_FAST_MS, REACHABLE_MISS_THRESHOLD } from "./endpointConstants";
 import { useApiKeys } from "./hooks/useApiKeys";
@@ -28,7 +29,8 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
   // One key's profile editor open at a time: abilities or skills.
   const [profileTarget, setProfileTarget] = useState<{ key: ApiKey; mode: "abilities" | "skills" } | null>(null);
   const keyProfile = useKeyProfile(profileTarget?.key.id ?? null);
-  const learnedAnswers = useLearnedAnswers();
+  const { canManage } = useWorkspace();
+  const learnedAnswers = useLearnedAnswers(canManage);
   const closeProfile = () => setProfileTarget(null);
   const { fetchData } = apiKeys;
   const {
@@ -173,6 +175,7 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
         clearUserAuth={tailscale.clearUserAuth}
         isLoginUnsafe={isLoginUnsafe}
         unsafeReason={unsafeReason}
+        canManage={canManage}
       />
 
       <ApiKeysCard
@@ -191,7 +194,7 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
         onOpenSkills={(key) => setProfileTarget({ key, mode: "skills" })}
       />
 
-      <LearnedAnswersCard learning={learnedAnswers} />
+      {canManage && <LearnedAnswersCard learning={learnedAnswers} />}
 
       <KeyAbilitiesModal
         keyName={profileTarget?.mode === "abilities" ? profileTarget.key.name : null}

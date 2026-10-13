@@ -20,6 +20,42 @@ const STORAGE_KEYS = {
   enterBehavior: "basic-chat.enterBehavior",
 };
 
+/**
+ * Keys that hold one person's data in one workspace: conversations, projects,
+ * drafts, what was open. They are stored per scope (`<tenant>:<user>`), never
+ * globally — a global copy was shown to whoever signed in next on the same
+ * browser, and the sync then uploaded it as theirs. Display preferences
+ * (sidebar, density, Enter behaviour) stay browser-wide on purpose.
+ */
+const SCOPED_KEYS = [
+  STORAGE_KEYS.sessions,
+  STORAGE_KEYS.activeSessionId,
+  STORAGE_KEYS.activeProviderId,
+  STORAGE_KEYS.activeModelId,
+  STORAGE_KEYS.drafts,
+  STORAGE_KEYS.projects,
+  STORAGE_KEYS.activeProjectId,
+] as const;
+
+/**
+ * Pre-scope copies. Nothing says whose they were, so they are never imported
+ * into a scope — only removed. The server keeps every synced conversation and
+ * hands it back to its real owner.
+ */
+const LEGACY_GLOBAL_KEYS = [
+  ...SCOPED_KEYS,
+  STORAGE_KEYS.draft,
+  STORAGE_KEYS.systemPrompt,
+  STORAGE_KEYS.temperature,
+  STORAGE_KEYS.reasoningEffort,
+];
+
+const scoped = (key: string, scope: string): string => `${key}@${scope}`;
+
+function dropLegacyGlobalCopies(): void {
+  for (const key of LEGACY_GLOBAL_KEYS) globalThis.localStorage.removeItem(key);
+}
+
 export const DATE_GROUP_ORDER = [
   "Hoje",
   "Ontem",
@@ -46,11 +82,10 @@ export interface HydratedState {
   enterBehavior: "queue" | "steer";
 }
 
-export function hydrateFromStorage(): HydratedState {
-  const savedSessions = safeParse(
-    globalThis.localStorage.getItem(STORAGE_KEYS.sessions),
-    [],
-  );
+export function hydrateFromStorage(scope: string): HydratedState {
+  dropLegacyGlobalCopies();
+  const read = (key: string): string | null => globalThis.localStorage.getItem(scoped(key, scope));
+  const savedSessions = safeParse(read(STORAGE_KEYS.sessions), []);
   const sessions = Array.isArray(savedSessions)
     ? (savedSessions.map((session) => ({
         ...session,
@@ -58,10 +93,7 @@ export function hydrateFromStorage(): HydratedState {
       })) as ChatSession[])
     : [];
 
-  const savedProjects = safeParse(
-    globalThis.localStorage.getItem(STORAGE_KEYS.projects),
-    [],
-  );
+  const savedProjects = safeParse(read(STORAGE_KEYS.projects), []);
   const projects = Array.isArray(savedProjects)
     ? savedProjects.filter((project): project is ChatProject =>
         Boolean(
@@ -72,45 +104,22 @@ export function hydrateFromStorage(): HydratedState {
       )
     : [];
 
-  const savedTemperature = Number(
-    globalThis.localStorage.getItem(STORAGE_KEYS.temperature),
-  );
-  const temperature =
-    Number.isFinite(savedTemperature) &&
-    savedTemperature >= 0 &&
-    savedTemperature <= 2
-      ? savedTemperature
-      : 0.7;
-
-  const savedReasoningEffort = globalThis.localStorage.getItem(
-    STORAGE_KEYS.reasoningEffort,
-  );
-  const reasoningEffort: "low" | "medium" | "high" | null =
-    savedReasoningEffort === "low" ||
-    savedReasoningEffort === "medium" ||
-    savedReasoningEffort === "high"
-      ? savedReasoningEffort
-      : null;
-
   return {
     sessions,
     projects,
-    activeProjectId:
-      globalThis.localStorage.getItem(STORAGE_KEYS.activeProjectId) || "",
-    activeSessionId:
-      globalThis.localStorage.getItem(STORAGE_KEYS.activeSessionId) || "",
-    activeProviderId:
-      globalThis.localStorage.getItem(STORAGE_KEYS.activeProviderId) || "",
-    activeModelId:
-      globalThis.localStorage.getItem(STORAGE_KEYS.activeModelId) || "",
-    draft: globalThis.localStorage.getItem(STORAGE_KEYS.draft) || "",
-    drafts: safeParse(globalThis.localStorage.getItem(STORAGE_KEYS.drafts), {}) as HydratedState["drafts"],
+    activeProjectId: read(STORAGE_KEYS.activeProjectId) || "",
+    activeSessionId: read(STORAGE_KEYS.activeSessionId) || "",
+    activeProviderId: read(STORAGE_KEYS.activeProviderId) || "",
+    activeModelId: read(STORAGE_KEYS.activeModelId) || "",
+    // The pre-split single draft and page-wide inference settings were global
+    // keys; whose they were is unknown, so they are not carried into a scope.
+    draft: "",
+    drafts: safeParse(read(STORAGE_KEYS.drafts), {}) as HydratedState["drafts"],
     sidebarOpen:
       globalThis.localStorage.getItem(STORAGE_KEYS.sidebarOpen) !== "false",
-    systemPrompt:
-      globalThis.localStorage.getItem(STORAGE_KEYS.systemPrompt) || "",
-    temperature,
-    reasoningEffort,
+    systemPrompt: "",
+    temperature: 0.7,
+    reasoningEffort: null,
     conversationDisplay:
       globalThis.localStorage.getItem(STORAGE_KEYS.conversationDisplay) ===
       "normal"
@@ -134,40 +143,15 @@ export function persistToStorage(params: {
   sidebarOpen: boolean;
   conversationDisplay: "normal" | "compact";
   enterBehavior: "queue" | "steer";
-}): void {
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.sessions,
-    JSON.stringify(params.sessions),
-  );
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.activeSessionId,
-    params.activeSessionId,
-  );
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.activeProviderId,
-    params.activeProviderId,
-  );
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.activeModelId,
-    params.activeModelId,
-  );
-  globalThis.localStorage.setItem(STORAGE_KEYS.drafts, JSON.stringify(params.drafts));
-  // The pre-split key is migrated on hydrate and must not come back, or the
-  // next hydrate would re-seed a draft the user already sent.
-  globalThis.localStorage.removeItem(STORAGE_KEYS.draft);
-  // The pre-split inference keys are migrated on hydrate onto the conversation
-  // that owned them, and must not come back: they now live in `sessions`.
-  globalThis.localStorage.removeItem(STORAGE_KEYS.systemPrompt);
-  globalThis.localStorage.removeItem(STORAGE_KEYS.temperature);
-  globalThis.localStorage.removeItem(STORAGE_KEYS.reasoningEffort);
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.projects,
-    JSON.stringify(params.projects),
-  );
-  globalThis.localStorage.setItem(
-    STORAGE_KEYS.activeProjectId,
-    params.activeProjectId,
-  );
+}, scope: string): void {
+  const write = (key: string, value: string) => globalThis.localStorage.setItem(scoped(key, scope), value);
+  write(STORAGE_KEYS.sessions, JSON.stringify(params.sessions));
+  write(STORAGE_KEYS.activeSessionId, params.activeSessionId);
+  write(STORAGE_KEYS.activeProviderId, params.activeProviderId);
+  write(STORAGE_KEYS.activeModelId, params.activeModelId);
+  write(STORAGE_KEYS.drafts, JSON.stringify(params.drafts));
+  write(STORAGE_KEYS.projects, JSON.stringify(params.projects));
+  write(STORAGE_KEYS.activeProjectId, params.activeProjectId);
   globalThis.localStorage.setItem(
     STORAGE_KEYS.sidebarOpen,
     String(params.sidebarOpen),

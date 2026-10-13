@@ -12,6 +12,8 @@ vi.mock("next/server", async (importOriginal) => ({
 }));
 const write = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("@/lib/db/repos/modelPerfRepo", () => ({ recordModelAttempt: write, readModelPerf: vi.fn(async () => []), pruneModelPerf: vi.fn(async () => {}) }));
+// The access policy has its own test (accessScope); here every key is unrestricted.
+vi.mock("@/lib/db/repos/accessPoliciesRepo", () => ({ accessLayersFor: vi.fn(async () => []), accessLayersForActor: vi.fn(async () => []), usageLimitsFor: vi.fn(async () => []) }));
 vi.mock("@/lib/db/repos/apiKeysRepo", () => ({
   resolveApiKeyOwner: vi.fn(async () => ({ userId: "u1", id: "k1" })),
 }));

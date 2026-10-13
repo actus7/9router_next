@@ -12,12 +12,16 @@ import { Button } from "@/components/ui/button";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import TierModelPickerModal, { type ModelPriceInfo } from "@/shared/components/TierModelPickerModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
+import { usableConnections } from "@/shared/components/buildGroupedModels";
+import { FREE_PROVIDERS, resolveProviderId } from "@/shared/constants/providers";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
 import { ROUTING_TIERS, type LaneEntryConfig, type RoutingTier, type SmartModelProfile } from "@/shared/llm-catalog";
 import ModelParamsDialog from "./ModelParamsDialog";
 import { useModelParamInfo } from "./useModelParamInfo";
 import type { SuggestionPreview } from "./smartComboHelpers";
+
+const NO_AUTH_PROVIDER_IDS = Object.keys(FREE_PROVIDERS).filter((id) => (FREE_PROVIDERS as Record<string, { noAuth?: boolean }>)[id].noAuth);
 
 const TIER_META: Record<RoutingTier, { label: string; scoreRange: string }> = {
   simple: { label: translate("Simple") || "Simple", scoreRange: translate("Short, direct questions") || "Short, direct questions" },
@@ -43,6 +47,8 @@ interface RowProps {
   profile: SmartModelProfile | undefined;
   providerId: string;
   providerName: string;
+  /** No active connection serves this provider: the router skips the entry. */
+  providerOff: boolean;
   entry: LaneEntryConfig | null;
   onEntryChange: (entry: LaneEntryConfig | null) => void;
   onDuplicate: (connectionId: string) => void;
@@ -55,7 +61,7 @@ function cleaned(entry: LaneEntryConfig): LaneEntryConfig | null {
   return entry.connectionId || (entry.params && Object.keys(entry.params).length > 0) ? entry : null;
 }
 
-function TierModelRow({ id: _id, value, profile, providerId, providerName, entry, onEntryChange, onDuplicate, onEdit, onRemove }: RowProps) {
+function TierModelRow({ id: _id, value, profile, providerId, providerName, providerOff, entry, onEntryChange, onDuplicate, onEdit, onRemove }: RowProps) {
   const info = useModelParamInfo(value);
   const [paramsOpen, setParamsOpen] = useState(false);
   const connections = info?.connections ?? [];
@@ -98,7 +104,15 @@ function TierModelRow({ id: _id, value, profile, providerId, providerName, entry
 
         <ProviderIcon providerId={providerId} alt={providerName} size={15} fallbackText={providerId.slice(0, 2).toUpperCase()} className="shrink-0" />
 
-        <p className="min-w-0 flex-1 truncate text-xs font-medium text-text-main" title={displayName}>{displayName}</p>
+        <p className={cn("min-w-0 flex-1 truncate text-xs font-medium", providerOff ? "text-text-muted line-through" : "text-text-main")} title={displayName}>{displayName}</p>
+        {providerOff && (
+          <span
+            className="shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive"
+            title={translate("No active account for this provider. Requests skip this model until you switch an account back on.") || "No active account for this provider. Requests skip this model until you switch an account back on."}
+          >
+            {translate("Provider off") || "Provider off"}
+          </span>
+        )}
 
         {info?.spec && (
           <Button variant="ghost" size="icon-xs" onClick={() => setParamsOpen(true)} className={cn("size-6 shrink-0", hasParams ? "text-primary" : "text-text-muted")} title={translate("Model parameters") || "Model parameters"} aria-label={`${translate("Model parameters") || "Model parameters"} ${displayName}`}>
@@ -178,6 +192,12 @@ function TierColumn({ tier, models, entries, profileByKey, activeProviders, mode
     return map;
   }, [profileByKey]);
 
+  // Providers that can answer: an active connection, or none needed (noAuth).
+  const usableProviderIds = useMemo(
+    () => new Set([...usableConnections(activeProviders).map((p) => resolveProviderId(p.provider)), ...NO_AUTH_PROVIDER_IDS]),
+    [activeProviders],
+  );
+
   // Entries are index-aligned with models; pad so a lane with none configured lines up.
   const laneEntries = models.map((_, index) => entries[index] ?? null);
   const itemIds = models.map((model, index) => `${tier}:${index}:${model}`);
@@ -225,6 +245,7 @@ function TierColumn({ tier, models, entries, profileByKey, activeProviders, mode
               const profile = profileByKey.get(model);
               const providerId = profile?.provider || model.split("/")[0];
               const providerName = profile?.provider || providerId;
+              const providerOff = !usableProviderIds.has(resolveProviderId(providerId));
               return (
                 <TierModelRow
                   key={itemIds[index]}
@@ -233,6 +254,7 @@ function TierColumn({ tier, models, entries, profileByKey, activeProviders, mode
                   profile={profile}
                   providerId={providerId}
                   providerName={providerName}
+                  providerOff={providerOff}
                   entry={laneEntries[index]}
                   onEntryChange={(entry) => onChange(models, laneEntries.map((cur, i) => (i === index ? entry : cur)))}
                   onDuplicate={(connectionId) => onChange(

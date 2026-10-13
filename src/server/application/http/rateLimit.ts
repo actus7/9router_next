@@ -41,6 +41,15 @@ export interface RateLimitResult {
   retryAfter: number;
 }
 
+/** What `consumeRateLimit` would answer, without taking a slot. */
+export function peekRateLimit(key: string, limit: number): RateLimitResult {
+  if (limit <= 0) return { allowed: true, retryAfter: 0 };
+  const now = Date.now();
+  const existing = buckets.get(key);
+  if (!existing || existing.resetAt <= now || existing.count < limit) return { allowed: true, retryAfter: 0 };
+  return { allowed: false, retryAfter: Math.max(1, Math.ceil((existing.resetAt - now) / 1000)) };
+}
+
 export function consumeRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
   if (limit <= 0) return { allowed: true, retryAfter: 0 };
 

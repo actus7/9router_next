@@ -2,7 +2,7 @@ import "server-only";
 
 import { waitUntil } from "@vercel/functions";
 
-import { currentTenantId, withTenant } from "@/lib/db/tenant";
+import { currentTenantContext, currentTenantId, withTenant } from "@/lib/db/tenant";
 import {
   createHarnessRun,
   setHarnessRunActivity,
@@ -16,6 +16,9 @@ import { resolveApiKeyOwner } from "@/lib/db/repos/apiKeysRepo";
 import { publishRunText } from "@/server/application/use-cases/harness/runBus";
 import { handleChat, withGatewayProfile } from "@/server/llm-gateway/chat";
 import { sessionGatewayProfile } from "@/server/harness/tools/sessionGatewayProfile";
+import { withoutForbiddenPluginTools } from "@/server/harness/tools/sessionCapability";
+import { accessLayersForActor } from "@/lib/db/repos/accessPoliciesRepo";
+import { withAccessLayers } from "@/server/llm-gateway/application/accessScope";
 import { initTranslators } from "@/server/llm-gateway/translator";
 import { StreamChunkAccumulator } from "@/shared/chat/streamChunk";
 import { readTokenSavers } from "@/shared/chat/tokenSavers";
@@ -115,13 +118,18 @@ export async function startDurableRun(input: StartDurableRunInput): Promise<{ ru
   // Captured now, inside the request's tenant context. The worker below runs
   // after the response, where the ambient tenant is whatever the next request
   // happens to establish.
-  const owner = currentTenantId();
+  // The whole context, not just the tenant: the run belongs to the member who
+  // sent it, and re-entering with the bare tenant id would make them the owner.
+  const owner = currentTenantContext();
   // The whole run — first call and every tool-loop continuation — is scoped to
   // the conversation's abilities, so a forwarded API key never decides them.
-  waitUntil(withTenant(owner, async () => {
+  // The member's access policy, read now so a policy that cannot be read fails
+  // the send instead of running the turn unrestricted.
+  const access = await accessLayersForActor();
+  waitUntil(withTenant(owner, () => withAccessLayers(access, async () => {
     const profile = await sessionGatewayProfile(input.sessionId).catch(() => null);
     return profile ? withGatewayProfile(profile, () => executeRun(runId, input)) : executeRun(runId, input);
-  }));
+  })));
 
   return { runId };
 }
@@ -155,7 +163,7 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
     // One selection per turn, shared by the first call and the tool loop's
     // continuations, so a tool dropped here is also absent from the loop's
     // allow-list rather than callable by name.
-    const body = await selectToolsForTurn(input.body);
+    const body = withoutForbiddenPluginTools(await selectToolsForTurn(input.body));
     const request = new Request("http://durable-run.local/api/v1/chat/completions", {
       method: "POST",
       headers: {

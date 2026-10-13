@@ -1,4 +1,5 @@
 import { testStatusForValidation } from "@/lib/db/repos/connectionsRepo";
+import { currentTenantContext, roleAtLeast } from "@/lib/db/tenant";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getProviderConnections,
@@ -57,6 +58,21 @@ async function normalizeProxyPoolId(proxyPoolId: unknown): Promise<{ proxyPoolId
 }
 
 // GET /api/providers - List all connections
+const PICKER_FIELDS = ["id", "provider", "authType", "name", "alias", "isActive", "testStatus", "priority", "defaultModel", "model", "models", "enabledModels"];
+const PICKER_PSD_FIELDS = ["prefix", "nodeName", "defaultModel", "model", "models", "enabledModels"];
+
+function pick(source: Record<string, unknown>, fields: readonly string[]): Record<string, unknown> {
+  return Object.fromEntries(fields.filter((field) => source[field] !== undefined).map((field) => [field, source[field]]));
+}
+
+function pickerFields(connection: Record<string, unknown>): Record<string, unknown> {
+  const psd = connection.providerSpecificData;
+  return {
+    ...pick(connection, PICKER_FIELDS),
+    ...(psd && typeof psd === "object" ? { providerSpecificData: pick(psd as Record<string, unknown>, PICKER_PSD_FIELDS) } : {}),
+  };
+}
+
 export async function GET(): Promise<NextResponse> {
   try {
     // O cruzamento entre os dois é feito depois, em memória: nenhuma das leituras
@@ -93,7 +109,11 @@ export async function GET(): Promise<NextResponse> {
       };
     });
 
-    return NextResponse.json({ connections: safeConnections });
+    // A member reads this list for the chat's model picker and nothing else.
+    // `providerSpecificData` holds session cookies for the web providers, so
+    // they get the fields the picker reads, not the record an admin edits.
+    const member = !roleAtLeast(currentTenantContext().role, "admin");
+    return NextResponse.json({ connections: member ? safeConnections.map(pickerFields) : safeConnections });
   } catch (error) {
     console.error("Error fetching providers:", error);
     return NextResponse.json({ error: "Failed to fetch providers" }, { status: 500 });

@@ -31,7 +31,15 @@ beforeEach(() => {
 describe("resolveCurrentUser", () => {
   it("reports the account when the session resolves", async () => {
     getSession.mockResolvedValue({ data: { user: { id: "user_123" } }, error: null });
-    await expect(resolveCurrentUser()).resolves.toEqual({ userId: "user_123", unavailable: false });
+    await expect(resolveCurrentUser()).resolves.toEqual({ userId: "user_123", activeOrganizationId: null, email: null, emailVerified: false, unavailable: false });
+  });
+
+  it("carries the organization the session is switched to", async () => {
+    getSession.mockResolvedValue({
+      data: { user: { id: "user_123" }, session: { activeOrganizationId: "org_9" } },
+      error: null,
+    });
+    await expect(resolveCurrentUser()).resolves.toEqual({ userId: "user_123", activeOrganizationId: "org_9", email: null, emailVerified: false, unavailable: false });
   });
 
   it("reads an empty session as signed out, not as an outage", async () => {

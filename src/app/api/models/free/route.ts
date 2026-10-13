@@ -17,4 +17,4 @@ async function handleGET(): Promise<NextResponse> {
   return NextResponse.json({ groups });
 }
 
-export const GET = tenantRoute(handleGET);
+export const GET = tenantRoute(handleGET, { minRole: "member" });

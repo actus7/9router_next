@@ -27,4 +27,5 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export const POST = tenantRoute(handlePOST);
+// A cookie in this browser, not workspace state: anyone may pick their own color.
+export const POST = tenantRoute(handlePOST, { minRole: "member" });

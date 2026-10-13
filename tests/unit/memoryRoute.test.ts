@@ -84,7 +84,8 @@ vi.mock("@/lib/db/repos/harnessLearningConfigRepo", () => ({
 }));
 
 import { NextRequest } from "next/server";
-import { GET, POST } from "@/server/application/use-cases/http/harness/memory/route";
+import { GET, POST, PUT } from "@/server/application/use-cases/http/harness/memory/route";
+import { withTenant } from "@/lib/db/tenant";
 
 const url = "http://localhost/api/harness/memory";
 
@@ -141,5 +142,36 @@ describe("POST /api/harness/memory", () => {
     expect((await response.json()).pending).toBe(true);
     expect(insertPending).toHaveBeenCalledOnce();
     expect(insertEntry).not.toHaveBeenCalled();
+  });
+});
+
+describe("PUT /api/harness/memory as a member", () => {
+  // Agent memory and the learning config are the whole team's: they ride into
+  // every member's chat. A member edits their own memory on this path, and
+  // reaches the shared one only through the agent's gated POST.
+  const asMember = <T>(fn: () => Promise<T>) =>
+    withTenant({ tenantId: "org-1", actorUserId: "member-b", role: "member" }, fn);
+  const put = (body: unknown) =>
+    new NextRequest(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  it("refuses the shared learning config", async () => {
+    const response = await asMember(() => PUT(put({ config: { memoryWriteApproval: false } })));
+    expect(response.status).toBe(403);
+  });
+
+  it("refuses creating, editing or deleting shared agent memory", async () => {
+    listEntries.mockResolvedValue([{ id: "a1", scope: "agent", content: "x", createdAt: "", updatedAt: "" }] as never);
+    expect((await asMember(() => PUT(put({ action: "create", scope: "agent", content: "x" })))).status).toBe(403);
+    expect((await asMember(() => PUT(put({ action: "update", id: "a1", content: "y" })))).status).toBe(403);
+    expect((await asMember(() => PUT(put({ action: "delete", id: "a1" })))).status).toBe(403);
+    expect(insertEntry).not.toHaveBeenCalled();
+    expect(updateEntry).not.toHaveBeenCalled();
+    expect(deleteEntry).not.toHaveBeenCalled();
+  });
+
+  it("still lets a member write their own memory", async () => {
+    const response = await asMember(() => PUT(put({ action: "create", scope: "user", content: "I prefer pt-BR" })));
+    expect(response.status).toBe(200);
+    expect(insertEntry).toHaveBeenCalledOnce();
   });
 });

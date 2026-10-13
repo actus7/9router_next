@@ -88,6 +88,18 @@ ficaram como o molde que uma chave nova copia e o padrão de uma conversa (ou
 chave antiga, `profile` NULL) que nunca foi ajustada. Ver
 `docs/superpowers/specs/2026-09-29-api-key-profiles-design.md`.
 
+## Equipes: o que é da equipe, o que é de cada pessoa
+
+Tenant é a organização; o espaço pessoal é uma organização com o id do usuário.
+Ao escrever uma tabela nova, decida de quem é a linha **antes** de escrever a
+query: dado da equipe filtra por `userId = ?` (tenant); dado de uma pessoa usa
+`MEMBER_ROWS` e grava `ownerUserId` (o gate `tenantIsolation` aceita os dois).
+Rota nova — leitura ou escrita — fica só para admin até dizer `{ minRole: "member" }`, e uma leitura aberta a membro não devolve segredo (o export do banco e `providerSpecificData` devolviam); tela
+de gestão nova vai atrás de `withTenantPage(..., { minRole: "admin" })` ou
+`<AdminOnly>`. Cache no navegador de dado pessoal é por `<tenant>:<membro>`,
+nunca global. Detalhes e decisões:
+`docs/superpowers/specs/2026-10-12-multi-tenant-orgs-design.md`.
+
 ## Habilidades e skills do gateway vêm da origem da requisição
 
 Mesmo princípio de "o caminho, não o corpo" abaixo. Quem abre o escopo do

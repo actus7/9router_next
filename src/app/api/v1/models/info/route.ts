@@ -1,5 +1,6 @@
 import { gatewayRoute } from "@/server/application/http/gatewayRoute";
 import { NextRequest } from "next/server";
+import { isModelAllowed } from "@/server/llm-gateway/application/accessScope";
 import { describeModel } from "@/server/application/use-cases/models/modelInfo";
 
 const CORS = { "Access-Control-Allow-Origin": "*" };
@@ -20,7 +21,8 @@ async function handleGET(request: NextRequest) {
       { status: 400, headers: CORS },
     );
   }
-  const info = await describeModel(id, searchParams.get("kind"));
+  // A model outside the key's policy reads as absent, as it does in /v1/models.
+  const info = (await isModelAllowed(id)) ? await describeModel(id, searchParams.get("kind")) : null;
   if (!info) {
     return Response.json(
       { error: { message: `Model not found: ${id}`, type: "not_found" } },

@@ -1,3 +1,5 @@
+import { currentAccessLayers } from "@/server/llm-gateway/application/accessScope";
+import { layersAllow, layersRestrict } from "@/shared/access/accessPolicy";
 import { waitUntil } from "@vercel/functions";
 
 import { getCustomModels } from "@/lib/db/repos/aliasRepo";
@@ -126,5 +128,10 @@ export async function buildModelsList(kindFilter: string[], options: { skipDynam
   const connectedProviderIds = new Set(activeConnectionByProvider.keys());
   models.push(...buildNoAuthWebEntries(kindFilter, connectedProviderIds));
 
-  return deduplicateModels(models);
+  // A restricted key sees what it may call, nothing else. Listed ids are the
+  // spelling clients send, which is the spelling policies are written in.
+  const listed = deduplicateModels(models);
+  const access = currentAccessLayers();
+  if (!layersRestrict(access, "models")) return listed;
+  return listed.filter((entry) => layersAllow(access, "models", [String(entry.id ?? "")]));
 }

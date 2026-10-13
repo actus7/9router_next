@@ -4,6 +4,7 @@ import Card from "@/shared/components/Card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import SecurityWarning from "../components/SecurityWarning";
+import KeyAccessButton from "./KeyAccessButton";
 import { BookOpen, Check, Copy, Eye, EyeOff, KeyRound, Plus, Sparkles, Trash2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { ApiKey, ConfirmState } from "../types";
@@ -105,6 +106,7 @@ export default function ApiKeysCard({
                 )}
               </div>
               <div className="flex items-center gap-2">
+                <KeyAccessButton apiKey={key} />
                 <Button
                   variant="outline"
                   size="sm"

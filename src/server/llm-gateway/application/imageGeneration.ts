@@ -1,4 +1,5 @@
 import { requireGatewayApiKey } from "./gatewayApiKey";
+import { assertModelAllowed } from "./accessScope";
 import {
   getProviderCredentials,
   markAccountUnavailable,
@@ -50,6 +51,9 @@ export async function handleImageGeneration(request: Request): Promise<Response>
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!body.prompt) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: prompt");
+
+  const accessDenied = await assertModelAllowed(modelStr);
+  if (accessDenied) return accessDenied;
 
   const smartCombo = await getSmartCombo(modelStr);
   if (smartCombo) {

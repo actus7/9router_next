@@ -1,6 +1,6 @@
 ﻿import { EventEmitter } from "events";
 import { getAdapter } from "../driver";
-import { currentTenantId } from "../tenant";
+import { currentTenantId, tryCurrentTenantContext } from "../tenant";
 import { resolveApiKeyId } from "./apiKeyIdCache";
 import { bumpTenantMeta } from "../helpers/tenantMeta";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
@@ -179,6 +179,8 @@ interface UsageEntry {
   cost?: number;
   status?: string;
   tokens?: Record<string, unknown>;
+  /** The member the request ran as; read from the tenant context when absent. */
+  actorUserId?: string;
   /**
    * Durable per-request context. Used for the routing summary: the full trace
    * only rides the response header, and requestDetails is opt-in and pruned, so
@@ -436,6 +438,7 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<number | null
     const completionTokens: number = (tokens.completion_tokens as number) || (tokens.output_tokens as number) || 0;
 
     const userId: string = currentTenantId();
+    entry.actorUserId ??= tryCurrentTenantContext()?.actorUserId ?? userId;
     let inserted: boolean = false;
 
     const usageId: number | null = await db.transaction(async () => {
@@ -465,12 +468,12 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<number | null
       }
 
       const insertedRow = await db.get(
-        `INSERT INTO usageHistory(userId, timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        `INSERT INTO usageHistory(userId, timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, actorUserId) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
         [
           userId, entry.timestamp, entry.provider || null, entry.model || null,
           entry.connectionId || null, entry.apiKey || null, entry.endpoint || null,
           promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
-          stringifyJson(tokens), stringifyJson(entry.meta || {}),
+          stringifyJson(tokens), stringifyJson(entry.meta || {}), entry.actorUserId,
         ]
       ) as { id?: number | string } | undefined;
 

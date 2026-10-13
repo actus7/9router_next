@@ -1,6 +1,6 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { GET as implGET, PUT as implPUT, DELETE as implDELETE } from "@/server/application/use-cases/http/harness/plugins/route";
 
-export const GET = tenantRoute(implGET);
+export const GET = tenantRoute(implGET, { minRole: "member" });
 export const PUT = tenantRoute(implPUT);
 export const DELETE = tenantRoute(implDELETE);

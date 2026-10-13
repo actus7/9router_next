@@ -5,6 +5,8 @@ import { StreamChunkAccumulator } from "@/shared/chat/streamChunk";
 const run = vi.hoisted(() => vi.fn((_sql: string, _params?: unknown[]) => ({ changes: 1 })));
 const get = vi.hoisted(() => vi.fn(() => undefined as Record<string, unknown> | undefined));
 
+// The access policy has its own test (accessScope); here the member is unrestricted.
+vi.mock("@/lib/db/repos/accessPoliciesRepo", () => ({ accessLayersFor: vi.fn(async () => []), accessLayersForActor: vi.fn(async () => []), usageLimitsFor: vi.fn(async () => []) }));
 vi.mock("@/lib/db/driver", () => ({
   getAdapter: vi.fn(async () => ({ run, get, transaction: (fn: () => unknown) => fn() })),
 }));

@@ -1,3 +1,4 @@
+import { assertModelAllowed } from "@/server/llm-gateway/application/accessScope";
 import {
   clearAccountError,
   getProviderCredentials,
@@ -152,6 +153,9 @@ export async function forwardGeminiNativeRequest(request: Request, body: Record<
   if (!GEMINI_NATIVE_MODEL_PATTERN.test(modelId)) {
     return Response.json({ error: { message: "Invalid model" } }, { status: 400 });
   }
+  // This path skips the chat handlers, so it runs their policy check itself.
+  const denied = await assertModelAllowed(`gemini/${modelId}`);
+  if (denied) return denied;
   const excludeConnectionIds = new Set<string>();
   const bodyText = JSON.stringify(body);
   let lastError = null;
