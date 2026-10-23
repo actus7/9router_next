@@ -2,7 +2,7 @@
 name: prisma-platform-core-concepts
 metadata:
   library: "prisma"
-  library_version: "8.0.0-rc.19"
+  library_version: "8.0.0-rc.27"
   version: 2026.9.2
 description: >-
   Use when hosting, deploying, or operating an app on the Prisma Platform:
@@ -31,8 +31,9 @@ when a concept needs more depth than this file carries.
 This file shares the platform's structures, hierarchies, relationships, and
 workflows. It is not a CLI reference: commands appear only where a workflow
 needs them. To learn a command surface, run `prisma --help`, or
-`prisma <group> --help` for any group named below; most commands accept
-`--json` for machine-readable output. The data contract, migrations, and
+`prisma <group> --help` for any group named below; pass `--json` for
+machine-readable output. Without it, a piped command prints plain data lines,
+not JSON. The data contract, migrations, and
 queries belong to the `prisma-orm-core-concepts` skill; declaring services
 and modules in code belongs to `prisma-composer-core-concepts`.
 
@@ -71,26 +72,42 @@ packages (`prisma-composer-core-concepts` in `@prisma/composer`,
 `prisma-orm-core-concepts` in `@prisma/orm-postgres`), so they appear after
 this install plus `prisma skills sync`, not before.
 
-Two config files with different owners:
+One config file, `prisma.config.ts`, configures the CLI and every product
+it runs. Each top-level key is a section owned by one product, and this CLI
+recognises exactly three: `orm`, `composer`, and `skills`. The composed
+shape:
 
-1. `prisma.config.ts` configures the CLI. Each top-level key is a section
-   owned by one product, and this CLI recognises exactly three: `orm`,
-   `composer`, and `skills`. The composed shape:
+```ts
+import { definePrismaConfig } from "prisma/config";
+import { defineConfig as composer } from "@prisma/composer/config";
+import { nodeBuild } from "@prisma/composer/node/control";
+import {
+  prismaCloud,
+  prismaState,
+} from "@prisma/composer-prisma-cloud/control";
+import { defineConfig as orm } from "@prisma/orm-postgres/config";
 
-   ```ts
-   import { definePrismaConfig } from "prisma/config";
-   import { defineConfig } from "@prisma/orm-postgres/config";
+export default definePrismaConfig({
+  composer: composer({
+    extensions: [prismaCloud(), nodeBuild()],
+    state: prismaState(),
+  }),
+  orm: orm({ contract: "./src/prisma/contract.prisma" }),
+  skills: { agents: ["claude"] },
+});
+```
 
-   export default definePrismaConfig({
-     orm: defineConfig({ contract: "./src/prisma/contract.prisma" }),
-     skills: { agents: ["claude"] },
-   });
-   ```
-
-2. `prisma-composer.config.ts` configures Composer itself and is a separate,
-   mandatory file for `dev` and `deploy`: without it `dev` fails with
-   `CONFIG.FILE_MISSING`. Its contents belong to
-   `prisma-composer-core-concepts`.
+`dev` and `deploy` read the `composer` section and nothing else; what goes
+in it belongs to `prisma-composer-core-concepts`. A separate
+`prisma-composer.config.ts` is no longer read, and the old setup is refused,
+never silently ignored: `CONFIG.SECTION_MISSING` when no loaded
+`prisma.config.ts` declares a `composer` section, `CONFIG.FIELD_RETIRED`
+when the section still has `configPath`, and `CONFIG.FILE_RETIRED` when a
+`prisma-composer.config.*` sits next to the declaring `prisma.config.ts`.
+All three arrive under the CLI's `CLI.CONFIG_SECTION_INVALID`. For
+`CONFIG.SECTION_MISSING`, write the section. For the other two, move the
+old file's `extensions` and `state` into the section, then delete the
+`configPath` field or the old file.
 
 ## The resource model
 
@@ -252,15 +269,16 @@ inside a service; sleeping makes them silently unreliable.
 To your application, a Prisma Postgres database is a regular PostgreSQL
 database behind a connection string: any client works, including Prisma ORM,
 psql, Kysely, and Drizzle. On top of plain PostgreSQL each database has
-built-in connection pooling (no PgBouncer to run), optional query caching,
-and automated backups.
+built-in connection pooling (no PgBouncer to run) and, on paid plans,
+automated backups: a snapshot each day the database has activity.
 
 Databases usually come from deploying a module that declares one. They can
 also be created directly, in which case the connection URL prints exactly
 once. Additional connection strings can be minted and rotated per database;
 every secret is shown exactly once at creation, and no later read reveals
-it. Backups are automated, listable, and restorable, and per-database usage
-metrics are queryable; the `postgres` group covers all of it.
+it. On paid plans, backups are automated, listable, and restorable.
+Per-database usage metrics are queryable; the `postgres` group covers all of
+it.
 
 ## Object storage
 
@@ -315,11 +333,17 @@ own work:
    applies the schema, creates local stand-ins for declared buckets, starts
    the services, and prints a local URL. It watches built output and
    restarts a service when its build changes.
-2. Exercise the running app directly (for example with `curl` against the
-   printed URL) instead of reasoning about what the code would do.
-3. Stopping `dev` leaves local databases, buckets, and their data in place;
-   the next run is a warm start. `--fresh` wipes this app's local instances
-   and data first.
+2. Exercise the running app directly (for example with
+   `curl "$(prisma dev url gateway)"`, with your service's name in place of
+   `gateway`) instead of reasoning about what the
+   code would do. `prisma dev url <node>` prints one node's local URL: a
+   service's HTTP URL, a database's connection string, or a bucket's S3
+   address. Use `prisma dev --detach` to start the app and get your shell
+   back.
+3. Stopping `dev` (Ctrl-C, or `prisma dev stop`) leaves local databases,
+   buckets, and their data in place; the next run is a warm start. `--fresh`
+   wipes this app's local instances and data first. `prisma emulator list`
+   shows every local instance on the machine.
 4. Deploying is the same pipeline pointed at the platform: switching from
    local to hosted is a configuration change, not a code change. Reach for
    `prisma deploy --stage <name>` only when you need a shareable URL or

@@ -20,6 +20,15 @@ describe("assertRequestRuntime", () => {
     await expect(assertRequestRuntime()).resolves.toBeUndefined();
   });
 
+  it("swallows it untagged, as Next 16.4 raises it", async () => {
+    connection.mockRejectedValueOnce(
+      new Error(
+        "`connection` was called outside a request scope. Read more: https://nextjs.org/docs/messages/next-dynamic-api-wrong-context",
+      ),
+    );
+    await expect(assertRequestRuntime()).resolves.toBeUndefined();
+  });
+
   it("propagates prerender-interrupt signals", async () => {
     connection.mockRejectedValueOnce(
       Object.assign(new Error("Route /dashboard needs to bail out of prerendering"), {
