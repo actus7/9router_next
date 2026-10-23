@@ -7,6 +7,15 @@ import { FormInput } from "@/shared/components/FormInput";
 import { DynamicMedia, isSupportedMediaSource } from "@/shared/components/DynamicMedia";
 import { ConfirmModal } from "@/shared/components/Modal";
 
+// @types/jest-axe only augments @jest/expect; Vitest 5 needs its own declaration.
+declare module "vitest" {
+  // Merging requires Vitest's exact type parameters, `T` included.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface Matchers<R extends void | Promise<void> = void | Promise<void>, T = unknown> {
+    toHaveNoViolations(): R;
+  }
+}
+
 expect.extend(toHaveNoViolations);
 
 afterEach(cleanup);

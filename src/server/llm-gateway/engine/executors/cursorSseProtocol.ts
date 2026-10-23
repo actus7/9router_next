@@ -313,7 +313,8 @@ export function setupHttp2Request(
     // `decodeAgentFrames`, or a body lost entirely. And nothing woke a reader
     // parked in `read()`, so it stayed parked until "end" and returned `done`
     // with the queued chunk still sitting there: a valid, empty agent turn.
-    chunkQueue.push(chunk);
+    // No setEncoding() on this stream, so chunks are always Buffers.
+    chunkQueue.push(chunk as Buffer);
     if (wake({ value: chunkQueue[0], done: false })) chunkQueue.shift();
   });
   req.on("end", () => {

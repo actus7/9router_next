@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   // via a LAN IP (e.g. from another device) otherwise hangs on the initial data fetch.
   allowedDevOrigins: ["192.168.68.64", "192.168.68.0/24"],
   cacheComponents: true,
+  // Next 16.4 asks for this explicitly. `false` keeps the prefetch behaviour
+  // this app shipped with; turning it on is its own change, not a dep bump.
+  partialPrefetching: false,
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // `standalone` is for the project's self-hosted runtime. Vercel already
   // consumes Next's output tracing and its build adapter expects the standard

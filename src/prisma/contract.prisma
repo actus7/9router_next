@@ -1,21 +1,21 @@
-// use prisma-next
+// use prisma-8
 
 model Settings {
   id   Int  @id @default(1)
-  data Json @default("{}")
+  data Json @default(json`{}`)
 
   @@map("settings")
 }
 
 model ProviderConnection {
-  id        String               @id @default(uuid())
+  id        String               @id @onCreate(uuid())
   provider  String
   authType  String
   name      String?
   email     String?
   priority  Int?
   isActive  Boolean              @default(true)
-  data      Json                 @default("{}")
+  data      Json                 @default(json`{}`)
   createdAt TimestamptzString    @default(now())
   updatedAt temporal.updatedAtString()
 
@@ -26,10 +26,10 @@ model ProviderConnection {
 }
 
 model ProviderNode {
-  id        String               @id @default(uuid())
+  id        String               @id @onCreate(uuid())
   type      String?
   name      String?
-  data      Json                 @default("{}")
+  data      Json                 @default(json`{}`)
   createdAt TimestamptzString    @default(now())
   updatedAt temporal.updatedAtString()
 
@@ -38,10 +38,10 @@ model ProviderNode {
 }
 
 model ProxyPool {
-  id         String               @id @default(uuid())
+  id         String               @id @onCreate(uuid())
   isActive   Boolean              @default(true)
   testStatus String?
-  data       Json                 @default("{}")
+  data       Json                 @default(json`{}`)
   createdAt  TimestamptzString    @default(now())
   updatedAt  temporal.updatedAtString()
 
@@ -51,7 +51,7 @@ model ProxyPool {
 }
 
 model ApiKey {
-  id        String            @id @default(uuid())
+  id        String            @id @onCreate(uuid())
   key       String            @unique
   name      String?
   machineId String?
@@ -63,10 +63,10 @@ model ApiKey {
 }
 
 model Combo {
-  id        String               @id @default(uuid())
+  id        String               @id @onCreate(uuid())
   name      String               @unique
   kind      String?
-  models    Json                 @default("[]")
+  models    Json                 @default(json`[]`)
   createdAt TimestamptzString    @default(now())
   updatedAt temporal.updatedAtString()
 
@@ -108,19 +108,19 @@ model UsageHistory {
 
 model UsageDaily {
   dateKey String @id
-  data    Json   @default("{}")
+  data    Json   @default(json`{}`)
 
   @@map("usage_daily")
 }
 
 model RequestDetail {
-  id           String               @id @default(uuid())
+  id           String               @id @onCreate(uuid())
   timestamp    TimestamptzString    @default(now())
   provider     String?
   model        String?
   connectionId String?
   status       String?
-  data         Json                 @default("{}")
+  data         Json                 @default(json`{}`)
 
   @@index([timestamp])
   @@index([provider])
@@ -130,7 +130,7 @@ model RequestDetail {
 }
 
 model User {
-  id            String               @id @default(uuid())
+  id            String               @id @onCreate(uuid())
   email         String               @unique
   name          String?
   passwordHash  String?
@@ -146,7 +146,7 @@ model User {
 }
 
 model Session {
-  id        String               @id @default(uuid())
+  id        String               @id @onCreate(uuid())
   userId    String
   token     String               @unique
   expiresAt TimestamptzString
@@ -162,7 +162,7 @@ model Session {
 }
 
 model Account {
-  id                   String               @id @default(uuid())
+  id                   String               @id @onCreate(uuid())
   userId               String
   accountId            String
   providerId           String
@@ -181,7 +181,7 @@ model Account {
 }
 
 model Verification {
-  id         String               @id @default(uuid())
+  id         String               @id @onCreate(uuid())
   identifier String
   value      String
   expiresAt  TimestamptzString
