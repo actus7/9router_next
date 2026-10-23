@@ -120,7 +120,7 @@ function pythonCandidates(headroomBinary: string | null = findHeadroomBinary()):
   }
   for (const dir of EXTRA_BINS) {
     if (!dir) continue;
-    for (const n of PYTHON_CANDIDATES) list.push(path.join(dir, IS_WIN ? `${n}.exe` : n));
+    for (const n of PYTHON_CANDIDATES) list.push(path.join(/*turbopackIgnore: true*/ dir, IS_WIN ? `${n}.exe` : n));
   }
   list.push(...PYTHON_CANDIDATES);
   return list;
