@@ -54,7 +54,12 @@ const USAGE_EXTRACTORS: Record<UsageKind, (raw: Record<string, unknown>) => Buil
   },
   ollama(raw) {
     const input = n(raw.prompt_eval_count), output = n(raw.eval_count);
-    return { promptTokens: input, completionTokens: output, totalTokens: input + output };
+    // prompt_eval_cached_count is a cache-read subset of prompt_eval_count (Ollama reports
+    // prompt tokens cache-INCLUSIVE, matching OpenAI/Gemini).
+    const cached = n(raw.prompt_eval_cached_count);
+    const out: BuildUsageInput = { promptTokens: input, completionTokens: output, totalTokens: input + output };
+    if (cached > 0) out.cachedTokens = cached;
+    return out;
   },
   commandcode(raw) {
     const input = n(raw.inputTokens), output = n(raw.outputTokens);

@@ -1,4 +1,5 @@
 import { DefaultExecutor } from "./default";
+import { parseCodeBuddyFrequencyLimit } from "./codebuddyErrors";
 import type { Credentials } from "../services/types";
 
 /**
@@ -64,5 +65,10 @@ export class CodeBuddyExecutor extends DefaultExecutor {
     // + reasoning_summary on plain requests makes CodeBuddy trip its content
     // filter and return an error (#2071).
     return transformed;
+  }
+
+  // The frequency limit (code 6004) says when it reopens; keep the account out until then.
+  override parseError(response: Response, bodyText: string) {
+    return parseCodeBuddyFrequencyLimit(bodyText) ?? super.parseError(response, bodyText);
   }
 }
