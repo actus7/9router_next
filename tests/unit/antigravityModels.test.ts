@@ -44,7 +44,7 @@ describe("antigravity models listing", () => {
 
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer ya29.token");
-    expect(headers["User-Agent"]).toMatch(/^antigravity\/ide\//);
+    expect(headers["User-Agent"]).toMatch(/^antigravity\/hub\//);
     expect(headers["X-Client-Name"]).toBe("antigravity");
     expect(headers["X-Client-Version"]).toMatch(/^\d+\.\d+\.\d+$/);
   });

@@ -47,6 +47,9 @@ export default {
     clientSecret: ANTIGRAVITY_OAUTH_CLIENT.clientSecret,
   },
     modelOverrides: {
+    "gemini-4-argon-high": { "upstreamModelId": "gemini-4-argon-high(high)" },
+    "gemini-4-argon-medium": { "upstreamModelId": "gemini-4-argon-medium(medium)" },
+    "gemini-4-argon-low": { "upstreamModelId": "gemini-4-argon-low(low)" },
     "gemini-3.8-flash-high": { "upstreamModelId": "gemini-3.8-flash-high(high)" },
     "gemini-3.8-flash-medium": { "upstreamModelId": "gemini-3.8-flash-medium(medium)" },
     "gemini-3.8-flash-low": { "upstreamModelId": "gemini-3.8-flash-low(low)" },
