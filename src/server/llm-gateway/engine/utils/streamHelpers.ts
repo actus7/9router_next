@@ -1,4 +1,5 @@
 import { FORMATS } from "../translator/formats";
+import { fallbackToolCallId } from "../translator/concerns/toolCall";
 
 // Parse SSE data line
 export function parseSSELine(line: string, format: string | null = null) {
@@ -61,6 +62,39 @@ export function hasValuableContent(chunk: Record<string, unknown>, format: strin
   }
 
   return true; // Other formats: keep all chunks
+}
+
+/**
+ * Make sure every streamed tool call carries an id when it opens.
+ *
+ * OpenAI's contract is that the id and name arrive on the FIRST fragment of a call and
+ * later fragments carry only `index` + argument deltas. Some providers open a new
+ * `index` in a late fragment and leave the id out, and strict OpenAI-compatible clients
+ * (@ai-sdk/openai-compatible) then abort the whole turn: "Expected 'id' to be a string".
+ *
+ * `seen` remembers the id per index for the life of the stream. Only a fragment that
+ * opens an index the client has not seen gets a minted id; a continuation is left as it
+ * is, and so is a fragment with no index, which cannot be told apart from one.
+ * Returns true when the chunk was changed.
+ */
+export function ensureStreamToolCallIds(chunk: Record<string, unknown>, seen: Map<unknown, string>): boolean {
+  const choices = chunk?.choices;
+  if (!Array.isArray(choices)) return false;
+  let changed = false;
+  for (const choice of choices) {
+    const calls = (choice as { delta?: { tool_calls?: unknown } })?.delta?.tool_calls;
+    if (!Array.isArray(calls)) continue;
+    for (const call of calls as Array<Record<string, unknown> | null>) {
+      if (!call || typeof call !== "object" || typeof call.index !== "number") continue;
+      if (typeof call.id === "string" && call.id) { seen.set(call.index, call.id); continue; }
+      if (seen.has(call.index)) continue;
+      const id = fallbackToolCallId(call.index);
+      call.id = id;
+      seen.set(call.index, id);
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 // Fix invalid id (generic or too short)

@@ -4,7 +4,7 @@ import { captureTenant, type TenantReentry } from "../host/tenant";
 import type { RequestLogger } from "./requestLogger";
 import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, filterUsageForFormat, COLORS } from "./usageTracking";
 import { settleStream } from "./streamSettle";
-import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers";
+import { parseSSELine, hasValuableContent, fixInvalidId, ensureStreamToolCallIds, formatSSE } from "./streamHelpers";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers";
 import { dbg, isDebugEnabled } from "./debugLog";
 import { trackToolCalls } from "./answerText";
@@ -82,6 +82,8 @@ export interface StreamContext {
   streamDoneSent: boolean;
   /** Já contabilizado por `settleStream` — ver ali por que existem dois caminhos. */
   settled: boolean;
+  /** Tool-call id already sent to the client, by tool-call index (see `ensureStreamToolCallIds`). */
+  toolCallIds: Map<unknown, string>;
   /** Re-entra o tenant capturado na criação do stream — flush e cancel rodam
    *  fora do contexto da requisição. */
   reentry: TenantReentry;
@@ -91,9 +93,10 @@ export interface StreamContext {
 
 /** Normalize a passthrough chunk: fix IDs, inject required fields, strip provider noise */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parseSSELine / JSON.parse return any; callers pass through
-function normalizePassthroughChunk(parsed: any): { idFixed: boolean; fieldsInjected: boolean } {
+function normalizePassthroughChunk(parsed: any, toolCallIds: Map<unknown, string>): { idFixed: boolean; fieldsInjected: boolean } {
   let fieldsInjected = false;
-  const idFixed = fixInvalidId(parsed);
+  // A call that opens without an id aborts strict OpenAI-compatible clients.
+  const idFixed = fixInvalidId(parsed) || ensureStreamToolCallIds(parsed, toolCallIds);
 
   // Ensure OpenAI-required fields are present on streaming chunks (Letta compat)
   if (parsed.choices !== undefined) {
@@ -205,7 +208,7 @@ function processPassthroughLine(ctx: StreamContext, line: string, trimmed: strin
       const parsed = JSON.parse(trimmed.slice(5).trim());
       // Restore fingerprinted tool names before forwarding (clone only on change)
       const restored = restoreToolNames(parsed, ctx.toolNameMap);
-      const { idFixed, fieldsInjected } = normalizePassthroughChunk(restored);
+      const { idFixed, fieldsInjected } = normalizePassthroughChunk(restored, ctx.toolCallIds);
 
       if (!hasValuableContent(parsed, FORMATS.OPENAI)) {
         return;
@@ -450,6 +453,7 @@ function createSSEStream(options: SSEStreamOptions = {}) {
     openAIResponsesDoneSent: false,
     streamDoneSent: false,
     settled: false,
+    toolCallIds: new Map(),
     reentry: captureTenant(),
   };
 
