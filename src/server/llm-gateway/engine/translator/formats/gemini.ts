@@ -305,7 +305,17 @@ function flattenTypeArrays(obj: Record<string, unknown>) {
 function ensureObjectType(obj: Record<string, unknown>) {
   if (!obj || typeof obj !== "object") return;
   if (obj.properties && !obj.type) obj.type = "object";
-  for (const v of Object.values(obj)) if (v && typeof v === "object") ensureObjectType(v as Record<string, unknown>);
+  for (const [key, v] of Object.entries(obj)) {
+    if (!v || typeof v !== "object") continue;
+    // The `properties` map is a dictionary of schemas, not a schema node. A parameter
+    // that is itself called "properties" would otherwise make the map look like a node
+    // with `properties` and no `type`, and get a bogus `type: "object"` entry.
+    if (key === "properties" && !Array.isArray(v)) {
+      for (const sub of Object.values(v as Record<string, unknown>)) ensureObjectType(sub as Record<string, unknown>);
+    } else {
+      ensureObjectType(v as Record<string, unknown>);
+    }
+  }
 }
 
 // Clean JSON Schema for Antigravity API compatibility - removes unsupported keywords recursively
