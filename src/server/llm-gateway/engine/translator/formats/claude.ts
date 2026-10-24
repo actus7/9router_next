@@ -11,18 +11,31 @@ import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig";
 const CACHE_CONTROL_5M = { type: "ephemeral" };
 const CACHE_CONTROL_1H = { type: "ephemeral", ttl: "1h" };
 
+// A block type outside this list makes the whole message count as empty and be dropped, so
+// anything the caller can legitimately send alone must be listed. container_upload (Files
+// API) is one of those: a user turn whose only block is a file reference is valid Anthropic
+// input, and dropping it forwarded `messages: []` to the provider.
+const CONTENTFUL_BLOCKS: ReadonlySet<string> = new Set([
+  CLAUDE_BLOCK.TOOL_USE,
+  CLAUDE_BLOCK.TOOL_RESULT,
+  CLAUDE_BLOCK.IMAGE,
+  CLAUDE_BLOCK.DOCUMENT,
+  CLAUDE_BLOCK.CONTAINER_UPLOAD,
+]);
+
+function isContentfulBlock(block: Record<string, unknown> | null | undefined): boolean {
+  if (!block) return false;
+  if (block.type === CLAUDE_BLOCK.TEXT) return !!(block.text as string)?.trim();
+  return CONTENTFUL_BLOCKS.has(block.type as string);
+}
+
 // Check if message has valid non-empty content
 function hasValidContent(msg: Record<string, unknown>) {
   if (typeof msg.content === "string" && msg.content.trim()) return true;
-  if (Array.isArray(msg.content)) {
-    return (msg.content as Record<string, unknown>[]).some((block: Record<string, unknown>) =>
-      (block.type === CLAUDE_BLOCK.TEXT && (block.text as string)?.trim()) ||
-      block.type === CLAUDE_BLOCK.TOOL_USE ||
-      block.type === CLAUDE_BLOCK.TOOL_RESULT ||
-      block.type === CLAUDE_BLOCK.IMAGE ||
-      block.type === CLAUDE_BLOCK.DOCUMENT
-    );
+  if (msg.content && typeof msg.content === "object" && !Array.isArray(msg.content)) {
+    return isContentfulBlock(msg.content as Record<string, unknown>);
   }
+  if (Array.isArray(msg.content)) return (msg.content as Record<string, unknown>[]).some(isContentfulBlock);
   return false;
 }
 
@@ -126,6 +139,10 @@ export function normalizeClaudePassthrough(body: Record<string, unknown>, model:
     if (Object.keys(body.output_config as Record<string, unknown>).length === 0) delete body.output_config;
   }
 
+  const originalLastRole = Array.isArray(body.messages)
+    ? ((body.messages as Record<string, unknown>[])[body.messages.length - 1]?.role as string | undefined)
+    : undefined;
+
   // 2. Fold mid-conversation system messages into the neighbouring turn.
   // Hoisting them into body.system would insert volatile content (token counters,
   // reminders) ahead of the whole conversation and invalidate the prefix cache on
@@ -185,6 +202,7 @@ export function normalizeClaudePassthrough(body: Record<string, unknown>, model:
         msg.content.unshift(buildThinkingPlaceholder("claude"));
       }
     }
+    body.messages = ensureTrailingUserTurn(body.messages as Record<string, unknown>[], originalLastRole);
   }
 
   return body;
@@ -202,6 +220,49 @@ function markLastCacheableBlock(msg: Record<string, unknown>) {
     return true;
   }
   return false;
+}
+
+// Anthropic allows at most four cache breakpoints per request, across system, tools and messages.
+const MAX_CACHE_BREAKPOINTS = 4;
+
+function countCacheControlBlocks(body: Record<string, unknown>): number {
+  const carriers: unknown[] = [];
+  if (Array.isArray(body.system)) carriers.push(...body.system);
+  if (Array.isArray(body.tools)) carriers.push(...body.tools);
+  if (Array.isArray(body.messages)) {
+    for (const msg of body.messages as Record<string, unknown>[]) {
+      if (Array.isArray(msg?.content)) carriers.push(...msg.content);
+    }
+  }
+  return carriers.filter((block) => !!(block as Record<string, unknown> | null)?.cache_control).length;
+}
+
+// In an agent's tool loop a request ends with the results of the last assistant turn's tool
+// calls, which come after that turn's breakpoint: they are paid at the full input price, and the
+// next request (which appends to them) writes them into the cache. When the breakpoint budget
+// has room, a 5m breakpoint on that final user turn caches them now so the next request reads them.
+function markFinalToolResults(body: Record<string, unknown>): boolean {
+  const messages = body?.messages as Record<string, unknown>[] | undefined;
+  const last = Array.isArray(messages) ? messages[messages.length - 1] : null;
+  if (last?.role !== ROLE.USER || !Array.isArray(last.content)) return false;
+  const blocks = last.content as Record<string, unknown>[];
+  if (!blocks.some((block) => block?.type === CLAUDE_BLOCK.TOOL_RESULT)) return false;
+  if (blocks.some((block) => block?.cache_control)) return false;
+  if (countCacheControlBlocks(body) >= MAX_CACHE_BREAKPOINTS) return false;
+  return markLastCacheableBlock(last);
+}
+
+// Newer Claude models reject a body that ends on an assistant turn ("does not support assistant
+// message prefill"). Cleanup passes delete messages left empty, so a trailing user turn that was
+// empty (or held only dropped blocks) silently makes the previous assistant turn the last one.
+// A user turn is restored only when the client did not itself end on assistant: that is real
+// prefill and its own choice.
+const TRAILING_USER_PLACEHOLDER = "Continue.";
+
+export function ensureTrailingUserTurn<T extends Record<string, unknown>>(messages: T[], originalLastRole: string | undefined): T[] {
+  if (!Array.isArray(messages) || originalLastRole === ROLE.ASSISTANT) return messages;
+  if (messages[messages.length - 1]?.role !== ROLE.ASSISTANT) return messages;
+  return [...messages, { role: ROLE.USER, content: [{ type: CLAUDE_BLOCK.TEXT, text: TRAILING_USER_PLACEHOLDER }] } as unknown as T];
 }
 
 // Re-anchor cache breakpoints on a Claude passthrough body (same policy as
@@ -249,6 +310,9 @@ export function anchorClaudeCache(body: Record<string, unknown>) {
         anchored = markLastCacheableBlock(body.messages[i]);
       }
     }
+
+    // ...and a tool loop's final tool results, so the next step reads them.
+    markFinalToolResults(body);
   }
 
   return body;
@@ -304,6 +368,7 @@ export function prepareClaudeRequest(body: Record<string, unknown>, provider: st
   // 2. Messages: process in optimized passes
   if (body.messages && Array.isArray(body.messages)) {
     const len = body.messages.length;
+    const originalLastRole = (body.messages[len - 1] as Record<string, unknown> | undefined)?.role as string | undefined;
     let filtered = [];
 
     // Pass 1: remove cache_control + filter empty messages
@@ -327,6 +392,7 @@ export function prepareClaudeRequest(body: Record<string, unknown>, provider: st
     // Pass 1.5: Fix tool_use/tool_result ordering
     // Each tool_use must have tool_result in the NEXT message (not same message with other content)
     filtered = fixToolUseOrdering(filtered);
+    filtered = ensureTrailingUserTurn(filtered, originalLastRole);
 
     body.messages = filtered;
 
@@ -432,6 +498,9 @@ export function prepareClaudeRequest(body: Record<string, unknown>, provider: st
       delete body.tool_choice;
     }
   }
+
+  // A tool loop's final tool results: cached now, so the next step reads them.
+  markFinalToolResults(body);
 
   // Apply cloaking for OAuth tokens (billing header + fake user ID)
   // session_id in user_id must match X-Claude-Code-Session-Id for fingerprint consistency

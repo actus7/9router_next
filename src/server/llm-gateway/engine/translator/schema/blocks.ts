@@ -16,6 +16,7 @@ export const CLAUDE_BLOCK = {
   TEXT: "text",
   IMAGE: "image",
   DOCUMENT: "document",
+  CONTAINER_UPLOAD: "container_upload",
   TOOL_USE: "tool_use",
   TOOL_RESULT: "tool_result",
   THINKING: "thinking",

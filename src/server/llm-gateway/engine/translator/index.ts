@@ -1,6 +1,6 @@
 import { FORMATS } from "./formats";
 import { ensureToolCallIds, fixMissingToolResponses } from "./concerns/toolCall";
-import { prepareClaudeRequest } from "./formats/claude";
+import { prepareClaudeRequest, ensureTrailingUserTurn } from "./formats/claude";
 import { cloakClaudeTools } from "../utils/claudeCloaking";
 import { filterToOpenAIFormat } from "./formats/openai";
 import { normalizeThinkingConfig } from "../services/provider";
@@ -38,9 +38,24 @@ function stripContentTypes(body: Record<string, unknown>, stripList: string[] = 
   }
 }
 
+// The role the client's conversation actually ended on, in the source format's own shape: not
+// every source uses messages[] (Gemini: contents[], Responses/Codex: input[]). Only an explicit
+// trailing model/assistant turn is real prefill and counts as "assistant"; every other tail
+// (including no role at all, e.g. a function output) stays undefined so that an emptied
+// trailing user turn is still restored.
+export function detectClientLastRole(body: Record<string, unknown> | null | undefined): string | undefined {
+  if (Array.isArray(body?.messages)) return (body!.messages as Record<string, unknown>[])[body!.messages.length - 1]?.role as string | undefined;
+  const items = Array.isArray(body?.contents) ? body!.contents : Array.isArray(body?.input) ? body!.input : null;
+  if (!items) return undefined;
+  const role = (items as Record<string, unknown>[])[items.length - 1]?.role;
+  return role === "assistant" || role === "model" ? "assistant" : undefined;
+}
+
 // Translate request: source -> openai -> target
 export function translateRequest(sourceFormat: string, targetFormat: string, model: string, body: Record<string, unknown>, stream = true, credentials: Credentials | null = null, provider: string | null = null, reqLogger: RequestLogger | null = null, stripList: string[] = [], connectionId: string | null = null, _clientTool: string | null = null) {
   let result = body;
+  // Role the client actually ended on, before any translator drops an emptied turn.
+  const clientLastRole = detectClientLastRole(body);
 
   // Strip explicit content types (opt-in via strip[] in PROVIDER_MODELS entry)
   stripContentTypes(result, stripList);
@@ -120,6 +135,7 @@ export function translateRequest(sourceFormat: string, targetFormat: string, mod
   if (targetFormat === FORMATS.CLAUDE) {
     const apiKey = credentials?.accessToken || credentials?.apiKey || null;
     result = prepareClaudeRequest(result, provider, apiKey, connectionId, credentials?.rawHeaders, clientSessionId);
+    if (Array.isArray(result?.messages)) result.messages = ensureTrailingUserTurn(result.messages as Record<string, unknown>[], clientLastRole);
   }
 
   // Claude cloaking: rename client tools with _cc suffix (anti-ban)
