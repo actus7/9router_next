@@ -99,9 +99,10 @@ export function claudeToOpenAIResponse(chunk: unknown, state: unknown) {
       if (block?.type === CLAUDE_BLOCK.TEXT) {
         s.textBlockStarted = true;
       } else if (block?.type === CLAUDE_BLOCK.THINKING) {
+        // Thinking travels only in reasoning_content. No "<think>" markers in content:
+        // OpenAI-format clients render them as literal text.
         s.inThinkingBlock = true;
         s.currentBlockIndex = c.index;
-        results.push(createChunk(s, { content: "<think>" }));
       } else if (block?.type === CLAUDE_BLOCK.TOOL_USE) {
         const toolCallIndex = s.toolCallIndex as number;
         s.toolCallIndex = toolCallIndex + 1;
@@ -155,10 +156,7 @@ export function claudeToOpenAIResponse(chunk: unknown, state: unknown) {
         s.serverToolBlockIndex = -1;
         break;
       }
-      if (s.inThinkingBlock && c.index === s.currentBlockIndex) {
-        results.push(createChunk(s, { content: "</think>" }));
-        s.inThinkingBlock = false;
-      }
+      if (s.inThinkingBlock && c.index === s.currentBlockIndex) s.inThinkingBlock = false;
       s.textBlockStarted = false;
       s.thinkingBlockStarted = false;
       break;
