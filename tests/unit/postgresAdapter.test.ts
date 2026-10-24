@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toPositionalParams, remapRow } from "@/lib/db/adapters/postgresAdapter";
+import { toPositionalParams, remapRow, stripNulParams } from "@/lib/db/adapters/postgresAdapter";
 
 describe("toPositionalParams", () => {
   it("numbers placeholders left to right", () => {
@@ -50,5 +50,50 @@ describe("remapRow", () => {
 
   it("restores the one camelCase SQL alias in the codebase", () => {
     expect(remapRow({ nextseq: 4 })).toEqual({ nextSeq: 4 });
+  });
+});
+
+// Postgres cannot store a NUL in text ("invalid byte sequence for encoding UTF8:
+// 0x00"), and a JSON document carrying the NUL escape cannot be cast to jsonb
+// ("unsupported Unicode escape sequence") — the latter would make every
+// `data::jsonb` read fail for as long as the row exists.
+describe("stripNulParams", () => {
+  const NUL = String.fromCharCode(0);
+  // The six characters backslash, u, 0, 0, 0, 0: what JSON.stringify writes for a NUL.
+  const ESCAPE = "\\" + "u0000";
+
+  it("removes a real NUL from a text parameter", () => {
+    expect(stripNulParams([`a${NUL}b${NUL}`, "x"])).toEqual(["ab", "x"]);
+  });
+
+  it("removes the NUL escape from a JSON document", () => {
+    expect(stripNulParams([`{"text":"a${ESCAPE}b"}`])).toEqual(['{"text":"ab"}']);
+    expect(stripNulParams([`["${ESCAPE}"]`])).toEqual(['[""]']);
+    // JSON.stringify is what the repos use, so prove it against the real thing.
+    expect(stripNulParams([JSON.stringify({ text: `a${NUL}b` })])).toEqual(['{"text":"ab"}']);
+  });
+
+  it("keeps an escaped backslash followed by the digits (not a NUL escape)", () => {
+    const doc = JSON.stringify({ path: "C:\\u0000" });
+    expect(doc).toContain("\\\\u0000");
+    expect(stripNulParams([doc])).toEqual([doc]);
+  });
+
+  it("leaves plain text that merely mentions the escape alone", () => {
+    const text = `use ${ESCAPE} as a separator`;
+    expect(stripNulParams([text])).toEqual([text]);
+  });
+
+  it("cleans strings inside array parameters and leaves other types alone", () => {
+    const buffer = Buffer.from([0, 1, 2]);
+    const out = stripNulParams([[`a${NUL}`, "b"], 3, null, true, buffer]);
+    expect(out).toEqual([["a", "b"], 3, null, true, buffer]);
+    expect(out?.[4]).toBe(buffer);
+  });
+
+  it("returns the same array when there is nothing to clean", () => {
+    const params = ["a", 1];
+    expect(stripNulParams(params)).toBe(params);
+    expect(stripNulParams(undefined)).toBeUndefined();
   });
 });

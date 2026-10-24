@@ -104,6 +104,49 @@ export function toPositionalParams(sql: string): string {
   return out;
 }
 
+const NUL_CHAR: RegExp = /\u0000/g;
+// The six characters `\u0000` as JSON writes a NUL. An even run of backslashes
+// before it means the backslash itself is escaped, so it is not an escape.
+const NUL_JSON_ESCAPE: RegExp = /(?<!\\)((?:\\\\)*)\\u0000/gi;
+
+function stripNul(value: string): string {
+  let out: string = value.includes("\u0000") ? value.replace(NUL_CHAR, "") : value;
+  // Only a JSON-looking document is stored for a later `::jsonb` cast. Plain text
+  // that happens to mention the escape (code, docs) is the user's and stays as is.
+  if (out.includes("\\u0000") || out.includes("\\U0000")) {
+    const head: string = out.trimStart()[0];
+    if (head === "{" || head === "[") out = out.replace(NUL_JSON_ESCAPE, "$1");
+  }
+  return out;
+}
+
+/**
+ * Postgres cannot store a NUL in text ("invalid byte sequence for encoding UTF8:
+ * 0x00"), and a JSON document carrying the `\u0000` escape cannot be cast to
+ * `jsonb` ("unsupported Unicode escape sequence") — which would make every
+ * `data::jsonb` read fail for as long as the row exists. A provider that streams
+ * raw binary, or a model that emits a NUL, is enough to reach either.
+ *
+ * Returns the same array when nothing needed cleaning, and never touches a
+ * non-string parameter (a Buffer keeps its NUL bytes).
+ */
+export function stripNulParams(params: unknown[] | undefined): unknown[] | undefined {
+  if (!params) return params;
+  let out: unknown[] | null = null;
+  params.forEach((value: unknown, index: number): void => {
+    let next: unknown = value;
+    if (typeof value === "string") next = stripNul(value);
+    else if (Array.isArray(value)) {
+      const cleaned: unknown[] = value.map((item: unknown) => (typeof item === "string" ? stripNul(item) : item));
+      if (cleaned.some((item: unknown, i: number) => item !== value[i])) next = cleaned;
+    }
+    if (next === value) return;
+    if (!out) out = [...params];
+    out[index] = next;
+  });
+  return out ?? params;
+}
+
 /**
  * The client a `transaction()` is currently running on.
  *
@@ -142,10 +185,11 @@ export function createPostgresAdapter(connectionString: string): PostgresAdapter
     params: unknown[] | undefined,
   ): Promise<Array<Record<string, unknown>>> {
     const text: string = toPositionalParams(sql);
+    const values: unknown[] | undefined = stripNulParams(params);
     const client: PoolClient | undefined = txClient.getStore();
     const result = client
-      ? await client.query(text, params as unknown[])
-      : await pool.query(text, params as unknown[]);
+      ? await client.query(text, values)
+      : await pool.query(text, values);
     return (result.rows as Array<Record<string, unknown>>).map(remapRow);
   }
 
@@ -163,10 +207,11 @@ export function createPostgresAdapter(connectionString: string): PostgresAdapter
 
     async run(sql: string, params?: unknown[]): Promise<{ changes: number }> {
       const text: string = toPositionalParams(sql);
+      const values: unknown[] | undefined = stripNulParams(params);
       const client: PoolClient | undefined = txClient.getStore();
       const result = client
-        ? await client.query(text, params as unknown[])
-        : await pool.query(text, params as unknown[]);
+        ? await client.query(text, values)
+        : await pool.query(text, values);
       return { changes: result.rowCount ?? 0 };
     },
 
