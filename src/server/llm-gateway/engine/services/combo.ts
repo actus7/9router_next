@@ -6,7 +6,9 @@ import { checkFallbackError, formatRetryAfter } from "./accountFallback";
 import { unavailableResponse } from "../utils/error";
 import { getCapabilitiesForModel } from "../providers/capabilities";
 import type { Logger, ComboEntry, CombosData } from "./types";
-import { COMBO_FIRST_BYTE_BUDGET_MS, COMBO_HEDGE_ENABLED, COMBO_HEDGE_MAX_PROMPT_TOKENS, COMBO_TIME_BUDGET_MS, STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
+import { verifyContent } from "./comboEmptyGuard";
+import { claimRace, discardResponse, firstResponse, type HedgeRace } from "./comboRace";
+import { COMBO_EMPTY_PEEK_DEADLINE_MS, COMBO_FIRST_BYTE_BUDGET_MS, COMBO_HEDGE_ENABLED, COMBO_HEDGE_MAX_PROMPT_TOKENS, COMBO_TIME_BUDGET_MS, STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
 import { applyEntryConfig } from "../host/entryConfig";
 import { holdFreeFallback, setAttemptSignal, setFirstByteBudget } from "../utils/firstByteGuard";
 import { adaptiveFirstByteBudget, estimatePromptTokens, hedgeDelayMs, LARGE_PROMPT_TOKENS, loadModelStats, perfKey, recordAttemptDatum, setPerfKey } from "../host/modelStats";
@@ -334,40 +336,6 @@ function buildAllFailedResponse(lastError: string | null, lastStatus: number | n
   );
 }
 
-/** One hedge: who won, and how to stop the attempt that did not. */
-interface HedgeRace {
-  /** The attempt that opened the race; only it may end the race with a request-level error. */
-  primary: number;
-  winner: number | null;
-  controllers: Map<number, AbortController>;
-}
-
-/** The first attempt to hand back a response wins; the others are aborted. */
-function claimRace(race: HedgeRace, attempt: number): boolean {
-  if (race.winner === null) {
-    race.winner = attempt;
-    for (const [other, controller] of race.controllers) if (other !== attempt) controller.abort();
-  }
-  return race.winner === attempt;
-}
-
-/** First non-null response; null once every attempt has settled without one. */
-function firstResponse(attempts: Promise<Response | null>[]): Promise<Response | null> {
-  return new Promise((resolve) => {
-    let pending = attempts.length;
-    const settle = (response: Response | null): void => {
-      if (response) resolve(response);
-      else if (--pending === 0) resolve(null);
-    };
-    for (const attempt of attempts) attempt.then(settle, () => settle(null));
-  });
-}
-
-/** Close the stream of an attempt that lost, so its upstream is not read (or paid for) any further. */
-function discardResponse(response: Response | undefined): void {
-  response?.body?.cancel().catch(() => {});
-}
-
 const HEDGE_DUE = Symbol("hedge-due");
 
 
@@ -495,7 +463,26 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       holdFreeFallback(attemptBody, false);
       if (lost()) return lose(result);
       if (result.ok) {
-        if (!win()) return lose(result);
+        // A 2xx is not an answer yet: an upstream can reply 200 and stream nothing
+        // usable. Checked before the race is claimed, so an empty answer cannot end a
+        // hedge; the last member has nowhere to fall to and is returned as it is.
+        let served: Response = result;
+        if (i < rotatedModels.length - 1 && !isFreeFallback(result)) {
+          const checked = await verifyContent(result, COMBO_EMPTY_PEEK_DEADLINE_MS);
+          if (lost()) return lose(checked.response);
+          if (checked.empty) {
+            const error = `empty generation (${checked.reason})`;
+            record("failed", { status: 502, error });
+            recordModelFailure(modelStr);
+            lastError = error;
+            if (!lastStatus) lastStatus = 502;
+            discardResponse(checked.response);
+            log.warn?.("COMBO", `Model ${modelStr} answered 200 with no usable content, trying next`);
+            return null;
+          }
+          served = checked.response;
+        }
+        if (!win()) return lose(served);
         if (isFreeFallback(result)) {
           // This model ran out of accounts and the free default answered in its place:
           // the request is served, but nothing here says the model is healthy.
@@ -510,7 +497,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
         if (cacheKey) rememberWarmModel(cacheKey, comboName || "", modelStr);
         if (adaptive && (i > 0 || modelStr === stickyModel)) rememberStickyModel(sessionKey, comboName || "", modelStr);
         log.info?.("COMBO", `Model ${modelStr} succeeded`);
-        return result;
+        return served;
       }
 
       const { errorText, retryAfter } = await extractResponseError(result);

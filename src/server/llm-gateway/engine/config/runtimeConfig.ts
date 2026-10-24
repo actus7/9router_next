@@ -48,6 +48,11 @@ export const STREAM_FIRST_CHUNK_TIMEOUT_MS = envMs("STREAM_FIRST_CHUNK_TIMEOUT_M
 export const COMBO_FIRST_BYTE_BUDGET_MS = envMs("COMBO_FIRST_BYTE_BUDGET_MS", 60 * 1000);
 export const COMBO_TIME_BUDGET_MS = envMs("COMBO_TIME_BUDGET_MS", 150 * 1000);
 
+// Combo empty-answer check: how long a member's 2xx stream is held while waiting for its
+// first content frame before it is served anyway (fail-open: a slow stream is never
+// dropped). Env: COMBO_EMPTY_PEEK_DEADLINE_MS.
+export const COMBO_EMPTY_PEEK_DEADLINE_MS = envMs("COMBO_EMPTY_PEEK_DEADLINE_MS", 45 * 1000);
+
 // Combo hedge: a streaming attempt that stays silent past a delay also starts
 // the next candidate; the first to send a byte wins and the other is aborted.
 // On by default; COMBO_HEDGE_ENABLED=false (or 0) turns it off for the process.
