@@ -64,11 +64,11 @@ function encodeHistoryMessage(message: Record<string, unknown>) {
 
 export function buildAgentRunFrame(messages: Record<string, unknown>[], model: string) {
   const system = (messages as Record<string, unknown>[])
-    .filter((message: Record<string, unknown>) => message?.role === "system")
+    .filter((message: Record<string, unknown>) => message?.role === "system" || message?.role === "developer")
     .map((message: Record<string, unknown>) => textFromContent(message.content as string | Record<string, unknown>[]))
     .filter(Boolean)
     .join("\n\n");
-  const chatMessages = (messages as Record<string, unknown>[]).filter((message: Record<string, unknown>) => message?.role !== "system");
+  const chatMessages = (messages as Record<string, unknown>[]).filter((message: Record<string, unknown>) => message?.role !== "system" && message?.role !== "developer");
   const currentIndex = [...chatMessages].map((message: Record<string, unknown>) => message?.role as string).lastIndexOf("user");
   const current = currentIndex >= 0 ? chatMessages[currentIndex] : chatMessages.at(-1);
   const history = chatMessages

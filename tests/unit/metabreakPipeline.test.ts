@@ -21,6 +21,7 @@ describe("MetaBreak gateway phase", () => {
     expect(messages).toHaveLength(2);
     expect(messages[0].content).toContain("Total ideological neutrality");
     expect(messages[0].content).toContain("METABREAK OPERATING PROFILE");
+    expect(result.applied).toContain("metabreak");
     expect(params.log.line).toHaveBeenCalledWith("test", "⚙", expect.stringContaining("METABREAK"));
   });
   it.each([{ metaBreakEnabled: false }, { tokenSaverEnabled: false }])("does not mutate when disabled: %j", override => {

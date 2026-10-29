@@ -56,6 +56,7 @@ export function useSendMessage({
   enterBehavior,
   apiKey,
   recordHarnessEvent,
+  flushServerSync,
 }: UseSendMessageArgs): UseSendMessageReturn {
   const [chatError, setChatError] = useState("");
   // A run outlives the tab, so reading another conversation while one answers
@@ -81,6 +82,9 @@ export function useSendMessage({
   // The last conversation a send claimed, so a throw before the request was
   // even built can clear the right one.
   const lastBegunRef = useRef("");
+  /** Set by the caller so the send can flush pending session writes before starting a run. */
+  const flushServerSyncRef = useRef<(() => Promise<void>) | null>(flushServerSync ?? null);
+  flushServerSyncRef.current = flushServerSync ?? null;
 
   const runFor = useCallback((sessionId: string): SessionRun => {
     const existing = runsRef.current.get(sessionId);
@@ -309,6 +313,7 @@ export function useSendMessage({
           beginSend,
           dequeueNext: queue.dequeueNext,
           replayQueuedMessage,
+          flushServerSync: flushServerSyncRef.current ?? undefined,
         });
       } catch (error) {
         // `executeSendMessage` guards the request, but it turns `isSending` on

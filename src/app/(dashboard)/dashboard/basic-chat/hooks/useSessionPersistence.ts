@@ -60,7 +60,7 @@ export interface UseSessionPersistenceArgs {
   > | null>;
 }
 
-export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
+export function useSessionPersistence(args: UseSessionPersistenceArgs): { flushServerSync: () => Promise<void> } {
   const {
     providerGroups,
     loadingData,
@@ -416,7 +416,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
 
-  const flushServerSync = useCallback((keepalive: boolean) => {
+  const flushServerSync = useCallback(async (keepalive: boolean): Promise<void> => {
     if (!serverSessionsReadyRef.current) return;
     const current = sessionsRef.current;
     const synced = syncedRef.current;
@@ -432,7 +432,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
     for (const session of upserts) next.set(session.id, session.updatedAt);
     syncedRef.current = next;
 
-    void fetch("/api/harness/sessions", {
+    await fetch("/api/harness/sessions", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ sessions: upserts, deletedIds }),
@@ -482,6 +482,7 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
           translate("Could not sync sessions to server. Changes are saved locally.") ||
             "Could not sync sessions to server. Changes are saved locally.",
         );
+        throw error;
       });
   }, [loadServerSessions, serverSessionsReadyRef]);
 
@@ -539,4 +540,9 @@ export function useSessionPersistence(args: UseSessionPersistenceArgs): void {
         });
     }
   }, [isHydrated, sessions, setSessions]);
+
+  return { flushServerSync: async () => {
+    if (serverSyncTimerRef.current) { clearTimeout(serverSyncTimerRef.current); serverSyncTimerRef.current = null; }
+    await flushServerSync(false);
+  } };
 }

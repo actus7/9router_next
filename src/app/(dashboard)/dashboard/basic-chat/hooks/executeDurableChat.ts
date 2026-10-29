@@ -31,6 +31,8 @@ export interface DurableChatOptions {
    * is stated here rather than guessed there.
    */
   enabledSkillIds?: readonly string[];
+  /** Flush pending session sync before starting the run. */
+  flushSessionSync?: () => Promise<void>;
 }
 
 /**
@@ -43,6 +45,12 @@ export interface DurableChatOptions {
  * which is the whole point: the answer is waiting on the next visit.
  */
 export async function executeDurableChat(options: DurableChatOptions): Promise<ChatFetchResult> {
+  // Ensure the server has the latest session state (abilities, pluginSettings)
+  // before starting the run — the worker reads from the persisted conversation.
+  if (options.flushSessionSync) {
+    try { await options.flushSessionSync(); } catch { /* best-effort; sync retries on next change */ }
+  }
+
   const headers = new Headers(options.fetchOptions.headers);
   const body = JSON.parse(String(options.fetchOptions.body ?? "{}")) as Record<string, unknown>;
   const authorization = headers.get("Authorization");

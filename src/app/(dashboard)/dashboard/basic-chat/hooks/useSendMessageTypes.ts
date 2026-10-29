@@ -71,6 +71,8 @@ export interface UseSendMessageArgs {
     type: string,
     data: Record<string, unknown>,
   ) => void;
+  /** Flush pending session sync so the worker sees the latest abilities. */
+  flushServerSync?: () => Promise<void>;
 }
 
 export interface UseSendMessageReturn {

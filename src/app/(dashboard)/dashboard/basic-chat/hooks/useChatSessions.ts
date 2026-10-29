@@ -74,6 +74,7 @@ export interface UseChatSessionsReturn {
   selectedSessionIds: Set<string>;
   historyMenuRef: React.RefObject<HTMLDivElement | null>;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
+  flushServerSync: () => Promise<void>;
   activeProviderGroup: ProviderGroup | null;
   activeModel: NormalizedModel | null;
   currentSession: ChatSession | null;
@@ -158,7 +159,7 @@ export function useChatSessions({
   const serverSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Persistence: hydration, server fetch/sync, API key, model fallback, init
-  useSessionPersistence({
+  const { flushServerSync } = useSessionPersistence({
     providerGroups,
     loadingData,
     modelIndex,
@@ -296,6 +297,7 @@ export function useChatSessions({
     selectedSessionIds,
     historyMenuRef,
     renameInputRef,
+    flushServerSync,
     ...derived,
     ...handlers,
     ...inference,

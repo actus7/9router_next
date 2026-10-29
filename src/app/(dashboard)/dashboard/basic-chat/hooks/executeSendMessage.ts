@@ -93,6 +93,8 @@ export interface ExecuteSendMessageArgs {
   beginSend: (sessionId: string) => SendScope;
   dequeueNext: (sessionId?: string) => QueuedMessage | undefined;
   replayQueuedMessage: (item: QueuedMessage) => void;
+  /** Flush pending session sync so the worker sees the latest abilities. */
+  flushServerSync?: () => Promise<void>;
 }
 
 export async function executeSendMessage({
@@ -118,6 +120,7 @@ export async function executeSendMessage({
   beginSend,
   dequeueNext,
   replayQueuedMessage,
+  flushServerSync,
 }: ExecuteSendMessageArgs): Promise<void> {
   const model = options?.model || activeModel || activeProviderGroup?.models?.[0] || null;
   if (!model) return;
@@ -382,6 +385,7 @@ export async function executeSendMessage({
           // The worker runs `load_skill` itself now, and the enabled set is
           // partly this browser's stored preferences.
           enabledSkillIds: [...getEnabledSkillIds(session.skillOverrides, readSkillPreferences())],
+          flushSessionSync: flushServerSync,
         });
     // The throttled session write may be behind; settle it before anything
     // below reads or replaces the stored message.
@@ -471,6 +475,7 @@ export async function executeSendMessage({
           setLiveActivities,
           setStreamingMessageId,
           setStreamingText,
+          flushServerSync,
         });
       }
     }

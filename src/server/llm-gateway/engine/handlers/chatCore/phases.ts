@@ -423,7 +423,7 @@ export async function runTokenSavers(params: {
   // Apply after compressors so the fixed operating profile stays intact.
   if (tokenSaverEnabled && metaBreakEnabled) {
     const result = applyMetaBreak(body, finalFormat);
-    if (result.applied) xf.push("METABREAK");
+    if (result.applied) { xf.push("METABREAK"); applied.push("metabreak"); }
     else log?.info?.("METABREAK", `skipped: ${result.reason}`);
   }
 

@@ -62,6 +62,7 @@ export default function BasicChatPageClient() {
     enterBehavior: sessionsHook.enterBehavior,
     apiKey: sessionsHook.apiKey,
     recordHarnessEvent: harnessHook.recordHarnessEvent,
+    flushServerSync: sessionsHook.flushServerSync,
   });
   // Picks up answers that finished on the server while this tab was closed.
   // After `useSendMessage` on purpose: it needs the run this tab is already

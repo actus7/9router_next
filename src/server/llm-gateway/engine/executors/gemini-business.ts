@@ -178,8 +178,15 @@ export class GeminiBusinessExecutor extends BaseExecutor {
     const entryUrl = (typeof psd?.entryUrl === "string" && psd.entryUrl) || (typeof psd?.entry_url === "string" && psd.entry_url) || "https://business.gemini.google/home";
     const { baseOrigin, pathPrefix } = parseEntryUrl(entryUrl);
 
+    const systemParts = messages
+      .filter((m) => m.role === "system" || m.role === "developer")
+      .map((m) => extractTextContent(m?.content))
+      .filter(Boolean);
     const lastUserMsg = messages.filter((m) => m.role === "user").pop();
-    const prompt = extractTextContent(lastUserMsg?.content);
+    const userText = extractTextContent(lastUserMsg?.content);
+    const prompt = systemParts.length > 0
+      ? systemParts.join("\n\n") + "\n\n" + (userText || "")
+      : userText;
     if (!prompt) {
       const errResp = new Response(JSON.stringify({ error: { message: "No user message found in request body.", type: "invalid_request" } }), { status: 400, headers: { "Content-Type": "application/json" } });
       return { response: errResp, url: DEFAULT_ENTRY_URL, headers: {} as Record<string, string>, transformedBody: body };

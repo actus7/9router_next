@@ -49,6 +49,8 @@ interface RunToolCallLoopParams {
   setLiveActivities: React.Dispatch<React.SetStateAction<AgentActivity[]>>;
   setStreamingMessageId: React.Dispatch<React.SetStateAction<string>>;
   setStreamingText: React.Dispatch<React.SetStateAction<string>>;
+  /** Flush pending session sync so the worker sees the latest abilities. */
+  flushServerSync?: () => Promise<void>;
 }
 
 /**
@@ -82,6 +84,7 @@ export async function runToolCallLoop(
     setLiveActivities,
     setStreamingMessageId,
     setStreamingText,
+    flushServerSync,
   } = params;
 
   let conversation: ChatMessage[] = [
@@ -333,6 +336,7 @@ export async function runToolCallLoop(
           updatedAt: new Date().toISOString(),
         }));
       },
+      flushSessionSync: flushServerSync,
     });
     recordRoutingTraceEvent(recordHarnessEvent, sessionId, continuation.id, continuationResult.routingTrace);
     conversation = conversation.map((message) =>
