@@ -28,9 +28,11 @@ interface TierModelPickerModalProps {
   isOpen: boolean; onClose: () => void; onSelect: (value: string) => void;
   title: string; subtitle?: string; activeProviders?: ActiveProvider[];
   modelAliases?: Record<string, string>; addedModelValues?: string[]; priceByModel?: Record<string, ModelPriceInfo>;
+  /** When set, only these model values are offered (a combo restricted to chosen models). */
+  onlyValues?: string[];
 }
 
-export default function TierModelPickerModal({ isOpen, onClose, onSelect, title, subtitle = translate("The fallback is used when the model above fails or is unavailable.") || "The fallback is used when the model above fails or is unavailable.", activeProviders: connections = [], modelAliases = {}, addedModelValues = [], priceByModel = {} }: TierModelPickerModalProps) {
+export default function TierModelPickerModal({ isOpen, onClose, onSelect, title, subtitle = translate("The fallback is used when the model above fails or is unavailable.") || "The fallback is used when the model above fails or is unavailable.", activeProviders: connections = [], modelAliases = {}, addedModelValues = [], priceByModel = {}, onlyValues }: TierModelPickerModalProps) {
   const activeProviders = useMemo(() => usableConnections(connections), [connections]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
@@ -44,7 +46,14 @@ export default function TierModelPickerModal({ isOpen, onClose, onSelect, title,
     return [...new Set([...activeIds, ...NO_AUTH_PROVIDER_IDS])].sort((a, b) => providerRank(a) - providerRank(b));
   }, [activeProviders]);
 
-  const groups = useMemo(() => buildProviderGroups({ sortedProviderIds: availableProviderIds, allProviders, activeProviders, modelAliases, providerNodes, customModels, disabledModels }), [activeProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, availableProviderIds]);
+  const groups = useMemo(() => {
+    const all = buildProviderGroups({ sortedProviderIds: availableProviderIds, allProviders, activeProviders, modelAliases, providerNodes, customModels, disabledModels });
+    if (!onlyValues) return all;
+    const allowed = new Set(onlyValues);
+    return Object.fromEntries(Object.entries(all)
+      .map(([pid, group]) => [pid, { ...group, models: group.models.filter((m) => allowed.has(m.value)) }] as const)
+      .filter(([, group]) => group.models.length > 0));
+  }, [activeProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, availableProviderIds, onlyValues]);
   const totalCount = useMemo(() => Object.values(groups).reduce((s, g) => s + g.models.length, 0), [groups]);
   // O input lê `searchQuery`; a filtragem do catálogo lê o valor adiado.
   const query = useDeferredValue(searchQuery).trim().toLowerCase();

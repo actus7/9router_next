@@ -109,7 +109,26 @@ export function normalizeSmartRoutingConfig(value: unknown): SmartRoutingConfig 
     },
     overrides,
     ...(Object.keys(entries).length > 0 ? { entries } : {}),
+    ...(input.modelScope === "selected" ? { modelScope: "selected" as const } : {}),
+    ...(input.freeFallback === false ? { freeFallback: false as const } : {}),
   };
+}
+
+/**
+ * What this combo may route to. A "selected" combo is the operator's chosen
+ * models plus everything pinned on its screen — the per-type lists are how an
+ * image or vision request finds a model the chosen set cannot serve. Nothing
+ * left means an error upstream, never a silent widening to the inventory.
+ */
+export function routableProfiles<T extends { modelKey: string }>(profiles: T[], config: SmartRoutingConfig, comboModels: string[]): T[] {
+  const pinned = new Set([
+    ...comboModels,
+    ...Object.values(config.overrides).flatMap((tiers) => Object.values(tiers ?? {}).flat()),
+  ]);
+  return profiles.filter((profile) => {
+    if (config.modelScope === "selected" && !pinned.has(profile.modelKey)) return false;
+    return config.freeFallback !== false || profile.modelKey !== FREE_DEFAULT_MODEL_KEY || pinned.has(profile.modelKey);
+  });
 }
 
 export function validateSmartRoutingConfig(value: unknown): { ok: true; config: SmartRoutingConfig } | { ok: false; error: string } {
@@ -325,7 +344,7 @@ export async function resolveSmartRouting(options: ResolveSmartRoutingOptions): 
   config = mergeLegacyModels(config, chosenNeed, options.combo.models || []);
   config = mergeLegacyModels(config, endpointNeed, options.combo.models || []);
   const ranking = rankSmartProfilesForEndpoint({
-    profiles,
+    profiles: routableProfiles(profiles, config, options.combo.models || []),
     need: chosenNeed,
     endpointNeed,
     requestedTier: chosenTier,

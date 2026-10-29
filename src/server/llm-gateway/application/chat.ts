@@ -23,7 +23,7 @@ import { handleComboChat, handleFusionChat, detectRequiredCapabilities, modelSup
 import { augmentModelsWithCapacityAdapter, withCapacityAdapterStripping, getActiveAdapterStrategy } from "@/server/llm-gateway/engine/services/capacityAdapter";
 import { handleBypassRequest } from "@/server/llm-gateway/engine/utils/bypassHandler";
 import { HTTP_STATUS } from "@/server/llm-gateway/engine/config/runtimeConfig";
-import { getAttemptSignal, isFreeFallbackHeld } from "@/server/llm-gateway/engine/utils/firstByteGuard";
+import { getAttemptSignal, holdFreeFallback, isFreeFallbackHeld } from "@/server/llm-gateway/engine/utils/firstByteGuard";
 import { judgeUpstreamError, resolveAccountExhaustion } from "@/server/llm-gateway/engine/services/accountFallback";
 import { enforcePublicApiGuardrail } from "./publicApiGuardrail";
 import { detectFormatByEndpoint } from "@/server/llm-gateway/engine/translator/formats";
@@ -85,10 +85,11 @@ interface ComboStrategyConfig {
  * there are none, the credential-free default leads, under the same switch
  * that already lets it answer for an exhausted provider.
  */
-async function orderForTools(body: ChatBody, models: string[]): Promise<string[]> {
+async function orderForTools(body: ChatBody, models: string[], allowFree = true): Promise<string[]> {
   if (!Array.isArray(body.tools) || body.tools.length === 0) return models;
   const capable = models.filter(modelSupportsTools);
   if (capable.length > 0) return [...capable, ...models.filter((model) => !capable.includes(model))];
+  if (!allowFree) return models;
   const settings = await getSettings();
   if (settings.freeFallbackEnabled === false) return models;
   return [FREE_DEFAULT_MODEL_KEY, ...models.filter((model) => model !== FREE_DEFAULT_MODEL_KEY)];
@@ -137,12 +138,17 @@ async function trySmartComboRouting(
     classifierSource: routing.meta.classifierSource,
     candidates: routing.models,
   });
-  const models = await orderForTools(body, routing.models);
+  // A combo with the free default off keeps it held on every attempt, the last one included.
+  const allowFree = routing.config.freeFallback !== false;
+  const models = await orderForTools(body, routing.models, allowFree);
   log.info("ROUTING", `Smart combo "${modelStr}" → ${routing.meta.need}/${routing.meta.tier} → ${models[0]}`);
   return handleComboChat({
     body,
     models,
-    handleSingleModel: (b: ChatBody, m: string) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+    handleSingleModel: (b: ChatBody, m: string) => {
+      if (!allowFree) holdFreeFallback(b, true);
+      return handleSingleModelChat(b, m, clientRawRequest, request, apiKey);
+    },
     log,
     comboName: modelStr,
     comboStrategy: "fallback",

@@ -19,7 +19,7 @@ export function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders
   isOpen: boolean;
   combo?: ComboView;
   onClose: () => void;
-  onSave: (data: { name: string; models: string[]; kind?: string | null }) => Promise<void>;
+  onSave: (data: { name: string; models: string[]; kind?: string | null; routing?: { modelScope: "selected" } }) => Promise<void>;
   activeProviders: Connection[];
   modelAliases: Record<string, string>;
   kindFilter?: string | null;
@@ -30,6 +30,9 @@ export function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
   const [comboType, setComboType] = useState<"llm" | "smart">(combo?.kind === "smart" ? "smart" : "llm");
+  // Smart only: route to the chosen models alone instead of the whole inventory.
+  const [onlyChosen, setOnlyChosen] = useState(false);
+  const isScoped = comboType === "smart" && onlyChosen;
 
   const validateName = (value: string) => {
     if (!value.trim()) { setNameError(translate("Name is required") || "Name is required"); return false; }
@@ -56,7 +59,7 @@ export function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders
   const handleSave = async () => {
     if (!validateName(name)) return;
     setSaving(true);
-    await onSave({ name: name.trim(), models, kind: comboType });
+    await onSave({ name: name.trim(), models, kind: comboType, ...(isScoped ? { routing: { modelScope: "selected" as const } } : {}) });
     setSaving(false);
   };
 
@@ -89,13 +92,31 @@ export function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders
             </div>
           )}
 
+          {/* Smart: which models the combo may route to (create only; the combo screen edits it later) */}
+          {!isEdit && comboType === "smart" && (
+            <div>
+              <Label className="mb-1.5 block">{translate("Combo models") || "Combo models"}</Label>
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={translate("Combo models") || "Combo models"}>
+                {[
+                  { value: false, label: translate("All available models") || "All available models", hint: translate("Ranks your whole inventory.") || "Ranks your whole inventory." },
+                  { value: true, label: translate("Only the models I choose") || "Only the models I choose", hint: translate("Routes only to the models you add below.") || "Routes only to the models you add below." },
+                ].map((option) => (
+                  <button key={String(option.value)} type="button" role="radio" aria-checked={onlyChosen === option.value} onClick={() => setOnlyChosen(option.value)} className={cn("rounded-lg border p-3 text-left transition-colors", onlyChosen === option.value ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}>
+                    <span className="block text-sm font-medium text-text-main">{option.label}</span>
+                    <span className="mt-1 block text-xs text-text-muted">{option.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Models */}
           <div>
-            <Label className="mb-1.5 block">{comboType === "smart" ? (translate("Global overrides (optional)") || "Global overrides (optional)") : "Models"}</Label>
+            <Label className="mb-1.5 block">{comboType !== "smart" ? "Models" : isScoped ? (translate("Chosen models") || "Chosen models") : (translate("Tried first (optional)") || "Tried first (optional)")}</Label>
             {models.length === 0 ? (
               <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted/50 py-4 text-center">
                 <Layers className="text-text-muted" />
-                <p className="text-xs text-text-muted">{comboType === "smart" ? (translate("Active inventory will be used automatically") || "Active inventory will be used automatically") : (translate("No models added yet") || "No models added yet")}</p>
+                <p className="text-xs text-text-muted">{isScoped ? (translate("Add the models this combo may use") || "Add the models this combo may use") : comboType === "smart" ? (translate("Active inventory will be used automatically") || "Active inventory will be used automatically") : (translate("No models added yet") || "No models added yet")}</p>
               </div>
             ) : (
               <SortableModelList models={models} setModels={setModels} />
@@ -111,7 +132,7 @@ export function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders
             <Button onClick={onClose} variant="ghost" fullWidth size="sm" className="min-h-11 sm:min-h-9">
               {translate("Cancel") || "Cancel"}
             </Button>
-            <Button onClick={handleSave} fullWidth size="sm" className="min-h-11 sm:min-h-9" disabled={!name.trim() || !!nameError || saving}>
+            <Button onClick={handleSave} fullWidth size="sm" className="min-h-11 sm:min-h-9" disabled={!name.trim() || !!nameError || saving || (isScoped && models.length === 0)}>
               {saving ? translate("Saving...") || "Saving..." : isEdit ? translate("Save") : translate("Create")}
             </Button>
           </div>

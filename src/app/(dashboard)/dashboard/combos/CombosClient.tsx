@@ -42,7 +42,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
     } catch (error) { setCapacityAdapter(previous); notify.error("Failed to save adapter settings"); console.error("Error updating capacity adapter:", error); }
   };
 
-  const handleCreate = async (data: { name: string; models: string[]; kind?: string | null }) => {
+  const handleCreate = async (data: { name: string; models: string[]; kind?: string | null; routing?: { modelScope: "selected" } }) => {
     try {
       const res = await fetch("/api/combos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { const cr = await fetch("/api/combos"); if (cr.ok) { const d = await cr.json(); setCombos(normalizeCombos(d.combos)); } setShowCreateModal(false); }

@@ -252,5 +252,7 @@ export function normalizeConfig(value: Record<string, unknown> | null): SmartRou
     classifier: { ...DEFAULT_SMART_ROUTING_CONFIG.classifier, ...classifier },
     overrides: (input.overrides as SmartRoutingConfig["overrides"] | undefined) || {},
     ...(input.entries ? { entries: input.entries as SmartRoutingConfig["entries"] } : {}),
+    ...(input.modelScope === "selected" ? { modelScope: "selected" as const } : {}),
+    ...(input.freeFallback === false ? { freeFallback: false as const } : {}),
   };
 }

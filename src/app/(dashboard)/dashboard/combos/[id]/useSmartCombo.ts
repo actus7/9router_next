@@ -49,6 +49,7 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
   const [modelTestLatencies, setModelTestLatencies] = useState<ModelLatencyMap>({});
   const [confirming, setConfirming] = useState(false);
   const currentModels = config.overrides[selectedNeed]?.[selectedTier] || [];
+  const isScoped = config.modelScope === "selected";
   useEffect(() => setModelTestLatencies(getStoredModelTestLatencies()), []);
   const tierOptions: RoutingTierOrDefault[] = ALL_TIERS;
   const activeScopes = useMemo(() => activeScopesFromConfig(config), [config]);
@@ -131,8 +132,11 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     const controller = new AbortController();
     suggestAbortRef.current = controller;
     try {
+      // A combo restricted to chosen models only spreads those across the columns.
       const res = await fetch("/api/smart-routing/suggest", {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(isScoped ? { models: globalModels } : {}),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {
@@ -219,7 +223,7 @@ export function useSmartCombo(initialCombo: ComboData, initialProfiles: SmartMod
     finally { setConfirming(false); }
   };
   return {
-    name, setName, config, setConfig, globalModels, setGlobalModels,
+    name, setName, config, setConfig, globalModels, setGlobalModels, isScoped,
     selectedNeed, setSelectedNeed, selectedTier, setSelectedTier,
     showModelSelect, setShowModelSelect, showGlobalModelSelect, setShowGlobalModelSelect,
     saving, profiles, loadingProfiles, suggesting, suggestProgress, preview, setPreview, confirming,

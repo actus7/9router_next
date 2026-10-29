@@ -55,6 +55,13 @@ export interface SmartRoutingConfig {
    * so a config that never used it keeps exactly its old shape.
    */
   entries?: Partial<Record<RouteNeed, Partial<Record<RoutingTierOrDefault, Array<LaneEntryConfig | null>>>>>;
+  /**
+   * "selected" routes only to `combo.models` plus whatever is pinned on the
+   * screen (columns, per-type lists); absent means the whole inventory.
+   */
+  modelScope?: "selected";
+  /** false keeps the credential-free default out of this combo; absent means on. */
+  freeFallback?: false;
 }
 
 /**
