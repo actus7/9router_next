@@ -12,24 +12,17 @@ import { ModelPriorityList } from "./ModelPriorityList";
 import type { ActiveScope } from "./smartComboHelpers";
 
 /**
- * Everything the operator pins by hand, in one card.
- *
- * Two cards used to split it: one for `combo.models` ("always available") and
- * one for the need x tier grid. They overlapped — the grid's only option for
- * need=general was the `default` bucket, which is the very slot the router
- * merges `combo.models` into. The grid no longer offers `general`; the
- * complexity board above owns it.
+ * Per-request-type pins (images, voice, search…). `general` is not offered:
+ * the complexity board owns it, and `combo.models` lives in ModelScopeCard.
+ * In a combo restricted to chosen models these lists are also allowed, which
+ * is how a request the chosen set cannot serve still finds a model.
  */
 export function PrioritiesCard({
-  globalModels, onRemoveGlobalModel, onAddGlobalClick,
   activeScopes, onScopeSelect,
   selectedNeed, onNeedChange, selectedTier, onTierChange,
   currentModels, onRemoveModel, onAddClick,
   needOptions, needLabels, tierLabels, tierOptions,
 }: {
-  globalModels: string[];
-  onRemoveGlobalModel: (model: string) => void;
-  onAddGlobalClick: () => void;
   activeScopes: ActiveScope[];
   onScopeSelect: (need: RouteNeed, tier: RoutingTierOrDefault) => void;
   selectedNeed: RouteNeed;
@@ -54,28 +47,8 @@ export function PrioritiesCard({
           </p>
         </div>
 
-        {/* Global list: applies to the detected type and to general */}
-        <section className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-text-main">{translate("Always considered")}</h3>
-              <p className="text-xs text-text-muted">
-                {translate("Tried first for any request, whatever type is detected. The complexity board above wins when it has a model for the tier.")}
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={onAddGlobalClick}>
-              <Plus data-icon="inline-start" /> {translate("Add model")}
-            </Button>
-          </div>
-          <ModelPriorityList
-            models={globalModels}
-            onRemove={onRemoveGlobalModel}
-            emptyHint={translate("Nothing pinned; selection stays 100% automatic.") || "Nothing pinned; selection stays 100% automatic."}
-          />
-        </section>
-
         {/* Per-need lists, general excluded — the board owns it */}
-        <section className="flex flex-col gap-3 border-t border-border-subtle pt-6">
+        <section className="flex flex-col gap-3">
           <div>
             <h3 className="text-sm font-medium text-text-main">{translate("By request type")}</h3>
             <p className="text-xs text-text-muted">

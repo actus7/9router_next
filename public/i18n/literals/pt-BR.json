@@ -2327,5 +2327,18 @@
   "Usage by Member": "Uso por membro",
   "No usage recorded for any member yet.": "Nenhum uso registrado para nenhum membro ainda.",
   "CLI Tools configures the tools installed on the machine running ModelHub. Open this dashboard on that machine (localhost) to read or change them.": "CLI Tools configura as ferramentas instaladas na máquina que roda o ModelHub. Abra este painel nessa máquina (localhost) para ver ou alterar.",
-  "Group by model, account, API key, endpoint or member, and switch between cost and tokens.": "Agrupe por modelo, conta, chave de API, endpoint ou membro, e alterne entre custo e tokens."
+  "Group by model, account, API key, endpoint or member, and switch between cost and tokens.": "Agrupe por modelo, conta, chave de API, endpoint ou membro, e alterne entre custo e tokens.",
+  "Combo models": "Modelos do combo",
+  "Which models this combo may answer with.": "Com quais modelos este combo pode responder.",
+  "Only the models I choose": "Só os modelos que eu escolher",
+  "Ranks your whole inventory. Models listed here are tried first.": "Ranqueia todo o seu inventário. Os modelos listados aqui são tentados primeiro.",
+  "Routes only to the models listed here, spread across the columns below.": "Roteia só para os modelos listados aqui, distribuídos nas colunas abaixo.",
+  "Chosen models": "Modelos escolhidos",
+  "No model chosen yet — requests will fail until you add one.": "Nenhum modelo escolhido — os pedidos vão falhar até você adicionar um.",
+  "Free model as last resort": "Modelo grátis como último recurso",
+  "When every model above fails or runs out of accounts, answer with the free Kilo router instead of an error.": "Quando todos os modelos acima falham ou ficam sem contas, responde com o roteador grátis do Kilo em vez de um erro.",
+  "Ranks your whole inventory.": "Ranqueia todo o seu inventário.",
+  "Routes only to the models you add below.": "Roteia só para os modelos que você adicionar abaixo.",
+  "Tried first (optional)": "Tentados primeiro (opcional)",
+  "Add the models this combo may use": "Adicione os modelos que este combo pode usar"
 }

@@ -284,6 +284,26 @@ considerado" na ordem em que foi salva. O nível virava rótulo: um modelo
 a coluna geral do mesmo nível (`rankSmartProfiles`), e `isEligible` continua
 tirando dela o que não serve ao tipo (sem tool calling, sem visão…).
 
+## Combo smart: "todos os modelos" ou "só os que eu escolher" (decisão de 2026-10-29)
+
+Até aqui, o que se fixava num combo smart (`combo.models`, as colunas, as listas
+por tipo) era só **prioridade**: `rankSmartProfiles` sempre completava a fila
+com todo o inventário elegível. Não havia como dizer "roteie só entre estes".
+
+`routing.modelScope: "selected"` faz de `combo.models` o conjunto do combo
+(`routableProfiles`, `router.ts`). Valem também os modelos fixados em qualquer
+lugar da tela (colunas e "Por tipo de pedido"), e é assim que um pedido de
+imagem ou de visão que o conjunto não atende ainda acha modelo. Sem nenhum, a
+resposta é erro, nunca o inventário. O "Sugerir com IA" recebe o conjunto e
+distribui só ele (os percentis passam a ser do conjunto), e o seletor das
+colunas só oferece o conjunto.
+
+`routing.freeFallback: false` tira o grátis do Kilo deste combo: ele sai dos
+candidatos (a menos que tenha sido fixado à mão), não entra na frente de
+pedidos com `tools` e fica retido em toda tentativa, inclusive a última.
+O switch global `freeFallbackEnabled` continua valendo: o combo só restringe.
+Configs antigas não têm nenhuma das duas chaves e se comportam como antes.
+
 ## "Sugerir modelos com IA": Jev decide, as regras limitam (revisão de 2026-10-12)
 
 Quem decide as lanes é uma **cadeia**: Jev (flag `jevSuggestRouting`) → um modelo

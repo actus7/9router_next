@@ -14,6 +14,7 @@ import { ComboHeader } from "./ComboHeader";
 import { InferenceCard } from "./InferenceCard";
 import { PrioritiesCard } from "./PrioritiesCard";
 import { ModelInventoryCard } from "./ModelInventoryCard";
+import { ModelScopeCard } from "./ModelScopeCard";
 import { PreviewModal } from "./PreviewModal";
 import { ProgressModal } from "./ProgressModal";
 import { SaveBar } from "./SaveBar";
@@ -94,6 +95,16 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         tunedNote={s.classifierTunedNote}
       />
 
+      <ModelScopeCard
+        selected={s.isScoped}
+        onSelectedChange={(selected) => s.setConfig((c) => ({ ...c, modelScope: selected ? "selected" : undefined }))}
+        models={s.globalModels}
+        onRemoveModel={(model) => s.setGlobalModels(s.globalModels.filter((m) => m !== model))}
+        onAddClick={() => s.setShowGlobalModelSelect(true)}
+        freeFallback={s.config.freeFallback !== false}
+        onFreeFallbackChange={(enabled) => s.setConfig((c) => ({ ...c, freeFallback: enabled ? undefined : false }))}
+      />
+
       <ComplexityRoutingBoard
         overrides={s.config.overrides.general || {}}
         entries={s.config.entries?.general || {}}
@@ -110,12 +121,10 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         aaMeta={lastAaMeta}
         onSyncAa={handleSyncAa}
         syncingAa={syncingAa}
+        onlyModels={s.isScoped ? s.globalModels : undefined}
       />
 
       <PrioritiesCard
-        globalModels={s.globalModels}
-        onRemoveGlobalModel={(model) => s.setGlobalModels(s.globalModels.filter((m) => m !== model))}
-        onAddGlobalClick={() => s.setShowGlobalModelSelect(true)}
         activeScopes={s.activeScopes}
         onScopeSelect={s.selectScope}
         selectedNeed={s.selectedNeed}
@@ -163,7 +172,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
           onDeselect={(model) => s.setGlobalModels(s.globalModels.filter((m) => m !== model.value))}
           activeProviders={activeProviders as unknown as ActiveProvider[]}
           modelAliases={modelAliases}
-          title={translate("Always considered") || "Always considered"}
+          title={s.isScoped ? translate("Chosen models") || "Chosen models" : translate("Always considered") || "Always considered"}
           addedModelValues={s.globalModels}
           closeOnSelect={false}
         />

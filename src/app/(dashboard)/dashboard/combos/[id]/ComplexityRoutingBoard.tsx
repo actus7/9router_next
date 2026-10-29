@@ -174,10 +174,11 @@ interface TierColumnProps {
   profileByKey: Map<string, SmartModelProfile>;
   activeProviders: ActiveProvider[];
   modelAliases: Record<string, string>;
+  onlyModels?: string[];
   onChange: (models: string[], entries: Array<LaneEntryConfig | null>) => void;
 }
 
-function TierColumn({ tier, models, entries, profileByKey, activeProviders, modelAliases, onChange }: TierColumnProps) {
+function TierColumn({ tier, models, entries, profileByKey, activeProviders, modelAliases, onlyModels, onChange }: TierColumnProps) {
   const meta = TIER_META[tier];
   const [pickerMode, setPickerMode] = useState<{ index: number | null } | null>(null);
 
@@ -284,6 +285,7 @@ function TierColumn({ tier, models, entries, profileByKey, activeProviders, mode
           modelAliases={modelAliases}
           addedModelValues={models}
           priceByModel={priceByModel}
+          onlyValues={onlyModels}
         />
       )}
     </div>
@@ -303,6 +305,7 @@ export default function ComplexityRoutingBoard({
   aaMeta,
   onSyncAa,
   syncingAa,
+  onlyModels,
 }: {
   overrides: Partial<Record<RoutingTier, string[]>>;
   entries: Partial<Record<RoutingTier, Array<LaneEntryConfig | null>>>;
@@ -318,6 +321,8 @@ export default function ComplexityRoutingBoard({
   /** Refetch the Artificial Analysis snapshot now, ignoring the daily TTL. */
   onSyncAa: () => void;
   syncingAa: boolean;
+  /** A combo restricted to chosen models only offers those in the columns. */
+  onlyModels?: string[];
 }) {
   const profileByKey = useMemo(() => new Map(profiles.map((profile) => [profile.modelKey, profile])), [profiles]);
 
@@ -368,6 +373,7 @@ export default function ComplexityRoutingBoard({
               profileByKey={profileByKey}
               activeProviders={activeProviders}
               modelAliases={modelAliases}
+              onlyModels={onlyModels}
               onChange={(models, laneEntries) => onOverridesChange(tier, models, laneEntries)}
             />
           ))}

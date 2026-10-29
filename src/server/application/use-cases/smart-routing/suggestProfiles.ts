@@ -101,7 +101,7 @@ export function chatEligibleProfiles(inventory: SmartModelProfile[]): SmartModel
   ));
 }
 
-async function* runSuggest(): AsyncGenerator<Uint8Array> {
+async function* runSuggest(only?: string[]): AsyncGenerator<Uint8Array> {
   const encoder = new TextEncoder();
   const emit = (event: SuggestStreamEvent): Uint8Array => encoder.encode(`${JSON.stringify(event)}\n`);
   try {
@@ -113,7 +113,10 @@ async function* runSuggest(): AsyncGenerator<Uint8Array> {
     // The board routes general chat: TTS voices, image/video models and
     // embeddings must not reach it, whether the provider says so
     // (serviceKinds) or only the model name does (Lyria filed as `llm`).
-    const chat = chatEligibleProfiles(inventory);
+    // A combo restricted to chosen models spreads only those: lanes are
+    // percentiles of what is ranked, so the rest of the inventory must not count.
+    const allowed = only ? new Set(only) : null;
+    const chat = chatEligibleProfiles(allowed ? inventory.filter((profile) => allowed.has(profile.modelKey)) : inventory);
     const enriched = enrichProfilesWithAa(chat, aa);
     yield emit({ type: "phase", phase: "inventory", total: inventory.length, llmEligible: chat.length });
     if (enriched.profiles.length === 0) {
@@ -150,13 +153,13 @@ async function* runSuggest(): AsyncGenerator<Uint8Array> {
  * stream so the first phase marker reaches the client before the inventory is
  * even loaded.
  */
-export function streamSuggestSuggestions(): ReadableStream<Uint8Array> {
+export function streamSuggestSuggestions(only?: string[]): ReadableStream<Uint8Array> {
   // Captured here, inside tenantRoute's scope. The generator below resumes
   // after every await from the stream's consumer, where the ambient tenant is
   // whoever happens to be reading — so the work is re-scoped to the account
   // that opened the stream, the way usage/stream does it.
   const owner = currentTenantContext();
-  const events = runSuggest();
+  const events = runSuggest(only);
   return new ReadableStream<Uint8Array>({
     async start(controller) {
       try {

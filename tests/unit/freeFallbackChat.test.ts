@@ -196,6 +196,11 @@ describe("smart candidates for a request with tools", () => {
     expect(await chatInternals.orderForTools({ tools } as never, models)).toEqual(models);
   });
 
+  it("respects a combo that turned the free default off", async () => {
+    const models = ["da/gpt-5.4-mini", "quillbot/quillbot-ai"];
+    expect(await chatInternals.orderForTools({ tools } as never, models, false)).toEqual(models);
+  });
+
   it("leaves a request without tools alone", async () => {
     const models = ["quillbot/quillbot-ai", "vercel/alibaba/qwen-3-235b"];
     expect(await chatInternals.orderForTools({} as never, models)).toBe(models);
