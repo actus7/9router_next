@@ -1,8 +1,8 @@
 // Xiaomi ended the free MiMo channel ("MiMo free API service has ended").
-// Hidden until/unless a replacement (OAuth MiMo Platform) is wired.
+// Retired until/unless a replacement (OAuth MiMo Platform) is wired.
 export default {
   id: "mimo-free",
-  hidden: true,
+  retired: { reason: "A Xiaomi encerrou o canal grátis do MiMo; o upstream recusa os modelos", since: "2026-10-31" },
   priority: 50,
   hasFree: true,
   alias: "mmf",

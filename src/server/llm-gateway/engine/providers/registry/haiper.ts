@@ -1,5 +1,7 @@
 export default {
   id: "haiper",
+  hidden: true,
+  retired: { reason: "API pública encerrada (modelo vendido, acesso só B2B); o host não responde", since: "2026-10-31" },
   alias: "haiper",
   category: "apikey",
   authType: "apikey",

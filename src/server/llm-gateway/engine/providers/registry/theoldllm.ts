@@ -1,5 +1,6 @@
 export default {
   id: "theoldllm",
+  retired: { reason: "Bloqueado pelo Vercel Security Checkpoint no IP de saída do servidor; só responde por proxy residencial", since: "2026-10-31" },
   priority: 150,
   alias: "toll",
   aliases: [

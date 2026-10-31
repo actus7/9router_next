@@ -32,5 +32,6 @@ export default {
       }
     ]
   },
-  hidden: true
+  hidden: true,
+  retired: { reason: "Serviço encerrado; o domínio api.play.ht não existe mais", since: "2026-10-31" }
 };

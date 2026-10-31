@@ -19,8 +19,10 @@ describe("providers page: retired providers", () => {
     const ids = (list: [string, unknown][]) => list.map(([id]) => id);
 
     expect(ids(entries.freeEntries)).not.toContain("gone-free");
-    expect(ids(entries.retiredEntries)).toEqual(["gone-free"]);
-    expect(entries.retiredEntries[0][1].retired?.reason).toBe("host offline");
+    expect(ids(entries.retiredEntries)).toContain("gone-free");
+    expect(entries.retiredEntries.find(([id]) => id === "gone-free")?.[1].retired?.reason).toBe("host offline");
+    // Real retired providers (mimo-free, theoldllm…) ride along; each must carry its reason.
+    for (const [id, info] of entries.retiredEntries) expect(info.retired?.reason, id).toBeTruthy();
   });
 
   it("filters the retired group by the search query like the others", () => {
