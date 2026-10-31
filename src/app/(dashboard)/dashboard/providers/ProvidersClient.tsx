@@ -60,6 +60,22 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           ))}
         </ProviderSection>
       )}
+      {d.retiredEntries.length > 0 && (
+        <section className="flex flex-col gap-3" aria-labelledby="retired-providers-title">
+          <div className="flex flex-col gap-1">
+            <h2 id="retired-providers-title" className="text-lg sm:text-xl font-semibold leading-tight">{translate("Deprecated providers")}</h2>
+            <p className="text-xs text-text-muted">{translate("These providers failed the automated test battery repeatedly or their service is gone. Existing connections keep working, but new ones are not recommended.")}</p>
+          </div>
+          <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
+            {d.retiredEntries.map(([key, info]) => (
+              <li key={key} className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <Link href={`/dashboard/providers/${key}`} className="font-medium text-text-main hover:underline underline-offset-4">{info.name}</Link>
+                <span className="text-xs text-text-muted">{info.retired?.reason} · {translate("since")} {info.retired?.since}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <Modals showAddCompatibleModal={d.showAddCompatibleModal} onCloseAddCompatible={() => d.setShowAddCompatibleModal(false)} showAddAnthropicCompatibleModal={d.showAddAnthropicCompatibleModal} onCloseAddAnthropicCompatible={() => d.setShowAddAnthropicCompatibleModal(false)} onNodeCreated={(node: ProviderNode) => { d.setProviderNodes((prev) => [...prev, node]); }} testResults={d.testResults} onCloseTestResults={() => d.setTestResults(null)} />
     </div>
   );

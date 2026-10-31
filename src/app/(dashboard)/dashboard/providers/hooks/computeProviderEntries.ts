@@ -15,7 +15,9 @@ export function computeCompatibleProviders(providerNodes: ProviderNode[], search
 
 // Search, music and other non-chat services are listed under Mídia
 // (/dashboard/media-providers/*); every group here is LLM-only.
-const isLlm = (info: ProviderInfo) => !info.hidden && (info.serviceKinds ?? ["llm"]).includes("llm");
+const isLlmProvider = (info: ProviderInfo) => !info.hidden && (info.serviceKinds ?? ["llm"]).includes("llm");
+// A retired provider leaves the regular groups and is listed under "Depreciados".
+const isLlm = (info: ProviderInfo) => isLlmProvider(info) && !info.retired;
 
 export function computeProviderEntries(searchQuery: string, connections: Connection[]) {
   const ms = (name: string) => matchSearch(searchQuery, name);
@@ -61,5 +63,10 @@ export function computeProviderEntries(searchQuery: string, connections: Connect
       return (a.name || "").localeCompare(b.name || "");
     });
 
-  return { oauthEntries, freeEntries, freeTierEntries, apikeyEntries, webCookieEntries };
+  const retiredEntries = [OAUTH_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, APIKEY_PROVIDERS, WEB_COOKIE_PROVIDERS]
+    .flatMap((group) => Object.entries(group) as unknown as [string, ProviderInfo][])
+    .filter(([, info]) => isLlmProvider(info) && !!info.retired && ms(info.name))
+    .sort(([, a], [, b]) => (a.name || "").localeCompare(b.name || ""));
+
+  return { oauthEntries, freeEntries, freeTierEntries, apikeyEntries, webCookieEntries, retiredEntries };
 }

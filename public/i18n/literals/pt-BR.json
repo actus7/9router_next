@@ -2336,5 +2336,8 @@
   "Ranks your whole inventory.": "Ranqueia todo o seu inventário.",
   "Routes only to the models you add below.": "Roteia só para os modelos que você adicionar abaixo.",
   "Tried first (optional)": "Tentados primeiro (opcional)",
-  "Add the models this combo may use": "Adicione os modelos que este combo pode usar"
+  "Add the models this combo may use": "Adicione os modelos que este combo pode usar",
+  "Deprecated providers": "Depreciados",
+  "These providers failed the automated test battery repeatedly or their service is gone. Existing connections keep working, but new ones are not recommended.": "Estes provedores falharam repetidamente na bateria de testes automática ou o serviço deixou de existir. Conexões existentes continuam funcionando, mas não é recomendado criar novas.",
+  "since": "desde"
 }

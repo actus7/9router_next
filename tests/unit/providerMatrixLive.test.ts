@@ -7,6 +7,7 @@ import { buildModelsList } from "@/server/application/use-cases/http/v1/models/b
 import { handleChat } from "@/server/llm-gateway/chat";
 import { initTranslators } from "@/server/llm-gateway/translator";
 import REGISTRY from "@/server/llm-gateway/engine/providers/registry";
+import type { RegistryEntry } from "@/server/llm-gateway/engine/providers/schema";
 
 /**
  * One battery for every LLM provider, against the real account and the real
@@ -26,8 +27,8 @@ import REGISTRY from "@/server/llm-gateway/engine/providers/registry";
  */
 const providerId = process.env.LIVE_PROVIDER || "";
 const live = !!providerId && !!process.env.DATABASE_URL;
-const entry = (REGISTRY as Array<Record<string, any>>).find((p) => p.id === providerId);
-const toolCalling = entry?.features?.toolCalling !== false;
+const entry = (REGISTRY as RegistryEntry[]).find((p) => p.id === providerId);
+const toolCalling = (entry?.features as { toolCalling?: boolean } | undefined)?.toolCalling !== false;
 const CALL_TIMEOUT_MS = 120_000;
 
 const report: Record<string, unknown> = { provider: providerId };

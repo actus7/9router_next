@@ -53,6 +53,12 @@ export interface RegistryEntry extends Record<string, unknown> {
   display?: Record<string, unknown>;
   notice?: unknown;
   hidden?: boolean;
+  /**
+   * Failed the provider test battery (`tests/unit/providerMatrixLive.test.ts`)
+   * past the retry limit, or its host is gone. Listed under "Depreciados" on the
+   * providers page instead of the regular groups; existing connections keep working.
+   */
+  retired?: { reason: string; since: string };
   // Transport
   transport?: Record<string, unknown>;
   transports?: unknown;
@@ -98,7 +104,7 @@ export const REGISTRY_TOP_LEVEL_KEYS: readonly string[] = [
   "id", "category", "alias", "aliases", "uiAlias", "priority",
   "authType", "authHint", "authModes", "hasOAuth", "hasFree", "noAuth",
   "hasProviderSpecificData", "oauth",
-  "display", "notice", "hidden",
+  "display", "notice", "hidden", "retired",
   "transport", "transports", "regions", "defaultRegion", "passthroughModels",
   "models", "modelOverrides", "noModelDiscovery", "features", "thinkingConfig",
   ...MEDIA_ENTRY_KEYS,

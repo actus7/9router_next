@@ -23,6 +23,7 @@ export interface ProviderCatalogEntry extends Record<string, unknown> {
   noAuth?: boolean;
   hasFree?: boolean;
   hidden?: boolean;
+  retired?: { reason: string; since: string };
   serviceKinds?: string[];
 }
 
@@ -48,6 +49,7 @@ function buildProviderEntry(r: RegistryEntry): ProviderCatalogEntry {
     alias: r.uiAlias || r.alias,
     category: isProviderCategory(r.category) ? r.category : "apikey",
     ...(r.hidden ? { hidden: true } : {}),
+    ...(r.retired ? { retired: r.retired } : {}),
     ...mediaFields,
     ...(r.priority !== undefined ? { priority: r.priority } : {}),
     ...(r.hasFree ? { hasFree: true } : {}),
