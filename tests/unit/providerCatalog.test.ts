@@ -16,9 +16,8 @@ const registryDir = resolve(__dirname, "../../src/server/llm-gateway/engine/prov
 
 describe("provider registry index", () => {
   // registry/index.ts is hand-maintained despite claiming to be generated, so
-  // a new entry file can silently never reach PROVIDERS. Providers parked with
-  // a commented-out import (trae, windsurf, devin-cli) count as accounted for;
-  // a file nobody mentions at all does not.
+  // a new entry file can silently never reach PROVIDERS. A file nobody mentions
+  // at all does not count as accounted for.
   it("accounts for every registry entry file", () => {
     const entryFiles = readdirSync(registryDir)
       .filter((name) => name.endsWith(".ts") && name !== "index.ts")

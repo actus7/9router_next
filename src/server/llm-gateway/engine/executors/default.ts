@@ -83,8 +83,16 @@ export class DefaultExecutor extends BaseExecutor {
 
     if (transformed && typeof transformed === "object") {
       // quirk: some openai-compatible providers reject Anthropic's client_metadata field
-      if ((this.config.quirks as Record<string, unknown>)?.dropClientMetadata) {
+      const quirks = this.config.quirks as Record<string, unknown> | undefined;
+      if (quirks?.dropClientMetadata) {
         delete transformed.client_metadata;
+      }
+      // quirk: OVH validates `function.description` as a required string (400 when absent)
+      if (quirks?.requireToolDescription && Array.isArray(transformed.tools)) {
+        transformed.tools = (transformed.tools as Record<string, unknown>[]).map((tool) => {
+          const fn = tool?.function as Record<string, unknown> | undefined;
+          return fn && typeof fn.description !== "string" ? { ...tool, function: { ...fn, description: "" } } : tool;
+        });
       }
       stripUnsupportedParams(this.provider, model, transformed);
     }

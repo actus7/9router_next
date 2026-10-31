@@ -1,6 +1,6 @@
 import { HTTP_STATUS, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig";
 import { shouldRefreshCredentials } from "../services/oauthCredentialManager";
-import { proxyAwareFetch } from "../utils/proxyFetch";
+import { proxyAwareFetch, type DirectFetch } from "../utils/proxyFetch";
 import { dbg } from "../utils/debugLog";
 import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared";
 import { resolveOpenAICompatibleApiType } from "../services/provider";
@@ -28,6 +28,8 @@ export interface ExecuteArgs {
   signal?: AbortSignal;
   log?: Logger;
   proxyOptions?: unknown;
+  /** Executor-owned transport for the direct leg; proxies still take priority. */
+  directFetch?: DirectFetch | null;
 }
 
 /**
@@ -133,7 +135,7 @@ export class BaseExecutor {
     return { status: response.status, message: bodyText || `HTTP ${response.status}` };
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }: ExecuteArgs) {
+  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null, directFetch = null }: ExecuteArgs) {
     const fallbackCount = this.getFallbackCount();
     let lastError: Error | null = null;
     let lastStatus = 0;
@@ -187,7 +189,8 @@ export class BaseExecutor {
           method: "POST",
           headers,
           body: bodyStr,
-          signal: mergedSignal
+          signal: mergedSignal,
+          ...(directFetch ? { directFetch } : {}),
         }, proxyOptions as null);
         clearTimeout(connectTimer);
         const ct = response.headers?.get?.("content-type") || "";

@@ -35,10 +35,7 @@ import { guardUntrustedContent } from "./contentGuardrail";
 /**
  * Tool names this side executes.
  *
- * Everything, now, except the models that are themselves the browser: Puter
- * runs the completion inside `js.puter.com`, so a run on it never reaches a
- * worker in the first place (`executeSendMessage` branches before the durable
- * path). There is nothing left here that the browser does better.
+ * Everything, now: there is nothing left here that the browser does better.
  */
 export const SERVER_EXECUTABLE_TOOLS: ReadonlySet<string> = new Set([
   "web_search",

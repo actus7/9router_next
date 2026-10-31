@@ -63,6 +63,13 @@ export function isToolUnsupportedError(errorText: string | unknown, judged?: Err
   return text ? TOOL_UNSUPPORTED.some((re) => re.test(text)) : false;
 }
 
+/** Whether the error text says the account has no money (see BILLING_ERROR_TEXTS). */
+function hasBillingText(errorText: string | unknown): boolean {
+  if (!errorText) return false;
+  const lowerError = (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase();
+  return BILLING_ERROR_TEXTS.some((text) => lowerError.includes(text));
+}
+
 /**
  * True when the upstream rejected the request itself rather than the credential.
  * Scoped to account fallback: model-level fallback (combos) still retries these,
@@ -73,6 +80,8 @@ export function isToolUnsupportedError(errorText: string | unknown, judged?: Err
  * which otherwise does mean "not on this account" and is worth rotating for.
  */
 export function isClientRequestError(status: number, errorText?: string | unknown, judged?: ErrorJudgement | null): boolean {
+  // A balance message is the account's problem whatever status carries it: Anthropic answers an empty balance with 400.
+  if (judged?.kind === "billing" || hasBillingText(errorText)) return false;
   if (judged?.kind === "tool_unsupported") return true;
   if (CLIENT_REQUEST_ERROR_STATUSES.has(Number(status))) return true;
   return isToolUnsupportedError(errorText);
@@ -211,7 +220,7 @@ export function checkFallbackError(status: number, errorText: string | unknown, 
 
   // Ahead of the judge: these texts say "no money" outright, and a verdict of
   // `quota` would hand a dead account the short rate-limit backoff.
-  if (BILLING_ERROR_TEXTS.some((text) => lowerError.includes(text))) {
+  if (hasBillingText(errorText)) {
     return { shouldFallback: true, cooldownMs: COOLDOWN.billing };
   }
   if (judged) return fallbackDecisionFromJudgement(judged, backoffLevel);

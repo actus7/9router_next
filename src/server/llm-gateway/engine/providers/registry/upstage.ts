@@ -16,8 +16,4 @@ export default {
     baseUrl: "https://api.upstage.ai/v1/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "solar-pro3", name: "Solar Pro3" },
-    { id: "solar-mini", name: "Solar Mini" },
-  ],
 };

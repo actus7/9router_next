@@ -70,7 +70,4 @@ export default {
       "import",
     ],
   },
-  features: {
-    usage: true,
-  },
 };

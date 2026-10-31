@@ -54,12 +54,12 @@ const owner = await resolveApiKeyOwner(keyB.key);
 check("resolveApiKeyOwner returns the owning tenant", owner?.userId === B, owner);
 
 // A transaction with a read-modify-write inside it.
-await withTenant(A, () => updateSettings({ cloudEnabled: true, cloudUrl: "https://a.example" }));
-await withTenant(B, () => updateSettings({ cloudEnabled: false }));
+await withTenant(A, () => updateSettings({ tunnelEnabled: true, tunnelUrl: "https://a.example" }));
+await withTenant(B, () => updateSettings({ tunnelEnabled: false }));
 const setA = await withTenant(A, () => getSettings());
 const setB = await withTenant(B, () => getSettings());
-check("settings are per tenant", setA.cloudEnabled === true && setB.cloudEnabled === false, [setA.cloudEnabled, setB.cloudEnabled]);
-check("settings merge with defaults", setA.cloudUrl === "https://a.example", setA.cloudUrl);
+check("settings are per tenant", setA.tunnelEnabled === true && setB.tunnelEnabled === false, [setA.tunnelEnabled, setB.tunnelEnabled]);
+check("settings merge with defaults", setA.tunnelUrl === "https://a.example", setA.tunnelUrl);
 
 // Full-text search over the generated tsvector column.
 await withTenant(A, () => upsertHarnessMessageIndex({

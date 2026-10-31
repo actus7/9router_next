@@ -65,7 +65,4 @@ export default {
     rsaKeyExchange: true, // new flag: signals frontend/router this flow needs local RSA + TCP listener.
   },
 
-  features: {
-    usage: true,
-  },
 };

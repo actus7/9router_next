@@ -532,4 +532,4 @@ export async function refreshCopilotToken(githubAccessToken: string, log?: Logge
   }, log);
 }
 
-export { refreshCodebuddyToken, refreshCodebuddyIntlToken, refreshTraeToken, refreshZedToken, refreshWindsurfToken } from "./specializedProviders";
+export { refreshCodebuddyToken, refreshCodebuddyIntlToken, refreshZedToken } from "./specializedProviders";

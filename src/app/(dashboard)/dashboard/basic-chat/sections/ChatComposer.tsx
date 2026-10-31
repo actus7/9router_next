@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,19 +14,11 @@ import {
   Check,
   CornerDownLeft,
   ListTree,
-  LogIn,
-  LogOut,
   Monitor,
   Paperclip,
   StopCircle,
   X,
 } from "lucide-react";
-import {
-  getPuterAuthStatus,
-  isPuterBrowserModel,
-  signInToPuter,
-  signOutOfPuter,
-} from "../puterBrowser";
 import { getRuntimeToolDefinitions } from "@/shared/harness/agentPlugins";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import type { UseSendMessageReturn } from "../hooks/useSendMessage";
@@ -96,44 +87,6 @@ export default function ChatComposer({
       ),
     ),
   );
-
-  const isPuterModel = !!activeModel && isPuterBrowserModel(activeModel);
-  const [puterAuth, setPuterAuth] = useState<{
-    isSignedIn: boolean;
-    username?: string;
-  } | null>(null);
-  const [puterAuthBusy, setPuterAuthBusy] = useState(false);
-
-  useEffect(() => {
-    if (!isPuterModel) {
-      setPuterAuth(null);
-      return;
-    }
-    let cancelled = false;
-    getPuterAuthStatus()
-      .then((status) => {
-        if (!cancelled) setPuterAuth(status);
-      })
-      .catch(() => {
-        if (!cancelled) setPuterAuth({ isSignedIn: false });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isPuterModel]);
-
-  const handlePuterAuthToggle = async () => {
-    setPuterAuthBusy(true);
-    try {
-      if (puterAuth?.isSignedIn) await signOutOfPuter();
-      else await signInToPuter();
-      setPuterAuth(await getPuterAuthStatus());
-    } catch {
-      // User closed the Puter dialog or the SDK is unreachable; leave state as-is.
-    } finally {
-      setPuterAuthBusy(false);
-    }
-  };
 
   return (
     <div className="shrink-0 border-t border-border bg-background/95 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -418,28 +371,6 @@ export default function ChatComposer({
                   </button>
                 </PopoverContent>
               </Popover>
-              {isPuterModel && puterAuth && (
-                <button
-                  type="button"
-                  onClick={() => void handlePuterAuthToggle()}
-                  disabled={puterAuthBusy}
-                  className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                >
-                  {puterAuth.isSignedIn ? (
-                    <>
-                      <LogOut className="size-3" />
-                      {puterAuth.username ||
-                        translate("Sign out of Puter") ||
-                        "Sair da Puter"}
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="size-3" />
-                      {translate("Sign in to Puter") || "Entrar na Puter"}
-                    </>
-                  )}
-                </button>
-              )}
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-2">

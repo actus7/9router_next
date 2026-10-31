@@ -2,14 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProviderConnections } from "@/lib/db/repos/connectionsRepo";
 import { backfillCodexEmails } from "@/lib/oauth/providers";
 import { USAGE_APIKEY_PROVIDERS, USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
-import { getUsageStats } from "@/lib/db/repos/usageRepo";
 
 const SAFE_FIELDS = [
   "id", "provider", "authType", "name", "email", "displayName",
   "priority", "globalPriority", "isActive", "defaultModel",
   "testStatus", "lastError", "lastErrorAt", "errorCode",
   "expiresAt", "lastUsedAt", "consecutiveUseCount",
-  "createdAt", "updatedAt", "usageOnly",
+  "createdAt", "updatedAt",
 ];
 
 const SAFE_PSD_FIELDS = [
@@ -84,29 +83,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const page = parsePositiveInt(searchParams.get("page"), 1);
     const pageSize = Math.min(parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
 
-    // As estatísticas saem de `usageHistory` e não dependem do backfill, que
-    // escreve em `providerConnections` — só a leitura das conexões tem que
-    // esperá-lo. Encadear dentro do `Promise.all` preserva essa ordem e evita
-    // deixar uma promise órfã se o backfill falhar.
-    const [usageStats, allConnections] = await Promise.all([
-      getUsageStats("all"),
-      backfillCodexEmails().then(() => getProviderConnections()),
-    ]);
-    const quotaConnections = allConnections.filter(isUsageEligible);
-    const configuredProviders = new Set(allConnections.map((connection) => connection.provider));
-    const observedConnections = Object.keys(usageStats.byProvider)
-      .filter((provider) => provider && !configuredProviders.has(provider))
-      .map((provider) => ({
-        id: `usage:${provider}`,
-        provider,
-        name: "Observed usage",
-        isActive: true,
-        authType: "usage",
-        // No testStatus: these are synthetic rows for providers seen only in
-        // usage history, never tested. The card keys off `usageOnly`.
-        usageOnly: true,
-      }));
-    const eligibleConnections = [...quotaConnections, ...observedConnections];
+    // Só conexões cuja cota o provider expõe. Provedores vistos apenas no
+    // histórico de uso não têm cota para mostrar, e listá-los custava uma
+    // agregação de `usageHistory` inteira por card a cada atualização.
+    await backfillCodexEmails();
+    const eligibleConnections = (await getProviderConnections()).filter(isUsageEligible);
     const providerOptions = Array.from(new Set(eligibleConnections.map((conn: Record<string, unknown>) => conn.provider))).sort();
 
     const providerFilteredConnections = eligibleConnections.filter((conn: Record<string, unknown>) => (

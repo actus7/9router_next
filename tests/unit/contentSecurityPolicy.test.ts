@@ -9,8 +9,7 @@ import {
 /**
  * The policy is a list of claims about what the page loads. Each one below is
  * a claim that was checked against the running app, not a copy of a template:
- * Puter's SDK is a script we do not host, the topology graph writes its own
- * inline styles, and generated media arrives as bytes rather than as a URL.
+ * the topology graph writes its own inline styles, and generated media arrives as bytes rather than as a URL.
  */
 
 afterEach(() => {
@@ -26,13 +25,13 @@ function directive(policy: string, name: string): string {
 }
 
 describe("the content security policy", () => {
-  it("nonces the script directive and still admits the Puter SDK", () => {
+  it("nonces the script directive and admits no third-party script host", () => {
     const policy = buildContentSecurityPolicy("abc123");
     const scriptSrc = directive(policy, "script-src");
     expect(scriptSrc).toContain("'nonce-abc123'");
     expect(scriptSrc).toContain("'strict-dynamic'");
-    // Puter runs the completion inside its own page; the SDK cannot be bundled.
-    expect(scriptSrc).toContain("https://js.puter.com");
+    // The Puter SDK was the one external script; it left with the provider.
+    expect(scriptSrc).not.toContain("https://");
   });
 
   it("never admits inline script, whatever else it allows", () => {

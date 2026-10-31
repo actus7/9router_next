@@ -12,7 +12,6 @@ import {
   RESTART_COOLDOWN_MS, NETWORK_SETTLE_MS,
   WATCHDOG_INTERVAL_MS, NETWORK_CHECK_INTERVAL_MS, VIRTUAL_IFACE_REGEX,
 } from "@/lib/tunnel";
-import { killAllBridges } from "@/lib/mcp/stdioSseBridge";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -106,7 +105,6 @@ export async function initializeApp(): Promise<void> {
     // unexpected cloudflared exits are handled even during the deferred window.
     if (!g.signalHandlersRegistered) {
       const cleanup = (): void => {
-        try { killAllBridges(); } catch { /* best effort */ }
         killCloudflared(0);
         process.exit();
       };

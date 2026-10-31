@@ -13,10 +13,4 @@ export default {
     baseUrl: "https://api.llama.com/compat/v1/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "Llama-4-Maverick-17B-128E-Instruct-FP8", name: "Llama 4 Maverick 17B 128E Instruct FP8" },
-    { id: "Llama-4-Scout-17B-16E-Instruct-FP8", name: "Llama 4 Scout 17B 16E Instruct FP8" },
-    { id: "Llama-3.3-70B-Instruct", name: "Llama 3.3 70B Instruct" },
-    { id: "Llama-3.3-8B-Instruct", name: "Llama 3.3 8B Instruct" },
-  ],
 };

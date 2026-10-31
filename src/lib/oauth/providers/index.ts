@@ -23,13 +23,9 @@ import gitlab from "./gitlab";
 import codebuddyCn from "./codebuddy-cn";
 import codebuddyIntl from "./codebuddy-intl";
 import kimchi from "./kimchi";
-import trae from "./trae";
-import windsurf from "./windsurf";
 import zed from "./zed";
 import gheCopilot from "./ghe-copilot";
 import amazonQ from "./amazon-q";
-import agy from "./agy";
-import openference from "./openference";
 
 interface ProviderHandler {
   config: Record<string, unknown>;
@@ -67,13 +63,9 @@ const PROVIDERS: Record<string, ProviderHandler> = {
   "codebuddy-cn": codebuddyCn,
   "codebuddy-intl": codebuddyIntl,
   kimchi,
-  trae,
-  windsurf,
   zed,
   "ghe-copilot": gheCopilot,
   "amazon-q": amazonQ,
-  agy,
-  openference,
 } as unknown as Record<string, ProviderHandler>;
 
 // Re-export helpers that other files import from this path
@@ -148,8 +140,7 @@ export async function generateAuthData(providerName: string, redirectUri: string
     ? await provider.prepareConfig(provider.config, meta || {})
     : provider.config;
   const { codeVerifier: pkceVerifier, codeChallenge, state: pkceState } = generatePKCE(provider.pkceVerifierBytes);
-  // Trae uses loginTraceID (set by prepareConfig) as the callback matcher, not PKCE state.
-  const state: string = (config.loginTraceID as string) || pkceState;
+  const state: string = pkceState;
   // Zed: codeVerifier carries the encoded RSA private key (from prepareConfig), not a PKCE verifier.
   const codeVerifier: string = (config.privateKeyVerifier as string) || pkceVerifier;
 

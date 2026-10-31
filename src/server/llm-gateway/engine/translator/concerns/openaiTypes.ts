@@ -72,9 +72,14 @@ export interface StripRule {
   match?: RegExp | ((model: string) => boolean);
   drop?: string[];
   flattenContent?: boolean;
+  // Flatten only for models without vision; image_url parts survive on vision models (user turns).
+  keepImagesForVision?: boolean;
   stripToolSchemaKeys?: string[];
   clampToModelMaxOutput?: boolean;
   maxOutputCap?: number;
+  renameParams?: Record<string, string>;
+  clampEnum?: Record<string, { allowed: string[]; map?: Record<string, string> }>;
+  renameMessageFields?: Record<string, string>;
 }
 
 /** Image ref for prefetch */

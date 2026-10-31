@@ -17,8 +17,5 @@ export default {
   transport: {
     baseUrl: "https://api.free.ai/v1/chat/completions",
   },
-  models: [
-    { id: "free-ai-default", name: "Free AI Default" },
-  ],
   passthroughModels: true,
 };

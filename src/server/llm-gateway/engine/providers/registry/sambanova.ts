@@ -21,7 +21,4 @@ export default {
     baseUrl: "https://api.sambanova.ai/v1/chat/completions",
     validateUrl: "https://api.sambanova.ai/v1/models",
   },
-  models: [
-    { id: "MiniMax-M2.7", name: "MiniMax M2.7", contextLength: 196608 },
-  ],
 };

@@ -44,7 +44,8 @@ vi.mock("@/server/llm-gateway/engine/services/smart-routing/router", () => ({
 }));
 
 import { getSettings } from "@/lib/db/repos/settingsRepo";
-import { handleSingleModelChat, __test__ as chatInternals } from "@/server/llm-gateway/application/chat";
+import { handleChat, handleSingleModelChat, __test__ as chatInternals } from "@/server/llm-gateway/application/chat";
+import { isAnonymousFreeModel } from "@/shared/constants/providers";
 import { getProviderCredentials } from "@/server/llm-gateway/auth/accountSelection";
 import { handleChatCore } from "@/server/llm-gateway/engine/handlers/chatCore";
 import { getPerfKey, setPerfKey } from "@/server/llm-gateway/engine/host/modelStats";
@@ -53,6 +54,7 @@ import {
   FREE_DEFAULT_MODEL_KEY,
   FREE_DEFAULT_PROVIDER_ALIAS,
   isFreeDefaultProvider,
+  NO_FREE_FALLBACK_HEADER,
 } from "@/shared/constants/freeDefault";
 
 const credentialsMock = vi.mocked(getProviderCredentials);
@@ -181,28 +183,65 @@ describe("smart candidates for a request with tools", () => {
   const tools = [{ type: "function", function: { name: "generate_image" } }];
 
   it("puts tool-capable candidates first", async () => {
-    const order = await chatInternals.orderForTools({ tools } as never, ["da/gpt-5.4-mini", "quillbot/quillbot-ai", "vercel/alibaba/qwen-3-235b"]);
-    expect(order).toEqual(["vercel/alibaba/qwen-3-235b", "da/gpt-5.4-mini", "quillbot/quillbot-ai"]);
+    const order = await chatInternals.orderForTools({ tools } as never, ["da/gpt-5.4-mini", "vercel/alibaba/qwen-3-235b"]);
+    expect(order).toEqual(["vercel/alibaba/qwen-3-235b", "da/gpt-5.4-mini"]);
   });
 
   it("leads with the credential-free default when no candidate keeps tools", async () => {
-    const order = await chatInternals.orderForTools({ tools } as never, ["da/gpt-5.4-mini", "quillbot/quillbot-ai"]);
-    expect(order).toEqual([FREE_DEFAULT_MODEL_KEY, "da/gpt-5.4-mini", "quillbot/quillbot-ai"]);
+    const order = await chatInternals.orderForTools({ tools } as never, ["da/gpt-5.4-mini"]);
+    expect(order).toEqual([FREE_DEFAULT_MODEL_KEY, "da/gpt-5.4-mini"]);
   });
 
   it("respects the free fallback switch", async () => {
     settingsMock.mockResolvedValueOnce({ freeFallbackEnabled: false } as Settings);
-    const models = ["da/gpt-5.4-mini", "quillbot/quillbot-ai"];
+    const models = ["da/gpt-5.4-mini"];
     expect(await chatInternals.orderForTools({ tools } as never, models)).toEqual(models);
   });
 
   it("respects a combo that turned the free default off", async () => {
-    const models = ["da/gpt-5.4-mini", "quillbot/quillbot-ai"];
+    const models = ["da/gpt-5.4-mini"];
     expect(await chatInternals.orderForTools({ tools } as never, models, false)).toEqual(models);
   });
 
   it("leaves a request without tools alone", async () => {
-    const models = ["quillbot/quillbot-ai", "vercel/alibaba/qwen-3-235b"];
+    const models = ["vercel/alibaba/qwen-3-235b"];
     expect(await chatInternals.orderForTools({} as never, models)).toBe(models);
+  });
+});
+
+// The provider page's model test pinged `kc/<model>` with no Kilo Code account,
+// the free default answered instead and the test read "ok" for a model nobody
+// had called. A probe has to see the requested model's own failure.
+describe("a caller that refuses the free fallback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    settingsMock.mockResolvedValue(settings(true));
+  });
+
+  it("gets the requested provider's error instead of the free answer", async () => {
+    credentialsMock.mockImplementation(async (provider: string) =>
+      isFreeDefaultProvider(provider) ? { connectionId: "noauth", connectionName: "Public" } : null);
+    coreMock.mockResolvedValue({
+      success: true,
+      response: new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    } as Awaited<ReturnType<typeof handleChatCore>>);
+    const request = new Request("http://localhost/api/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [NO_FREE_FALLBACK_HEADER]: "1" },
+      body: JSON.stringify(body("openai/gpt-5")),
+    });
+
+    const response = await handleChat(request);
+
+    expect(response.ok).toBe(false);
+    expect(providersAsked()).not.toContain(FREE_DEFAULT_PROVIDER_ALIAS);
+  });
+});
+
+describe("Kilo Code free models without an account", () => {
+  it("are reachable anonymously, like Kilo Gateway's", () => {
+    expect(isAnonymousFreeModel("kilocode", "poolside/laguna-m.1:free")).toBe(true);
+    expect(isAnonymousFreeModel("kc", "kilo-auto/free")).toBe(true);
+    expect(isAnonymousFreeModel("kilocode", "anthropic/claude-sonnet-4.5")).toBe(false);
   });
 });

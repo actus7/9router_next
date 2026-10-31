@@ -13,8 +13,4 @@ export default {
     baseUrl: "https://inference-api.nousresearch.com/v1/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "Hermes-4-405B", name: "Hermes 4 405B" },
-    { id: "Hermes-4-70B", name: "Hermes 4 70B" },
-  ],
 };

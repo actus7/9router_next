@@ -49,10 +49,6 @@ export async function memberRole(organizationId: string, userId: string): Promis
   return role;
 }
 
-export function invalidateMembership(): void {
-  membershipMemo.clear();
-}
-
 /**
  * The tenant a signed-in user acts in.
  *
@@ -77,34 +73,4 @@ export async function resolveKeyContext(tenantId: string, ownerUserId: string | 
   if (!ownerUserId || ownerUserId === tenantId) return { tenantId, actorUserId: tenantId, role: "owner" };
   const role = await memberRole(tenantId, ownerUserId);
   return role ? { tenantId, actorUserId: ownerUserId, role } : null;
-}
-
-/**
- * Turns the user's personal workspace into an organization others can join.
- *
- * Written directly rather than through Better Auth's `organization/create`,
- * because that would mint a new random id — an empty tenant — while the point
- * is to keep the providers, combos and history the user already has. Idempotent.
- */
-export async function createTeamFromPersonalWorkspace(userId: string, name: string, slug: string): Promise<void> {
-  const db = await getAdapter();
-  await db.transaction(async () => {
-    await db.run(
-      `INSERT INTO neon_auth.organization (id, name, slug, "createdAt")
-       VALUES (?, ?, ?, now())
-       ON CONFLICT (id) DO NOTHING`,
-      [userId, name, slug],
-    );
-    const existing = await db.get(
-      `SELECT 1 AS present FROM neon_auth.member WHERE "organizationId" = ? AND "userId" = ?`,
-      [userId, userId],
-    );
-    if (!existing) {
-      await db.run(
-        `INSERT INTO neon_auth.member ("organizationId", "userId", role, "createdAt") VALUES (?, ?, 'owner', now())`,
-        [userId, userId],
-      );
-    }
-  });
-  invalidateMembership();
 }

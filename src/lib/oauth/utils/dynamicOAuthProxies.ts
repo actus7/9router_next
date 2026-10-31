@@ -1,210 +1,14 @@
 import { TEST_STATUS_ON_CREDENTIAL_ACQUIRED } from "@/lib/db/repos/connectionsRepo";
 import http from "http";
 import { URL } from "url";
-import { TRAE_CONFIG, WINDSURF_CONFIG, ZED_HOSTED_CONFIG } from "../constants/oauth";
+import { ZED_HOSTED_CONFIG } from "../constants/oauth";
 import { isLoopbackOrigin, renderCodexResultPage } from "./oauthProxyHtml";
 
-// Trae dynamic-port proxy. Singleton session.
-// ───────────────────────────────────────────────────────────────────────────
-
-let traeProxyServer: http.Server | null = null;
-let traeProxyTimeout: ReturnType<typeof setTimeout> | null = null;
-let traeProxyPort: number | null = null;
-let traeSession: { state: string; status: string; createdAt: number; connectionId?: string; email?: string; error?: string } | null = null;
-
-export function registerTraeSession({ state }: { state: string }): boolean {
-  if (!state) return false;
-  traeSession = { state, status: "pending", createdAt: Date.now() };
-  return true;
-}
-export function getTraeSessionStatus(state?: string): typeof traeSession {
-  if (!traeSession) return null;
-  if (state && traeSession.state !== state) return null;
-  return traeSession;
-}
-export function clearTraeSession(state?: string): void {
-  if (!state || (traeSession && traeSession.state === state)) traeSession = null;
-}
-
-interface TraeProxyResult {
+interface DynamicProxyResult {
   success: boolean;
   port?: number;
   callbackUrl?: string;
   reason?: string;
-}
-
-export function startTraeProxy(): Promise<TraeProxyResult> {
-  return new Promise<TraeProxyResult>((resolve: (value: TraeProxyResult) => void) => {
-    if (traeProxyServer) {
-      resolve({ success: true, port: traeProxyPort!, callbackUrl: `http://127.0.0.1:${traeProxyPort}${(TRAE_CONFIG as Record<string, string>).callbackPath}` });
-      return;
-    }
-    const server: http.Server = http.createServer(async (req: http.IncomingMessage, res: http.ServerResponse) => {
-      const url: URL = new URL(req.url!, "http://localhost");
-      if (url.pathname !== (TRAE_CONFIG as Record<string, string>).callbackPath && url.pathname !== "/auth/callback") {
-        res.writeHead(404);
-        res.end("Not found");
-        return;
-      }
-      const session = traeSession;
-      if (!session) {
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(false, "No active Trae login session"));
-        return;
-      }
-      if (!isLoopbackOrigin(req.headers.origin)) {
-        res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(false, "Cross-origin callback rejected"));
-        return;
-      }
-      const cbState: string | null = url.searchParams.get("state");
-      if (cbState && session.state && cbState !== session.state) {
-        session.status = "error";
-        session.error = "Trae callback state mismatch";
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(false, session.error));
-        stopTraeProxy();
-        return;
-      }
-      const rawCallback: string = `${url.pathname}?${url.searchParams.toString()}`;
-      try {
-        const { exchangeTokens } = await import("../providers");
-        const { createProviderConnection } = await import("@/models");
-        const tokenData: Record<string, unknown> = await exchangeTokens("trae", rawCallback, "", "", "");
-        const connection = await createProviderConnection({
-          provider: "trae",
-          authType: "oauth",
-          ...tokenData,
-          expiresAt: (tokenData as Record<string, number>).expiresIn
-            ? new Date(Date.now() + (tokenData as Record<string, number>).expiresIn * 1000).toISOString()
-            : null,
-          testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
-        });
-        session.status = "done";
-        session.connectionId = (connection as Record<string, string>).id;
-        session.email = (connection as Record<string, string>).email;
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(true, "You can close this window."));
-      } catch (err: unknown) {
-        session.status = "error";
-        session.error = (err as Error).message;
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(false, (err as Error).message));
-      } finally {
-        stopTraeProxy();
-      }
-    });
-    server.listen(0, "127.0.0.1", () => {
-      traeProxyServer = server;
-      traeProxyPort = (server.address() as { port: number }).port;
-      traeProxyTimeout = setTimeout(() => stopTraeProxy(), (TRAE_CONFIG as Record<string, number>).oauthTimeoutMs);
-      resolve({ success: true, port: traeProxyPort, callbackUrl: `http://127.0.0.1:${traeProxyPort}${(TRAE_CONFIG as Record<string, string>).callbackPath}` });
-    });
-    server.on("error", (err: Error) => resolve({ success: false, reason: err.message }));
-  });
-}
-
-export function stopTraeProxy(): void {
-  if (traeProxyTimeout) { clearTimeout(traeProxyTimeout); traeProxyTimeout = null; }
-  if (traeProxyServer) { traeProxyServer.close(); traeProxyServer = null; }
-  traeProxyPort = null;
-}
-
-// ───────────────────────────────────────────────────────────────────────────
-// Windsurf dynamic-port proxy. Singleton session.
-// ───────────────────────────────────────────────────────────────────────────
-
-let windsurfProxyServer: http.Server | null = null;
-let windsurfProxyTimeout: ReturnType<typeof setTimeout> | null = null;
-let windsurfProxyPort: number | null = null;
-let windsurfSession: { state: string; status: string; createdAt: number; connectionId?: string; email?: string; error?: string } | null = null;
-
-export function registerWindsurfSession({ state }: { state: string }): boolean {
-  if (!state) return false;
-  windsurfSession = { state, status: "pending", createdAt: Date.now() };
-  return true;
-}
-export function getWindsurfSessionStatus(state?: string): typeof windsurfSession {
-  if (!windsurfSession) return null;
-  if (state && windsurfSession.state !== state) return null;
-  return windsurfSession;
-}
-export function clearWindsurfSession(state?: string): void {
-  if (!state || (windsurfSession && windsurfSession.state === state)) windsurfSession = null;
-}
-
-export function startWindsurfProxy(): Promise<TraeProxyResult> {
-  return new Promise<TraeProxyResult>((resolve: (value: TraeProxyResult) => void) => {
-    if (windsurfProxyServer) {
-      resolve({ success: true, port: windsurfProxyPort!, callbackUrl: `http://127.0.0.1:${windsurfProxyPort}${(WINDSURF_CONFIG as Record<string, string>).callbackPath}` });
-      return;
-    }
-    const server: http.Server = http.createServer(async (req: http.IncomingMessage, res: http.ServerResponse) => {
-      const url: URL = new URL(req.url!, "http://localhost");
-      if (url.pathname !== (WINDSURF_CONFIG as Record<string, string>).callbackPath) {
-        res.writeHead(404);
-        res.end("Not found");
-        return;
-      }
-      const session = windsurfSession;
-      if (!session) {
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(false, "No active Windsurf login session"));
-        return;
-      }
-      if (!isLoopbackOrigin(req.headers.origin)) {
-        res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(false, "Cross-origin callback rejected"));
-        return;
-      }
-      const cbState: string | null = url.searchParams.get("state");
-      if (!cbState || !session.state || cbState !== session.state) {
-        session.status = "error";
-        session.error = "Windsurf callback state mismatch";
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(false, session.error));
-        stopWindsurfProxy();
-        return;
-      }
-      const rawCallback: string = `${url.pathname}?${url.searchParams.toString()}`;
-      try {
-        const { exchangeTokens } = await import("../providers");
-        const { createProviderConnection } = await import("@/models");
-        const tokenData: Record<string, unknown> = await exchangeTokens("windsurf", rawCallback, "", "", session.state);
-        const connection = await createProviderConnection({
-          provider: "windsurf",
-          authType: "api_key",
-          ...tokenData,
-          testStatus: TEST_STATUS_ON_CREDENTIAL_ACQUIRED,
-        });
-        session.status = "done";
-        session.connectionId = (connection as Record<string, string>).id;
-        session.email = (connection as Record<string, string>).email;
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(true, "You can close this window."));
-      } catch (err: unknown) {
-        session.status = "error";
-        session.error = (err as Error).message;
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderCodexResultPage(false, (err as Error).message));
-      } finally {
-        stopWindsurfProxy();
-      }
-    });
-    server.listen(0, "127.0.0.1", () => {
-      windsurfProxyServer = server;
-      windsurfProxyPort = (server.address() as { port: number }).port;
-      windsurfProxyTimeout = setTimeout(() => stopWindsurfProxy(), (WINDSURF_CONFIG as Record<string, number>).oauthTimeoutMs);
-      resolve({ success: true, port: windsurfProxyPort, callbackUrl: `http://127.0.0.1:${windsurfProxyPort}${(WINDSURF_CONFIG as Record<string, string>).callbackPath}` });
-    });
-    server.on("error", (err: Error) => resolve({ success: false, reason: err.message }));
-  });
-}
-
-export function stopWindsurfProxy(): void {
-  if (windsurfProxyTimeout) { clearTimeout(windsurfProxyTimeout); windsurfProxyTimeout = null; }
-  if (windsurfProxyServer) { windsurfProxyServer.close(); windsurfProxyServer = null; }
-  windsurfProxyPort = null;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -230,8 +34,8 @@ export function clearZedSession(state?: string): void {
   if (!state || (zedSession && zedSession.state === state)) zedSession = null;
 }
 
-export function startZedProxy(preferredPort: number = 0): Promise<TraeProxyResult> {
-  return new Promise<TraeProxyResult>((resolve: (value: TraeProxyResult) => void) => {
+export function startZedProxy(preferredPort: number = 0): Promise<DynamicProxyResult> {
+  return new Promise<DynamicProxyResult>((resolve: (value: DynamicProxyResult) => void) => {
     if (zedProxyServer) {
       resolve({ success: true, port: zedProxyPort!, callbackUrl: `http://127.0.0.1:${zedProxyPort}/` });
       return;

@@ -78,10 +78,3 @@ export function usePickerCatalog(isOpen: boolean): PickerCatalog {
 
   return catalog;
 }
-
-/** Test seam: forget the copy so a test starts cold. */
-export function __resetPickerCatalogForTesting(): void {
-  cached = null;
-  inflight = null;
-  listeners.clear();
-}

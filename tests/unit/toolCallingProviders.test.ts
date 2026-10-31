@@ -11,7 +11,7 @@ import { __test__ as inventoryInternals } from "@/server/llm-gateway/engine/serv
 // `tools`, and everything that routes tool requests has to honour it.
 
 describe("providers that drop tools", () => {
-  it.each(["quillbot", "duckai", "da"])("report tools: false under %s, whatever the model's name implies", (provider) => {
+  it.each(["duckai", "da"])("report tools: false under %s, whatever the model's name implies", (provider) => {
     expect(getCapabilitiesForModel(provider, "claude-haiku-4-5").tools).toBe(false);
   });
 
@@ -28,7 +28,7 @@ describe("combo order for a request with tools", () => {
     const tried: string[] = [];
     await handleComboChat({
       body,
-      models: ["quillbot/quillbot-ai", "da/claude-haiku-4-5", "kgw/kilo-auto/free"],
+      models: ["da/claude-haiku-4-5", "kgw/kilo-auto/free"],
       handleSingleModel: async (_body, model) => {
         tried.push(model);
         return new Response("{}", { status: 200 });
@@ -44,7 +44,7 @@ describe("combo order for a request with tools", () => {
   });
 
   it("keeps the configured order when the request has no tools", async () => {
-    expect(await firstTried({ messages: [{ role: "user", content: "hi" }] })).toBe("quillbot/quillbot-ai");
+    expect(await firstTried({ messages: [{ role: "user", content: "hi" }] })).toBe("da/claude-haiku-4-5");
   });
 });
 

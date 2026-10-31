@@ -1,5 +1,8 @@
 // Free OpenCode models that don't use the "-free" id suffix
 const KNOWN_FREE_OPENCODE_MODELS = ["big-pickle"];
+// Safety classifiers (Qwen3Guard, Llama-Guard) answer "Safety: Safe", not a chat
+// turn — listed as chat they could land in a smart combo lane.
+const SAFETY_CLASSIFIER_ID = /guard/i;
 
 interface ModelItem {
   id?: string;
@@ -22,7 +25,7 @@ export const FILTERS: Record<string, (models: ModelItem[]) => Array<Record<strin
   // field is explicitly present and zero — omitted entirely still passes.
   "openai": (models) =>
     models
-      .filter((m) => !!m.id && m.max_completion_tokens !== 0)
+      .filter((m) => !!m.id && m.max_completion_tokens !== 0 && !SAFETY_CLASSIFIER_ID.test(m.id))
       .map((m) => ({ id: m.id, name: m.name || m.id, contextLength: m.context_length })),
 
   "openrouter-free": (models) =>

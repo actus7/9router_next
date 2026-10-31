@@ -63,22 +63,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         </div>
         <div className="p-6 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-4">
-        {/* Trae/Windsurf: browser OAuth (proxy) + paste-token fallback */}
         {provider && PROXY_OAUTH_PROVIDERS.has(provider) && (flow.step === "waiting" || flow.step === "input" || flow.step === "error") && (
           <ProxyOAuthSection
             provider={provider}
             step={flow.step}
-            authMode={flow.authMode}
             callbackUrl={flow.callbackUrl}
-            pasteToken={flow.pasteToken}
-            ideStatus={flow.ideStatus}
-            error={flow.error}
-            setAuthMode={flow.setAuthMode}
-            setError={flow.setError}
-            setStep={flow.setStep}
             setCallbackUrl={flow.setCallbackUrl}
-            setPasteToken={flow.setPasteToken}
-            startOAuthFlow={flow.startOAuthFlow}
             handleManualSubmit={flow.handleManualSubmit}
             handleClose={flow.handleClose}
             copied={flow.copied}

@@ -67,7 +67,7 @@ export default function Sidebar() {
             <span className="truncate text-xs text-sidebar-foreground/60">v{APP_CONFIG.version}</span>
           </div>
         </Link>
-        <WorkspaceSwitcher onNavigate={closeOnMobile} />
+        <WorkspaceSwitcher />
       </SidebarHeader>
       <SidebarSeparator />
       <SidebarContent>

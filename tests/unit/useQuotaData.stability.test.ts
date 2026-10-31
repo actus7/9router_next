@@ -81,6 +81,22 @@ describe("useQuotaData – refreshAll stability", () => {
     expect(newIntervals).toBe(0);
   });
 
+  it("does not re-render the page every second while auto-refresh waits", async () => {
+    let renders = 0;
+    renderHook(() => {
+      renders += 1;
+      return useQuotaData(fetchConnections, 1);
+    });
+    await act(async () => {});
+    const before = renders;
+
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+    });
+
+    expect(renders).toBe(before);
+  });
+
   it("visibility change must NOT duplicate intervals when tab becomes visible", async () => {
     renderHook(() => useQuotaData(fetchConnections, 1));
 

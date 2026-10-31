@@ -8,8 +8,10 @@ const CODEX_RESPONSES_URL = PROVIDERS["codex"].baseUrl as string;
 const CODEX_USER_AGENT = `codex_cli_rs/${CODEX_CLIENT_VERSION}`;
 const CODEX_VERSION = CODEX_CLIENT_VERSION;
 const CODEX_ORIGINATOR = "codex_cli_rs";
-const CODEX_MODEL_SUFFIX = "-image";
 const CODEX_REF_DETAIL = "high";
+// Only drives the image_generation tool call; any chat model on the plan works as host.
+// Fixed, not derived from the image id: retired hosts (gpt-5.5, gpt-5.6-*) are rejected upstream.
+const CODEX_IMAGES_MAIN_MODEL = "gpt-6-sol";
 
 function decodeAccountId(idToken: string): string | null {
   try {
@@ -22,10 +24,6 @@ function decodeAccountId(idToken: string): string | null {
   } catch {
     return null;
   }
-}
-
-function stripImageSuffix(model: string): string {
-  return model.endsWith(CODEX_MODEL_SUFFIX) ? model.slice(0, -CODEX_MODEL_SUFFIX.length) : model;
 }
 
 function toDataUrl(input: unknown): string | null {
@@ -167,7 +165,7 @@ export default {
       "x-client-request-id": randomUUID(),
     };
   },
-  buildBody: (model: string, body: Record<string, unknown>): Record<string, unknown> => {
+  buildBody: (_model: string, body: Record<string, unknown>): Record<string, unknown> => {
     const refs: string[] = [];
     if (Array.isArray(body.images)) body.images.forEach((i: unknown) => { const u = toDataUrl(i); if (u) refs.push(u); });
     const single = toDataUrl(body.image);
@@ -178,7 +176,7 @@ export default {
     if (body.quality && body.quality !== "") imgTool.quality = body.quality;
     if (body.background && body.background !== "") imgTool.background = body.background;
     return {
-      model: stripImageSuffix(model),
+      model: CODEX_IMAGES_MAIN_MODEL,
       instructions: "",
       input: [{ type: "message", role: "user", content: buildContent(body.prompt as string, refs, detail) }],
       tools: [imgTool],

@@ -17,8 +17,4 @@ export default {
     format: "openai",
     validateUrl: "https://api.ai21.com/studio/v1/models",
   },
-  models: [
-    { id: "jamba-large-1.7", name: "Jamba Large 1.7" },
-    { id: "jamba-mini-2", name: "Jamba Mini 2" },
-  ],
 };

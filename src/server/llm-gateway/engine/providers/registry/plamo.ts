@@ -16,7 +16,4 @@ export default {
     baseUrl: "https://api.platform.preferredai.jp/v1/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "plamo-3.0-prime", name: "PLaMo 3.0 Prime", contextLength: 262144 },
-  ],
 };

@@ -70,13 +70,13 @@ describe("executors plugin", () => {
     expect(hasSpecializedExecutor("opencode")).toBe(true);
   });
 
-  it("routes OpenCode chat models to the Zen OpenAI-compatible endpoint", async () => {
+  it("routes OpenCode chat models to the v2 inference endpoint", async () => {
     await bootstrap();
     const executor = getExecutor("opencode");
 
     expect(executor).toBeInstanceOf(OpenCodeExecutor);
     expect((executor as OpenCodeExecutor).buildUrl("big-pickle")).toBe(
-      "https://opencode.ai/zen/v1/chat/completions",
+      "https://opencode.ai/inference/v1/chat/completions",
     );
   });
 });

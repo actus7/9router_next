@@ -39,6 +39,7 @@ export default {
   modelOverrides: {
     "glm-5.2": { name: "GLM 5.2", supportedFormats: ["openai"] },
     "glm-5.1": { name: "GLM 5.1", supportedFormats: ["openai"] },
+    "kimi-k3.1-pro": { name: "Kimi K3.1 Pro", supportedFormats: ["openai"] },
     "kimi-k2.7-code": { name: "Kimi K2.7 Code", supportedFormats: ["openai"] },
     "kimi-k2.6": { name: "Kimi K2.6", supportedFormats: ["openai"] },
     "deepseek-v4-pro": { name: "DeepSeek V4 Pro", supportedFormats: ["openai", "claude", "openai-responses"] },

@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BarChart3, CloudUpload, Film, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, ScanEye, Server, Terminal, Users, Webhook, Braces } from "lucide-react";
+import { Activity, BarChart3, Film, Globe, Languages, Layers, MessageSquare, Mic, Music, Network, Paintbrush, PieChart, ScanEye, Server, Terminal, Webhook, Braces } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export const KIND_ICON_MAP: Record<string, LucideIcon> = {
@@ -33,9 +33,6 @@ export const navItems: NavItem[] = [
   { href: "/dashboard/web-providers", label: "Web Session Providers", icon: <Globe />, adminOnly: true },
   { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: <Layers />, adminOnly: true },
   { href: "/dashboard/quota", label: "Quota Tracker", icon: <PieChart />, adminOnly: true },
-  { href: "/dashboard/cli-tools", label: "CLI Tools", icon: <Terminal />, adminOnly: true },
-  { href: "/dashboard/cloud", label: "Cloud Deploy", icon: <CloudUpload />, adminOnly: true },
-  { href: "/dashboard/team", label: "Team", icon: <Users /> },
 ];
 
 export const debugItems: NavItem[] = [

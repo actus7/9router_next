@@ -3,6 +3,7 @@ import { PROVIDERS } from "../config/providers";
 import { proxyAwareFetch } from "../utils/proxyFetch";
 import { dbg } from "../utils/debugLog";
 import type { Credentials } from "../services/types";
+import { isEmptyChatCompletion } from "../handlers/chatCore/emptyCompletion";
 
 /**
  * AIHordeExecutor — queue-based executor for AI Horde's OpenAI-compatible proxy.
@@ -12,20 +13,40 @@ import type { Credentials } from "../services/types";
  *
  *  - QUEUED execution: a request waits for volunteer workers, so a single call
  *    can take tens of seconds to minutes (120s timeout).
- *  - No real streaming: the proxy returns one queued generation as a single
- *    response. We emit it as a single SSE chunk for streaming clients.
- *  - `max_tokens` must be >= 16 or the proxy 422s.
- *  - `stop` must be an array; a bare string 422s.
- *  - No tool calling: tools/tool_choice/parallel_tool_calls are dropped.
- *  - `usage` comes back as `{"kudos": N}` — we synthesize token estimates.
+ *  - Upstream is called non-streaming and the answer re-emitted as SSE, so a
+ *    broken worker's empty 200 can still be turned into a failure.
+ *  - `max_tokens` must be >= 16, and at most what the model's workers declare
+ *    (1024–2560, live 2026-10-31) and what fits the context after the prompt;
+ *    the proxy 400s naming the limit, and we retry at it (`fittingMaxTokens`).
+ *  - Tool calling works since 2026-10 (live-probed); `tool_choice` without
+ *    `tools` 400s, so it only rides along with tools.
+ *  - Older proxy builds answered `usage: {"kudos": N}`; only then we estimate.
  *  - Auth: anonymous with sentinel key `0000000000` (lowest priority);
  *    a real aihorde.net key gets higher queue priority.
  */
 
 const ANON_KEY = "0000000000";
 const MIN_MAX_TOKENS = 16;
+const MAX_MAX_TOKENS = 16384; // API-wide ceiling: "The token limit must be between 16 and 16384" (live 2026-10-31)
 const DEFAULT_MAX_TOKENS = 512;
+// Anonymous ceiling: with the sentinel key anything above 512 answers
+// `503 no_eligible_worker` even when the worker declares 2048 (live 2026-10-31).
+const ANON_MAX_TOKENS = 512;
 const HORDE_TIMEOUT_MS = 120_000;
+const PASSTHROUGH_PARAMS = ["temperature", "top_p", "seed", "presence_penalty", "response_format", "reasoning_effort"];
+const WORKER_LIMIT_RE = /declares now is (\d+) tokens/;
+const CONTEXT_LIMIT_RE = /estimated at (\d+) tokens.*max_context_length of (\d+)/;
+const MAX_LIMIT_RETRIES = 2;
+
+/** The max_tokens a `400` says would have fitted, or null when it is another error.
+ *  Both shapes live-captured 2026-10-31; a request can hit one, then the other. */
+function fittingMaxTokens(errText: string): number | null {
+  const worker = WORKER_LIMIT_RE.exec(errText);
+  if (worker) return Number(worker[1]);
+  const context = CONTEXT_LIMIT_RE.exec(errText);
+  if (context) return Number(context[2]) - Number(context[1]);
+  return null;
+}
 
 /** Rough token estimate (~4 chars/token) for synthesized usage. */
 function estimateTokens(content: unknown): number {
@@ -70,28 +91,27 @@ export class AIHordeExecutor extends BaseExecutor {
     };
   }
 
-  /**
-   * Transform the request body for AI Horde compatibility:
-   * - Forward only the parameters supported by its queued OpenAI proxy
-   * - Floor max_tokens to >= 16, default to 512 if omitted
-   * - Wrap string stop in an array
-   */
-  transformRequest(model: string, body: Record<string, unknown>, _stream?: boolean, _credentials?: Credentials) {
+  /** Transform the request body to what AI Horde's OpenAI proxy accepts. */
+  transformRequest(model: string, body: Record<string, unknown>, _stream?: boolean, credentials?: Credentials) {
     const transformed: Record<string, unknown> = {
       model: typeof body.model === "string" ? body.model : model,
       messages: body.messages,
     };
 
-    // max_tokens: floor at 16, default when omitted
-    const mt = body.max_tokens as number | undefined;
-    transformed.max_tokens = Math.max(MIN_MAX_TOKENS, mt ?? DEFAULT_MAX_TOKENS);
+    const mt = (body.max_tokens ?? body.max_completion_tokens) as number | undefined;
+    const ceiling = credentials && resolveBearer(credentials) === ANON_KEY ? ANON_MAX_TOKENS : MAX_MAX_TOKENS;
+    transformed.max_tokens = Math.min(ceiling, Math.max(MIN_MAX_TOKENS, mt ?? DEFAULT_MAX_TOKENS));
 
-    if (body.temperature != null) transformed.temperature = body.temperature;
-    if (body.top_p != null) transformed.top_p = body.top_p;
-
-    // stop: must be an array
+    for (const key of PASSTHROUGH_PARAMS) {
+      if (body[key] != null) transformed[key] = body[key];
+    }
     if (body.stop != null) {
       transformed.stop = Array.isArray(body.stop) ? body.stop : [body.stop];
+    }
+    if (Array.isArray(body.tools) && body.tools.length > 0) {
+      transformed.tools = body.tools;
+      if (body.tool_choice != null) transformed.tool_choice = body.tool_choice;
+      if (body.parallel_tool_calls != null) transformed.parallel_tool_calls = body.parallel_tool_calls;
     }
 
     return transformed;
@@ -102,6 +122,7 @@ export class AIHordeExecutor extends BaseExecutor {
    * instead of token counts — we estimate from message content lengths.
    */
   private synthesizeUsage(body: Record<string, unknown>, data: Record<string, unknown>): void {
+    if (typeof (data.usage as Record<string, unknown> | undefined)?.prompt_tokens === "number") return;
     const messages = (body.messages as Array<Record<string, unknown>>) || [];
     const prompt = messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
     const choices = (data.choices as Array<Record<string, unknown>>) || [];
@@ -155,12 +176,17 @@ export class AIHordeExecutor extends BaseExecutor {
     dbg("AIHORDE", `→ ${url} | body=${JSON.stringify(transformedBody).length}B | timeout=${timeoutMs}ms`);
 
     try {
-      const response = await proxyAwareFetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(transformedBody),
-        signal: mergedSignal,
-      }, proxyOptions as null);
+      let response = await this.post(url, headers, transformedBody, mergedSignal, proxyOptions);
+      for (let retry = 0; retry < MAX_LIMIT_RETRIES && response.status === 400; retry++) {
+        const errText = await response.text().catch(() => "");
+        const limit = fittingMaxTokens(errText);
+        if (limit == null || limit < MIN_MAX_TOKENS || limit >= (transformedBody.max_tokens as number)) {
+          response = new Response(errText, { status: 400 });
+          break;
+        }
+        transformedBody.max_tokens = limit;
+        response = await this.post(url, headers, transformedBody, mergedSignal, proxyOptions);
+      }
 
       clearTimeout(connectTimer);
 
@@ -179,12 +205,7 @@ export class AIHordeExecutor extends BaseExecutor {
       // times. Throwing here routes through the normal executor error path
       // (chatCore's catch → account/provider fallback) instead of forwarding
       // a silent empty message.
-      const choices = (data.choices as Array<Record<string, unknown>>) || [];
-      const hasContent = choices.some((c) => {
-        const msg = c.message as Record<string, unknown> | undefined;
-        return typeof msg?.content === "string" && msg.content.trim().length > 0;
-      });
-      if (!hasContent) {
+      if (isEmptyChatCompletion(data)) {
         throw new Error(
           `AI Horde returned an empty completion for "${model}" — the volunteer worker serving this model is likely misconfigured. Try again or pick a different model.`,
         );
@@ -205,6 +226,10 @@ export class AIHordeExecutor extends BaseExecutor {
     }
   }
 
+  private post(url: string, headers: Record<string, string>, body: Record<string, unknown>, signal: AbortSignal, proxyOptions: unknown) {
+    return proxyAwareFetch(url, { method: "POST", headers, body: JSON.stringify(body), signal }, proxyOptions as null);
+  }
+
   /**
    * Wrap a complete AI Horde response as a streaming SSE response.
    * Emits: role delta → content delta → finish delta (OpenAI chunk format).
@@ -215,7 +240,9 @@ export class AIHordeExecutor extends BaseExecutor {
     const content = typeof (choice?.message as Record<string, unknown>)?.content === "string"
       ? ((choice?.message as Record<string, unknown>).content as string)
       : "";
-    const finishReason = (choice?.finish_reason as string) || "stop";
+    const toolCalls = ((choice?.message as Record<string, unknown>)?.tool_calls as Array<Record<string, unknown>> | undefined)
+      ?.map((tc, index) => ({ index, ...tc }));
+    const finishReason = (choice?.finish_reason as string) || (toolCalls?.length ? "tool_calls" : "stop");
     const id = (data.id as string) || `chatcmpl-${Date.now()}`;
     const created = (data.created as number) || Math.floor(Date.now() / 1000);
 
@@ -224,6 +251,9 @@ export class AIHordeExecutor extends BaseExecutor {
       `data: ${JSON.stringify({ id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] })}\n\n`,
       // Content delta
       ...(content ? [`data: ${JSON.stringify({ id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { content }, finish_reason: null }] })}\n\n`] : []),
+      ...(toolCalls?.length ? [`data: ${JSON.stringify({ id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { tool_calls: toolCalls }, finish_reason: null }] })}
+
+`] : []),
       // Finish delta
       `data: ${JSON.stringify({ id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: {}, finish_reason: finishReason }] })}\n\n`,
       // Usage chunk (if available)

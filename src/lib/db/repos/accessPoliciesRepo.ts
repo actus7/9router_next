@@ -49,11 +49,6 @@ async function tenantPolicies(): Promise<Map<string, AccessPolicy>> {
   return map;
 }
 
-/** The subject's own policy; `{}` (unrestricted) when it has none. */
-export async function getAccessPolicy(type: AccessSubject, subjectId: string): Promise<AccessPolicy> {
-  return (await tenantPolicies()).get(keyOf(type, subjectId)) ?? {};
-}
-
 /** Every policy row of the tenant, for listings. */
 export async function listAccessPolicies(): Promise<Array<{ type: AccessSubject; subjectId: string; policy: AccessPolicy }>> {
   const map = await tenantPolicies();
@@ -88,11 +83,6 @@ export async function setAccessPolicy(type: AccessSubject, subjectId: string, ra
   }
   policiesMemo.delete(tenantId);
   return policy;
-}
-
-/** Drops a subject's row — for a deleted key or a removed member. */
-export async function deleteAccessPolicy(type: AccessSubject, subjectId: string): Promise<void> {
-  await setAccessPolicy(type, subjectId, {});
 }
 
 export interface AccessLayerSubjects {

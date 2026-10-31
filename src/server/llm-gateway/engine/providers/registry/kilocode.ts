@@ -14,6 +14,9 @@ export default {
     },
   },
   category: "oauth",
+  // Same backend as Kilo Gateway: `:free` models answer with no Authorization
+  // header, so they work before any account is connected.
+  features: { anonymousFreeModels: true },
   transport: {
     baseUrl: "https://api.kilo.ai/api/openrouter/chat/completions",
     headers: {},

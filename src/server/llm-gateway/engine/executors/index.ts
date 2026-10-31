@@ -15,14 +15,9 @@ import { XiaomiTokenplanExecutor } from "./xiaomi-tokenplan";
 import { MimoFreeExecutor } from "./mimo-free";
 import { CodeBuddyExecutor } from "./codebuddy-cn";
 import { CodeBuddyIntlExecutor } from "./codebuddy-intl";
-import TraeExecutor from "./trae";
 import ZedExecutor from "./zed";
-import WindsurfExecutor from "./windsurf";
 import { DefaultExecutor } from "./default";
-import { PuterExecutor } from "./puter";
-import { DevinCliExecutor } from "./devin-cli";
 import { GithubCopilotExecutor } from "./github-copilot";
-import { QuillbotExecutor } from "./quillbot";
 import { DuckAiExecutor } from "./duckai";
 import { Context7Executor } from "./context7";
 import { AnySearchExecutor } from "./anysearch";
@@ -79,13 +74,9 @@ const executors = {
   mmf: new MimoFreeExecutor(), // Alias for mimo-free
   "codebuddy-cn": new CodeBuddyExecutor(),
   "codebuddy-intl": new CodeBuddyIntlExecutor(),
-  trae: new TraeExecutor(),
   zed: new ZedExecutor(),
-  windsurf: new WindsurfExecutor(),
-  "devin-cli": new DevinCliExecutor(),
   "github-copilot": new GithubCopilotExecutor(),
   "ghe-copilot": new GithubCopilotExecutor("ghe-copilot"),
-  quillbot: new QuillbotExecutor(),
   duckai: new DuckAiExecutor(),
   context7: new Context7Executor(),
   anysearch: new AnySearchExecutor(),
@@ -117,7 +108,6 @@ const executors = {
   "cloudflare-ai": new CloudflareAIExecutor(),
   "opencode-go": new OpenCodeGoExecutor(),
   ocg: new OpenCodeGoExecutor(), // Alias for opencode-go
-  puter: new PuterExecutor(),
 };
 
 export { executors };

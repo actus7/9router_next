@@ -4,9 +4,8 @@ import type { NextRequest } from "next/server";
 /**
  * Where the browser sends Content Security Policy violations.
  *
- * The policy ships report-only (see `lib/security/contentSecurityPolicy.ts`)
- * and the part of it that cannot be read off the source is what the Puter SDK
- * reaches once it boots — inside the chat, behind a login. A console is not a
+ * The policy ships report-only (see `lib/security/contentSecurityPolicy.ts`).
+ * A console is not a
  * collector: it only tells whoever happens to have devtools open. This makes
  * the discovery phase self-service, and it is meant to be deleted when the
  * policy moves to enforce.

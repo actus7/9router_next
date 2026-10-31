@@ -13,9 +13,7 @@ import {
   refreshCopilotToken,
   refreshCodebuddyToken,
   refreshCodebuddyIntlToken,
-  refreshTraeToken,
   refreshZedToken,
-  refreshWindsurfToken,
 } from "./tokenRefresh/providers";
 import type { Credentials, RefreshResult, Logger, VertexServiceAccount, RefreshHandler, ProviderConfig } from "./types";
 
@@ -137,9 +135,7 @@ const REFRESH_HANDLERS: Record<string, RefreshHandler> = {
   gcli: (c, log) => refreshXaiToken(c.refreshToken || "", log),
   "codebuddy-cn": (c, log) => refreshCodebuddyToken(c.refreshToken || "", log),
   "codebuddy-intl": (c, log) => refreshCodebuddyIntlToken(c.refreshToken || "", log),
-  trae: (c, log) => refreshTraeToken(c.refreshToken || "", c, log),
   zed: () => refreshZedToken(),
-  windsurf: (c, log) => refreshWindsurfToken(c, log),
   // Kimi Code OAuth (merged into id `kimi`); legacy id still routes here
   kimi: (c, log) => refreshKimiToken(c.refreshToken || "", c, log),
   "kimi-coding": (c, log) => refreshKimiToken(c.refreshToken || "", c, log),

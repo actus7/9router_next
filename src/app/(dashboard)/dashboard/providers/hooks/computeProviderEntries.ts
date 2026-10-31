@@ -13,21 +13,25 @@ export function computeCompatibleProviders(providerNodes: ProviderNode[], search
   return { compatibleProviders: compatible, anthropicCompatibleProviders: anthropic };
 }
 
+// Search, music and other non-chat services are listed under Mídia
+// (/dashboard/media-providers/*); every group here is LLM-only.
+const isLlm = (info: ProviderInfo) => !info.hidden && (info.serviceKinds ?? ["llm"]).includes("llm");
+
 export function computeProviderEntries(searchQuery: string, connections: Connection[]) {
   const ms = (name: string) => matchSearch(searchQuery, name);
   const gs = (id: string, auth: string | string[]) => getProviderStats(connections, id, auth, normalizeProviderId);
 
   const oauthEntries = sortByPriority(
-    (Object.entries(OAUTH_PROVIDERS) as unknown as [string, ProviderInfo][]).filter(([, info]) => !info.hidden && ms(info.name)),
+    (Object.entries(OAUTH_PROVIDERS) as unknown as [string, ProviderInfo][]).filter(([, info]) => isLlm(info) && ms(info.name)),
     "oauth", gs,
   );
 
   const freeEntries = (Object.entries(FREE_PROVIDERS) as unknown as [string, ProviderInfo][])
-    .filter(([, info]) => !info.hidden && ms(info.name))
+    .filter(([, info]) => isLlm(info) && ms(info.name))
     .sort(([, a], [, b]) => (b.noAuth ? 1 : 0) - (a.noAuth ? 1 : 0));
 
   const freeTierEntries = (Object.entries(FREE_TIER_PROVIDERS) as unknown as [string, ProviderInfo][])
-    .filter(([, info]) => !info.hidden && ms(info.name) && (info.serviceKinds ?? ["llm"]).includes("llm"))
+    .filter(([, info]) => isLlm(info) && ms(info.name))
     .sort(([ka, a], [kb, b]) => {
       const pa = a.priority ?? 999; const pb = b.priority ?? 999;
       if (pa !== pb) return pa - pb;
@@ -40,7 +44,7 @@ export function computeProviderEntries(searchQuery: string, connections: Connect
     });
 
   const apikeyEntries = (Object.entries(APIKEY_PROVIDERS) as unknown as [string, ProviderInfo][])
-    .filter(([, info]) => !info.hidden && (info.serviceKinds ?? ["llm"]).includes("llm") && ms(info.name))
+    .filter(([, info]) => isLlm(info) && ms(info.name))
     .sort(([ka, a], [kb, b]) => {
       const ca = gs(ka, "apikey").total > 0 ? 0 : 1;
       const cb = gs(kb, "apikey").total > 0 ? 0 : 1;
@@ -49,7 +53,7 @@ export function computeProviderEntries(searchQuery: string, connections: Connect
     });
 
   const webCookieEntries = (Object.entries(WEB_COOKIE_PROVIDERS) as unknown as [string, ProviderInfo][])
-    .filter(([, info]) => !info.hidden && ms(info.name))
+    .filter(([, info]) => isLlm(info) && ms(info.name))
     .sort(([ka, a], [kb, b]) => {
       const ca = gs(ka, "cookie").total > 0 ? 0 : 1;
       const cb = gs(kb, "cookie").total > 0 ? 0 : 1;

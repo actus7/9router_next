@@ -41,6 +41,12 @@ const PATTERN_THINKING = [
   { pattern: "*codex*", levels: ["low", "medium", "high", "xhigh"] }, // codex cannot disable thinking
 ];
 
+// OpenAI documents reasoning.effort "max" for GPT-5.6 and GPT-6. The codex rows already carry
+// it; an OpenAI Compatible node serving the same ids gets the same set, otherwise the "openai"
+// list (no max) clamps max to xhigh on the wire.
+const OPENAI_MAX_EFFORT_MODEL = /(?:^|\/)gpt-(?:5\.6|6)(?:[.-]|$)/i;
+const isOpenAICompatibleNode = (provider: string) => provider.startsWith("openai-compatible-");
+
 // Returns valid thinking levels for a model, or null when the model has no reasoning.
 export function getThinkingLevels(provider: string, model: string) {
   if (provider === "kiro" && resolveKiroEffortPath(model) === null) return null;
@@ -49,7 +55,10 @@ export function getThinkingLevels(provider: string, model: string) {
   const hit = PATTERN_THINKING.find((entry) =>
     (!entry.provider || entry.provider === provider) && matchPattern(entry.pattern, model)
   );
-  let levels = hit?.levels || (FORMAT_LEVELS as Record<string, string[]>)[caps.thinkingFormat as string] || L.base;
+  const maxEffortNode = isOpenAICompatibleNode(provider) && OPENAI_MAX_EFFORT_MODEL.test(model);
+  let levels = hit?.levels
+    || (maxEffortNode ? CODEX_GPT_5_6_LEVELS : null)
+    || (FORMAT_LEVELS as Record<string, string[]>)[caps.thinkingFormat as string] || L.base;
   if (caps.thinkingCanDisable === false) levels = levels.filter((l: string) => l !== "none");
   return levels;
 }

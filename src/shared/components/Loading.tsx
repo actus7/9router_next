@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton as ShadcnSkeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";

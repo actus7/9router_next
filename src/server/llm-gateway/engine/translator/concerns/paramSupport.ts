@@ -14,7 +14,18 @@ const STRIP_RULES: StripRule[] = [
   // GitHub Copilot Claude (except opus/sonnet 4.6): thinking + reasoning_effort rejected. #713
   { provider: "github", match: (m: string) => /claude/i.test(m) && !/claude.*(opus|sonnet).*4\.6/i.test(m), drop: ["thinking", "reasoning_effort"] },
   // Cloudflare Workers AI: content must be plain string, rejects OpenAI content-part array (#1926)
-  { provider: "cloudflare-ai", flattenContent: true },
+  // Vision models keep image_url parts (user turns); everything else still flattens.
+  { provider: "cloudflare-ai", flattenContent: true, keepImagesForVision: true },
+  // Current OpenAI models (gpt-5.x / gpt-6.x / o-series) reject max_tokens with 400 ("Use 'max_completion_tokens' instead").
+  { provider: "openai", renameParams: { max_tokens: "max_completion_tokens" } },
+  // Groq's gpt-oss takes reasoning_effort low/medium/high only (400 otherwise).
+  // ponytail: gpt-oss only — Groq's Qwen3 takes none/default, so a global clamp
+  // would turn its working "none" into a 400.
+  { provider: "groq", match: /gpt-oss/i, clampEnum: { reasoning_effort: { allowed: ["low", "medium", "high"], map: { none: "low", minimal: "low", xhigh: "high", max: "high" } } } },
+  // NVIDIA NIM treats reasoning and reasoning_content as one field; sending both is a duplicate-field 400.
+  { provider: "nvidia", renameMessageFields: { reasoning: "reasoning_content" } },
+  // OpenCode Go's relay rejects response_format for its deepseek family (400, json_schema and json_object alike).
+  { provider: "opencode-go", match: /^deepseek/i, drop: ["response_format"] },
   // Cohere's OpenAI compatibility API rejects these otherwise valid JSON-schema
   // keywords in function parameters, returning HTTP 400 before the model runs.
   { provider: "cohere", flattenContent: true, stripToolSchemaKeys: ["additionalProperties", "$schema"] },
@@ -49,25 +60,70 @@ function stripSchemaKeys(value: unknown, keys: Set<string>): unknown {
   );
 }
 
+function renameParams(body: Record<string, unknown>, renames: Record<string, string>): void {
+  for (const [from, to] of Object.entries(renames)) {
+    if (body[from] === undefined) continue;
+    // An explicit target value from the client wins over the legacy name.
+    if (body[to] === undefined) body[to] = body[from];
+    delete body[from];
+  }
+}
+
+function clampEnumParams(body: Record<string, unknown>, clamps: NonNullable<StripRule["clampEnum"]>): void {
+  for (const [key, { allowed, map }] of Object.entries(clamps)) {
+    const value = body[key];
+    if (typeof value !== "string" || allowed.includes(value)) continue;
+    if (map && Object.prototype.hasOwnProperty.call(map, value)) body[key] = map[value];
+  }
+}
+
+// Assistant turns only: clients replay reasoning there. A non-empty canonical field wins over the alias.
+function renameAssistantFields(body: Record<string, unknown>, renames: Record<string, string>): void {
+  if (!Array.isArray(body.messages)) return;
+  body.messages = (body.messages as Record<string, unknown>[]).map((msg) => {
+    if (!msg || msg.role !== "assistant") return msg;
+    const next = { ...msg };
+    for (const [from, to] of Object.entries(renames)) {
+      if (next[from] === undefined) continue;
+      const existing = next[to];
+      if (existing === undefined || existing === null || (typeof existing === "string" && !existing.trim())) {
+        next[to] = next[from];
+      }
+      delete next[from];
+    }
+    return next;
+  });
+}
+
+// CF Workers AI oneOf root schema only accepts content as plain string (#1926).
+// A vision model keeps its image_url parts on user turns (text-only arrays still flatten).
+function flattenMessageContent(body: Record<string, unknown>, keepImages: boolean, model: string): void {
+  if (!Array.isArray(body.messages)) return;
+  const visionModel = keepImages && getCapabilitiesForModel("cloudflare-ai", model).vision === true;
+  for (const msg of body.messages as Record<string, unknown>[]) {
+    if (!msg || !Array.isArray(msg.content)) continue;
+    const parts = msg.content as Record<string, unknown>[];
+    const hasImage = parts.some((b) => b?.type === "image_url");
+    if (visionModel && msg.role === "user" && hasImage) continue;
+    msg.content = parts
+      .map((b: Record<string, unknown>) => (b?.type === "text" && typeof b.text === "string") ? b.text : "")
+      .join("");
+  }
+}
+
 // Remove unsupported params from body in place; returns body.
 export function stripUnsupportedParams(provider: string, model: string, body: Record<string, unknown>): Record<string, unknown> {
   if (!model || !body || typeof body !== "object") return body;
   for (const rule of STRIP_RULES) {
     if (rule.provider && rule.provider !== provider) continue;
     if (!matches(rule, model)) continue;
+    if (rule.renameParams) renameParams(body, rule.renameParams);
+    if (rule.clampEnum) clampEnumParams(body, rule.clampEnum);
+    if (rule.renameMessageFields) renameAssistantFields(body, rule.renameMessageFields);
     for (const key of rule.drop || []) {
       if (body[key] !== undefined) delete body[key];
     }
-    // CF Workers AI oneOf root schema only accepts content as plain string (#1926)
-    if (rule.flattenContent && Array.isArray(body.messages)) {
-      for (const msg of body.messages as Record<string, unknown>[]) {
-        if (msg && Array.isArray(msg.content)) {
-          msg.content = (msg.content as Record<string, unknown>[])
-            .map((b: Record<string, unknown>) => (b?.type === "text" && typeof b.text === "string") ? b.text : "")
-            .join("");
-        }
-      }
-    }
+    if (rule.flattenContent) flattenMessageContent(body, rule.keepImagesForVision === true, model);
     if (rule.stripToolSchemaKeys && Array.isArray(body.tools)) {
       const keys = new Set(rule.stripToolSchemaKeys);
       body.tools = (body.tools as Record<string, unknown>[]).map((tool) => {

@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Check, ChevronsUpDown, Settings2, User, Users } from "lucide-react";
+import { Check, ChevronsUpDown, User, Users } from "lucide-react";
 
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { translate } from "@/i18n/runtime";
 import { switchWorkspace, useOrganizations, useWorkspace } from "@/shared/hooks/useWorkspace";
@@ -16,7 +15,7 @@ const t = (text: string): string => translate(text) || text;
  * under the logo so it is always visible: everything below it — providers,
  * keys, chats — belongs to the workspace named here.
  */
-export default function WorkspaceSwitcher({ onNavigate }: { onNavigate?: () => void }) {
+export default function WorkspaceSwitcher() {
   const { workspace } = useWorkspace();
   const { data: organizations = [], isLoading: organizationsLoading } = useOrganizations();
   const [switching, setSwitching] = useState<string | null>(null);
@@ -73,11 +72,6 @@ export default function WorkspaceSwitcher({ onNavigate }: { onNavigate?: () => v
             <Check className={cn("size-4", entry.id === workspace.me.tenantId ? "opacity-100" : "opacity-0")} />
           </DropdownMenuItem>
         ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem render={<Link href="/dashboard/team" onClick={onNavigate} />}>
-          <Settings2 />
-          <span>{personalIsTeam || !current?.personal ? t("Manage team") : t("Create a team")}</span>
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

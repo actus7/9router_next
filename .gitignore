@@ -79,3 +79,6 @@ public/extensions/
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
 brag-output/
+
+# vitest json reporter output
+.vitest/

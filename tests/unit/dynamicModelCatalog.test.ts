@@ -45,8 +45,10 @@ describe("dynamic model catalogue", () => {
   it("keeps the array for providers that cannot be asked", () => {
     // Otherwise the rule above would be trivially satisfiable by deleting every
     // catalogue in the repository, leaving those providers with no models at all.
+    // 96 on 2026-10-31, after 44 providers with a `/models` route moved to
+    // discovery; the rest are web sessions, media/search APIs and hosts without one.
     const shipped = entries.filter((entry) => !hasModelListing(entry) && staticModelCount(entry) > 0);
-    expect(shipped.length).toBeGreaterThan(100);
+    expect(shipped.length).toBeGreaterThan(80);
   });
 
   it("only lets a provider without a catalogue carry model overrides", () => {

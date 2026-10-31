@@ -21,13 +21,4 @@ export default {
     validateUrl: "https://api-inference.modelscope.cn/v1/models",
     timeoutMs: 90000,
   },
-  models: [
-    { id: "Qwen/Qwen3-235B-A22B-Instruct-2507", name: "Qwen3 235B Instruct" },
-    { id: "Qwen/Qwen3-Coder-480B-A35B-Instruct", name: "Qwen3 Coder 480B" },
-    { id: "Qwen/Qwen3-32B", name: "Qwen3 32B" },
-    { id: "deepseek-ai/DeepSeek-V4-Flash", name: "DeepSeek V4 Flash" },
-    { id: "deepseek-ai/DeepSeek-V4-Pro", name: "DeepSeek V4 Pro" },
-    { id: "deepseek-ai/DeepSeek-R1", name: "DeepSeek R1" },
-    { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen2.5 72B Instruct" },
-  ],
 };

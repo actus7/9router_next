@@ -94,9 +94,6 @@ import p97 from "./xiaomi-tokenplan";
 import p98 from "./youcom";
 import p99 from "./alims-intl";
 import p100 from "./codebuddy-intl";
-// Temporarily hidden — no tool calling support (trae SOLO agent / windsurf gRPC skip ToolCallChunk).
-// Re-enable by uncommenting both the import and the array entry below.
-// import p102 from "./trae";
 import p103 from "./zed";
 import p105 from "./api-airforce";
 import p106 from "./baidu";
@@ -107,8 +104,6 @@ import p110 from "./llm7";
 import p111 from "./sambanova";
 import p112 from "./tencent";
 import p113 from "./morph";
-// import p114 from "./devin-cli";
-// import p104 from "./windsurf";
 import p115 from "./poolside";
 import p116 from "./tokenrouter";
 import p120 from "./fish-audio";
@@ -117,7 +112,6 @@ import p122 from "./pollinations";
 import p123 from "./moonshot";
 import p124 from "./opengateway";
 import p125 from "./github-copilot";
-import p126 from "./quillbot";
 import p127 from "./duckai";
 import p128 from "./bai";
 import p129 from "./anyapi";
@@ -151,7 +145,6 @@ import p156 from "./cloudcode-one";
 import p157 from "./clova-studio";
 import p158 from "./codestral";
 import p159 from "./coze";
-import p160 from "./crof";
 import p161 from "./deepinfra";
 import p162 from "./dgrid";
 import p163 from "./dit";
@@ -170,10 +163,8 @@ import p175 from "./inception";
 import p176 from "./inference-net";
 import p177 from "./internlm";
 import p178 from "./kenari";
-import p179 from "./lambda-ai";
 import p180 from "./liquid";
 import p181 from "./literouter";
-import p182 from "./llamagate";
 import p183 from "./llm-kiwi";
 import p184 from "./llmgateway";
 import p185 from "./maritalk";
@@ -211,7 +202,6 @@ import p216 from "./upstage";
 import p217 from "./wandb";
 import p218 from "./writer";
 import p219 from "./x5lab";
-import p220 from "./yi";
 import p221 from "./yolo-auto";
 import p222 from "./zylo-api";
 import p223 from "./glmt";
@@ -228,7 +218,6 @@ import p244 from "./perplexity-search";
 import p245 from "./anysearch";
 import p246 from "./nimble-search";
 import p247 from "./x-search";
-import p248 from "./xquik-search";
 import p249 from "./ollama-search";
 import p250 from "./context7";
 import p251 from "./nomic";
@@ -256,12 +245,9 @@ import p272 from "./agentrouter";
 import p273 from "./dahl";
 import p274 from "./free-ai";
 import p275 from "./oneminai";
-import p276 from "./tabitoken";
 import p277 from "./zenmux";
 import p278 from "./ghe-copilot";
 import p279 from "./amazon-q";
-import p280 from "./agy";
-import p281 from "./openference";
 import p282 from "./devin-desktop";
 import p286 from "./deepseek-web";
 import p287 from "./copilot-web";
@@ -286,7 +272,6 @@ import p308 from "./v0-vercel-web";
 import p309 from "./adobe-firefly";
 import p310 from "./zenmux-free";
 import p311 from "./theoldllm";
-import p312 from "./puter";
 
 const REGISTRY: RegistryEntry[] = [
   p0,
@@ -381,7 +366,6 @@ const REGISTRY: RegistryEntry[] = [
   p98,
   p99,
   p100,
-  // p102, // trae — hidden, no tool calling
   p103,
   p105,
   p106,
@@ -392,8 +376,6 @@ const REGISTRY: RegistryEntry[] = [
   p111,
   p112,
   p113,
-  // p114, // devin-cli — hidden, spawns local agent with shell/fs access
-  // p104, // windsurf — hidden, no tool calling
   p115,
   p116,
   p120,
@@ -402,7 +384,6 @@ const REGISTRY: RegistryEntry[] = [
   p123,
   p124,
   p125,
-  p126,
   p127,
   p128,
   p129,
@@ -436,7 +417,6 @@ const REGISTRY: RegistryEntry[] = [
   p157,
   p158,
   p159,
-  p160,
   p161,
   p162,
   p163,
@@ -455,10 +435,8 @@ const REGISTRY: RegistryEntry[] = [
   p176,
   p177,
   p178,
-  p179,
   p180,
   p181,
-  p182,
   p183,
   p184,
   p185,
@@ -496,7 +474,6 @@ const REGISTRY: RegistryEntry[] = [
   p217,
   p218,
   p219,
-  p220,
   p221,
   p222,
   p223,
@@ -513,7 +490,6 @@ const REGISTRY: RegistryEntry[] = [
   p245,
   p246,
   p247,
-  p248,
   p249,
   p250,
   p251,
@@ -541,12 +517,9 @@ const REGISTRY: RegistryEntry[] = [
   p273,
   p274,
   p275,
-  p276,
   p277,
   p278,
   p279,
-  p280,
-  p281,
   p282,
   p286,
   p287,
@@ -571,7 +544,6 @@ const REGISTRY: RegistryEntry[] = [
   p309,
   p310,
   p311,
-  p312,
 ];
 
 export default REGISTRY;

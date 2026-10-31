@@ -4,7 +4,7 @@
  * its `:free` models (rate-limited to 200 requests/hour per IP), so an account
  * without a Kilo connection reaches it with no Authorization header at all —
  * see `anonymousFreeModels` in the Kilo registry entry and the anonymous branch
- * in `getProviderCredentials`. Unlike the Duck.ai and Quillbot web sessions it
+ * in `getProviderCredentials`. Unlike the Duck.ai web session it
  * also calls tools, which the chat's plugins depend on.
  *
  * It replaced OpenCode Free (`oc/big-pickle`), which began answering every call
@@ -28,3 +28,10 @@ export const FREE_DEFAULT_MODEL_KEY = `${FREE_DEFAULT_PROVIDER_ALIAS}/${FREE_DEF
 export function isFreeDefaultProvider(provider: string): boolean {
   return provider === FREE_DEFAULT_PROVIDER_ID || provider === FREE_DEFAULT_PROVIDER_ALIAS;
 }
+
+/**
+ * Request header that turns the last-resort free fallback off for one call.
+ * The model test sends it: without it, a model with no account "passed"
+ * because the free default answered in its place.
+ */
+export const NO_FREE_FALLBACK_HEADER = "x-no-free-fallback";

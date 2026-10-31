@@ -111,69 +111,11 @@ export const KIMCHI_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Re
 // Grok CLI / Grok Build OAuth Configuration (Device Code Flow)
 export const GROK_CLI_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["grok-cli"] };
 
-// Trae (ByteDance marscode) OAuth
-export const TRAE_CONFIG: Record<string, unknown> = {
-  clientId: "ono9krqynydwx5",
-  clientSecret: "-",
-  loginGuidanceUrls: [
-    "https://api.marscode.com/cloudide/api/v3/trae/GetLoginGuidance",
-    "https://api.trae.ai/cloudide/api/v3/trae/GetLoginGuidance",
-    "https://www.trae.ai/cloudide/api/v3/trae/GetLoginGuidance",
-  ],
-  apiOrigins: [
-    "https://api.marscode.com",
-    "https://api.trae.ai",
-    "https://www.trae.ai",
-    "https://www.marscode.com",
-  ],
-  exchangeTokenPath: "/cloudide/api/v3/trae/oauth/ExchangeToken",
-  getUserInfoPath: "/cloudide/api/v3/trae/GetUserInfo",
-  authorizationPath: "/authorization",
-  callbackPath: "/callback",
-  minAppVersion: "3.5.54",
-  defaultAppVersion: "3.5.54",
-  defaultAppType: "stable",
-  defaultPluginVersion: "local",
-  defaultDeviceId: "0",
-  userAgent: "Trae/1.0.0 antigravity-cockpit-tools",
-  webUrl: "https://www.trae.ai",
-  authScheme: "Cloud-IDE-JWT",
-  tokenLifetimeDays: 14,
-  oauthTimeoutMs: 600_000,
-};
-
-// Windsurf / Devin CLI OAuth
-export const WINDSURF_CONFIG: Record<string, unknown> = {
-  clientId: "3GUryQ7ldAeKEuD2obYnppsnmj58eP5u",
-  authBaseUrl: "https://www.windsurf.com",
-  signInPath: "/windsurf/signin",
-  registerApiBaseUrl: "https://register.windsurf.com",
-  registerPath: "/exa.seat_management_pb.SeatManagementService/RegisterUser",
-  oneTimeAuthPath: "/exa.seat_management_pb.SeatManagementService/GetOneTimeAuthToken",
-  currentUserPath: "/exa.seat_management_pb.SeatManagementService/GetCurrentUser",
-  planStatusPath: "/exa.seat_management_pb.SeatManagementService/GetPlanStatus",
-  userStatusPath: "/exa.seat_management_pb.SeatManagementService/GetUserStatus",
-  defaultApiServerUrl: "https://server.codeium.com",
-  firebaseApiKey: process.env.WINDSURF_FIREBASE_API_KEY || "",
-  callbackPath: "/windsurf-auth-callback",
-  userAgent: "antigravity-cockpit-tools",
-  oauthTimeoutMs: 600_000,
-};
-
 // GHE Copilot OAuth Configuration (Device Code Flow)
 export const GHE_COPILOT_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["ghe-copilot"] };
 
 // Amazon Q OAuth Configuration (AWS Builder ID / Device Code Flow)
 export const AMAZON_Q_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["amazon-q"] };
-
-// Antigravity CLI OAuth Configuration (Google OAuth PKCE)
-export const AGY_CONFIG: Record<string, unknown> = {
-  ...(ANTIGRAVITY_OAUTH_CLIENT as Record<string, unknown>),
-  ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["agy"],
-};
-
-// Openference OAuth Configuration (Authorization Code PKCE)
-export const OPENFERENCE_CONFIG: Record<string, unknown> = { ...(PROVIDER_OAUTH as Record<string, Record<string, unknown>>)["openference"] };
 
 // Zed hosted LLM aggregator — RSA keypair native-app auth (NOT OAuth).
 export const ZED_HOSTED_CONFIG: Record<string, unknown> = {

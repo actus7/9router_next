@@ -13,7 +13,4 @@ export default {
     baseUrl: "https://inference.liquid.ai/v1/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "liquid-lfm-40b", name: "Liquid LFM 40B" },
-  ],
 };

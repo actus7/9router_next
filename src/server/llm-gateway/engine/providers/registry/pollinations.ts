@@ -21,22 +21,4 @@ export default {
       429: { attempts: 1, delayMs: 5000 },
     },
   },
-  // The model catalogue is public, but inference requires a Pollinations key.
-  // Keep the curated rows until a model-refresh endpoint is implemented.
-  models: [
-    { id: "openai", name: "OpenAI (Pollinations)" },
-    { id: "openai-fast", name: "OpenAI Fast (Pollinations)" },
-    { id: "openai-large", name: "OpenAI Large (Pollinations)" },
-    { id: "qwen-coder", name: "Qwen Coder (Pollinations)" },
-    { id: "qwen-coder-large", name: "Qwen Coder Large (Pollinations)" },
-    { id: "qwen-large", name: "Qwen Large (Pollinations)" },
-    { id: "mistral", name: "Mistral (Pollinations)" },
-    { id: "mistral-large", name: "Mistral Large (Pollinations)" },
-    { id: "deepseek", name: "DeepSeek (Pollinations)" },
-    { id: "grok", name: "Grok (Pollinations)" },
-    { id: "gemini-flash-lite-3.1", name: "Gemini Flash Lite 3.1 (Pollinations)" },
-    { id: "perplexity-fast", name: "Perplexity Fast (Pollinations)" },
-    { id: "perplexity-reasoning", name: "Perplexity Reasoning (Pollinations)" },
-  ],
-  noModelDiscovery: true,
 };

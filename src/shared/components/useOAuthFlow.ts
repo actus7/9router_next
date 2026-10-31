@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { PROXY_OAUTH_PROVIDERS, PASTE_TOKEN_PROVIDERS, type ProviderInfo, type UseOAuthFlowProps } from "./oauthFlowConstants";
+import { PROXY_OAUTH_PROVIDERS, type ProviderInfo, type UseOAuthFlowProps } from "./oauthFlowConstants";
 import { exchangeTokensAction, completeXaiManualCodeAction, startPollingAction, startProxyFlowAction, handleManualSubmitAction, stopProxyForProvider, startDeviceCodeFlowAction, startStandardOAuthAction, isDeviceCodeProvider } from "./oauthFlowActions";
 import { useOAuthCallbackListener } from "./useOAuthCallbackListener";
 import { useOAuthPolling } from "./useOAuthPolling";
 
-export { PROXY_OAUTH_PROVIDERS, PASTE_TOKEN_PROVIDERS };
+export { PROXY_OAUTH_PROVIDERS };
 export type { ProviderInfo };
 
 export function useOAuthFlow({ isOpen, provider, onSuccess, onClose, oauthMeta, idcConfig }: UseOAuthFlowProps) {
@@ -18,9 +18,6 @@ export function useOAuthFlow({ isOpen, provider, onSuccess, onClose, oauthMeta, 
   const [isDeviceCode, setIsDeviceCode] = useState(false);
   const [deviceData, setDeviceData] = useState<Record<string, unknown> | null>(null);
   const [polling, setPolling] = useState(false);
-  const [authMode, setAuthMode] = useState<"browser" | "paste-token">("browser");
-  const [pasteToken, setPasteToken] = useState("");
-  const [ideStatus, setIdeStatus] = useState<{ installed: boolean; path: string | null } | null>(null);
   const popupRef = useRef<Window | null>(null);
   const pollingAbortRef = useRef(false);
   const openedRef = useRef(false);
@@ -39,18 +36,17 @@ export function useOAuthFlow({ isOpen, provider, onSuccess, onClose, oauthMeta, 
     if (!provider) return;
     try {
       setError(null);
-      if (PROXY_OAUTH_PROVIDERS.has(provider) && authMode === "browser") { await startProxyFlow(provider); return; }
+      if (PROXY_OAUTH_PROVIDERS.has(provider)) { await startProxyFlow(provider); return; }
       if (isDeviceCodeProvider(provider)) { await startDeviceCodeFlowAction({ provider, idcConfig, setIsDeviceCode, setStep, setDeviceData, startPolling }); return; }
       await startStandardOAuthAction({ provider, oauthMeta, isLocalhost, setAuthData, setStep, popupRef });
     } catch (err: unknown) { setError(err instanceof Error ? err.message : String(err)); setStep("error"); }
-  }, [provider, isLocalhost, startPolling, oauthMeta, idcConfig, authMode, startProxyFlow]);
+  }, [provider, isLocalhost, startPolling, oauthMeta, idcConfig, startProxyFlow]);
 
   useEffect(() => {
     if (isOpen && provider) {
       if (openedRef.current) return;
       openedRef.current = true;
-      setAuthData(null); setCallbackUrl(""); setError(null); setIsDeviceCode(false); setDeviceData(null); setPolling(false); setAuthMode("browser"); setPasteToken(""); setIdeStatus(null); pollingAbortRef.current = false;
-      if (PASTE_TOKEN_PROVIDERS[provider]) fetch(`/api/oauth/${provider}/ide-status`).then((r) => r.json()).then((d) => setIdeStatus(d)).catch(() => setIdeStatus({ installed: false, path: null }));
+      setAuthData(null); setCallbackUrl(""); setError(null); setIsDeviceCode(false); setDeviceData(null); setPolling(false); pollingAbortRef.current = false;
       startOAuthFlow();
     } else if (!isOpen) { pollingAbortRef.current = true; openedRef.current = false; stopProxyForProvider(provider); }
   }, [isOpen, provider, startOAuthFlow]);
@@ -62,8 +58,8 @@ export function useOAuthFlow({ isOpen, provider, onSuccess, onClose, oauthMeta, 
   }, [exchangeTokens, setError, setStep]);
   useOAuthCallbackListener(authData, handleCallbackData);
 
-  const handleManualSubmit = async () => { await handleManualSubmitAction({ authMode, provider, pasteToken, callbackUrl, authData, setStep, setError, onSuccess, exchangeTokens, completeXaiManualCode }); };
+  const handleManualSubmit = async () => { await handleManualSubmitAction({ provider, callbackUrl, authData, setStep, setError, onSuccess, exchangeTokens, completeXaiManualCode }); };
   const handleClose = useCallback(() => { stopProxyForProvider(provider); onClose(); }, [onClose, provider]);
 
-  return { step, setStep, authData, callbackUrl, setCallbackUrl, error, setError, isDeviceCode, deviceData, polling, authMode, setAuthMode, pasteToken, setPasteToken, ideStatus, isLocalhost, placeholderUrl, copied, copy, handleManualSubmit, handleClose, startOAuthFlow };
+  return { step, setStep, authData, callbackUrl, setCallbackUrl, error, setError, isDeviceCode, deviceData, polling, isLocalhost, placeholderUrl, copied, copy, handleManualSubmit, handleClose, startOAuthFlow };
 }

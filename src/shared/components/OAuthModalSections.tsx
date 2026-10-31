@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FormInput as Input } from "@/shared/components/FormInput";
 import { AlertCircle, Check, CheckCircle2, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
-import { PASTE_TOKEN_PROVIDERS, type ProviderInfo } from "./useOAuthFlow";
+import type { ProviderInfo } from "./useOAuthFlow";
 
 /* ------------------------------------------------------------------ */
 /*  Shared prop fragments used by multiple section components          */
@@ -21,112 +21,44 @@ interface ManualSubmitActions {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Proxy OAuth Section (Trae / Windsurf / Zed)                        */
+/*  Proxy OAuth Section (Zed)                        */
 /* ------------------------------------------------------------------ */
 
 interface ProxyOAuthSectionProps extends CopyActions, ManualSubmitActions {
   provider: string;
   step: "waiting" | "input" | "success" | "error";
-  authMode: "browser" | "paste-token";
   callbackUrl: string;
-  pasteToken: string;
-  ideStatus: { installed: boolean; path: string | null } | null;
-  error: string | null;
-  setAuthMode: (m: "browser" | "paste-token") => void;
-  setError: (e: string | null) => void;
-  setStep: (s: "waiting" | "input" | "success" | "error") => void;
   setCallbackUrl: (v: string) => void;
-  setPasteToken: (v: string) => void;
-  startOAuthFlow: () => Promise<void>;
 }
 
 export function ProxyOAuthSection({
-  provider,
   step,
-  authMode,
   callbackUrl,
-  pasteToken,
-  ideStatus,
-  error: _error,
-  setAuthMode,
-  setError,
-  setStep,
   setCallbackUrl,
-  setPasteToken,
-  startOAuthFlow,
   handleManualSubmit,
   handleClose,
-  copied: _copied,
-  copy: _copy,
 }: ProxyOAuthSectionProps) {
   return (
     <>
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          onClick={() => { setAuthMode("browser"); setError(null); setStep("waiting"); startOAuthFlow(); }}
-          variant={authMode === "browser" ? "primary" : "ghost"}
-          className="flex-1"
-        >
-          🌐 {translate("Sign in with browser")}
-        </Button>
-        <Button
-          type="button"
-          onClick={() => { setAuthMode("paste-token"); setError(null); setStep("input"); }}
-          variant={authMode === "paste-token" ? "primary" : "ghost"}
-          className="flex-1"
-        >
-          🔑 {translate("Paste token")}
-        </Button>
-      </div>
-
-      {authMode === "browser" && (
-        <>
-          {step === "waiting" && (
-            <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">
-              <Loader2 className="size-4" />
-              <span className="text-sm">{translate("Waiting for browser authorization...")}</span>
-            </div>
-          )}
-          {step === "input" && (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-text-muted">
-                {translate("Popup was blocked. After authorizing in the browser, paste the complete callback URL here:")}
-              </p>
-              <Input
-                value={callbackUrl}
-                onChange={(e) => setCallbackUrl(e.target.value)}
-                placeholder="http://127.0.0.1:.../callback?..."
-                className="font-mono text-xs"
-              />
-              <div className="flex gap-2">
-                <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>{translate("Connect")}</Button>
-                <Button onClick={handleClose} variant="ghost" fullWidth>{translate("Cancel")}</Button>
-              </div>
-            </div>
-          )}
-        </>
+      {step === "waiting" && (
+        <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">
+          <Loader2 className="size-4" />
+          <span className="text-sm">{translate("Waiting for browser authorization...")}</span>
+        </div>
       )}
-
-      {authMode === "paste-token" && provider && (
+      {step === "input" && (
         <div className="flex flex-col gap-3">
-          {ideStatus && !ideStatus.installed && (
-            <div className={`px-3 py-2 rounded-lg text-sm ${PASTE_TOKEN_PROVIDERS[provider].ideOptional ? "bg-info text-info-foreground dark:text-info-foreground" : "bg-warning text-warning-foreground dark:text-warning-foreground"}`}>
-              {PASTE_TOKEN_PROVIDERS[provider].ideName} {translate("IDE not detected.")}
-              {PASTE_TOKEN_PROVIDERS[provider].ideOptional
-                ? " " + translate("You can still get the token from DevTools.")
-                : " " + translate("Install the IDE") + " " + PASTE_TOKEN_PROVIDERS[provider].ideName + " " + translate("to get the token, or use") + ' "' + translate("Sign in with browser") + '".'}
-            </div>
-          )}
-          <p className="text-sm text-text-muted">{PASTE_TOKEN_PROVIDERS[provider].instructions}</p>
+          <p className="text-sm text-text-muted">
+            {translate("Popup was blocked. After authorizing in the browser, paste the complete callback URL here:")}
+          </p>
           <Input
-            value={pasteToken}
-            onChange={(e) => setPasteToken(e.target.value)}
-            placeholder={PASTE_TOKEN_PROVIDERS[provider].placeholder}
+            value={callbackUrl}
+            onChange={(e) => setCallbackUrl(e.target.value)}
+            placeholder="http://127.0.0.1:.../callback?..."
             className="font-mono text-xs"
           />
           <div className="flex gap-2">
-            <Button onClick={handleManualSubmit} fullWidth disabled={!pasteToken}>{translate("Connect")}</Button>
+            <Button onClick={handleManualSubmit} fullWidth disabled={!callbackUrl}>{translate("Connect")}</Button>
             <Button onClick={handleClose} variant="ghost" fullWidth>{translate("Cancel")}</Button>
           </div>
         </div>

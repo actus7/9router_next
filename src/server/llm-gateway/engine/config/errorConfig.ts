@@ -59,6 +59,7 @@ export const BILLING_ERROR_TEXTS = [
   "please recharge",
   "insufficient_quota",
   "credit balance is too low",
+  "insufficient credit",
 ];
 
 /**

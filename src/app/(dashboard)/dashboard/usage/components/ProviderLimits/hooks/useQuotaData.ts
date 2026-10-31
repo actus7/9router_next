@@ -23,14 +23,15 @@ export function useQuotaData(
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
-  const [countdown, setCountdown] = useState(60);
+  // ponytail: a timestamp, not a ticking number — the 1s tick lives in the
+  // toolbar badge, so the cards don't re-render every second.
+  const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [hasHydratedAutoRefresh, setHasHydratedAutoRefresh] = useState(false);
   const [expiringFirst, setExpiringFirst] = useState(false);
   const [quotaSortMode, setQuotaSortMode] = useState("default");
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickCountRef = useRef(0);
   const busyRef = useRef(false);
   // Stable ref for refreshAll so interval/visibility handlers never go stale
@@ -123,7 +124,6 @@ export function useQuotaData(
     if (busyRef.current) return;
     busyRef.current = true;
     setRefreshingAll(true);
-    setCountdown(60);
 
     // Throttle Claude: poll its quota every Nth auto-tick (manual force bypasses)
     const tick = (tickCountRef.current += 1);
@@ -180,14 +180,10 @@ export function useQuotaData(
   const startIntervals = useCallback(() => {
     if (intervalRef.current) return; // Already running, don't duplicate
     intervalRef.current = setInterval(() => {
+      setNextRefreshAt(Date.now() + REFRESH_INTERVAL_MS);
       refreshAllRef.current?.();
     }, REFRESH_INTERVAL_MS);
-    countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) return 60;
-        return prev - 1;
-      });
-    }, 1000);
+    setNextRefreshAt(Date.now() + REFRESH_INTERVAL_MS);
   }, []);
 
   // Helper to stop intervals
@@ -196,10 +192,7 @@ export function useQuotaData(
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-      countdownRef.current = null;
-    }
+    setNextRefreshAt(null);
   }, []);
 
   // A single effect owns both timers and visibility changes, preventing
@@ -231,7 +224,7 @@ export function useQuotaData(
     lastUpdated,
     setLastUpdated,
     refreshingAll,
-    countdown,
+    nextRefreshAt,
     autoRefresh,
     setAutoRefresh,
     hasHydratedAutoRefresh,

@@ -10,7 +10,7 @@ export default {
     textIcon: "AH",
     website: "https://aihorde.net",
     notice: {
-      text: "Free community-powered inference (volunteer workers). Anonymous access with sentinel key 0000000000 (lowest queue priority). No tool calling support.",
+      text: "Free community-powered inference (volunteer workers). Anonymous access with sentinel key 0000000000 (lowest queue priority); a free aihorde.net key gets a better queue position. Supports tool calling; replies can wait minutes in the queue.",
       apiKeyUrl: "https://aihorde.net/register",
     },
   },

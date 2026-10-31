@@ -193,7 +193,7 @@ export default function ProviderLimits() {
         bulkToggling={actionsHook.bulkToggling}
         autoRefresh={quotaHook.autoRefresh}
         setAutoRefresh={quotaHook.setAutoRefresh}
-        countdown={quotaHook.countdown}
+        nextRefreshAt={quotaHook.nextRefreshAt}
         refreshAll={quotaHook.refreshAll}
         refreshingAll={quotaHook.refreshingAll}
       />

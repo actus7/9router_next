@@ -16,8 +16,4 @@ export default {
     baseUrl: "https://api.360.cn/v1/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "360-gpt2-pro", name: "360 GPT2 Pro" },
-    { id: "360-gpt2-turbo", name: "360 GPT2 Turbo" },
-  ],
 };

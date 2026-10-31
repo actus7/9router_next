@@ -17,9 +17,4 @@ export default {
     format: "openai",
     auth: { header: "Authorization", scheme: "key", source: ["apiKey"] },
   },
-  models: [
-    { id: "sabia-4", name: "Sabiá 4" },
-    { id: "sabia-4-thinking", name: "Sabiá 4 Thinking" },
-    { id: "sabiazinho-4", name: "Sabiazinho 4" },
-  ],
 };

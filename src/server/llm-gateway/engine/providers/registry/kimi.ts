@@ -53,21 +53,6 @@ export default {
       auth: { combined: true, header: "x-api-key", scheme: "raw", hooks: ["kimiHeaders"] },
     },
   ],
-  models: [
-    // Flagship K3 — platform.kimi.ai id `kimi-k3`, Kimi Code OAuth id `k3` (up to 1M)
-    { id: "kimi-k3", name: "Kimi K3" },
-    { id: "k3", name: "Kimi K3 (Code)" },
-    // Kimi Code subscription stable ids (map to K2.7 Code backend)
-    { id: "kimi-for-coding", name: "Kimi for Coding" },
-    { id: "kimi-for-coding-highspeed", name: "Kimi for Coding Highspeed" },
-    // Pay-as-you-go platform ids
-    { id: "kimi-k2.7-code", name: "Kimi K2.7 Code" },
-    { id: "kimi-k2.7-code-highspeed", name: "Kimi K2.7 Code Highspeed" },
-    { id: "kimi-k2.6", name: "Kimi K2.6" },
-    { id: "kimi-k2.5", name: "Kimi K2.5" },
-    { id: "kimi-k2.5-thinking", name: "Kimi K2.5 Thinking" },
-    { id: "kimi-latest", name: "Kimi Latest" },
-  ],
   serviceKinds: ["llm", "webSearch"],
   searchViaChat: {
     defaultModel: "kimi-k3",

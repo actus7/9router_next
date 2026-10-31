@@ -52,20 +52,21 @@ export async function refreshModels({
 
   if (fetched.length === 0) { notify.warning(translate("No models returned") || ""); return; }
 
-  const fetchedIds = new Set(fetched.map((m) => m.id || m.name).filter((id): id is string => typeof id === "string" && id.length > 0));
   // Every kind goes to the server, which maps the provider's own tag
   // (`discoveredModelKind`); filtering to "llm" here dropped image models and,
   // for tags like Vercel's `language`, could drop the whole list.
   const fetchedModels = fetched.filter((m) => !!(m.id || m.name));
-  const restoredIds = [...fetchedIds, CLEAR_ALL_MODELS_SENTINEL];
-  if (restoredIds.length > 0) {
-    const restoreResponse = await fetch("/api/models/disabled", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerAlias: providerStorageAlias, ids: restoredIds, action: "enable" }) });
-    if (restoreResponse.ok) await onFetchDisabledModels();
-  }
 
   const syncResponse = await fetch("/api/models/discovered", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerAlias: providerStorageAlias, models: fetchedModels }) });
   const syncData = await syncResponse.json();
   if (!syncResponse.ok) { notify.error(syncData.error || "Failed to synchronize models"); return; }
+
+  // Refresh is a reset: the catalogue is the new listing and nothing starts
+  // disabled. Re-enabling only the listed ids left every disabled model that
+  // the provider had since dropped stuck in "Disabled" forever. Runs after the
+  // sync so a failed listing never costs the user their disabled list.
+  const resetResponse = await fetch(`/api/models/disabled?providerAlias=${encodeURIComponent(providerStorageAlias)}`, { method: "DELETE" });
+  if (resetResponse.ok) await onFetchDisabledModels();
   if (Array.isArray(syncData.models)) setCustomModels(syncData.models);
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
   setLiveModels(fetched as LiveModel[]);

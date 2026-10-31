@@ -12,7 +12,6 @@
  */
 
 import { solveVqdChallengeWithBrowser } from "./duckaiChallengeBrowser";
-import { dynamicImport } from "./duckaiOptionalDependency";
 import { DUCKAI_USER_AGENT, type DuckAiChallengeRuntime, type VqdChallengeResult } from "./duckaiChallengeTypes";
 
 export type { DuckAiChallengeRuntime, VqdChallengeResult } from "./duckaiChallengeTypes";
@@ -300,7 +299,11 @@ async function getJsdomCtor(): Promise<JsdomCtor> {
   if (!jsdomCtorPromise) {
     jsdomCtorPromise = (async () => {
       try {
-        const mod = (await dynamicImport("jsdom")) as { JSDOM: JsdomCtor };
+        // Static specifier on purpose: jsdom is a real dependency listed in
+        // serverExternalPackages, and only a literal import lets the output
+        // tracer copy it into `.next/standalone`. The string-indirected
+        // dynamicImport left it out of the Docker image entirely.
+        const mod = (await import("jsdom")) as unknown as { JSDOM: JsdomCtor };
         return mod.JSDOM;
       } catch {
         throw new Error(

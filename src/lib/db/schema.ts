@@ -283,40 +283,6 @@ export const TABLES: Record<string, TableDefinition> = {
       "CREATE INDEX IF NOT EXISTS idx_rd_conn ON requestDetails(userId, connectionId)",
     ],
   },
-  cloudConnections: {
-    columns: {
-      id: "TEXT PRIMARY KEY",
-      userId: "TEXT NOT NULL",
-      provider: "TEXT NOT NULL",
-      label: "TEXT",
-      data: "TEXT NOT NULL",
-      createdAt: "TEXT NOT NULL",
-      updatedAt: "TEXT NOT NULL",
-    },
-    indexes: [
-      "CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_provider ON cloudConnections(userId, provider)",
-    ],
-  },
-  cloudDeployments: {
-    columns: {
-      id: "TEXT PRIMARY KEY",
-      userId: "TEXT NOT NULL",
-      connectionId: "TEXT NOT NULL",
-      provider: "TEXT NOT NULL",
-      toolId: "TEXT NOT NULL",
-      status: "TEXT NOT NULL",
-      publicUrl: "TEXT",
-      data: "TEXT NOT NULL",
-      createdAt: "TEXT NOT NULL",
-      updatedAt: "TEXT NOT NULL",
-    },
-    indexes: [
-      "CREATE INDEX IF NOT EXISTS idx_cd_connection ON cloudDeployments(userId, connectionId)",
-      "CREATE INDEX IF NOT EXISTS idx_cd_tool ON cloudDeployments(userId, toolId)",
-      "CREATE INDEX IF NOT EXISTS idx_cd_status ON cloudDeployments(userId, status)",
-      "CREATE UNIQUE INDEX IF NOT EXISTS idx_cd_tool_provider_active ON cloudDeployments(userId, toolId, provider) WHERE status != 'failed'",
-    ],
-  },
   // The only per-conversation table whose id used to be a *global* primary
   // key, so one account could hold an id another account needed — and the
   // upsert that matched nothing took the whole sync down with it. Keyed like

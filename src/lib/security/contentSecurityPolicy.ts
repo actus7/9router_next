@@ -9,9 +9,8 @@
  * still holds if that parser ever slips.
  *
  * Shipped report-only first. Every directive below is a claim about what the
- * page actually loads, and one of them — everything `js.puter.com` reaches once
- * its SDK boots — cannot be read off the source. Enforcing a wrong guess breaks
- * chat for everyone; reporting a wrong guess costs a console line.
+ * page actually loads. Enforcing a wrong guess breaks chat for everyone;
+ * reporting a wrong guess costs a console line.
  */
 
 /** Where the nonce and policy ride into the renderer. Lowercase: request headers. */
@@ -30,13 +29,6 @@ function authOrigin(): string {
   }
 }
 
-/**
- * Puter runs the completion inside its own page, so its SDK is a script we do
- * not host and cannot bundle — see `puterBrowser.ts`. It is named explicitly
- * rather than covered by a wildcard.
- */
-const PUTER_SCRIPT_ORIGIN = "https://js.puter.com";
-
 export function buildContentSecurityPolicy(nonce: string): string {
   const isDev = process.env.NODE_ENV === "development";
   const auth = authOrigin();
@@ -45,7 +37,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     // `strict-dynamic` lets the nonced Next bootstrap load the chunks it needs
     // without listing each one. `unsafe-eval` is React's dev-only error
     // reconstruction; neither React nor Next use eval in production.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${PUTER_SCRIPT_ORIGIN}${isDev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     // Deliberately not nonced. A nonce in `style-src` makes the browser ignore
     // `'unsafe-inline'`, and @xyflow/react (the topology graph) positions nodes
     // with inline styles it writes itself. Inline CSS is a far weaker vector
@@ -56,7 +48,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     "img-src 'self' blob: data: https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev",
     "media-src 'self' blob: data:",
     "font-src 'self' data:",
-    `connect-src 'self' ${[auth, PUTER_SCRIPT_ORIGIN].filter(Boolean).join(" ")}`,
+    `connect-src 'self'${auth ? ` ${auth}` : ""}`,
     "worker-src 'self' blob:",
     "frame-src 'self'",
     "object-src 'none'",

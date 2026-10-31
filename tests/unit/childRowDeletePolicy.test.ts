@@ -63,14 +63,6 @@ const POLICY: Record<string, Declared> = {
     parent: "providerConnections",
     why: "Same as usageHistory; this table has its own pruning via observabilityMaxRecords.",
   },
-  "cloudDeployments.connectionId": {
-    policy: "blocked",
-    parent: "cloudConnections",
-    why:
-      "DELETE /api/cloud/connections/[provider] answers 409 while any deployment " +
-      "references the connection. Cascading would drop the local record while the " +
-      "remote container keeps running and billing, with a live gateway key in its env.",
-  },
   "harnessEvents.sessionId": {
     policy: "cleans",
     parent: "harnessConversations",
@@ -106,10 +98,6 @@ const POLICY: Record<string, Declared> = {
   "modelAvailability.modelId": {
     policy: "not-a-reference",
     why: "An upstream model string, or the sentinel '__all'. Models are registry entries, not rows.",
-  },
-  "cloudDeployments.toolId": {
-    policy: "not-a-reference",
-    why: "Identifies a bundled tool in code, not a database row.",
   },
   "harnessConversations.projectId": {
     policy: "not-a-reference",

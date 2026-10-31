@@ -39,7 +39,7 @@ import {
   withRoutingTraceHeader,
 } from "@/server/llm-gateway/engine/services/routingTrace";
 import { truncateTraceError } from "@/shared/observability/routingTrace";
-import { FREE_DEFAULT_MODEL_KEY, isFreeDefaultProvider } from "@/shared/constants/freeDefault";
+import { FREE_DEFAULT_MODEL_KEY, isFreeDefaultProvider, NO_FREE_FALLBACK_HEADER } from "@/shared/constants/freeDefault";
 import {
   deriveRoutingSessionKey,
   getSmartCombo,
@@ -80,8 +80,8 @@ interface ComboStrategyConfig {
  *
  * The smart path runs its combo without auto-switch, so nothing moved a web
  * session that drops `tools` behind a model that keeps them — and a combo whose
- * overrides list only such sessions answered a tool turn in prose (Quillbot
- * commenting on an image it never saw). Tool-capable candidates go first; when
+ * overrides list only such sessions answered a tool turn in prose (a web
+ * session commenting on an image it never saw). Tool-capable candidates go first; when
  * there are none, the credential-free default leads, under the same switch
  * that already lets it answer for an exhausted provider.
  */
@@ -393,6 +393,8 @@ export async function handleChat(request: Request, clientRawRequest: ClientRawRe
   const accessDenied = await assertModelAllowed(modelStr);
   if (accessDenied) return accessDenied;
 
+  // Only takes an option away, so any caller may send it.
+  if (request.headers.get(NO_FREE_FALLBACK_HEADER) === "1") holdFreeFallback(body, true);
   // The trace is collected while routing and attached to whatever response wins.
   startRoutingTrace(body, modelStr);
   const response = await routeChatRequest(modelStr, body, request, apiKey, clientRawRequest);

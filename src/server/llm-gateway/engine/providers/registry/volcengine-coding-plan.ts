@@ -16,8 +16,4 @@ export default {
     baseUrl: "https://ark.ap-southeast.bytepluses.com/api/coding/v3/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "doubao-seed-2-0-pro-260215", name: "Doubao Seed 2.0 Pro", contextWindow: 262144 },
-    { id: "doubao-seed-2-0-lite-260215", name: "Doubao Seed 2.0 Lite", contextWindow: 262144 },
-  ],
 };

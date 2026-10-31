@@ -185,9 +185,7 @@ export async function startProxyFlowAction({
 }
 
 interface HandleManualSubmitParams {
-  authMode: "browser" | "paste-token";
   provider?: string;
-  pasteToken: string;
   callbackUrl: string;
   authData: Record<string, unknown> | null;
   setStep: SetStep;
@@ -198,30 +196,12 @@ interface HandleManualSubmitParams {
 }
 
 export async function handleManualSubmitAction({
-  authMode, provider, pasteToken, callbackUrl, authData,
+  provider, callbackUrl, authData,
   setStep, setError, onSuccess,
   exchangeTokens, completeXaiManualCode,
 }: HandleManualSubmitParams) {
   try {
     setError(null);
-
-    if (authMode === "paste-token" && provider) {
-      const { PASTE_TOKEN_PROVIDERS } = await import("./oauthFlowConstants");
-      if (PASTE_TOKEN_PROVIDERS[provider]) {
-        const token = pasteToken.trim();
-        if (!token) throw new Error("Missing token");
-        const res = await fetch(`/api/oauth/${provider}/exchange`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: token }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        setStep("success");
-        onSuccess?.();
-        return;
-      }
-    }
 
     const input = callbackUrl.trim();
 
@@ -282,7 +262,7 @@ export async function handleManualSubmitAction({
 
 export function stopProxyForProvider(provider?: string) {
   if (!provider) return;
-  const proxyProviders = ["codex", "xai", "trae", "windsurf", "zed"];
+  const proxyProviders = ["codex", "xai", "zed"];
   if (proxyProviders.includes(provider)) {
     fetch(`/api/oauth/${provider}/stop-proxy`).catch(() => {});
   }

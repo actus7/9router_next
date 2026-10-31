@@ -5,9 +5,6 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol";
 const DEFAULT_HEADROOM_URL: string = process.env.HEADROOM_URL || "http://localhost:8787";
 
 interface Settings {
-  cloudEnabled: boolean;
-  /** Read by `getCloudUrl()`, which falls back to CLOUD_URL / NEXT_PUBLIC_CLOUD_URL. */
-  cloudUrl: string;
   tunnelEnabled: boolean;
   tunnelUrl: string;
   tunnelProvider: string;
@@ -90,8 +87,6 @@ interface Settings {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  cloudEnabled: false,
-  cloudUrl: "",
   tunnelEnabled: false,
   tunnelUrl: "",
   tunnelProvider: "cloudflare",
@@ -225,16 +220,6 @@ export async function updateSettings(updates: Record<string, unknown>): Promise<
   });
   invalidateSettingsCache(userId);
   return mergeWithDefaults(next!);
-}
-
-export async function getCloudUrl(): Promise<string> {
-  const settings: Settings = await getSettings();
-  return (
-    settings.cloudUrl ||
-    process.env.CLOUD_URL ||
-    process.env.NEXT_PUBLIC_CLOUD_URL ||
-    ""
-  );
 }
 
 export async function exportSettings(): Promise<Record<string, unknown>> {

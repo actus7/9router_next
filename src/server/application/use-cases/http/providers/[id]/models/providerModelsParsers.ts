@@ -20,6 +20,13 @@ export const parseOpenAIStyleModels = (data: unknown): Record<string, unknown>[]
   });
 };
 
+// Pollinations lists text and image models together, told apart by `category`;
+// discovery stores chat models, so only text (or untagged) ones belong here.
+export const parsePollinationsModels = (data: unknown): Record<string, unknown>[] =>
+  parseOpenAIStyleModels(data)
+    .filter((model) => model.category === undefined || model.category === "text")
+    .map((model) => ({ ...model, name: typeof model.title === "string" ? model.title : model.name }));
+
 // Google returns model resources as `models/{id}` while the rest of the
 // gateway (catalogue, routing, and chat) uses the canonical bare `{id}`.
 // Normalize at the API boundary so a catalogue refresh cannot mistake every

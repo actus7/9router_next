@@ -8,6 +8,7 @@ import {
   ACCOUNT_FILTER_OPTIONS,
   QUOTA_SORT_OPTIONS,
 } from "../utils";
+import { useEffect, useState } from "react";
 import { translate } from "@/i18n/runtime";
 import {
   Ban,
@@ -20,6 +21,19 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
+
+// Ticks on its own so only this badge re-renders each second.
+function RefreshCountdown({ target }: { target: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const seconds = Math.max(0, Math.ceil((target - now) / 1000));
+  return (
+    <span className="text-[10px] text-text-muted tabular-nums">({seconds}s)</span>
+  );
+}
 
 interface ToolbarSectionProps {
   providerFilter: string;
@@ -40,7 +54,7 @@ interface ToolbarSectionProps {
   bulkToggling: boolean;
   autoRefresh: boolean;
   setAutoRefresh: React.Dispatch<React.SetStateAction<boolean>>;
-  countdown: number;
+  nextRefreshAt: number | null;
   refreshAll: (force?: boolean) => Promise<void>;
   refreshingAll: boolean;
 }
@@ -64,7 +78,7 @@ export default function ToolbarSection({
   bulkToggling,
   autoRefresh,
   setAutoRefresh,
-  countdown,
+  nextRefreshAt,
   refreshAll,
   refreshingAll,
 }: ToolbarSectionProps) {
@@ -258,10 +272,8 @@ export default function ToolbarSection({
           <span className="hidden text-text-primary sm:inline">
             {translate("Auto-refresh") || "Auto-refresh"}
           </span>
-          {autoRefresh && (
-            <span className="text-[10px] text-text-muted tabular-nums">
-              ({countdown}s)
-            </span>
+          {autoRefresh && nextRefreshAt !== null && (
+            <RefreshCountdown target={nextRefreshAt} />
           )}
         </Button>
 

@@ -18,6 +18,8 @@ export default {
     format: "openai",
     noAuth: true,
     validateUrl: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models",
+    // OVH 400s on a tool without `function.description` (pydantic: Input should be a valid string)
+    quirks: { requireToolDescription: true },
   },
   // Anonymous endpoint starter model. The upstream catalogue is discovered
   // separately and can change without making the chat picker empty.

@@ -16,7 +16,4 @@ export default {
     baseUrl: "https://api.opentyphoon.ai/v1/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "typhoon-v2.5-30b-a3b-instruct", name: "Typhoon v2.5 30B A3B Instruct", contextLength: 131072 },
-  ],
 };

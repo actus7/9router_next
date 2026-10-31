@@ -19,7 +19,4 @@ export default {
       "accept-encoding": "identity",
     },
   },
-  models: [
-    { id: "mimo-v2.5-pro", name: "Mimo v2.5 Pro", tools: true },
-  ],
 };

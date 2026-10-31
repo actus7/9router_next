@@ -16,8 +16,4 @@ export default {
     baseUrl: "https://api.sarvam.ai/v1/chat/completions",
     format: "openai",
   },
-  models: [
-    { id: "sarvam-105b", name: "Sarvam 105B", contextLength: 131072 },
-    { id: "sarvam-30b", name: "Sarvam 30B", contextLength: 65536 },
-  ],
 };

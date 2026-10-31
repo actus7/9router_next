@@ -82,10 +82,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const response: NextResponse = request.nextUrl.pathname.startsWith("/api/")
     ? asApiResponse(authenticated)
     : authenticated;
-  // Report-only on purpose: this policy has never run against the real page.
-  // The unknown is what `js.puter.com` pulls in once its SDK boots, and a
-  // guess that is wrong in enforce mode breaks chat for everyone. Read the
-  // violations first, then narrow and switch the header name.
+  // Report-only on purpose: this policy has never run against the real page,
+  // and a guess that is wrong in enforce mode breaks chat for everyone. Read
+  // the violations first, then narrow and switch the header name.
   response.headers.set("Content-Security-Policy-Report-Only", policy);
   response.headers.set("Reporting-Endpoints", REPORTING_ENDPOINTS);
   return response;

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/app/**/{page,layout,route,error,loading,not-found,global-error,default,template}.{ts,tsx}", "src/instrumentation.ts", "src/proxy.ts", "next.config.ts", "scripts/**/*.{mjs,ts,js}", "tests/**/*.{ts,tsx}", "vitest.config.*"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{mjs,ts,js}"],
+  "ignore": ["src/prisma/contract.d.ts"]
+}

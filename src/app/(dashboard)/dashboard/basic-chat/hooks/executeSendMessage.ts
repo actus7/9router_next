@@ -18,11 +18,6 @@ import {
   buildMemoryPromptBlock,
   getSupplementalMemoryToolDefinitions,
 } from "@/shared/harness/agentMemory";
-import {
-  isPuterBrowserModel,
-  streamPuterChat,
-  toPuterMessages,
-} from "../puterBrowser";
 import type {
   ChatAttachment,
   ChatSession,
@@ -257,7 +252,6 @@ export async function executeSendMessage({
   const signal = abortRef.current.signal;
   const builtinRuntimeTools =
     session.mode !== "plan" &&
-    !isPuterBrowserModel(model) &&
     model.caps?.tools !== false
       ? getRuntimeToolDefinitions(
           session.agentPresetId,
@@ -266,7 +260,6 @@ export async function executeSendMessage({
       : undefined;
   const mcpRuntimeTools =
     session.mode !== "plan" &&
-    !isPuterBrowserModel(model) &&
     model.caps?.tools !== false
       ? getMcpRuntimeToolDefinitions(session.mcpServers)
       : [];
@@ -350,43 +343,18 @@ export async function executeSendMessage({
       if (firstTokenAt === null && text) firstTokenAt = Date.now();
       streamUpdater.push(text);
     };
-    const result = isPuterBrowserModel(model)
-      ? await (async () => {
-          let text = "";
-          const finalText = await streamPuterChat({
-            messages: toPuterMessages(
-              nextMessages,
-              assistantMessageId,
-              effectiveSystemPrompt,
-            ),
-            signal,
-            onTextDelta: (delta) => {
-              text += delta;
-              updateStreamingText(text);
-            },
-          });
-          return {
-            streamed: true,
-            text: finalText || text,
-            toolCalls: [],
-            reasoning: "",
-            usage: null,
-            tokenSavers: [],
-            routingTrace: null,
-          };
-        })()
-      : await executeDurableChat({
-          sessionId,
-          messageId: assistantMessageId,
-          fetchOptions,
-          signal,
-          onStreamText: updateStreamingText,
-          onRunId: adoptRunId,
-          // The worker runs `load_skill` itself now, and the enabled set is
-          // partly this browser's stored preferences.
-          enabledSkillIds: [...getEnabledSkillIds(session.skillOverrides, readSkillPreferences())],
-          flushSessionSync: flushServerSync,
-        });
+    const result = await executeDurableChat({
+      sessionId,
+      messageId: assistantMessageId,
+      fetchOptions,
+      signal,
+      onStreamText: updateStreamingText,
+      onRunId: adoptRunId,
+      // The worker runs `load_skill` itself now, and the enabled set is
+      // partly this browser's stored preferences.
+      enabledSkillIds: [...getEnabledSkillIds(session.skillOverrides, readSkillPreferences())],
+      flushSessionSync: flushServerSync,
+    });
     // The throttled session write may be behind; settle it before anything
     // below reads or replaces the stored message.
     streamUpdater.flush();

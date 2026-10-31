@@ -64,7 +64,7 @@ export interface UseQuotaDataReturn {
   lastUpdated: Date | null;
   setLastUpdated: React.Dispatch<React.SetStateAction<Date | null>>;
   refreshingAll: boolean;
-  countdown: number;
+  nextRefreshAt: number | null;
   autoRefresh: boolean;
   setAutoRefresh: React.Dispatch<React.SetStateAction<boolean>>;
   hasHydratedAutoRefresh: boolean;
