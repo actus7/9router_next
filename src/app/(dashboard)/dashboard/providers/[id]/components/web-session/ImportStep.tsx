@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ExternalLink, CheckCircle2, AlertCircle, ClipboardPaste, Globe, Shield } from "lucide-react";
 import { parseWebSessionCredential, type CredentialOrigin } from "../../utils/webSessionCredential";
+import { translate } from "@/i18n/runtime";
 
 interface ImportStepProps {
   providerName: string;
@@ -228,10 +229,10 @@ export default function ImportStep({ providerName, website, authHint, onExtracte
         <div aria-live="polite" className="flex flex-col gap-3 rounded-lg border border-success/30 bg-success/5 p-4">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
-            <span className="text-sm font-medium text-foreground">Session extracted</span>
+            <span className="text-sm font-medium text-foreground">{translate("Session extracted") || "Session extracted"}</span>
             {extractOrigin && (
               <Badge variant="outline" className="text-[10px]">
-                {ORIGIN_LABELS[extractOrigin]}
+                {translate(ORIGIN_LABELS[extractOrigin]) || ORIGIN_LABELS[extractOrigin]}
               </Badge>
             )}
           </div>

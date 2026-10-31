@@ -1,6 +1,7 @@
 "use client";
 
 import type { Connection, OneByOneResult } from "../types";
+import { translate } from "@/i18n/runtime";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
 
@@ -36,7 +37,7 @@ export async function runOneByOneTestLoop(
       onResults((prev) => ({ ...prev, [connection.id]: { state: valid ? "success" : "failed", error: valid ? null : (data.error || null) } }));
     } catch (error: unknown) {
       failed += 1;
-      onResults((prev) => ({ ...prev, [connection.id]: { state: "failed", error: error instanceof Error ? error.message : "Test failed" } }));
+      onResults((prev) => ({ ...prev, [connection.id]: { state: "failed", error: error instanceof Error ? error.message : (translate("Test failed") || "Test failed") } }));
     }
 
     onSummary({ total: connections.length, completed: index + 1, passed, failed, stopped: false });

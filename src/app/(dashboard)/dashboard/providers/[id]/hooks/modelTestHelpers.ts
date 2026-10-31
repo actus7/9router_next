@@ -42,11 +42,11 @@ export async function pingModelWithRetry(
   let attemptsMade = 0;
   let lastStatus: number | undefined;
   for (let attempt = 0; attempt < timeoutSchedule.length; attempt++) {
-    if (signal?.aborted) return { modelId, ok: false, state: "cancelled", error: "Test cancelled", attempts: attemptsMade, status: lastStatus };
+    if (signal?.aborted) return { modelId, ok: false, state: "cancelled", error: translate("Test cancelled") || "Test cancelled", attempts: attemptsMade, status: lastStatus };
     attemptsMade = attempt + 1;
     onProgress({ modelId, ok: false, state: attempt === 0 ? "testing" : "retrying", attempts: attemptsMade });
     const result = await probeModel(`${providerStorageAlias}/${modelId}`, { timeoutMs: timeoutSchedule[attempt], signal });
-    if (result.cancelled) return { modelId, ok: false, state: "cancelled", error: "Test cancelled", attempts: attemptsMade, status: lastStatus };
+    if (result.cancelled) return { modelId, ok: false, state: "cancelled", error: translate("Test cancelled") || "Test cancelled", attempts: attemptsMade, status: lastStatus };
     if (result.status === "ok") return { modelId, ok: true, state: "passed", attempts: attemptsMade, latencyMs: result.latencyMs, status: result.httpStatus };
     lastError = result.error || lastError;
     lastStatus = result.httpStatus;

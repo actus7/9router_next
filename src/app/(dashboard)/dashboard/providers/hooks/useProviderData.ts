@@ -10,6 +10,7 @@ import { computeCompatibleProviders, computeProviderEntries } from "./computePro
 import type { Connection, ProviderNode, ProviderInfo, AvailabilityFilter, TestResults } from "../types";
 
 const APIKEY_INITIAL_VISIBLE = 20;
+const FREE_AUTH_TYPES = ["oauth", "apikey", "api_key"];
 
 export function useProviderData(
   initialConnections: Connection[],
@@ -43,10 +44,15 @@ export function useProviderData(
   const visibleApikeyEntries = isApikeySearching || showAllApikey ? apikeyEntries : apikeyEntries.slice(0, APIKEY_INITIAL_VISIBLE);
   const hiddenApikeyCount = apikeyEntries.length - APIKEY_INITIAL_VISIBLE;
 
-  const hasAnyResult = oauthEntries.length > 0 || freeEntries.length > 0 || freeTierEntries.length > 0 || apikeyEntries.length > 0 || compatibleProviders.length > 0 || anthropicCompatibleProviders.length > 0 || retiredEntries.length > 0;
-
   const filterEntries = (entries: [string, ProviderInfo][], source: "free" | "freeTier" | "other", authTypes: string | string[]) =>
     filterByAvailability(entries, source, authTypes, availabilityFilter, getStats);
+
+  const oauthVisible = filterEntries(oauthEntries, "other", "oauth");
+  const freeVisible = filterEntries(freeEntries, "free", FREE_AUTH_TYPES);
+  const freeTierVisible = filterEntries(freeTierEntries, "freeTier", FREE_AUTH_TYPES);
+  const apikeyVisible = filterEntries(apikeyEntries, "other", "apikey");
+
+  const hasAnyResult = oauthVisible.length > 0 || freeVisible.length > 0 || freeTierVisible.length > 0 || apikeyVisible.length > 0 || compatibleProviders.length > 0 || anthropicCompatibleProviders.length > 0 || retiredEntries.length > 0;
 
   return {
     connections, setConnections, providerNodes, setProviderNodes,
@@ -60,5 +66,6 @@ export function useProviderData(
     isApikeySearching, webCookieEntries, retiredEntries, hasAnyResult,
     handleToggleProvider, handleBatchTest,
     getStats, availabilityFor, filterEntries,
+    oauthVisible, freeVisible, freeTierVisible, apikeyVisible,
   };
 }

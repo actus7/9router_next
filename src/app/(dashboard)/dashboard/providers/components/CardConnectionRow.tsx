@@ -86,8 +86,15 @@ export default function CardConnectionRow({ connection, proxyPools, isOAuth, isF
       if (proxyDropdownRef.current && !proxyDropdownRef.current.contains(e.target as Node))
         setShowProxyDropdown(false);
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowProxyDropdown(false);
+    };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [showProxyDropdown]);
 
   const effectiveStatus = connection.testStatus;
@@ -106,10 +113,10 @@ export default function CardConnectionRow({ connection, proxyPools, isOAuth, isF
     <div className={`group flex flex-col gap-3 p-2 rounded-lg sm:flex-row sm:items-center sm:justify-between hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors ${connection.isActive === false ? "opacity-60" : ""}`}>
       <div className="flex w-full min-w-0 flex-1 items-start gap-3 sm:items-center">
         <div className="flex flex-col">
-          <Button variant="ghost" size="icon-sm" onClick={onMoveUp} disabled={isFirst} className={isFirst ? "text-text-muted/30" : ""}>
+          <Button variant="ghost" size="icon-sm" onClick={onMoveUp} disabled={isFirst} aria-label={translate("Move up") || "Move up"} className={isFirst ? "text-text-muted/30" : ""}>
             <ChevronUp className="size-4" />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={onMoveDown} disabled={isLast} className={isLast ? "text-text-muted/30" : ""}>
+          <Button variant="ghost" size="icon-sm" onClick={onMoveDown} disabled={isLast} aria-label={translate("Move down") || "Move down"} className={isLast ? "text-text-muted/30" : ""}>
             <ChevronDown className="size-4" />
           </Button>
         </div>
@@ -139,7 +146,7 @@ export default function CardConnectionRow({ connection, proxyPools, isOAuth, isF
         <div className="flex items-center gap-1">
           {(proxyPools || []).length > 0 && (
             <div className="relative" ref={proxyDropdownRef}>
-              <Button variant="ghost" size="icon-sm" title="Proxy" aria-label="Proxy" onClick={() => setShowProxyDropdown((v) => !v)} className={hasAnyProxy ? "text-primary" : ""} disabled={updatingProxy}>
+              <Button variant="ghost" size="icon-sm" title="Proxy" aria-label="Proxy" aria-haspopup="menu" aria-expanded={showProxyDropdown} onClick={() => setShowProxyDropdown((v) => !v)} className={hasAnyProxy ? "text-primary" : ""} disabled={updatingProxy}>
                 {updatingProxy ? <Loader2 className="size-4 animate-spin" /> : <Network className="size-4" />}
               </Button>
               {showProxyDropdown && (

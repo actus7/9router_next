@@ -23,18 +23,28 @@ export function useProviderActions(
       normalizeProviderId(c.provider) === providerId &&
       authTypes.includes(c.authType || "");
     const providerConns = connections.filter(matches);
+    const previousActive = new Map(providerConns.map((c) => [c.id, c.isActive]));
     setConnections((prev) =>
       prev.map((c) => (matches(c) ? { ...c, isActive: newActive } : c)),
     );
-    await Promise.allSettled(
-      providerConns.map((c) =>
-        fetch(`/api/providers/${c.id}`, {
+    const results = await Promise.allSettled(
+      providerConns.map(async (c) => {
+        const res = await fetch(`/api/providers/${c.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ isActive: newActive }),
-        }),
-      ),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      }),
     );
+    const failedIds = new Set(
+      providerConns.filter((_, i) => results[i].status === "rejected").map((c) => c.id),
+    );
+    if (failedIds.size === 0) return;
+    setConnections((prev) =>
+      prev.map((c) => (failedIds.has(c.id) ? { ...c, isActive: previousActive.get(c.id) } : c)),
+    );
+    notify.error(translate("Failed to update provider") || "Failed to update provider");
   };
 
   const handleBatchTest = async (mode: string, providerId: string | null = null) => {
@@ -51,7 +61,8 @@ export function useProviderActions(
       setTestResults(data);
       if (data.summary) {
         const { passed, failed, total } = data.summary;
-        if (failed === 0) notify.success(translate("All") + ` ${total} ` + translate("tests passed"));
+        if (total === 0) notify.info(translate("No connections to test") || "No connections to test");
+        else if (failed === 0) notify.success(translate("All") + ` ${total} ` + translate("tests passed"));
         else notify.warning(`${passed}/${total} ` + translate("passed") + `, ${failed} ` + translate("failed"));
       }
     } catch  {

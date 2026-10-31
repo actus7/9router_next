@@ -27,7 +27,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         </div>
       )}
       <CustomProvidersSection compatibleProviders={d.compatibleProviders} anthropicCompatibleProviders={d.anthropicCompatibleProviders} getStats={d.getStats} onToggle={d.handleToggleProvider} onAddOpenAI={() => d.setShowAddCompatibleModal(true)} onAddAnthropic={() => d.setShowAddAnthropicCompatibleModal(true)} />
-      {d.oauthEntries.length > 0 && (
+      {d.oauthVisible.length > 0 && (
         <ProviderSection title={translate("OAuth Providers")} testMode="oauth" testLabel="Test all OAuth connections" testAriaLabel="Test all OAuth connections" testingMode={d.testingMode} onTest={d.handleBatchTest}>
           {d.filterEntries(d.oauthEntries, "other", "oauth").map(([key, info]) => {
             const authTypes = getProviderConnectionAuthTypes(info);
@@ -35,7 +35,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           })}
         </ProviderSection>
       )}
-      {(d.freeEntries.length > 0 || d.freeTierEntries.length > 0) && (
+      {(d.freeVisible.length > 0 || d.freeTierVisible.length > 0) && (
         <ProviderSection title={translate("Free Tier Providers")} testMode="free" testLabel="Test all Free connections" testAriaLabel="Test all Free provider connections" testingMode={d.testingMode} onTest={d.handleBatchTest}>
           {d.filterEntries(d.freeEntries, "free", ["oauth", "apikey", "api_key"]).map(([key, info]) => {
             const freeAuthTypes = getProviderConnectionAuthTypes(info);
@@ -47,7 +47,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           })}
         </ProviderSection>
       )}
-      {d.apikeyEntries.length > 0 && (
+      {d.apikeyVisible.length > 0 && (
         <ProviderSection title={translate("API Key Providers")} testMode="apikey" testLabel="Test all API Key connections" testAriaLabel="Test all API Key connections" testingMode={d.testingMode} onTest={d.handleBatchTest}
           footer={!d.isApikeySearching && !d.showAllApikey && d.hiddenApikeyCount > 0 ? (
             <Button variant="outline" onClick={() => d.setShowAllApikey(true)} className="w-full border-dashed border-primary/40 text-primary hover:border-primary hover:bg-primary/5">

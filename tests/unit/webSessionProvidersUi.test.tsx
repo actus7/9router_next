@@ -44,9 +44,9 @@ describe("Web Session provider navigation and setup", () => {
     const post = vi.spyOn(window, "postMessage").mockImplementation(() => {});
     render(<BrowserSessionStep provider="muse-spark-web" providerName="Muse Spark" onExtracted={vi.fn()} />);
     detect(post.mock.calls[0][0].requestId);
-    expect(screen.getByText("Este provider ainda requer entrada manual.")).toBeTruthy();
+    expect(screen.getByText("This provider still requires manual entry.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Conectar Muse Spark" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Opções avançadas: entrada manual" }));
+    fireEvent.click(screen.getByRole("button", { name: "Advanced options: manual entry" }));
     expect(screen.getByText("Manual session form")).toBeTruthy();
   });
   it("uses the web provider section for the Z.ai breadcrumb", () => {

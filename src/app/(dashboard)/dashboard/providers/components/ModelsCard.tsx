@@ -80,7 +80,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     try {
       const result = await probeModel(`${providerAlias}/${modelId}`, { kind: kindFilter });
       setModelTestResults((prev) => ({ ...prev, [modelId]: result.status }));
-      setTestError(result.status === "ok" ? "" : (result.error || "Model not reachable"));
+      setTestError(result.status === "ok" ? "" : (result.error || translate("Model is not reachable") || "Model is not reachable"));
     } catch { setModelTestResults((prev) => ({ ...prev, [modelId]: "error" })); setTestError("Network error"); }
     finally { setTestingModelId(null); }
   };

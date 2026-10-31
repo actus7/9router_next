@@ -1,5 +1,7 @@
 "use client";
 
+import { translate } from "@/i18n/runtime";
+
 import {
   AI_PROVIDERS,
   resolveProviderAuthContext,
@@ -33,15 +35,17 @@ export function resolveAuthModes(
 }
 
 export function resolveConnectionLabels(providerId: string) {
-  const oauthConnectionLabel =
+  const oauthConnectionLabel = translate(
     providerId === "xai" ? "Grok Build OAuth"
     : providerId === "grok-cli" ? "Grok CLI Device Login"
     : providerId === "kimi" ? "Kimi Coding OAuth"
-    : "OAuth";
-  const apiKeyConnectionLabel =
+    : "OAuth",
+  ) ?? "OAuth";
+  const apiKeyConnectionLabel = translate(
     providerId === "xai" ? "xAI API Key"
     : providerId === "kimi" ? "Kimi API Key"
     : providerId === "qoder" ? "PAT"
-    : "API Key";
+    : "API Key",
+  ) ?? "API Key";
   return { oauthConnectionLabel, apiKeyConnectionLabel };
 }

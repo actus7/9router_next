@@ -24,10 +24,15 @@ export function ProviderCard({ providerId, provider, stats, onToggle, availabili
   const isNoAuth = !!provider.noAuth;
 
   return (
-    <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
+    <div className="group relative h-full min-w-0">
+      <Link
+        href={`/dashboard/providers/${providerId}`}
+        aria-label={provider.name}
+        className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      />
       <Card
         padding="xs"
-        className={`h-full hover:bg-surface-2/30 transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
+        className={`h-full group-hover:bg-surface-2/30 transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
       >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -75,12 +80,8 @@ export function ProviderCard({ providerId, provider, stats, onToggle, availabili
           <div className="flex shrink-0 items-center gap-2">
             {stats.total > 0 && (
               <div
-                className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onToggle(!allDisabled ? false : true);
-                }}
+                className="relative z-10 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                onClick={() => onToggle(!allDisabled ? false : true)}
               >
                 <Switch
                   checked={!allDisabled}
@@ -92,6 +93,6 @@ export function ProviderCard({ providerId, provider, stats, onToggle, availabili
           </div>
         </div>
       </Card>
-    </Link>
+    </div>
   );
 }

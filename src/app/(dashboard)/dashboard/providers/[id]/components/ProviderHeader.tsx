@@ -42,7 +42,7 @@ export default function ProviderHeader({
         className="mb-3 inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-primary"
       >
         <ArrowLeft className="size-4" />
-        {AI_PROVIDERS[providerInfo.id]?.category === "webCookie" ? "Voltar para Web Session Providers" : translate("Back to Providers")}
+        {AI_PROVIDERS[providerInfo.id]?.category === "webCookie" ? translate("Back to Web Session Providers") || "Back to Web Session Providers" : translate("Back to Providers")}
       </Link>
       <div className="flex min-w-0 items-center gap-3 sm:gap-4">
         <div

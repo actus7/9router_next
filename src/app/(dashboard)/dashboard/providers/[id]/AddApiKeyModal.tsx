@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import BulkAddForm from "./components/BulkAddForm";
 import SingleAddForm from "./components/SingleAddForm";
+import { translate } from "@/i18n/runtime";
 import { WebSessionSetup } from "./components/web-session";
 
 const BULK_PLACEHOLDER = `name1|sk-key1\nname2|sk-key2\nsk-key-only-auto-named`;
@@ -36,7 +37,7 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
   const NONE_PROXY_POOL_VALUE = "__none__";
   const isCookie = authType === "cookie";
   const isXaiApiKey = provider === "xai" && !isCookie;
-  const credentialLabel = isCookie ? "Cookie Value" : provider === "qoder" ? "Personal Access Token (PAT)" : "API Key";
+  const credentialLabel = isCookie ? translate("Cookie Value") || "Cookie Value" : provider === "qoder" ? translate("Personal Access Token (PAT)") || "Personal Access Token (PAT)" : "API Key";
   const credentialPlaceholder = isCookie ? "eyJhbGciOi..." : (isXaiApiKey ? "xai-..." : provider === "qoder" ? "pt-..." : "");
 
   const isAzure = provider === "azure";
