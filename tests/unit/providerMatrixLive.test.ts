@@ -30,6 +30,8 @@ const live = !!providerId && !!process.env.DATABASE_URL;
 const entry = (REGISTRY as RegistryEntry[]).find((p) => p.id === providerId);
 const toolCalling = (entry?.features as { toolCalling?: boolean } | undefined)?.toolCalling !== false;
 const CALL_TIMEOUT_MS = 120_000;
+// Reasoning models spend part of the budget thinking before they answer or call a tool.
+const MAX_TOKENS = 1024;
 
 const report: Record<string, unknown> = { provider: providerId };
 let owner = "";
@@ -45,7 +47,7 @@ async function chat(body: Record<string, unknown>): Promise<{ status: number; ra
     handleChat(new Request("http://localhost/api/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, max_tokens: 256, ...body }),
+      body: JSON.stringify({ model, max_tokens: MAX_TOKENS, ...body }),
     }) as never),
   );
   return { status: res.status, raw: await res.text() };
@@ -73,11 +75,12 @@ describe.skipIf(!live)(`provider ${providerId} against the real account`, () => 
   });
 
   it("lists at least one chat model", async () => {
-    const alias = entry?.alias || providerId;
+    // The listing names a provider by its public prefix: uiAlias when set (`xmtp`), else alias.
+    const prefixes = new Set([providerId, entry?.alias, entry?.uiAlias].filter(Boolean));
     const data = (await withTenant(owner, () => buildModelsList(["llm"], {}))) as Array<{ id: string; owned_by?: string }>;
-    const mine = data.filter((m) => m.owned_by === alias || m.owned_by === providerId);
+    const mine = data.filter((m) => prefixes.has(m.owned_by) || prefixes.has(m.id.split("/")[0]));
     report.models = mine.length;
-    expect(mine.length, `no models listed for ${alias}`).toBeGreaterThan(0);
+    expect(mine.length, `no models listed for ${[...prefixes].join("/")}`).toBeGreaterThan(0);
     if (!model) model = mine[0].id;
     report.model = model;
   }, CALL_TIMEOUT_MS);
