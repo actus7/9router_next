@@ -15,10 +15,11 @@ export default {
   authType: "apikey",
   transport: null,
   models: [
-    { id: "nomic-embed-text", name: "Nomic Embed Text", kind: "embedding" },
+    { id: "nomic-embed-text-v1.5", name: "Nomic Embed Text v1.5", kind: "embedding" },
+    { id: "nomic-embed-text-v1", name: "Nomic Embed Text v1", kind: "embedding" },
   ],
   serviceKinds: ["embedding"],
   embeddingConfig: {
-    baseUrl: "https://api.nomic.ai/v1/embedding",
+    baseUrl: "https://api-atlas.nomic.ai/v1/embedding/text",
   },
 };

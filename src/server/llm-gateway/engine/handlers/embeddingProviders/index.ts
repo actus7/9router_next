@@ -2,6 +2,7 @@
 import createOpenAIEmbeddingAdapter from "./openai";
 import gemini from "./gemini";
 import openaiCompatNode from "./openaiCompatNode";
+import nomic from "./nomic";
 
 const OPENAI_COMPAT_PROVIDERS = [
   "openai", "openrouter", "mistral", "voyage-ai", "fireworks",
@@ -20,6 +21,7 @@ const ADAPTERS: Record<string, EmbeddingAdapter> = {
   ...Object.fromEntries(OPENAI_COMPAT_PROVIDERS.map((id) => [id, createOpenAIEmbeddingAdapter(id)])),
   gemini: gemini as unknown as EmbeddingAdapter,
   google_ai_studio: gemini as unknown as EmbeddingAdapter,
+  nomic: nomic as unknown as EmbeddingAdapter,
 };
 
 export function getEmbeddingAdapter(provider: string): EmbeddingAdapter | null {
