@@ -89,7 +89,7 @@ describe("pruneComboReferences", () => {
     expect(next).toEqual({
       models: ["cx/gpt-5.6-sol"],
       routing: {
-        classifier: { enabled: true, model: "auto" },
+        classifier: { enabled: false, model: "auto" },
         overrides: { general: { complex: ["cx/gpt-5.6-sol", "kgw/live"] } },
         entries: { general: { complex: [{ connectionId: "a" }, null] } },
       },

@@ -162,7 +162,9 @@ Três consequências que precisaram de código, não só de deleção:
 2026-10-31).** `syncDiscoveredCustomModels` apaga do catálogo o que a listagem
 não devolveu e, na **mesma transação**, chama `pruneModelReferences`
 (`lib/db/repos/modelReferencesRepo.ts`): combos (`models`, lanes do smart com
-as `entries` alinhadas, `classifier.model` volta a `auto`), aliases, a lista de
+as `entries` alinhadas; um `classifier.model` morto desliga o desempate em vez
+de virar `auto`, que mandaria prompts ao grátis anônimo ignorando
+`freeFallback`/`modelScope`), aliases, a lista de
 desabilitados, allowlists de `accessPolicies` e o `capacityAdapter`. Sem aviso:
 antes o combo comum pagava um 404 por conta a cada 2 min por um modelo morto e
 o smart guardava pinos que não casavam com nada. Só é "morto" o id que nenhuma

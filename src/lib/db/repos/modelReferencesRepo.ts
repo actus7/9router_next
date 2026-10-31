@@ -51,8 +51,12 @@ function pruneRouting(routing: Json, dead: Set<string>): Json | null {
       if (Array.isArray(laneEntries)) (entries[need] as Json)[tier] = laneEntries.filter((_, i) => keep[i]);
     }
   }
+  // Not "auto" alone: auto prefers the anonymous free model, ignoring the
+  // combo's freeFallback/modelScope, so prompts would go where the operator
+  // never sent them. Off is what a dead pin already did at runtime.
   if (isRecord(next.classifier) && isDead(next.classifier.model, dead)) {
     next.classifier.model = "auto";
+    next.classifier.enabled = false;
     changed = true;
   }
   return changed ? next : null;
