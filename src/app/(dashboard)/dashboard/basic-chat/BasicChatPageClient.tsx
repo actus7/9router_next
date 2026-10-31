@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { AlertCircle } from "lucide-react";
+import { translate } from "@/i18n/runtime";
 import { useChatModels } from "./hooks/useChatModels";
 import { useHarnessCatalog } from "./hooks/useHarnessCatalog";
 import { useSkillsCatalog } from "./hooks/useSkillsCatalog";
@@ -123,7 +125,14 @@ export default function BasicChatPageClient() {
           <div className="mx-6 mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="size-4 shrink-0 mt-0.5" />
-              <p className="text-xs leading-5">{sessionError || modelsHook.providerLoadError}</p>
+              <div className="text-xs leading-5">
+                <p>{sessionError || modelsHook.providerLoadError}</p>
+                {!sessionError && modelsHook.providerLoadError ? (
+                  <Link href="/dashboard/providers" className="font-medium underline underline-offset-2">
+                    {translate("Connect a provider") || "Connect a provider"}
+                  </Link>
+                ) : null}
+              </div>
             </div>
           </div>
         ) : null}

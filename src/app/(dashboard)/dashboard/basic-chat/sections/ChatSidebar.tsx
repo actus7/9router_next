@@ -46,9 +46,11 @@ function SessionItem({
       <span className={`absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`} aria-hidden="true" />
       <button
         type="button"
+        aria-label={translate("Select conversation") || "Select conversation"}
+        aria-pressed={isSelected}
         onClick={(e) => onToggleSelect(e, session.id)}
         className={`shrink-0 items-center justify-center rounded border transition-all ${
-          isSelected || selectedCount > 0 ? "flex size-3.5 border-border bg-background" : "hidden group-hover:flex group-hover:size-3.5 group-hover:border-border group-hover:bg-background"
+          isSelected || selectedCount > 0 ? "flex size-3.5 border-border bg-background" : "hidden group-hover:flex group-hover:size-3.5 group-hover:border-border group-hover:bg-background group-focus-within:flex group-focus-within:size-3.5 group-focus-within:border-border group-focus-within:bg-background"
         } ${isSelected ? "border-primary bg-primary text-primary-foreground" : ""}`}
       >
         {isSelected ? <CheckCircle2 className="size-2.5" /> : null}

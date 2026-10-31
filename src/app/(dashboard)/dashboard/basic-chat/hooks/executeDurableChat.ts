@@ -1,6 +1,7 @@
 import type { ChatFetchError, ChatFetchResult } from "./consumeSSEStream";
 import type { TokenUsage } from "../types";
 import { normalizeTokenSavers } from "@/shared/chat/tokenSavers";
+import { translate } from "@/i18n/runtime";
 
 /** The run row as `/api/harness/runs/[runId]/stream` serializes it. */
 interface RunFrame {
@@ -141,10 +142,10 @@ export async function watchDurableRun(
   }
 
   if (!last) {
-    throw new Error("The run ended without reporting a result.") as ChatFetchError;
+    throw new Error(translate("The run ended without reporting a result.") || "The run ended without reporting a result.") as ChatFetchError;
   }
   if (last.status === "failed") {
-    throw new Error(last.error || "The run failed.") as ChatFetchError;
+    throw new Error(last.error || translate("The run failed.") || "The run failed.") as ChatFetchError;
   }
   if (last.status === "running") {
     // The stream ended without the run reaching a terminal state — the row was

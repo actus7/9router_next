@@ -88,12 +88,12 @@ export function finalizeStreamError(
     ...current,
     messages: current.messages.map((m) =>
       m.id === assistantMessageId
-        ? { ...m, content: m.content || `Error: ${errorText}`, status: "error" as const }
+        ? { ...m, content: m.content || `${translate("Error") || "Error"}: ${errorText}`, status: "error" as const }
         : m,
     ),
     updatedAt: new Date().toISOString(),
   }));
-  setChatError(errorText || "Failed to send message.");
+  setChatError(errorText || translate("Failed to send message.") || "Failed to send message.");
   recordHarnessEvent(sessionId, "run/end", { runId: assistantMessageId, status: "failed", error: errorText });
 
 }

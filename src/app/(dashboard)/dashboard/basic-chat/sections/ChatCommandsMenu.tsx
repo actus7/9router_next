@@ -33,8 +33,9 @@ export default function ChatCommandsMenu({ disabled, onExport }: ChatCommandsMen
         </button>
         <div className="my-1 border-t border-border" />
         {COMING_SOON_COMMANDS.map((command) => (
-          <div key={command} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-muted-foreground/50 capitalize cursor-not-allowed" title={translate("Coming soon") || "Coming soon"}>
-            {command}
+          <div key={command} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-muted-foreground/70 capitalize cursor-not-allowed">
+            <span>{command}</span>
+            <span className="text-[10px]">{translate("Coming soon") || "Coming soon"}</span>
           </div>
         ))}
       </PopoverContent>

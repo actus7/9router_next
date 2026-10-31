@@ -1,3 +1,4 @@
+import { translate } from "@/i18n/runtime";
 import type { RoutingTrace, RoutingTraceStep } from "@/shared/observability/routingTrace";
 
 export interface RoutingTraceLine {
@@ -5,6 +6,19 @@ export interface RoutingTraceLine {
   tone: "info" | "ok" | "fail";
   title: string;
   detail?: string;
+}
+
+// Raw outcome enum -> the word the journal shows. Unknown outcomes print as-is.
+const ATTEMPT_OUTCOME_LABELS: Record<string, { key: string; fallback: string } | undefined> = {
+  ok: { key: "ok", fallback: "ok" },
+  failed: { key: "attempt failed", fallback: "failed" },
+  aborted: { key: "attempt aborted", fallback: "aborted" },
+  cooldown_skip: { key: "attempt in cooldown", fallback: "cooldown skip" },
+};
+
+function attemptOutcomeLabel(outcome: string): string {
+  const entry = ATTEMPT_OUTCOME_LABELS[outcome];
+  return entry ? translate(entry.key) || entry.fallback : outcome;
 }
 
 function readStringArray(value: unknown): string[] {
@@ -63,7 +77,7 @@ function describeStep(step: RoutingTraceStep): RoutingTraceLine {
     case "attempt":
       return {
         tone: step.outcome === "ok" ? "ok" : "fail",
-        title: `Attempt ${step.index}/${step.total}: ${step.model} — ${step.outcome}${step.status ? ` (${step.status})` : ""}${step.durationMs !== undefined ? ` · ${step.durationMs}ms` : ""}`,
+        title: `${translate("Attempt") || "Attempt"} ${step.index}/${step.total}: ${step.model} — ${attemptOutcomeLabel(step.outcome)}${step.status ? ` (${step.status})` : ""}${step.durationMs !== undefined ? ` · ${step.durationMs}ms` : ""}`,
         detail: step.error,
       };
     case "account": {
@@ -89,11 +103,15 @@ function describeStep(step: RoutingTraceStep): RoutingTraceLine {
 export function routingTraceLines(trace: RoutingTrace): RoutingTraceLine[] {
   const lines = trace.steps.map(describeStep);
   if (trace.truncated) {
-    lines.push({ tone: "info", title: "Trace truncated to fit the response header", detail: "Some steps or lists were dropped." });
+    lines.push({
+      tone: "info",
+      title: translate("Trace truncated to fit the response header") || "Trace truncated to fit the response header",
+      detail: translate("Some steps or lists were dropped.") || "Some steps or lists were dropped.",
+    });
   }
   lines.push(trace.selectedModel
-    ? { tone: "ok", title: `Answered by ${trace.selectedModel}` }
-    : { tone: "fail", title: "No model answered this request" });
+    ? { tone: "ok", title: `${translate("Answered by") || "Answered by"} ${trace.selectedModel}` }
+    : { tone: "fail", title: translate("No model answered this request") || "No model answered this request" });
   return lines;
 }
 
@@ -102,6 +120,11 @@ export function routingTraceSummary(trace: RoutingTrace): string {
   const failures = trace.steps.filter((step) =>
     (step.kind === "account" && step.outcome !== "selected") || (step.kind === "attempt" && step.outcome !== "ok")).length;
   const parts = [`${trace.requestedModel} →`, trace.selectedModel || "no model answered"];
-  if (failures > 0) parts.push(`after ${failures} failed ${failures === 1 ? "attempt" : "attempts"}`);
+  if (failures > 0) {
+    const noun = failures === 1
+      ? translate("failed attempt") || "failed attempt"
+      : translate("failed attempts") || "failed attempts";
+    parts.push(`${translate("after") || "after"} ${failures} ${noun}`);
+  }
   return parts.join(" ");
 }

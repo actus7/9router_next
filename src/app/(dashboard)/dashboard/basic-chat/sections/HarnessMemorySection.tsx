@@ -17,7 +17,7 @@ import { useWorkspace } from "@/shared/hooks/useWorkspace";
 // Jev's advisory read of the write (0 harmless … 3 high). Informs the
 // operator's decision; approving and rejecting stay manual.
 const RISK_LEVELS = [
-  { label: "Risco baixo", className: "bg-success/15 text-success" },
+  { label: "Sem risco", className: "bg-success/15 text-success" },
   { label: "Risco baixo", className: "bg-success/15 text-success" },
   { label: "Risco moderado", className: "bg-warning/15 text-warning" },
   { label: "Risco alto", className: "bg-destructive/15 text-destructive" },
@@ -28,7 +28,7 @@ function RiskBadge({ score }: { score: number }) {
   return (
     <span
       className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${level.className}`}
-      title={`Avaliação do Jev: ${score.toFixed(2)} de 3`}
+      title={`Avaliação de risco da IA: ${score.toFixed(2)} de 3`}
     >
       {level.label}
     </span>
@@ -39,9 +39,9 @@ function AutoAppliedBadge() {
   return (
     <span
       className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-      title="Aplicado automaticamente pelo modo auto (risco baixo e confianca alta)"
+      title="Aplicado automaticamente pelo modo auto (risco baixo e confiança alta)"
     >
-      auto-applied
+      aplicado automaticamente
     </span>
   );
 }
@@ -283,7 +283,7 @@ export default function HarnessMemorySection({
           />
         </label>
         <label className="flex items-center justify-between gap-4">
-          <Label htmlFor="learning-review">Review pós-turno</Label>
+          <Label htmlFor="learning-review">Revisão após cada resposta</Label>
           <Switch
             id="learning-review"
             checked={memory.config?.learningReviewEnabled ?? false}

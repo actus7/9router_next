@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { watchDurableRun } from "./executeDurableChat";
 import type { ChatMessage, ChatSession } from "../types";
 import { normalizeTokenSavers } from "@/shared/chat/tokenSavers";
+import { translate } from "@/i18n/runtime";
 
 /** The run row as `/api/harness/runs` serializes it. */
 interface RunRow {
@@ -53,7 +54,7 @@ function applySettled(message: ChatMessage, run: RunRow): ChatMessage {
   if (run.status === "failed") {
     return {
       ...message,
-      content: message.content || `Error: ${run.error || "The run failed."}`,
+      content: message.content || `${translate("Error") || "Error"}: ${run.error || translate("The run failed.") || "The run failed."}`,
       status: "error",
     };
   }
@@ -176,7 +177,7 @@ export function useDurableRunRecovery({ activeSessionId, isReady, updateSession,
               // never read it again, not even after switching sessions.
               handledRef.current.delete(run.id);
               if ((error as Error)?.name === "AbortError") return;
-              const message = (error as Error)?.message || "The run failed.";
+              const message = (error as Error)?.message || translate("The run failed.") || "The run failed.";
               // A refusal to watch says nothing about the run, so it must not
               // be written onto the message as the run's own failure.
               if (/too many/i.test(message)) return;

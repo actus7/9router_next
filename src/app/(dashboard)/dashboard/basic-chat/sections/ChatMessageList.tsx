@@ -17,6 +17,7 @@ import {
 import { translate } from "@/i18n/runtime";
 import SafeMarkdown from "@/shared/components/SafeMarkdown";
 import {
+  AlertCircle,
   ArrowDown,
   Check,
   ChevronRight,
@@ -31,6 +32,7 @@ import {
 import { textValue } from "../chatFormatUtils";
 import type { UseChatSessionsReturn } from "../hooks/useChatSessions";
 import type { UseSendMessageReturn } from "../hooks/useSendMessage";
+import { copyFailedKey } from "../hooks/useSendMessageActions";
 import ToolCallList from "./ToolCallList";
 import TokenSaverPills from "./TokenSaverPills";
 
@@ -300,6 +302,10 @@ export default function ChatMessageList({
                         {copiedMessageId === message.id ? (
                           <>
                             <Check className="size-3.5" /> {translate("Copied") || "Copied"}
+                          </>
+                        ) : copiedMessageId === copyFailedKey(message.id) ? (
+                          <>
+                            <AlertCircle className="size-3.5" /> {translate("Copy failed") || "Copy failed"}
                           </>
                         ) : (
                           <>

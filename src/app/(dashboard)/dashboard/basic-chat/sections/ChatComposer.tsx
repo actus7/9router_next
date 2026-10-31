@@ -280,7 +280,7 @@ export default function ChatComposer({
               <Popover>
                 <PopoverTrigger
                   className="flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label="Conversation display"
+                  aria-label={`${translate("Conversation display") || "Conversation display"}: ${conversationDisplay === "normal" ? "Detalhada" : "Compacta"}`}
                 >
                   <Monitor className="size-3" />
                   <span className="hidden sm:inline">
@@ -328,7 +328,7 @@ export default function ChatComposer({
               <Popover>
                 <PopoverTrigger
                   className="flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label="Enter behavior while busy"
+                  aria-label={`${translate("Enter behavior while busy") || "Enter behavior while busy"}: ${enterBehavior === "queue" ? "Fila" : "Direcionar"}`}
                 >
                   <CornerDownLeft className="size-3" />
                   <span className="hidden sm:inline">

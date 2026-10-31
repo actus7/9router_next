@@ -8,6 +8,9 @@ import { prepareRetryMessage } from "./prepareRetryMessage";
 import { rejectSynapseAnswer } from "./rejectSynapseAnswer";
 import type { SendMessageOptions } from "../types";
 
+/** Marks a copy that failed, so the button can say so instead of looking successful. */
+export const copyFailedKey = (messageId: string) => `failed:${messageId}`;
+
 export interface UseSendMessageActionsArgs {
   sessions: ChatSession[];
   activeSessionId: string;
@@ -54,7 +57,8 @@ export function useSendMessageActions({
         setCopiedMessageId(messageId);
         setTimeout(() => setCopiedMessageId(""), 2000);
       } catch {
-        /* Ignore clipboard errors */
+        setCopiedMessageId(copyFailedKey(messageId));
+        setTimeout(() => setCopiedMessageId(""), 2000);
       }
     },
     [],
