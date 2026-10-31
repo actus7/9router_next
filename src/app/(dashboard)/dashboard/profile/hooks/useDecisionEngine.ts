@@ -32,6 +32,33 @@ export type JevTestResult =
   | { ok: true; latencyMs: number }
   | { ok: false; reason: string; status?: number; message: string };
 
+/** Whether the account has a TypeSafe key; false when the lookup itself failed. */
+async function loadTypesafeKey(setHas: (has: boolean) => void): Promise<boolean> {
+  try {
+    const typesafe = await fetch("/api/decisions/jev/key", { cache: "no-store" });
+    if (!typesafe.ok) return false;
+    setHas(((await typesafe.json()) as { typesafe?: boolean }).typesafe === true);
+    return true;
+  } catch (err) {
+    console.error("Falha ao verificar a chave da TypeSafe:", err);
+    return false;
+  }
+}
+
+/** Whether an active `vercel-ai-gateway` connection exists; false when the lookup itself failed. */
+async function loadGatewayKey(setHas: (has: boolean) => void): Promise<boolean> {
+  try {
+    const res = await fetch("/api/providers", { cache: "no-store" });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { connections?: Array<{ provider?: string; isActive?: boolean }> };
+    setHas((data.connections ?? []).some((c) => c.provider === GATEWAY_PROVIDER && c.isActive !== false));
+    return true;
+  } catch (err) {
+    console.error("Falha ao verificar a conexão da Vercel AI Gateway:", err);
+    return false;
+  }
+}
+
 async function patchSettings(updates: Record<string, unknown>): Promise<boolean> {
   const res = await fetch("/api/settings", {
     method: "PATCH",
@@ -48,6 +75,8 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<JevTestResult | null>(null);
+  // Both key lookups failed, so neither "no key" nor "a key" is known.
+  const [keyStatusFailed, setKeyStatusFailed] = useState(false);
 
   // One real, billed Jev call. Every feature silently falls back to the
   // heuristic when Jev fails, so this is the only way to see that it does.
@@ -67,20 +96,9 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
   };
 
   const refreshKeyStatus = useCallback(async () => {
-    try {
-      const typesafe = await fetch("/api/decisions/jev/key", { cache: "no-store" });
-      if (typesafe.ok) setHasTypesafeKey(((await typesafe.json()) as { typesafe?: boolean }).typesafe === true);
-    } catch (err) {
-      console.error("Falha ao verificar a chave da TypeSafe:", err);
-    }
-    try {
-      const res = await fetch("/api/providers", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = (await res.json()) as { connections?: Array<{ provider?: string; isActive?: boolean }> };
-      setHasGatewayKey((data.connections ?? []).some((c) => c.provider === GATEWAY_PROVIDER && c.isActive !== false));
-    } catch (err) {
-      console.error("Falha ao verificar a conexão da Vercel AI Gateway:", err);
-    }
+    const typesafeOk = await loadTypesafeKey(setHasTypesafeKey);
+    const gatewayOk = await loadGatewayKey(setHasGatewayKey);
+    setKeyStatusFailed(!typesafeOk && !gatewayOk);
   }, []);
 
   // The decision engine is the organization's; a member's page never shows it.
@@ -165,20 +183,26 @@ export function useDecisionEngine(setSettings: (update: (prev: Settings) => Sett
   };
 
   const removeTypesafeKey = async () => {
+    setError(null);
     try {
       const res = await fetch("/api/decisions/jev/key", { method: "DELETE" });
-      if (res.ok) {
-        setHasTypesafeKey(false);
-        setTestResult(null);
+      if (!res.ok) {
+        setError("Could not remove the key");
+        return;
       }
+      setHasTypesafeKey(false);
+      setTestResult(null);
     } catch (err) {
       console.error("Falha ao remover a chave da TypeSafe:", err);
+      setError("Could not remove the key");
     }
   };
 
   return {
     hasGatewayKey,
     hasTypesafeKey,
+    keyStatusFailed,
+    refreshKeyStatus,
     connectTypesafeKey,
     removeTypesafeKey,
     connecting,

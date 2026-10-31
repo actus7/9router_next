@@ -1,11 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { translate } from "@/i18n/runtime";
 import type { Settings } from "../types";
+
+const STICKY_LIMIT_MAX = 10;
+const COMBO_STICKY_LIMIT_MAX = 100;
+
+/** A whole number from 1 to `max`, or null when the text is not one. */
+export function parseLimit(raw: string, max: number): number | null {
+  const value = Number(raw.trim());
+  return Number.isInteger(value) && value >= 1 && value <= max ? value : null;
+}
 
 export function useProfileSettings(initialSettings: Settings) {
   const [settings, setSettings] = useState<Settings>(initialSettings);
   const [loading, setLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const reloadSettings = async () => {
     try {
@@ -18,107 +29,54 @@ export function useProfileSettings(initialSettings: Settings) {
     }
   };
 
-const updateFreeFallbackEnabled = async (enabled: boolean) => {
+  // The switch or field only moves once the server has kept the value; while
+  // the PATCH is in flight the routing controls are disabled.
+  const saveSetting = async (updates: Partial<Settings>) => {
+    setLoading(true);
+    setSaveError(null);
     try {
       const res = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ freeFallbackEnabled: enabled }),
+        body: JSON.stringify(updates),
       });
       if (res.ok) {
-        setSettings(prev => ({ ...prev, freeFallbackEnabled: enabled }));
+        setSettings((prev) => ({ ...prev, ...updates }));
+      } else {
+        setSaveError(translate("Settings could not be saved") || "Settings could not be saved");
       }
     } catch (err) {
       console.error("Falha ao atualizar configurações:", err);
+      setSaveError(translate("Settings could not be saved") || "Settings could not be saved");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateFallbackStrategy = async (strategy: string) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fallbackStrategy: strategy }),
-      });
-      if (res.ok) {
-        setSettings(prev => ({ ...prev, fallbackStrategy: strategy }));
-      }
-    } catch (err) {
-      console.error("Falha ao atualizar configurações:", err);
-    }
-  };
+  const updateFreeFallbackEnabled = (enabled: boolean) => saveSetting({ freeFallbackEnabled: enabled });
 
-  const updateComboStrategy = async (strategy: string) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comboStrategy: strategy }),
-      });
-      if (res.ok) {
-        setSettings(prev => ({ ...prev, comboStrategy: strategy }));
-      }
-    } catch (err) {
-      console.error("Falha ao atualizar estratégia de combo:", err);
-    }
-  };
+  const updateFallbackStrategy = (strategy: string) => saveSetting({ fallbackStrategy: strategy });
+
+  const updateComboStrategy = (strategy: string) => saveSetting({ comboStrategy: strategy });
 
   const updateStickyLimit = async (limit: string) => {
-    const numLimit = parseInt(limit);
-    if (isNaN(numLimit) || numLimit < 1) return;
-
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stickyRoundRobinLimit: numLimit }),
-      });
-      if (res.ok) {
-        setSettings(prev => ({ ...prev, stickyRoundRobinLimit: numLimit }));
-      }
-    } catch (err) {
-      console.error("Falha ao atualizar limite sticky:", err);
-    }
+    const value = parseLimit(limit, STICKY_LIMIT_MAX);
+    if (value !== null) await saveSetting({ stickyRoundRobinLimit: value });
   };
 
   const updateComboStickyLimit = async (limit: string) => {
-    const numLimit = parseInt(limit);
-    if (isNaN(numLimit) || numLimit < 1) return;
-
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comboStickyRoundRobinLimit: numLimit }),
-      });
-      if (res.ok) {
-        setSettings(prev => ({ ...prev, comboStickyRoundRobinLimit: numLimit }));
-      }
-    } catch (err) {
-      console.error("Falha ao atualizar limite sticky de combo:", err);
-    }
+    const value = parseLimit(limit, COMBO_STICKY_LIMIT_MAX);
+    if (value !== null) await saveSetting({ comboStickyRoundRobinLimit: value });
   };
 
-  const updateRequireLogin = async (requireLogin: boolean) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requireLogin }),
-      });
-      if (res.ok) {
-        setSettings(prev => ({ ...prev, requireLogin }));
-      }
-    } catch (err) {
-      console.error("Falha ao atualizar exigir login:", err);
-    }
-  };
+  const updateRequireLogin = (requireLogin: boolean) => saveSetting({ requireLogin });
 
   return {
     settings,
     setSettings,
     loading,
     setLoading,
+    saveError,
     reloadSettings,
     updateFallbackStrategy,
     updateFreeFallbackEnabled,

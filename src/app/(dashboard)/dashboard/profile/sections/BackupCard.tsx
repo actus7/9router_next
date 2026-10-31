@@ -25,7 +25,7 @@ export default function BackupCard({
           <Database className="size-5" />
         </div>
         <div>
-          <h3 className="text-base sm:text-lg font-semibold">{translate("Backup")}</h3>
+          <h2 className="text-base sm:text-lg font-semibold">{translate("Backup")}</h2>
           <p className="text-xs sm:text-sm text-text-muted">{translate("Export or import this account's data")}</p>
         </div>
       </div>
@@ -57,11 +57,13 @@ export default function BackupCard({
             onChange={handleImportDatabase}
           />
         </div>
-        {dbStatus.message && (
-          <p className={`text-sm ${dbStatus.type === "error" ? "text-destructive" : "text-success"}`}>
-            {dbStatus.message}
-          </p>
-        )}
+        <div role="status" className="empty:hidden">
+          {dbStatus.message && (
+            <p className={`text-sm ${dbStatus.type === "error" ? "text-destructive" : "text-success"}`}>
+              {dbStatus.message}
+            </p>
+          )}
+        </div>
       </div>
     </Card>
   );

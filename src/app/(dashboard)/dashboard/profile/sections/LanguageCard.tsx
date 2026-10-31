@@ -19,7 +19,7 @@ export default function LanguageCard({ locale, setLangOpen }: LanguageCardProps)
         <div className="size-10 rounded-lg bg-info text-info-foreground flex items-center justify-center shrink-0">
           <Globe className="size-5" />
         </div>
-        <h3 className="text-base sm:text-lg font-semibold">{translate("Language")}</h3>
+        <h2 className="text-base sm:text-lg font-semibold">{translate("Language")}</h2>
       </div>
       <Button
         variant="outline"

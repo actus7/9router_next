@@ -4,6 +4,11 @@ import { useState, useRef } from "react";
 import { translate } from "@/i18n/runtime";
 import type { StatusMessage } from "../types";
 
+/** Parses a backup file; throws when it is not JSON. Used before asking for confirmation and again on import. */
+export async function parseBackupFile(file: Pick<File, "text">): Promise<unknown> {
+  return JSON.parse(await file.text());
+}
+
 export function useDatabaseBackup(reloadSettings: () => Promise<void>) {
   const [dbLoading, setDbLoading] = useState(false);
   const [dbStatus, setDbStatus] = useState<StatusMessage>({ type: "", message: "" });
@@ -43,11 +48,18 @@ export function useDatabaseBackup(reloadSettings: () => Promise<void>) {
     }
   };
 
-  const handleImportDatabase = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportDatabase = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (importFileRef.current) importFileRef.current.value = "";
     if (!file) return;
     setDbStatus({ type: "", message: "" });
+    // A file that is not a backup never reaches the destructive confirmation.
+    try {
+      await parseBackupFile(file);
+    } catch {
+      setDbStatus({ type: "error", message: translate("Invalid backup file") || "Invalid backup file" });
+      return;
+    }
     setPendingImport(file);
   };
 
@@ -57,7 +69,7 @@ export function useDatabaseBackup(reloadSettings: () => Promise<void>) {
     if (!file) return;
     setDbLoading(true);
     try {
-      const payload = JSON.parse(await file.text());
+      const payload = await parseBackupFile(file);
 
       const res = await fetch("/api/settings/database", {
         method: "POST",

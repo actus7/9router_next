@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import AccentColorPicker from "@/shared/components/AccentColorPicker";
 import type { AccentColorId } from "@/shared/constants/accentColors";
 
+const THEME_LABELS: Record<string, string> = { light: "Light", dark: "Dark", system: "System" };
+
 interface AppearanceCardProps {
   theme: string;
   setTheme: (theme: "light" | "dark" | "system") => void;
@@ -21,7 +23,7 @@ export default function AppearanceCard({ theme, setTheme, initialAccent }: Appea
         <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
           <Palette className="size-5" />
         </div>
-        <h3 className="text-base sm:text-lg font-semibold">{translate("Appearance")}</h3>
+        <h2 className="text-base sm:text-lg font-semibold">{translate("Appearance")}</h2>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -32,6 +34,7 @@ export default function AppearanceCard({ theme, setTheme, initialAccent }: Appea
               key={option}
               variant="ghost"
               size="sm"
+              aria-pressed={theme === option}
               onClick={() => setTheme(option as "light" | "dark" | "system")}
               className={cn(
                 "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium transition-all flex-1 sm:flex-initial",
@@ -41,7 +44,7 @@ export default function AppearanceCard({ theme, setTheme, initialAccent }: Appea
               )}
             >
               {option === "light" ? <Sun className="size-4" /> : option === "dark" ? <Moon className="size-4" /> : <Contrast className="size-4" />}
-              <span className="capitalize text-xs sm:text-sm">{option}</span>
+              <span className="capitalize text-xs sm:text-sm">{translate(THEME_LABELS[option])}</span>
             </Button>
           ))}
         </div>

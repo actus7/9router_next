@@ -55,7 +55,15 @@ describe("DecisionEngineCard — chave da TypeSafe pela tela", () => {
     render(<DecisionEngineCard settings={settings} loading={false} engine={e} />);
     expect(screen.getByText(/Using your TypeSafe key/i)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /remove key/i }));
+    expect(e.removeTypesafeKey).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /^remove$/i }));
     expect(e.removeTypesafeKey).toHaveBeenCalled();
+  });
+
+  it("mostra o erro quando a remoção falha", () => {
+    const e = engine({ hasTypesafeKey: true, hasGatewayKey: false, error: "Could not remove the key" });
+    render(<DecisionEngineCard settings={settings} loading={false} engine={e} />);
+    expect(screen.getByRole("alert").textContent).toMatch(/could not remove/i);
   });
 
   it("sem chave, oferece TypeSafe por padrão e salva por ela", () => {
@@ -70,7 +78,37 @@ describe("DecisionEngineCard — chave da TypeSafe pela tela", () => {
   it("pode trocar para a Vercel AI Gateway", () => {
     const e = engine({ hasTypesafeKey: false, hasGatewayKey: false });
     render(<DecisionEngineCard settings={settings} loading={false} engine={e} />);
-    fireEvent.click(screen.getByRole("radio", { name: /Vercel AI Gateway/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Vercel AI Gateway/i }));
     expect(screen.getByLabelText(/Vercel AI Gateway API key/i)).toBeTruthy();
+  });
+});
+
+describe("DecisionEngineCard — sem nenhuma chave", () => {
+  afterEach(cleanup);
+
+  it("avisa que o Jev está desligado e trava os switches de recurso", () => {
+    render(<DecisionEngineCard settings={settings} loading={false} engine={engine({ hasTypesafeKey: false, hasGatewayKey: false })} />);
+    expect(screen.getByText(/Jev is off until a key is saved/i)).toBeTruthy();
+    const sw = screen.getByRole("switch", { name: /Smart routing classifier/i });
+    expect(sw.hasAttribute("data-disabled")).toBe(true);
+  });
+
+  it("com chave, os switches continuam ativos", () => {
+    render(<DecisionEngineCard settings={settings} loading={false} engine={engine()} />);
+    const sw = screen.getByRole("switch", { name: /Smart routing classifier/i });
+    expect(sw.hasAttribute("data-disabled")).toBe(false);
+  });
+
+  it("se não conseguiu verificar a chave, oferece tentar de novo", () => {
+    const refreshKeyStatus = vi.fn();
+    render(<DecisionEngineCard settings={settings} loading={false} engine={engine({ hasTypesafeKey: null, hasGatewayKey: null, keyStatusFailed: true, refreshKeyStatus })} />);
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(refreshKeyStatus).toHaveBeenCalled();
+  });
+
+  it("a API pública continua editável sem chave do Jev", () => {
+    render(<DecisionEngineCard settings={settings} loading={false} engine={engine({ hasTypesafeKey: false, hasGatewayKey: false })} />);
+    const sw = screen.getByRole("switch", { name: /Public API content scan/i });
+    expect(sw.hasAttribute("data-disabled")).toBe(false);
   });
 });

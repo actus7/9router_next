@@ -26,7 +26,7 @@ export default function SecurityCard() {
         <div className="size-10 rounded-lg bg-warning text-warning-foreground flex items-center justify-center shrink-0">
           <KeyRound className="size-5" />
         </div>
-        <h3 className="text-base sm:text-lg font-semibold">{translate("Security")}</h3>
+        <h2 className="text-base sm:text-lg font-semibold">{translate("Security")}</h2>
       </div>
       <Button
         variant="outline"

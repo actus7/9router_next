@@ -80,6 +80,7 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
           updateStickyLimit={profileSettings.updateStickyLimit}
           updateComboStickyLimit={profileSettings.updateComboStickyLimit}
           updateFreeFallbackEnabled={profileSettings.updateFreeFallbackEnabled}
+          saveError={profileSettings.saveError}
         />}
 
         {canManage && <DecisionEngineCard settings={settings} loading={loading} engine={decisionEngine} />}
@@ -98,6 +99,12 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
         />}
 
         <AccountActions handleLogout={handleLogout} />
+
+        {!canManage && (
+          <p className="text-xs sm:text-sm text-text-muted">
+            {translate("Backup, routing, decision engine and network are configured by an organization admin.")}
+          </p>
+        )}
       </div>
 
       <LanguageSwitcher
@@ -127,6 +134,9 @@ export default function ProfileClient({ initialSettings, initialAccent }: Profil
         <p className="text-text-muted text-sm">
           {translate("Importing a backup deletes this account's current providers, keys, combos and settings, then restores what the file contains.")}
         </p>
+        {databaseBackup.pendingImport && (
+          <p className="mt-3 text-sm font-medium break-all">{databaseBackup.pendingImport.name}</p>
+        )}
       </Modal>
     </div>
   );

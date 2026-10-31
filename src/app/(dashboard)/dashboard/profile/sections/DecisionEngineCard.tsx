@@ -103,6 +103,8 @@ interface DecisionEngineCardProps {
 
 export default function DecisionEngineCard({ settings, loading, engine }: DecisionEngineCardProps) {
   const isJev = settings.decisionEngine === "jev";
+  // Jev without any credential answers nothing: every call falls back silently.
+  const noKey = engine.hasTypesafeKey === false && engine.hasGatewayKey === false;
 
   return (
     <Card>
@@ -111,7 +113,7 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
           <BrainCircuit className="size-5" />
         </div>
         <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-semibold">{t("Decision engine")}</h3>
+          <h2 className="text-base sm:text-lg font-semibold">{t("Decision engine")}</h2>
           <p className="text-xs sm:text-sm text-text-muted">
             {t("Who makes the platform's quick decisions: built-in heuristics, or the Jev model (TypeSafe AI), with your TypeSafe key or through your Vercel AI Gateway.")}
           </p>
@@ -119,12 +121,11 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
       </div>
 
       <div className="flex flex-col gap-4">
-        <div role="radiogroup" aria-label={t("Decision engine")} className="grid grid-cols-2 gap-2">
+        <div role="group" aria-label={t("Decision engine")} className="grid grid-cols-2 gap-2">
           {(["heuristic", "jev"] as const).map((value) => (
             <Button
               key={value}
-              role="radio"
-              aria-checked={(value === "jev") === isJev}
+              aria-pressed={(value === "jev") === isJev}
               variant={(value === "jev") === isJev ? "primary" : "outline"}
               disabled={loading}
               onClick={() => engine.setEngine(value)}
@@ -140,11 +141,17 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
               <JevKeySection engine={engine}>
                 <JevTestStatus result={engine.testResult} />
               </JevKeySection>
-              <p className="mt-2 text-xs text-text-muted">
-                {engine.hasTypesafeKey
-                  ? t("Jev calls are billed to your TypeSafe account. When Jev is unreachable, every feature falls back to the heuristic.")
-                  : t("Jev calls are billed to your Vercel AI Gateway. When Jev is unreachable, every feature falls back to the heuristic.")}
-              </p>
+              {noKey ? (
+                <p className="mt-2 text-sm text-destructive">
+                  {t("Jev is off until a key is saved: add a TypeSafe key or a Vercel AI Gateway connection above.")}
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-text-muted">
+                  {engine.hasTypesafeKey
+                    ? t("Jev calls are billed to your TypeSafe account. When Jev is unreachable, every feature falls back to the heuristic.")
+                    : t("Jev calls are billed to your Vercel AI Gateway. When Jev is unreachable, every feature falls back to the heuristic.")}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-4 pt-2 border-t border-border/50">
@@ -158,7 +165,7 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
                     aria-label={t(feature.title)}
                     checked={settings[feature.key] === true}
                     onCheckedChange={(checked) => engine.setFeature(feature.key, checked)}
-                    disabled={loading}
+                    disabled={loading || noKey}
                   />
                 </div>
               ))}
@@ -201,7 +208,7 @@ function JevTestStatus({ result }: { result: ReturnType<typeof useDecisionEngine
     <div role="status" className="flex flex-col gap-1 text-sm text-destructive">
       <p className="flex items-start gap-2">
         <XCircle className="size-4 shrink-0 mt-0.5" />
-        <span>{text ? t(text) : result.message}</span>
+        <span>{text ? t(text) : t(result.message)}</span>
       </p>
       {result.reason === "free_tier" && (
         <a

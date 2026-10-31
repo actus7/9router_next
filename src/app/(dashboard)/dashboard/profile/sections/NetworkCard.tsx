@@ -30,10 +30,10 @@ export default function NetworkCard({
   return (
     <Card>
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
+        <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
           <Wifi className="size-5" />
         </div>
-        <h3 className="text-base sm:text-lg font-semibold">{translate("Network")}</h3>
+        <h2 className="text-base sm:text-lg font-semibold">{translate("Network")}</h2>
       </div>
 
       <div className="flex flex-col gap-4">
@@ -43,6 +43,7 @@ export default function NetworkCard({
             <p className="text-xs sm:text-sm text-text-muted">{translate("Enable proxy for OAuth + provider outbound requests.")}</p>
           </div>
           <Switch
+            aria-label={translate("Outbound Proxy")}
             checked={settings.outboundProxyEnabled === true}
             onCheckedChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
             disabled={loading || proxyLoading}
@@ -91,11 +92,13 @@ export default function NetworkCard({
           </form>
         )}
 
-        {proxyStatus.message && (
-          <p className={`text-xs sm:text-sm ${proxyStatus.type === "error" ? "text-destructive" : "text-success"} pt-2 border-t border-border/50`}>
-            {proxyStatus.message}
-          </p>
-        )}
+        <div role="status" className="empty:hidden">
+          {proxyStatus.message && (
+            <p className={`text-xs sm:text-sm ${proxyStatus.type === "error" ? "text-destructive" : "text-success"} pt-2 border-t border-border/50`}>
+              {proxyStatus.message}
+            </p>
+          )}
+        </div>
       </div>
     </Card>
   );
