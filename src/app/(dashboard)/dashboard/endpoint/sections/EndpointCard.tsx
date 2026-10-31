@@ -263,12 +263,12 @@ export default function EndpointCard({
               icon={<Lock className="size-4" />}
               onClick={() => {
                 if (isLoginUnsafe) {
-                  setTsStatus({ type: "error", message: `Security required: ${unsafeReason}` });
+                  setTsStatus({ type: "error", message: `${translate("Security required:") || "Security required:"} ${unsafeReason}` });
                   return;
                 }
                 handleOpenTsModal();
               }}
-              className="bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white!"
+              className="bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white!"
             >
               Enable
             </Button>

@@ -4,6 +4,7 @@ import useSWR from "swr";
 import Modal from "@/shared/components/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { jsonFetcher } from "@/shared/hooks/jsonFetcher";
+import { translate } from "@/i18n/runtime";
 import type { AgentSkillDefinition } from "@/shared/harness/agentSkills";
 import type { UseKeyProfileReturn } from "../hooks/useKeyProfile";
 
@@ -22,7 +23,7 @@ const approxTokens = (text: string): number => Math.ceil(text.length / 4);
  */
 export default function KeySkillsModal({ keyName, state, onClose }: Props) {
   const { profile, loading, saving, error, save } = state;
-  const { data } = useSWR<{ skills: AgentSkillDefinition[] }>(
+  const { data, error: skillsError } = useSWR<{ skills: AgentSkillDefinition[] }>(
     keyName !== null ? "/api/harness/skills" : null,
     jsonFetcher,
   );
@@ -49,7 +50,11 @@ export default function KeySkillsModal({ keyName, state, onClose }: Props) {
         Selecionadas: {selected.size} · ~{selectedTokens.toLocaleString()} tokens a mais por requisição.
         Para instalar novas skills, use a Biblioteca de Skills no chat.
       </p>
-      {loading || !profile || !data ? (
+      {skillsError ? (
+        <p role="alert" className="mt-4 text-sm text-destructive">
+          {translate("Could not load skills.") || "Could not load skills."}
+        </p>
+      ) : loading || !profile || !data ? (
         <p className="mt-4 text-sm text-muted-foreground">{error || "Carregando…"}</p>
       ) : skills.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">Nenhuma skill instalada nesta conta.</p>

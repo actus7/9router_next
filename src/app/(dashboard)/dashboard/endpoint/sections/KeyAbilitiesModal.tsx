@@ -18,11 +18,11 @@ export default function KeyAbilitiesModal({ keyName, state, onClose }: Props) {
   return (
     <Modal isOpen={keyName !== null} onClose={onClose} title={`Habilidades · ${keyName ?? ""}`} size="2xl">
       <p className="mb-4 text-sm text-muted-foreground">
-        Valem só para as requisições feitas com esta chave. Cada chat configura as próprias
-        habilidades nos plugins da conversa.
+        {translate("These apply only to requests made with this key. Each chat configures its own abilities in the conversation's plugins.") ||
+          "These apply only to requests made with this key. Each chat configures its own abilities in the conversation's plugins."}
       </p>
       {loading || !profile ? (
-        <p className="text-sm text-muted-foreground">{error || "Carregando…"}</p>
+        <p className="text-sm text-muted-foreground">{error || translate("Loading...") || "Loading..."}</p>
       ) : (
         <>
           <AbilitiesEditor
@@ -52,7 +52,7 @@ export default function KeyAbilitiesModal({ keyName, state, onClose }: Props) {
       )}
       {error && profile ? (
         <p role="alert" className="mt-3 text-sm text-destructive">
-          Não foi possível salvar: {error}. A configuração anterior foi mantida.
+          {`${translate("Could not save") || "Could not save"}: ${error}. ${translate("The previous setting was kept.") || "The previous setting was kept."}`}
         </p>
       ) : null}
     </Modal>

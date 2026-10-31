@@ -99,6 +99,13 @@ export function useTailscale() {
       });
       setTsSudoPassword("");
 
+      // A refusal (e.g. Linux needs the sudo password) answers JSON, not the event stream.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setTsStatus({ type: "error", message: data.error || (translate("Installation failed") || "Installation failed") });
+        return;
+      }
+
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -177,7 +184,7 @@ export function useTailscale() {
     try {
       const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
       if (res.status === 403) {
-        setTsStatus({ type: "info", message: localOnlyMessage() });
+        setTsStatus({ type: "error", message: localOnlyMessage() });
         return;
       }
       const data = await res.json();

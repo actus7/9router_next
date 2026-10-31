@@ -180,6 +180,8 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
 
       <ApiKeysCard
         keys={apiKeys.keys}
+        loadError={apiKeys.loadError}
+        onRetry={fetchData}
         setShowAddModal={apiKeys.setShowAddModal}
         isRemoteHost={settings.isRemoteHost}
         visibleKeys={apiKeys.visibleKeys}

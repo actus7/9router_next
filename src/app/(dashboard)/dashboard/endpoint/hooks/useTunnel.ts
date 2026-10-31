@@ -132,7 +132,7 @@ export function useTunnel() {
       const res = await fetch("/api/tunnel/enable", { method: "POST" });
       polling = false;
       if (res.status === 403) {
-        setTunnelStatus({ type: "info", message: localOnlyMessage() });
+        setTunnelStatus({ type: "error", message: localOnlyMessage() });
         return;
       }
       const data = await res.json();

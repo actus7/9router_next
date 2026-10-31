@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Brain } from "lucide-react";
 import Card from "@/shared/components/Card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,9 @@ type Learning = ReturnType<typeof useLearnedAnswers>;
  */
 export default function LearnedAnswersCard({ learning }: { learning: Learning }) {
   const { capabilities } = learning;
+  const [actionFailed, setActionFailed] = useState(false);
+  // A refused change leaves the list as it was; say so instead of failing silently.
+  const act = async (pending: Promise<boolean>) => setActionFailed(!(await pending));
   return (
     <Card id="learned-answers">
       <section className="flex flex-col gap-3" aria-labelledby="learned-answers-title">
@@ -58,11 +62,19 @@ export default function LearnedAnswersCard({ learning }: { learning: Learning })
                     <div className="flex shrink-0 items-center gap-2">
                       <Badge variant={status.variant}>{t(status.label)}</Badge>
                       {cap.status === "deprecated" ? (
-                        <Button size="sm" variant="outline" onClick={() => learning.reactivate(cap.id)}>{t("Reactivate")}</Button>
+                        <Button size="sm" variant="outline" onClick={() => void act(learning.reactivate(cap.id))}>{t("Reactivate")}</Button>
                       ) : (
-                        <Button size="sm" variant="outline" onClick={() => learning.retire(cap.id)}>{t("Retire")}</Button>
+                        <Button size="sm" variant="outline" onClick={() => void act(learning.retire(cap.id))}>{t("Retire")}</Button>
                       )}
-                      <Button size="sm" variant="ghost" onClick={() => learning.remove(cap.id)}>{t("Delete")}</Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (window.confirm(t("Delete this learned answer?"))) void act(learning.remove(cap.id));
+                        }}
+                      >
+                        {t("Delete")}
+                      </Button>
                     </div>
                   </li>
                 );
@@ -73,14 +85,19 @@ export default function LearnedAnswersCard({ learning }: { learning: Learning })
               variant="outline"
               className="w-fit"
               onClick={() => {
-                if (window.confirm(t("Forget everything Synapse learned for this account?"))) learning.forgetAll();
+                if (window.confirm(t("Forget everything Synapse learned for this account?"))) void act(learning.forgetAll());
               }}
             >
               {t("Forget everything Synapse learned")}
             </Button>
           </>
         ) : null}
-        {!learning.loading && capabilities.length === 0 ? (
+        {actionFailed ? (
+          <p role="alert" className="text-xs text-destructive">{t("Could not update the learned answers. Try again.")}</p>
+        ) : null}
+        {learning.loadError ? (
+          <p role="alert" className="text-xs text-destructive">{t("Could not load learned answers.")}</p>
+        ) : !learning.loading && capabilities.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             {t("Nothing learned yet. A question needs two equivalent answers to start being validated.")}
           </p>

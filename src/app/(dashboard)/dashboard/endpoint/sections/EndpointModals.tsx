@@ -57,7 +57,7 @@ export default function EndpointModals({
   createdKey, setCreatedKey, copied, copy,
   showEnableTunnelModal, setShowEnableTunnelModal, handleEnableTunnel,
   showDisableTunnelModal, setShowDisableTunnelModal, handleDisableTunnel, tunnelLoading,
-  showTsModal, setShowTsModal, tsInstalled, tsInstalling, tsInstallLog, tsSudoPassword: _tsSudoPassword, setTsSudoPassword, tsStatus, handleInstallTailscale, handleConnectTailscale, tsLogRef,
+  showTsModal, setShowTsModal, tsInstalled, tsInstalling, tsInstallLog, tsSudoPassword, setTsSudoPassword, tsStatus, handleInstallTailscale, handleConnectTailscale, tsLogRef,
   showDisableTsModal, setShowDisableTsModal, handleDisableTailscale, tsLoading,
   confirmState, setConfirmState,
 }: EndpointModalsProps) {
@@ -157,8 +157,8 @@ export default function EndpointModals({
             {TUNNEL_BENEFITS.map((benefit) => (
               <div key={benefit.title} className="flex flex-col items-center text-center p-3 rounded-lg bg-sidebar/50">
                 <span className="text-xl text-primary mb-1">{benefit.icon}</span>
-                <p className="text-xs font-semibold">{benefit.title}</p>
-                <p className="text-xs text-text-muted">{benefit.desc}</p>
+                <p className="text-xs font-semibold">{translate(benefit.title) || benefit.title}</p>
+                <p className="text-xs text-text-muted">{translate(benefit.desc) || benefit.desc}</p>
               </div>
             ))}
           </div>
@@ -212,6 +212,13 @@ export default function EndpointModals({
           {tsInstalled === false && !tsInstalling && (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-text-muted">{translate("Tailscale is not installed. Install it to enable Funnel.") || "Tailscale is not installed. Install it to enable Funnel."}</p>
+              <Input
+                type="password"
+                autoComplete="off"
+                label={translate("Sudo password (Linux, if needed)") || "Sudo password (Linux, if needed)"}
+                value={tsSudoPassword}
+                onChange={(e) => setTsSudoPassword(e.target.value)}
+              />
               <div className="flex gap-2">
                 <Button onClick={handleInstallTailscale} fullWidth>
                   {translate("Install Tailscale") || "Install Tailscale"}

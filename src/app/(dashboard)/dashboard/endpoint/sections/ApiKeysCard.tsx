@@ -11,6 +11,8 @@ import type { ApiKey, ConfirmState } from "../types";
 
 interface ApiKeysCardProps {
   keys: ApiKey[];
+  loadError: boolean;
+  onRetry: () => void;
   setShowAddModal: (v: boolean) => void;
   isRemoteHost: boolean;
   visibleKeys: Set<string>;
@@ -26,7 +28,7 @@ interface ApiKeysCardProps {
 }
 
 export default function ApiKeysCard({
-  keys, setShowAddModal,
+  keys, loadError, onRetry, setShowAddModal,
   isRemoteHost, visibleKeys, copied, copy,
   maskKey, toggleKeyVisibility, setConfirmState, handleToggleKey, handleDeleteKey,
   onOpenAbilities, onOpenSkills,
@@ -56,7 +58,16 @@ export default function ApiKeysCard({
         </div>
       )}
 
-      {keys.length === 0 ? (
+      {loadError && keys.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <p role="alert" className="text-sm text-destructive">
+            {translate("Could not load API keys.") || "Could not load API keys."}
+          </p>
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            {translate("Try again") || "Try again"}
+          </Button>
+        </div>
+      ) : keys.length === 0 ? (
         <div className="text-center py-12">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
             <KeyRound className="size-8" />
@@ -77,15 +88,15 @@ export default function ApiKeysCard({
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{key.name}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <code className="text-xs text-text-muted font-mono">
+                  <code className="text-xs text-text-muted font-mono break-all min-w-0">
                     {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
                   </code>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => toggleKeyVisibility(key.id)}
-                    title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
-                    aria-label={visibleKeys.has(key.id) ? `Hide API key ${key.name}` : `Show API key ${key.name}`}
+                    title={translate(visibleKeys.has(key.id) ? "Hide key" : "Show key") || (visibleKeys.has(key.id) ? "Hide key" : "Show key")}
+                    aria-label={`${translate(visibleKeys.has(key.id) ? "Hide API key" : "Show API key") || (visibleKeys.has(key.id) ? "Hide API key" : "Show API key")} ${key.name}`}
                   >
                     {visibleKeys.has(key.id) ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </Button>
@@ -93,7 +104,7 @@ export default function ApiKeysCard({
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => copy(key.key, key.id)}
-                    aria-label={`Copy API key ${key.name}`}
+                    aria-label={`${translate("Copy API key") || "Copy API key"} ${key.name}`}
                   >
                     {copied === key.id ? <Check className="size-4" /> : <Copy className="size-4" />}
                   </Button>
@@ -102,7 +113,7 @@ export default function ApiKeysCard({
                     {translate("Created on") || "Created on"} {new Date(key.createdAt).toLocaleDateString()}
                   </p>
                   {key.isActive === false && (
-                    <p className="text-xs text-orange-500 mt-1">{translate("Paused") || "Paused"}</p>
+                    <p className="text-xs text-warning-foreground mt-1">{translate("Paused") || "Paused"}</p>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -112,7 +123,7 @@ export default function ApiKeysCard({
                   size="sm"
                   icon={<Sparkles className="size-4" />}
                   onClick={() => onOpenAbilities(key)}
-                  aria-label={`Habilidades da chave ${key.name || key.id}`}
+                  aria-label={`${translate("Key abilities") || "Key abilities"} ${key.name || key.id}`}
                 >
                   <span className="hidden sm:inline">Habilidades</span>
                 </Button>
@@ -121,7 +132,7 @@ export default function ApiKeysCard({
                   size="sm"
                   icon={<BookOpen className="size-4" />}
                   onClick={() => onOpenSkills(key)}
-                  aria-label={`Skills da chave ${key.name || key.id}`}
+                  aria-label={`${translate("Key skills") || "Key skills"} ${key.name || key.id}`}
                 >
                   <span className="hidden sm:inline">Skills</span>
                 </Button>
@@ -142,14 +153,15 @@ export default function ApiKeysCard({
                       handleToggleKey(key.id, checked);
                     }
                   }}
-                  title={key.isActive ? "Pause key" : "Resume key"}
+                  title={translate(key.isActive ? "Pause key" : "Resume key") || (key.isActive ? "Pause key" : "Resume key")}
+                  aria-label={`${translate(key.isActive ? "Pause API key" : "Resume API key") || (key.isActive ? "Pause API key" : "Resume API key")} ${key.name || key.id}`}
                 />
                 <Button
                   variant="destructive"
                   size="icon"
                   onClick={() => handleDeleteKey(key.id)}
-                  aria-label={`Delete API key ${key.name || key.id}`}
-                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                  aria-label={`${translate("Delete API key") || "Delete API key"} ${key.name || key.id}`}
+                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
                 >
                   <Trash2 className="size-5" />
                 </Button>

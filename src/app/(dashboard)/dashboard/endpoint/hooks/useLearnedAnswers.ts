@@ -33,29 +33,34 @@ async function send(url: string, init: RequestInit): Promise<boolean> {
  */
 export function useLearnedAnswers(enabled = true) {
   // Learned answers are the whole organization's prompts; only admins read them.
-  const { data, isLoading, mutate } = useSWR<{ capabilities: LearnedCapability[] }>(enabled ? CAPS_URL : null, jsonFetcher);
+  const { data, error, isLoading, mutate } = useSWR<{ capabilities: LearnedCapability[] }>(enabled ? CAPS_URL : null, jsonFetcher);
 
+  // Every mutation resolves to whether the server accepted it, so the card can say so.
   const setStatus = async (id: string, status: "shadow" | "deprecated") => {
-    await send(`${CAPS_URL}/${encodeURIComponent(id)}`, {
+    const ok = await send(`${CAPS_URL}/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
     await mutate();
+    return ok;
   };
 
   return {
     loading: isLoading,
+    loadError: Boolean(error),
     capabilities: data?.capabilities ?? [],
     retire: (id: string) => setStatus(id, "deprecated"),
     reactivate: (id: string) => setStatus(id, "shadow"),
     remove: async (id: string) => {
-      await send(`${CAPS_URL}/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const ok = await send(`${CAPS_URL}/${encodeURIComponent(id)}`, { method: "DELETE" });
       await mutate();
+      return ok;
     },
     forgetAll: async () => {
-      await send(CAPS_URL, { method: "DELETE" });
+      const ok = await send(CAPS_URL, { method: "DELETE" });
       await mutate();
+      return ok;
     },
   };
 }

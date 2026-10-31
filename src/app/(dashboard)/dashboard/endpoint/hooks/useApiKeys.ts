@@ -2,11 +2,23 @@
 
 import { useCallback, useState } from "react";
 import { translate } from "@/i18n/runtime";
+import { notify } from "@/store/notificationStore";
 import type { ApiKey, ConfirmState } from "../types";
+
+const failed = (message: string) => notify.error(translate(message) || message);
+
+// A failed GET must not look like an empty list: callers need to tell them apart.
+async function fetchKeys(): Promise<ApiKey[]> {
+  const res = await fetch("/api/keys");
+  if (!res.ok) throw new Error(`Failed to load API keys (${res.status})`);
+  const data = await res.json();
+  return data.keys || [];
+}
 
 export function useApiKeys() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
@@ -15,15 +27,9 @@ export function useApiKeys() {
 
   const fetchData = useCallback(async () => {
     try {
-      const fetchKeys = async () => {
-        const res = await fetch("/api/keys");
-        if (!res.ok) return [];
-        const data = await res.json();
-        return data.keys || [];
-      };
-
       let existing = await fetchKeys();
       // Auto-provision a default key for first-time users so the endpoint works out of the box.
+      // Only when the list really came back empty: a failed GET is not a first visit.
       if (existing.length === 0) {
         try {
           const createRes = await fetch("/api/keys", {
@@ -35,8 +41,10 @@ export function useApiKeys() {
         } catch { /* fall through to empty render */ }
       }
       setKeys(existing);
+      setLoadError(false);
     } catch (error) {
       console.error("Error fetching data:", error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -58,9 +66,12 @@ export function useApiKeys() {
         await fetchData();
         setNewKeyName("");
         setShowAddModal(false);
+      } else {
+        failed("Failed to create API key");
       }
     } catch (error) {
       console.error("Error creating key:", error);
+      failed("Failed to create API key");
     }
   };
 
@@ -79,9 +90,12 @@ export function useApiKeys() {
               next.delete(id);
               return next;
             });
+          } else {
+            failed("Failed to delete API key");
           }
         } catch (error) {
           console.error("Error deleting key:", error);
+          failed("Failed to delete API key");
         }
       }
     });
@@ -96,9 +110,12 @@ export function useApiKeys() {
       });
       if (res.ok) {
         setKeys(prev => prev.map(k => k.id === id ? { ...k, isActive } : k));
+      } else {
+        failed("Failed to update API key");
       }
     } catch (error) {
       console.error("Error toggling key:", error);
+      failed("Failed to update API key");
     }
   };
 
@@ -117,7 +134,7 @@ export function useApiKeys() {
   };
 
   return {
-    keys, setKeys, loading, showAddModal, setShowAddModal,
+    keys, setKeys, loading, loadError, showAddModal, setShowAddModal,
     newKeyName, setNewKeyName, createdKey, setCreatedKey,
     confirmState, setConfirmState, visibleKeys,
     fetchData, handleCreateKey, handleDeleteKey, handleToggleKey,
