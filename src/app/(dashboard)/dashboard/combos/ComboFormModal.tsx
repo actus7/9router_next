@@ -31,8 +31,9 @@ export function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders
   const [nameError, setNameError] = useState("");
   const [comboType, setComboType] = useState<"llm" | "smart">(combo?.kind === "smart" ? "smart" : "llm");
   // Smart only: route to the chosen models alone instead of the whole inventory.
-  const [onlyChosen, setOnlyChosen] = useState(false);
+  const [onlyChosen, setOnlyChosen] = useState(combo?.routing?.modelScope === "selected");
   const isScoped = comboType === "smart" && onlyChosen;
+  const isEdit = !!combo;
 
   const validateName = (value: string) => {
     if (!value.trim()) { setNameError(translate("Name is required") || "Name is required"); return false; }
@@ -59,11 +60,10 @@ export function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders
   const handleSave = async () => {
     if (!validateName(name)) return;
     setSaving(true);
-    await onSave({ name: name.trim(), models, kind: comboType, ...(isScoped ? { routing: { modelScope: "selected" as const } } : {}) });
+    // Edit never sends routing: PUT would replace the whole smart config with this stub.
+    await onSave({ name: name.trim(), models, kind: comboType, ...(isScoped && !isEdit ? { routing: { modelScope: "selected" as const } } : {}) });
     setSaving(false);
   };
-
-  const isEdit = !!combo;
 
   return (
     <>

@@ -91,20 +91,19 @@ export function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy
               <Select options={STRATEGY_OPTIONS} value={current} onChange={(value) => onSetStrategy({ fallbackStrategy: value })} ariaLabel={`Strategy for ${combo.name}`} />
             </div>
           )}
-          <div className="grid grid-cols-3 gap-2">
+          <div className={cn("grid gap-2", isSmart ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
             <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onCopy(combo.name, copyId); }} className="min-h-11 sm:min-h-10" title="Copy combo name" aria-label="Copy combo name">
               {copied === copyId ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
               <span>{copied === copyId ? (translate("Copied") || "Copied") : (translate("Copy") || "Copy")}</span>
             </Button>
-            {isSmart ? (
+            {isSmart && (
               <Link href={`/dashboard/combos/${combo.id}`} aria-label={`Configurar ${combo.name}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-h-11 sm:min-h-10")}>
                 <BrainCircuit data-icon="inline-start" /><span>{translate("Configure") || "Configure"}</span>
               </Link>
-            ) : (
-              <Button variant="ghost" size="sm" onClick={onEdit} className="min-h-11 sm:min-h-10" title="Edit" aria-label={`Edit ${combo.name}`}>
-                <Pencil data-icon="inline-start" /><span>{translate("Edit") || "Edit"}</span>
-              </Button>
             )}
+            <Button variant="ghost" size="sm" onClick={onEdit} className="min-h-11 sm:min-h-10" title="Edit" aria-label={`Edit ${combo.name}`}>
+              <Pencil data-icon="inline-start" /><span>{translate("Edit") || "Edit"}</span>
+            </Button>
             <Button variant="destructive" size="sm" onClick={onDelete} className="min-h-11 sm:min-h-10" title={translate("Delete") || "Delete"} aria-label={`Delete ${combo.name}`}>
               <Trash2 data-icon="inline-start" /><span>{translate("Delete")}</span>
             </Button>
