@@ -55,4 +55,14 @@ describe("route manifest", () => {
     const unique = new Set(paths);
     expect(unique.size).toBe(paths.length);
   });
+
+  // ── (d) matches the filesystem ────────────────────────────────────────────
+  // The manifest went stale for months (it still listed /api/auth/login and
+  // the removed /api/cli-tools/*) because nothing compared it to the routes.
+  it("lists exactly the route handlers under src/app/api, with their methods", async () => {
+    const { buildRoutes } = await import("../../scripts/gen-route-manifest.mjs");
+    const actual = (buildRoutes() as Array<{ path: string; methods: string[] }>).map((r) => `${r.path} ${r.methods.join(",")}`);
+    const listed = (manifest.routes as Array<{ path: string; methods: string[] }>).map((r) => `${r.path} ${r.methods.join(",")}`);
+    expect(listed, "run: node scripts/gen-route-manifest.mjs").toEqual(actual);
+  });
 });
