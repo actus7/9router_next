@@ -4,6 +4,11 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { makeKv } from "../helpers/kvStore";
 import { chunked, placeholderList, valuesRows } from "../helpers/batch";
 import { inferKindFromModelId } from "@/shared/constants/modelKind";
+import { pruneModelReferences } from "./modelReferencesRepo";
+import { invalidateComboNamesCache } from "./combosRepo";
+import { invalidateSettingsCache } from "./settingsRepo";
+import { invalidateDisabledModelsCache } from "./disabledModelsRepo";
+import { invalidateAccessPolicies } from "./accessPoliciesRepo";
 
 const aliasKv = makeKv("modelAliases");
 const customKv = makeKv("customModels");
@@ -24,6 +29,11 @@ export async function deleteModelAlias(alias: string): Promise<void> {
 // customModels: key=`${providerAlias}|${id}|${type}`, value=full model object
 function customKey(providerAlias: string, id: string, type: string): string {
   return `${providerAlias}|${id}|${type}`;
+}
+
+/** The model id inside a `customKey` — the key, not the value, is what every row is guaranteed to have. */
+function customKeyId(providerAlias: string, key: string): string {
+  return key.slice(providerAlias.length + 1, key.lastIndexOf("|"));
 }
 
 export async function getCustomModels(): Promise<unknown[]> {
@@ -101,7 +111,11 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
         }] as const;
       }),
   );
+  // An empty listing is a failed listing: reconciling it would delete the whole
+  // catalogue and, through the pruning below, every combo reference to it.
+  if (desired.size === 0) return;
   const db = await getAdapter();
+  let prunedAny = false;
 
   await db.transaction(async () => {
     const rows = await db.all("SELECT key, value FROM kv WHERE userId = ? AND scope = 'customModels'", [currentTenantId()]) as Array<{ key: string; value: string }>;
@@ -145,7 +159,25 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
         batch.flatMap(([key, value]) => [currentTenantId(), key, value]),
       );
     }
+
+    // A model is gone only when no entry of this provider still carries its id
+    // (another kind, or a manual entry the refresh does not own).
+    const staleSet = new Set(stale);
+    const alive = new Set([...desired.values()].map((model) => model.id));
+    for (const [key, value] of existing) {
+      if (!staleSet.has(key) && value.providerAlias === providerAlias) alive.add(customKeyId(providerAlias, key));
+    }
+    const gone = [...new Set(stale.map((key) => customKeyId(providerAlias, key)))].filter((id) => !alive.has(id));
+    await pruneModelReferences(providerAlias, gone);
+    prunedAny = gone.length > 0;
   });
+
+  if (prunedAny) {
+    invalidateComboNamesCache();
+    invalidateSettingsCache();
+    invalidateDisabledModelsCache();
+    invalidateAccessPolicies();
+  }
 }
 
 // Atomic check-then-insert inside transaction to prevent duplicate races

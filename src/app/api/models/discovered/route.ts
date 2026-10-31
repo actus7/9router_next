@@ -25,6 +25,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         metadata: pickDiscoveredMetadata(entry),
       }];
     });
+    // Reconciling an empty list would remove the catalogue and every reference to it.
+    if (discovered.length === 0) {
+      return NextResponse.json({ error: "No usable models in the listing; nothing was changed" }, { status: 400 });
+    }
     await syncDiscoveredCustomModels(providerAlias, discovered);
     return NextResponse.json({ success: true, models: await getCustomModels() });
   } catch (error) {

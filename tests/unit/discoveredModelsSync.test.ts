@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const run = vi.hoisted(() => vi.fn(async (_sql: string, _params?: unknown[]) => ({ changes: 1 })));
 const all = vi.hoisted(() => vi.fn(async (_sql: string, _params?: unknown[]) => [] as Array<Record<string, unknown>>));
+const get = vi.hoisted(() => vi.fn(async () => undefined));
 const transaction = vi.hoisted(() => vi.fn(async (fn: () => Promise<unknown>) => fn()));
 
 vi.mock("@/lib/db/driver", () => ({
-  getAdapter: vi.fn(async () => ({ run, all, transaction })),
+  getAdapter: vi.fn(async () => ({ run, all, get, transaction })),
 }));
 
 import { discoveredModelKind, syncDiscoveredCustomModels } from "@/lib/db/repos/aliasRepo";

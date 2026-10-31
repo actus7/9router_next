@@ -158,6 +158,19 @@ Três consequências que precisaram de código, não só de deleção:
   congelada como se fosse a atual é o problema que esta seção existe para
   eliminar.
 
+**Modelo que sai da listagem sai de todas as referências (decisão de
+2026-10-31).** `syncDiscoveredCustomModels` apaga do catálogo o que a listagem
+não devolveu e, na **mesma transação**, chama `pruneModelReferences`
+(`lib/db/repos/modelReferencesRepo.ts`): combos (`models`, lanes do smart com
+as `entries` alinhadas, `classifier.model` volta a `auto`), aliases, a lista de
+desabilitados, allowlists de `accessPolicies` e o `capacityAdapter`. Sem aviso:
+antes o combo comum pagava um 404 por conta a cada 2 min por um modelo morto e
+o smart guardava pinos que não casavam com nada. Só é "morto" o id que nenhuma
+entrada do provider ainda carrega (outro tipo, ou uma entrada manual). Histórico
+(uso, conversas) e estado que expira sozinho (cooldowns) não são tocados; combo
+ou allowlist que fica vazio continua existindo. Listagem vazia é recusada antes
+da transação — reconciliá-la apagaria tudo.
+
 `browserOnlyProviderForModel` perdeu a varredura "quem declara este modelo":
 com catálogo dinâmico ela só enxergaria a metade embarcada e chamaria de
 browser-only um modelo que outro provider serve. O prefixo `alias/modelo`

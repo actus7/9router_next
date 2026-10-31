@@ -10,6 +10,10 @@ const SCOPE: string = "disabledModels";
 const DISABLED_TTL_MS = 30_000;
 const disabledMemo = new TtlMemo<Record<string, string[]>>(DISABLED_TTL_MS);
 
+export function invalidateDisabledModelsCache(userId: string = currentTenantId()): void {
+  disabledMemo.delete(userId);
+}
+
 export async function getDisabledModels(): Promise<Record<string, string[]>> {
   const userId = currentTenantId();
   const cached = disabledMemo.get(userId);
