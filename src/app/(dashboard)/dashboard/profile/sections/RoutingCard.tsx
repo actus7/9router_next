@@ -83,7 +83,7 @@ export default function RoutingCard({
             </p>
           </div>
           <Switch
-            aria-label={translate("Round Robin")}
+            aria-label={translate("Round Robin") ?? undefined}
             checked={settings.fallbackStrategy === "round-robin"}
             onCheckedChange={() => updateFallbackStrategy(settings.fallbackStrategy === "round-robin" ? "fill-first" : "round-robin")}
             disabled={loading}
@@ -106,7 +106,7 @@ export default function RoutingCard({
             </p>
           </div>
           <Switch
-            aria-label={translate("Free provider fallback")}
+            aria-label={translate("Free provider fallback") ?? undefined}
             checked={settings.freeFallbackEnabled !== false}
             onCheckedChange={() => updateFreeFallbackEnabled(settings.freeFallbackEnabled === false)}
             disabled={loading}
@@ -141,7 +141,7 @@ export default function RoutingCard({
             </p>
           </div>
           <Switch
-            aria-label={translate("Combo Round Robin")}
+            aria-label={translate("Combo Round Robin") ?? undefined}
             checked={settings.comboStrategy === "round-robin"}
             onCheckedChange={() => updateComboStrategy(settings.comboStrategy === "round-robin" ? "fallback" : "round-robin")}
             disabled={loading}

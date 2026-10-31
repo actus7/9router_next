@@ -23,13 +23,14 @@ vi.mock("next/dynamic", () => ({
 }));
 
 import CombosClient from "@/app/(dashboard)/dashboard/combos/CombosClient";
+import type { CombosClientProps } from "@/app/(dashboard)/dashboard/combos/combo-types";
 
 const PROPS = {
   initialCombos: [],
   initialProviders: [],
   initialSettings: { comboStrategies: {}, capacityAdapter: {} },
   initialAliases: {},
-} as never;
+} as unknown as CombosClientProps;
 
 beforeEach(() => {
   (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;

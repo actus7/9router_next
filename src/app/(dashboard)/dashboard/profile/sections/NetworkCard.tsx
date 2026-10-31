@@ -43,7 +43,7 @@ export default function NetworkCard({
             <p className="text-xs sm:text-sm text-text-muted">{translate("Enable proxy for OAuth + provider outbound requests.")}</p>
           </div>
           <Switch
-            aria-label={translate("Outbound Proxy")}
+            aria-label={translate("Outbound Proxy") ?? undefined}
             checked={settings.outboundProxyEnabled === true}
             onCheckedChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
             disabled={loading || proxyLoading}
