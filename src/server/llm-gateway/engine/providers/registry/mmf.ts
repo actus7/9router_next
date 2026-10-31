@@ -1,7 +1,7 @@
 export default {
   id: "mmf",
   alias: "mmf-legacy",
-  hidden: true,
+  retired: { reason: "A Xiaomi encerrou o canal grátis do MiMo; o upstream responde \"Unsupported model\" a todo modelo", since: "2026-10-31" },
   priority: 200,
   display: {
     name: "MMF",
