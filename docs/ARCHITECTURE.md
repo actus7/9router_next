@@ -30,7 +30,7 @@
   avoid. Applied to the NewModelHub branch on 2026-09-11; any other database
   restored from before that date still needs it.
 
-- **Every row belongs to a tenant — an organization.** Each table but `_meta` carries `userId`, which holds the tenant id (a personal workspace is an organization whose id is the user's), every repo filters on it, and a `TenantContext { tenantId, actorUserId, role }` rides an `AsyncLocalStorage` established at the entry points: `tenantRoute` (dashboard API, from the session's active organization), `gatewayRoute` (API key → tenant and the member who owns it), `withTenantPage` (Server Components) and `forEachTenant` (background jobs). Reaching tenant data with no owner throws rather than returning rows. Conversations, runs, their search index, personal memory and a member's keys are private to the member (`MEMBER_ROWS`). Every route — reads included — needs `admin` unless it says `{ minRole: "member" }`, and runs under the actor's access policy. Two tests hold the line: `tenantIsolation` reads the SQL, `tenantRouteCoverage` reads the routes. See `docs/superpowers/specs/2026-10-12-multi-tenant-orgs-design.md`.
+- **Every row belongs to a tenant — an organization.** Each table but `_meta` carries `userId`, which holds the tenant id (a personal workspace is an organization whose id is the user's), every repo filters on it, and a `TenantContext { tenantId, actorUserId, role }` rides an `AsyncLocalStorage` established at the entry points: `tenantRoute` (dashboard API, from the session's active organization), `gatewayRoute` (API key → tenant and the member who owns it), `withTenantPage` (Server Components) and `forEachTenant` (background jobs). Reaching tenant data with no owner throws rather than returning rows. Conversations, runs, their search index, personal memory and a member's keys are private to the member (`MEMBER_ROWS`). Every route — reads included — needs `admin` unless it says `{ minRole: "member" }`, and runs under the actor's access policy. Two tests hold the line: `tenantIsolation` reads the SQL, `tenantRouteCoverage` reads the routes. See `docs/superpowers/specs/2026-10-12-multi-tenant-orgs-design.md`. The team management screen was removed on 2026-10-31: the model above is unchanged and the workspace switcher still switches organizations, but creating one, inviting members and editing organization/member limits happen through Neon Auth and `PUT /api/access`, not the dashboard.
 - **Access policies are a ceiling, the gateway profile is a treatment.** What a member or key may request (models, chat tool plugins, skills) is stacked in layers — organization, member, key — and every layer must allow (`accessScope.ts`); it fails closed. Each layer may also carry `limits` (requests per minute, monthly budget in US$), counted against that subject alone and checked by `usageLimits.ts` before any provider call, answering 429. What the gateway does to an allowed request stays the `GatewayProfile`.
 - Identity is Neon Auth and only Neon Auth. There is no operator password, no OIDC/SAML and no way to disable login, because "logged out" would mean "owns nothing". Organizations, members and invitations are Neon Auth's organization plugin; the app only reads them to resolve the tenant (`src/lib/auth/organizations.ts`).
 
@@ -81,12 +81,12 @@ usuário nunca escolheu. Um 404 comum continua rotacionando — esse sim quer
 dizer "não nesta conta".
 
 **Um provider que descarta `tools` diz isso no registry.** `features:
-{ toolCalling: false }` (hoje `quillbot` e `duckai`) vira `tools: false` em
+{ toolCalling: false }` (hoje `duckai`) vira `tools: false` em
 `getCapabilitiesForModel`, acima do que o nome do modelo sugere —
 `da/claude-haiku-4-5` herdava `tools: true` do Claude canônico. O combo smart
 deixa de considerá-lo para `tool_use`, e num combo comum um pedido com `tools`
 o tenta por último, sem descartá-lo. O caso que motivou: um pedido de imagem caiu
-no Quillbot, que só repassa o texto da mensagem, e o `generate_image` nunca foi
+no Quillbot (removido em 2026-10-31, quando passou a exigir login), que só repassa o texto da mensagem, e o `generate_image` nunca foi
 chamado.
 
 **O tipo de um modelo descoberto vem do provider.** A Vercel AI Gateway marca
@@ -114,6 +114,19 @@ aplicado só quando a chamada saiu mesmo sem chave (`credentials.id ===
 "noauth"`), para que uma conta com a própria chave do Kilo nunca fique presa
 nele. Quem precisa de previsibilidade conecta uma chave.
 
+**O OpenCode Free confere o cliente em três portões, e o TLS é um deles
+(2026-10-31).** O free tier só responde a quem parece o CLI v2: headers v2
+(UA `opencode/latest/2.x/cli`, sessão em quatro headers, sem
+`x-opencode-request`) em `/inference/v1`; no corpo, as tools `read`/`shell`
+com a definição exata e o marcador `<env>` no system prompt
+(`opencodeFingerprint.ts`); e o handshake TLS com a lista de cifras do
+BoringSSL. O `fetch` do Node recebe `429 FreeUsageLimitError` com o resto
+idêntico — medido aqui, junto com `200` pelo `wreq-js`. Por isso o executor
+leva o próprio transporte (`directFetch` → `opencodeTlsClient.ts`). Um proxy
+ou relay configurado continua tendo prioridade, e por ele o portão volta a
+recusar. O 429 desse portão não é cota: não o trate como rate limit ao
+diagnosticar. Porte de decolua/9router v0.5.111.
+
 Batch operations must be bounded, cancellable in the UI and report progress; automated tests use mocks only.
 
 ## O catálogo de modelos é descoberto, não embarcado
@@ -125,8 +138,13 @@ o que uma listagem nunca devolve.
 A regra vale para as três formas de listar que existem — `PROVIDER_MODELS_CONFIG`
 (com a credencial da conexão), um `customResolver`, ou o `modelsFetcher` público
 — e é verificada por `tests/unit/dynamicModelCatalog.test.ts`, que falha se um
-provider tiver as duas coisas. Os 147 providers sem endpoint algum mantêm o
-array: é o único catálogo que eles têm.
+provider tiver as duas coisas. Os 96 providers sem endpoint algum mantêm o
+array: é o único catálogo que eles têm. Em 2026-10-31 uma varredura sondou o
+`/models` de cada um deles: 44 tinham a rota (200 público, ou 401/403 onde uma
+rota inexistente do mesmo host dá 404) e passaram à descoberta. Os que restam
+são sessões web, APIs de mídia/busca, hosts com URL por conta (`{accountId}`,
+`{region}`) e providers mistos cujo array carrega modelos de imagem/TTS que a
+listagem de chat não traria (`minimax`, `minimax-cn`).
 
 O que motivou: o Kilo Gateway embarcava 6 modelos enquanto
 `api.kilo.ai/api/gateway/models` devolvia 381, e a tela mostrava os 6. Um
@@ -170,13 +188,8 @@ antes o combo comum pagava um 404 por conta a cada 2 min por um modelo morto e
 o smart guardava pinos que não casavam com nada. Só é "morto" o id que nenhuma
 entrada do provider ainda carrega (outro tipo, ou uma entrada manual). Histórico
 (uso, conversas) e estado que expira sozinho (cooldowns) não são tocados; combo
-ou allowlist que fica vazio continua existindo. Listagem vazia é recusada antes
+ou allowlist que fica vazio continua existindo; um pool do `capacityAdapter` que fica vazio é desligado (ligado e vazio ele cairia num modelo padrão que ninguém escolheu). A poda só roda quando o provider tem **uma** conexão ativa: a listagem vem de uma conta só, e com várias outra conta pode ainda servir o que esta não lista (um plano grátis enxerga menos) — aí só o catálogo é reconciliado. Um alias que aponta para o modelo morto morre junto, e as combos que citam o nome do alias são podadas também. Apagar um modelo pela tela poda as referências; "Clear All Models" não, porque o "Atualizar modelos" passa por ele e redescobre na sequência. Listagem vazia é recusada antes
 da transação — reconciliá-la apagaria tudo.
-
-`browserOnlyProviderForModel` perdeu a varredura "quem declara este modelo":
-com catálogo dinâmico ela só enxergaria a metade embarcada e chamaria de
-browser-only um modelo que outro provider serve. O prefixo `alias/modelo`
-decide; sem ele, a resposta é null.
 
 ## Durable runs
 
@@ -308,11 +321,11 @@ loop is now verified live, but the three media providers' request and response
 shapes are not, and that is the part a stub is worst at proving. Delete them
 once a media tool has run live against a real provider.
 
-The one thing a browser is still required for is a model that *is* the browser:
-Puter runs the completion inside `js.puter.com`, so `executeSendMessage`
-branches before the durable path and such a run never becomes a durable run at
-all. An approval-gated write no longer needs the browser — the worker queues it
-and the operator answers whenever they next look.
+No chat model needs the browser any more: the Puter provider, which ran the
+completion inside `js.puter.com`, was removed on 2026-10-31 once its anonymous
+session started requiring a login. An approval-gated write no longer needs the
+browser either — the worker queues it and the operator answers whenever they
+next look.
 
 ## Attempts, model health and slow models
 

@@ -56,14 +56,39 @@ destination's key cannot break another, because they never share one.
    prefix. It never returns the key itself.
 2. Revoke the compromised destination's key: `DELETE /api/keys/<id>`.
 3. Re-issue and rewrite that destination:
-   - cloud: delete and recreate the deployment. `POST /api/cloud/deployments`
-     mints its own key (`cloud:<provider>`) and the teardown path revokes it, so
-     the key never has to be handled by hand.
-   - CLI tool: reconfigure it from the CLI Tools screen. When ModelHub does
-     not run on the same machine as the CLI, that screen hands you a
-     `npx @model-hub/setup` command instead of writing the file — see
-     [CLI-TOOLS.md](CLI-TOOLS.md).
+   - any destination: issue a new key on the Endpoint & Key screen and put it
+     where the old one was. (The Cloud Deploy and CLI Tools screens, which
+     minted per-destination `cloud:*` / `cli:*` keys, were removed on
+     2026-10-31; keys they issued still show under those sinks.)
 4. No other destination needs touching. Verify with the inventory.
+
+### Leftovers of the removed Cloud Deploy and CLI Tools screens (2026-10-31)
+
+Two things outlived the code and are the operator's to clean up, once per
+database:
+
+- **Keys.** `cloud:*` and `cli:*` keys still authenticate: a deploy made from
+  the old screen keeps calling the gateway with its key. Nothing issues new
+  ones. Revoke what is no longer used — per key with `DELETE /api/keys/<id>`,
+  or all at once:
+
+  ```sql
+  UPDATE apikeys
+     SET isactive = 0,
+         revokedat = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+   WHERE (sink LIKE 'cloud:%' OR sink LIKE 'cli:%') AND isactive = 1;
+  ```
+
+- **Tables.** `cloudConnections` and `cloudDeployments` left `schema.ts`, but
+  `syncSchema` only adds, so they stay in the database with the Render/Railway
+  token and each deployment's `gatewayToken` in their `data`. No code reads
+  them. Revoke the Render/Railway tokens at the provider first (they are still
+  valid there), then drop the tables by hand:
+
+  ```sql
+  DROP TABLE IF EXISTS clouddeployments;
+  DROP TABLE IF EXISTS cloudconnections;
+  ```
 
 `revokedAt` is an audit timestamp; `isActive = 0` is what actually stops the key
 authenticating (`validateApiKey` reads that column and nothing else). Revoked

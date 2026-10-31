@@ -100,6 +100,15 @@ de gestão nova vai atrás de `withTenantPage(..., { minRole: "admin" })` ou
 nunca global. Detalhes e decisões:
 `docs/superpowers/specs/2026-10-12-multi-tenant-orgs-design.md`.
 
+**A tela de equipe saiu (2026-10-31).** `/dashboard/team`, o item "Team" da
+sidebar e o "Manage team" do seletor de workspace foram removidos junto com
+Cloud e CLI Tools. O modelo multi-tenant continua inteiro no backend — o
+seletor ainda lista e troca de organização, `tenantRoute`/`MEMBER_ROWS`/
+`accessScope` continuam valendo — mas criar organização, convidar membro,
+aceitar convite e editar limites por organização/membro não tem mais tela;
+acontece pelo Neon Auth e por `PUT /api/access`. Uma tela nova de gestão volta
+atrás de `withTenantPage(..., { minRole: "admin" })`.
+
 ## Habilidades e skills do gateway vêm da origem da requisição
 
 Mesmo princípio de "o caminho, não o corpo" abaixo. Quem abre o escopo do
@@ -194,8 +203,9 @@ da boundary. O shell que sobra não é vazio: o chrome do `DashboardLayout`
 (sidebar, header, título) prerenderiza e só a região de dados streama, que é
 exatamente o que a doc do Next pede em "push the boundary as low as possible".
 
-Cinco pages estavam com o `await` no topo — `cli-tools`, `cli-tools/[toolId]`,
-`endpoint`, `combos/[id]` e `media-providers/[kind]/[id]` — e foram convertidas.
+Cinco pages estavam com o `await` no topo — `cli-tools`, `cli-tools/[toolId]`
+(removidas depois, em 2026-10-31), `endpoint`, `combos/[id]` e
+`media-providers/[kind]/[id]` — e foram convertidas.
 A varredura que mostra se alguma voltou a espetar um `await` acima da boundary é
 direta: `await ` dentro do bloco `export default` de um `page.tsx`.
 
