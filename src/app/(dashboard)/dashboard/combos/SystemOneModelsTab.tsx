@@ -40,7 +40,7 @@ function judgedBy(modelId: string, comboStrategies: Record<string, Strategy>): s
  * the AI Gateway reports for the account's key.
  */
 export function SystemOneModelsTab({ comboStrategies }: { comboStrategies: Record<string, Strategy> }) {
-  const { data, isLoading } = useSystemOneModels();
+  const { data, error, isLoading } = useSystemOneModels();
   const notice = data ? fallbackNotice(data.error) : null;
 
   return (
@@ -55,7 +55,9 @@ export function SystemOneModelsTab({ comboStrategies }: { comboStrategies: Recor
 
       {notice && <p role="status" className="rounded-lg bg-muted px-3 py-2 text-sm text-text-muted">{notice}</p>}
 
-      {isLoading || !data ? (
+      {!data && error ? (
+        <p role="alert" className="rounded-lg bg-muted px-3 py-2 text-sm text-destructive">{t("Could not load System One models.")}</p>
+      ) : isLoading || !data ? (
         <Skeleton className="h-20 w-full" />
       ) : (
         <ul className="flex flex-col gap-3">

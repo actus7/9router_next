@@ -182,7 +182,7 @@ export function PreviewModal({
             </div>
             {preset === "performance" && <p className="text-xs text-text-muted">{testedCount} {translate("suggested models have measured test latency.")}</p>}
           </div>
-          <p className="text-xs text-text-muted">{translate("Organized by complexity level")} ({translate("up to")} {MAX_SUGGESTIONS_PER_TIER} {translate("models per tier")}). {translate("On confirm, this list replaces what is in the \"Default routing\" board above.")}</p>
+          <p className="text-xs text-text-muted">{translate("Organized by complexity level")} ({translate("up to")} {MAX_SUGGESTIONS_PER_TIER} {translate("models per tier")}). {translate("On confirm, this list replaces what is in the \"Complexity-based routing\" board above.")}</p>
           <div className="grid max-h-[55vh] gap-3 overflow-y-auto custom-scrollbar sm:grid-cols-2 lg:grid-cols-4">
             {ROUTING_TIERS.map((tier) => (
               <div key={tier} className="min-w-0 rounded-lg border border-border bg-muted/20 p-2">

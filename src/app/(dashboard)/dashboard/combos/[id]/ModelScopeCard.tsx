@@ -38,13 +38,12 @@ export function ModelScopeCard({
           <p className="mt-1 text-sm text-text-muted">{translate("Which models this combo may answer with.")}</p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={translate("Combo models") || "Combo models"}>
+        <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label={translate("Combo models") || "Combo models"}>
           {options.map((option) => (
             <button
               key={String(option.value)}
               type="button"
-              role="radio"
-              aria-checked={selected === option.value}
+              aria-pressed={selected === option.value}
               onClick={() => onSelectedChange(option.value)}
               className={cn("rounded-lg border p-3 text-left transition-colors", selected === option.value ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}
             >

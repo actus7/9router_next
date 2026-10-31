@@ -33,6 +33,12 @@ describe("SystemOneModelsTab", () => {
     expect(within(jev).queryByText("other")).toBeNull();
   });
 
+  it("shows a load error instead of a skeleton that never resolves", () => {
+    useSystemOneModels.mockReturnValue({ data: undefined, isLoading: false, error: new Error("500") });
+    render(<SystemOneModelsTab comboStrategies={{}} />);
+    expect(screen.getByRole("alert").textContent).toMatch(/could not load/i);
+  });
+
   it("explains a missing gateway key instead of an empty page", () => {
     loaded([JEV], { source: "builtin", error: "no_key" });
     render(<SystemOneModelsTab comboStrategies={{}} />);

@@ -103,12 +103,15 @@ export function ModelHealthPanel({ onRequestReset }: Props) {
                 {stateLabel(row)}{row.cooldownUntil && row.state !== "penalized" ? ` · ${t("until")} ${clock(row.cooldownUntil)}` : ""}
               </span>
               <span className="text-xs text-text-muted sm:text-right" title={`${row.samples} ${t("attempts")}`}>
+                <span className="sm:hidden">{t("Success")} </span>
                 {row.successRate === null ? "—" : `${Math.round(row.successRate * 100)}%`}
               </span>
               <span className="text-xs text-text-muted sm:text-right" title={t("Time to first response, p50 / p95")}>
+                <span className="sm:hidden">{t("Latency")} </span>
                 {seconds(row.p50Ms)} / {seconds(row.p95Ms)}
               </span>
               <span className="text-xs text-text-muted sm:text-right" title={t("Generation speed")}>
+                <span className="sm:hidden">{t("Speed")} </span>
                 {row.tokensPerSec ? `${row.tokensPerSec} tok/s` : "—"}
               </span>
             </li>

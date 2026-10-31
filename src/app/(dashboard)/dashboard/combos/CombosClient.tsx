@@ -47,7 +47,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
       const res = await fetch("/api/combos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { const cr = await fetch("/api/combos"); if (cr.ok) { const d = await cr.json(); setCombos(normalizeCombos(d.combos)); } setShowCreateModal(false); }
       else { const err = await res.json(); notify.error(err.error || "Failed to create combo"); }
-    } catch (error) { console.error("Error creating combo:", error); }
+    } catch (error) { console.error("Error creating combo:", error); notify.error(translate("Failed to create combo") || "Failed to create combo"); }
   };
 
   const handleUpdate = async (id: string, data: { name: string; models: string[] }) => {
@@ -55,7 +55,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
       const res = await fetch(`/api/combos/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
       if (res.ok) { const cr = await fetch("/api/combos"); if (cr.ok) { const d = await cr.json(); setCombos(normalizeCombos(d.combos)); } setEditingCombo(null); }
       else { const err = await res.json(); notify.error(err.error || "Failed to update combo"); }
-    } catch (error) { console.error("Error updating combo:", error); }
+    } catch (error) { console.error("Error updating combo:", error); notify.error(translate("Failed to update combo") || "Failed to update combo"); }
   };
 
   const handleDelete = async (id: string) => {
@@ -64,7 +64,7 @@ export default function CombosClient({ initialCombos, initialProviders, initialS
       onConfirm: async () => {
         setConfirmState(null);
         try { const res = await fetch(`/api/combos/${id}`, { method: "DELETE" }); if (res.ok) setCombos((c) => c.filter((combo) => combo.id !== id)); else notify.error(translate("Failed to delete combo") || "Failed to delete combo"); }
-        catch (error) { console.error("Error deleting combo:", error); }
+        catch (error) { console.error("Error deleting combo:", error); notify.error(translate("Failed to delete combo") || "Failed to delete combo"); }
       }
     });
   };

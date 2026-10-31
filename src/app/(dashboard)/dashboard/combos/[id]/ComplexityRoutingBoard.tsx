@@ -95,7 +95,7 @@ function TierModelRow({ id: _id, value, profile, providerId, providerName, provi
           variant="ghost"
           size="icon-sm"
           type="button"
-          className={cn("absolute top-2 left-0 size-5 cursor-grab touch-none active:cursor-grabbing", onHover)}
+          className={cn("absolute top-2 left-0 size-6 cursor-grab touch-none active:cursor-grabbing", onHover)}
           title={translate("Drag to reorder") || "Drag to reorder"}
           aria-label={`${translate("Drag") || "Drag"} ${displayName}`}
         >
@@ -142,11 +142,11 @@ function TierModelRow({ id: _id, value, profile, providerId, providerName, provi
           <span key={chip} className="max-w-full truncate rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary" title={chip}>{chip}</span>
         ))}
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
-          <Button variant="ghost" size="icon-xs" onClick={onEdit} className={cn("size-5 shrink-0", onHover)} title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
+          <Button variant="ghost" size="icon-xs" onClick={onEdit} className={cn("size-6 shrink-0", onHover)} title={translate("Change model") || "Change model"} aria-label={`${translate("Edit") || "Edit"} ${displayName}`}>
             <Pencil className="size-3" />
           </Button>
           {connections.length > 1 && (
-            <Button variant="ghost" size="icon-xs" className={cn("size-5 shrink-0", onHover)} title={translate("Add the same model on another account") || "Add the same model on another account"}
+            <Button variant="ghost" size="icon-xs" className={cn("size-6 shrink-0", onHover)} title={translate("Add the same model on another account") || "Add the same model on another account"}
               aria-label={translate("Add fallback") || "Add fallback"}
               onClick={() => onDuplicate(connections.find((c) => c.id !== entry?.connectionId)?.id ?? "")}>
               <Copy className="size-3" />

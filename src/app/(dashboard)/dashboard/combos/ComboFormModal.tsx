@@ -96,12 +96,12 @@ export function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders
           {!isEdit && comboType === "smart" && (
             <div>
               <Label className="mb-1.5 block">{translate("Combo models") || "Combo models"}</Label>
-              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={translate("Combo models") || "Combo models"}>
+              <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label={translate("Combo models") || "Combo models"}>
                 {[
                   { value: false, label: translate("All available models") || "All available models", hint: translate("Ranks your whole inventory.") || "Ranks your whole inventory." },
                   { value: true, label: translate("Only the models I choose") || "Only the models I choose", hint: translate("Routes only to the models you add below.") || "Routes only to the models you add below." },
                 ].map((option) => (
-                  <button key={String(option.value)} type="button" role="radio" aria-checked={onlyChosen === option.value} onClick={() => setOnlyChosen(option.value)} className={cn("rounded-lg border p-3 text-left transition-colors", onlyChosen === option.value ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}>
+                  <button key={String(option.value)} type="button" aria-pressed={onlyChosen === option.value} onClick={() => setOnlyChosen(option.value)} className={cn("rounded-lg border p-3 text-left transition-colors", onlyChosen === option.value ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}>
                     <span className="block text-sm font-medium text-text-main">{option.label}</span>
                     <span className="mt-1 block text-xs text-text-muted">{option.hint}</span>
                   </button>

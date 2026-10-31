@@ -69,7 +69,7 @@ export function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy
               <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="text-xs font-medium text-text-muted">{translate("Judge") || "Judge"}</span>
                 <Button variant="outline" size="sm" onClick={() => setShowJudgeSelect(true)} className="min-h-9 max-w-full border-dashed font-mono" title="Pick the model that fuses panel answers">
-                  {judgeIsSystemOne ? <Cpu data-icon="inline-start" /> : <Gavel data-icon="inline-start" />}<span className="truncate">{judge || `Auto — ${combo.models[0] || (translate("first model") || "first model")}`}</span>
+                  {judgeIsSystemOne ? <Cpu data-icon="inline-start" /> : <Gavel data-icon="inline-start" />}<span className="truncate">{judge || `${translate("Auto") || "Auto"} — ${combo.models[0] || (translate("first model") || "first model")}`}</span>
                 </Button>
                 {judgeIsSystemOne && (
                   <InfoButton label={translate("System One judge") || "System One judge"}>
@@ -97,14 +97,14 @@ export function ComboCard({ combo, getCaps, activeProviders = [], copied, onCopy
               <span>{copied === copyId ? (translate("Copied") || "Copied") : (translate("Copy") || "Copy")}</span>
             </Button>
             {isSmart && (
-              <Link href={`/dashboard/combos/${combo.id}`} aria-label={`Configurar ${combo.name}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-h-11 sm:min-h-10")}>
+              <Link href={`/dashboard/combos/${combo.id}`} aria-label={`${translate("Configure") || "Configure"} ${combo.name}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-h-11 sm:min-h-10")}>
                 <BrainCircuit data-icon="inline-start" /><span>{translate("Configure") || "Configure"}</span>
               </Link>
             )}
-            <Button variant="ghost" size="sm" onClick={onEdit} className="min-h-11 sm:min-h-10" title="Edit" aria-label={`Edit ${combo.name}`}>
+            <Button variant="ghost" size="sm" onClick={onEdit} className="min-h-11 sm:min-h-10" title="Edit" aria-label={`${translate("Edit") || "Edit"} ${combo.name}`}>
               <Pencil data-icon="inline-start" /><span>{translate("Edit") || "Edit"}</span>
             </Button>
-            <Button variant="destructive" size="sm" onClick={onDelete} className="min-h-11 sm:min-h-10" title={translate("Delete") || "Delete"} aria-label={`Delete ${combo.name}`}>
+            <Button variant="destructive" size="sm" onClick={onDelete} className="min-h-11 sm:min-h-10" title={translate("Delete") || "Delete"} aria-label={`${translate("Delete") || "Delete"} ${combo.name}`}>
               <Trash2 data-icon="inline-start" /><span>{translate("Delete")}</span>
             </Button>
           </div>
