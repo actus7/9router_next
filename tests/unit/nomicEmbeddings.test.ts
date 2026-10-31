@@ -69,7 +69,8 @@ describe("nomic embeddings", () => {
       credentials: { apiKey: "nk-test" },
     });
 
-    if (!result.success) throw new Error(`expected success, got ${result.error}`);
+    // `success` is a plain boolean in the return type, so narrow on the field itself.
+    if (!("usage" in result)) throw new Error(`expected success, got ${"error" in result ? result.error : "?"}`);
     const out = await result.response.json() as { data: { embedding: number[]; index: number }[]; usage: unknown };
     expect(out.data).toEqual([{ object: "embedding", index: 0, embedding: [0.1, 0.2] }]);
     expect(result.usage).toEqual({ prompt_tokens: 3, completion_tokens: 0, total_tokens: 3 });
