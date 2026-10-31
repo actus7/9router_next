@@ -14,17 +14,26 @@ import { ALIAS_TO_ID } from "@/shared/constants/providers";
  * self-expiring state (cooldowns, smart profiles cache).
  *
  * A combo or allowlist left empty stays empty — the operator's to delete; an
- * allowlist of only dead models allowed nothing callable already.
+ * allowlist of only dead models allowed nothing callable already. A capacity
+ * pool left empty is switched off instead: an enabled pool with no models falls
+ * back to a default model the operator never chose.
  */
 
 type Json = Record<string, unknown>;
 
 const isRecord = (value: unknown): value is Json => !!value && typeof value === "object" && !Array.isArray(value);
 
-/** Lower-cased `alias/id` and `providerId/id` — both spellings a client may store. */
+/** Both prefixes a client may store a model under: the alias and the provider id. */
+const modelPrefixes = (alias: string): string[] => [alias, ALIAS_TO_ID[alias]].filter((p): p is string => !!p);
+
+/**
+ * Lower-cased `alias/id` and `providerId/id`. Matching ignores case on purpose
+ * (a client may store `KGW/Model`), so the caller must not call an id dead
+ * while another spelling of it is still listed — `syncDiscoveredCustomModels`
+ * compares ids case-insensitively for that reason.
+ */
 export function deadModelKeys(alias: string, ids: string[]): Set<string> {
-  const prefixes = [alias, ALIAS_TO_ID[alias]].filter((p): p is string => !!p);
-  return new Set(ids.flatMap((id) => prefixes.map((p) => `${p}/${id}`.toLowerCase())));
+  return new Set(ids.flatMap((id) => modelPrefixes(alias).map((p) => `${p}/${id}`.toLowerCase())));
 }
 
 const isDead = (value: unknown, dead: Set<string>): boolean => typeof value === "string" && dead.has(value.toLowerCase());
@@ -79,10 +88,19 @@ const KV_UPSERT = `INSERT INTO kv(userId, scope, key, value) VALUES(?, ?, ?, ?) 
 export async function pruneModelReferences(alias: string, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const dead = deadModelKeys(alias, ids);
-  const deadIds = new Set(ids);
+  const deadIds = new Set(ids.map((id) => id.toLowerCase()));
   const db = await getAdapter();
   const tenant = currentTenantId();
   const now = new Date().toISOString();
+
+  // Aliases first: an alias pointing at a dead model dies with it, and a combo
+  // that names the alias would otherwise keep a name that resolves to nothing.
+  const aliases = await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = ?`, [tenant, "modelAliases"]) as Array<{ key: string; value: string }>;
+  for (const row of aliases) {
+    if (!isDead(parseJson(row.value, null), dead)) continue;
+    await db.run(`DELETE FROM kv WHERE userId = ? AND scope = ? AND key = ?`, [tenant, "modelAliases", row.key]);
+    dead.add(row.key.toLowerCase());
+  }
 
   const combos = await db.all(`SELECT id, models, routing FROM combos WHERE userId = ?`, [tenant]) as Array<{ id: string; models: string; routing: string | null }>;
   for (const row of combos) {
@@ -97,19 +115,14 @@ export async function pruneModelReferences(alias: string, ids: string[]): Promis
     );
   }
 
-  const aliases = await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = ?`, [tenant, "modelAliases"]) as Array<{ key: string; value: string }>;
-  for (const row of aliases) {
-    if (!isDead(parseJson(row.value, null), dead)) continue;
-    await db.run(`DELETE FROM kv WHERE userId = ? AND scope = ? AND key = ?`, [tenant, "modelAliases", row.key]);
-  }
-
-  const disabledKeys = new Set([alias, ALIAS_TO_ID[alias]].filter(Boolean));
+  const disabledKeys = new Set(modelPrefixes(alias));
   const disabled = await db.all(`SELECT key, value FROM kv WHERE userId = ? AND scope = ?`, [tenant, "disabledModels"]) as Array<{ key: string; value: string }>;
   for (const row of disabled) {
     if (!disabledKeys.has(row.key)) continue;
     const list = parseJson(row.value, []) as string[];
-    if (!list.some((id) => deadIds.has(id))) continue;
-    await db.run(KV_UPSERT, [tenant, "disabledModels", row.key, stringifyJson(list.filter((id) => !deadIds.has(id)))]);
+    const isDeadId = (id: unknown) => typeof id === "string" && deadIds.has(id.toLowerCase());
+    if (!list.some(isDeadId)) continue;
+    await db.run(KV_UPSERT, [tenant, "disabledModels", row.key, stringifyJson(list.filter((id) => !isDeadId(id)))]);
   }
 
   const policies = await db.all(`SELECT subjectType, subjectId, policy FROM accessPolicies WHERE userId = ?`, [tenant]) as Array<{ subjectType: string; subjectId: string; policy: string }>;
@@ -133,6 +146,7 @@ export async function pruneModelReferences(alias: string, ids: string[]): Promis
       const models = pruneList(slot.models, dead);
       if (!models) continue;
       slot.models = models;
+      if (models.length === 0) slot.enabled = false;
       changed = true;
     }
     if (changed) await db.run(`UPDATE settings SET data = ? WHERE userId = ?`, [stringifyJson({ ...settings, capacityAdapter: adapter }), tenant]);

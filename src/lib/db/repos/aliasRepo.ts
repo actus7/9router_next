@@ -4,6 +4,7 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import { makeKv } from "../helpers/kvStore";
 import { chunked, placeholderList, valuesRows } from "../helpers/batch";
 import { inferKindFromModelId } from "@/shared/constants/modelKind";
+import { ALIAS_TO_ID } from "@/shared/constants/providers";
 import { pruneModelReferences } from "./modelReferencesRepo";
 import { invalidateComboNamesCache } from "./combosRepo";
 import { invalidateSettingsCache } from "./settingsRepo";
@@ -113,7 +114,8 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
   );
   // An empty listing is a failed listing: reconciling it would delete the whole
   // catalogue and, through the pruning below, every combo reference to it.
-  if (desired.size === 0) return;
+  // Both callers refuse it first; reaching here is a caller bug, not a no-op.
+  if (desired.size === 0) throw new Error(`Refusing to reconcile an empty model listing for "${providerAlias}"`);
   const db = await getAdapter();
   let prunedAny = false;
 
@@ -162,22 +164,32 @@ export async function syncDiscoveredCustomModels(providerAlias: string, models: 
 
     // A model is gone only when no entry of this provider still carries its id
     // (another kind, or a manual entry the refresh does not own).
+    // Compared without case, because reference matching ignores case too: a
+    // listed `foo` keeps every `kgw/Foo` reference alive.
     const staleSet = new Set(stale);
-    const alive = new Set([...desired.values()].map((model) => model.id));
+    const alive = new Set([...desired.values()].map((model) => model.id.toLowerCase()));
     for (const [key, value] of existing) {
-      if (!staleSet.has(key) && value.providerAlias === providerAlias) alive.add(customKeyId(providerAlias, key));
+      if (!staleSet.has(key) && value.providerAlias === providerAlias) alive.add(customKeyId(providerAlias, key).toLowerCase());
     }
-    const gone = [...new Set(stale.map((key) => customKeyId(providerAlias, key)))].filter((id) => !alive.has(id));
-    await pruneModelReferences(providerAlias, gone);
-    prunedAny = gone.length > 0;
+    const gone = [...new Set(stale.map((key) => customKeyId(providerAlias, key)))].filter((id) => !alive.has(id.toLowerCase()));
+    // The listing comes from one connection. With several, another account may
+    // still serve what this one does not list (a free plan sees fewer models),
+    // and a pruned reference does not come back when that account rediscovers
+    // it — so only the catalogue is reconciled, never the references.
+    if (gone.length > 0 && await activeConnectionCount(providerAlias) <= 1) {
+      await pruneModelReferences(providerAlias, gone);
+      prunedAny = true;
+    }
   });
 
-  if (prunedAny) {
-    invalidateComboNamesCache();
-    invalidateSettingsCache();
-    invalidateDisabledModelsCache();
-    invalidateAccessPolicies();
-  }
+  if (prunedAny) invalidateReferenceCaches();
+}
+
+function invalidateReferenceCaches(): void {
+  invalidateComboNamesCache();
+  invalidateSettingsCache();
+  invalidateDisabledModelsCache();
+  invalidateAccessPolicies();
 }
 
 // Atomic check-then-insert inside transaction to prevent duplicate races
@@ -214,8 +226,39 @@ interface CustomModelDeleteInput {
   type?: string;
 }
 
+/** Active connections of the provider behind `providerAlias`, in this tenant. */
+async function activeConnectionCount(providerAlias: string): Promise<number> {
+  const db = await getAdapter();
+  const provider = ALIAS_TO_ID[providerAlias] || providerAlias;
+  const row = await db.get(
+    `SELECT COUNT(*) AS n FROM providerConnections WHERE userId = ? AND provider = ? AND isActive = 1`,
+    [currentTenantId(), provider],
+  ) as { n?: number | string } | undefined;
+  return Number(row?.n ?? 0);
+}
+
+/**
+ * Removes one model and, when no other entry of the provider still carries its
+ * id, every reference to it — the same rule a refresh applies, so a model the
+ * operator deletes does not leave combos paying a 404 per request.
+ */
 export async function deleteCustomModel({ providerAlias, id, type = "llm" }: CustomModelDeleteInput): Promise<void> {
-  await customKv.remove(customKey(providerAlias, id, type));
+  const db = await getAdapter();
+  const userId = currentTenantId();
+  const target = customKey(providerAlias, id, type);
+  let pruned = false;
+  await db.transaction(async () => {
+    await db.run(`DELETE FROM kv WHERE userId = ? AND scope = 'customModels' AND key = ?`, [userId, target]);
+    const rows = await db.all("SELECT key, value FROM kv WHERE userId = ? AND scope = 'customModels'", [userId]) as Array<{ key: string; value: string }>;
+    const stillServed = rows.some((row) => {
+      const value = parseJson<Record<string, unknown>>(row.value, {}) || {};
+      return value.providerAlias === providerAlias && String(value.id ?? "").toLowerCase() === id.toLowerCase();
+    });
+    if (stillServed) return;
+    await pruneModelReferences(providerAlias, [id]);
+    pruned = true;
+  });
+  if (pruned) invalidateReferenceCaches();
 }
 
 /**
@@ -225,6 +268,10 @@ export async function deleteCustomModel({ providerAlias, id, type = "llm" }: Cus
  * "Clear All Models" sent one DELETE request per model and one per alias — with
  * a discovered catalogue that is hundreds of requests, each its own round-trip.
  * The keys are read once and deleted in batches.
+ *
+ * References are not pruned here: "Atualizar modelos" clears and rediscovers
+ * through this path, and pruning would strip every combo of models the next
+ * listing brings straight back. A refresh that drops a model prunes it.
  */
 export async function deleteCustomModelsByProvider(providerAlias: string, type: string = "llm"): Promise<number> {
   const db = await getAdapter();

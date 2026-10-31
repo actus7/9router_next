@@ -15,6 +15,7 @@ const tables = vi.hoisted(() => ({
   combos: [] as Array<{ id: string; models: string; routing: string | null }>,
   accessPolicies: [] as Array<{ subjectType: string; subjectId: string; policy: string }>,
   settings: [] as Array<{ data: string }>,
+  activeConnections: 1,
 }));
 
 const run = vi.hoisted(() => vi.fn(async (sql: string, params: unknown[] = []) => {
@@ -58,13 +59,17 @@ const all = vi.hoisted(() => vi.fn(async (sql: string, params: unknown[] = []): 
   return [];
 }));
 
-const get = vi.hoisted(() => vi.fn(async (sql: string) => (sql.includes("FROM settings") ? tables.settings[0] : undefined)));
+const get = vi.hoisted(() => vi.fn(async (sql: string) => {
+  if (sql.includes("FROM settings")) return tables.settings[0];
+  if (sql.includes("FROM providerConnections")) return { n: tables.activeConnections };
+  return undefined;
+}));
 const transaction = vi.hoisted(() => vi.fn(async (fn: () => Promise<unknown>) => fn()));
 
 vi.mock("@/lib/db/driver", () => ({ getAdapter: vi.fn(async () => ({ run, all, get, transaction })) }));
 vi.mock("@/lib/db/tenant", () => ({ currentTenantId: () => "t1", currentActorUserId: () => "u1", tryCurrentTenantContext: () => null }));
 
-import { syncDiscoveredCustomModels } from "@/lib/db/repos/aliasRepo";
+import { deleteCustomModel, syncDiscoveredCustomModels } from "@/lib/db/repos/aliasRepo";
 import { pruneComboReferences } from "@/lib/db/repos/modelReferencesRepo";
 
 const discovered = (id: string) => ({
@@ -119,6 +124,7 @@ describe("syncDiscoveredCustomModels removes a dropped model from every referenc
       { subjectType: "key", subjectId: "k1", policy: JSON.stringify({ models: ["kgw/old-model", "kgw/*"] }) },
     ];
     tables.settings = [{ data: JSON.stringify({ capacityAdapter: { vision: { enabled: true, models: ["kgw/old-model"] } } }) }];
+    tables.activeConnections = 1;
   });
 
   it("prunes combos, aliases, disabled ids, policies and the capacity adapter in the catalogue's transaction", async () => {
@@ -131,7 +137,42 @@ describe("syncDiscoveredCustomModels removes a dropped model from every referenc
     expect(tables.kv.find((r) => r.scope === "modelAliases" && r.key === "keep")).toBeDefined();
     expect(JSON.parse(tables.kv.find((r) => r.scope === "disabledModels")!.value)).toEqual(["live"]);
     expect(JSON.parse(tables.accessPolicies[0].policy).models).toEqual(["kgw/*"]);
-    expect(JSON.parse(tables.settings[0].data).capacityAdapter.vision.models).toEqual([]);
+    expect(JSON.parse(tables.settings[0].data).capacityAdapter.vision).toEqual({ enabled: false, models: [] });
+  });
+
+  it("drops combo entries that name an alias of a dead model", async () => {
+    tables.combos[1].models = JSON.stringify(["fast", "cx/gpt-5.6-sol"]);
+
+    await syncDiscoveredCustomModels("kgw", [{ providerAlias: "kgw", id: "live" }]);
+
+    expect(JSON.parse(tables.combos[1].models)).toEqual(["cx/gpt-5.6-sol"]);
+  });
+
+  it("does not call a model dead while another spelling of its id is still listed", async () => {
+    tables.kv = [
+      { scope: "customModels", key: "kgw|Foo|llm", value: JSON.stringify({ providerAlias: "kgw", id: "Foo", type: "llm", source: "discovered" }) },
+    ];
+    tables.combos = [{ id: "c1", models: JSON.stringify(["kgw/foo"]), routing: null }];
+
+    await syncDiscoveredCustomModels("kgw", [{ providerAlias: "kgw", id: "foo" }]);
+
+    expect(JSON.parse(tables.combos[0].models)).toEqual(["kgw/foo"]);
+  });
+
+  it("reconciles the catalogue but keeps references when another connection may still list the model", async () => {
+    tables.activeConnections = 2;
+
+    await syncDiscoveredCustomModels("kgw", [{ providerAlias: "kgw", id: "live" }]);
+
+    expect(tables.kv.find((r) => r.scope === "customModels" && r.key === "kgw|old-model|llm")).toBeUndefined();
+    expect(JSON.parse(tables.combos[0].models)).toEqual(["kgw/old-model", "kgw/live"]);
+  });
+
+  it("prunes references when the operator deletes a model no other entry carries", async () => {
+    await deleteCustomModel({ providerAlias: "kgw", id: "old-model" });
+
+    expect(tables.kv.find((r) => r.scope === "customModels" && r.key === "kgw|old-model|llm")).toBeUndefined();
+    expect(JSON.parse(tables.combos[0].models)).toEqual(["kgw/live"]);
   });
 
   it("keeps references to a model still served by a manual entry", async () => {
@@ -143,7 +184,7 @@ describe("syncDiscoveredCustomModels removes a dropped model from every referenc
   });
 
   it("refuses an empty listing instead of wiping the catalogue and every combo", async () => {
-    await syncDiscoveredCustomModels("kgw", []);
+    await expect(syncDiscoveredCustomModels("kgw", [])).rejects.toThrow(/empty model listing/);
 
     expect(transaction).not.toHaveBeenCalled();
     expect(JSON.parse(tables.combos[0].models)).toEqual(["kgw/old-model", "kgw/live"]);
