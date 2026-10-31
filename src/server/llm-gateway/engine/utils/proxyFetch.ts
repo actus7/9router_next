@@ -209,7 +209,11 @@ function isAbortError(error: unknown): boolean {
     || err?.code === "ABORT_ERR" || err?.cause?.code === "ABORT_ERR";
 }
 
-export async function proxyAwareFetch(url: string | URL, options: RequestInit & { dispatcher?: unknown } = {}, proxyOptions: ProxyOptions | null = null): Promise<Response> {
+/** Transport for the direct (no proxy) leg — an executor whose upstream gates on the TLS handshake brings its own. */
+export type DirectFetch = (url: string, init: RequestInit) => Promise<Response>;
+
+export async function proxyAwareFetch(url: string | URL, fetchOptions: RequestInit & { dispatcher?: unknown; directFetch?: DirectFetch } = {}, proxyOptions: ProxyOptions | null = null): Promise<Response> {
+  const { directFetch, ...options } = fetchOptions;
   const targetUrl = typeof url === "string" ? url : url.toString();
 
   // Vercel relay: forward request via relay headers
@@ -249,12 +253,15 @@ export async function proxyAwareFetch(url: string | URL, options: RequestInit & 
         throw new Error(`[ProxyFetch] Connection proxy failed and direct would leak the real IP: ${proxyErrMsg}`);
       }
       console.warn(`[ProxyFetch] Proxy failed, falling back to direct: ${proxyErrMsg}`);
-      return originalFetch(url, options);
+      // "Direct" means the provider's own transport when it has one: Node's
+      // TLS here would read as a 429 "out of quota" on a TLS-gated provider.
+      return directFetch ? directFetch(targetUrl, options) : originalFetch(url, options);
     }
   }
 
-  // got-scraping disabled — use native fetch directly
-  // (Re-enable per-host by wrapping with tryGotScrapingFetch when needed)
+  // A proxy or relay above takes priority and bypasses directFetch: on a
+  // TLS-gated provider that path is refused again (see opencodeTlsClient).
+  if (directFetch) return directFetch(targetUrl, options);
   return originalFetch(url, options);
 }
 

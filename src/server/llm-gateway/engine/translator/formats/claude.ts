@@ -98,8 +98,15 @@ function fixToolUseOrdering(messages: Record<string, unknown>[]) {
   return merged;
 }
 
-// Models that reject thinking.type "adaptive" + output_config.effort (Opus 4.5+/Sonnet 4.6+ only)
-const ADAPTIVE_THINKING_UNSUPPORTED = /haiku/i;
+// Haiku 3.x/4.x reject thinking.type "adaptive" + output_config.effort; Haiku 5+ accepts
+// ONLY adaptive. The version may follow "haiku" (haiku-4-5, haiku-4.5) or precede it
+// (claude-4.5-haiku, claude-3-5-haiku). An unversioned "haiku" keeps the old, safe downgrade.
+function isAdaptiveThinkingUnsupported(model: string = ""): boolean {
+  if (!/haiku/i.test(model)) return false;
+  // One or two digits only: a bare date (haiku-20251001) is not a version.
+  const m = String(model).match(/haiku[-._]?(\d{1,2})(?!\d)|(?<![\d.])(\d{1,2})(?:[-._]\d+)?[-._]?haiku/i);
+  return m ? Number(m[1] || m[2]) < 5 : true;
+}
 
 function handlesThinkingBlocks(provider: string | null) {
   return provider === "claude" || provider?.startsWith("anthropic-compatible") || provider === "deepseek";
@@ -129,12 +136,12 @@ export function normalizeClaudePassthrough(body: Record<string, unknown>, model:
   if (!body || typeof body !== "object") return body;
 
   // 1. Downgrade adaptive thinking for models that don't support it
-  if ((body.thinking as Record<string, unknown>)?.type === "adaptive" && ADAPTIVE_THINKING_UNSUPPORTED.test(model)) {
+  if ((body.thinking as Record<string, unknown>)?.type === "adaptive" && isAdaptiveThinkingUnsupported(model)) {
     body.thinking = { type: "enabled", budget_tokens: 10000 };
   }
 
   // 2. Strip effort param for models that don't support it (keep other output_config fields)
-  if (ADAPTIVE_THINKING_UNSUPPORTED.test(model) && (body.output_config as Record<string, unknown>)?.effort != null) {
+  if (isAdaptiveThinkingUnsupported(model) && (body.output_config as Record<string, unknown>)?.effort != null) {
     delete (body.output_config as Record<string, unknown>).effort;
     if (Object.keys(body.output_config as Record<string, unknown>).length === 0) delete body.output_config;
   }

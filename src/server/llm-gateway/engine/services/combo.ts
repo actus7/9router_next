@@ -10,7 +10,7 @@ import { verifyContent } from "./comboEmptyGuard";
 import { claimRace, discardResponse, firstResponse, type HedgeRace } from "./comboRace";
 import { COMBO_EMPTY_PEEK_DEADLINE_MS, COMBO_FIRST_BYTE_BUDGET_MS, COMBO_HEDGE_ENABLED, COMBO_HEDGE_MAX_PROMPT_TOKENS, COMBO_TIME_BUDGET_MS, STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig";
 import { applyEntryConfig } from "../host/entryConfig";
-import { holdFreeFallback, setAttemptSignal, setFirstByteBudget } from "../utils/firstByteGuard";
+import { holdFreeFallback, isFreeFallbackHeld, setAttemptSignal, setFirstByteBudget } from "../utils/firstByteGuard";
 import { adaptiveFirstByteBudget, estimatePromptTokens, hedgeDelayMs, LARGE_PROMPT_TOKENS, loadModelStats, perfKey, recordAttemptDatum, setPerfKey } from "../host/modelStats";
 import { getStickyModel, orderByPenalty, recordModelFailure, recordModelSuccess, rememberStickyModel } from "./modelPenalty";
 import { getRoutingDecision } from "./smart-routing/context";
@@ -344,6 +344,9 @@ const HEDGE_DUE = Symbol("hedge-due");
  */
 export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, comboFirstByteBudgetMs, comboTimeBudgetMs, adaptive = false, sessionKey, hedge = true, hedgeEnabled = COMBO_HEDGE_ENABLED, hedgeMaxPromptTokens = COMBO_HEDGE_MAX_PROMPT_TOKENS, comboHedgeDelayMs }: HandleComboChatOptions): Promise<Response> {
   let rotatedModels = getRotatedModels(models, comboName || "", comboStrategy || "fallback", comboStickyLimit);
+  // A caller that already held the free default (x-no-free-fallback) keeps it
+  // held on every attempt; the combo only adds its own hold for non-last ones.
+  const heldByCaller = isFreeFallbackHeld(body);
 
   if (autoSwitch) {
     const required = detectRequiredCapabilities(body);
@@ -416,7 +419,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     if (signal) setAttemptSignal(attemptBody, signal);
     setPerfKey(attemptBody, perfKey(modelStr, largePrompt));
     applyEntryConfig(attemptBody, rotatedModels, i);
-    holdFreeFallback(attemptBody, i < rotatedModels.length - 1);
+    holdFreeFallback(attemptBody, heldByCaller || i < rotatedModels.length - 1);
 
     const startedAt = Date.now();
     const traceStep = (outcome: AttemptOutcome, extra: { status?: number; error?: string } = {}, withErrorClass = true): void => {
@@ -460,7 +463,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     try {
       const result = await handleSingleModel(attemptBody, modelStr);
       setFirstByteBudget(attemptBody, undefined);
-      holdFreeFallback(attemptBody, false);
+      holdFreeFallback(attemptBody, heldByCaller);
       if (lost()) return lose(result);
       if (result.ok) {
         // A 2xx is not an answer yet: an upstream can reply 200 and stream nothing
