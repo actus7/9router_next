@@ -478,13 +478,17 @@ export async function saveRequestUsage(entry: UsageEntry): Promise<number | null
       ) as { id?: number | string } | undefined;
 
       const dateKey: string = getLocalDateKey(entry.timestamp);
-      const row = await db.get(`SELECT data FROM usageDaily WHERE userId = ? AND dateKey = ?`, [userId, dateKey]) as { data: string } | undefined;
-      const day: DayData = row ? (parseJson(row.data, {}) as DayData) : {
+      // Create-then-lock: two requests of one account on the same day would
+      // otherwise read the same blob and the second write would erase the first.
+      await db.run(`INSERT INTO usageDaily(userId, dateKey, data) VALUES(?, ?, '{}') ON CONFLICT(userId, dateKey) DO NOTHING`, [userId, dateKey]);
+      const row = await db.get(`SELECT data FROM usageDaily WHERE userId = ? AND dateKey = ? FOR UPDATE`, [userId, dateKey]) as { data: string } | undefined;
+      const stored = row ? (parseJson(row.data, {}) as Partial<DayData>) : {};
+      const day: DayData = typeof stored.requests === "number" ? (stored as DayData) : {
         requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0,
         byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
       };
       aggregateEntryToDay(day, entry);
-      await db.run(`INSERT INTO usageDaily(userId, dateKey, data) VALUES(?, ?, ?) ON CONFLICT(userId, dateKey) DO UPDATE SET data = excluded.data`, [userId, dateKey, stringifyJson(day)]);
+      await db.run(`UPDATE usageDaily SET data = ? WHERE userId = ? AND dateKey = ?`, [stringifyJson(day), userId, dateKey]);
 
       await bumpTenantMeta(db, "totalRequestsLifetime");
       inserted = true;

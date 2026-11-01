@@ -31,9 +31,14 @@ export async function setTenantMeta(db: DbAdapter, key: string, value: unknown):
   );
 }
 
-/** Increments a counter and returns the new value. Call inside a transaction. */
+/** Increments a counter atomically and returns the new value. */
 export async function bumpTenantMeta(db: DbAdapter, key: string): Promise<number> {
-  const next: number = (Number(await getTenantMeta(db, key)) || 0) + 1;
-  await setTenantMeta(db, key, next);
-  return next;
+  const row = (await db.get(
+    `INSERT INTO kv(userId, scope, key, value) VALUES(?, ?, ?, '1')
+     ON CONFLICT(userId, scope, key) DO UPDATE
+       SET value = ((CASE WHEN kv.value ~ '^[0-9]+$' THEN kv.value::bigint ELSE 0 END) + 1)::text
+     RETURNING value`,
+    [currentTenantId(), SCOPE, key],
+  )) as { value: string } | undefined;
+  return Number(row?.value) || 1;
 }

@@ -49,8 +49,9 @@ describe("deleteAgentSkillWithFiles", () => {
 
     // The revision counter is per-account now, so it lives in `kv` under the
     // reserved "meta" scope rather than the instance-wide `_meta` table.
-    const bump = run.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO kv"));
+    // The bump is a single atomic upsert (`INSERT ... RETURNING value`) now.
+    const bump = get.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO kv"));
     expect(bump).toBeDefined();
-    expect(bump![1]).toEqual(["test-user", "meta", "agentSkillsRevision", "4"]);
+    expect(bump![1]).toEqual(["test-user", "meta", "agentSkillsRevision"]);
   });
 });
