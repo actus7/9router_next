@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/check-gateway-boundaries.js \"$FILE_PATH\"",
+            "command": "node .claude/hooks/check-gateway-boundaries.mjs",
             "description": "Roda testes de fronteira arquitetural quando o LLM gateway é tocado"
           }
         ]
