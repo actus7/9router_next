@@ -23,7 +23,7 @@ import {
   queuePendingWrite,
   recordAutoAppliedWrite,
 } from "@/server/harness/governance/queuePendingWrite";
-import { tryCurrentTenantContext } from "@/lib/db/tenant";
+import { currentActorUserId, currentTenantContext, tryCurrentTenantContext, withTenant } from "@/lib/db/tenant";
 import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
 import {
   MEMORY_CHAR_LIMITS,
@@ -234,13 +234,22 @@ export async function approvePendingWrite(id: string): Promise<MemoryApplyResult
   if (pending.status !== "pending") return { ok: false, error: "Pending write already resolved" };
   if (pending.kind === "memory") {
     const payload = pending.payload;
-    const result = await applyMemoryWrite({
+    const request: MemoryApplyRequest = {
       action: pending.action as MemoryApplyAction,
       scope: payload.scope === "user" ? "user" : "agent",
       id: typeof payload.id === "string" ? payload.id : undefined,
       content: typeof payload.content === "string" ? payload.content : undefined,
       source: "ui",
-    });
+    };
+    // Personal memory belongs to the member who asked, not to whoever approves.
+    const { ownerUserId } = pending;
+    const result =
+      request.scope === "user" && ownerUserId && ownerUserId !== currentActorUserId()
+        ? await withTenant(
+            { ...currentTenantContext(), actorUserId: ownerUserId, role: "member" },
+            () => applyMemoryWrite(request),
+          )
+        : await applyMemoryWrite(request);
     if (result.ok) {
       await resolveHarnessPendingWrite(id, "applied", { outcome: "applied" });
     }

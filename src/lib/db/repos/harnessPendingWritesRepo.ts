@@ -1,5 +1,5 @@
 import { getAdapter } from "../driver";
-import { currentTenantId } from "../tenant";
+import { currentActorUserId, currentTenantId } from "../tenant";
 import { parseJson, stringifyJson } from "../helpers/jsonCol";
 import type {
   HarnessPendingWrite,
@@ -27,6 +27,7 @@ function rowToPending(row: Record<string, unknown>): HarnessPendingWrite {
       ? { result: parseJson<Record<string, unknown>>(row.result, {}) || {} }
       : {}),
     ...(row.risk ? { risk: parseJson(row.risk, undefined) } : {}),
+    ...(row.ownerUserId ? { ownerUserId: String(row.ownerUserId) } : {}),
     createdAt: String(row.createdAt),
   } as HarnessPendingWrite;
 }
@@ -38,11 +39,11 @@ export async function listHarnessPendingWrites(
   const db = await getAdapter();
   const rows = kind
     ? await db.all(
-        "SELECT id, kind, action, payload, source, status, reviewedAt, result, risk, createdAt FROM harnessPendingWrites WHERE userId = ? AND kind = ? AND status = ? ORDER BY createdAt",
+        "SELECT id, kind, action, payload, source, status, reviewedAt, result, risk, ownerUserId, createdAt FROM harnessPendingWrites WHERE userId = ? AND kind = ? AND status = ? ORDER BY createdAt",
         [currentTenantId(), kind, status],
       )
     : await db.all(
-        "SELECT id, kind, action, payload, source, status, reviewedAt, result, risk, createdAt FROM harnessPendingWrites WHERE userId = ? AND status = ? ORDER BY createdAt",
+        "SELECT id, kind, action, payload, source, status, reviewedAt, result, risk, ownerUserId, createdAt FROM harnessPendingWrites WHERE userId = ? AND status = ? ORDER BY createdAt",
         [currentTenantId(), status],
       );
   return rows.map(rowToPending);
@@ -57,8 +58,8 @@ export async function insertHarnessPendingWrite(
   const db = await getAdapter();
   const now = new Date().toISOString();
   await db.run(
-    `INSERT INTO harnessPendingWrites(id, userId, kind, action, payload, source, status, risk, createdAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO harnessPendingWrites(id, userId, kind, action, payload, source, status, risk, ownerUserId, createdAt)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       write.id,
       currentTenantId(),
@@ -68,6 +69,7 @@ export async function insertHarnessPendingWrite(
       write.source,
       status,
       write.risk ? stringifyJson(write.risk) : null,
+      currentActorUserId(),
       now,
     ],
   );
@@ -91,7 +93,7 @@ export async function getHarnessPendingWrite(
 ): Promise<HarnessPendingWrite | null> {
   const db = await getAdapter();
   const row = await db.get(
-    "SELECT id, kind, action, payload, source, status, reviewedAt, result, risk, createdAt FROM harnessPendingWrites WHERE userId = ? AND id = ?",
+    "SELECT id, kind, action, payload, source, status, reviewedAt, result, risk, ownerUserId, createdAt FROM harnessPendingWrites WHERE userId = ? AND id = ?",
     [currentTenantId(), id],
   );
   return row ? rowToPending(row) : null;

@@ -23,6 +23,8 @@ export interface PendingWriteRisk {
 interface PendingWriteBase {
   id: string;
   risk?: PendingWriteRisk;
+  /** Member who requested the write; absent on rows from before it was stored. */
+  ownerUserId?: string;
   source: PendingWriteSource;
   status: PendingWriteStatus;
   reviewedAt?: string;

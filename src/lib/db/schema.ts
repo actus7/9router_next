@@ -521,6 +521,8 @@ export const TABLES: Record<string, TableDefinition> = {
       result: "TEXT",
       // Jev's risk read of the write, when the account runs Jev. Advisory only.
       risk: "TEXT",
+      // The member the row belongs to; NULL = the tenant owner (see MEMBER_ROWS).
+      ownerUserId: "TEXT",
       createdAt: "TEXT NOT NULL",
     },
     indexes: [
