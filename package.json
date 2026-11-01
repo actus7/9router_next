@@ -36,7 +36,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@neondatabase/auth": "^0.7.0-beta",
     "@neondatabase/serverless": "^1.2.0",
-    "@vercel/functions": "^3.10.3",
+    "@vercel/functions": "^3.10.5",
     "@xyflow/react": "^12.12.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -91,7 +91,18 @@
     "@prisma/dev": "0.25.2",
     "deepmerge-ts": "^8.0.2",
     "dompurify": "3.4.17",
-    "mysql2": "^3.24.5"
+    "mysql2": "^3.24.5",
+    "@neondatabase/auth": {
+      "@better-auth/core": "1.7.12",
+      "@better-auth/oauth-provider": "1.7.12",
+      "@better-auth/passkey": "1.7.12",
+      "better-auth": "1.7.12",
+      "zod": "4.6.6"
+    },
+    "better-call@1.4.x": "1.4.4",
+    "@vercel/functions": {
+      "zod": "4.6.6"
+    }
   },
   "optionalDependencies": {
     "better-sqlite3": "^13.0.3"
