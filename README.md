@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ModelHub
 
-## Getting Started
+Gateway compatível com OpenAI (chat, Responses, embeddings), Anthropic, Gemini e SSE, mais um dashboard para
+conectar providers, normalizar modelos, montar combos e roteamento inteligente, acompanhar uso e cotas.
+Multi-tenant por organização; a identidade é o Neon Auth.
 
-First, run the development server:
+## Requisitos
+
+- Node `>=22.18.0` e npm `>=11`
+- Um banco Neon Postgres e um projeto Neon Auth
+
+## Desenvolvimento
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Preencha no `.env` as três variáveis obrigatórias (veja `.env.example` para o formato):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `DATABASE_URL` — Neon Postgres
+- `NEON_AUTH_BASE_URL`
+- `NEON_AUTH_COOKIE_SECRET` — pelo menos 32 caracteres
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Opcionais relevantes: `CREDENTIAL_KEY` (cifra as credenciais; ver `docs/OPERATIONS.md`) e
+`ALLOW_PRIVATE_PROVIDER_ENDPOINTS`.
 
-## Learn More
+```bash
+npm ci
+npm run dev        # http://localhost:3000
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Produção e Docker
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+npm start          # porta 20128
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+O `Dockerfile` e o `docker-compose.yml` da raiz também expõem a porta 20128.
 
-## Deploy on Vercel
+## Qualidade
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `npm test` — testes (Vitest)
+- `npm run check` — gate completo (lint, contract, build, typecheck, cobertura, rotas estáticas, whitespace); deve sair verde antes de dar algo por pronto
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Documentação
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — fronteiras e decisões
+- [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) — convenções do projeto
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — publicação
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — operação
+- [`docs/KNOWN_DEBT.md`](docs/KNOWN_DEBT.md) — dívidas conhecidas
