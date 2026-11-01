@@ -23,6 +23,7 @@ import {
   queuePendingWrite,
   recordAutoAppliedWrite,
 } from "@/server/harness/governance/queuePendingWrite";
+import { tryCurrentTenantContext } from "@/lib/db/tenant";
 import { getHarnessLearningConfig } from "@/lib/db/repos/harnessLearningConfigRepo";
 import {
   MEMORY_CHAR_LIMITS,
@@ -166,11 +167,16 @@ export async function applyMemoryWrite(
     return { ok: false, error: "User memory is disabled" };
   }
 
-  if (
+  // A member's agent-path write to the team's shared memory always waits for an
+  // admin: PUT (the operator path) already requires admin for this scope.
+  const memberWritesShared =
     request.source === "agent" &&
-    config.memoryWriteApproval &&
-    request.action !== "remove"
-  ) {
+    scope === "agent" &&
+    tryCurrentTenantContext()?.role === "member";
+  const needsApproval =
+    request.source === "agent" && (config.memoryWriteApproval || memberWritesShared);
+
+  if (needsApproval && request.action !== "remove") {
     const content = request.content?.trim() ?? "";
     if (request.action === "add" || request.action === "replace") {
       const issues = await scanMemoryContentAsync(content);
@@ -193,7 +199,7 @@ export async function applyMemoryWrite(
     // call is accepted. The scan runs again inside `applyDirect` — the same
     // total of calls as queue-then-approve, just compressed into one moment.
     const risk = await assessWriteRisk(pendingWrite);
-    if (canAutoApplyWrite(config.writeRiskMode, risk)) {
+    if (!memberWritesShared && canAutoApplyWrite(config.writeRiskMode, risk)) {
       const applied = await applyDirect({ ...request, scope });
       if (applied.ok) {
         await recordAutoAppliedWrite(pendingWrite, risk);
@@ -207,11 +213,7 @@ export async function applyMemoryWrite(
     return { ok: true, pending: true, pendingId: pendingWrite.id };
   }
 
-  if (
-    request.source === "agent" &&
-    config.memoryWriteApproval &&
-    request.action === "remove"
-  ) {
+  if (needsApproval && request.action === "remove") {
     const pendingId = randomUUID();
     await queuePendingWrite({
       id: pendingId,
