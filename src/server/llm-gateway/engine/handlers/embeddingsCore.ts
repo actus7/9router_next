@@ -3,6 +3,7 @@ import { HTTP_STATUS, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig";
 import { getExecutor } from "../executors/index";
 import { refreshWithRetry } from "../services/tokenRefresh";
 import { getEmbeddingAdapter } from "./embeddingProviders/index";
+import { assertProviderEndpointAllowed } from "@/server/security/providerEndpoint";
 
 /**
  * Core embeddings handler — orchestrator only. Provider-specific URL/headers/body/normalize
@@ -54,6 +55,7 @@ export async function handleEmbeddingsCore({
   let url: string, headers: Record<string, string>, requestBody: Record<string, unknown>;
   try {
     url = adapter.buildUrl(model, credentials, ctx);
+    assertProviderEndpointAllowed(url);
     headers = adapter.buildHeaders(credentials, ctx);
     requestBody = adapter.buildBody(model, {
       input,
@@ -104,6 +106,7 @@ export async function handleEmbeddingsCore({
       try {
         const retryHeaders = adapter.buildHeaders(credentials, ctx);
         const retryUrl = adapter.buildUrl(model, credentials, ctx);
+        assertProviderEndpointAllowed(retryUrl);
         providerResponse = await fetch(retryUrl, {
           method: "POST",
           headers: retryHeaders,

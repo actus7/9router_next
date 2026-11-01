@@ -47,3 +47,24 @@ export function assertProviderEndpointAllowed(rawUrl: string): void {
     throw new ProviderEndpointBlockedError(rawUrl);
   }
 }
+
+/**
+ * Same guard for a proxy/relay URL. Kept apart from `assertProviderEndpointAllowed`
+ * because proxy URLs legitimately carry `user:pass@`, which `assertPublicUrl`
+ * refuses: only `protocol//host` is checked, and the error never echoes credentials.
+ */
+export function assertProxyEndpointAllowed(rawUrl: string): void {
+  if (privateProviderEndpointsAllowed()) return;
+  let origin: string;
+  try {
+    const u = new URL(rawUrl);
+    origin = `${u.protocol}//${u.host}`;
+  } catch {
+    throw new ProviderEndpointBlockedError("<invalid proxy URL>");
+  }
+  try {
+    assertPublicUrl(`${origin}/`);
+  } catch {
+    throw new ProviderEndpointBlockedError(origin);
+  }
+}

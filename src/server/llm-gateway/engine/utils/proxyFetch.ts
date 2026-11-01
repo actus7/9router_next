@@ -1,4 +1,5 @@
 import { MEMORY_CONFIG } from "../config/runtimeConfig";
+import { assertProxyEndpointAllowed } from "@/server/security/providerEndpoint";
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
@@ -219,6 +220,7 @@ export async function proxyAwareFetch(url: string | URL, fetchOptions: RequestIn
   // Vercel relay: forward request via relay headers
   const vercelRelayUrl = normalizeString(proxyOptions?.vercelRelayUrl);
   if (vercelRelayUrl) {
+    assertProxyEndpointAllowed(vercelRelayUrl);
     const parsed = new URL(targetUrl);
     const relayHeaders: Record<string, string> = {
       ...((options.headers as Record<string, string>) || {}),
@@ -229,6 +231,8 @@ export async function proxyAwareFetch(url: string | URL, fetchOptions: RequestIn
   }
 
   const connectionProxyUrl = resolveConnectionProxyUrl(targetUrl, proxyOptions);
+  // Only the account-supplied proxy is checked; the env proxy is operator config.
+  if (connectionProxyUrl) assertProxyEndpointAllowed(connectionProxyUrl);
   const envProxyUrl = connectionProxyUrl ? null : normalizeProxyUrl(getEnvProxyUrl(targetUrl));
   const proxyUrl = connectionProxyUrl || envProxyUrl;
 

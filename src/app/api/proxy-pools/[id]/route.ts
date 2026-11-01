@@ -1,5 +1,6 @@
 import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { countBoundConnections } from "../boundConnections";
+import { assertProxyEndpointAllowed } from "@/server/security/providerEndpoint";
 import { NextRequest, NextResponse  } from "next/server";
 import {
   deleteProxyPool,
@@ -23,6 +24,11 @@ function normalizeProxyPoolUpdate(body: Record<string, unknown> = {}) {
     const proxyUrl = typeof body?.proxyUrl === "string" ? (body.proxyUrl as string).trim() : "";
     if (!proxyUrl) {
       return { error: "Proxy URL is required" };
+    }
+    try {
+      assertProxyEndpointAllowed(proxyUrl);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Proxy URL is not allowed" };
     }
     updates.proxyUrl = proxyUrl;
   }

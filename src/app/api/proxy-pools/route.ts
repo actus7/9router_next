@@ -2,6 +2,7 @@ import { tenantRoute } from "@/server/application/http/tenantRoute";
 import { NextRequest, NextResponse  } from "next/server";
 import { createProxyPool, deleteProxyPools, getProviderConnections, getProxyPools, setProxyPoolsActive } from "@/models";
 import { countBoundConnections } from "./boundConnections";
+import { assertProxyEndpointAllowed } from "@/server/security/providerEndpoint";
 
 function toBoolean(value: string | null) {
   if (value === "true") return true;
@@ -25,6 +26,12 @@ function normalizeProxyPoolInput(body: Record<string, unknown> = {}) {
 
   if (!proxyUrl) {
     return { error: "Proxy URL is required" };
+  }
+
+  try {
+    assertProxyEndpointAllowed(proxyUrl);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Proxy URL is not allowed" };
   }
 
   return { name, proxyUrl, noProxy, isActive, strictProxy, type };
