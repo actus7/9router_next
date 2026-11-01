@@ -74,7 +74,6 @@ interface ComboDetailClientProps {
   initialProviders: Record<string, unknown>[];
   initialKeys: Record<string, unknown>[];
   initialAliases: Record<string, unknown>;
-  initialLogs: unknown[];
 }
 
 export default function ComboDetailClient({
@@ -84,7 +83,6 @@ export default function ComboDetailClient({
   initialProviders,
   initialKeys,
   initialAliases,
-  initialLogs,
 }: ComboDetailClientProps) {
   const router = useRouter();
   const [combo, setCombo] = useState<Combo | null>(initialCombo);
@@ -98,9 +96,6 @@ export default function ComboDetailClient({
       : false
   );
   const [showPicker, setShowPicker] = useState(false);
-  const [logs] = useState<string[]>(
-    (initialLogs || []).filter((l: unknown) => typeof l === "string" && l.includes(initialCombo?.name || "")).slice(0, 50) as string[]
-  );
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testError, setTestError] = useState("");
@@ -408,18 +403,6 @@ export default function ComboDetailClient({
           )}
         </Card>
       )}
-
-      {/* Usage Logs Card */}
-      <Card>
-        <h2 className="text-lg font-semibold mb-3">Usage Logs</h2>
-        {logs.length === 0 ? (
-          <p className="text-xs text-text-muted italic">No usage yet.</p>
-        ) : (
-          <pre className="text-[11px] font-mono bg-black/[0.03] dark:bg-white/[0.03] p-3 rounded-lg overflow-auto max-h-[400px] whitespace-pre-wrap">
-            {logs.join("\n")}
-          </pre>
-        )}
-      </Card>
 
       {showPicker && (
         <ModelSelectModal

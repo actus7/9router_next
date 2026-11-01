@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { getComboById, getSettings, getProviders, getApiKeys, getModelAliases, getUsageLogs } from "@/lib/data-access";
+import { getComboById, getSettings, getProviders, getApiKeys, getModelAliases } from "@/lib/data-access";
 import { Spinner } from "@/shared/components/Loading";
 import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import ComboDetailClient from "./ComboDetailClient";
@@ -11,13 +11,12 @@ async function ComboDetailContent({ params }: Pick<PageProps<"/dashboard/media-p
   return withTenantPage(async () => {
     await assertRequestRuntime();
     const { id } = await params;
-    const [combo, settings, providers, keys, aliases, logs] = await Promise.all([
+    const [combo, settings, providers, keys, aliases] =await Promise.all([
       getComboById(id),
       getSettings(),
       getProviders(),
       getApiKeys(),
       getModelAliases(),
-      getUsageLogs({}),
     ]);
 
     if (!combo) {
@@ -32,7 +31,6 @@ async function ComboDetailContent({ params }: Pick<PageProps<"/dashboard/media-p
           initialProviders={providers as unknown as Record<string, unknown>[]}
           initialKeys={keys as unknown as Record<string, unknown>[]}
           initialAliases={aliases as unknown as Record<string, unknown>}
-          initialLogs={logs as unknown[]}
       />
     );
   }, { minRole: "admin" });
