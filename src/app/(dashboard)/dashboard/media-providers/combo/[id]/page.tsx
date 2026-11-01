@@ -11,7 +11,7 @@ async function ComboDetailContent({ params }: Pick<PageProps<"/dashboard/media-p
   return withTenantPage(async () => {
     await assertRequestRuntime();
     const { id } = await params;
-    const [combo, settings, providers, keys, aliases] =await Promise.all([
+    const [combo, settings, providers, keys, aliases] = await Promise.all([
       getComboById(id),
       getSettings(),
       getProviders(),
