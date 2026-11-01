@@ -5,6 +5,7 @@
  * endpoint capabilities, task classification, and RouterX request shapes.
  */
 
+import { tryCurrentTenantId } from "../../host/tenant";
 import type { RouteNeed, RoutingReason, RoutingTier } from "./types";
 
 const TIER_SCORE: Record<RoutingTier, number> = {
@@ -23,7 +24,13 @@ interface HistoryEntry {
   expiresAt: number;
 }
 
+// Keyed by a client-supplied session id: scoped per tenant and bounded, like modelPenalty.ts.
+export const MAX_ROUTING_HISTORY = 5000;
 const routingHistory = new Map<string, HistoryEntry>();
+const historyKey = (sessionKey: string): string => `${tryCurrentTenantId() ?? "-"}|${sessionKey.slice(0, 256)}`;
+
+// exported for tests
+export const routingHistorySizeForTests = (): number => routingHistory.size;
 
 export interface RoutingSignals {
   text: string;
@@ -201,9 +208,10 @@ function boundaryConfidence(score: number): number {
 
 function applyMomentum(score: number, messageLength: number, sessionKey?: string): { score: number; applied: boolean } {
   if (!sessionKey) return { score, applied: false };
-  const entry = routingHistory.get(sessionKey);
+  const key = historyKey(sessionKey);
+  const entry = routingHistory.get(key);
   if (!entry || entry.expiresAt <= Date.now() || entry.tiers.length === 0) {
-    if (entry) routingHistory.delete(sessionKey);
+    if (entry) routingHistory.delete(key);
     return { score, applied: false };
   }
   const weight = messageLength > 100 ? 0 : messageLength >= 30
@@ -216,10 +224,16 @@ function applyMomentum(score: number, messageLength: number, sessionKey?: string
 
 export function recordRoutingTier(sessionKey: string | undefined, tier: RoutingTier): void {
   if (!sessionKey) return;
-  const previous = routingHistory.get(sessionKey);
+  const key = historyKey(sessionKey);
+  const previous = routingHistory.get(key);
   const tiers = [tier, ...(previous?.expiresAt && previous.expiresAt > Date.now() ? previous.tiers : [])]
     .slice(0, HISTORY_LIMIT);
-  routingHistory.set(sessionKey, { tiers, expiresAt: Date.now() + HISTORY_TTL_MS });
+  routingHistory.delete(key); // re-insert at the end so the oldest is evicted first
+  routingHistory.set(key, { tiers, expiresAt: Date.now() + HISTORY_TTL_MS });
+  if (routingHistory.size > MAX_ROUTING_HISTORY) {
+    const oldest = routingHistory.keys().next().value;
+    if (oldest !== undefined) routingHistory.delete(oldest);
+  }
 }
 
 export function scoreRoutingRequest(body: unknown, endpointNeed: RouteNeed = "general", sessionKey?: string): LocalRoutingAssessment {

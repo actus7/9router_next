@@ -13,6 +13,7 @@ import { applyEntryConfig } from "../host/entryConfig";
 import { holdFreeFallback, isFreeFallbackHeld, setAttemptSignal, setFirstByteBudget } from "../utils/firstByteGuard";
 import { adaptiveFirstByteBudget, estimatePromptTokens, hedgeDelayMs, LARGE_PROMPT_TOKENS, loadModelStats, perfKey, recordAttemptDatum, setPerfKey } from "../host/modelStats";
 import { getStickyModel, orderByPenalty, recordModelFailure, recordModelSuccess, rememberStickyModel } from "./modelPenalty";
+import { tryCurrentTenantId } from "../host/tenant";
 import { getRoutingDecision } from "./smart-routing/context";
 import { isFreeFallback, recordRoutingStep } from "./routingTrace";
 import { cacheAffinityKey, classifiedTierModels, preferWarmModel, rememberWarmModel } from "./comboCacheAffinity";
@@ -191,12 +192,13 @@ function rotateModelsFromIndex(models: string[], currentIndex: number): string[]
  * @param {number|string} [stickyLimit=1] - Requests per combo model before switching
  * @returns {string[]} Rotated models array
  */
-function getRotatedModels(models: string[], comboName: string, strategy: string, stickyLimit: number | string = 1): string[] {
+// exported for tests
+export function getRotatedModels(models: string[], comboName: string, strategy: string, stickyLimit: number | string = 1): string[] {
   if (!models || models.length <= 1 || strategy !== "round-robin") {
     return models;
   }
 
-  const rotationKey = comboName || "__default__";
+  const rotationKey = `${tryCurrentTenantId() ?? "-"}|${comboName || "__default__"}`;
   const normalizedStickyLimit = normalizeStickyLimit(stickyLimit);
   const existingState = comboRotationState.get(rotationKey);
   const state = typeof existingState === "number"
@@ -227,8 +229,15 @@ function getRotatedModels(models: string[], comboName: string, strategy: string,
  * @param {string} [comboName] - Combo name to reset; omit to clear all
  */
 export function resetComboRotation(comboName?: string): void {
-  if (comboName) comboRotationState.delete(comboName);
-  else comboRotationState.clear();
+  const tenant = tryCurrentTenantId();
+  const prefix = `${tenant ?? "-"}|`;
+  if (comboName) {
+    comboRotationState.delete(`${prefix}${comboName}`);
+  } else if (tenant === null) {
+    comboRotationState.clear();
+  } else {
+    for (const key of comboRotationState.keys()) if (key.startsWith(prefix)) comboRotationState.delete(key);
+  }
 }
 
 /**
