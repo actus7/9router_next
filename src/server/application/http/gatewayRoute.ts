@@ -5,32 +5,12 @@ import { withTenant } from "@/lib/db/tenant";
 import { accessLayersFor } from "@/lib/db/repos/accessPoliciesRepo";
 import { checkUsageLimits, limitBreachResponse } from "./usageLimits";
 import { resolveKeyContext } from "@/lib/auth/organizations";
+import { extractApiKey } from "@/server/llm-gateway/auth/accountSelection";
 import { withAccessLayers } from "@/server/llm-gateway/application/accessScope";
 import { withVerifiedGatewayKey } from "@/server/llm-gateway/application/gatewayApiKey";
 import { withStoredKeyProfile } from "@/server/llm-gateway/application/gatewayProfile";
 import { ensureEngineSeams } from "@/server/llm-gateway/application/engineSeams";
 import { RATE_LIMIT_WINDOW_MS, consumeRateLimit, gatewayRateLimit } from "./rateLimit";
-
-/**
- * Reads the API key from wherever a client protocol puts it.
- *
- * Four spellings because the gateway speaks four dialects: OpenAI sends a
- * bearer token, Anthropic `x-api-key`, Gemini `x-goog-api-key`, and Gemini's
- * REST clients a `?key=` query parameter.
- */
-function extractApiKey(request: Request): string | null {
-  const authHeader: string | null = request.headers.get("authorization");
-  if (authHeader?.toLowerCase().startsWith("bearer ")) return authHeader.slice(7).trim() || null;
-  const apiKeyHeader: string | null = request.headers.get("x-api-key");
-  if (apiKeyHeader) return apiKeyHeader;
-  const googleApiKeyHeader: string | null = request.headers.get("x-goog-api-key");
-  if (googleApiKeyHeader) return googleApiKeyHeader;
-  try {
-    return new URL(request.url).searchParams.get("key");
-  } catch {
-    return null;
-  }
-}
 
 type Handler<R extends Request, A extends unknown[]> = (request: R, ...rest: A) => Promise<Response> | Response;
 

@@ -460,20 +460,25 @@ export async function clearAccountError(connectionId: string, currentConnection:
 }
 
 /**
- * Extract API key from request headers
+ * Reads the API key from wherever a client protocol puts it.
+ *
+ * Four spellings because the gateway speaks four dialects: OpenAI sends a
+ * bearer token, Anthropic `x-api-key`, Gemini `x-goog-api-key`, and Gemini's
+ * REST clients a `?key=` query parameter. Shared by `gatewayRoute` and the
+ * handlers so both gates read the same key.
  */
 export function extractApiKey(request: Request): string | null {
-  const authHeader: string | null = request.headers.get("Authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7);
+  const authHeader: string | null = request.headers.get("authorization");
+  if (authHeader?.toLowerCase().startsWith("bearer ")) return authHeader.slice(7).trim() || null;
+  const apiKeyHeader: string | null = request.headers.get("x-api-key");
+  if (apiKeyHeader) return apiKeyHeader;
+  const googleApiKeyHeader: string | null = request.headers.get("x-goog-api-key");
+  if (googleApiKeyHeader) return googleApiKeyHeader;
+  try {
+    return new URL(request.url).searchParams.get("key");
+  } catch {
+    return null;
   }
-
-  const xApiKey: string | null = request.headers.get("x-api-key");
-  if (xApiKey) {
-    return xApiKey;
-  }
-
-  return null;
 }
 
 /**
