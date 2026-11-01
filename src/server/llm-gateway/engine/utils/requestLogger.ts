@@ -103,7 +103,7 @@ function maskSensitiveHeaders(headers: Record<string, string> | null | undefined
  * Vertex appends `?key=<raw api key>` — so redacting headers alone still wrote
  * the key out next to them.
  */
-function maskUrlSecrets(url: string): string {
+export function maskUrlSecrets(url: string): string {
   if (!url || process.env.LOG_UNMASKED_CREDENTIALS === "true") return url;
   return url.replace(/([?&](?:key|api_key|apikey|access_token|token)=)[^&#]+/gi, "$1***");
 }

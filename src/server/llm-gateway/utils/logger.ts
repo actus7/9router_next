@@ -20,18 +20,16 @@ function formatTime(): string {
   return new Date().toLocaleTimeString("en-US", { hour12: false });
 }
 
-// Colored-dot tags to correlate request lines by session (same session → same color)
-
-// Allocate next rotating tag (fallback when no session seed available)
-
-// Stable tag derived from a session/connection seed: same seed always maps to the same color
-
 // Print one correlated line: [time] tag symbol message
+export function line(tag: string, symbol: string, message: string): void {
+  if (LEVEL > LOG_LEVELS.INFO) return;
+  console.log(`[${formatTime()}] ${tag} ${symbol} ${message}`);
+}
 
 // Like line() but always printed regardless of LOG_LEVEL (errors must never be hidden)
-
-
-// Format thinking intent for the request line ("high(10k)" / "off" / "auto")
+export function errorLine(tag: string, symbol: string, message: string): void {
+  console.error(`[${formatTime()}] ${tag} ${symbol} ${message}`);
+}
 
 function formatData(data: unknown): string {
   if (!data) return "";

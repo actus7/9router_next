@@ -5,6 +5,8 @@ import { getExecutor } from "../../executors/index";
 import { buildRequestDetail, extractRequestConfig } from "./requestDetail";
 import { refreshWithRetry } from "../../services/tokenRefresh";
 import { isToolUnsupportedError } from "../../services/accountFallback";
+import { maskUrlSecrets } from "../../utils/requestLogger";
+import { redactSecrets } from "../../host/routingTrace";
 import type { ChatCredentials, ChatLogger, PxpipeSummary, RequestLogger, StreamController } from "./types";
 
 type Executor = ReturnType<typeof getExecutor>;
@@ -48,7 +50,7 @@ export async function handleExecutionError(params: {
   }
   const errMsg = formatProviderError(err as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, HTTP_STATUS.BAD_GATEWAY);
   if (log?.errorLine) {
-    log.errorLine(reqTag, "✗", `ERROR 502 · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${errMsg}${err.stack ? `\n    ${err.stack}` : ""}`);
+    log.errorLine(reqTag, "✗", redactSecrets(`ERROR 502 · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${errMsg}${err.stack ? `\n    ${err.stack}` : ""}`));
   }
   return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg, undefined);
 }
@@ -147,8 +149,8 @@ export async function handleUpstreamError(params: {
 
   const errMsg = formatProviderError(new Error(message) as Error & { code?: string; cause?: { code?: string; message?: string } }, provider, model, statusCode);
   if (log?.errorLine) {
-    const urlStr = providerUrl ? `\n    URL: ${providerUrl}` : "";
-    log.errorLine(reqTag, "✗", `ERROR ${statusCode} · ${provider}/${model} · ${Date.now() - requestStartTime}ms${urlStr}\n    ${errMsg}`);
+    const urlStr = providerUrl ? `\n    URL: ${maskUrlSecrets(providerUrl)}` : "";
+    log.errorLine(reqTag, "✗", redactSecrets(`ERROR ${statusCode} · ${provider}/${model} · ${Date.now() - requestStartTime}ms${urlStr}\n    ${errMsg}`));
   }
   reqLogger.logError(new Error(message), finalBody || translatedBody);
   return createErrorResult(statusCode, errMsg, resetsAtMs);
