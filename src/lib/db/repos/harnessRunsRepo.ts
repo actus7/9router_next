@@ -122,6 +122,15 @@ export async function updateHarnessRunProgress(id: string, partialText: string):
   return result.changes > 0;
 }
 
+/** Keeps a live run from looking dead while a tool step runs: bumps only `updatedAt`. */
+export async function touchHarnessRun(id: string): Promise<void> {
+  const db = await getAdapter();
+  await db.run(
+    `UPDATE harnessRuns SET updatedAt = ? WHERE ${MEMBER_ROWS} AND id = ? AND status = ?`,
+    [new Date().toISOString(), ...memberRowParams(), id, "running"],
+  );
+}
+
 /**
  * Records the coarse stage a run is in, for the history list.
  *

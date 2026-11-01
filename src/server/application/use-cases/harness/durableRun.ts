@@ -7,6 +7,7 @@ import {
   createHarnessRun,
   setHarnessRunActivity,
   settleHarnessRun,
+  touchHarnessRun,
   updateHarnessRunProgress,
 } from "@/lib/db/repos/harnessRunsRepo";
 import { appendHarnessEvent, appendRunAnswerToConversation } from "@/lib/db/repos/harnessConversationsRepo";
@@ -276,8 +277,15 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
     // this side comes back in `leftoverToolCalls` and is settled onto the row,
     // which is where `executeDurableChat` reads tool calls from — so a browser
     // picks up exactly those and never re-runs what this side already did.
-    const loop = parsed.toolCalls.length
-      ? await runServerToolLoop({
+    let loop: Awaited<ReturnType<typeof runServerToolLoop>> | null = null;
+    if (parsed.toolCalls.length) {
+      // A long tool step (video poll, slow MCP) writes nothing for over
+      // STALE_RUN_MS; without this a reader fails a run that is still working.
+      const toolHeartbeat = setInterval(() => {
+        void touchHarnessRun(runId).catch(() => undefined);
+      }, HEARTBEAT_INTERVAL_MS);
+      try {
+        loop = await runServerToolLoop({
           body,
           authorization,
           sessionId: input.sessionId,
@@ -309,8 +317,11 @@ async function executeRun(runId: string, input: StartDurableRunInput): Promise<v
               data: { runId: input.messageId, ...data },
             }).catch(() => undefined);
           },
-        })
-      : null;
+        });
+      } finally {
+        clearInterval(toolHeartbeat);
+      }
+    }
 
     const finalText = loop ? loop.text : parsed.text;
     const finalToolCalls = loop ? loop.leftoverToolCalls : parsed.toolCalls;
