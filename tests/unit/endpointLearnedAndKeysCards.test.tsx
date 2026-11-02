@@ -67,7 +67,7 @@ describe("ApiKeysCard load error", () => {
   const base = {
     keys: [], isRemoteHost: false, visibleKeys: new Set<string>(), copied: null, copy: vi.fn(),
     maskKey: (k: string) => k, toggleKeyVisibility: vi.fn(), setConfirmState: vi.fn(),
-    handleToggleKey: vi.fn(), handleDeleteKey: vi.fn(), onOpenAbilities: vi.fn(), onOpenSkills: vi.fn(),
+    handleToggleKey: vi.fn(), handleDeleteKey: vi.fn(), onOpenProfile: vi.fn(),
     setShowAddModal: vi.fn(),
   };
 

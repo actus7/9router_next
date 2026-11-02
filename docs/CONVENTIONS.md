@@ -109,6 +109,10 @@ aceitar convite e editar limites por organização/membro não tem mais tela;
 acontece pelo Neon Auth e por `PUT /api/access`. Uma tela nova de gestão volta
 atrás de `withTenantPage(..., { minRole: "admin" })`.
 
+## Perfil da API key: um botão, duas abas (decisão de 2026-11-02)
+
+Cada linha de chave em `/dashboard/endpoint` tem **Acesso** (teto: modelos e skills que a chave pode pedir, `accessPolicies`) e **Perfil** (o tratamento: `apiKeys.profile`). O Perfil abre um modal com as abas **Recursos** (economizadores de tokens + guardrail) e **Skills** (Agent Skills). Eram dois botões, "Habilidades" e "Skills", mas o tradutor de runtime reescreve o texto do DOM e "Skills" virava "Habilidades" em pt-BR: a linha mostrava dois botões iguais. Ao rotular algo, lembre que o literal em inglês passa pelo `pt-BR.json` mesmo sem `translate()`.
+
 ## Habilidades e skills do gateway vêm da origem da requisição
 
 Mesmo princípio de "o caminho, não o corpo" abaixo. Quem abre o escopo do

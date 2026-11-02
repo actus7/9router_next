@@ -13,8 +13,7 @@ import { useTailscale } from "./hooks/useTailscale";
 import EndpointCard from "./sections/EndpointCard";
 import ApiKeysCard from "./sections/ApiKeysCard";
 import EndpointModals from "./sections/EndpointModals";
-import KeyAbilitiesModal from "./sections/KeyAbilitiesModal";
-import KeySkillsModal from "./sections/KeySkillsModal";
+import KeyProfileModal, { type KeyProfileTab } from "./sections/KeyProfileModal";
 import LearnedAnswersCard from "./sections/LearnedAnswersCard";
 import { useKeyProfile } from "./hooks/useKeyProfile";
 import { useLearnedAnswers } from "./hooks/useLearnedAnswers";
@@ -27,7 +26,7 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
   const tailscale = useTailscale();
   const { copied, copy } = useCopyToClipboard();
   // One key's profile editor open at a time: abilities or skills.
-  const [profileTarget, setProfileTarget] = useState<{ key: ApiKey; mode: "abilities" | "skills" } | null>(null);
+  const [profileTarget, setProfileTarget] = useState<{ key: ApiKey; tab: KeyProfileTab } | null>(null);
   const keyProfile = useKeyProfile(profileTarget?.key.id ?? null);
   const { canManage } = useWorkspace();
   const learnedAnswers = useLearnedAnswers(canManage);
@@ -192,19 +191,15 @@ export default function APIPageClient({ machineId: _machineId }: APIPageClientPr
         setConfirmState={apiKeys.setConfirmState}
         handleToggleKey={apiKeys.handleToggleKey}
         handleDeleteKey={apiKeys.handleDeleteKey}
-        onOpenAbilities={(key) => setProfileTarget({ key, mode: "abilities" })}
-        onOpenSkills={(key) => setProfileTarget({ key, mode: "skills" })}
+        onOpenProfile={(key) => setProfileTarget({ key, tab: "features" })}
       />
 
       {canManage && <LearnedAnswersCard learning={learnedAnswers} />}
 
-      <KeyAbilitiesModal
-        keyName={profileTarget?.mode === "abilities" ? profileTarget.key.name : null}
-        state={keyProfile}
-        onClose={closeProfile}
-      />
-      <KeySkillsModal
-        keyName={profileTarget?.mode === "skills" ? profileTarget.key.name : null}
+      <KeyProfileModal
+        keyName={profileTarget ? profileTarget.key.name || profileTarget.key.id : null}
+        tab={profileTarget?.tab ?? "features"}
+        onTabChange={(tab) => setProfileTarget((current) => (current ? { ...current, tab } : current))}
         state={keyProfile}
         onClose={closeProfile}
       />

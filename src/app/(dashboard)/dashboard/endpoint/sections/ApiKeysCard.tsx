@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import SecurityWarning from "../components/SecurityWarning";
 import KeyAccessButton from "./KeyAccessButton";
-import { BookOpen, Check, Copy, Eye, EyeOff, KeyRound, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, KeyRound, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import type { ApiKey, ConfirmState } from "../types";
 
@@ -23,15 +23,14 @@ interface ApiKeysCardProps {
   setConfirmState: (state: ConfirmState | null) => void;
   handleToggleKey: (id: string, isActive: boolean) => void;
   handleDeleteKey: (id: string) => void;
-  onOpenAbilities: (key: ApiKey) => void;
-  onOpenSkills: (key: ApiKey) => void;
+  onOpenProfile: (key: ApiKey) => void;
 }
 
 export default function ApiKeysCard({
   keys, loadError, onRetry, setShowAddModal,
   isRemoteHost, visibleKeys, copied, copy,
   maskKey, toggleKeyVisibility, setConfirmState, handleToggleKey, handleDeleteKey,
-  onOpenAbilities, onOpenSkills,
+  onOpenProfile,
 }: ApiKeysCardProps) {
   return (
     <Card id="require-api-key">
@@ -121,20 +120,11 @@ export default function ApiKeysCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  icon={<Sparkles className="size-4" />}
-                  onClick={() => onOpenAbilities(key)}
-                  aria-label={`${translate("Key abilities") || "Key abilities"} ${key.name || key.id}`}
+                  icon={<SlidersHorizontal className="size-4" />}
+                  onClick={() => onOpenProfile(key)}
+                  aria-label={`${translate("Key profile") || "Key profile"} ${key.name || key.id}`}
                 >
-                  <span className="hidden sm:inline">Habilidades</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<BookOpen className="size-4" />}
-                  onClick={() => onOpenSkills(key)}
-                  aria-label={`${translate("Key skills") || "Key skills"} ${key.name || key.id}`}
-                >
-                  <span className="hidden sm:inline">Skills</span>
+                  <span className="hidden sm:inline">{translate("Profile") || "Profile"}</span>
                 </Button>
                 <Switch
                   size="sm"
