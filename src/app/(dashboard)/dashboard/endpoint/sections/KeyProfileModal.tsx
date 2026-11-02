@@ -107,19 +107,17 @@ function SkillsPanel({ state }: { state: UseKeyProfileReturn }) {
   return (
     <>
       <p className="text-sm text-muted-foreground">
-        Na API, a skill vai inteira no prompt de sistema de toda requisição desta chave: quem executa
-        as ferramentas é o cliente, então não há carregamento sob demanda como no chat.
+        {t("On the API, each skill goes whole into the system prompt of every request made with this key: the client runs the tools, so there is no on-demand loading as in the chat.")}
       </p>
       <p className="mt-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        Selecionadas: {selected.size} · ~{selectedTokens.toLocaleString()} tokens a mais por requisição.
-        Para instalar novas skills, use a Biblioteca de Skills no chat.
+        {`${t("Selected")}: ${selected.size} · ~${selectedTokens.toLocaleString()} ${t("extra tokens per request.")} ${t("To install new skills, use the Skill Library in the chat.")}`}
       </p>
       {skillsError ? (
         <p role="alert" className="mt-4 text-sm text-destructive">{t("Could not load skills.")}</p>
       ) : loading || !profile || !data ? (
-        <p className="mt-4 text-sm text-muted-foreground">{error || "Carregando…"}</p>
+        <p className="mt-4 text-sm text-muted-foreground">{error || t("Loading...")}</p>
       ) : skills.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">Nenhuma skill instalada nesta conta.</p>
+        <p className="mt-4 text-sm text-muted-foreground">{t("No skills installed in this account.")}</p>
       ) : (
         <ul className="mt-4 flex flex-col divide-y divide-border">
           {skills.map((skill) => (

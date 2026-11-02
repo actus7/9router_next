@@ -40,7 +40,7 @@ describe("KeyProfileModal", () => {
     const s = state();
     render(<KeyProfileModal keyName="ci" tab="skills" onTabChange={vi.fn()} state={s} onClose={vi.fn()} />);
 
-    expect(screen.getByText(/Selecionadas: 1/)).toBeTruthy();
+    expect(screen.getByText(/Selected: 1/)).toBeTruthy();
     fireEvent.click(screen.getByRole("checkbox", { name: /Writer/ }));
     expect(s.save).toHaveBeenCalledWith({ skillIds: ["s1", "s2"] });
   });
