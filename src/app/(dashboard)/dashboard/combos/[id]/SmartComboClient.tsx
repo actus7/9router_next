@@ -14,7 +14,10 @@ import { ComboHeader } from "./ComboHeader";
 import { InferenceCard } from "./InferenceCard";
 import { PrioritiesCard } from "./PrioritiesCard";
 import { ModelInventoryCard } from "./ModelInventoryCard";
-import { ModelScopeCard } from "./ModelScopeCard";
+import { ModelScopeButton } from "./ModelScopeCard";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { InfoButton } from "@/shared/components/InfoButton";
 import { PreviewModal } from "./PreviewModal";
 import { ProgressModal } from "./ProgressModal";
 import { SaveBar } from "./SaveBar";
@@ -79,7 +82,7 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+    <div className="flex min-w-0 flex-col gap-4 px-1 sm:px-0">
       <ComboHeader name={s.name} onNameChange={s.setName} onRefreshAllModels={handleRefreshAllModels} refreshingModels={refreshingModels} />
 
       <InferenceCard
@@ -93,16 +96,29 @@ export default function SmartComboClient({ initialCombo, activeProviders, modelA
         activeProviders={activeProviders as unknown as ActiveProvider[]}
         modelAliases={modelAliases}
         tunedNote={s.classifierTunedNote}
-      />
-
-      <ModelScopeCard
-        selected={s.isScoped}
-        onSelectedChange={(selected) => s.setConfig((c) => ({ ...c, modelScope: selected ? "selected" : undefined }))}
-        models={s.globalModels}
-        onRemoveModel={(model) => s.setGlobalModels(s.globalModels.filter((m) => m !== model))}
-        onAddClick={() => s.setShowGlobalModelSelect(true)}
-        freeFallback={s.config.freeFallback !== false}
-        onFreeFallbackChange={(enabled) => s.setConfig((c) => ({ ...c, freeFallback: enabled ? undefined : false }))}
+        extra={(
+          <>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="combo-free-fallback" className="text-sm font-medium">{translate("Free model as last resort")}</Label>
+              <InfoButton label={translate("Free model as last resort") || "Free model as last resort"}>
+                <p>{translate("When every model above fails or runs out of accounts, answer with the free Kilo router instead of an error.")}</p>
+              </InfoButton>
+              <Switch
+                id="combo-free-fallback"
+                size="sm"
+                checked={s.config.freeFallback !== false}
+                onCheckedChange={(enabled) => s.setConfig((c) => ({ ...c, freeFallback: enabled ? undefined : false }))}
+              />
+            </div>
+            <ModelScopeButton
+              selected={s.isScoped}
+              onSelectedChange={(selected) => s.setConfig((c) => ({ ...c, modelScope: selected ? "selected" : undefined }))}
+              models={s.globalModels}
+              onRemoveModel={(model) => s.setGlobalModels(s.globalModels.filter((m) => m !== model))}
+              onAddClick={() => s.setShowGlobalModelSelect(true)}
+            />
+          </>
+        )}
       />
 
       <ComplexityRoutingBoard

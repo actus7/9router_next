@@ -1,14 +1,13 @@
 "use client";
 
-import { Fragment, useId, useState } from "react";
+import { useId, useState } from "react";
 import { BarChart3, ChevronsUpDown, Cpu, FileText, Sparkles, X, type LucideIcon } from "lucide-react";
 import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import type { ActiveProvider } from "@/shared/components/ModelSelectModal";
 import { InfoButton } from "@/shared/components/InfoButton";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { translate } from "@/i18n/runtime";
 import type { SmartRoutingConfig } from "@/shared/llm-catalog";
@@ -24,27 +23,23 @@ interface SettingRowProps {
   ariaLabel: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
-  /** A setting that only exists while the switch is on, shown indented beneath it. */
+  /** A setting that only exists while the switch is on, shown right after it. */
   children?: React.ReactNode;
 }
 
-// shadcn settings row: label on the left, control on the right, every row's
-// control in the same column. The explanation sits behind the "i", outside the
-// <Label> so opening it does not toggle the switch.
+// One inline setting: icon, label, "i", switch — all settings share one row.
+// The explanation sits behind the "i", outside the <Label> so opening it does
+// not toggle the switch.
 function SettingRow({ icon: Icon, tone, title, description, ariaLabel, checked, onCheckedChange, children }: SettingRowProps) {
   const id = useId();
   return (
-    <div className="flex flex-col">
-      <div className="flex min-h-8 items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className={`flex size-7 shrink-0 items-center justify-center rounded-md ${tone}`} aria-hidden>
-            <Icon className="size-4" />
-          </span>
-          <Label htmlFor={id} className="text-sm font-medium">{title}</Label>
-          <InfoButton label={title}><p>{description}</p></InfoButton>
-        </div>
-        <Switch id={id} size="sm" aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />
-      </div>
+    <div className="flex min-h-8 items-center gap-2">
+      <span className={`flex size-7 shrink-0 items-center justify-center rounded-md ${tone}`} aria-hidden>
+        <Icon className="size-4" />
+      </span>
+      <Label htmlFor={id} className="text-sm font-medium">{title}</Label>
+      <InfoButton label={title}><p>{description}</p></InfoButton>
+      <Switch id={id} size="sm" aria-label={ariaLabel} checked={checked} onCheckedChange={onCheckedChange} />
       {children}
     </div>
   );
@@ -60,10 +55,7 @@ function TiebreakerModelRow({ model, onChange, activeProviders, modelAliases }: 
   const [open, setOpen] = useState(false);
   const isAuto = !model || model === AUTO_MODEL;
   return (
-    <div className="relative ml-3.5 flex min-h-9 items-center justify-between gap-4 pb-1 pl-6">
-      {/* The elbow ties this setting to the switch above it. */}
-      <span aria-hidden className="absolute -left-px top-0 h-1/2 w-4 rounded-bl-lg border-b border-l border-border" />
-      <span className="text-sm text-text-muted">{translate("Tiebreaker model") || "Tiebreaker model"}</span>
+    <div className="flex items-center gap-1">
       <div className="flex items-center gap-1">
         {!isAuto && (
           <Button
@@ -124,6 +116,7 @@ export function InferenceCard({
   classifier, onClassifierEnabledChange, onClassifierModelChange,
   activeProviders, modelAliases,
   tunedNote,
+  extra,
 }: {
   complexityEnabled: boolean;
   onComplexityEnabledChange: (enabled: boolean) => void;
@@ -135,6 +128,8 @@ export function InferenceCard({
   activeProviders: ActiveProvider[];
   modelAliases: Record<string, string>;
   tunedNote: string | null;
+  /** Further combo-wide setup that shares the row (fallback, model set). */
+  extra?: React.ReactNode;
 }) {
   const rows: SettingRowProps[] = [
     {
@@ -175,23 +170,19 @@ export function InferenceCard({
   ];
 
   return (
-    <Card size="sm" className="gap-1 py-2">
-      <CardHeader className="gap-0">
-        <CardTitle className="flex items-center gap-1.5 text-sm font-semibold">
-          {translate("What the system decides on its own")}
-          <InfoButton label={translate("What the system decides on its own") || "What the system decides on its own"}>
-            <p>{translate("Turn one off and the router stops inferring that dimension — it does not become manual, it becomes fixed.")}</p>
-          </InfoButton>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col">
-        {rows.map((row, index) => (
-          <Fragment key={row.title}>
-            {index > 0 && <Separator />}
-            <SettingRow {...row} />
-          </Fragment>
-        ))}
-        {tunedNote && <p className="pt-2 text-xs text-text-muted">{tunedNote}</p>}
+    <Card size="sm" className="py-3">
+      <CardContent className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+            {translate("What the system decides on its own")}
+            <InfoButton label={translate("What the system decides on its own") || "What the system decides on its own"}>
+              <p>{translate("Turn one off and the router stops inferring that dimension — it does not become manual, it becomes fixed.")}</p>
+            </InfoButton>
+          </span>
+          {rows.map((row) => <SettingRow key={row.title} {...row} />)}
+          {extra ? <div className="flex flex-wrap items-center gap-x-5 gap-y-3 lg:ml-auto">{extra}</div> : null}
+        </div>
+        {tunedNote && <p className="text-xs text-text-muted">{tunedNote}</p>}
       </CardContent>
     </Card>
   );
