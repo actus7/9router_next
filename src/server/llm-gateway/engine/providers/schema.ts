@@ -84,6 +84,8 @@ export interface RegistryEntry extends Record<string, unknown> {
   thinkingConfig?: Record<string, unknown>;
   // Media and search surface (see MEDIA_ENTRY_KEYS — these sit at the entry
   // root, not under a nested block)
+  // "systemOne" marks a provider of typed-decision models (Jev and successors):
+  // configured on the provider page like chat, never a media kind.
   serviceKinds?: string[];
   ttsConfig?: Record<string, unknown>;
   sttConfig?: Record<string, unknown>;

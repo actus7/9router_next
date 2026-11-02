@@ -29,7 +29,7 @@ function matchMediaDetail(pathname: string): PageInfo | null {
   return {
     title: (provider?.name as string) || providerId, description: "",
     breadcrumbs: [
-      { label: "Media Providers", href: `/dashboard/media-providers/${kindId}` },
+      { label: "Providers", href: "/dashboard/providers" },
       { label: kindConfig?.label || kindId, href: `/dashboard/media-providers/${kindId}` },
       { label: (provider?.name as string) || providerId, image: getProviderIconSrc(providerId) ?? undefined },
     ],

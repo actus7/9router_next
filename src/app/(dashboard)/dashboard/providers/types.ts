@@ -53,4 +53,6 @@ export interface TestResults {
 export interface ProvidersClientProps {
   initialConnections: Connection[];
   initialNodes: ProviderNode[];
+  /** Only key presence crosses the server/client boundary; null means the read failed. */
+  hasTypesafeKey: boolean | null;
 }

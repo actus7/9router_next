@@ -6,31 +6,34 @@ import { ChevronDown, SearchX } from "lucide-react";
 import { translate } from "@/i18n/runtime";
 import { getProviderConnectionAuthTypes } from "@/shared/constants/providers";
 import { useProviderData } from "./hooks/useProviderData";
+import { providerHref } from "./hooks/computeProviderEntries";
 import { AvailabilityFilterBar } from "./components/AvailabilityFilterBar";
 import { CustomProvidersSection } from "./components/CustomProvidersSection";
 import { ProviderSection } from "./components/ProviderSection";
 import { ProviderCard } from "./components/ProviderCard";
 import { ApiKeyProviderCard } from "./components/ApiKeyProviderCard";
+import { TypesafeProviderCard } from "./components/TypesafeProviderCard";
+import { TYPESAFE_PROVIDER } from "./typesafeProvider";
 import { Modals } from "./components/Modals";
 import type { ProvidersClientProps, ProviderNode } from "./types";
 
-export default function ProvidersClient({ initialConnections, initialNodes }: ProvidersClientProps) {
-  const d = useProviderData(initialConnections, initialNodes);
+export default function ProvidersClient({ initialConnections, initialNodes, hasTypesafeKey }: ProvidersClientProps) {
+  const d = useProviderData(initialConnections, initialNodes, hasTypesafeKey);
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      <AvailabilityFilterBar availabilityFilter={d.availabilityFilter} onFilterChange={d.setAvailabilityFilter} />
+      <AvailabilityFilterBar availabilityFilter={d.availabilityFilter} onFilterChange={d.setAvailabilityFilter} kindFilter={d.kindFilter} onToggleKind={d.toggleKind} onClearKinds={() => d.setKindFilter([])} />
       {!d.hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
           <SearchX className="size-8" />
           <p className="text-text-muted text-sm">{translate("No providers match your search")}</p>
         </div>
       )}
-      <CustomProvidersSection compatibleProviders={d.compatibleProviders} anthropicCompatibleProviders={d.anthropicCompatibleProviders} getStats={d.getStats} onToggle={d.handleToggleProvider} onAddOpenAI={() => d.setShowAddCompatibleModal(true)} onAddAnthropic={() => d.setShowAddAnthropicCompatibleModal(true)} />
+      {d.showCustom && <CustomProvidersSection compatibleProviders={d.compatibleProviders} anthropicCompatibleProviders={d.anthropicCompatibleProviders} getStats={d.getStats} onToggle={d.handleToggleProvider} onAddOpenAI={() => d.setShowAddCompatibleModal(true)} onAddAnthropic={() => d.setShowAddAnthropicCompatibleModal(true)} />}
       {d.oauthVisible.length > 0 && (
         <ProviderSection title={translate("OAuth Providers")} testMode="oauth" testLabel="Test all OAuth connections" testAriaLabel="Test all OAuth connections" testingMode={d.testingMode} onTest={d.handleBatchTest}>
           {d.filterEntries(d.oauthEntries, "other", "oauth").map(([key, info]) => {
             const authTypes = getProviderConnectionAuthTypes(info);
-            return <ProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, authTypes)} onToggle={(active) => d.handleToggleProvider(key, authTypes, active)} availability={d.availabilityFor(info)} />;
+            return <ProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, authTypes)} onToggle={(active) => d.handleToggleProvider(key, authTypes, active)} availability={d.availabilityFor(info)} href={providerHref(key, info, d.kindFilter)} />;
           })}
         </ProviderSection>
       )}
@@ -38,11 +41,11 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
         <ProviderSection title={translate("Free Tier Providers")} testMode="free" testLabel="Test all Free connections" testAriaLabel="Test all Free provider connections" testingMode={d.testingMode} onTest={d.handleBatchTest}>
           {d.filterEntries(d.freeEntries, "free", ["oauth", "apikey", "api_key"]).map(([key, info]) => {
             const freeAuthTypes = getProviderConnectionAuthTypes(info);
-            return <ProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, freeAuthTypes)} onToggle={(active) => d.handleToggleProvider(key, freeAuthTypes, active)} availability={d.availabilityFor(info)} />;
+            return <ProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, freeAuthTypes)} onToggle={(active) => d.handleToggleProvider(key, freeAuthTypes, active)} availability={d.availabilityFor(info)} href={providerHref(key, info, d.kindFilter)} />;
           })}
           {d.filterEntries(d.freeTierEntries, "freeTier", ["oauth", "apikey", "api_key"]).map(([key, info]) => {
             const freeAuthTypes = getProviderConnectionAuthTypes(info);
-            return <ApiKeyProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, freeAuthTypes)} onToggle={(active) => d.handleToggleProvider(key, freeAuthTypes, active)} availability={d.availabilityFor(info)} />;
+            return <ApiKeyProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, freeAuthTypes)} onToggle={(active) => d.handleToggleProvider(key, freeAuthTypes, active)} availability={d.availabilityFor(info)} href={providerHref(key, info, d.kindFilter)} />;
           })}
         </ProviderSection>
       )}
@@ -55,7 +58,8 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           ) : undefined}
         >
           {d.filterEntries(d.visibleApikeyEntries, "other", "apikey").map(([key, info]) => (
-            <ApiKeyProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, "apikey")} onToggle={(active) => d.handleToggleProvider(key, "apikey", active)} availability={d.availabilityFor(info)} />
+            key === TYPESAFE_PROVIDER.id ? <TypesafeProviderCard key={key} hasKey={hasTypesafeKey} /> :
+              <ApiKeyProviderCard key={key} providerId={key} provider={info} stats={d.getStats(key, "apikey")} onToggle={(active) => d.handleToggleProvider(key, "apikey", active)} availability={d.availabilityFor(info)} href={providerHref(key, info, d.kindFilter)} />
           ))}
         </ProviderSection>
       )}
@@ -68,7 +72,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }: Pr
           <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
             {d.retiredEntries.map(([key, info]) => (
               <li key={key} className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <Link href={`/dashboard/providers/${key}`} className="font-medium text-text-main hover:underline underline-offset-4">{info.name}</Link>
+                <Link href={providerHref(key, info, d.kindFilter)} className="font-medium text-text-main hover:underline underline-offset-4">{info.name}</Link>
                 <span className="text-xs text-text-muted">{info.retired?.reason} · {translate("since")} {info.retired?.since}</span>
               </li>
             ))}

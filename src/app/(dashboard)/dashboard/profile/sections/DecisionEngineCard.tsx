@@ -107,7 +107,7 @@ export default function DecisionEngineCard({ settings, loading, engine }: Decisi
   const noKey = engine.hasTypesafeKey === false && engine.hasGatewayKey === false;
 
   return (
-    <Card>
+    <Card id="decision-engine" className="scroll-mt-6">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-info text-info-foreground shrink-0">
           <BrainCircuit className="size-5" />

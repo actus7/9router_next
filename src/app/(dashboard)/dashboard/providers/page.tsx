@@ -7,6 +7,7 @@ import { assertRequestRuntime } from "@/server/application/http/requestRuntime";
 import { Spinner } from "@/shared/components/Loading";
 import { withTenantPage } from "@/server/application/http/withTenantPage";
 import { MetadataIsDynamic } from "@/app/metadataIsDynamic";
+import { hasTypesafeKey } from "@/lib/db/repos/decisionKeysRepo";
 
 export async function generateMetadata(): Promise<Metadata> {
   return localizedMetadata(
@@ -18,12 +19,13 @@ export async function generateMetadata(): Promise<Metadata> {
 async function ProvidersContent() {
   return withTenantPage(async () => {
     await assertRequestRuntime();
-    const [providers, nodes] = await Promise.all([
+    const [providers, nodes, typesafeKey] = await Promise.all([
       getProviders(),
       getProviderNodes(),
+      hasTypesafeKey().catch(() => null),
     ]);
 
-    return <ProvidersClient initialConnections={providers} initialNodes={nodes as Array<{ id: string; name?: string; type?: string; apiType?: string }>} />;
+    return <ProvidersClient initialConnections={providers} initialNodes={nodes as Array<{ id: string; name?: string; type?: string; apiType?: string }>} hasTypesafeKey={typesafeKey} />;
   }, { minRole: "admin" });
 }
 

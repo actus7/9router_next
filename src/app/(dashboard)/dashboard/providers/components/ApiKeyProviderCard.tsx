@@ -19,6 +19,8 @@ interface ApiKeyProviderCardProps {
   stats: ProviderStats;
   onToggle: (active: boolean) => void;
   availability?: Availability;
+  /** Defaults to the chat provider page; media-only providers configure elsewhere. */
+  href?: string;
 }
 
 export function ApiKeyProviderCard({
@@ -27,6 +29,7 @@ export function ApiKeyProviderCard({
   stats,
   onToggle,
   availability,
+  href,
 }: ApiKeyProviderCardProps) {
   const { connected, error, errorCode, errorTime, allDisabled, total } = stats;
   const isCompatible = providerId.startsWith(OPENAI_COMPATIBLE_PREFIX);
@@ -44,7 +47,7 @@ export function ApiKeyProviderCard({
   };
 
   return (
-    <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
+    <Link href={href ?? `/dashboard/providers/${providerId}`} className="group min-w-0">
       <Card
         padding="xs"
         className={`h-full hover:bg-surface-2/30 transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}

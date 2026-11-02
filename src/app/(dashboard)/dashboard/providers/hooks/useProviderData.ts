@@ -8,6 +8,7 @@ import { getProviderStats, availabilityFor, filterByAvailability } from "../util
 import { useProviderActions } from "./useProviderActions";
 import { computeCompatibleProviders, computeProviderEntries } from "./computeProviderEntries";
 import type { Connection, ProviderNode, ProviderInfo, AvailabilityFilter, TestResults } from "../types";
+import { getTypesafeProviderStats, TYPESAFE_PROVIDER } from "../typesafeProvider";
 
 const APIKEY_INITIAL_VISIBLE = 20;
 const FREE_AUTH_TYPES = ["oauth", "apikey", "api_key"];
@@ -15,11 +16,14 @@ const FREE_AUTH_TYPES = ["oauth", "apikey", "api_key"];
 export function useProviderData(
   initialConnections: Connection[],
   initialNodes: ProviderNode[],
+  hasTypesafeKey: boolean | null = null,
 ) {
   const [connections, setConnections] = useState<Connection[]>(initialConnections);
   const [providerNodes, setProviderNodes] = useState<ProviderNode[]>(initialNodes);
   const [showAllApikey, setShowAllApikey] = useState(false);
   const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
+  const [kindFilter, setKindFilter] = useState<string[]>([]);
+  const toggleKind = (kind: string) => setKindFilter((prev) => (prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]));
   const [showAddCompatibleModal, setShowAddCompatibleModal] = useState(false);
   const [showAddAnthropicCompatibleModal, setShowAddAnthropicCompatibleModal] = useState(false);
   const [testingMode, setTestingMode] = useState<string | null>(null);
@@ -35,10 +39,14 @@ export function useProviderData(
 
   const { handleToggleProvider, handleBatchTest } = useProviderActions(connections, setConnections, testingMode, setTestingMode, setTestResults);
 
-  const getStats = (id: string, auth: string | string[]) => getProviderStats(connections, id, auth, normalizeProviderId);
+  const getStats = (id: string, auth: string | string[]) => id === TYPESAFE_PROVIDER.id
+    ? getTypesafeProviderStats(hasTypesafeKey)
+    : getProviderStats(connections, id, auth, normalizeProviderId);
 
-  const { compatibleProviders, anthropicCompatibleProviders } = computeCompatibleProviders(providerNodes, searchQuery);
-  const { oauthEntries, freeEntries, freeTierEntries, apikeyEntries, webCookieEntries, retiredEntries } = computeProviderEntries(searchQuery, connections);
+  // Custom endpoints are chat-only: a media chip without "llm" hides them.
+  const showCustom = kindFilter.length === 0 || kindFilter.includes("llm");
+  const { compatibleProviders, anthropicCompatibleProviders } = computeCompatibleProviders(showCustom ? providerNodes : [], searchQuery);
+  const { oauthEntries, freeEntries, freeTierEntries, apikeyEntries, webCookieEntries, retiredEntries } = computeProviderEntries(searchQuery, connections, kindFilter, hasTypesafeKey);
 
   const isApikeySearching = !!searchQuery.trim();
   const visibleApikeyEntries = isApikeySearching || showAllApikey ? apikeyEntries : apikeyEntries.slice(0, APIKEY_INITIAL_VISIBLE);
@@ -56,7 +64,7 @@ export function useProviderData(
 
   return {
     connections, setConnections, providerNodes, setProviderNodes,
-    availabilityFilter, setAvailabilityFilter, showAllApikey, setShowAllApikey,
+    availabilityFilter, setAvailabilityFilter, kindFilter, setKindFilter, toggleKind, showCustom, showAllApikey, setShowAllApikey,
     showAddCompatibleModal, setShowAddCompatibleModal,
     showAddAnthropicCompatibleModal, setShowAddAnthropicCompatibleModal,
     testingMode, testResults, setTestResults, searchQuery,

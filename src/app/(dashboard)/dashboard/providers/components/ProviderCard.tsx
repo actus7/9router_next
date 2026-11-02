@@ -17,16 +17,18 @@ interface ProviderCardProps {
   stats: ProviderStats;
   onToggle: (active: boolean) => void;
   availability?: Availability;
+  /** Defaults to the chat provider page; media-only providers configure elsewhere. */
+  href?: string;
 }
 
-export function ProviderCard({ providerId, provider, stats, onToggle, availability }: ProviderCardProps) {
+export function ProviderCard({ providerId, provider, stats, onToggle, availability, href }: ProviderCardProps) {
   const { connected, error, errorCode, errorTime, allDisabled, total } = stats;
   const isNoAuth = !!provider.noAuth;
 
   return (
     <div className="group relative h-full min-w-0">
       <Link
-        href={`/dashboard/providers/${providerId}`}
+        href={href ?? `/dashboard/providers/${providerId}`}
         aria-label={provider.name}
         className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       />

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,13 +16,11 @@ import { translate } from "@/i18n/runtime";
 import { navItems, debugItems, systemItems, type NavItem } from "./sidebarData";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import { useWorkspace } from "@/shared/hooks/useWorkspace";
-import { SidebarMediaProviders } from "./SidebarMediaProviders";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { isMobile, setOpenMobile } = useSidebar();
-  const [mediaOpen, setMediaOpen] = useState(() => pathname.startsWith("/dashboard/media-providers"));
 
   const { data: settings } = useSWR<Record<string, unknown>>("/api/settings", jsonFetcher);
   const enableTranslator = !!settings?.enableTranslator;
@@ -77,7 +74,6 @@ export default function Sidebar() {
           <SidebarGroupLabel>{translate("System") || "System"}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {canManage && <SidebarMediaProviders pathname={pathname} mediaOpen={mediaOpen} setMediaOpen={setMediaOpen} closeOnMobile={closeOnMobile} />}
               {systemItems.map(renderNavItem)}
               {debugItems.map((item) => { if (item.href === "/dashboard/translator" && !enableTranslator) return null; return renderNavItem(item); })}
               <SidebarMenuItem>

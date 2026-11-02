@@ -28,7 +28,8 @@ export default {
       url: "https://ai-gateway.vercel.sh/v1/credits",
     },
   },
-  serviceKinds: ["llm","embedding","image","imageToText","webSearch"],
+  // systemOne: lists the typesafe-ai/* typed-decision models (Jev) — see server/decisions/systemOneModels.ts.
+  serviceKinds: ["llm","embedding","image","imageToText","webSearch","systemOne"],
   embeddingConfig: { baseUrl: "https://ai-gateway.vercel.sh/v1/embeddings" },
   imageConfig: { baseUrl: "https://ai-gateway.vercel.sh/v1/images/generations" },
   searchViaChat: { defaultModel: "openai/gpt-4o-mini", pricingUrl: "https://vercel.com/docs/ai-gateway/pricing" },

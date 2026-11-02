@@ -9,8 +9,6 @@ export const KIND_ICON_MAP: Record<string, LucideIcon> = {
   language: Languages, movie: Film, music_note: Music,
 };
 
-export const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
-export const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: <Globe className="size-4" />, href: "/dashboard/media-providers/web" };
 
 /**
  * `adminOnly` items manage the workspace — its providers, combos, usage of
