@@ -9,7 +9,7 @@ partir de `98d2947`; **ordem de merge** abaixo.
 | Plano | Título | Prioridade | Esforço | Depende de | Status |
 |------|-------|----------|--------|------------|--------|
 | 001 | Proxy pools e embeddings passam pelo guard de endpoint privado | P1 | S | — | DONE — `a996980`, revisão e 19 testes focados em 2026-11-01; gate na candidata |
-| 002 | Remover `prompt.md` (texto de override para agentes) | P1 | S | — | BLOCKED — é a fonte do perfil MetaBreak (`engine/config/metabreak.ts:1`); decisão do dono |
+| 002 | Remover `prompt.md` (texto de override para agentes) | P1 | S | — | REJECTED — dono decidiu manter o MetaBreak (2026-11-02); ligar exige confirmar a lista de riscos e o aviso fica fixo no switch (`MetaBreakRisks.tsx`) |
 | 003 | Falhas de upstream voltam ao log, com segredos mascarados | P1 | S | — | DONE — `00fdf07`, revisão e 17 testes focados em 2026-11-01; gate na candidata |
 | 004 | Heartbeat da run durável durante o laço de ferramentas | P1 | S | — | DONE — `advisor/004-durable-run-heartbeat-during-tools` (e5f329a), revisado; gate na integração |
 | 005 | Uma leitura de API key no gate e no handler | P1 | S | — | DONE — `advisor/005-unify-gateway-api-key-extraction` (fd541a7), revisado; gate na integração |

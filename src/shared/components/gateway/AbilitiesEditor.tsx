@@ -13,6 +13,7 @@ import {
   type AbilityLevelOption,
 } from "@/shared/gateway/abilityLevels";
 import type { GatewayAbilities, LeveledAbility } from "@/shared/gateway/gatewayProfile";
+import { MetaBreakRiskDialog, MetaBreakRiskNotice } from "./MetaBreakRisks";
 
 function t(text: string): string {
   return translate(text) || text;
@@ -122,6 +123,8 @@ export default function AbilitiesEditor({ value, onChange, disabled }: Props) {
     : CAVEMAN_LEVELS.filter((level) => !level.wenyan || level.id === value.caveman.level);
 
   const set = (patch: Partial<GatewayAbilities>) => onChange({ ...value, ...patch });
+  // Turning MetaBreak on goes through the risk dialog; turning it off never does.
+  const [confirmingMetaBreak, setConfirmingMetaBreak] = useState(false);
 
   return (
     <div>
@@ -224,14 +227,23 @@ export default function AbilitiesEditor({ value, onChange, disabled }: Props) {
           <p className="mt-1 text-xs text-muted-foreground">
             {t("Experimental: adds context, not token compression. Results depend on the model and provider.")}
           </p>
+          <MetaBreakRiskNotice />
         </div>
         <Switch
           checked={value.metaBreak}
           disabled={disabled}
-          onCheckedChange={(metaBreak) => set({ metaBreak })}
+          onCheckedChange={(metaBreak) => (metaBreak ? setConfirmingMetaBreak(true) : set({ metaBreak: false }))}
           aria-label="MetaBreak"
         />
       </div>
+      <MetaBreakRiskDialog
+        open={confirmingMetaBreak}
+        onCancel={() => setConfirmingMetaBreak(false)}
+        onConfirm={() => {
+          setConfirmingMetaBreak(false);
+          set({ metaBreak: true });
+        }}
+      />
     </div>
   );
 }

@@ -71,4 +71,34 @@ describe("ChatAbilitiesPanel", () => {
     fireEvent.click(caveman);
     expect(onUpdate).toHaveBeenCalledWith({ abilities: expect.objectContaining({ caveman: { enabled: false, level: "full" } }) });
   });
+
+  it("asks for confirmation with the risks before enabling MetaBreak", () => {
+    const onChange = vi.fn();
+    render(<AbilitiesEditor value={DEFAULT_ABILITIES} onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole("switch", { name: "MetaBreak" }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText(/terms of use of most providers/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "I understand the risks, enable" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ metaBreak: true }));
+  });
+
+  it("keeps MetaBreak off when the risk dialog is cancelled", () => {
+    const onChange = vi.fn();
+    render(<AbilitiesEditor value={DEFAULT_ABILITIES} onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole("switch", { name: "MetaBreak" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("turns MetaBreak off without a dialog and always shows the risk notice", () => {
+    const onChange = vi.fn();
+    render(<AbilitiesEditor value={{ ...DEFAULT_ABILITIES, metaBreak: true }} onChange={onChange} />);
+
+    expect(screen.getByRole("note").textContent).toMatch(/High risk/);
+    fireEvent.click(screen.getByRole("switch", { name: "MetaBreak" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ metaBreak: false }));
+  });
 });
