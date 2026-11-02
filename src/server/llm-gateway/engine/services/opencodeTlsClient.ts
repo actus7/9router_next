@@ -45,10 +45,13 @@ interface WreqResponse {
   headers?: { forEach?: (cb: (value: string, key: string) => void) => void };
   body: ReadableStream<Uint8Array> | null;
 }
-interface WreqSession {
+interface WreqClient {
+  transport: unknown;
   fetch(url: string, init: Record<string, unknown>): Promise<WreqResponse>;
-  close?(): unknown;
 }
+
+// Statuses whose Response must have a null body (the constructor throws otherwise).
+const NULL_BODY_STATUSES = new Set([101, 103, 204, 205, 304]);
 
 export class OpencodeTlsUnavailableError extends Error {
   constructor(message: string) {
@@ -57,31 +60,39 @@ export class OpencodeTlsUnavailableError extends Error {
   }
 }
 
-let sessionPromise: Promise<WreqSession> | null = null;
+// A transport, not a session: it pools connections and caches TLS sessions but
+// keeps no cookie jar, so one account's Set-Cookie never rides on another's call.
+let clientPromise: Promise<WreqClient> | null = null;
 
-function loadSession(): Promise<WreqSession> {
-  sessionPromise ??= (async () => {
+function loadClient(): Promise<WreqClient> {
+  clientPromise ??= (async () => {
     // Indirected so the bundler leaves the native module to the runtime
     // (it is also in next.config serverExternalPackages).
     const pkg = "wreq-js";
-    const wreq = (await import(/* webpackIgnore: true */ pkg)) as { createSession?: (opts: unknown) => Promise<WreqSession> };
-    if (typeof wreq.createSession !== "function") throw new Error("wreq-js has no createSession");
-    return wreq.createSession({ emulation: { tlsOptions: { cipherList: OPENCODE_CIPHER_LIST } } });
+    const wreq = (await import(/* webpackIgnore: true */ pkg)) as {
+      createTransport?: (opts: unknown) => Promise<unknown>;
+      fetch?: WreqClient["fetch"];
+    };
+    if (typeof wreq.createTransport !== "function" || typeof wreq.fetch !== "function") {
+      throw new Error("wreq-js has no createTransport/fetch");
+    }
+    const transport = await wreq.createTransport({ emulation: { tlsOptions: { cipherList: OPENCODE_CIPHER_LIST } } });
+    return { transport, fetch: wreq.fetch };
   })().catch((error: unknown) => {
-    sessionPromise = null;
+    clientPromise = null;
     throw error;
   });
-  return sessionPromise;
+  return clientPromise;
 }
 
 /**
- * Fetch through the impersonated-TLS session. Returns a native Response whose
+ * Fetch through the impersonated-TLS transport. Returns a native Response whose
  * body is the live stream, so SSE consumers keep working unchanged.
  */
 export async function opencodeTlsFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  let session: WreqSession;
+  let client: WreqClient;
   try {
-    session = await loadSession();
+    client = await loadClient();
   } catch (error) {
     throw new OpencodeTlsUnavailableError(
       `wreq-js unavailable (${error instanceof Error ? error.message : "unknown"}): the OpenCode free tier refuses Node's TLS handshake without it`,
@@ -92,14 +103,17 @@ export async function opencodeTlsFetch(url: string, init: RequestInit = {}): Pro
     headers: init.headers,
     redirect: "follow",
     timeout: NO_TOTAL_TIMEOUT,
+    transport: client.transport,
   };
   if (init.body !== undefined && init.body !== null) options.body = init.body;
   if (init.signal) options.signal = init.signal;
 
-  const res = await session.fetch(url, options);
+  const res = await client.fetch(url, options);
   const headers = new Headers();
   res.headers?.forEach?.((value, key) => headers.set(key, value));
-  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  const body = NULL_BODY_STATUSES.has(res.status) ? null : res.body;
+  if (body === null) void res.body?.cancel().catch(() => undefined);
+  return new Response(body, { status: res.status, statusText: res.statusText, headers });
 }
 
 export const __test__ = { OPENCODE_CIPHER_LIST };
