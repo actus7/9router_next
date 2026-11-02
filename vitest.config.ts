@@ -14,18 +14,19 @@ export default defineConfig({
       reportsDirectory: "./coverage",
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/prisma/**", "migrations/**", "src/components/ui/**", "**/*.d.ts"],
-      // Locked to the real measured coverage (2026-09-11: 15.12 statements,
-      // 10.23 branches, 14.88 functions, 16.08 lines) with a small buffer against
-      // run-to-run noise — not an aspirational target. Raise these as coverage
-      // genuinely grows; do not lower them to make a build pass.
-      //
-      // Left at the 2026-09-03 numbers, the ratchet had stopped ratcheting: it
-      // would have taken a third of the suite disappearing to trip.
+      // Locked to the real measured coverage (2026-11-02, integration candidate:
+      // 31.62 statements, 25.83 branches, 32.15 functions, 32.98 lines) minus 0.5
+      // against run-to-run noise — not an aspirational target. Raise these as
+      // coverage genuinely grows; do not lower them to make a build pass.
+      // Per-file floors are measured minus 2, capped at 80.
       thresholds: {
-        statements: 14.7,
-        branches: 9.9,
-        functions: 14.5,
-        lines: 15.6,
+        statements: 31.1,
+        branches: 25.3,
+        functions: 31.6,
+        lines: 32.4,
+        "src/server/llm-gateway/application/accessScope.ts": { statements: 80, branches: 80, functions: 80, lines: 80 },
+        "src/server/application/http/usageLimits.ts": { statements: 80, branches: 78, functions: 80, lines: 80 },
+        "src/server/llm-gateway/engine/services/smart-routing/router.ts": { statements: 80, branches: 77.4, functions: 80, lines: 80 },
         "src/shared/components/SafeMarkdown.tsx": { statements: 80, branches: 80, functions: 80, lines: 80 },
         "src/shared/utils/ssrfGuard.ts": { statements: 80, branches: 80, functions: 80, lines: 80 },
         "src/server/security/safeFetch.ts": { statements: 80, branches: 80, functions: 80, lines: 80 },
